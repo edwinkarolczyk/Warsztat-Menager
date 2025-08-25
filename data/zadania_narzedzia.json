@@ -250,5 +250,32 @@
     "termin": "2025-09-14",
     "opis": "Przegląd i kalibracja narzędzia.",
     "zlecenie": "1015"
+  },
+  {
+    "id": "NARZ-029",
+    "login": "marek",
+    "tytul": "Serwis narzędzia #1080",
+    "status": "Nowe",
+    "termin": "2025-09-22",
+    "opis": "Przegląd i kalibracja narzędzia.",
+    "zlecenie": "1080"
+  },
+  {
+    "id": "NARZ-030",
+    "login": "dawid",
+    "tytul": "Serwis narzędzia #1081",
+    "status": "Pilne",
+    "termin": "2025-09-23",
+    "opis": "Przegląd i kalibracja narzędzia.",
+    "zlecenie": "1081"
+  },
+  {
+    "id": "NARZ-031",
+    "login": "edwin",
+    "tytul": "Serwis narzędzia #1082",
+    "status": "W toku",
+    "termin": "2025-09-24",
+    "opis": "Przegląd i kalibracja narzędzia.",
+    "zlecenie": "1082"
   }
 ]

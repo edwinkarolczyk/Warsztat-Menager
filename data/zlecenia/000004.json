@@ -1,0 +1,16 @@
+{
+  "id": "000004",
+  "produkt": "WNU10",
+  "ilosc": 7,
+  "status": "nowe",
+  "utworzono": "2025-08-25 10:25:51",
+  "uwagi": "Auto",
+  "historia": [
+    {
+      "kiedy": "2025-08-25T10:25:51",
+      "kto": "offline",
+      "co": "utworzenie"
+    }
+  ],
+  "zlec_wew": 1082
+}

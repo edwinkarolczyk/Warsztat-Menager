@@ -1,0 +1,32 @@
+{
+  "id": "000003",
+  "produkt": "Trezor",
+  "ilosc": 12,
+  "status": "nowe",
+  "utworzono": "2025-08-25 10:25:51",
+  "uwagi": "Auto",
+  "historia": [
+    {
+      "kiedy": "2025-08-25T10:25:51",
+      "kto": "offline",
+      "co": "utworzenie"
+    }
+  ],
+  "zlec_wew": 1081,
+  "braki": [
+    {
+      "kod": "RURKA_30",
+      "nazwa": "Rurka 30mm",
+      "potrzeba": 24,
+      "stan": 21,
+      "brakuje": 3
+    },
+    {
+      "kod": "PLASK_40",
+      "nazwa": "Płaskownik 40mm",
+      "potrzeba": 12,
+      "stan": 6,
+      "brakuje": 6
+    }
+  ]
+}
