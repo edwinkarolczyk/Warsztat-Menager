@@ -25,7 +25,7 @@ Danych źródłowych w ``data/*`` nie modyfikujemy.
 import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import datetime as _dt
+from datetime import datetime as _dt, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -252,6 +252,17 @@ def _read_tasks(login, rola=None):
     for t in tasks:
         ov = ovr.get(str(t.get("id")))
         if ov: t["status"]=ov
+
+    # uzupełnij brakujące terminy z konfiguracji
+    try:
+        from config_manager import ConfigManager
+        _cfg_days = ConfigManager().get("profiles.task_default_deadline_days", 7)
+    except Exception:
+        _cfg_days = 7
+    for task in tasks:
+        if not str(task.get("termin", "")).strip():
+            start = _parse_date(task.get("data_przyjecia", "")) or _dt.now().date()
+            task["termin"] = (start + timedelta(days=_cfg_days)).isoformat()
 
     return tasks
 
