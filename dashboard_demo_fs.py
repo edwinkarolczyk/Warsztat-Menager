@@ -7,7 +7,10 @@ import tkinter as tk
 from tkinter import ttk, simpledialog
 from math import ceil
 
-from ui_theme import apply_theme
+try:
+    from ui_theme import apply_theme
+except Exception:
+    apply_theme = lambda _: None
 
 APP_TITLE = "Warsztat Menager - Dashboard (TEST)"
 
@@ -81,7 +84,9 @@ class WMMiniHala(ttk.Frame):
         self.start_x = None
         self.start_y = None
 
-        self.cv = tk.Canvas(self, bg="#23262d", bd=0, highlightthickness=0)
+        self.style = ttk.Style()
+        bg = self.style.lookup("WM.Card.TFrame", "background")
+        self.cv = tk.Canvas(self, bg=bg, bd=0, highlightthickness=0)
         self.cv.pack(fill="both", expand=True)
 
         self.cv.bind("<Configure>", self.on_resize)
@@ -109,7 +114,8 @@ class WMMiniHala(ttk.Frame):
         for hala in self.hale:
             x1, y1, x2, y2 = hala["x1"], hala["y1"], hala["x2"], hala["y2"]
             self.cv.create_rectangle(x1, y1, x2, y2, outline="#ff4b4b", width=2)
-            self.cv.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=hala["nazwa"], fill="#ffffff")
+            fg = self.style.lookup("WM.TLabel", "foreground")
+            self.cv.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=hala["nazwa"], fill=fg)
 
     def on_click(self, event):
         self.start_x = event.x
@@ -143,7 +149,9 @@ class WMSpark(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, style="WM.Card.TFrame", padding=12)
         ttk.Label(self, text="Zlecenia", style="WM.Card.TLabel").pack(anchor="w", pady=(0, 8))
-        self.cv = tk.Canvas(self, bg="#23262d", bd=0, highlightthickness=0)
+        style = ttk.Style()
+        bg = style.lookup("WM.Card.TFrame", "background")
+        self.cv = tk.Canvas(self, bg=bg, bd=0, highlightthickness=0)
         self.cv.pack(fill="both", expand=True)
         self.cv.bind("<Configure>", self.on_resize)
 
@@ -196,7 +204,7 @@ class WMDashboard(tk.Tk):
 
         ttk.Button(side, text="Przełącz tryb edycji hal", style="WM.Side.TButton", command=self.toggle_edit_mode).pack(fill="x", padx=14, pady=6)
 
-        ttk.Label(side, text="v1.2.1 - testowy motyw", background="#23262d", foreground="#ffffff", font=("Segoe UI", 9)).pack(side="bottom", anchor="w", padx=18, pady=12)
+        ttk.Label(side, text="v1.2.1 - testowy motyw", style="WM.Muted.TLabel", font=("Segoe UI", 9)).pack(side="bottom", anchor="w", padx=18, pady=12)
 
         # Main
         main = ttk.Frame(self, style="WM.TFrame", padding=16)
