@@ -14,11 +14,11 @@ except Exception:
     def apply_theme(_): pass
 
 def _build_tab_profil(parent, login, rola):
-    import gui_profil
+    import gui_profile
     frame = ttk.Frame(parent)
     frame.pack(fill="both", expand=True)
     # Wywołanie nowego panelu profilu w ramach zakładki
-    gui_profil.panel_profil(parent, frame, login, rola)
+    gui_profile.panel_profil(parent, frame, login, rola)
     return frame
 
 def panel_uzytkownicy(root, frame, login=None, rola=None):
