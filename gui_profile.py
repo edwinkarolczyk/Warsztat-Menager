@@ -28,6 +28,9 @@ from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from PIL import Image, ImageTk
 
+# Maksymalne wymiary avatara (szerokość, wysokość)
+_MAX_AVATAR_SIZE = (250, 313)
+
 from ui_theme import apply_theme_safe as apply_theme
 
 # ====== Override utils ======
@@ -116,6 +119,11 @@ def _load_avatar(parent, login):
         img = Image.open(path)
     except FileNotFoundError:
         img = Image.open(default_path)
+    # dopasuj rozmiar obrazka do maksymalnych wymiarów
+    try:
+        img.thumbnail(_MAX_AVATAR_SIZE)
+    except Exception:
+        pass
     photo = ImageTk.PhotoImage(img)
     lbl = tk.Label(parent, image=photo)
     lbl.image = photo  # zapobiega zbieraniu przez GC
