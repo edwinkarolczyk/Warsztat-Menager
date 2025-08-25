@@ -26,6 +26,7 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
+from PIL import Image, ImageTk
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -101,6 +102,24 @@ def _login_list():
             nm=os.path.basename(p).split("_",1)[-1].replace(".json","")
             if _valid_login(nm): s.add(nm)
     return sorted(s)
+
+def _load_avatar(parent, login):
+    """Wczytuje avatar użytkownika.
+
+    Najpierw próbuje otworzyć plik ``avatars/<login>.png``. Jeśli go brak,
+    ładuje ``avatars/default.jpg``. Zwraca etykietę ``tk.Label`` z obrazkiem,
+    a referencja do ``PhotoImage`` jest przypięta jako ``.image``.
+    """
+    path = os.path.join("avatars", f"{login}.png")
+    default_path = os.path.join("avatars", "default.jpg")
+    try:
+        img = Image.open(path)
+    except FileNotFoundError:
+        img = Image.open(default_path)
+    photo = ImageTk.PhotoImage(img)
+    lbl = tk.Label(parent, image=photo)
+    lbl.image = photo  # zapobiega zbieraniu przez GC
+    return lbl
 
 def _map_status_generic(raw):
     s=(raw or "").strip().lower()
@@ -441,8 +460,10 @@ def uruchom_panel(root, frame, login=None, rola=None):
 
     # Nagłówek
     head = ttk.Frame(frame); head.pack(fill="x", padx=12, pady=10)
-    ttk.Label(head, text=str(login or "-"), font=("TkDefaultFont", 14, "bold")).pack(side="left", padx=(0,12))
-    ttk.Label(head, text=f"Rola: {rola or '-'}").pack(side="left")
+    _load_avatar(head, login).pack(side="left", padx=(0,12))
+    info = ttk.Frame(head); info.pack(side="left")
+    ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold")).pack(anchor="w")
+    ttk.Label(info, text=f"Rola: {rola or '-'}").pack(anchor="w")
 
     # Dane
     tasks = _read_tasks(login, rola)
