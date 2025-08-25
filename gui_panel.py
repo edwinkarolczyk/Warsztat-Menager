@@ -81,6 +81,11 @@ except Exception:
         ttk.Label(frame, text="Panel użytkowników").pack(pady=20)
 
 try:
+    import gui_profile
+except Exception:
+    gui_profile = None
+
+try:
     from ustawienia_systemu import panel_ustawien
 except Exception:
     def panel_ustawien(root, frame, login=None, rola=None):
@@ -226,20 +231,9 @@ def uruchom_panel(root, login, rola):
             try: w.destroy()
             except: pass
         try:
-            panel_uzytkownicy(root, content, login, rola)
-            # try select "Profil" tab if notebook present
-            try:
-                for ch in content.winfo_children():
-                    if isinstance(ch, ttk.Notebook):
-                        for tab_id in ch.tabs():
-                            try:
-                                if "Profil" in ch.tab(tab_id, "text"):
-                                    ch.select(tab_id); break
-                            except Exception:
-                                pass
-                        break
-            except Exception:
-                pass
+            if gui_profile is None:
+                raise RuntimeError("Brak modułu gui_profile")
+            gui_profile.uruchom_panel(root, content, login, rola)
         except Exception as e:
             log_akcja(f"Błąd otwierania panelu: {e}")
             ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
