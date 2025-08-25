@@ -205,14 +205,20 @@ class UpdatesUI(ttk.Frame):
         ttk.Label(self, text="Pobierz z Git / wgraj ZIP / cofnij do backupu. Poniżej wersje plików.")\
             .grid(row=1, column=0, sticky="w", padx=8, pady=(0,8))
 
+        # status repozytorium
+        self.status_var = tk.StringVar(value="")
+        ttk.Label(self, textvariable=self.status_var)\
+            .grid(row=2, column=0, sticky="w", padx=8)
+
         # przyciski akcji
         btns = ttk.Frame(self)
-        btns.grid(row=2, column=0, sticky="ew", padx=8, pady=8)
+        btns.grid(row=3, column=0, sticky="ew", padx=8, pady=8)
         for i in range(3):
             btns.columnconfigure(i, weight=1)
 
-        ttk.Button(btns, text="Pobierz z Git (git pull)", command=self._on_git_pull)\
-            .grid(row=0, column=0, sticky="ew", padx=(0,4))
+        self.git_button = ttk.Button(btns, text="Pobierz z Git (git pull)", command=self._on_git_pull)
+        self.git_button.grid(row=0, column=0, sticky="ew", padx=(0,4))
+        self.git_button.state(["disabled"])  # domyślnie nieaktywne, dopóki nie sprawdzimy statusu
         ttk.Button(btns, text="Wgraj paczkę .zip (lokalnie)", command=self._on_zip_update)\
             .grid(row=0, column=1, sticky="ew", padx=4)
         ttk.Button(btns, text="Cofnij aktualizację (restore)", command=self._on_restore)\
@@ -220,12 +226,12 @@ class UpdatesUI(ttk.Frame):
 
         # log/wyjście tekstowe
         self.out = tk.Text(self, height=10, highlightthickness=0, bd=0)
-        self.out.grid(row=3, column=0, sticky="nsew", padx=8, pady=(4,8))
-        self.rowconfigure(3, weight=1)
+        self.out.grid(row=4, column=0, sticky="nsew", padx=8, pady=(4,8))
+        self.rowconfigure(4, weight=1)
 
         # sekcja wersji
         ver_frame = ttk.LabelFrame(self, text="Aktualne wersje plików (.py)")
-        ver_frame.grid(row=4, column=0, sticky="nsew", padx=8, pady=(0,8))
+        ver_frame.grid(row=5, column=0, sticky="nsew", padx=8, pady=(0,8))
         ver_frame.columnconfigure(0, weight=1)
         ver_frame.rowconfigure(1, weight=1)
 
@@ -250,6 +256,9 @@ class UpdatesUI(ttk.Frame):
 
         # startowe odświeżenie listy wersji
         self._refresh_versions()
+
+        # sprawdzenie stanu repozytorium względem zdalnego
+        self.check_remote_status()
 
     def _apply_local_theme(self):
         """
@@ -306,6 +315,33 @@ class UpdatesUI(ttk.Frame):
         except Exception:
             pass
 
+    def check_remote_status(self):
+        """Sprawdza zdalny status repozytorium i aktualizuje UI."""
+        try:
+            subprocess.run(["git", "fetch"], cwd=str(Path.cwd()),
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            proc = subprocess.run([
+                "git", "rev-list", "--count", "HEAD..@{u}"
+            ], cwd=str(Path.cwd()), stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=True)
+            behind = int(proc.stdout.strip() or "0")
+        except Exception:
+            behind = 0
+
+        if behind > 0:
+            self.status_var.set(f"Dostępne aktualizacje: {behind}")
+            try:
+                self.git_button.state(["!disabled"])
+            except Exception:
+                pass
+            self._append_out("[INFO] Dostępne są aktualizacje. Użyj 'Pobierz z Git'.")
+        else:
+            self.status_var.set("Repozytorium aktualne")
+            try:
+                self.git_button.state(["disabled"])
+            except Exception:
+                pass
+
     # --- actions ---
 
     def _on_git_pull(self):
@@ -314,6 +350,7 @@ class UpdatesUI(ttk.Frame):
             self._append_out("[INFO] Rozpoczynam git pull…")
             output = _run_git_pull(Path.cwd(), stamp)
             self._append_out(output.strip() or "[INFO] Brak nowych zmian.")
+            self.check_remote_status()
             messagebox.showinfo("Aktualizacje", "Zaktualizowano z Git. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
@@ -337,6 +374,7 @@ class UpdatesUI(ttk.Frame):
             if len(changed) > 80:
                 self._append_out(" - … (lista skrócona w UI, pełna w logu)")
             _write_log(stamp, "[INFO] ZIP updated files:\n" + "\n".join(changed), kind="update")
+            self.check_remote_status()
             messagebox.showinfo("Aktualizacje", "Wgrano paczkę. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
@@ -405,6 +443,7 @@ class UpdatesUI(ttk.Frame):
                 self._append_out(f" - {r}")
             if len(restored) > 80:
                 self._append_out(" - … (lista skrócona w UI, pełna w logu)")
+            self.check_remote_status()
             messagebox.showinfo("Przywracanie", "Przywrócono poprzednią wersję. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
