@@ -38,6 +38,9 @@
     "fullscreen_on_start": false,
     "ui_scale": 100
   },
+  "profiles": {
+    "task_default_deadline_days": 7
+  },
   "secrets": {
     "admin_pin": ""
   }

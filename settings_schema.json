@@ -326,6 +326,17 @@
       ],
       "widget": "list",
       "scope": "global"
+    },
+    {
+      "key": "profiles.task_default_deadline_days",
+      "group": "Profile użytkowników",
+      "label": "Domyślny termin wykonania zadania (dni)",
+      "type": "int",
+      "min": 1,
+      "max": 365,
+      "default": 7,
+      "widget": "spinbox",
+      "scope": "global"
     }
   ]
 }
