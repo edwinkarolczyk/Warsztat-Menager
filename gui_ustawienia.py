@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
+from config_manager import ConfigManager
 
 def _read_all_tasks():
     tasks_by_user = {}
@@ -32,6 +33,25 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # Tab system (placeholder)
     sysf = ttk.Frame(nb); nb.add(sysf, text="System")
     ttk.Label(sysf, text="Ustawienia systemowe...").pack()
+
+    # Profile – ustawienia domyślnych zadań
+    cm = ConfigManager()
+    prof_frame = ttk.Frame(nb)
+    nb.add(prof_frame, text="Profile")
+    ttk.Label(prof_frame, text="Domyślny termin zadania (dni)").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+    _deadline_var = tk.IntVar(value=cm.get("profiles.task_default_deadline_days", 7))
+    sb = tk.Spinbox(prof_frame, from_=0, to=365, textvariable=_deadline_var, width=5)
+    sb.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
+    def _save_profile_settings():
+        try:
+            val = int(_deadline_var.get())
+            cm.set("profiles.task_default_deadline_days", val, who=login or "system")
+            cm.save_all()
+        except Exception:
+            pass
+
+    ttk.Button(prof_frame, text="Zapisz", command=_save_profile_settings).grid(row=0, column=2, padx=5, pady=5, sticky="w")
 
     # Alerty – tylko dla brygadzisty
     if rola=="brygadzista":
