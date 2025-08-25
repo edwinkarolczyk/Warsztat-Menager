@@ -29,6 +29,7 @@ import logika_magazyn as LM
 
 __all__ = [
     "PanelMagazyn",
+    "panel_magazyn",
     "open_panel_magazyn",
     "panel_ustawien_magazyn",
     "attach_magazyn_button",
@@ -248,6 +249,12 @@ class PanelMagazyn(ttk.Frame):
         else:
             txt = "ALERTY: " + "; ".join([f"{a['item_id']} ({a['nazwa']}) stan={a['stan']} ≤ min={a['min_poziom']}" for a in al])
             self.var_alerty.set(txt)
+
+def panel_magazyn(root, frame, login=None, rola=None):
+    apply_theme(root)
+    for w in frame.winfo_children():
+        w.destroy()
+    PanelMagazyn(frame).pack(fill="both", expand=True)
 
 def open_panel_magazyn(root):
     """Otwiera Toplevel z panelem Magazynu."""
