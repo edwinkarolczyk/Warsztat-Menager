@@ -29,6 +29,10 @@ from datetime import datetime as _dt
 
 from ui_theme import apply_theme_safe as apply_theme
 
+# Domyślny termin dla zadań bez daty – bardzo odległa przyszłość, aby sortowanie
+# umieszczało je na końcu listy.
+DEFAULT_TASK_DEADLINE = "9999-12-31"
+
 # ====== Override utils ======
 _OVR_DIR = os.path.join("data","profil_overrides")
 def _ensure_dir(): 
@@ -252,6 +256,12 @@ def _read_tasks(login, rola=None):
     for t in tasks:
         ov = ovr.get(str(t.get("id")))
         if ov: t["status"]=ov
+
+    # j) uzupełnij brakujące terminy i posortuj rosnąco po terminie
+    for t in tasks:
+        if not t.get("termin"):
+            t["termin"] = DEFAULT_TASK_DEADLINE
+    tasks.sort(key=lambda x: x.get("termin", DEFAULT_TASK_DEADLINE))
 
     return tasks
 
