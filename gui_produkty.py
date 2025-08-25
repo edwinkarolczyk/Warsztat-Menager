@@ -17,10 +17,7 @@ import os, json, glob
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_): pass
+from ui_theme import apply_theme_safe as apply_theme
 
 DATA_DIR = os.path.join("data", "produkty")
 MAG_DIR  = os.path.join("data", "magazyn")

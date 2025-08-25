@@ -16,10 +16,7 @@ from datetime import datetime
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_): pass
+from ui_theme import apply_theme_safe as apply_theme
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None

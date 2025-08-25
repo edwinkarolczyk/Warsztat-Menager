@@ -9,10 +9,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_): pass
+from ui_theme import apply_theme_safe as apply_theme
 
 # --- import panelu magazynowego ---
 try:
@@ -55,10 +52,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         w.destroy()
 
     # Zastosuj motyw NA OKNIE nadrzędnym
-    try:
-        apply_theme(frame.winfo_toplevel())
-    except Exception:
-        pass
+    apply_theme(frame.winfo_toplevel())
 
     # Notebook — użyj stylu tylko jeśli istnieje
     if _style_exists("WM.TNotebook"):

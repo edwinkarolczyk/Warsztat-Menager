@@ -27,19 +27,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 
-# ====== Theme ======
-def _apply_theme_safe(widget):
-    try:
-        from ui_theme import apply_theme
-        apply_theme(widget)
-    except Exception:
-        try:
-            style = ttk.Style(widget)
-            # fallback tylko lokalnie – nie zmieniamy globalnie
-            if "clam" in style.theme_names():
-                style.theme_use("clam")
-        except Exception:
-            pass
+from ui_theme import apply_theme_safe as apply_theme
 
 # ====== Override utils ======
 _OVR_DIR = os.path.join("data","profil_overrides")
@@ -271,7 +259,7 @@ def _read_tasks(login, rola=None):
 def _show_task_details(root, frame, login, rola, task, after_save=None):
     win = tk.Toplevel(root)
     win.title(f"Zadanie {task.get('id','')}")
-    _apply_theme_safe(win)
+    apply_theme(win)
 
     # Nagłówki
     ttk.Label(win, text=f"ID: {task.get('id','')}").pack(anchor="w", padx=8, pady=(8,2))
@@ -448,8 +436,8 @@ def uruchom_panel(root, frame, login=None, rola=None):
         try: w.destroy()
         except: pass
 
-    _apply_theme_safe(root)
-    _apply_theme_safe(frame)
+    apply_theme(root)
+    apply_theme(frame)
 
     # Nagłówek
     head = ttk.Frame(frame); head.pack(fill="x", padx=12, pady=10)

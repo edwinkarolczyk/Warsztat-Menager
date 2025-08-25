@@ -22,11 +22,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import re
 
-try:
-    from ui_theme import apply_theme, COLORS
-except Exception:
-    def apply_theme(_): pass
-    COLORS = {"stock_ok": "#2d6a4f", "stock_warn": "#d35400", "stock_low": "#c0392b"}
+from ui_theme import apply_theme_safe as apply_theme, COLORS
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM

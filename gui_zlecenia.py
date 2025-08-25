@@ -11,13 +11,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-try:
-    from ui_theme import apply_theme as _apply_theme
-    from ui_theme import FG as _FG, DARK_BG as _DBG
-except Exception:
-    def _apply_theme(_):
-        return None
-    _FG, _DBG = "#e6e6e6", "#1b1f24"
+from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 
 try:
     from zlecenia_logika import (
@@ -40,10 +34,7 @@ __all__ = ["panel_zlecenia"]
 
 def _maybe_theme(widget):
     if isinstance(widget, (tk.Tk, tk.Toplevel)):
-        try:
-            _apply_theme(widget)
-        except Exception:
-            pass
+        apply_theme(widget)
 
 def _fmt(v):
     return "" if v is None else str(v)
@@ -181,8 +172,8 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 
 def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> None:
     win = tk.Toplevel(parent); win.title("Nowe zlecenie produkcyjne")
+    apply_theme(win)
     try:
-        _apply_theme(win)
         win.configure(bg=_DBG, highlightthickness=0, highlightbackground=_DBG)
     except Exception:
         try: win.configure(highlightthickness=0)
