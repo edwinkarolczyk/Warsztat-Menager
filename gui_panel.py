@@ -12,10 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, time, timedelta
 
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_): pass
+from ui_theme import apply_theme_safe as apply_theme
 
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:

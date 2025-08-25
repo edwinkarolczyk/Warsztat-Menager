@@ -141,6 +141,14 @@ def apply_theme(widget: tk.Misc | None) -> None:
         except Exception:
             pass
 
+
+def apply_theme_safe(widget: tk.Misc | None) -> None:
+    """Wrapper na :func:`apply_theme`, ignorujący wszelkie wyjątki."""
+    try:
+        apply_theme(widget)
+    except Exception:
+        pass
+
 # ===== Kolory magazynu (używane przez gui_magazyn) =====
 COLORS = {
     "stock_ok":   "#2d6a4f",

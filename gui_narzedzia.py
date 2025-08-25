@@ -21,11 +21,7 @@ from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 
 # ===================== MOTYW (użytkownika) =====================
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_):
-        pass
+from ui_theme import apply_theme_safe as apply_theme
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH  = "config.json"

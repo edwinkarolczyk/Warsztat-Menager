@@ -15,6 +15,8 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import ttk
 
+from ui_theme import apply_theme_safe as apply_theme
+
 # ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
 def _ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -142,11 +144,7 @@ def main():
         root = tk.Tk()
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
-        try:
-            from ui_theme import apply_theme
-            apply_theme(root)
-        except Exception:
-            pass  # jeśli motyw nie działa, nie blokuj startu
+        apply_theme(root)
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 

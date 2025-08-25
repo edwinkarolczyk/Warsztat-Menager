@@ -9,10 +9,7 @@ import json
 import tkinter as tk
 from tkinter import ttk
 
-try:
-    from ui_theme import apply_theme
-except Exception:
-    def apply_theme(_): pass
+from ui_theme import apply_theme_safe as apply_theme
 
 def _build_tab_profil(parent, login, rola):
     import gui_profile
@@ -123,8 +120,7 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
     for w in frame.winfo_children():
         try: w.destroy()
         except: pass
-    try: apply_theme(frame)
-    except: pass
+    apply_theme(frame)
 
     nb = ttk.Notebook(frame); nb.pack(fill="both", expand=True)
 
