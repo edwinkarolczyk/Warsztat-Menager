@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Warsztat Menager – system do zarządzania warsztatem: maszyny, narzędzia, zlecenia, magazyn, profile.">
+  <title>Warsztat Menager – Oficjalna strona</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="preload" as="image" href="assets/logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <div class="brand">
+        <img src="assets/logo.png" alt="Logo WM">
+        <b>Warsztat Menager</b>
+      </div>
+      <div style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap">
+        <a class="navlink" href="#o-programie">O programie</a>
+        <a class="navlink" href="#moduly">Moduły</a>
+        <a class="navlink" href="#zrzuty">Zrzuty</a>
+        <a class="navlink" href="#pobierz">Pobierz</a>
+        <a class="navlink" href="#aktualizacje">Aktualizacje</a>
+        <a class="navlink" href="#faq">FAQ</a>
+        <a class="navlink" href="#kontakt">Kontakt</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container">
+      <span class="badge">Ciemny motyw · lokalne pliki JSON · offline</span>
+      <h1>Warsztat Menager</h1>
+      <p>Kompletne narzędzie do zarządzania warsztatem: <b>Maszyny</b>, <b>Narzędzia</b>, <b>Zlecenia</b>, <b>Magazyn</b> i <b>Profile</b>. 
+      Wersja PC oraz mobilna (Kivy APK). Prosty start, szybka praca, pełna kontrola.</p>
+      <div class="btns">
+        <a class="btn" href="#pobierz">📥 Pobierz</a>
+        <a class="btn secondary" href="#o-programie">ℹ️ Dowiedz się więcej</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="o-programie" class="section">
+      <div class="container">
+        <h2>O programie</h2>
+        <p>Warsztat Menager (WM) to desktopowy system dla warsztatów produkcyjnych i utrzymania ruchu.
+          Działa lokalnie (offline), zapisuje dane w plikach JSON i oferuje <span class="tag">ciemny motyw</span>
+          spójny z interfejsem aplikacji. Wsparcie na miejscu: awarie, przeglądy, narzędzia, zlecenia, BOM i magazyn.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>⚙️ Maszyny</h3>
+            <p>Ewidencja, statusy, awarie i przeglądy. Podgląd „hala” z planem i pozycjami.</p>
+            <p class="small">Siatka co 20 cm (4 px), zapis do <span class="kbd">maszyny.json</span>.</p>
+          </div>
+          <div class="card">
+            <h3>🛠️ Narzędzia</h3>
+            <p>Cykl życia NN (001–499) i SN (500–1000), zadania, historia, serwis. Tryb QR.</p>
+            <p class="small">Konwersja NN→SN, wymuszenie zadań przy statusie „sprawne”.</p>
+          </div>
+          <div class="card">
+            <h3>📦 Magazyn</h3>
+            <p>Komponenty i półprodukty, powiązania z zadaniami, automatyczne rozchody.</p>
+            <p class="small">Pliki BOM w <span class="kbd">data/produkty/</span>, alerty minimalnych stanów.</p>
+          </div>
+          <div class="card">
+            <h3>🧾 Zlecenia</h3>
+            <p>Typy operacji (cięcie, gwintowanie…), statusy, BOM, rezerwacje materiałów, kreator.</p>
+            <p class="small">Kombinowane listy wyboru, ciemny motyw, logowanie działań.</p>
+          </div>
+          <div class="card">
+            <h3>👤 Profile</h3>
+            <p>Role: Użytkownik, Brygadzista, Admin. Widoczność danych wg uprawnień.</p>
+            <p class="small">Nazwisko przy <span class="kbd">Wyloguj</span>, zakładka „Profile użytkowników”.</p>
+          </div>
+          <div class="card">
+            <h3>🧰 Aktualizacje</h3>
+            <p>Mechanizm wersji plików, logi <span class="kbd">[WM-DBG]</span>, raport dzienny zmian.</p>
+            <p class="small">Prosta podmiana paczek ZIP bez ingerencji w bazę.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="moduly" class="section">
+      <div class="container">
+        <h2>Moduły</h2>
+        <ul>
+          <li><b>Maszyny:</b> widok hali, awarie, przeglądy, koordynaty, numer hali.</li>
+          <li><b>Narzędzia:</b> statusy, zadania, historia zmian w plikach narzędzia.</li>
+          <li><b>Zlecenia:</b> kreator, BOM, automatyczna weryfikacja dostępności, alerty.</li>
+          <li><b>Magazyn:</b> stany w czasie rzeczywistym, powiązania z zadaniami i zleceniami.</li>
+          <li><b>Profile:</b> dane pracownika, zmiany, uprawnienia, panel brygadzisty.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="zrzuty" class="section">
+      <div class="container">
+        <h2>Zrzuty ekranu</h2>
+        <div class="screens">
+          <img src="assets/screen_dashboard.png" alt="Dashboard">
+          <img src="assets/screen_tools.png" alt="Narzędzia">
+          <img src="assets/screen_orders.png" alt="Zlecenia">
+        </div>
+        <p class="note">Zrzuty są poglądowe. Motyw i układ zgodny z wersjami 1.4.x–1.5.x.</p>
+      </div>
+    </section>
+
+    <section id="pobierz" class="section">
+      <div class="container">
+        <h2>Pobierz</h2>
+        <p>Wrzucisz tu swoje pliki – linki prowadzą do katalogu z paczkami:</p>
+        <div class="grid">
+          <div class="card">
+            <h3>🖥️ Aplikacja PC</h3>
+            <p>Archiwum ZIP z aktualnymi plikami programu.</p>
+            <p><a href="downloads/WarsztatMenager.zip" download>📥 Pobierz ZIP</a></p>
+          </div>
+          <div class="card">
+            <h3>📱 Aplikacja mobilna</h3>
+            <p>Wersja Kivy (.apk) – praca offline.</p>
+            <p><a href="downloads/WarsztatMenager.apk" download>📱 Pobierz APK</a></p>
+          </div>
+          <div class="card">
+            <h3>📚 Instrukcja PDF</h3>
+            <p>Obrazkowa instrukcja użytkownika.</p>
+            <p><a href="downloads/Instrukcja.pdf" download>📄 Pobierz PDF</a></p>
+          </div>
+        </div>
+        <p class="small">Uwaga: linki to przykłady – podmień pliki w folderze <span class="kbd">downloads/</span> (na swoim serwerze).</p>
+      </div>
+    </section>
+
+    <section id="aktualizacje" class="section">
+      <div class="container">
+        <h2>Aktualizacje (changelog)</h2>
+        <ul class="changelog">
+          <li><b>1.5</b> – dodano moduł Magazyn i Profile użytkowników; poprawki dashboardu i kreatora zleceń.</li>
+          <li><b>1.4.7</b> – dashboard + widok jednej hali, numer hali na maszynie, siatka 20 cm.</li>
+          <li><b>1.4.4</b> – ciemny motyw + czerwone akcenty, kafel „Awarie”.</li>
+        </ul>
+        <p class="small">W programie obowiązuje nagłówek pliku z wersją i stopka <span class="kbd"># ⏹ KONIEC KODU</span>.</p>
+      </div>
+    </section>
+
+    <section id="faq" class="section">
+      <div class="container">
+        <h2>FAQ</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Czy działa offline?</h3>
+            <p>Tak. Dane przechowywane są lokalnie w plikach JSON. Synchronizacja z serwerem – opcjonalnie później.</p>
+          </div>
+          <div class="card">
+            <h3>Jak aktualizować?</h3>
+            <p>Podmień paczkę ZIP/EXE/APK. Program loguje działania i pokazuje wersje plików.</p>
+          </div>
+          <div class="card">
+            <h3>Wymagania?</h3>
+            <p>Windows 10/11, Python 3.13+ dla wersji źródłowej; EXE bez Pythona. Na Android – .apk.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="kontakt" class="section">
+      <div class="container">
+        <h2>Kontakt</h2>
+        <p>Napisz: <a href="mailto:metalbox@warsztat.pl">metalbox@warsztat.pl</a></p>
+        <p class="small">Możesz dodać formularz (np. Netlify Forms / własny backend) – na razie e‑mail.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <span>© <span id="year">2025</span> Warsztat Menager · Edwin K.</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

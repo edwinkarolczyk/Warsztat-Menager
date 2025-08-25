@@ -1,0 +1,21 @@
+{
+  "id": "000001",
+  "produkt": "Banaszak",
+  "ilosc": 20,
+  "status": "w przygotowaniu",
+  "utworzono": "2025-08-19 13:40:38",
+  "uwagi": "Uwazac",
+  "historia": [
+    {
+      "kiedy": "2025-08-19T13:40:38",
+      "kto": "GUI",
+      "co": "utworzenie"
+    },
+    {
+      "kiedy": "2025-08-19T13:40:49",
+      "kto": "GUI",
+      "co": "status -> w przygotowaniu"
+    }
+  ],
+  "zlec_wew": 433
+}

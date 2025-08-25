@@ -1,0 +1,7 @@
+# Minimalne zależności (rozszerzymy w razie potrzeb)
+pillow
+tk
+openpyxl
+reportlab
+odfpy
+pypandoc

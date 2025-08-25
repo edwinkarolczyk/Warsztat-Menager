@@ -1,0 +1,38 @@
+{
+  "wersja": "1.0.0",
+  "items": {
+    "PR-30MM": {
+      "id": "PR-30MM",
+      "nazwa": "Rurka stalowa Ø30mm",
+      "typ": "komponent",
+      "jednostka": "szt",
+      "stan": 50,
+      "min_poziom": 10,
+      "rezerwacje": 0,
+      "historia": []
+    },
+    "PL-40": {
+      "id": "PL-40",
+      "nazwa": "Płaskownik 40mm",
+      "typ": "komponent",
+      "jednostka": "m",
+      "stan": 120,
+      "min_poziom": 20,
+      "rezerwacje": 0,
+      "historia": []
+    },
+    "NN-KORPUS": {
+      "id": "NN-KORPUS",
+      "nazwa": "Korpus narzędzia NN",
+      "typ": "półprodukt",
+      "jednostka": "szt",
+      "stan": 5,
+      "min_poziom": 2,
+      "rezerwacje": 0,
+      "historia": []
+    }
+  },
+  "meta": {
+    "updated": "2025-08-18 00:00:00"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "kod": "PROD_X",
+  "nazwa": "Zestaw X",
+  "sklad": [
+    {
+      "kod": "RURKA_30",
+      "nazwa": "Rurka 30mm",
+      "ilosc": 2
+    },
+    {
+      "kod": "PLASK_40",
+      "nazwa": "Płaskownik 40mm",
+      "ilosc": 1
+    }
+  ]
+}

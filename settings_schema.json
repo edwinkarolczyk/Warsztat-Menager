@@ -1,0 +1,331 @@
+{
+  "config_version": 1,
+  "options": [
+    {
+      "key": "ui.theme",
+      "group": "Ogólne",
+      "label": "Motyw",
+      "type": "enum",
+      "enum": [
+        "dark",
+        "light"
+      ],
+      "default": "dark",
+      "widget": "select",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.accent",
+      "group": "Ogólne",
+      "label": "Akcent kolorystyczny",
+      "type": "enum",
+      "enum": [
+        "red",
+        "blue",
+        "green",
+        "orange"
+      ],
+      "default": "red",
+      "widget": "select",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.always_searchbar",
+      "group": "Ogólne",
+      "label": "Stała wyszukiwarka w panelach",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "app.start_view",
+      "group": "Ogólne",
+      "label": "Widok startowy",
+      "type": "enum",
+      "enum": [
+        "dashboard",
+        "hala",
+        "narzedzia",
+        "zlecenia"
+      ],
+      "default": "dashboard",
+      "widget": "select",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "auth.required",
+      "group": "Logowanie",
+      "label": "Wymagaj logowania",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "auth.session_timeout_min",
+      "group": "Logowanie",
+      "label": "Limit bezczynności (min)",
+      "type": "int",
+      "min": 1,
+      "max": 480,
+      "default": 30,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "auth.pin_length",
+      "group": "Logowanie",
+      "label": "Długość PIN",
+      "type": "int",
+      "min": 4,
+      "max": 8,
+      "default": 4,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "paths.maszyny",
+      "group": "Pliki i ścieżki",
+      "label": "Ścieżka: maszyny.json",
+      "type": "path",
+      "default": "maszyny.json",
+      "widget": "file",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "paths.narzedzia",
+      "group": "Pliki i ścieżki",
+      "label": "Ścieżka: narzedzia.json",
+      "type": "path",
+      "default": "narzedzia.json",
+      "widget": "file",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "paths.zlecenia",
+      "group": "Pliki i ścieżki",
+      "label": "Ścieżka: zlecenia.json",
+      "type": "path",
+      "default": "zlecenia.json",
+      "widget": "file",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "backup.folder",
+      "group": "Pliki i ścieżki",
+      "label": "Folder kopii zapasowych",
+      "type": "path",
+      "default": "backup_wersji",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "modules.service.enabled",
+      "group": "Moduły i widoki",
+      "label": "Moduł serwisowy włączony",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": true
+    },
+    {
+      "key": "dashboard.mini_hall.enabled",
+      "group": "Moduły i widoki",
+      "label": "Mini-widok hali w Dashboard",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": true
+    },
+    {
+      "key": "hall.grid_size_px",
+      "group": "Moduły i widoki",
+      "label": "Siatka hali (px na 20 cm)",
+      "type": "int",
+      "min": 1,
+      "max": 20,
+      "default": 4,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": true
+    },
+    {
+      "key": "local.fullscreen_on_start",
+      "group": "Lokalne stanowisko",
+      "label": "Pełny ekran przy starcie",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "local",
+      "requires_restart": false
+    },
+    {
+      "key": "local.ui_scale",
+      "group": "Lokalne stanowisko",
+      "label": "Skalowanie UI (%)",
+      "type": "int",
+      "min": 80,
+      "max": 150,
+      "default": 100,
+      "widget": "slider",
+      "scope": "local",
+      "requires_restart": false
+    },
+    {
+      "key": "secrets.admin_pin",
+      "group": "Sekrety",
+      "label": "PIN brygadzisty",
+      "type": "string",
+      "default": "",
+      "widget": "password",
+      "scope": "secret",
+      "requires_restart": false
+    },
+    {
+      "key": "sciezka_danych",
+      "group": "Narzędzia",
+      "label": "Folder danych (baza)",
+      "type": "path",
+      "default": "data/",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": true
+    },
+    {
+      "key": "statusy_narzedzi_nowe",
+      "group": "Narzędzia",
+      "label": "Statusy – NOWE (1 wiersz = 1 status)",
+      "type": "array",
+      "default": [
+        "projekt",
+        "w budowie",
+        "próby narzędzia",
+        "odbiór",
+        "sprawne"
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "statusy_narzedzi_stare",
+      "group": "Narzędzia",
+      "label": "Statusy – STARE (1 wiersz = 1 status)",
+      "type": "array",
+      "default": [
+        "sprawne",
+        "do ostrzenia",
+        "w ostrzeniu",
+        "po ostrzeniu",
+        "w naprawie",
+        "uszkodzone",
+        "wycofane"
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "szablony_zadan_narzedzia",
+      "group": "Narzędzia",
+      "label": "Szablony zadań (dodawanie z listy)",
+      "type": "array",
+      "default": [
+        "Przegląd wizualny",
+        "Czyszczenie i smarowanie",
+        "Pomiar luzów",
+        "Wymiana elementu roboczego",
+        "Test na prasie"
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "szablony_zadan_narzedzia_stare",
+      "group": "Narzędzia",
+      "label": "Szablony serwisowe (po konwersji do STARE)",
+      "type": "array",
+      "default": [
+        "Przegląd wizualny",
+        "Czyszczenie i smarowanie",
+        "Pomiar luzów",
+        "Wymiana elementu roboczego",
+        "Test na prasie"
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "typy_narzedzi",
+      "group": "Narzędzia",
+      "label": "Typy narzędzi (lista do comboboxa)",
+      "type": "array",
+      "default": [
+        "Frez",
+        "Wiertło",
+        "Punktak",
+        "Matryca",
+        "Tłocznik"
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "profiles.tab_enabled",
+      "group": "Profile użytkowników",
+      "label": "Włącz kartę „Profil użytkownika”",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
+      "key": "profiles.show_name_in_header",
+      "group": "Profile użytkowników",
+      "label": "Pokaż zalogowanego w nagłówku",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
+      "key": "profiles.avatar_dir",
+      "group": "Profile użytkowników",
+      "label": "Folder z avatarami (opcjonalnie)",
+      "type": "path",
+      "default": "",
+      "widget": "dir",
+      "scope": "global"
+    },
+    {
+      "key": "profiles.fields_visible",
+      "group": "Profile użytkowników",
+      "label": "Pola widoczne w profilu",
+      "type": "array",
+      "default": [
+        "login",
+        "rola",
+        "zmiana"
+      ],
+      "widget": "list",
+      "scope": "global"
+    }
+  ]
+}

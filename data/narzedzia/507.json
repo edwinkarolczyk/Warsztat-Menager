@@ -1,0 +1,75 @@
+{
+  "numer": "507",
+  "nazwa": "Scinanie katownik regal",
+  "typ": "Postępowe",
+  "status": "do ostrzenia",
+  "opis": "Scinanie katownik regal",
+  "pracownik": "",
+  "zadania": [
+    {
+      "tytul": "frezowanie belek",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "ostrzenie stempla",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "regeneracja matrycy",
+      "done": true,
+      "by": "edwin",
+      "ts_done": "2025-08-25 07:53"
+    },
+    {
+      "tytul": "wymiana sprężyn",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "czyszczenie",
+      "done": true,
+      "by": "edwin",
+      "ts_done": "2025-08-25 07:53"
+    },
+    {
+      "tytul": "ostrzenie",
+      "done": true,
+      "by": "edwin",
+      "ts_done": "2025-08-25 07:53"
+    },
+    {
+      "tytul": "wymiana rolek/prowadników",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "regeneracja",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "kontrola luzów",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    }
+  ],
+  "data_dodania": "2025-08-13 13:11",
+  "tryb": "STARE",
+  "interwencje": [],
+  "historia": [
+    {
+      "ts": "2025-08-13 13:11",
+      "by": "edwin",
+      "z": "dzialajace",
+      "na": "do ostrzenia"
+    }
+  ]
+}

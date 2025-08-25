@@ -1,0 +1,107 @@
+{
+  "rurka 30mm": {
+    "ilość": 20,
+    "długość_sztuki": 3000,
+    "jednostka": "mm"
+  },
+  "płaskownik 40mm": {
+    "ilość": 10,
+    "długość_sztuki": 6000,
+    "jednostka": "mm"
+  },
+  "items": {
+    "MAT-001": {
+      "id": "MAT-001",
+      "nazwa": "Rura",
+      "typ": "materiał",
+      "jednostka": "20",
+      "stan": 0.0,
+      "min_poziom": 0.0,
+      "rezerwacje": 0.0,
+      "historia": []
+    },
+    "MAT-002": {
+      "id": "MAT-002",
+      "nazwa": "sd",
+      "typ": "Rura",
+      "jednostka": "1",
+      "stan": 20.0,
+      "min_poziom": 0.0,
+      "rezerwacje": 0.0,
+      "historia": []
+    },
+    "MAT-003": {
+      "id": "MAT-003",
+      "nazwa": "Zbijak",
+      "typ": "półprodukt",
+      "jednostka": "69",
+      "stan": 220.0,
+      "min_poziom": 20.0,
+      "rezerwacje": 10.0,
+      "historia": [
+        {
+          "czas": "2025-08-23 22:00:40",
+          "operacja": "zwrot",
+          "item_id": "MAT-003",
+          "ilosc": 20.0,
+          "uzytkownik": "system",
+          "kontekst": "GUI Magazyn"
+        },
+        {
+          "czas": "2025-08-23 22:00:50",
+          "operacja": "zwrot",
+          "item_id": "MAT-003",
+          "ilosc": 500.0,
+          "uzytkownik": "system",
+          "kontekst": "GUI Magazyn"
+        },
+        {
+          "czas": "2025-08-23 22:01:08",
+          "operacja": "zuzycie",
+          "item_id": "MAT-003",
+          "ilosc": 320.0,
+          "uzytkownik": "system",
+          "kontekst": "GUI Magazyn"
+        },
+        {
+          "czas": "2025-08-23 22:01:17",
+          "operacja": "rezerwacja",
+          "item_id": "MAT-003",
+          "ilosc": 10.0,
+          "uzytkownik": "system",
+          "kontekst": "GUI Magazyn"
+        }
+      ]
+    },
+    "MAT-004": {
+      "id": "MAT-004",
+      "nazwa": "Rura",
+      "typ": "Rura",
+      "jednostka": "20",
+      "stan": 0.0,
+      "min_poziom": 0.0,
+      "rezerwacje": 0.0,
+      "historia": []
+    },
+    "MAT-005": {
+      "id": "MAT-005",
+      "nazwa": "Zbijak do ewaktuacyjnych",
+      "typ": "Zbijak",
+      "jednostka": "szt",
+      "stan": 100.0,
+      "min_poziom": 20.0,
+      "rezerwacje": 0.0,
+      "historia": []
+    }
+  },
+  "meta": {
+    "updated": "2025-08-23 22:01:17",
+    "item_types": [
+      "komponent",
+      "półprodukt",
+      "materiał",
+      "Rura",
+      "Zbijak"
+    ]
+  }
+}

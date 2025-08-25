@@ -1,0 +1,200 @@
+# Wersja pliku: 1.4.12.1
+# Plik: gui_logowanie.py
+# Zmiany 1.4.12.1:
+# - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją)
+# - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
+# - Bezpieczny timer (after) + anulowanie przy Destroy
+# - Spójny wygląd z motywem (apply_theme), brak pływania elementów
+
+import os
+import json
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime
+
+# Pasek zmiany i przejście do panelu głównego
+import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
+
+# Motyw
+try:
+    from ui_theme import apply_theme
+except Exception:
+    def apply_theme(_): pass
+
+# --- zmienne globalne dla kontrolki PIN i okna ---
+entry_pin = None
+root_global = None
+
+def ekran_logowania(root=None):
+    """Ekran logowania: logo u góry na środku, box PIN w centrum,
+       pasek postępu zmiany (1/3 szerokości) wyśrodkowany,
+       na samym dole przycisk 'Zamknij program' + stopka z wersją.
+    """
+    global entry_pin, root_global
+    if root is None:
+        root = tk.Tk()
+    root_global = root
+
+    # wyczyść i ustaw motyw
+    for w in root.winfo_children():
+        w.destroy()
+    apply_theme(root)
+
+    # pełny ekran i tytuł
+    root.title("Warsztat Menager")
+    root.attributes("-fullscreen", True)
+
+    # bazowe rozmiary ekranu
+    szer, wys = root.winfo_screenwidth(), root.winfo_screenheight()
+
+    # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
+    top = ttk.Frame(root, style="WM.TFrame")
+    top.pack(fill="x", pady=(32, 8))
+
+    # logo (jeśli jest) — używamy tk.Label dla image
+    logo_path = "logo.png"
+    if os.path.exists(logo_path):
+        try:
+            from PIL import Image, ImageTk
+            img = Image.open(logo_path).resize((300, 100))
+            logo_img = ImageTk.PhotoImage(img)
+            lbl_logo = tk.Label(top, image=logo_img, bg=root["bg"] if "bg" in root.keys() else "#0f1113")
+            lbl_logo.image = logo_img  # pin referencji
+            lbl_logo.pack()
+        except Exception:
+            # brak PIL lub błąd pliku — po prostu nazwa
+            ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
+
+    # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
+    center = ttk.Frame(root, style="WM.TFrame")
+    center.pack(fill="both", expand=True)
+
+    box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
+    box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
+
+    ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
+    entry_pin = ttk.Entry(box, show="*", width=22)
+    entry_pin.pack(ipadx=10, ipady=6)
+    ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
+
+    # --- PASEK POSTĘPU ZMIANY (1/3 szer., wyśrodkowany) ---
+    prefooter = ttk.Frame(root, style="WM.TFrame")
+    prefooter.pack(fill="x", pady=(0, 10))
+
+    wrap = ttk.Frame(prefooter, style="WM.Card.TFrame")
+    wrap.pack()  # centralnie
+
+    ttk.Label(wrap, text="Zmiana", style="WM.Card.TLabel").pack(anchor="w", padx=8, pady=(8, 2))
+
+    CANVAS_W = max(int(szer/3), 420)  # 1/3 ekranu, min. 420
+    CANVAS_H = 18
+    shift = tk.Canvas(wrap, width=CANVAS_W, height=CANVAS_H,
+                      highlightthickness=0, bd=0, bg="#1b1f24")
+    shift.pack(padx=8, pady=6)
+
+    info = ttk.Label(wrap, text="", style="WM.Muted.TLabel")
+    info.pack(anchor="w", padx=8, pady=(0, 8))
+
+    # --- bezpieczny timer paska ---
+    shift_job = {"id": None}
+
+    def draw_login_shift():
+        # Canvas mógł zniknąć
+        if not shift.winfo_exists():
+            return
+        try:
+            shift.delete("all")
+            now = datetime.now()
+            percent, running = gui_panel._shift_progress(now)
+            s, e, *_ = gui_panel._shift_bounds(now)
+
+            # tło paska
+            bg = "#23272e"
+            bar_bg = "#2a2f36"
+            shift.create_rectangle(0, 0, CANVAS_W, CANVAS_H, fill=bar_bg, outline=bg)
+
+            # wypełnienie "jak było": z lewej zielony (zrobione), z prawej szary (pozostało)
+            done_w = int(CANVAS_W * (percent / 100.0))
+            done_color   = "#34a853" if running and percent > 0 else "#3a4a3f"
+            remain_color = "#8d8d8d"
+
+            if done_w > 0:
+                shift.create_rectangle(0, 0, done_w, CANVAS_H, fill=done_color, outline=done_color)
+            if done_w < CANVAS_W:
+                shift.create_rectangle(done_w, 0, CANVAS_W, CANVAS_H, fill=remain_color, outline=remain_color)
+
+            info.config(text=f"{s.strftime('%H:%M')} - {e.strftime('%H:%M')}    {percent}%")
+        except tk.TclError:
+            # Canvas zniknął między sprawdzeniem a rysowaniem — ignoruj
+            return
+
+    def _tick():
+        if not shift.winfo_exists():
+            shift_job["id"] = None
+            return
+        draw_login_shift()
+        shift_job["id"] = root.after(1000, _tick)
+
+    def _on_destroy(_e=None):
+        if shift_job["id"]:
+            try:
+                root.after_cancel(shift_job["id"])
+            except Exception:
+                pass
+            shift_job["id"] = None
+
+    draw_login_shift()
+    shift_job["id"] = root.after(1000, _tick)
+    shift.bind("<Destroy>", _on_destroy)
+
+    # --- DÓŁ: przycisk Zamknij + stopka wersji (stale przyklejone) ---
+    bottom = ttk.Frame(root, style="WM.TFrame")
+    bottom.pack(side="bottom", fill="x", pady=(0, 12))
+
+    # przycisk na samym dole — stałe miejsce
+    ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
+    # stopka
+    ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+
+def logowanie():
+    pin = entry_pin.get().strip()
+    try:
+        with open("uzytkownicy.json", "r", encoding="utf-8") as f:
+            users = json.load(f)
+
+        # Kompatybilność: dict (stary format) lub list (nowy format)
+        if isinstance(users, dict):
+            iterator = users.items()
+        elif isinstance(users, list):
+            iterator = (
+                (str(rec.get("login") or idx), rec)
+                for idx, rec in enumerate(users)
+                if isinstance(rec, dict)
+            )
+        else:
+            raise TypeError("uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)")
+
+        for login, dane in iterator:
+            if str(dane.get("pin", "")).strip() == pin:
+                status = str(dane.get("status", "")).strip().lower()
+                if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
+                    messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
+                    return
+                rola = dane.get("rola", "pracownik")
+                gui_panel.uruchom_panel(root_global, login, rola)
+                return
+        messagebox.showerror("Błąd", "Nieprawidłowy PIN")
+    except Exception as e:
+        messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
+
+def zamknij():
+    # Zamknij zawsze z dołu, bez pływania
+    try:
+        root_global.destroy()
+    finally:
+        os._exit(0)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    ekran_logowania(root)
+    root.mainloop()

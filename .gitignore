@@ -1,0 +1,59 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.dist-info/
+build/
+dist/
+*.spec
+
+# ---- Virtualenv ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- IDE / Editors ----
+.vscode/
+.idea/
+*.code-workspace
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs & Backups (WM) ----
+logi/
+logs/
+*.log
+backup_wersji/
+backup/
+bkp/
+
+# ---- WM data (keep samples only) ----
+data/**/tmp/
+data/**/cache/
+data/**/test/
+data/**/.__*
+*.sqlite
+*.db
+
+# ---- Configs with secrets (commit only the sample) ----
+config.json
+# Commit this one with safe defaults:
+# config.sample.json
+
+# ---- PyInstaller outputs ----
+*.exe
+*.dll
+
+# ---- Large binary artifacts (we will store via Git LFS) ----
+*.zip
+*.apk
+*.png
+*.jpg
+*.jpeg
+*.xlsm

@@ -1,0 +1,42 @@
+[
+  {
+    "login": "edwin",
+    "rola": "brygadzista",
+    "zmiana_plan": "I",
+    "status": "",
+    "stanowisko": "",
+    "pin": "1"
+  },
+  {
+    "login": "dawid",
+    "rola": "uzytkownik",
+    "zmiana_plan": "I",
+    "status": "",
+    "stanowisko": "",
+    "pin": "2"
+  },
+  {
+    "login": "marek",
+    "rola": "uzytkownik",
+    "zmiana_plan": "I",
+    "status": "",
+    "stanowisko": "",
+    "pin": "3"
+  },
+  {
+    "login": "sebastian",
+    "rola": "uzytkownik",
+    "zmiana_plan": "I",
+    "status": "",
+    "stanowisko": "",
+    "pin": ""
+  },
+  {
+    "login": "jacek",
+    "rola": "uzytkownik",
+    "zmiana_plan": "I",
+    "status": "",
+    "stanowisko": "",
+    "pin": ""
+  }
+]

@@ -1,0 +1,117 @@
+
+📂 ARCHIWUM PROJEKTÓW – PEŁNA WERSJA (OPIS + KOD)
+
+============================================================
+1. WSTĘP OGÓLNY
+------------------------------------------------------------
+- Rola i kontekst: Brygadzista warsztat mechaniczny-ślusarski, hobbystyczny programista i automatyk.
+- Technologie wspólne: Python + JSON, Arduino, Raspberry Pi, Google Drive API, kody kreskowe, QR, RFID.
+- Zasady wspólne dla projektów:
+  1. Wersjonowanie w każdym pliku (# Wersja: ...) + podsumowanie zmian na końcu.
+  2. Pełny ekran w logowaniu i głównych widokach.
+  3. Potrójne potwierdzenie usuwania (szczególnie maszyn).
+  4. Test mode – bez pomijania logowania.
+  5. Kopie zapasowe i migracja danych przy aktualizacji.
+  6. JSON jako magazyn danych (oddzielne pliki dla narzędzi, maszyn, zadań).
+  7. Ciemny motyw UI jako standard.
+
+============================================================
+2. OPISY PROJEKTÓW
+------------------------------------------------------------
+
+2.1 WARSZTAT MENAGER – OPIS
+[tu wklej opis projektu – możesz skopiować z wcześniejszego pliku archiwum_projektow.txt]
+
+2.2 MODUŁ SERWISOWY – OPIS
+[tu opis]
+
+2.3 SYSTEM RFID DLA KOTÓW – OPIS
+[tu opis]
+
+2.4 AUTOMATYKA DRZWI – OPIS
+[tu opis]
+
+2.5 SYSTEM BUDŻETOWY – OPIS
+[tu opis]
+
+2.6 PROJEKTY ARDUINO / CNC / AUTOMATYZACJA WARSZTATU – OPIS
+[tu opis]
+
+2.7 PROJEKTY GRAFICZNE – OPIS
+[tu opis]
+
+2.8 JEDNORAZOWE SKRYPTY I NARZĘDZIA – OPIS
+[tu opis]
+
+============================================================
+3. PEŁNY KOD ŹRÓDŁOWY – WARSZTAT MENAGER
+------------------------------------------------------------
+
+### 3.1 start.py
+[tu wklej pełną zawartość pliku start.py]
+
+### 3.2 gui_logowanie.py
+[tu wklej pełną zawartość pliku gui_logowanie.py]
+
+### 3.3 gui_panel.py
+[tu wklej pełną zawartość pliku gui_panel.py]
+
+### 3.4 ustawienia_systemu.py
+[tu wklej pełną zawartość pliku ustawienia_systemu.py]
+
+### 3.5 layout_prosty.py
+[tu wklej pełną zawartość pliku layout_prosty.py]
+
+### 3.6 gui_narzedzia.py
+[tu wklej pełną zawartość pliku gui_narzedzia.py]
+
+### 3.7 gui_maszyny.py
+[tu wklej pełną zawartość pliku gui_maszyny.py]
+
+### 3.8 widok_hali.py
+[tu wklej pełną zawartość pliku widok_hali.py]
+
+### 3.9 modul_serwisowy.py
+[tu wklej pełną zawartość pliku modul_serwisowy.py]
+
+### 3.10 kreator_sprawdzenia.py
+[tu wklej pełną zawartość pliku kreator_sprawdzenia.py]
+
+### 3.11 Pliki JSON
+#### maszyny.json
+[tu wklej pełną zawartość pliku maszyny.json]
+
+#### narzedzia.json
+[tu wklej pełną zawartość pliku narzedzia.json]
+
+#### uzytkownicy.json
+[tu wklej pełną zawartość pliku uzytkownicy.json]
+
+#### config.json
+[tu wklej pełną zawartość pliku config.json]
+
+============================================================
+4. PEŁNY KOD – INNE PROJEKTY
+------------------------------------------------------------
+
+### 4.1 Moduł serwisowy (osobny)
+[tu wklej kod jeśli jest w osobnym pliku]
+
+### 4.2 System RFID dla kotów
+[tu wklej kod]
+
+### 4.3 Automatyka drzwi
+[tu wklej kod]
+
+### 4.4 System budżetowy
+[tu wklej kod]
+
+### 4.5 Projekty Arduino / CNC
+[tu wklej kod]
+
+============================================================
+5. UWAGI DODATKOWE
+------------------------------------------------------------
+- Po wyczyszczeniu historii wklej cały ten plik w rozmowie.
+- Jeśli kod jest długi – możesz wklejać w kilku wiadomościach.
+- Zachowaj kolejność sekcji, żeby łatwiej było mi odtworzyć strukturę projektu.

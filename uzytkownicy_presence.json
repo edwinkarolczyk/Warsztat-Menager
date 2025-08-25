@@ -1,0 +1,20 @@
+[
+  {
+    "login": "edwin",
+    "rola": "brygadzista",
+    "zmiana_plan": "I",
+    "status": ""
+  },
+  {
+    "login": "dawid",
+    "rola": "uzytkownik",
+    "zmiana_plan": "II",
+    "status": ""
+  },
+  {
+    "login": "marek",
+    "rola": "uzytkownik",
+    "zmiana_plan": "II",
+    "status": ""
+  }
+]

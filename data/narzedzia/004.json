@@ -1,0 +1,38 @@
+{
+  "numer": "004",
+  "nazwa": "111",
+  "typ": "1111",
+  "status": "na produkcji",
+  "opis": "1111",
+  "pracownik": "edwin",
+  "zadania": [],
+  "data_dodania": "2025-08-13 10:56",
+  "tryb": "STARE",
+  "interwencje": [],
+  "historia": [
+    {
+      "ts": "2025-08-13 10:56",
+      "by": "edwin",
+      "z": "projekt",
+      "na": "w budowie"
+    },
+    {
+      "ts": "2025-08-13 10:56",
+      "by": "edwin",
+      "z": "w budowie",
+      "na": "próby narzędzia"
+    },
+    {
+      "ts": "2025-08-13 10:56",
+      "by": "edwin",
+      "z": "próby narzędzia",
+      "na": "odbiór"
+    },
+    {
+      "ts": "2025-08-13 10:56",
+      "by": "edwin",
+      "z": "odbiór",
+      "na": "na produkcji"
+    }
+  ]
+}

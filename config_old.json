@@ -1,0 +1,95 @@
+{
+  "tryb_testowy": false,
+  "domyslny_login": "",
+  "sciezka_danych": "data/",
+  "ustawienia_ui": {
+    "ciemny_motyw": true,
+    "fullscreen": true,
+    "rozmiar_przyciskow": "duzy"
+  },
+
+  "statusy_narzedzi_nowe": [
+    "projekt",
+    "w budowie",
+    "próby narzędzia",
+    "odbiór",
+    "sprawne"
+  ],
+  "statusy_narzedzi_stare": [
+    "sprawne",
+    "do ostrzenia",
+    "w ostrzeniu",
+    "po ostrzeniu",
+    "w naprawie",
+    "uszkodzone",
+    "wycofane"
+  ],
+  "statusy_narzedzi": [
+    "Do wydania",
+    "Modyfikacja",
+    "Działające",
+    "sprawne"
+  ],
+
+  "typy_narzedzi": [
+    "Tłoczące",
+    "Wykrawające",
+    "Postępowe",
+    "Giętarka"
+  ],
+
+  "szablony_zadan_narzedzia": [
+    "ucięcie belek",
+    "frezowanie belek",
+    "wiercenie",
+    "szlifowanie"
+  ],
+  "szablony_zadan_narzedzia_stare": [
+    "ostrzenie",
+    "wymiana tulei",
+    "regeneracja"
+  ],
+
+  "narzedzia": {
+    "typy": {
+      "Tłoczące": {
+        "produkcja": ["ucięcie belek","frezowanie belek","wiercenie","szlifowanie"],
+        "serwis": ["ostrzenie","wymiana tulei","regeneracja"]
+      },
+      "Wykrawające": {
+        "produkcja": ["wykonanie matrycy","wiercenie prowadzeń","pasowanie","szlifowanie krawędzi"],
+        "serwis": ["ostrzenie stempla","regeneracja matrycy","wymiana sprężyn","czyszczenie"]
+      },
+      "Postępowe": {
+        "produkcja": ["ustawienie stacji","pasowanie prowadników","kalibracja wybieraków","próby"],
+        "serwis": ["ostrzenie","wymiana rolek/prowadników","regeneracja","kontrola luzów"]
+      },
+      "Giętarka": {
+        "produkcja": ["przygotowanie programu gięcia","ustawienie segmentów","próby","korekta promieni"],
+        "serwis": ["smarowanie","wymiana segmentów","regulacja docisków","kontrola luzów"]
+      }
+    },
+    "komentarze": {
+      "wg_statusu": {
+        "w serwisie": "required",
+        "niesprawne": "required",
+        "w użyciu": "disabled",
+        "nie używane": "optional",
+        "projekt": "optional",
+        "w budowie": "optional",
+        "1 próba": "optional",
+        "2 próba": "optional",
+        "odbiór": "optional",
+        "sprawne": "optional",
+        "brak danych": "required"
+      },
+      "wg_przejsc": {
+        "w użyciu->w serwisie": "required"
+      }
+    },
+    "uprawnienia": {
+      "zmiana_klasy": "brygadzista",
+      "zmiana_statusu": "serwis_brygadzista"
+    }
+  }
+}

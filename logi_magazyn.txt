@@ -1,0 +1,6 @@
+{"ts": "2025-08-18 11:27:23", "akcja": "typ_dodany", "dane": {"typ": "Rura", "by": "ustawienia"}}
+{"ts": "2025-08-23 21:59:30", "akcja": "typ_dodany", "dane": {"typ": "Zbijak", "by": "ustawienia"}}
+{"ts": "2025-08-23 22:00:40", "akcja": "zwrot", "dane": {"item_id": "MAT-003", "ilosc": 20.0, "by": "system", "ctx": "GUI Magazyn"}}
+{"ts": "2025-08-23 22:00:50", "akcja": "zwrot", "dane": {"item_id": "MAT-003", "ilosc": 500.0, "by": "system", "ctx": "GUI Magazyn"}}
+{"ts": "2025-08-23 22:01:08", "akcja": "zuzycie", "dane": {"item_id": "MAT-003", "ilosc": 320.0, "by": "system", "ctx": "GUI Magazyn"}}
+{"ts": "2025-08-23 22:01:17", "akcja": "rezerwacja", "dane": {"item_id": "MAT-003", "ilosc": 10.0, "by": "system", "ctx": "GUI Magazyn"}}

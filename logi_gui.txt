@@ -1,0 +1,2068 @@
+[2025-08-07 11:50:26] Kliknięto: Użytkownicy
+[2025-08-07 11:50:27] Kliknięto: Narzędzia
+[2025-08-07 11:50:28] Kliknięto: Narzędzia
+[2025-08-07 11:50:28] Kliknięto: Maszyny
+[2025-08-07 11:50:29] Kliknięto: Ustawienia
+[2025-08-07 11:50:31] Kliknięto: Użytkownicy
+[2025-08-07 12:24:53] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:24:55] Kliknięto: Ustawienia
+[2025-08-07 12:25:01] Kliknięto: Maszyny
+[2025-08-07 12:25:01] Kliknięto: Zlecenia
+[2025-08-07 12:25:02] Kliknięto: Narzędzia
+[2025-08-07 12:25:03] Kliknięto: Użytkownicy
+[2025-08-07 12:35:03] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:35:05] Kliknięto: Ustawienia
+[2025-08-07 12:35:13] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:35:14] Kliknięto: Użytkownicy
+[2025-08-07 12:35:14] Kliknięto: Narzędzia
+[2025-08-07 12:35:15] Kliknięto: Zlecenia
+[2025-08-07 12:35:16] Kliknięto: Maszyny
+[2025-08-07 12:35:25] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:35:29] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:58:09] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:58:11] Kliknięto: Ustawienia
+[2025-08-07 12:58:24] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 12:58:27] Kliknięto: Ustawienia
+[2025-08-07 12:58:33] Kliknięto: Użytkownicy
+[2025-08-07 13:12:37] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:12:38] Kliknięto: Maszyny
+[2025-08-07 13:12:39] Kliknięto: Zlecenia
+[2025-08-07 13:12:40] Kliknięto: Narzędzia
+[2025-08-07 13:12:40] Błąd przy kliknięciu Narzędzia: panel_narzedzia() takes 2 positional arguments but 4 were given
+[2025-08-07 13:12:41] Kliknięto: Narzędzia
+[2025-08-07 13:12:41] Błąd przy kliknięciu Narzędzia: panel_narzedzia() takes 2 positional arguments but 4 were given
+[2025-08-07 13:12:41] Kliknięto: Użytkownicy
+[2025-08-07 13:12:42] Kliknięto: Narzędzia
+[2025-08-07 13:12:42] Błąd przy kliknięciu Narzędzia: panel_narzedzia() takes 2 positional arguments but 4 were given
+[2025-08-07 13:12:42] Kliknięto: Narzędzia
+[2025-08-07 13:12:42] Błąd przy kliknięciu Narzędzia: panel_narzedzia() takes 2 positional arguments but 4 were given
+[2025-08-07 13:20:25] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:20:26] Kliknięto: Ustawienia
+[2025-08-07 13:20:26] Kliknięto: Użytkownicy
+[2025-08-07 13:20:27] Kliknięto: Narzędzia
+[2025-08-07 13:20:27] Błąd przy kliknięciu Narzędzia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:20:28] Kliknięto: Zlecenia
+[2025-08-07 13:20:28] Kliknięto: Maszyny
+[2025-08-07 13:20:29] Kliknięto: Narzędzia
+[2025-08-07 13:20:29] Błąd przy kliknięciu Narzędzia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:20:37] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:20:39] Kliknięto: Narzędzia
+[2025-08-07 13:20:39] Błąd przy kliknięciu Narzędzia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:31:26] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:31:26] Błąd przy kliknięciu Zlecenia (start domyślny): 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:31:28] Kliknięto: Ustawienia
+[2025-08-07 13:31:28] Błąd przy kliknięciu Ustawienia: panel_ustawien() takes from 2 to 3 positional arguments but 4 were given
+[2025-08-07 13:31:29] Kliknięto: Ustawienia
+[2025-08-07 13:31:29] Błąd przy kliknięciu Ustawienia: panel_ustawien() takes from 2 to 3 positional arguments but 4 were given
+[2025-08-07 13:31:29] Kliknięto: Użytkownicy
+[2025-08-07 13:31:29] Błąd przy kliknięciu Użytkownicy: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:31:29] Kliknięto: Maszyny
+[2025-08-07 13:31:29] Błąd przy kliknięciu Maszyny: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:31:30] Kliknięto: Narzędzia
+[2025-08-07 13:31:30] Kliknięto: Zlecenia
+[2025-08-07 13:31:30] Błąd przy kliknięciu Zlecenia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:31:31] Kliknięto: Zlecenia
+[2025-08-07 13:31:31] Błąd przy kliknięciu Zlecenia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:03] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:34:03] Błąd przy kliknięciu Zlecenia (start domyślny): 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:04] Kliknięto: Zlecenia
+[2025-08-07 13:34:04] Błąd przy kliknięciu Zlecenia: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:05] Kliknięto: Narzędzia
+[2025-08-07 13:34:05] Kliknięto: Maszyny
+[2025-08-07 13:34:05] Błąd przy kliknięciu Maszyny: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:06] Kliknięto: Maszyny
+[2025-08-07 13:34:06] Błąd przy kliknięciu Maszyny: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:07] Kliknięto: Użytkownicy
+[2025-08-07 13:34:07] Błąd przy kliknięciu Użytkownicy: 'str' object has no attribute 'winfo_children'
+[2025-08-07 13:34:08] Kliknięto: Ustawienia
+[2025-08-07 13:34:08] Błąd przy kliknięciu Ustawienia: panel_ustawien() takes from 2 to 3 positional arguments but 4 were given
+[2025-08-07 13:36:07] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:36:08] Kliknięto: Zlecenia
+[2025-08-07 13:36:09] Kliknięto: Narzędzia
+[2025-08-07 13:36:11] Kliknięto: Maszyny
+[2025-08-07 13:36:12] Kliknięto: Użytkownicy
+[2025-08-07 13:36:13] Kliknięto: Ustawienia
+[2025-08-07 13:36:13] Kliknięto: Narzędzia
+[2025-08-07 13:36:29] Kliknięto: Narzędzia
+[2025-08-07 13:36:31] Kliknięto: Zlecenia
+[2025-08-07 13:36:31] Kliknięto: Narzędzia
+[2025-08-07 13:36:32] Kliknięto: Maszyny
+[2025-08-07 13:36:33] Kliknięto: Narzędzia
+[2025-08-07 13:36:34] Kliknięto: Maszyny
+[2025-08-07 13:36:35] Kliknięto: Narzędzia
+[2025-08-07 13:36:47] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:36:49] Kliknięto: Ustawienia
+[2025-08-07 13:36:51] Kliknięto: Użytkownicy
+[2025-08-07 13:36:52] Kliknięto: Ustawienia
+[2025-08-07 13:36:53] Kliknięto: Użytkownicy
+[2025-08-07 13:36:54] Kliknięto: Maszyny
+[2025-08-07 13:36:55] Kliknięto: Narzędzia
+[2025-08-07 13:42:28] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:42:30] Kliknięto: Zlecenia
+[2025-08-07 13:42:30] Kliknięto: Narzędzia
+[2025-08-07 13:42:31] Kliknięto: Maszyny
+[2025-08-07 13:44:22] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:44:25] Kliknięto: Ustawienia
+[2025-08-07 13:44:33] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:44:34] Kliknięto: Zlecenia
+[2025-08-07 13:44:35] Kliknięto: Narzędzia
+[2025-08-07 13:44:36] Kliknięto: Maszyny
+[2025-08-07 13:44:37] Kliknięto: Narzędzia
+[2025-08-07 13:50:29] Kliknięto: Zlecenia (start domyślny)
+[2025-08-07 13:50:31] Kliknięto: Ustawienia
+[2025-08-07 13:50:32] Kliknięto: Użytkownicy
+[2025-08-07 13:50:33] Kliknięto: Maszyny
+[2025-08-07 13:50:33] Kliknięto: Narzędzia
+[2025-08-07 13:50:34] Kliknięto: Zlecenia
+[2025-08-08 07:02:21] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 07:02:23] Kliknięto: Ustawienia
+[2025-08-08 07:02:23] Kliknięto: Użytkownicy
+[2025-08-08 07:02:24] Kliknięto: Maszyny
+[2025-08-08 07:02:25] Kliknięto: Narzędzia
+[2025-08-08 07:02:25] Kliknięto: Zlecenia
+[2025-08-08 08:57:05] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 08:57:06] Kliknięto: Ustawienia
+[2025-08-08 08:57:07] Kliknięto: Użytkownicy
+[2025-08-08 08:57:08] Kliknięto: Maszyny
+[2025-08-08 08:57:08] Kliknięto: Narzędzia
+[2025-08-08 08:57:09] Kliknięto: Zlecenia
+[2025-08-08 08:57:09] Kliknięto: Narzędzia
+[2025-08-08 08:58:23] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 08:58:25] Kliknięto: Zlecenia
+[2025-08-08 08:58:26] Kliknięto: Ustawienia
+[2025-08-08 08:58:27] Kliknięto: Użytkownicy
+[2025-08-08 08:58:27] Kliknięto: Maszyny
+[2025-08-08 08:58:28] Kliknięto: Narzędzia
+[2025-08-08 08:58:29] Kliknięto: Zlecenia
+[2025-08-08 08:58:30] Kliknięto: Narzędzia
+[2025-08-08 15:55:27] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 15:55:28] Kliknięto: Ustawienia
+[2025-08-08 15:55:29] Kliknięto: Użytkownicy
+[2025-08-08 15:55:29] Kliknięto: Maszyny
+[2025-08-08 15:55:30] Kliknięto: Narzędzia
+[2025-08-08 15:55:30] Kliknięto: Zlecenia
+[2025-08-08 16:01:18] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:01:19] Kliknięto: Ustawienia
+[2025-08-08 16:01:20] Kliknięto: Użytkownicy
+[2025-08-08 16:01:20] Kliknięto: Maszyny
+[2025-08-08 16:01:21] Kliknięto: Narzędzia
+[2025-08-08 16:01:22] Kliknięto: Zlecenia
+[2025-08-08 16:04:51] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:04:53] Kliknięto: Ustawienia
+[2025-08-08 16:04:54] Kliknięto: Użytkownicy
+[2025-08-08 16:04:55] Kliknięto: Maszyny
+[2025-08-08 16:04:56] Kliknięto: Narzędzia
+[2025-08-08 16:04:56] Kliknięto: Zlecenia
+[2025-08-08 16:20:26] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:20:28] Kliknięto: Zlecenia
+[2025-08-08 16:20:29] Kliknięto: Narzędzia
+[2025-08-08 16:20:31] Kliknięto: Maszyny
+[2025-08-08 16:20:31] Kliknięto: Użytkownicy
+[2025-08-08 16:20:32] Kliknięto: Ustawienia
+[2025-08-08 16:20:33] Wylogowano użytkownika – powrót do ekranu logowania
+[2025-08-08 16:20:37] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:20:40] Wylogowano użytkownika – powrót do ekranu logowania
+[2025-08-08 16:20:41] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:20:44] Kliknięto: Ustawienia
+[2025-08-08 16:20:44] Zamknięto aplikację z panelu głównego
+[2025-08-08 16:22:07] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 16:22:07] Zalogowano: edwin (brygadzista)
+[2025-08-08 16:22:10] Otworzono: Zlecenia
+[2025-08-08 16:22:10] Otworzono: Narzędzia
+[2025-08-08 16:22:11] Otworzono: Użytkownicy
+[2025-08-08 16:22:12] Zamknięto aplikację z panelu głównego
+[2025-08-08 16:25:34] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 16:25:34] Zalogowano: edwin (brygadzista)
+[2025-08-08 16:25:37] Otworzono: Użytkownicy
+[2025-08-08 16:25:38] Otworzono: Maszyny
+[2025-08-08 16:25:38] Otworzono: Narzędzia
+[2025-08-08 16:25:39] Otworzono: Zlecenia
+[2025-08-08 16:25:40] Otworzono: Narzędzia
+[2025-08-08 16:25:54] Otworzono: Maszyny
+[2025-08-08 16:25:55] Otworzono: Użytkownicy
+[2025-08-08 16:25:57] Wylogowano: edwin
+[2025-08-08 16:30:07] Otworzono: Zlecenia
+[2025-08-08 16:30:08] Otworzono: Narzędzia
+[2025-08-08 16:30:09] Otworzono: Maszyny
+[2025-08-08 16:30:10] Otworzono: Użytkownicy
+[2025-08-08 16:30:11] Otworzono: Ustawienia
+[2025-08-08 16:30:12] Wylogowanie – powrót do ekranu logowania
+[2025-08-08 16:30:15] Otworzono: Zlecenia
+[2025-08-08 16:30:32] Zamknięcie programu z panelu
+[2025-08-08 16:32:58] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:33:09] Zamknięto aplikację z panelu głównego
+[2025-08-08 16:34:36] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 16:34:53] Zamknięto aplikację
+[2025-08-08 18:08:46] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:08:55] Wylogowano użytkownika
+[2025-08-08 18:08:59] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:13:10] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:13:21] Wylogowano użytkownika – powrót do ekranu logowania
+[2025-08-08 18:13:51] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:13:56] Zamknięto aplikację z panelu głównego
+[2025-08-08 18:14:52] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:15:02] Wylogowano użytkownika – powrót do logowania
+[2025-08-08 18:16:33] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:16:36] Zamknięto aplikację z panelu głównego
+[2025-08-08 18:17:22] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:17:23] Kliknięto: Maszyny
+[2025-08-08 18:17:24] Kliknięto: Narzędzia
+[2025-08-08 18:17:25] Kliknięto: Zlecenia
+[2025-08-08 18:17:27] Wylogowano użytkownika – powrót do logowania
+[2025-08-08 18:17:28] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:17:30] Kliknięto: Narzędzia
+[2025-08-08 18:17:34] Wylogowano użytkownika – powrót do logowania
+[2025-08-08 18:17:37] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:17:40] Zamknięto aplikację z panelu głównego
+[2025-08-08 18:17:44] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:17:47] Wylogowano użytkownika – powrót do logowania
+[2025-08-08 18:17:48] Kliknięto: Zlecenia (start domyślny)
+[2025-08-08 18:17:50] Zamknięto aplikację z panelu głównego
+[2025-08-08 18:24:32] Błąd krytyczny przy starcie programu: name 'apply_theme' is not defined
+[2025-08-08 19:49:04] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 19:49:06] Otworzono: Zlecenia
+[2025-08-08 19:49:06] Otworzono: Narzędzia
+[2025-08-08 19:49:08] Otworzono: Użytkownicy
+[2025-08-08 19:49:09] Otworzono: Maszyny
+[2025-08-08 19:49:09] Otworzono: Maszyny
+[2025-08-08 19:49:10] Otworzono: Narzędzia
+[2025-08-08 19:49:10] Otworzono: Maszyny
+[2025-08-08 19:49:11] Otworzono: Ustawienia
+[2025-08-08 19:49:13] Wylogowanie
+[2025-08-08 19:49:16] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 19:49:27] Zamykanie aplikacji
+[2025-08-08 19:51:07] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 19:51:14] Wylogowanie
+[2025-08-08 19:51:31] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 19:52:22] Zamykanie aplikacji
+[2025-08-08 20:53:54] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 20:53:57] Wylogowanie
+[2025-08-08 20:54:18] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 20:58:54] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 20:58:56] Wylogowanie
+[2025-08-08 20:58:59] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 20:59:00] Otworzono: Ustawienia
+[2025-08-08 20:59:00] Otworzono: Użytkownicy
+[2025-08-08 20:59:01] Otworzono: Maszyny
+[2025-08-08 20:59:01] Otworzono: Narzędzia
+[2025-08-08 20:59:02] Otworzono: Zlecenia
+[2025-08-08 20:59:03] Zamykanie aplikacji
+[2025-08-08 21:04:04] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 21:04:05] Otworzono: Zlecenia
+[2025-08-08 21:04:06] Otworzono: Narzędzia
+[2025-08-08 21:04:06] Błąd w Narzędzia: panel_narzedzia() takes 3 positional arguments but 4 were given
+[2025-08-08 21:17:30] Otworzono: Ustawienia
+[2025-08-08 21:17:31] Otworzono: Użytkownicy
+[2025-08-08 21:17:32] Otworzono: Maszyny
+[2025-08-08 21:17:32] Otworzono: Narzędzia
+[2025-08-08 21:17:32] Błąd w Narzędzia: panel_narzedzia() takes 3 positional arguments but 4 were given
+[2025-08-08 21:17:33] Otworzono: Zlecenia
+[2025-08-08 21:17:34] Zamykanie aplikacji
+[2025-08-08 22:31:39] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:31:48] Otworzono: Zlecenia
+[2025-08-08 22:31:49] Otworzono: Narzędzia
+[2025-08-08 22:32:24] Otworzono: Maszyny
+[2025-08-08 22:32:25] Otworzono: Narzędzia
+[2025-08-08 22:32:26] Otworzono: Zlecenia
+[2025-08-08 22:32:26] Otworzono: Narzędzia
+[2025-08-08 22:32:31] Otworzono: Narzędzia
+[2025-08-08 22:32:32] Otworzono: Zlecenia
+[2025-08-08 22:32:32] Otworzono: Narzędzia
+[2025-08-08 22:32:33] Otworzono: Maszyny
+[2025-08-08 22:32:33] Otworzono: Narzędzia
+[2025-08-08 22:37:02] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:37:03] Otworzono: Narzędzia
+[2025-08-08 22:37:04] Otworzono: Maszyny
+[2025-08-08 22:37:05] Otworzono: Narzędzia
+[2025-08-08 22:37:16] Otworzono: Narzędzia
+[2025-08-08 22:37:26] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:37:27] Otworzono: Maszyny
+[2025-08-08 22:37:27] Otworzono: Narzędzia
+[2025-08-08 22:42:20] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:42:21] Otworzono: Narzędzia
+[2025-08-08 22:42:25] Zamykanie aplikacji
+[2025-08-08 22:42:54] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:42:55] Otworzono: Narzędzia
+[2025-08-08 22:42:58] Zamykanie aplikacji
+[2025-08-08 22:46:55] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:46:56] Otworzono: Narzędzia
+[2025-08-08 22:52:37] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:52:38] Otworzono: Narzędzia
+[2025-08-08 22:56:58] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:57:00] Otworzono: Narzędzia
+[2025-08-08 22:57:02] Otworzono: Maszyny
+[2025-08-08 22:57:03] Otworzono: Użytkownicy
+[2025-08-08 22:57:03] Otworzono: Ustawienia
+[2025-08-08 22:57:04] Otworzono: Narzędzia
+[2025-08-08 22:57:05] Otworzono: Zlecenia
+[2025-08-08 22:57:05] Otworzono: Narzędzia
+[2025-08-08 22:58:48] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 22:58:49] Otworzono: Ustawienia
+[2025-08-08 22:58:50] Otworzono: Użytkownicy
+[2025-08-08 22:58:50] Otworzono: Maszyny
+[2025-08-08 22:58:51] Otworzono: Narzędzia
+[2025-08-08 22:59:04] Zamykanie aplikacji
+[2025-08-08 23:00:08] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:00:09] Otworzono: Narzędzia
+[2025-08-08 23:00:10] Otworzono: Maszyny
+[2025-08-08 23:00:10] Otworzono: Narzędzia
+[2025-08-08 23:00:23] Otworzono: Zlecenia
+[2025-08-08 23:00:25] Otworzono: Narzędzia
+[2025-08-08 23:00:31] Zamykanie aplikacji
+[2025-08-08 23:01:56] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:01:58] Otworzono: Maszyny
+[2025-08-08 23:01:58] Otworzono: Narzędzia
+[2025-08-08 23:02:23] Otworzono: Narzędzia
+[2025-08-08 23:02:38] Otworzono: Narzędzia
+[2025-08-08 23:02:45] Otworzono: Narzędzia
+[2025-08-08 23:02:46] Zamykanie aplikacji
+[2025-08-08 23:03:15] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:03:17] Otworzono: Narzędzia
+[2025-08-08 23:03:52] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:03:54] Otworzono: Narzędzia
+[2025-08-08 23:05:36] Otworzono: Maszyny
+[2025-08-08 23:05:36] Otworzono: Narzędzia
+[2025-08-08 23:06:03] Otworzono: Maszyny
+[2025-08-08 23:06:04] Otworzono: Narzędzia
+[2025-08-08 23:06:05] Otworzono: Zlecenia
+[2025-08-08 23:06:06] Otworzono: Narzędzia
+[2025-08-08 23:06:13] Zamykanie aplikacji
+[2025-08-08 23:06:44] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:06:45] Otworzono: Narzędzia
+[2025-08-08 23:06:59] Zamykanie aplikacji
+[2025-08-08 23:12:16] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:12:19] Otworzono: Ustawienia
+[2025-08-08 23:12:20] Otworzono: Użytkownicy
+[2025-08-08 23:12:21] Otworzono: Maszyny
+[2025-08-08 23:12:23] Otworzono: Ustawienia
+[2025-08-08 23:12:26] Otworzono: Narzędzia
+[2025-08-08 23:12:36] Wylogowanie
+[2025-08-08 23:13:25] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:13:26] Otworzono: Narzędzia
+[2025-08-08 23:15:54] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:15:55] Otworzono: Narzędzia
+[2025-08-08 23:16:18] Wylogowanie
+[2025-08-08 23:16:42] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:16:43] Otworzono: Narzędzia
+[2025-08-08 23:16:49] Zamykanie aplikacji
+[2025-08-08 23:21:03] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:21:04] Otworzono: Narzędzia
+[2025-08-08 23:21:10] Zamykanie aplikacji
+[2025-08-08 23:23:42] Otworzono: Zlecenia (start domyślny)
+[2025-08-08 23:23:43] Otworzono: Użytkownicy
+[2025-08-08 23:23:44] Otworzono: Maszyny
+[2025-08-08 23:23:45] Otworzono: Narzędzia
+[2025-08-08 23:23:58] Otworzono: Użytkownicy
+[2025-08-08 23:23:59] Otworzono: Maszyny
+[2025-08-08 23:24:01] Zamykanie aplikacji
+[2025-08-09 14:54:15] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 14:54:16] Otworzono: Narzędzia
+[2025-08-09 14:54:31] Otworzono: Zlecenia
+[2025-08-09 14:54:33] Zamykanie aplikacji
+[2025-08-09 14:57:41] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 14:57:43] Otworzono: Zlecenia
+[2025-08-09 14:57:43] Otworzono: Narzędzia
+[2025-08-09 14:58:20] Otworzono: Zlecenia
+[2025-08-09 14:58:21] Otworzono: Narzędzia
+[2025-08-09 14:58:27] Otworzono: Zlecenia
+[2025-08-09 14:58:32] Zamykanie aplikacji
+[2025-08-09 15:00:19] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 15:00:26] Otworzono: Ustawienia
+[2025-08-09 15:00:27] Otworzono: Użytkownicy
+[2025-08-09 15:00:27] Otworzono: Maszyny
+[2025-08-09 15:00:28] Otworzono: Narzędzia
+[2025-08-09 15:00:29] Otworzono: Zlecenia
+[2025-08-09 15:00:30] Otworzono: Narzędzia
+[2025-08-09 15:00:49] Otworzono: Maszyny
+[2025-08-09 15:00:50] Otworzono: Użytkownicy
+[2025-08-09 15:00:51] Otworzono: Zlecenia
+[2025-08-09 15:00:51] Otworzono: Narzędzia
+[2025-08-09 15:00:58] Zamykanie aplikacji
+[2025-08-09 15:02:49] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 15:02:51] Otworzono: Narzędzia
+[2025-08-09 15:04:13] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 15:04:14] Otworzono: Narzędzia
+[2025-08-09 15:04:36] Zamykanie aplikacji
+[2025-08-09 15:09:03] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 15:09:04] Otworzono: Maszyny
+[2025-08-09 15:09:05] Otworzono: Narzędzia
+[2025-08-09 15:09:05] Otworzono: Zlecenia
+[2025-08-09 15:09:06] Otworzono: Użytkownicy
+[2025-08-09 15:09:07] Otworzono: Ustawienia
+[2025-08-09 15:09:10] Otworzono: Maszyny
+[2025-08-09 15:09:10] Otworzono: Narzędzia
+[2025-08-09 15:09:11] Otworzono: Zlecenia
+[2025-08-09 15:09:12] Otworzono: Narzędzia
+[2025-08-09 15:09:23] Zamykanie aplikacji
+[2025-08-09 17:06:09] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:06:11] Otworzono: Narzędzia
+[2025-08-09 17:06:19] Zamykanie aplikacji
+[2025-08-09 17:06:41] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:06:42] Otworzono: Narzędzia
+[2025-08-09 17:06:56] Zamykanie aplikacji
+[2025-08-09 17:18:21] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:18:22] Otworzono: Narzędzia
+[2025-08-09 17:18:25] Zamykanie aplikacji
+[2025-08-09 17:23:15] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:23:16] Otworzono: Narzędzia
+[2025-08-09 17:23:17] Otworzono: Zlecenia
+[2025-08-09 17:23:17] Otworzono: Narzędzia
+[2025-08-09 17:23:22] Otworzono: Zlecenia
+[2025-08-09 17:23:22] Otworzono: Narzędzia
+[2025-08-09 17:23:23] Zamykanie aplikacji
+[2025-08-09 17:23:28] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:23:29] Otworzono: Narzędzia
+[2025-08-09 17:23:29] Otworzono: Narzędzia
+[2025-08-09 17:23:29] Otworzono: Narzędzia
+[2025-08-09 17:23:30] Otworzono: Narzędzia
+[2025-08-09 17:23:30] Otworzono: Narzędzia
+[2025-08-09 17:23:35] Otworzono: Narzędzia
+[2025-08-09 17:25:21] Otworzono: Użytkownicy
+[2025-08-09 17:25:22] Otworzono: Maszyny
+[2025-08-09 17:25:23] Otworzono: Narzędzia
+[2025-08-09 17:25:23] Otworzono: Zlecenia
+[2025-08-09 17:25:25] Wylogowanie
+[2025-08-09 17:28:19] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 17:28:20] Otworzono: Narzędzia
+[2025-08-09 17:28:42] Otworzono: Maszyny
+[2025-08-09 17:28:42] Otworzono: Narzędzia
+[2025-08-09 17:28:43] Otworzono: Zlecenia
+[2025-08-09 17:28:44] Otworzono: Narzędzia
+[2025-08-09 17:28:46] Zamykanie aplikacji
+[2025-08-09 22:33:40] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 22:33:41] Otworzono: Zlecenia
+[2025-08-09 22:33:41] Otworzono: Narzędzia
+[2025-08-09 22:34:06] Otworzono: Użytkownicy
+[2025-08-09 22:34:07] Otworzono: Ustawienia
+[2025-08-09 22:34:08] Zamykanie aplikacji
+[2025-08-09 23:00:17] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:00:18] Otworzono: Narzędzia
+[2025-08-09 23:00:21] Otworzono: Ustawienia
+[2025-08-09 23:00:23] Zamykanie aplikacji
+[2025-08-09 23:03:47] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:03:52] Otworzono: Narzędzia
+[2025-08-09 23:03:54] Otworzono: Ustawienia
+[2025-08-09 23:03:55] Otworzono: Użytkownicy
+[2025-08-09 23:03:55] Otworzono: Maszyny
+[2025-08-09 23:03:56] Otworzono: Narzędzia
+[2025-08-09 23:04:39] Zamykanie aplikacji
+[2025-08-09 23:14:09] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:14:10] Otworzono: Narzędzia
+[2025-08-09 23:15:57] Zamykanie aplikacji
+[2025-08-09 23:17:00] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:17:02] Otworzono: Narzędzia
+[2025-08-09 23:17:14] Otworzono: Maszyny
+[2025-08-09 23:17:14] Otworzono: Narzędzia
+[2025-08-09 23:17:16] Otworzono: Narzędzia
+[2025-08-09 23:20:20] Wylogowanie
+[2025-08-09 23:20:30] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:20:31] Otworzono: Narzędzia
+[2025-08-09 23:20:53] Wylogowanie
+[2025-08-09 23:20:56] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:20:57] Otworzono: Narzędzia
+[2025-08-09 23:21:14] Wylogowanie
+[2025-08-09 23:21:16] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:21:17] Otworzono: Narzędzia
+[2025-08-09 23:22:11] Otworzono: Maszyny
+[2025-08-09 23:23:32] Otworzono: Narzędzia
+[2025-08-09 23:23:33] Otworzono: Zlecenia
+[2025-08-09 23:23:33] Otworzono: Narzędzia
+[2025-08-09 23:23:45] Zamykanie aplikacji
+[2025-08-09 23:24:00] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:24:01] Otworzono: Narzędzia
+[2025-08-09 23:25:44] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:25:46] Otworzono: Narzędzia
+[2025-08-09 23:26:38] Zamykanie aplikacji
+[2025-08-09 23:28:47] Otworzono: Zlecenia (start domyślny)
+[2025-08-09 23:28:48] Otworzono: Narzędzia
+[2025-08-09 23:35:29] Błąd krytyczny przy starcie programu: not enough values to unpack (expected 3, got 2)
+[2025-08-09 23:40:31] Kliknięto: Zlecenia (start)
+[2025-08-09 23:40:45] Kliknięto: Zlecenia (start)
+[2025-08-09 23:40:47] Kliknięto: Maszyny
+[2025-08-09 23:40:47] Kliknięto: Narzędzia
+[2025-08-09 23:51:39] Kliknięto: Zlecenia (start)
+[2025-08-09 23:56:48] Kliknięto: Zlecenia (start)
+[2025-08-09 23:56:50] Kliknięto: Ustawienia
+[2025-08-09 23:56:51] Kliknięto: Użytkownicy
+[2025-08-09 23:56:52] Kliknięto: Maszyny
+[2025-08-09 23:56:53] Kliknięto: Narzędzia
+[2025-08-09 23:56:54] Kliknięto: Zlecenia
+[2025-08-09 23:56:55] Kliknięto: Narzędzia
+[2025-08-09 23:56:56] Kliknięto: Ustawienia
+[2025-08-09 23:56:57] Kliknięto: Użytkownicy
+[2025-08-09 23:56:57] Kliknięto: Maszyny
+[2025-08-09 23:56:58] Kliknięto: Narzędzia
+[2025-08-09 23:57:05] Kliknięto: Ustawienia
+[2025-08-10 00:01:07] Kliknięto: Zlecenia (start)
+[2025-08-10 00:01:10] Kliknięto: Narzędzia
+[2025-08-10 00:02:18] Kliknięto: Ustawienia
+[2025-08-10 00:02:18] Kliknięto: Użytkownicy
+[2025-08-10 00:08:40] Kliknięto: Zlecenia (start)
+[2025-08-10 00:08:42] Kliknięto: Narzędzia
+[2025-08-10 00:08:42] Kliknięto: Ustawienia
+[2025-08-10 00:09:09] Kliknięto: Ustawienia
+[2025-08-10 00:11:03] Kliknięto: Zlecenia (start)
+[2025-08-10 00:11:04] Kliknięto: Ustawienia
+[2025-08-10 00:11:05] Kliknięto: Użytkownicy
+[2025-08-10 00:11:06] Kliknięto: Maszyny
+[2025-08-10 00:11:06] Kliknięto: Narzędzia
+[2025-08-10 00:11:15] Kliknięto: Ustawienia
+[2025-08-10 00:11:40] Kliknięto: Narzędzia
+[2025-08-10 00:22:48] Kliknięto: Zlecenia (start)
+[2025-08-10 00:22:49] Kliknięto: Narzędzia
+[2025-08-10 00:28:45] Kliknięto: Zlecenia (start)
+[2025-08-10 00:28:46] Kliknięto: Maszyny
+[2025-08-10 00:28:46] Kliknięto: Narzędzia
+[2025-08-10 12:03:56] Kliknięto: Zlecenia (start)
+[2025-08-10 12:03:59] Kliknięto: Maszyny
+[2025-08-10 12:04:00] Kliknięto: Narzędzia
+[2025-08-10 12:04:01] Kliknięto: Ustawienia
+[2025-08-10 12:05:27] Kliknięto: Użytkownicy
+[2025-08-10 12:05:28] Kliknięto: Maszyny
+[2025-08-10 12:05:29] Kliknięto: Ustawienia
+[2025-08-10 12:06:20] Kliknięto: Ustawienia
+[2025-08-10 12:06:20] Kliknięto: Użytkownicy
+[2025-08-10 12:06:21] Kliknięto: Ustawienia
+[2025-08-10 12:06:22] Kliknięto: Maszyny
+[2025-08-10 12:06:22] Kliknięto: Narzędzia
+[2025-08-10 12:08:25] Kliknięto: Zlecenia (start)
+[2025-08-10 12:08:27] Kliknięto: Ustawienia
+[2025-08-10 12:08:29] Kliknięto: Użytkownicy
+[2025-08-10 12:08:30] Kliknięto: Maszyny
+[2025-08-10 12:08:31] Kliknięto: Użytkownicy
+[2025-08-10 12:08:31] Kliknięto: Użytkownicy
+[2025-08-10 18:34:59] Kliknięto: Zlecenia (start)
+[2025-08-10 18:35:00] Kliknięto: Narzędzia
+[2025-08-10 18:35:01] Kliknięto: Maszyny
+[2025-08-10 18:35:03] Kliknięto: Ustawienia
+[2025-08-10 18:35:05] Kliknięto: Użytkownicy
+[2025-08-10 18:35:05] Kliknięto: Maszyny
+[2025-08-10 18:35:06] Kliknięto: Narzędzia
+[2025-08-10 18:35:06] Kliknięto: Zlecenia
+[2025-08-10 18:35:07] Kliknięto: Narzędzia
+[2025-08-11 06:20:15] Kliknięto: Zlecenia (start)
+[2025-08-11 06:20:17] Kliknięto: Narzędzia
+[2025-08-11 06:21:01] Kliknięto: Zlecenia (start)
+[2025-08-11 06:21:03] Kliknięto: Narzędzia
+[2025-08-11 06:21:18] Kliknięto: Zlecenia (start)
+[2025-08-11 06:21:20] Kliknięto: Narzędzia
+[2025-08-11 06:22:01] Kliknięto: Zlecenia (start)
+[2025-08-11 06:22:02] Kliknięto: Narzędzia
+[2025-08-11 06:22:16] Kliknięto: Użytkownicy
+[2025-08-11 06:22:16] Kliknięto: Maszyny
+[2025-08-11 06:22:17] Kliknięto: Narzędzia
+[2025-08-11 06:22:17] Kliknięto: Zlecenia
+[2025-08-11 06:22:18] Kliknięto: Narzędzia
+[2025-08-11 06:22:22] Kliknięto: Ustawienia
+[2025-08-11 06:22:27] Kliknięto: Użytkownicy
+[2025-08-11 06:22:28] Kliknięto: Maszyny
+[2025-08-11 06:22:28] Kliknięto: Narzędzia
+[2025-08-11 06:27:52] Kliknięto: Zlecenia (start)
+[2025-08-11 06:27:56] Kliknięto: Ustawienia
+[2025-08-11 06:28:00] Kliknięto: Użytkownicy
+[2025-08-11 06:28:01] Kliknięto: Maszyny
+[2025-08-11 06:28:02] Kliknięto: Narzędzia
+[2025-08-11 06:28:29] Kliknięto: Użytkownicy
+[2025-08-11 06:28:30] Kliknięto: Użytkownicy
+[2025-08-11 06:28:31] Kliknięto: Maszyny
+[2025-08-11 06:28:32] Kliknięto: Narzędzia
+[2025-08-11 06:28:34] Kliknięto: Użytkownicy
+[2025-08-11 06:28:38] Kliknięto: Narzędzia
+[2025-08-11 06:29:42] Kliknięto: Narzędzia
+[2025-08-11 06:29:42] Kliknięto: Zlecenia
+[2025-08-11 06:29:43] Kliknięto: Narzędzia
+[2025-08-11 06:30:38] Kliknięto: Maszyny
+[2025-08-11 06:30:38] Kliknięto: Narzędzia
+[2025-08-11 06:31:42] Kliknięto: Maszyny
+[2025-08-11 06:31:42] Kliknięto: Narzędzia
+[2025-08-11 06:38:30] Kliknięto: Zlecenia (start)
+[2025-08-11 06:41:02] Kliknięto: Użytkownicy
+[2025-08-11 06:41:03] Kliknięto: Ustawienia
+[2025-08-11 06:41:55] Kliknięto: Zlecenia (start)
+[2025-08-11 06:41:58] Kliknięto: Narzędzia
+[2025-08-11 06:41:58] Kliknięto: Narzędzia
+[2025-08-11 07:35:22] Kliknięto: Użytkownicy
+[2025-08-11 07:35:23] Kliknięto: Maszyny
+[2025-08-11 07:35:23] Kliknięto: Narzędzia
+[2025-08-11 08:02:28] Kliknięto: Użytkownicy
+[2025-08-11 08:02:28] Kliknięto: Maszyny
+[2025-08-11 08:02:29] Kliknięto: Narzędzia
+[2025-08-11 08:02:30] Kliknięto: Ustawienia
+[2025-08-11 08:02:40] Kliknięto: Narzędzia
+[2025-08-11 08:54:27] Kliknięto: Użytkownicy
+[2025-08-11 08:54:27] Kliknięto: Narzędzia
+[2025-08-11 08:58:36] Kliknięto: Maszyny
+[2025-08-11 08:58:36] Kliknięto: Narzędzia
+[2025-08-11 09:03:13] Kliknięto: Zlecenia (start)
+[2025-08-11 09:03:15] Kliknięto: Narzędzia
+[2025-08-11 09:04:35] Kliknięto: Zlecenia (start)
+[2025-08-11 09:04:36] Kliknięto: Narzędzia
+[2025-08-11 09:05:47] Kliknięto: Zlecenia (start)
+[2025-08-11 09:05:49] Kliknięto: Narzędzia
+[2025-08-11 09:05:55] Kliknięto: Narzędzia
+[2025-08-11 09:07:54] Kliknięto: Narzędzia
+[2025-08-11 09:08:08] Kliknięto: Użytkownicy
+[2025-08-11 09:08:09] Kliknięto: Maszyny
+[2025-08-11 09:08:10] Kliknięto: Użytkownicy
+[2025-08-11 09:08:10] Kliknięto: Ustawienia
+[2025-08-11 09:08:28] Kliknięto: Narzędzia
+[2025-08-11 09:16:42] Kliknięto: Zlecenia (start)
+[2025-08-11 09:16:44] Kliknięto: Narzędzia
+[2025-08-11 09:16:44] Kliknięto: Narzędzia
+[2025-08-11 09:23:00] Kliknięto: Zlecenia (start)
+[2025-08-11 09:23:01] Kliknięto: Narzędzia
+[2025-08-11 09:23:34] Kliknięto: Zlecenia (start)
+[2025-08-11 09:23:35] Kliknięto: Narzędzia
+[2025-08-11 09:31:00] Kliknięto: Maszyny
+[2025-08-11 09:31:04] Kliknięto: Zlecenia
+[2025-08-11 09:31:06] Kliknięto: Zlecenia
+[2025-08-11 09:31:07] Kliknięto: Narzędzia
+[2025-08-11 09:41:59] Kliknięto: Maszyny
+[2025-08-11 09:42:00] Kliknięto: Narzędzia
+[2025-08-11 09:42:00] Kliknięto: Zlecenia
+[2025-08-11 09:42:01] Kliknięto: Narzędzia
+[2025-08-11 09:42:17] Kliknięto: Zlecenia
+[2025-08-11 09:42:18] Kliknięto: Narzędzia
+[2025-08-11 09:42:26] Kliknięto: Zlecenia
+[2025-08-11 09:42:27] Kliknięto: Narzędzia
+[2025-08-11 09:42:28] Kliknięto: Zlecenia
+[2025-08-11 09:42:30] Kliknięto: Maszyny
+[2025-08-11 09:42:30] Kliknięto: Narzędzia
+[2025-08-11 09:42:31] Kliknięto: Zlecenia
+[2025-08-11 09:42:31] Kliknięto: Maszyny
+[2025-08-11 09:42:32] Kliknięto: Narzędzia
+[2025-08-11 09:42:32] Kliknięto: Zlecenia
+[2025-08-11 09:42:33] Kliknięto: Narzędzia
+[2025-08-11 09:42:33] Kliknięto: Maszyny
+[2025-08-11 09:42:34] Kliknięto: Zlecenia
+[2025-08-11 09:42:35] Kliknięto: Narzędzia
+[2025-08-11 10:05:43] Kliknięto: Zlecenia (start)
+[2025-08-11 10:05:45] Kliknięto: Narzędzia
+[2025-08-11 10:09:22] Kliknięto: Maszyny
+[2025-08-11 10:09:23] Kliknięto: Narzędzia
+[2025-08-11 10:09:30] Kliknięto: Zlecenia (start)
+[2025-08-11 10:09:32] Kliknięto: Ustawienia
+[2025-08-11 10:10:15] Kliknięto: Narzędzia
+[2025-08-11 10:10:37] Kliknięto: Narzędzia
+[2025-08-11 10:11:04] Kliknięto: Narzędzia
+[2025-08-11 10:11:04] Kliknięto: Maszyny
+[2025-08-11 10:11:05] Kliknięto: Narzędzia
+[2025-08-11 10:11:06] Kliknięto: Zlecenia
+[2025-08-11 10:11:10] Kliknięto: Zlecenia
+[2025-08-11 10:11:10] Kliknięto: Narzędzia
+[2025-08-11 10:12:17] Kliknięto: Maszyny
+[2025-08-11 10:12:18] Kliknięto: Narzędzia
+[2025-08-11 10:12:20] Kliknięto: Maszyny
+[2025-08-11 10:14:06] Kliknięto: Zlecenia (start)
+[2025-08-11 10:14:09] Kliknięto: Użytkownicy
+[2025-08-11 10:14:10] Kliknięto: Maszyny
+[2025-08-11 10:15:34] Kliknięto: Ustawienia
+[2025-08-11 10:15:37] Kliknięto: Użytkownicy
+[2025-08-11 10:15:38] Kliknięto: Maszyny
+[2025-08-11 10:16:03] Kliknięto: Narzędzia
+[2025-08-11 10:16:06] Kliknięto: Narzędzia
+[2025-08-11 10:16:07] Kliknięto: Maszyny
+[2025-08-11 10:16:07] Kliknięto: Narzędzia
+[2025-08-11 10:16:54] Kliknięto: Maszyny
+[2025-08-11 10:16:54] Kliknięto: Zlecenia
+[2025-08-11 10:21:35] Kliknięto: Maszyny
+[2025-08-11 10:21:36] Kliknięto: Narzędzia
+[2025-08-11 10:21:37] Kliknięto: Maszyny
+[2025-08-11 10:21:38] Kliknięto: Narzędzia
+[2025-08-11 10:21:39] Kliknięto: Maszyny
+[2025-08-11 10:21:39] Kliknięto: Narzędzia
+[2025-08-11 10:21:40] Kliknięto: Maszyny
+[2025-08-11 10:21:40] Kliknięto: Narzędzia
+[2025-08-11 10:21:41] Kliknięto: Maszyny
+[2025-08-11 10:21:42] Kliknięto: Narzędzia
+[2025-08-11 10:21:43] Kliknięto: Ustawienia
+[2025-08-11 10:21:44] Kliknięto: Użytkownicy
+[2025-08-11 10:21:44] Kliknięto: Maszyny
+[2025-08-11 10:21:45] Kliknięto: Narzędzia
+[2025-08-11 10:21:45] Kliknięto: Zlecenia
+[2025-08-11 10:25:47] Kliknięto: Narzędzia
+[2025-08-11 12:46:27] Kliknięto: Narzędzia
+[2025-08-11 12:46:28] Kliknięto: Zlecenia
+[2025-08-11 12:46:29] Kliknięto: Narzędzia
+[2025-08-11 12:46:29] Kliknięto: Maszyny
+[2025-08-11 12:46:30] Kliknięto: Narzędzia
+[2025-08-11 13:25:08] Kliknięto: Zlecenia (start)
+[2025-08-11 13:25:12] Kliknięto: Narzędzia
+[2025-08-11 13:25:12] Kliknięto: Narzędzia
+[2025-08-11 13:25:13] Kliknięto: Narzędzia
+[2025-08-11 13:25:13] Kliknięto: Narzędzia
+[2025-08-11 13:25:13] Kliknięto: Narzędzia
+[2025-08-11 13:25:13] Kliknięto: Narzędzia
+[2025-08-11 13:25:14] Kliknięto: Narzędzia
+[2025-08-11 13:25:14] Kliknięto: Narzędzia
+[2025-08-11 13:25:14] Kliknięto: Narzędzia
+[2025-08-11 13:25:14] Kliknięto: Narzędzia
+[2025-08-11 13:25:14] Kliknięto: Narzędzia
+[2025-08-11 13:25:15] Kliknięto: Narzędzia
+[2025-08-11 13:25:15] Kliknięto: Maszyny
+[2025-08-11 13:25:15] Kliknięto: Narzędzia
+[2025-08-11 13:25:15] Kliknięto: Narzędzia
+[2025-08-11 13:25:16] Kliknięto: Narzędzia
+[2025-08-11 13:25:16] Kliknięto: Narzędzia
+[2025-08-11 13:25:16] Kliknięto: Narzędzia
+[2025-08-11 13:40:56] Kliknięto: Zlecenia (start)
+[2025-08-11 13:40:58] Kliknięto: Narzędzia
+[2025-08-11 13:40:58] Kliknięto: Narzędzia
+[2025-08-11 13:41:32] Kliknięto: Zlecenia (start)
+[2025-08-11 13:41:33] Kliknięto: Narzędzia
+[2025-08-11 13:46:12] Kliknięto: Zlecenia (start)
+[2025-08-11 13:46:13] Kliknięto: Narzędzia
+[2025-08-11 13:52:43] Kliknięto: Zlecenia (start)
+[2025-08-11 13:52:45] Kliknięto: Narzędzia
+[2025-08-11 13:55:24] Kliknięto: Narzędzia
+[2025-08-11 13:55:25] Kliknięto: Zlecenia
+[2025-08-11 13:55:26] Kliknięto: Narzędzia
+[2025-08-11 15:53:00] Kliknięto: Maszyny
+[2025-08-11 15:53:02] Kliknięto: Zlecenia
+[2025-08-11 15:53:03] Kliknięto: Maszyny
+[2025-08-11 15:53:03] Kliknięto: Narzędzia
+[2025-08-12 07:15:21] Kliknięto: Zlecenia (start)
+[2025-08-12 07:15:23] Kliknięto: Narzędzia
+[2025-08-12 07:19:30] Kliknięto: Narzędzia
+[2025-08-12 09:12:44] Kliknięto: Zlecenia (start)
+[2025-08-12 09:12:45] Kliknięto: Narzędzia
+[2025-08-12 09:12:47] Kliknięto: Narzędzia
+[2025-08-12 09:12:47] Kliknięto: Zlecenia
+[2025-08-12 09:12:48] Kliknięto: Narzędzia
+[2025-08-12 09:14:07] Kliknięto: Zlecenia (start)
+[2025-08-12 09:14:09] Kliknięto: Narzędzia
+[2025-08-12 09:15:27] Kliknięto: Zlecenia (start)
+[2025-08-12 09:15:29] Kliknięto: Narzędzia
+[2025-08-12 09:15:29] Kliknięto: Narzędzia
+[2025-08-12 09:15:30] Kliknięto: Zlecenia
+[2025-08-12 09:15:31] Kliknięto: Narzędzia
+[2025-08-12 09:15:31] Kliknięto: Maszyny
+[2025-08-12 09:15:32] Kliknięto: Użytkownicy
+[2025-08-12 09:15:32] Kliknięto: Maszyny
+[2025-08-12 09:15:33] Kliknięto: Ustawienia
+[2025-08-12 09:17:13] Kliknięto: Zlecenia (start)
+[2025-08-12 09:17:14] Kliknięto: Narzędzia
+[2025-08-12 09:17:15] Kliknięto: Narzędzia
+[2025-08-12 09:17:15] Kliknięto: Zlecenia
+[2025-08-12 09:17:16] Kliknięto: Narzędzia
+[2025-08-12 09:17:37] Kliknięto: Zlecenia (start)
+[2025-08-12 09:17:38] Kliknięto: Narzędzia
+[2025-08-12 09:19:41] Kliknięto: Zlecenia (start)
+[2025-08-12 09:19:42] Kliknięto: Narzędzia
+[2025-08-12 09:30:57] Kliknięto: Zlecenia (start)
+[2025-08-12 09:30:59] Kliknięto: Narzędzia
+[2025-08-12 09:31:28] Kliknięto: Narzędzia
+[2025-08-12 09:31:28] Kliknięto: Zlecenia
+[2025-08-12 09:31:29] Kliknięto: Narzędzia
+[2025-08-12 09:31:31] Kliknięto: Narzędzia
+[2025-08-12 09:31:31] Kliknięto: Narzędzia
+[2025-08-12 09:31:32] Kliknięto: Maszyny
+[2025-08-12 09:31:34] Kliknięto: Narzędzia
+[2025-08-12 09:31:35] Kliknięto: Narzędzia
+[2025-08-12 09:31:35] Kliknięto: Narzędzia
+[2025-08-12 10:11:09] Kliknięto: Zlecenia (start)
+[2025-08-12 10:11:11] Kliknięto: Narzędzia
+[2025-08-12 10:11:12] Kliknięto: Narzędzia
+[2025-08-12 10:11:21] Kliknięto: Maszyny
+[2025-08-12 10:11:21] Kliknięto: Narzędzia
+[2025-08-12 10:11:22] Kliknięto: Maszyny
+[2025-08-12 10:11:22] Kliknięto: Narzędzia
+[2025-08-12 10:11:23] Kliknięto: Maszyny
+[2025-08-12 10:11:23] Kliknięto: Narzędzia
+[2025-08-12 10:12:31] Kliknięto: Maszyny
+[2025-08-12 10:12:32] Kliknięto: Narzędzia
+[2025-08-12 10:12:37] Kliknięto: Zlecenia (start)
+[2025-08-12 10:12:40] Kliknięto: Narzędzia
+[2025-08-12 10:12:40] Kliknięto: Zlecenia
+[2025-08-12 10:15:14] Kliknięto: Zlecenia (start)
+[2025-08-12 10:15:15] Kliknięto: Narzędzia
+[2025-08-12 10:22:23] Kliknięto: Zlecenia (start)
+[2025-08-12 10:22:25] Kliknięto: Narzędzia
+[2025-08-12 10:22:25] Kliknięto: Zlecenia
+[2025-08-12 10:22:26] Kliknięto: Narzędzia
+[2025-08-12 10:22:26] Kliknięto: Narzędzia
+[2025-08-12 10:22:27] Kliknięto: Narzędzia
+[2025-08-12 11:31:06] Kliknięto: Zlecenia (start)
+[2025-08-12 11:31:07] Kliknięto: Narzędzia
+[2025-08-12 11:36:49] Kliknięto: Maszyny
+[2025-08-12 11:36:49] Kliknięto: Narzędzia
+[2025-08-12 11:36:50] Kliknięto: Maszyny
+[2025-08-12 11:36:50] Kliknięto: Narzędzia
+[2025-08-12 11:37:17] Kliknięto: Zlecenia (start)
+[2025-08-12 11:37:18] Kliknięto: Narzędzia
+[2025-08-12 12:04:00] Kliknięto: Zlecenia (start)
+[2025-08-12 12:04:02] Kliknięto: Narzędzia
+[2025-08-12 12:09:58] Kliknięto: Zlecenia (start)
+[2025-08-12 12:09:59] Kliknięto: Narzędzia
+[2025-08-12 12:14:32] Kliknięto: Zlecenia (start)
+[2025-08-12 12:14:33] Kliknięto: Narzędzia
+[2025-08-12 12:15:25] Kliknięto: Zlecenia (start)
+[2025-08-12 12:15:26] Kliknięto: Narzędzia
+[2025-08-12 12:27:42] Kliknięto: Zlecenia (start)
+[2025-08-12 12:27:44] Kliknięto: Narzędzia
+[2025-08-12 12:54:40] Kliknięto: Zlecenia (start)
+[2025-08-12 12:54:41] Kliknięto: Narzędzia
+[2025-08-12 12:55:04] Kliknięto: Zlecenia (start)
+[2025-08-12 12:55:08] Kliknięto: Narzędzia
+[2025-08-12 13:07:13] Kliknięto: Zlecenia (start)
+[2025-08-12 13:07:15] Kliknięto: Narzędzia
+[2025-08-12 13:07:15] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-12 13:18:07] Kliknięto: Zlecenia (start)
+[2025-08-12 13:18:08] Kliknięto: Narzędzia
+[2025-08-12 13:24:05] Kliknięto: Zlecenia (start)
+[2025-08-12 13:24:06] Kliknięto: Narzędzia
+[2025-08-12 13:24:06] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-12 13:25:12] Kliknięto: Maszyny
+[2025-08-12 13:25:13] Kliknięto: Narzędzia
+[2025-08-12 13:25:13] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-12 13:25:14] Kliknięto: Ustawienia
+[2025-08-12 13:25:15] Kliknięto: Narzędzia
+[2025-08-12 13:25:15] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-12 13:32:31] Kliknięto: Zlecenia (start)
+[2025-08-12 13:32:33] Kliknięto: Narzędzia
+[2025-08-12 13:32:33] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-13 07:05:03] Kliknięto: Zlecenia (start)
+[2025-08-13 07:05:05] Kliknięto: Narzędzia
+[2025-08-13 07:05:05] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-13 07:23:38] Kliknięto: Zlecenia (start)
+[2025-08-13 07:23:39] Kliknięto: Narzędzia
+[2025-08-13 08:06:57] Kliknięto: Zlecenia (start)
+[2025-08-13 08:06:58] Kliknięto: Narzędzia
+[2025-08-13 08:06:58] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-13 08:10:08] Kliknięto: Maszyny
+[2025-08-13 08:10:09] Kliknięto: Narzędzia
+[2025-08-13 08:10:09] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-13 08:10:09] Kliknięto: Maszyny
+[2025-08-13 08:10:10] Kliknięto: Narzędzia
+[2025-08-13 08:10:10] Błąd przy otwieraniu panelu Narzędzia: unknown option "-bg"
+[2025-08-13 08:10:19] Kliknięto: Zlecenia (start)
+[2025-08-13 08:10:21] Kliknięto: Narzędzia
+[2025-08-13 08:23:10] Kliknięto: Maszyny
+[2025-08-13 08:23:11] Kliknięto: Narzędzia
+[2025-08-13 08:23:22] Kliknięto: Zlecenia (start)
+[2025-08-13 08:23:24] Kliknięto: Narzędzia
+[2025-08-13 09:06:47] Kliknięto: Zlecenia (start)
+[2025-08-13 09:06:48] Kliknięto: Narzędzia
+[2025-08-13 09:56:30] Kliknięto: Zlecenia (start)
+[2025-08-13 09:56:32] Kliknięto: Narzędzia
+[2025-08-13 09:57:42] Kliknięto: Ustawienia
+[2025-08-13 09:57:43] Kliknięto: Użytkownicy
+[2025-08-13 09:57:44] Kliknięto: Zlecenia
+[2025-08-13 09:57:44] Kliknięto: Zlecenia
+[2025-08-13 09:57:45] Kliknięto: Narzędzia
+[2025-08-13 10:26:21] Kliknięto: Zlecenia (start)
+[2025-08-13 10:26:24] Kliknięto: Narzędzia
+[2025-08-13 10:35:24] Kliknięto: Zlecenia (start)
+[2025-08-13 10:35:26] Kliknięto: Narzędzia
+[2025-08-13 10:40:28] Kliknięto: Zlecenia (start)
+[2025-08-13 10:40:30] Kliknięto: Narzędzia
+[2025-08-13 10:53:54] Kliknięto: Narzędzia
+[2025-08-13 10:53:54] Kliknięto: Zlecenia
+[2025-08-13 10:53:55] Kliknięto: Narzędzia
+[2025-08-13 10:53:55] Kliknięto: Zlecenia
+[2025-08-13 10:53:56] Kliknięto: Narzędzia
+[2025-08-13 10:54:06] Kliknięto: Zlecenia (start)
+[2025-08-13 10:54:07] Kliknięto: Narzędzia
+[2025-08-13 10:54:13] Kliknięto: Maszyny
+[2025-08-13 10:54:14] Kliknięto: Narzędzia
+[2025-08-13 10:54:19] Kliknięto: Zlecenia (start)
+[2025-08-13 10:54:20] Kliknięto: Narzędzia
+[2025-08-13 11:07:00] Kliknięto: Zlecenia (start)
+[2025-08-13 11:07:01] Kliknięto: Narzędzia
+[2025-08-13 11:11:03] Kliknięto: Zlecenia (start)
+[2025-08-13 11:11:05] Kliknięto: Zlecenia
+[2025-08-13 11:11:05] Kliknięto: Zlecenia
+[2025-08-13 11:11:06] Kliknięto: Narzędzia
+[2025-08-13 11:11:06] Kliknięto: Maszyny
+[2025-08-13 11:11:07] Kliknięto: Użytkownicy
+[2025-08-13 11:11:08] Kliknięto: Ustawienia
+[2025-08-13 11:29:47] Kliknięto: Zlecenia (start)
+[2025-08-13 11:29:48] Kliknięto: Narzędzia
+[2025-08-13 11:29:53] Kliknięto: Użytkownicy
+[2025-08-13 11:29:53] Kliknięto: Ustawienia
+[2025-08-13 11:30:10] Kliknięto: Zlecenia (start)
+[2025-08-13 11:30:12] Kliknięto: Narzędzia
+[2025-08-13 11:30:14] Kliknięto: Użytkownicy
+[2025-08-13 11:30:15] Kliknięto: Maszyny
+[2025-08-13 11:30:16] Kliknięto: Ustawienia
+[2025-08-13 11:30:32] Kliknięto: Narzędzia
+[2025-08-13 11:30:32] Kliknięto: Narzędzia
+[2025-08-13 11:41:22] Kliknięto: Zlecenia (start)
+[2025-08-13 11:41:23] Kliknięto: Ustawienia
+[2025-08-13 11:41:31] Kliknięto: Maszyny
+[2025-08-13 11:41:31] Kliknięto: Narzędzia
+[2025-08-13 11:42:05] Kliknięto: Ustawienia
+[2025-08-13 12:03:50] Kliknięto: Zlecenia (start)
+[2025-08-13 12:03:51] Kliknięto: Narzędzia
+[2025-08-13 12:03:53] Kliknięto: Ustawienia
+[2025-08-13 12:03:54] Kliknięto: Użytkownicy
+[2025-08-13 12:03:55] Kliknięto: Narzędzia
+[2025-08-13 12:17:20] Kliknięto: Zlecenia (start)
+[2025-08-13 12:17:21] Kliknięto: Narzędzia
+[2025-08-13 12:17:23] Kliknięto: Ustawienia
+[2025-08-13 12:17:27] Kliknięto: Narzędzia
+[2025-08-13 12:20:38] Kliknięto: Zlecenia (start)
+[2025-08-13 12:20:40] Kliknięto: Narzędzia
+[2025-08-13 12:20:42] Kliknięto: Zlecenia
+[2025-08-13 12:20:43] Kliknięto: Maszyny
+[2025-08-13 12:20:44] Kliknięto: Narzędzia
+[2025-08-13 12:20:56] Kliknięto: Zlecenia (start)
+[2025-08-13 12:20:57] Kliknięto: Narzędzia
+[2025-08-13 12:22:30] Kliknięto: Zlecenia (start)
+[2025-08-13 12:22:32] Kliknięto: Narzędzia
+[2025-08-13 12:22:54] Kliknięto: Ustawienia
+[2025-08-13 12:23:02] Kliknięto: Zlecenia (start)
+[2025-08-13 12:23:04] Kliknięto: Narzędzia
+[2025-08-13 12:23:25] Kliknięto: Narzędzia
+[2025-08-13 12:23:39] Kliknięto: Narzędzia
+[2025-08-13 12:28:17] Kliknięto: Zlecenia (start)
+[2025-08-13 12:28:19] Kliknięto: Narzędzia
+[2025-08-13 12:34:56] Kliknięto: Zlecenia (start)
+[2025-08-13 12:34:57] Kliknięto: Narzędzia
+[2025-08-13 12:35:37] Kliknięto: Zlecenia (start)
+[2025-08-13 12:35:39] Kliknięto: Narzędzia
+[2025-08-13 12:35:39] Kliknięto: Ustawienia
+[2025-08-13 12:35:41] Kliknięto: Narzędzia
+[2025-08-13 12:47:08] Kliknięto: Zlecenia (start)
+[2025-08-13 12:47:10] Kliknięto: Narzędzia
+[2025-08-13 12:49:45] Kliknięto: Zlecenia (start)
+[2025-08-13 12:49:47] Kliknięto: Narzędzia
+[2025-08-13 12:54:56] Kliknięto: Zlecenia (start)
+[2025-08-13 12:54:58] Kliknięto: Narzędzia
+[2025-08-13 13:00:10] Kliknięto: Zlecenia (start)
+[2025-08-13 13:00:11] Kliknięto: Narzędzia
+[2025-08-13 13:10:50] Kliknięto: Zlecenia (start)
+[2025-08-13 13:10:51] Kliknięto: Narzędzia
+[2025-08-13 13:12:40] Kliknięto: Zlecenia (start)
+[2025-08-13 13:12:42] Kliknięto: Narzędzia
+[2025-08-13 13:12:43] Kliknięto: Ustawienia
+[2025-08-13 13:14:10] Kliknięto: Zlecenia (start)
+[2025-08-13 13:14:12] Kliknięto: Narzędzia
+[2025-08-13 13:16:56] Kliknięto: Zlecenia (start)
+[2025-08-13 13:17:04] Kliknięto: Narzędzia
+[2025-08-13 13:27:42] Kliknięto: Zlecenia (start)
+[2025-08-13 13:27:43] Kliknięto: Narzędzia
+[2025-08-13 13:43:54] Kliknięto: Zlecenia (start)
+[2025-08-13 13:43:55] Kliknięto: Narzędzia
+[2025-08-14 12:00:16] Kliknięto: Zlecenia (start)
+[2025-08-14 12:00:17] Kliknięto: Narzędzia
+[2025-08-14 12:03:01] Kliknięto: Zlecenia (start)
+[2025-08-14 12:03:02] Kliknięto: Narzędzia
+[2025-08-14 12:03:02] Kliknięto: Maszyny
+[2025-08-14 12:03:03] Kliknięto: Zlecenia
+[2025-08-14 12:03:04] Kliknięto: Zlecenia
+[2025-08-14 12:05:53] Kliknięto: Zlecenia (start)
+[2025-08-14 12:05:54] Kliknięto: Zlecenia
+[2025-08-14 12:05:55] Kliknięto: Zlecenia
+[2025-08-14 12:05:55] Kliknięto: Narzędzia
+[2025-08-14 12:05:56] Kliknięto: Zlecenia
+[2025-08-14 12:05:56] Kliknięto: Zlecenia
+[2025-08-14 12:05:57] Kliknięto: Narzędzia
+[2025-08-14 12:05:58] Kliknięto: Zlecenia
+[2025-08-14 12:07:22] Kliknięto: Zlecenia (start)
+[2025-08-14 12:07:23] Kliknięto: Zlecenia
+[2025-08-14 12:07:23] Kliknięto: Narzędzia
+[2025-08-14 12:07:24] Kliknięto: Zlecenia
+[2025-08-14 12:08:23] Kliknięto: Zlecenia (start)
+[2025-08-14 12:09:19] Kliknięto: Zlecenia (start)
+[2025-08-14 12:09:20] Kliknięto: Zlecenia
+[2025-08-14 12:09:20] Kliknięto: Zlecenia
+[2025-08-14 12:14:03] Kliknięto: Zlecenia (start)
+[2025-08-14 12:14:04] Kliknięto: Zlecenia
+[2025-08-14 12:14:05] Kliknięto: Narzędzia
+[2025-08-14 12:14:05] Kliknięto: Narzędzia
+[2025-08-14 12:14:06] Kliknięto: Zlecenia
+[2025-08-14 12:14:32] Kliknięto: Zlecenia (start)
+[2025-08-14 12:14:33] Kliknięto: Zlecenia
+[2025-08-14 12:14:33] Kliknięto: Narzędzia
+[2025-08-14 12:14:34] Kliknięto: Narzędzia
+[2025-08-14 12:18:25] Kliknięto: Zlecenia (start)
+[2025-08-14 12:18:26] Kliknięto: Narzędzia
+[2025-08-14 12:18:26] Kliknięto: Zlecenia
+[2025-08-14 12:18:28] Kliknięto: Narzędzia
+[2025-08-14 12:18:29] Kliknięto: Zlecenia
+[2025-08-14 12:18:29] Kliknięto: Maszyny
+[2025-08-14 12:18:30] Kliknięto: Użytkownicy
+[2025-08-14 12:23:30] Kliknięto: Zlecenia (start)
+[2025-08-14 12:23:31] Kliknięto: Narzędzia
+[2025-08-14 12:23:32] Kliknięto: Zlecenia
+[2025-08-14 12:23:33] Kliknięto: Narzędzia
+[2025-08-14 12:23:33] Kliknięto: Zlecenia
+[2025-08-14 12:24:44] Kliknięto: Zlecenia (start)
+[2025-08-14 12:24:45] Kliknięto: Narzędzia
+[2025-08-14 12:24:45] Kliknięto: Zlecenia
+[2025-08-14 12:24:46] Kliknięto: Narzędzia
+[2025-08-14 12:24:47] Kliknięto: Zlecenia
+[2025-08-14 12:24:56] Kliknięto: Zlecenia (start)
+[2025-08-14 12:27:48] Kliknięto: Zlecenia (start)
+[2025-08-14 12:27:48] Błąd przy otwieraniu panelu Zlecenia (start): name 'e' is not defined
+[2025-08-14 12:27:50] Kliknięto: Narzędzia
+[2025-08-14 12:27:51] Kliknięto: Zlecenia
+[2025-08-14 12:27:51] Błąd przy otwieraniu panelu Zlecenia: name 'e' is not defined
+[2025-08-14 12:30:39] Kliknięto: Zlecenia (start)
+[2025-08-14 12:30:40] Kliknięto: Narzędzia
+[2025-08-14 12:30:41] Kliknięto: Zlecenia
+[2025-08-14 12:36:47] Kliknięto: Zlecenia (start)
+[2025-08-14 12:36:48] Kliknięto: Zlecenia
+[2025-08-14 12:37:05] Kliknięto: Zlecenia (start)
+[2025-08-14 12:37:06] Kliknięto: Zlecenia
+[2025-08-14 12:37:06] Kliknięto: Narzędzia
+[2025-08-14 12:37:08] Kliknięto: Zlecenia
+[2025-08-14 12:38:31] Kliknięto: Zlecenia (start)
+[2025-08-14 12:38:32] Kliknięto: Zlecenia
+[2025-08-14 12:38:33] Kliknięto: Narzędzia
+[2025-08-14 12:38:33] Kliknięto: Zlecenia
+[2025-08-14 12:38:40] Kliknięto: Narzędzia
+[2025-08-14 12:38:41] Kliknięto: Maszyny
+[2025-08-14 12:38:42] Kliknięto: Użytkownicy
+[2025-08-14 12:38:44] Kliknięto: Zlecenia
+[2025-08-14 12:42:44] Kliknięto: Zlecenia (start)
+[2025-08-14 12:42:46] Kliknięto: Zlecenia
+[2025-08-14 12:42:46] Kliknięto: Narzędzia
+[2025-08-14 12:42:47] Kliknięto: Narzędzia
+[2025-08-14 12:42:47] Kliknięto: Zlecenia
+[2025-08-14 12:44:58] Kliknięto: Zlecenia (start)
+[2025-08-14 12:44:59] Kliknięto: Narzędzia
+[2025-08-14 12:45:01] Kliknięto: Zlecenia
+[2025-08-14 12:45:03] Kliknięto: Ustawienia
+[2025-08-14 12:45:04] Kliknięto: Zlecenia
+[2025-08-14 12:48:58] Kliknięto: Zlecenia (start)
+[2025-08-14 12:50:38] Kliknięto: Zlecenia (start)
+[2025-08-14 12:51:12] Kliknięto: Zlecenia (start)
+[2025-08-14 12:54:17] Kliknięto: Zlecenia (start)
+[2025-08-14 13:03:10] Kliknięto: Zlecenia (start)
+[2025-08-14 13:16:00] Kliknięto: Zlecenia (start)
+[2025-08-14 13:16:31] Kliknięto: Narzędzia
+[2025-08-14 13:16:32] Kliknięto: Maszyny
+[2025-08-14 13:16:33] Kliknięto: Narzędzia
+[2025-08-14 13:16:33] Kliknięto: Zlecenia
+[2025-08-14 13:21:16] Kliknięto: Zlecenia (start)
+[2025-08-14 13:21:58] Kliknięto: Zlecenia (start)
+[2025-08-14 13:21:59] Kliknięto: Ustawienia
+[2025-08-14 13:22:00] Kliknięto: Użytkownicy
+[2025-08-14 13:22:01] Kliknięto: Maszyny
+[2025-08-14 13:22:01] Kliknięto: Narzędzia
+[2025-08-14 13:22:02] Kliknięto: Zlecenia
+[2025-08-14 13:24:25] Kliknięto: Zlecenia (start)
+[2025-08-14 13:24:53] Kliknięto: Zlecenia (start)
+[2025-08-14 13:29:52] Kliknięto: Zlecenia (start)
+[2025-08-14 13:32:03] Kliknięto: Zlecenia (start)
+[2025-08-14 13:34:25] Kliknięto: Zlecenia (start)
+[2025-08-14 13:35:18] Kliknięto: Maszyny
+[2025-08-14 13:36:05] Kliknięto: Zlecenia (start)
+[2025-08-14 13:37:02] Kliknięto: Zlecenia (start)
+[2025-08-14 13:37:48] Kliknięto: Zlecenia (start)
+[2025-08-14 13:40:09] Kliknięto: Zlecenia (start)
+[2025-08-14 13:40:10] Kliknięto: Zlecenia
+[2025-08-14 13:40:11] Kliknięto: Narzędzia
+[2025-08-14 13:40:11] Kliknięto: Zlecenia
+[2025-08-14 13:40:12] Kliknięto: Narzędzia
+[2025-08-14 13:40:12] Kliknięto: Zlecenia
+[2025-08-18 06:39:09] Kliknięto: Zlecenia (start)
+[2025-08-18 06:39:10] Kliknięto: Narzędzia
+[2025-08-18 06:39:11] Kliknięto: Zlecenia
+[2025-08-18 06:39:12] Kliknięto: Zlecenia
+[2025-08-18 06:39:12] Kliknięto: Narzędzia
+[2025-08-18 06:39:13] Kliknięto: Maszyny
+[2025-08-18 06:39:15] Kliknięto: Narzędzia
+[2025-08-18 06:46:08] Kliknięto: Zlecenia (start)
+[2025-08-18 06:46:08] Błąd przy otwieraniu panelu Zlecenia (start): panel_zlecenia() takes 1 positional argument but 4 were given
+[2025-08-18 06:46:49] Kliknięto: Zlecenia (start)
+[2025-08-18 06:46:49] Błąd przy otwieraniu panelu Zlecenia (start): panel_zlecenia() takes 1 positional argument but 4 were given
+[2025-08-18 06:46:50] Kliknięto: Użytkownicy
+[2025-08-18 06:46:50] Kliknięto: Maszyny
+[2025-08-18 06:46:51] Kliknięto: Narzędzia
+[2025-08-18 07:12:41] Kliknięto: Zlecenia (start)
+[2025-08-18 07:12:42] Kliknięto: Narzędzia
+[2025-08-18 07:12:44] Kliknięto: Zlecenia
+[2025-08-18 07:21:34] Kliknięto: Zlecenia (start)
+[2025-08-18 07:21:35] Kliknięto: Narzędzia
+[2025-08-18 07:21:36] Kliknięto: Zlecenia
+[2025-08-18 07:25:28] Kliknięto: Zlecenia (start)
+[2025-08-18 07:25:29] Kliknięto: Narzędzia
+[2025-08-18 07:25:30] Kliknięto: Zlecenia
+[2025-08-18 07:27:07] Kliknięto: Zlecenia (start)
+[2025-08-18 07:27:07] Błąd przy otwieraniu panelu Zlecenia (start): unknown option "-bg"
+[2025-08-18 07:27:09] Kliknięto: Narzędzia
+[2025-08-18 07:27:13] Kliknięto: Ustawienia
+[2025-08-18 07:27:14] Kliknięto: Zlecenia
+[2025-08-18 07:27:14] Błąd przy otwieraniu panelu Zlecenia: unknown option "-bg"
+[2025-08-18 07:33:57] Kliknięto: Zlecenia (start)
+[2025-08-18 07:33:58] Kliknięto: Narzędzia
+[2025-08-18 07:33:59] Kliknięto: Zlecenia
+[2025-08-18 07:34:00] Kliknięto: Narzędzia
+[2025-08-18 07:34:01] Kliknięto: Zlecenia
+[2025-08-18 07:34:03] Kliknięto: Narzędzia
+[2025-08-18 07:34:03] Kliknięto: Zlecenia
+[2025-08-18 07:34:05] Kliknięto: Narzędzia
+[2025-08-18 07:34:49] Kliknięto: Ustawienia
+[2025-08-18 07:34:49] Kliknięto: Zlecenia
+[2025-08-18 07:43:50] Kliknięto: Zlecenia (start)
+[2025-08-18 07:47:23] Kliknięto: Zlecenia (start)
+[2025-08-18 07:47:25] Kliknięto: Narzędzia
+[2025-08-18 07:47:26] Kliknięto: Zlecenia
+[2025-08-18 07:47:26] Kliknięto: Narzędzia
+[2025-08-18 07:47:27] Kliknięto: Zlecenia
+[2025-08-18 07:47:38] Kliknięto: Zlecenia (start)
+[2025-08-18 07:47:48] Kliknięto: Narzędzia
+[2025-08-18 07:56:40] Kliknięto: Zlecenia (start)
+[2025-08-18 07:56:41] Kliknięto: Narzędzia
+[2025-08-18 07:56:42] Kliknięto: Maszyny
+[2025-08-18 07:56:43] Kliknięto: Narzędzia
+[2025-08-18 07:56:44] Kliknięto: Zlecenia
+[2025-08-18 07:57:29] Kliknięto: Narzędzia
+[2025-08-18 07:57:30] Kliknięto: Zlecenia
+[2025-08-18 07:57:31] Kliknięto: Narzędzia
+[2025-08-18 07:57:32] Kliknięto: Zlecenia
+[2025-08-18 07:57:58] Kliknięto: Zlecenia
+[2025-08-18 07:58:17] Kliknięto: Maszyny
+[2025-08-18 07:58:18] Kliknięto: Narzędzia
+[2025-08-18 07:58:19] Kliknięto: Zlecenia
+[2025-08-18 08:01:04] Kliknięto: Zlecenia (start)
+[2025-08-18 08:01:06] Kliknięto: Narzędzia
+[2025-08-18 08:01:07] Kliknięto: Zlecenia
+[2025-08-18 08:01:08] Kliknięto: Narzędzia
+[2025-08-18 08:01:11] Kliknięto: Zlecenia
+[2025-08-18 08:01:12] Kliknięto: Narzędzia
+[2025-08-18 08:01:13] Kliknięto: Zlecenia
+[2025-08-18 08:01:14] Kliknięto: Narzędzia
+[2025-08-18 08:01:15] Kliknięto: Zlecenia
+[2025-08-18 08:02:27] Kliknięto: Zlecenia (start)
+[2025-08-18 08:02:29] Kliknięto: Narzędzia
+[2025-08-18 08:02:30] Kliknięto: Zlecenia
+[2025-08-18 08:03:35] Kliknięto: Zlecenia (start)
+[2025-08-18 08:06:43] Kliknięto: Zlecenia (start)
+[2025-08-18 08:09:17] Kliknięto: Zlecenia (start)
+[2025-08-18 08:09:20] Kliknięto: Narzędzia
+[2025-08-18 08:09:21] Kliknięto: Zlecenia
+[2025-08-18 08:12:15] Kliknięto: Zlecenia (start)
+[2025-08-18 08:17:31] Kliknięto: Zlecenia (start)
+[2025-08-18 08:24:45] Kliknięto: Zlecenia (start)
+[2025-08-18 08:24:46] Kliknięto: Narzędzia
+[2025-08-18 08:24:47] Kliknięto: Zlecenia
+[2025-08-18 08:24:48] Kliknięto: Narzędzia
+[2025-08-18 08:24:50] Kliknięto: Zlecenia
+[2025-08-18 08:24:57] Kliknięto: Narzędzia
+[2025-08-18 08:24:58] Kliknięto: Maszyny
+[2025-08-18 08:24:59] Kliknięto: Użytkownicy
+[2025-08-18 08:24:59] Kliknięto: Ustawienia
+[2025-08-18 08:25:01] Kliknięto: Zlecenia
+[2025-08-18 08:25:50] Kliknięto: Zlecenia (start)
+[2025-08-18 08:25:51] Kliknięto: Narzędzia
+[2025-08-18 08:27:35] Kliknięto: Zlecenia (start)
+[2025-08-18 08:27:36] Kliknięto: Narzędzia
+[2025-08-18 08:27:37] Kliknięto: Zlecenia
+[2025-08-18 08:27:38] Kliknięto: Maszyny
+[2025-08-18 08:27:39] Kliknięto: Użytkownicy
+[2025-08-18 08:27:39] Kliknięto: Ustawienia
+[2025-08-18 08:30:19] Kliknięto: Zlecenia (start)
+[2025-08-18 08:30:20] Kliknięto: Maszyny
+[2025-08-18 08:30:21] Kliknięto: Narzędzia
+[2025-08-18 08:30:22] Kliknięto: Zlecenia
+[2025-08-18 08:30:29] Kliknięto: Narzędzia
+[2025-08-18 08:30:29] Kliknięto: Maszyny
+[2025-08-18 08:30:30] Kliknięto: Użytkownicy
+[2025-08-18 08:30:30] Kliknięto: Ustawienia
+[2025-08-18 08:30:32] Kliknięto: Zlecenia
+[2025-08-18 08:30:34] Kliknięto: Narzędzia
+[2025-08-18 08:30:34] Kliknięto: Zlecenia
+[2025-08-18 08:30:35] Kliknięto: Narzędzia
+[2025-08-18 08:30:36] Kliknięto: Zlecenia
+[2025-08-18 08:32:23] Kliknięto: Zlecenia (start)
+[2025-08-18 08:32:34] Kliknięto: Zlecenia (start)
+[2025-08-18 08:39:17] Kliknięto: Zlecenia (start)
+[2025-08-18 08:46:59] Kliknięto: Zlecenia (start)
+[2025-08-18 08:48:24] Kliknięto: Zlecenia (start)
+[2025-08-18 08:48:25] Kliknięto: Narzędzia
+[2025-08-18 08:53:38] Kliknięto: Zlecenia (start)
+[2025-08-18 08:54:32] Kliknięto: Ustawienia
+[2025-08-18 08:54:33] Kliknięto: Użytkownicy
+[2025-08-18 08:54:34] Kliknięto: Maszyny
+[2025-08-18 08:54:35] Kliknięto: Narzędzia
+[2025-08-18 08:54:35] Kliknięto: Zlecenia
+[2025-08-18 08:54:36] Kliknięto: Narzędzia
+[2025-08-18 08:54:37] Kliknięto: Zlecenia
+[2025-08-18 08:54:38] Kliknięto: Narzędzia
+[2025-08-18 08:54:39] Kliknięto: Zlecenia
+[2025-08-18 08:54:42] Kliknięto: Narzędzia
+[2025-08-18 09:20:12] Kliknięto: Zlecenia (start)
+[2025-08-18 09:20:14] Kliknięto: Narzędzia
+[2025-08-18 09:20:15] Kliknięto: Użytkownicy
+[2025-08-18 09:20:19] Kliknięto: Użytkownicy
+[2025-08-18 09:20:20] Kliknięto: Ustawienia
+[2025-08-18 09:20:22] Kliknięto: Maszyny
+[2025-08-18 09:20:23] Kliknięto: Narzędzia
+[2025-08-18 09:20:23] Kliknięto: Zlecenia
+[2025-08-18 09:36:36] Kliknięto: Zlecenia (start)
+[2025-08-18 09:36:38] Kliknięto: Narzędzia
+[2025-08-18 09:36:39] Kliknięto: Maszyny
+[2025-08-18 09:36:42] Kliknięto: Zlecenia
+[2025-08-18 09:36:44] Kliknięto: Ustawienia
+[2025-08-18 09:36:50] Kliknięto: Zlecenia
+[2025-08-18 09:50:57] Kliknięto: Zlecenia (start)
+[2025-08-18 09:50:58] Kliknięto: Narzędzia
+[2025-08-18 09:51:00] Kliknięto: Zlecenia
+[2025-08-18 09:51:01] Kliknięto: Narzędzia
+[2025-08-18 09:51:01] Kliknięto: Maszyny
+[2025-08-18 09:51:02] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-18 09:51:02] Kliknięto: Użytkownicy
+[2025-08-18 09:51:03] Kliknięto: Ustawienia
+[2025-08-18 09:51:53] Kliknięto: Zlecenia (start)
+[2025-08-18 09:52:14] Kliknięto: Zlecenia (start)
+[2025-08-18 09:52:16] Kliknięto: Maszyny
+[2025-08-18 09:57:33] Kliknięto: Zlecenia (start)
+[2025-08-18 09:57:34] Kliknięto: Narzędzia
+[2025-08-18 09:57:35] Kliknięto: Maszyny
+[2025-08-18 09:57:36] Kliknięto: Użytkownicy
+[2025-08-18 09:57:36] Kliknięto: Ustawienia
+[2025-08-18 09:57:58] Kliknięto: Maszyny
+[2025-08-18 09:57:58] Kliknięto: Narzędzia
+[2025-08-18 09:57:59] Kliknięto: Zlecenia
+[2025-08-18 10:37:15] Kliknięto: Zlecenia (start)
+[2025-08-18 10:37:16] Kliknięto: Maszyny
+[2025-08-18 10:37:17] Kliknięto: Zlecenia
+[2025-08-18 10:37:18] Kliknięto: Narzędzia
+[2025-08-18 10:37:19] Kliknięto: Maszyny
+[2025-08-18 10:37:25] Kliknięto: Zlecenia (start)
+[2025-08-18 10:37:27] Kliknięto: Użytkownicy
+[2025-08-18 10:38:07] Kliknięto: Zlecenia (start)
+[2025-08-18 10:38:09] Kliknięto: Zlecenia
+[2025-08-18 10:38:09] Kliknięto: Narzędzia
+[2025-08-18 10:38:32] Kliknięto: Narzędzia
+[2025-08-18 10:48:26] Kliknięto: Zlecenia (start)
+[2025-08-18 10:48:44] Kliknięto: Zlecenia (start)
+[2025-08-18 10:48:45] Kliknięto: Ustawienia
+[2025-08-18 10:51:50] Kliknięto: Zlecenia (start)
+[2025-08-18 10:51:51] Kliknięto: Ustawienia
+[2025-08-18 10:58:37] Kliknięto: Zlecenia (start)
+[2025-08-18 10:58:40] Kliknięto: Narzędzia
+[2025-08-18 10:58:42] Kliknięto: Zlecenia
+[2025-08-18 10:58:45] Kliknięto: Ustawienia
+[2025-08-18 11:08:10] Kliknięto: Zlecenia (start)
+[2025-08-18 11:08:11] Kliknięto: Użytkownicy
+[2025-08-18 11:08:12] Kliknięto: Ustawienia
+[2025-08-18 11:08:12] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-18 11:08:32] Kliknięto: Zlecenia (start)
+[2025-08-18 11:08:38] Kliknięto: Zlecenia (start)
+[2025-08-18 11:08:39] Kliknięto: Ustawienia
+[2025-08-18 11:16:00] Kliknięto: Zlecenia (start)
+[2025-08-18 11:16:01] Kliknięto: Ustawienia
+[2025-08-18 11:16:20] Kliknięto: Ustawienia
+[2025-08-18 11:16:20] Kliknięto: Użytkownicy
+[2025-08-18 11:16:28] Kliknięto: Ustawienia
+[2025-08-18 11:26:37] Kliknięto: Zlecenia (start)
+[2025-08-18 11:26:38] Kliknięto: Ustawienia
+[2025-08-18 11:27:09] Upsert item MAT-001 (Rura)
+[2025-08-18 11:27:14] Kliknięto: Ustawienia
+[2025-08-18 11:27:15] Kliknięto: Użytkownicy
+[2025-08-18 11:27:15] Kliknięto: Ustawienia
+[2025-08-18 11:27:23] [MAGAZYN] Dodano typ: Rura
+[2025-08-18 11:27:37] Kliknięto: Użytkownicy
+[2025-08-18 11:27:44] Kliknięto: Zlecenia
+[2025-08-18 11:27:54] Kliknięto: Zlecenia
+[2025-08-18 11:27:57] Kliknięto: Zlecenia
+[2025-08-18 11:33:00] Kliknięto: Zlecenia (start)
+[2025-08-18 11:33:22] Kliknięto: Narzędzia
+[2025-08-18 11:33:23] Kliknięto: Ustawienia
+[2025-08-18 11:34:01] Upsert item MAT-002 (sd)
+[2025-08-18 11:34:05] Kliknięto: Zlecenia
+[2025-08-18 11:52:31] Kliknięto: Zlecenia (start)
+[2025-08-18 11:52:33] Kliknięto: Ustawienia
+[2025-08-18 11:53:03] Upsert item MAT-003 (Zbijak)
+[2025-08-18 11:53:09] Kliknięto: Zlecenia
+[2025-08-18 11:53:14] Kliknięto: Narzędzia
+[2025-08-18 12:18:49] Kliknięto: Zlecenia (start)
+[2025-08-18 12:18:51] Kliknięto: Ustawienia
+[2025-08-18 12:18:57] Kliknięto: Narzędzia
+[2025-08-18 12:18:57] Kliknięto: Zlecenia
+[2025-08-18 12:20:19] Kliknięto: Zlecenia (start)
+[2025-08-18 12:20:20] Kliknięto: Użytkownicy
+[2025-08-18 12:20:20] Kliknięto: Ustawienia
+[2025-08-18 12:20:41] Upsert item MAT-004 (Rura)
+[2025-08-18 12:20:44] Kliknięto: Zlecenia
+[2025-08-18 12:20:48] Kliknięto: Ustawienia
+[2025-08-18 12:22:09] Kliknięto: Zlecenia (start)
+[2025-08-18 12:22:25] Kliknięto: Narzędzia
+[2025-08-18 12:47:41] Kliknięto: Zlecenia (start)
+[2025-08-18 12:47:43] Kliknięto: Ustawienia
+[2025-08-18 13:15:44] Kliknięto: Zlecenia (start)
+[2025-08-18 13:15:45] Kliknięto: Ustawienia
+[2025-08-18 13:15:53] Kliknięto: Zlecenia
+[2025-08-18 13:15:54] Kliknięto: Narzędzia
+[2025-08-18 13:15:54] Kliknięto: Maszyny
+[2025-08-18 13:32:03] Kliknięto: Zlecenia (start)
+[2025-08-18 13:32:05] Kliknięto: Ustawienia
+[2025-08-18 13:32:16] Kliknięto: Maszyny
+[2025-08-18 13:32:17] Kliknięto: Narzędzia
+[2025-08-18 13:32:17] Kliknięto: Zlecenia
+[2025-08-18 13:32:27] Kliknięto: Zlecenia (start)
+[2025-08-18 13:32:36] Kliknięto: Zlecenia (start)
+[2025-08-18 13:32:45] Kliknięto: Użytkownicy
+[2025-08-18 13:32:47] Kliknięto: Zlecenia
+[2025-08-18 13:32:48] Kliknięto: Narzędzia
+[2025-08-18 13:32:50] Kliknięto: Maszyny
+[2025-08-18 13:33:03] Kliknięto: Ustawienia
+[2025-08-18 13:33:04] Kliknięto: Użytkownicy
+[2025-08-18 13:33:05] Kliknięto: Ustawienia
+[2025-08-18 13:33:09] Kliknięto: Zlecenia
+[2025-08-18 13:34:11] Kliknięto: Ustawienia
+[2025-08-18 13:34:16] Kliknięto: Zlecenia
+[2025-08-18 13:34:18] Kliknięto: Narzędzia
+[2025-08-18 13:34:18] Kliknięto: Maszyny
+[2025-08-18 19:32:59] Kliknięto: Zlecenia (start)
+[2025-08-18 19:33:00] Kliknięto: Maszyny
+[2025-08-18 19:33:04] Kliknięto: Narzędzia
+[2025-08-18 19:33:05] Kliknięto: Zlecenia
+[2025-08-18 19:33:11] Kliknięto: Użytkownicy
+[2025-08-18 19:33:13] Kliknięto: Ustawienia
+[2025-08-18 19:37:33] Kliknięto: Zlecenia (start)
+[2025-08-18 19:37:34] Kliknięto: Ustawienia
+[2025-08-18 20:29:08] Kliknięto: Zlecenia (start)
+[2025-08-18 20:29:09] Kliknięto: Ustawienia
+[2025-08-18 20:30:01] Kliknięto: Zlecenia (start)
+[2025-08-18 20:30:02] Kliknięto: Ustawienia
+[2025-08-18 20:38:38] Kliknięto: Zlecenia (start)
+[2025-08-18 20:38:39] Kliknięto: Ustawienia
+[2025-08-18 20:49:44] Kliknięto: Zlecenia (start)
+[2025-08-18 20:49:45] Kliknięto: Ustawienia
+[2025-08-18 21:08:19] Kliknięto: Zlecenia (start)
+[2025-08-18 21:08:21] Kliknięto: Ustawienia
+[2025-08-18 21:08:35] Kliknięto: Zlecenia (start)
+[2025-08-18 21:08:37] Kliknięto: Ustawienia
+[2025-08-18 21:08:38] Kliknięto: Użytkownicy
+[2025-08-18 21:08:39] Kliknięto: Ustawienia
+[2025-08-18 21:08:43] Kliknięto: Maszyny
+[2025-08-18 21:08:44] Kliknięto: Narzędzia
+[2025-08-18 21:08:44] Kliknięto: Zlecenia
+[2025-08-18 21:08:45] Kliknięto: Narzędzia
+[2025-08-18 21:08:46] Kliknięto: Maszyny
+[2025-08-18 21:09:55] Kliknięto: Zlecenia (start)
+[2025-08-18 21:09:59] Kliknięto: Ustawienia
+[2025-08-18 21:12:29] Kliknięto: Zlecenia (start)
+[2025-08-18 21:12:30] Kliknięto: Ustawienia
+[2025-08-18 21:15:56] Kliknięto: Zlecenia (start)
+[2025-08-18 21:15:57] Kliknięto: Ustawienia
+[2025-08-18 21:16:04] Kliknięto: Użytkownicy
+[2025-08-18 21:16:18] Kliknięto: Ustawienia
+[2025-08-19 13:08:34] Kliknięto: Zlecenia (start)
+[2025-08-19 13:08:36] Kliknięto: Ustawienia
+[2025-08-19 13:08:37] Kliknięto: Użytkownicy
+[2025-08-19 13:10:15] Kliknięto: Zlecenia (start)
+[2025-08-19 13:10:39] Kliknięto: Ustawienia
+[2025-08-19 13:11:52] Kliknięto: Zlecenia (start)
+[2025-08-19 13:11:53] Kliknięto: Ustawienia
+[2025-08-19 13:13:15] Kliknięto: Zlecenia (start)
+[2025-08-19 13:13:15] Kliknięto: Ustawienia
+[2025-08-19 13:13:38] Kliknięto: Zlecenia (start)
+[2025-08-19 13:13:41] Kliknięto: Ustawienia
+[2025-08-19 13:19:05] Kliknięto: Zlecenia (start)
+[2025-08-19 13:19:12] Kliknięto: Narzędzia
+[2025-08-19 13:19:21] Kliknięto: Maszyny
+[2025-08-19 13:19:49] Kliknięto: Użytkownicy
+[2025-08-19 13:19:51] Kliknięto: Użytkownicy
+[2025-08-19 13:19:51] Kliknięto: Ustawienia
+[2025-08-19 13:29:04] Kliknięto: Zlecenia (start)
+[2025-08-19 13:29:05] Kliknięto: Maszyny
+[2025-08-19 13:29:06] Kliknięto: Narzędzia
+[2025-08-19 13:29:12] Kliknięto: Zlecenia (start)
+[2025-08-19 13:29:13] Kliknięto: Ustawienia
+[2025-08-19 13:30:32] Kliknięto: Zlecenia (start)
+[2025-08-19 13:30:33] Kliknięto: Ustawienia
+[2025-08-19 13:33:05] Kliknięto: Zlecenia (start)
+[2025-08-19 13:33:12] Kliknięto: Zlecenia (start)
+[2025-08-19 13:33:20] Kliknięto: Zlecenia (start)
+[2025-08-19 13:33:22] Kliknięto: Maszyny
+[2025-08-19 13:33:23] Kliknięto: Narzędzia
+[2025-08-19 13:33:24] Kliknięto: Narzędzia
+[2025-08-19 13:33:25] Kliknięto: Zlecenia
+[2025-08-19 13:33:27] Kliknięto: Narzędzia
+[2025-08-19 13:38:56] Kliknięto: Zlecenia (start)
+[2025-08-19 13:44:14] Kliknięto: Zlecenia (start)
+[2025-08-19 13:44:15] Kliknięto: Ustawienia
+[2025-08-21 10:20:20] Kliknięto: Zlecenia (start)
+[2025-08-21 10:20:21] Kliknięto: Narzędzia
+[2025-08-21 10:20:25] Kliknięto: Użytkownicy
+[2025-08-21 10:20:25] Kliknięto: Ustawienia
+[2025-08-21 12:19:05] Kliknięto: Zlecenia (start)
+[2025-08-21 12:19:06] Kliknięto: Ustawienia
+[2025-08-21 12:19:19] Kliknięto: Zlecenia (start)
+[2025-08-21 12:19:20] Kliknięto: Użytkownicy
+[2025-08-21 12:19:22] Kliknięto: Maszyny
+[2025-08-21 12:19:24] Kliknięto: Ustawienia
+[2025-08-21 12:19:51] Kliknięto: Zlecenia (start)
+[2025-08-21 12:19:53] Kliknięto: Ustawienia
+[2025-08-21 12:19:55] Kliknięto: Użytkownicy
+[2025-08-21 12:24:47] Kliknięto: Zlecenia (start)
+[2025-08-21 12:24:47] Kliknięto: Ustawienia
+[2025-08-21 12:24:59] Kliknięto: Zlecenia (start)
+[2025-08-21 12:25:00] Kliknięto: Użytkownicy
+[2025-08-21 12:25:02] Kliknięto: Maszyny
+[2025-08-21 12:25:03] Kliknięto: Narzędzia
+[2025-08-21 12:25:05] Kliknięto: Ustawienia
+[2025-08-21 12:25:17] Kliknięto: Zlecenia
+[2025-08-21 12:33:32] Kliknięto: Zlecenia (start)
+[2025-08-21 12:33:33] Kliknięto: Ustawienia
+[2025-08-21 12:33:42] Kliknięto: Zlecenia (start)
+[2025-08-21 12:33:44] Kliknięto: Ustawienia
+[2025-08-21 12:33:46] Kliknięto: Użytkownicy
+[2025-08-21 12:34:16] Kliknięto: Zlecenia (start)
+[2025-08-21 12:34:18] Kliknięto: Użytkownicy
+[2025-08-21 12:34:19] Kliknięto: Ustawienia
+[2025-08-21 12:34:22] Kliknięto: Zlecenia
+[2025-08-21 12:34:42] Kliknięto: Zlecenia (start)
+[2025-08-21 12:34:46] Kliknięto: Ustawienia
+[2025-08-21 12:34:50] Kliknięto: Użytkownicy
+[2025-08-21 12:34:52] Kliknięto: Maszyny
+[2025-08-21 12:34:52] Kliknięto: Narzędzia
+[2025-08-21 12:34:53] Kliknięto: Zlecenia
+[2025-08-21 12:40:17] Kliknięto: Zlecenia (start)
+[2025-08-21 12:40:18] Kliknięto: Użytkownicy
+[2025-08-21 12:40:20] Kliknięto: Ustawienia
+[2025-08-21 12:40:43] Kliknięto: Zlecenia (start)
+[2025-08-21 12:40:55] Kliknięto: Ustawienia
+[2025-08-21 12:41:00] Kliknięto: Użytkownicy
+[2025-08-21 12:41:01] Kliknięto: Użytkownicy
+[2025-08-21 12:41:02] Kliknięto: Maszyny
+[2025-08-21 12:41:03] Kliknięto: Narzędzia
+[2025-08-21 12:41:03] Kliknięto: Zlecenia
+[2025-08-21 12:41:05] Kliknięto: Ustawienia
+[2025-08-21 12:41:07] Kliknięto: Ustawienia
+[2025-08-21 12:50:46] Kliknięto: Zlecenia (start)
+[2025-08-21 12:50:48] Kliknięto: Użytkownicy
+[2025-08-21 12:50:49] Kliknięto: Ustawienia
+[2025-08-21 12:51:07] Kliknięto: Zlecenia (start)
+[2025-08-21 12:51:09] Kliknięto: Użytkownicy
+[2025-08-21 12:51:11] Kliknięto: Ustawienia
+[2025-08-21 12:51:17] Kliknięto: Użytkownicy
+[2025-08-21 12:52:26] Kliknięto: Zlecenia (start)
+[2025-08-21 12:52:27] Kliknięto: Użytkownicy
+[2025-08-21 12:52:29] Kliknięto: Ustawienia
+[2025-08-21 12:52:31] Kliknięto: Użytkownicy
+[2025-08-21 12:53:37] Kliknięto: Zlecenia (start)
+[2025-08-21 12:53:38] Kliknięto: Użytkownicy
+[2025-08-21 12:53:41] Kliknięto: Ustawienia
+[2025-08-21 12:53:47] Kliknięto: Użytkownicy
+[2025-08-21 12:53:48] Kliknięto: Użytkownicy
+[2025-08-21 12:54:05] Kliknięto: Zlecenia (start)
+[2025-08-21 12:54:05] Kliknięto: Użytkownicy
+[2025-08-21 12:57:09] Kliknięto: Zlecenia (start)
+[2025-08-21 12:57:10] Kliknięto: Ustawienia
+[2025-08-21 12:57:26] Kliknięto: Zlecenia (start)
+[2025-08-21 12:57:26] Kliknięto: Użytkownicy
+[2025-08-21 12:57:38] Kliknięto: Ustawienia
+[2025-08-21 12:57:40] Kliknięto: Użytkownicy
+[2025-08-21 12:58:01] Kliknięto: Ustawienia
+[2025-08-21 12:58:44] Kliknięto: Zlecenia (start)
+[2025-08-21 12:58:46] Kliknięto: Użytkownicy
+[2025-08-21 12:59:07] Kliknięto: Zlecenia (start)
+[2025-08-21 12:59:12] Kliknięto: Zlecenia (start)
+[2025-08-21 12:59:13] Kliknięto: Maszyny
+[2025-08-21 12:59:17] Kliknięto: Maszyny
+[2025-08-21 12:59:18] Kliknięto: Narzędzia
+[2025-08-21 12:59:19] Kliknięto: Zlecenia
+[2025-08-21 12:59:19] Kliknięto: Narzędzia
+[2025-08-21 13:02:44] Kliknięto: Zlecenia (start)
+[2025-08-21 13:02:45] Kliknięto: Ustawienia
+[2025-08-21 13:04:30] Kliknięto: Zlecenia (start)
+[2025-08-21 13:04:31] Kliknięto: Użytkownicy
+[2025-08-21 13:04:33] Kliknięto: Ustawienia
+[2025-08-21 13:04:36] Kliknięto: Użytkownicy
+[2025-08-21 13:10:24] Kliknięto: Zlecenia (start)
+[2025-08-21 13:10:26] Kliknięto: Ustawienia
+[2025-08-21 13:10:41] Kliknięto: Zlecenia (start)
+[2025-08-21 13:10:45] Kliknięto: Ustawienia
+[2025-08-21 13:10:50] Kliknięto: Użytkownicy
+[2025-08-21 13:13:31] Kliknięto: Zlecenia (start)
+[2025-08-21 13:13:32] Kliknięto: Ustawienia
+[2025-08-21 13:13:34] Kliknięto: Użytkownicy
+[2025-08-21 13:13:34] Kliknięto: Zlecenia
+[2025-08-21 13:13:40] Kliknięto: Ustawienia
+[2025-08-21 13:13:54] Kliknięto: Zlecenia (start)
+[2025-08-21 13:13:56] Kliknięto: Użytkownicy
+[2025-08-21 13:14:00] Kliknięto: Ustawienia
+[2025-08-21 13:17:16] Kliknięto: Zlecenia (start)
+[2025-08-21 13:17:17] Kliknięto: Ustawienia
+[2025-08-21 13:17:22] Kliknięto: Użytkownicy
+[2025-08-21 13:17:24] Kliknięto: Ustawienia
+[2025-08-21 13:17:55] Kliknięto: Użytkownicy
+[2025-08-21 13:17:55] Kliknięto: Ustawienia
+[2025-08-21 13:18:05] Kliknięto: Zlecenia (start)
+[2025-08-21 13:18:06] Kliknięto: Ustawienia
+[2025-08-21 13:18:11] Kliknięto: Użytkownicy
+[2025-08-21 13:18:15] Kliknięto: Ustawienia
+[2025-08-21 13:19:38] Kliknięto: Zlecenia (start)
+[2025-08-21 13:19:39] Kliknięto: Ustawienia
+[2025-08-21 13:19:51] Kliknięto: Zlecenia (start)
+[2025-08-21 13:19:52] Kliknięto: Ustawienia
+[2025-08-21 13:19:56] Kliknięto: Użytkownicy
+[2025-08-21 13:20:27] Kliknięto: Zlecenia (start)
+[2025-08-21 13:20:28] Kliknięto: Ustawienia
+[2025-08-21 13:20:30] Kliknięto: Użytkownicy
+[2025-08-21 13:22:34] Kliknięto: Zlecenia (start)
+[2025-08-21 13:22:35] Kliknięto: Ustawienia
+[2025-08-21 13:22:57] Kliknięto: Zlecenia (start)
+[2025-08-21 13:22:58] Kliknięto: Ustawienia
+[2025-08-21 13:22:58] Kliknięto: Użytkownicy
+[2025-08-21 13:22:59] Kliknięto: Użytkownicy
+[2025-08-21 13:23:01] Kliknięto: Ustawienia
+[2025-08-21 13:25:42] Kliknięto: Zlecenia (start)
+[2025-08-21 13:25:43] Kliknięto: Ustawienia
+[2025-08-21 13:25:43] Kliknięto: Użytkownicy
+[2025-08-21 13:25:44] Kliknięto: Użytkownicy
+[2025-08-21 13:26:42] Kliknięto: Zlecenia (start)
+[2025-08-21 13:26:43] Kliknięto: Ustawienia
+[2025-08-21 13:27:37] Kliknięto: Zlecenia (start)
+[2025-08-21 13:27:38] Kliknięto: Ustawienia
+[2025-08-21 13:27:41] Kliknięto: Użytkownicy
+[2025-08-21 13:27:43] Kliknięto: Ustawienia
+[2025-08-21 13:27:56] Kliknięto: Zlecenia (start)
+[2025-08-21 13:27:58] Kliknięto: Ustawienia
+[2025-08-21 13:28:39] Kliknięto: Zlecenia (start)
+[2025-08-21 13:28:41] Kliknięto: Ustawienia
+[2025-08-21 13:28:50] Kliknięto: Zlecenia (start)
+[2025-08-21 13:28:52] Kliknięto: Ustawienia
+[2025-08-21 13:28:54] Kliknięto: Użytkownicy
+[2025-08-21 13:28:58] Kliknięto: Ustawienia
+[2025-08-21 13:28:59] Kliknięto: Użytkownicy
+[2025-08-21 13:28:59] Kliknięto: Ustawienia
+[2025-08-21 13:31:29] Kliknięto: Zlecenia (start)
+[2025-08-21 13:31:30] Kliknięto: Ustawienia
+[2025-08-21 13:31:39] Kliknięto: Zlecenia (start)
+[2025-08-21 13:31:40] Kliknięto: Ustawienia
+[2025-08-21 13:31:43] Kliknięto: Użytkownicy
+[2025-08-21 13:31:47] Kliknięto: Ustawienia
+[2025-08-21 13:36:07] Kliknięto: Zlecenia (start)
+[2025-08-21 13:36:09] Kliknięto: Ustawienia
+[2025-08-21 13:36:21] Kliknięto: Zlecenia (start)
+[2025-08-21 13:36:22] Kliknięto: Ustawienia
+[2025-08-21 13:36:24] Kliknięto: Użytkownicy
+[2025-08-21 13:36:26] Kliknięto: Ustawienia
+[2025-08-21 13:39:05] Kliknięto: Zlecenia (start)
+[2025-08-21 13:39:06] Kliknięto: Ustawienia
+[2025-08-21 13:39:16] Kliknięto: Zlecenia (start)
+[2025-08-21 13:39:17] Kliknięto: Ustawienia
+[2025-08-21 13:39:18] Kliknięto: Użytkownicy
+[2025-08-21 13:39:20] Kliknięto: Ustawienia
+[2025-08-21 13:39:27] Kliknięto: Ustawienia
+[2025-08-21 13:39:30] Kliknięto: Użytkownicy
+[2025-08-21 13:40:25] Kliknięto: Ustawienia
+[2025-08-21 13:40:30] Kliknięto: Użytkownicy
+[2025-08-21 13:42:11] Kliknięto: Zlecenia (start)
+[2025-08-21 13:42:12] Kliknięto: Ustawienia
+[2025-08-21 13:42:18] Kliknięto: Użytkownicy
+[2025-08-21 13:42:26] Kliknięto: Ustawienia
+[2025-08-21 13:54:35] Kliknięto: Zlecenia (start)
+[2025-08-21 13:54:36] Kliknięto: Ustawienia
+[2025-08-21 13:54:45] Kliknięto: Zlecenia (start)
+[2025-08-21 13:54:47] Kliknięto: Ustawienia
+[2025-08-21 13:54:49] Kliknięto: Użytkownicy
+[2025-08-21 13:54:51] Kliknięto: Użytkownicy
+[2025-08-22 06:30:47] Kliknięto: Zlecenia (start)
+[2025-08-22 06:30:51] Kliknięto: Ustawienia
+[2025-08-22 06:30:56] Kliknięto: Użytkownicy
+[2025-08-22 06:31:04] Kliknięto: Ustawienia
+[2025-08-22 06:31:05] Kliknięto: Użytkownicy
+[2025-08-22 06:31:06] Kliknięto: Ustawienia
+[2025-08-22 06:50:36] Kliknięto: Zlecenia (start)
+[2025-08-22 06:50:37] Kliknięto: Ustawienia
+[2025-08-22 06:50:48] Kliknięto: Zlecenia (start)
+[2025-08-22 06:50:49] Kliknięto: Ustawienia
+[2025-08-22 06:50:51] Kliknięto: Użytkownicy
+[2025-08-22 06:50:53] Kliknięto: Ustawienia
+[2025-08-22 06:51:38] Kliknięto: Użytkownicy
+[2025-08-22 06:51:40] Kliknięto: Ustawienia
+[2025-08-22 06:52:00] Kliknięto: Zlecenia (start)
+[2025-08-22 06:52:05] Kliknięto: Ustawienia
+[2025-08-22 06:52:14] Kliknięto: Użytkownicy
+[2025-08-22 06:52:14] Kliknięto: Ustawienia
+[2025-08-22 06:54:16] Kliknięto: Zlecenia (start)
+[2025-08-22 07:06:17] Kliknięto: Zlecenia (start)
+[2025-08-22 07:06:18] Kliknięto: Ustawienia
+[2025-08-22 07:06:29] Kliknięto: Zlecenia (start)
+[2025-08-22 07:06:30] Kliknięto: Użytkownicy
+[2025-08-22 07:06:32] Kliknięto: Ustawienia
+[2025-08-22 07:06:35] Kliknięto: Użytkownicy
+[2025-08-22 07:06:37] Kliknięto: Ustawienia
+[2025-08-22 07:06:43] Kliknięto: Użytkownicy
+[2025-08-22 07:09:07] Kliknięto: Zlecenia (start)
+[2025-08-22 07:09:08] Kliknięto: Użytkownicy
+[2025-08-22 07:09:09] Kliknięto: Ustawienia
+[2025-08-22 07:09:24] Kliknięto: Zlecenia (start)
+[2025-08-22 07:09:26] Kliknięto: Użytkownicy
+[2025-08-22 07:09:29] Kliknięto: Ustawienia
+[2025-08-22 07:09:34] Kliknięto: Użytkownicy
+[2025-08-22 07:14:28] Kliknięto: Zlecenia (start)
+[2025-08-22 07:14:29] Kliknięto: Ustawienia
+[2025-08-22 07:14:38] Kliknięto: Zlecenia (start)
+[2025-08-22 07:14:39] Kliknięto: Użytkownicy
+[2025-08-22 07:14:42] Kliknięto: Ustawienia
+[2025-08-22 07:14:47] Kliknięto: Użytkownicy
+[2025-08-22 07:15:38] Kliknięto: Użytkownicy
+[2025-08-22 07:15:38] Kliknięto: Ustawienia
+[2025-08-22 07:17:05] Kliknięto: Zlecenia (start)
+[2025-08-22 07:17:06] Kliknięto: Ustawienia
+[2025-08-22 07:17:16] Kliknięto: Zlecenia (start)
+[2025-08-22 07:17:17] Kliknięto: Użytkownicy
+[2025-08-22 07:17:21] Kliknięto: Ustawienia
+[2025-08-22 07:17:22] Kliknięto: Użytkownicy
+[2025-08-22 07:17:30] Kliknięto: Ustawienia
+[2025-08-22 07:19:21] Kliknięto: Zlecenia (start)
+[2025-08-22 07:19:22] Kliknięto: Ustawienia
+[2025-08-22 07:19:31] Kliknięto: Zlecenia (start)
+[2025-08-22 07:19:32] Kliknięto: Użytkownicy
+[2025-08-22 07:19:34] Kliknięto: Użytkownicy
+[2025-08-22 07:19:34] Kliknięto: Ustawienia
+[2025-08-22 07:19:35] Kliknięto: Użytkownicy
+[2025-08-22 07:20:54] Kliknięto: Zlecenia (start)
+[2025-08-22 07:20:55] Kliknięto: Ustawienia
+[2025-08-22 07:21:05] Kliknięto: Zlecenia (start)
+[2025-08-22 07:21:06] Kliknięto: Użytkownicy
+[2025-08-22 07:21:11] Kliknięto: Ustawienia
+[2025-08-22 08:15:06] Kliknięto: Zlecenia (start)
+[2025-08-22 08:15:07] Kliknięto: Ustawienia
+[2025-08-22 08:15:20] Kliknięto: Zlecenia (start)
+[2025-08-22 08:15:21] Kliknięto: Ustawienia
+[2025-08-22 08:15:23] Kliknięto: Użytkownicy
+[2025-08-22 08:15:25] Kliknięto: Ustawienia
+[2025-08-22 08:15:27] Kliknięto: Użytkownicy
+[2025-08-22 08:15:27] Kliknięto: Użytkownicy
+[2025-08-22 08:28:43] Kliknięto: Zlecenia (start)
+[2025-08-22 08:29:12] Kliknięto: Narzędzia
+[2025-08-22 08:29:22] Kliknięto: Użytkownicy
+[2025-08-22 08:29:25] Kliknięto: Ustawienia
+[2025-08-22 08:29:44] Kliknięto: Zlecenia (start)
+[2025-08-22 08:29:46] Kliknięto: Użytkownicy
+[2025-08-22 08:29:52] Kliknięto: Maszyny
+[2025-08-22 08:29:53] Kliknięto: Narzędzia
+[2025-08-22 08:29:55] Kliknięto: Zlecenia
+[2025-08-22 08:29:57] Kliknięto: Zlecenia
+[2025-08-22 08:30:30] Kliknięto: Zlecenia (start)
+[2025-08-22 08:30:32] Kliknięto: Ustawienia
+[2025-08-22 08:32:48] Kliknięto: Zlecenia (start)
+[2025-08-22 08:32:50] Kliknięto: Ustawienia
+[2025-08-22 08:33:00] Kliknięto: Zlecenia (start)
+[2025-08-22 08:33:01] Kliknięto: Ustawienia
+[2025-08-22 08:33:11] Kliknięto: Zlecenia (start)
+[2025-08-22 08:33:12] Kliknięto: Użytkownicy
+[2025-08-22 08:33:20] Kliknięto: Ustawienia
+[2025-08-22 08:33:25] Kliknięto: Użytkownicy
+[2025-08-22 08:33:44] Kliknięto: Użytkownicy
+[2025-08-22 08:33:46] Kliknięto: Ustawienia
+[2025-08-22 08:41:04] Kliknięto: Zlecenia (start)
+[2025-08-22 08:41:05] Kliknięto: Ustawienia
+[2025-08-22 08:41:20] Kliknięto: Zlecenia (start)
+[2025-08-22 08:41:21] Kliknięto: Ustawienia
+[2025-08-22 08:41:23] Kliknięto: Użytkownicy
+[2025-08-22 08:41:46] Kliknięto: Zlecenia (start)
+[2025-08-22 08:41:47] Kliknięto: Użytkownicy
+[2025-08-22 08:41:55] Kliknięto: Zlecenia (start)
+[2025-08-22 08:41:58] Kliknięto: Maszyny
+[2025-08-22 08:41:59] Kliknięto: Narzędzia
+[2025-08-22 08:42:03] Kliknięto: Maszyny
+[2025-08-22 08:42:04] Kliknięto: Narzędzia
+[2025-08-22 08:42:04] Kliknięto: Zlecenia
+[2025-08-22 08:42:13] Kliknięto: Zlecenia (start)
+[2025-08-22 08:42:14] Kliknięto: Użytkownicy
+[2025-08-22 08:49:34] Kliknięto: Zlecenia (start)
+[2025-08-22 08:49:35] Kliknięto: Ustawienia
+[2025-08-22 08:49:44] Kliknięto: Zlecenia (start)
+[2025-08-22 08:49:46] Kliknięto: Ustawienia
+[2025-08-22 08:49:47] Kliknięto: Użytkownicy
+[2025-08-22 08:49:49] Kliknięto: Ustawienia
+[2025-08-22 08:49:51] Kliknięto: Użytkownicy
+[2025-08-22 08:59:13] Kliknięto: Zlecenia (start)
+[2025-08-22 08:59:14] Kliknięto: Ustawienia
+[2025-08-22 08:59:24] Kliknięto: Zlecenia (start)
+[2025-08-22 08:59:25] Kliknięto: Użytkownicy
+[2025-08-22 08:59:25] Błąd przy otwieraniu panelu Użytkownicy: name '_CUR_LOGIN' is not defined
+[2025-08-22 08:59:30] Kliknięto: Ustawienia
+[2025-08-22 09:07:47] Kliknięto: Zlecenia (start)
+[2025-08-22 09:07:48] Kliknięto: Ustawienia
+[2025-08-22 09:07:58] Kliknięto: Zlecenia (start)
+[2025-08-22 09:07:59] Kliknięto: Ustawienia
+[2025-08-22 09:08:01] Kliknięto: Użytkownicy
+[2025-08-22 09:08:10] Kliknięto: Zlecenia (start)
+[2025-08-22 09:08:16] Kliknięto: Zlecenia (start)
+[2025-08-22 09:08:20] Kliknięto: Zlecenia (start)
+[2025-08-22 09:08:22] Kliknięto: Maszyny
+[2025-08-22 09:08:28] Kliknięto: Zlecenia (start)
+[2025-08-22 09:08:29] Kliknięto: Użytkownicy
+[2025-08-22 09:08:40] Kliknięto: Użytkownicy
+[2025-08-22 09:08:45] Kliknięto: Użytkownicy
+[2025-08-22 09:08:50] Kliknięto: Maszyny
+[2025-08-22 09:08:58] Kliknięto: Zlecenia (start)
+[2025-08-22 09:08:59] Kliknięto: Użytkownicy
+[2025-08-22 09:10:00] Kliknięto: Zlecenia (start)
+[2025-08-22 09:10:01] Kliknięto: Użytkownicy
+[2025-08-22 09:10:06] Kliknięto: Ustawienia
+[2025-08-22 09:10:39] Kliknięto: Zlecenia (start)
+[2025-08-22 09:10:41] Kliknięto: Maszyny
+[2025-08-22 09:10:42] Kliknięto: Narzędzia
+[2025-08-22 09:10:43] Kliknięto: Zlecenia
+[2025-08-22 09:10:54] Kliknięto: Zlecenia (start)
+[2025-08-22 09:14:43] Kliknięto: Zlecenia (start)
+[2025-08-22 09:14:44] Kliknięto: Ustawienia
+[2025-08-22 09:14:54] Kliknięto: Zlecenia (start)
+[2025-08-22 09:14:55] Kliknięto: Użytkownicy
+[2025-08-22 09:15:06] Kliknięto: Zlecenia (start)
+[2025-08-22 09:15:16] Kliknięto: Użytkownicy
+[2025-08-22 09:15:17] Kliknięto: Maszyny
+[2025-08-22 09:15:18] Kliknięto: Narzędzia
+[2025-08-22 09:15:18] Kliknięto: Zlecenia
+[2025-08-22 09:15:19] Kliknięto: Ustawienia
+[2025-08-22 09:15:22] Kliknięto: Użytkownicy
+[2025-08-22 09:15:33] Kliknięto: Użytkownicy
+[2025-08-22 09:15:34] Kliknięto: Maszyny
+[2025-08-22 09:15:36] Kliknięto: Ustawienia
+[2025-08-22 09:15:36] Kliknięto: Użytkownicy
+[2025-08-22 09:15:43] Kliknięto: Zlecenia (start)
+[2025-08-22 09:15:50] Kliknięto: Zlecenia (start)
+[2025-08-22 09:15:51] Kliknięto: Użytkownicy
+[2025-08-22 09:15:55] Kliknięto: Ustawienia
+[2025-08-22 09:20:23] Kliknięto: Zlecenia (start)
+[2025-08-22 09:20:24] Kliknięto: Ustawienia
+[2025-08-22 09:20:32] Kliknięto: Zlecenia (start)
+[2025-08-22 09:20:33] Kliknięto: Użytkownicy
+[2025-08-22 09:20:40] Kliknięto: Ustawienia
+[2025-08-22 09:20:41] Kliknięto: Użytkownicy
+[2025-08-22 09:31:30] Kliknięto: Zlecenia (start)
+[2025-08-22 09:31:30] Kliknięto: Ustawienia
+[2025-08-22 09:31:40] Kliknięto: Zlecenia (start)
+[2025-08-22 09:32:56] Kliknięto: Użytkownicy
+[2025-08-22 09:33:17] Kliknięto: Użytkownicy
+[2025-08-22 09:33:18] Kliknięto: Ustawienia
+[2025-08-22 09:33:49] Kliknięto: Ustawienia
+[2025-08-22 09:33:49] Kliknięto: Użytkownicy
+[2025-08-22 09:34:09] Kliknięto: Zlecenia (start)
+[2025-08-22 09:34:09] Kliknięto: Ustawienia
+[2025-08-22 09:39:22] Kliknięto: Zlecenia (start)
+[2025-08-22 09:39:22] Kliknięto: Ustawienia
+[2025-08-22 09:39:36] Kliknięto: Zlecenia (start)
+[2025-08-22 09:39:37] Kliknięto: Użytkownicy
+[2025-08-22 09:39:40] Kliknięto: Ustawienia
+[2025-08-22 09:39:43] Kliknięto: Użytkownicy
+[2025-08-22 09:48:48] Kliknięto: Zlecenia (start)
+[2025-08-22 09:49:25] Kliknięto: Ustawienia
+[2025-08-22 09:49:41] Kliknięto: Zlecenia (start)
+[2025-08-22 09:49:42] Kliknięto: Użytkownicy
+[2025-08-22 09:49:48] Kliknięto: Ustawienia
+[2025-08-22 09:49:56] Kliknięto: Użytkownicy
+[2025-08-22 09:59:19] Kliknięto: Zlecenia (start)
+[2025-08-22 09:59:20] Kliknięto: Ustawienia
+[2025-08-22 10:21:29] Kliknięto: Zlecenia (start)
+[2025-08-22 10:21:30] Kliknięto: Ustawienia
+[2025-08-22 10:21:41] Kliknięto: Zlecenia (start)
+[2025-08-22 10:21:42] Kliknięto: Ustawienia
+[2025-08-22 10:21:45] Kliknięto: Użytkownicy
+[2025-08-22 10:21:49] Kliknięto: Ustawienia
+[2025-08-22 10:21:51] Kliknięto: Użytkownicy
+[2025-08-22 10:21:56] Kliknięto: Zlecenia (start)
+[2025-08-22 10:21:58] Kliknięto: Maszyny
+[2025-08-22 10:21:59] Kliknięto: Maszyny
+[2025-08-22 10:22:00] Kliknięto: Zlecenia
+[2025-08-22 11:04:55] Kliknięto: Zlecenia (start)
+[2025-08-22 11:04:56] Kliknięto: Ustawienia
+[2025-08-22 11:05:05] Kliknięto: Zlecenia (start)
+[2025-08-22 11:05:06] Kliknięto: Ustawienia
+[2025-08-22 11:05:08] Kliknięto: Użytkownicy
+[2025-08-22 11:05:17] Kliknięto: Ustawienia
+[2025-08-22 11:05:20] Kliknięto: Użytkownicy
+[2025-08-22 11:05:30] Kliknięto: Zlecenia (start)
+[2025-08-22 11:05:31] Kliknięto: Maszyny
+[2025-08-22 11:22:36] Kliknięto: Zlecenia (start)
+[2025-08-22 11:22:37] Kliknięto: Ustawienia
+[2025-08-22 11:22:46] Kliknięto: Zlecenia (start)
+[2025-08-22 11:22:51] Kliknięto: Ustawienia
+[2025-08-22 11:22:52] Kliknięto: Użytkownicy
+[2025-08-22 11:22:54] Kliknięto: Ustawienia
+[2025-08-22 11:23:12] Kliknięto: Zlecenia (start)
+[2025-08-22 11:31:14] Kliknięto: Zlecenia (start)
+[2025-08-22 11:31:15] Kliknięto: Ustawienia
+[2025-08-22 11:31:25] Kliknięto: Zlecenia (start)
+[2025-08-22 11:31:26] Kliknięto: Ustawienia
+[2025-08-22 11:31:26] Kliknięto: Użytkownicy
+[2025-08-22 11:31:34] Kliknięto: Zlecenia (start)
+[2025-08-22 11:31:56] Kliknięto: Zlecenia (start)
+[2025-08-22 11:32:20] Kliknięto: Zlecenia (start)
+[2025-08-22 11:33:42] Kliknięto: Maszyny
+[2025-08-22 11:45:27] Kliknięto: Zlecenia (start)
+[2025-08-22 11:45:28] Kliknięto: Ustawienia
+[2025-08-22 11:45:37] Kliknięto: Zlecenia (start)
+[2025-08-22 11:45:39] Kliknięto: Użytkownicy
+[2025-08-22 11:45:42] Kliknięto: Ustawienia
+[2025-08-22 11:45:48] Kliknięto: Zlecenia (start)
+[2025-08-22 11:46:09] Kliknięto: Zlecenia (start)
+[2025-08-22 11:46:09] Kliknięto: Użytkownicy
+[2025-08-22 11:46:33] Kliknięto: Ustawienia
+[2025-08-22 11:46:40] Kliknięto: Użytkownicy
+[2025-08-22 12:00:40] Kliknięto: Zlecenia (start)
+[2025-08-22 12:00:51] Kliknięto: Użytkownicy
+[2025-08-22 12:00:53] Kliknięto: Ustawienia
+[2025-08-22 12:01:24] Kliknięto: Zlecenia (start)
+[2025-08-22 12:01:25] Kliknięto: Ustawienia
+[2025-08-22 12:01:27] Kliknięto: Użytkownicy
+[2025-08-22 12:01:47] Kliknięto: Zlecenia (start)
+[2025-08-22 12:01:48] Kliknięto: Użytkownicy
+[2025-08-22 12:10:28] Kliknięto: Zlecenia (start)
+[2025-08-22 12:10:29] Kliknięto: Ustawienia
+[2025-08-22 12:10:38] Kliknięto: Zlecenia (start)
+[2025-08-22 12:10:39] Kliknięto: Ustawienia
+[2025-08-22 12:10:40] Kliknięto: Użytkownicy
+[2025-08-22 12:21:05] Kliknięto: Zlecenia (start)
+[2025-08-22 12:21:06] Kliknięto: Ustawienia
+[2025-08-22 13:14:46] Kliknięto: Zlecenia (start)
+[2025-08-22 13:14:47] Kliknięto: Ustawienia
+[2025-08-22 13:14:50] Kliknięto: Użytkownicy
+[2025-08-22 13:15:05] Kliknięto: Zlecenia (start)
+[2025-08-22 13:15:21] Kliknięto: Zlecenia (start)
+[2025-08-22 13:15:22] Kliknięto: Użytkownicy
+[2025-08-22 13:15:22] Kliknięto: Ustawienia
+[2025-08-22 13:15:25] Kliknięto: Użytkownicy
+[2025-08-22 13:19:13] Kliknięto: Zlecenia (start)
+[2025-08-22 13:19:15] Kliknięto: Zlecenia
+[2025-08-22 13:19:15] Kliknięto: Narzędzia
+[2025-08-22 13:19:17] Kliknięto: Maszyny
+[2025-08-22 13:19:18] Kliknięto: Zlecenia
+[2025-08-22 13:19:40] Kliknięto: Maszyny
+[2025-08-22 13:19:41] Kliknięto: Zlecenia
+[2025-08-22 13:19:43] Kliknięto: Narzędzia
+[2025-08-22 13:19:44] Kliknięto: Zlecenia
+[2025-08-22 13:19:44] Kliknięto: Narzędzia
+[2025-08-22 13:27:16] Kliknięto: Zlecenia (start)
+[2025-08-22 13:27:16] Kliknięto: Ustawienia
+[2025-08-22 13:27:28] Kliknięto: Zlecenia (start)
+[2025-08-22 13:27:29] Kliknięto: Ustawienia
+[2025-08-22 13:27:32] Kliknięto: Użytkownicy
+[2025-08-22 13:27:42] Kliknięto: Zlecenia (start)
+[2025-08-22 13:31:04] Kliknięto: Zlecenia (start)
+[2025-08-22 13:31:07] Kliknięto: Maszyny
+[2025-08-22 13:31:19] Kliknięto: Zlecenia (start)
+[2025-08-22 13:31:20] Kliknięto: Ustawienia
+[2025-08-22 13:31:24] Kliknięto: Użytkownicy
+[2025-08-22 13:31:33] Kliknięto: Użytkownicy
+[2025-08-22 13:31:44] Kliknięto: Narzędzia
+[2025-08-22 13:34:33] Kliknięto: Zlecenia (start)
+[2025-08-22 13:34:33] Kliknięto: Ustawienia
+[2025-08-22 13:34:44] Kliknięto: Zlecenia (start)
+[2025-08-22 13:34:44] Kliknięto: Ustawienia
+[2025-08-22 13:34:45] Kliknięto: Użytkownicy
+[2025-08-22 13:34:46] Kliknięto: Użytkownicy
+[2025-08-22 13:34:49] Kliknięto: Ustawienia
+[2025-08-22 13:34:58] Kliknięto: Zlecenia (start)
+[2025-08-22 13:35:11] Kliknięto: Zlecenia (start)
+[2025-08-22 13:35:12] Kliknięto: Użytkownicy
+[2025-08-22 13:35:21] Kliknięto: Ustawienia
+[2025-08-22 13:35:22] Kliknięto: Użytkownicy
+[2025-08-22 13:35:26] Kliknięto: Ustawienia
+[2025-08-22 20:51:20] Kliknięto: Zlecenia (start)
+[2025-08-22 20:51:22] Kliknięto: Ustawienia
+[2025-08-22 20:51:26] Kliknięto: Użytkownicy
+[2025-08-23 21:42:40] Kliknięto: Zlecenia (start)
+[2025-08-23 21:42:42] Kliknięto: Ustawienia
+[2025-08-23 21:42:43] Kliknięto: Użytkownicy
+[2025-08-23 21:50:15] Kliknięto: Zlecenia (start)
+[2025-08-23 21:50:17] Kliknięto: Ustawienia
+[2025-08-23 21:58:09] Kliknięto: Zlecenia (start)
+[2025-08-23 21:58:10] Kliknięto: Ustawienia
+[2025-08-23 21:59:30] [MAGAZYN] Dodano typ: Zbijak
+[2025-08-23 22:00:15] Upsert item MAT-005 (Zbijak do ewaktuacyjnych)
+[2025-08-23 22:02:31] Kliknięto: Zlecenia (start)
+[2025-08-23 22:02:32] Kliknięto: Ustawienia
+[2025-08-23 22:02:45] Kliknięto: Zlecenia (start)
+[2025-08-23 22:02:54] Kliknięto: Zlecenia (start)
+[2025-08-23 22:09:04] Kliknięto: Zlecenia (start)
+[2025-08-23 22:09:05] Kliknięto: Ustawienia
+[2025-08-23 22:09:17] Kliknięto: Zlecenia (start)
+[2025-08-23 22:14:52] Kliknięto: Zlecenia (start)
+[2025-08-23 22:14:53] Kliknięto: Ustawienia
+[2025-08-23 22:15:06] Kliknięto: Zlecenia (start)
+[2025-08-23 22:15:21] Kliknięto: Zlecenia (start)
+[2025-08-23 22:15:22] Kliknięto: Ustawienia
+[2025-08-23 22:15:22] Kliknięto: Użytkownicy
+[2025-08-23 22:15:40] Kliknięto: Zlecenia
+[2025-08-23 22:19:08] Kliknięto: Zlecenia (start)
+[2025-08-23 22:19:09] Kliknięto: Użytkownicy
+[2025-08-23 22:19:12] Kliknięto: Użytkownicy
+[2025-08-23 22:19:13] Kliknięto: Ustawienia
+[2025-08-23 22:19:13] Kliknięto: Ustawienia
+[2025-08-23 22:19:20] Kliknięto: Zlecenia (start)
+[2025-08-23 22:19:34] Kliknięto: Zlecenia (start)
+[2025-08-23 22:19:35] Kliknięto: Ustawienia
+[2025-08-23 22:19:53] Kliknięto: Zlecenia (start)
+[2025-08-23 22:19:54] Kliknięto: Użytkownicy
+[2025-08-23 22:19:54] Błąd przy otwieraniu panelu Użytkownicy: module 'gui_profil' has no attribute 'panel_profil'
+[2025-08-23 22:19:58] Kliknięto: Ustawienia
+[2025-08-23 22:20:04] Kliknięto: Użytkownicy
+[2025-08-23 22:20:04] Błąd przy otwieraniu panelu Użytkownicy: module 'gui_profil' has no attribute 'panel_profil'
+[2025-08-23 22:20:11] Kliknięto: Zlecenia (start)
+[2025-08-23 22:20:12] Błąd otwierania panelu: module 'gui_profil' has no attribute 'panel_profil'
+[2025-08-23 22:22:50] Kliknięto: Zlecenia (start)
+[2025-08-23 22:22:51] Kliknięto: Ustawienia
+[2025-08-23 22:23:12] Kliknięto: Zlecenia (start)
+[2025-08-23 22:23:12] Błąd otwierania panelu: unknown color name ""
+[2025-08-23 22:23:21] Kliknięto: Zlecenia (start)
+[2025-08-23 22:23:22] Kliknięto: Użytkownicy
+[2025-08-23 22:23:22] Błąd przy otwieraniu panelu Użytkownicy: unknown color name ""
+[2025-08-23 22:28:47] Kliknięto: Zlecenia (start)
+[2025-08-23 22:28:48] Kliknięto: Ustawienia
+[2025-08-23 22:28:59] Kliknięto: Zlecenia (start)
+[2025-08-23 22:32:33] Kliknięto: Zlecenia (start)
+[2025-08-23 22:32:34] Kliknięto: Ustawienia
+[2025-08-23 22:32:44] Kliknięto: Zlecenia (start)
+[2025-08-23 22:33:16] Kliknięto: Zlecenia (start)
+[2025-08-23 22:33:16] Kliknięto: Ustawienia
+[2025-08-23 22:33:18] Kliknięto: Użytkownicy
+[2025-08-23 22:33:24] Kliknięto: Zlecenia
+[2025-08-23 22:33:26] Kliknięto: Narzędzia
+[2025-08-23 22:33:26] Kliknięto: Ustawienia
+[2025-08-23 22:33:28] Kliknięto: Użytkownicy
+[2025-08-23 22:33:34] Kliknięto: Narzędzia
+[2025-08-23 22:33:35] Kliknięto: Zlecenia
+[2025-08-23 22:33:40] Kliknięto: Narzędzia
+[2025-08-23 22:39:27] Kliknięto: Zlecenia (start)
+[2025-08-23 22:39:28] Kliknięto: Ustawienia
+[2025-08-23 22:39:39] Kliknięto: Zlecenia (start)
+[2025-08-23 22:39:47] Kliknięto: Maszyny
+[2025-08-23 22:39:50] Kliknięto: Narzędzia
+[2025-08-23 22:39:51] Kliknięto: Zlecenia
+[2025-08-23 22:40:07] Kliknięto: Zlecenia (start)
+[2025-08-23 22:40:14] Kliknięto: Zlecenia (start)
+[2025-08-23 22:40:16] Kliknięto: Ustawienia
+[2025-08-23 22:40:16] Kliknięto: Użytkownicy
+[2025-08-23 22:40:19] Kliknięto: Ustawienia
+[2025-08-23 22:40:36] Kliknięto: Zlecenia (start)
+[2025-08-23 22:44:43] Kliknięto: Zlecenia (start)
+[2025-08-23 22:44:43] Kliknięto: Ustawienia
+[2025-08-23 22:44:52] Kliknięto: Zlecenia (start)
+[2025-08-23 22:44:53] Kliknięto: Ustawienia
+[2025-08-23 22:45:04] Kliknięto: Zlecenia (start)
+[2025-08-23 22:45:05] Kliknięto: Użytkownicy
+[2025-08-23 22:45:08] Kliknięto: Ustawienia
+[2025-08-23 22:45:16] Kliknięto: Zlecenia (start)
+[2025-08-23 22:45:51] Kliknięto: Zlecenia (start)
+[2025-08-23 22:45:55] Kliknięto: Maszyny
+[2025-08-23 22:49:55] Kliknięto: Zlecenia (start)
+[2025-08-23 22:49:55] Kliknięto: Ustawienia
+[2025-08-23 22:50:06] Kliknięto: Zlecenia (start)
+[2025-08-23 22:50:15] Kliknięto: Zlecenia (start)
+[2025-08-23 22:50:16] Kliknięto: Ustawienia
+[2025-08-23 22:50:18] Kliknięto: Użytkownicy
+[2025-08-23 22:50:56] Kliknięto: Zlecenia (start)
+[2025-08-23 22:51:18] Kliknięto: Zlecenia
+[2025-08-23 22:51:18] Kliknięto: Narzędzia
+[2025-08-24 12:54:32] Kliknięto: Zlecenia (start)
+[2025-08-24 12:54:34] Kliknięto: Użytkownicy
+[2025-08-24 12:54:44] Kliknięto: Zlecenia
+[2025-08-24 12:54:48] Kliknięto: Ustawienia
+[2025-08-24 12:54:49] Kliknięto: Użytkownicy
+[2025-08-24 13:05:51] Kliknięto: Zlecenia (start)
+[2025-08-24 13:05:52] Kliknięto: Ustawienia
+[2025-08-24 13:06:03] Kliknięto: Zlecenia (start)
+[2025-08-24 13:06:04] Kliknięto: Użytkownicy
+[2025-08-24 13:06:10] Kliknięto: Ustawienia
+[2025-08-24 13:06:12] Kliknięto: Zlecenia
+[2025-08-24 13:06:15] Kliknięto: Użytkownicy
+[2025-08-24 13:06:18] Kliknięto: Zlecenia
+[2025-08-24 13:06:27] Kliknięto: Użytkownicy
+[2025-08-24 13:06:28] Kliknięto: Ustawienia
+[2025-08-24 13:13:04] Kliknięto: Użytkownicy
+[2025-08-24 13:13:05] Kliknięto: Zlecenia
+[2025-08-24 13:13:07] Kliknięto: Ustawienia
+[2025-08-24 13:13:08] Kliknięto: Zlecenia
+[2025-08-24 19:16:23] Kliknięto: Zlecenia (start)
+[2025-08-24 19:16:24] Kliknięto: Ustawienia
+[2025-08-24 19:16:39] Kliknięto: Zlecenia (start)
+[2025-08-24 19:16:40] Kliknięto: Ustawienia
+[2025-08-24 19:16:41] Kliknięto: Użytkownicy
+[2025-08-24 19:16:59] Kliknięto: Zlecenia
+[2025-08-24 19:17:00] Kliknięto: Narzędzia
+[2025-08-24 19:17:47] Kliknięto: Ustawienia
+[2025-08-24 19:17:48] Kliknięto: Użytkownicy
+[2025-08-24 19:18:32] Kliknięto: Użytkownicy
+[2025-08-24 19:19:01] Kliknięto: Zlecenia (start)
+[2025-08-24 19:19:13] Kliknięto: Maszyny
+[2025-08-24 19:28:49] Kliknięto: Zlecenia (start)
+[2025-08-24 19:28:50] Kliknięto: Ustawienia
+[2025-08-24 19:29:01] Kliknięto: Zlecenia (start)
+[2025-08-24 19:29:02] Kliknięto: Użytkownicy
+[2025-08-24 19:29:33] Kliknięto: Użytkownicy
+[2025-08-24 19:29:34] Kliknięto: Ustawienia
+[2025-08-24 19:29:34] Kliknięto: Użytkownicy
+[2025-08-24 19:29:41] Kliknięto: Użytkownicy
+[2025-08-24 19:29:47] Kliknięto: Ustawienia
+[2025-08-24 19:30:13] Kliknięto: Użytkownicy
+[2025-08-24 19:46:01] Kliknięto: Zlecenia (start)
+[2025-08-24 19:46:04] Kliknięto: Ustawienia
+[2025-08-24 19:46:13] Kliknięto: Zlecenia (start)
+[2025-08-24 19:46:14] Kliknięto: Użytkownicy
+[2025-08-24 19:46:22] Kliknięto: Zlecenia
+[2025-08-24 19:46:42] Kliknięto: Zlecenia (start)
+[2025-08-24 19:46:44] Kliknięto: Ustawienia
+[2025-08-24 19:46:45] Kliknięto: Użytkownicy
+[2025-08-24 19:47:08] Kliknięto: Ustawienia
+[2025-08-24 19:47:11] Kliknięto: Użytkownicy
+[2025-08-24 19:52:32] Kliknięto: Zlecenia (start)
+[2025-08-24 19:52:32] Kliknięto: Ustawienia
+[2025-08-24 19:52:33] Kliknięto: Użytkownicy
+[2025-08-24 19:52:35] Kliknięto: Ustawienia
+[2025-08-24 19:52:44] Kliknięto: Zlecenia (start)
+[2025-08-24 19:52:46] Kliknięto: Ustawienia
+[2025-08-24 19:52:47] Kliknięto: Użytkownicy
+[2025-08-24 19:53:13] Kliknięto: Narzędzia
+[2025-08-24 19:53:22] Kliknięto: Ustawienia
+[2025-08-24 19:53:23] Kliknięto: Użytkownicy
+[2025-08-24 19:53:52] Kliknięto: Zlecenia (start)
+[2025-08-24 19:53:53] Kliknięto: Użytkownicy
+[2025-08-24 20:00:12] Kliknięto: Zlecenia (start)
+[2025-08-24 20:00:14] Kliknięto: Ustawienia
+[2025-08-24 20:00:30] Kliknięto: Zlecenia (start)
+[2025-08-24 20:00:31] Kliknięto: Ustawienia
+[2025-08-24 20:01:40] Kliknięto: Zlecenia (start)
+[2025-08-24 20:01:41] Kliknięto: Użytkownicy
+[2025-08-24 20:01:41] Błąd przy otwieraniu panelu Użytkownicy: module 'gui_profil' has no attribute 'panel_profil'
+[2025-08-24 20:05:03] Kliknięto: Zlecenia (start)
+[2025-08-24 20:05:04] Kliknięto: Ustawienia
+[2025-08-24 20:05:14] Kliknięto: Zlecenia (start)
+[2025-08-24 20:05:15] Kliknięto: Użytkownicy
+[2025-08-25 06:52:06] Kliknięto: Zlecenia (start)
+[2025-08-25 06:52:07] Kliknięto: Ustawienia
+[2025-08-25 06:52:12] Kliknięto: Użytkownicy
+[2025-08-25 06:52:15] Kliknięto: Maszyny
+[2025-08-25 06:52:20] Kliknięto: Użytkownicy
+[2025-08-25 06:52:22] Kliknięto: Maszyny
+[2025-08-25 07:21:39] Kliknięto: Zlecenia (start)
+[2025-08-25 07:21:40] Kliknięto: Ustawienia
+[2025-08-25 07:22:18] Kliknięto: Zlecenia (start)
+[2025-08-25 07:22:20] Kliknięto: Użytkownicy
+[2025-08-25 07:22:23] Kliknięto: Ustawienia
+[2025-08-25 07:22:24] Kliknięto: Użytkownicy
+[2025-08-25 07:22:32] Kliknięto: Ustawienia
+[2025-08-25 07:46:02] Kliknięto: Zlecenia (start)
+[2025-08-25 07:46:03] Kliknięto: Ustawienia
+[2025-08-25 07:46:16] Kliknięto: Zlecenia (start)
+[2025-08-25 07:46:16] Kliknięto: Użytkownicy
+[2025-08-25 07:46:48] Kliknięto: Zlecenia (start)
+[2025-08-25 07:47:15] Kliknięto: Zlecenia
+[2025-08-25 07:47:17] Kliknięto: Narzędzia
+[2025-08-25 07:49:13] Kliknięto: Zlecenia (start)
+[2025-08-25 07:49:14] Kliknięto: Ustawienia
+[2025-08-25 07:49:15] Kliknięto: Użytkownicy
+[2025-08-25 07:51:13] Kliknięto: Zlecenia
+[2025-08-25 07:51:16] Kliknięto: Narzędzia
+[2025-08-25 08:06:00] Kliknięto: Zlecenia (start)
+[2025-08-25 08:06:00] Kliknięto: Ustawienia
+[2025-08-25 08:06:32] Kliknięto: Zlecenia (start)
+[2025-08-25 08:06:33] Kliknięto: Ustawienia
+[2025-08-25 08:06:35] Kliknięto: Użytkownicy
+[2025-08-25 08:21:05] Kliknięto: Zlecenia (start)
+[2025-08-25 08:21:05] Kliknięto: Ustawienia
+[2025-08-25 08:21:49] Kliknięto: Zlecenia (start)
+[2025-08-25 08:21:50] Kliknięto: Ustawienia
+[2025-08-25 08:21:51] Kliknięto: Użytkownicy
+[2025-08-25 08:21:53] Kliknięto: Zlecenia
+[2025-08-25 08:21:54] Kliknięto: Narzędzia
+[2025-08-25 08:21:54] Kliknięto: Zlecenia
+[2025-08-25 08:21:55] Kliknięto: Narzędzia
+[2025-08-25 08:22:05] Kliknięto: Ustawienia
+[2025-08-25 08:22:06] Kliknięto: Użytkownicy
+[2025-08-25 08:22:22] Kliknięto: Zlecenia (start)

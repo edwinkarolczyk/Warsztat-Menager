@@ -1,0 +1,12 @@
+{
+  "RURKA_30": {
+    "nazwa": "Rurka 30mm",
+    "stan": 21,
+    "prog_alert": 5
+  },
+  "PLASK_40": {
+    "nazwa": "Płaskownik 40mm",
+    "stan": 6,
+    "prog_alert": 3
+  }
+}

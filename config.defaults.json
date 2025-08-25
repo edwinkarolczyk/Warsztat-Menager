@@ -1,0 +1,44 @@
+{
+  "config_version": 1,
+  "ui": {
+    "theme": "dark",
+    "accent": "red",
+    "always_searchbar": true
+  },
+  "app": {
+    "start_view": "dashboard"
+  },
+  "auth": {
+    "required": true,
+    "session_timeout_min": 30,
+    "pin_length": 4
+  },
+  "paths": {
+    "maszyny": "maszyny.json",
+    "narzedzia": "narzedzia.json",
+    "zlecenia": "zlecenia.json"
+  },
+  "backup": {
+    "folder": "backup_wersji"
+  },
+  "modules": {
+    "service": {
+      "enabled": true
+    }
+  },
+  "dashboard": {
+    "mini_hall": {
+      "enabled": true
+    }
+  },
+  "hall": {
+    "grid_size_px": 4
+  },
+  "local": {
+    "fullscreen_on_start": false,
+    "ui_scale": 100
+  },
+  "secrets": {
+    "admin_pin": ""
+  }
+}

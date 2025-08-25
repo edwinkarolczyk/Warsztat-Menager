@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "tab_enabled": true,
+    "show_name_in_header": true,
+    "avatar_dir": "",
+    "fields_visible": [
+      "login",
+      "nazwa",
+      "rola",
+      "zmiana"
+    ]
+  },
+  "profiles.tab_enabled": true,
+  "profiles.show_name_in_header": true,
+  "profiles.avatar_dir": "",
+  "profiles.fields_visible": [
+    "login",
+    "nazwa",
+    "rola",
+    "zmiana"
+  ]
+}

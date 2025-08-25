@@ -1,0 +1,93 @@
+# 📑 Moduł: Profile użytkowników – Warsztat Menager
+
+## 🎯 Cel modułu
+- Zarządzanie informacjami o użytkownikach (pracownicy, serwisanci, brygadziści, admin).
+- Gromadzenie statystyk pracy i specjalizacji.
+- Automatyczne podpowiedzi/przydziały zadań na podstawie profilu.
+- Wyświetlanie alertów i zadań po zalogowaniu.
+
+---
+
+## 🔑 Główne funkcje
+
+### 1. **Widok po zalogowaniu**
+- Okno „Twoje zadania i alerty” (przed panelem głównym).
+- Kafel „Twoje zadania” – pod modułami, nad paskiem zmiany.
+- Automatyczne przypisanie do zmiany wg godziny logowania:
+  - 6–14 → I zmiana
+  - 14–22 → II zmiana
+  - 22–6 → III zmiana
+
+### 2. **Profil użytkownika**
+- Widoczny dla wszystkich (użytkownik może podejrzeć innych).
+- Zakładki:
+  - Dane podstawowe (login, imię, nazwisko, zmiana, staż, avatar).
+  - Umiejętności (automatyczne + ręczne, z oceną 1–5 gwiazdek / %).
+  - Zadania (bieżące, oczekujące, priorytety z migającymi kropkami).
+  - Statystyki (frekwencja, liczba zmian, średnia efektywność, wskaźnik obciążenia).
+  - Kursy i certyfikaty (BHP, CNC itp.).
+  - Nagrody/pochwały + staż (od daty przyjęcia).
+  - Ostrzeżenia/dyscyplinarki.
+  - Historia pracy przy maszynach.
+  - Zgłoszone awarie.
+  - Sugestie systemu (np. Dawid → frezowanie).
+  - Preferencje (motyw, widok startowy).
+  - Opis o sobie (opcjonalny).
+  - [opcjonalne] Log aktywności w programie.
+
+### 3. **Alerty i zadania**
+- Jedna wspólna lista (narzędzia, zlecenia, serwis maszyn) z etykietami źródła.
+- Zadania można odhaczać (checkbox) – ustawialne.
+- Alerty w trakcie zmiany (częstotliwość ustawiana).
+- Przypomnienia o zadaniach zaległych.
+- Info kto wykonał zadanie, jeśli było ogólne.
+- Automatyczne przydzielanie zadań wg statystyk + ręczna korekta przez brygadzistę.
+- Sugestie: kto najlepiej nadaje się do danego zadania.
+
+---
+
+## ⚙️ Ustawienia konfiguracyjne (opcjonalne włącz/wyłącz)
+- Pokazywanie uzasadnień przydziałów.
+- Uwzględnianie słabych stron.
+- Licznik wykonanych zadań.
+- Podsumowanie dnia przy wylogowaniu (z czasem pracy).
+- Alerty bezpieczeństwa (np. brak uprawnień).
+- Ranking miesięczny.
+- Opis o sobie.
+- Kursy/szkolenia/certyfikaty.
+- Ostrzeżenia/dyscyplinarki.
+- Avatar użytkownika.
+- Sugestie systemu (specjalizacja).
+- Historia pracy przy maszynach.
+- Zgłoszone awarie.
+- Notatki od brygadzisty.
+- Statystyki jakości.
+- Uprawnienia do maszyn.
+- Historia logowań z urządzeń.
+- Preferencje użytkownika.
+- Zadania oczekujące.
+- Wskaźnik obciążenia.
+- Historia narzędzi.
+- Log aktywności w programie.
+
+---
+
+## 📂 Pliki i integracja
+- `gui_profile.py` – GUI profilu użytkowników.
+- `uzytkownicy.json` – dane użytkowników (rozszerzone).
+- Integracja:
+  - `gui_panel.py` – wyświetlanie nazwy zalogowanego + kafel „Twoje zadania”.
+  - `ustawienia_systemu.py` – nowa zakładka „Profile użytkowników”.
+  - Powiązania z modułami: **Narzędzia, Zlecenia, Serwis maszyn**.
+
+---
+
+## 📊 Statystyki i logika
+- Automatyczne przydziały na podstawie historii.
+- Profil mocnych/słabych stron tworzony automatycznie + ręcznie (w ustawieniach).
+- Dane zbierane do statystyk: logowania, zmiany, frekwencja, kursy, zadania, awarie, maszyny.
+- Możliwość rozszerzenia o raporty i analizy (później).
+
+---
+
+# ⏹ KONIEC DOKUMENTU

@@ -1,0 +1,92 @@
+{
+  "edwin": {
+    "login": "edwin",
+    "nazwa": "edwin",
+    "rola": "brygadzista",
+    "stanowisko": "",
+    "dzial": "",
+    "telefon": "",
+    "email": "",
+    "zmiana_plan": "I",
+    "avatar_text": "ED",
+    "urlop": {
+      "nalezne": 26,
+      "wykorzystane": 0,
+      "w_miesiacu": 0
+    },
+    "l4_w_miesiacu": 0,
+    "ostatnia_aktualizacja": "2025-08-22T11:17:22.643529Z"
+  },
+  "dawid": {
+    "login": "dawid",
+    "nazwa": "dawid",
+    "rola": "uzytkownik",
+    "stanowisko": "",
+    "dzial": "",
+    "telefon": "",
+    "email": "",
+    "zmiana_plan": "I",
+    "avatar_text": "DA",
+    "urlop": {
+      "nalezne": 26,
+      "wykorzystane": 0,
+      "w_miesiacu": 0
+    },
+    "l4_w_miesiacu": 0,
+    "ostatnia_aktualizacja": "2025-08-22T11:17:22.643542Z"
+  },
+  "marek": {
+    "login": "marek",
+    "nazwa": "marek",
+    "rola": "uzytkownik",
+    "stanowisko": "",
+    "dzial": "",
+    "telefon": "",
+    "email": "",
+    "zmiana_plan": "I",
+    "avatar_text": "MA",
+    "urlop": {
+      "nalezne": 26,
+      "wykorzystane": 0,
+      "w_miesiacu": 0
+    },
+    "l4_w_miesiacu": 0,
+    "ostatnia_aktualizacja": "2025-08-22T11:17:22.643545Z"
+  },
+  "sebastian": {
+    "login": "sebastian",
+    "nazwa": "sebastian",
+    "rola": "uzytkownik",
+    "stanowisko": "",
+    "dzial": "",
+    "telefon": "",
+    "email": "",
+    "zmiana_plan": "I",
+    "avatar_text": "SE",
+    "urlop": {
+      "nalezne": 26,
+      "wykorzystane": 0,
+      "w_miesiacu": 0
+    },
+    "l4_w_miesiacu": 0,
+    "ostatnia_aktualizacja": "2025-08-22T11:17:22.643548Z"
+  },
+  "jacek": {
+    "login": "jacek",
+    "nazwa": "jacek",
+    "rola": "uzytkownik",
+    "stanowisko": "",
+    "dzial": "",
+    "telefon": "",
+    "email": "",
+    "zmiana_plan": "I",
+    "avatar_text": "JA",
+    "urlop": {
+      "nalezne": 26,
+      "wykorzystane": 0,
+      "w_miesiacu": 0
+    },
+    "l4_w_miesiacu": 0,
+    "ostatnia_aktualizacja": "2025-08-22T11:17:22.643551Z"
+  }
+}

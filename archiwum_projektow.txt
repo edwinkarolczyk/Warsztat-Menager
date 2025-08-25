@@ -1,0 +1,147 @@
+
+📂 Archiwum projektów – wersja wstępnie uzupełniona
+
+1. Wstęp ogólny
+- Rola i kontekst: Brygadzista warsztat mechaniczny-ślusarski, hobbystyczny programista i automatyk.
+- Technologie wspólne: Python + JSON, Arduino, Raspberry Pi, Google Drive API, kody kreskowe, QR, RFID.
+- Zasady wspólne dla projektów:
+  1. Wersjonowanie w każdym pliku (# Wersja: ...) + podsumowanie zmian na końcu.
+  2. Pełny ekran w logowaniu i głównych widokach.
+  3. Potrójne potwierdzenie usuwania (szczególnie maszyn).
+  4. Test mode – bez pomijania logowania.
+  5. Kopie zapasowe i migracja danych przy aktualizacji.
+  6. JSON jako magazyn danych (oddzielne pliki dla narzędzi, maszyn, zadań).
+  7. Ciemny motyw UI jako standard.
+
+------------------------------------------------------------
+2. Projekty
+
+2.1 Warsztat Menager
+Cel:
+Kompleksowy system do zarządzania warsztatem mechanicznym:
+- ewidencja i rozmieszczenie maszyn
+- gospodarka narzędziami
+- planowanie i obsługa zadań serwisowych
+- kalendarz obecności i awarii
+- widok hali z interaktywnym układem
+
+Główne funkcje:
+- Logowanie z rolami (brygadzista i użytkownik).
+- Panel główny z modułami dostępnymi według roli.
+- Widok hali z przeciąganiem maszyn, zapisywaniem pozycji w maszyny.json.
+- Obsługa narzędzi – dodawanie, edycja, usuwanie, statusy dostępności.
+- Moduł serwisowy – przypisywanie serwisantów do awarii, animacja dojścia.
+- Kalendarz – planowane nieobecności, przeglądy.
+- Wersjonowanie plików – sprawdzanie spójności wersji przy starcie.
+
+Pliki źródłowe:
+Główne:
+- start.py – 1.4.7 (czasem 1.0.2 w testach) – plik startowy programu – uruchamia ekran logowania.
+- gui_logowanie.py – 1.4.7.1 – ekran logowania, obsługa ról, weryfikacja użytkowników z uzytkownicy.json.
+- gui_panel.py – 1.6.2 (czasem 1.6.10) – panel główny, nawigacja do modułów.
+- ustawienia_systemu.py – 1.4.8 – panel ustawień, edycja config.json.
+- layout_prosty.py – brak wersji – alternatywny układ GUI.
+
+Moduły:
+- gui_narzedzia.py – 1.0.0 / 1.0.2 – zarządzanie narzędziami.
+- gui_maszyny.py – 1.0.1 – zarządzanie maszynami i widok hali.
+- widok_hali.py – brak w starszych wersjach – interaktywna mapa hali.
+- modul_serwisowy.py – w rozwoju – obsługa serwisantów.
+
+Pomocnicze:
+- kreator_sprawdzenia.py – 1.2.5 – sprawdzanie wersji plików, kopie zapasowe.
+- uzytkownicy.json – lista użytkowników, role, hasła (hash).
+- config.json – ustawienia globalne.
+- maszyny.json – dane maszyn: id, nazwa, typ, nr_hali, x, y.
+- narzedzia.json – dane narzędzi: id, nazwa, opis, status.
+
+Ustalenia techniczne:
+- Widok hali: siatka co 4 px = 20 cm.
+- Pozycje maszyn zapisywane w maszyny.json.
+- Numer hali zamiast współrzędnych na maszynie.
+- Usuwanie maszyny: 3 potwierdzenia, czyszczenie x, y.
+- Dwuklik na maszynie = okno szczegółów.
+- Moduł narzędzi – stała wysokość opisu.
+- Moduł serwisowy – serwisanci: Edwin, Dawid, Marek, Sebastian.
+- Punkt startowy serwisanta: warsztat.
+
+Integracje i plany:
+- Google Drive – kopie JSON.
+- Kody kreskowe dla narzędzi.
+- Kalendarz obecności.
+- Obsługa wielu hal.
+
+Status: Stabilna baza działa, moduł serwisowy w rozwoju.
+
+------------------------------------------------------------
+2.2 Moduł serwisowy
+Cel:
+- Zarządzanie serwisantami i ich ruchem po hali.
+
+Funkcje:
+- Animacja dojścia do maszyn.
+- Automatyczny przydział do awarii.
+- Punkt startowy: warsztat.
+- Filtracja serwisantów po zmianie.
+
+Status: W trakcie implementacji.
+
+------------------------------------------------------------
+2.3 System RFID dla kotów
+Cel:
+- Automatyczne sterowanie dostępem do pomieszczeń.
+
+Sprzęt:
+- Raspberry Pi Zero, 4 czytniki RFID, przekaźniki.
+
+Funkcje:
+- Identyfikacja kota po chipie.
+- Każdy kot wraca do swojego pokoju.
+
+Status: Projekt koncepcyjny.
+
+------------------------------------------------------------
+2.4 Automatyka drzwi
+Cel:
+- Sterowanie drzwiami z telefonu / Bluetooth / Wi-Fi.
+
+Sprzęt:
+- Raspberry Pi / Arduino, napędy, czujniki.
+
+Status: W planach.
+
+------------------------------------------------------------
+2.5 System budżetowy
+Cel:
+- Zarządzanie miesięcznymi wydatkami.
+
+Funkcje:
+- Kreator budżetu.
+- Oznaczanie opłaconych pozycji na zielono.
+- Planowana integracja z kontem Google.
+
+Status: W fazie ustaleń.
+
+------------------------------------------------------------
+2.6 Projekty Arduino / CNC / Automatyzacja warsztatu
+Cel:
+- Automatyzacja procesów warsztatowych.
+
+Sprzęt:
+- Arduino, sterowniki MDD30, silniki krokowe, pneumatyka.
+
+Status: W różnych etapach testów.
+
+------------------------------------------------------------
+2.7 Projekty graficzne
+- Logo „Warsztat Menager”.
+- Logo HEHR.
+
+------------------------------------------------------------
+2.8 Jednorazowe skrypty i narzędzia
+- kreator_sprawdzenia.py – sprawdzanie wersji, logi, backupy.
+- Inne generatory i konwertery JSON.
+
+------------------------------------------------------------
+3. Uwagi dodatkowe
+- Po czyszczeniu historii najlepiej wgrać też ZIP z kodem WM i plikami JSON, aby odzyskać 100% kontekstu.

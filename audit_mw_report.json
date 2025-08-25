@@ -1,0 +1,4602 @@
+{
+  "root": "C:\\Users\\Edwin\\Desktop\\Nowy folder",
+  "files_count": 38,
+  "issues": [
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\arch\\start_full_1_4_3.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\arch\\start_full_1_4_3.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji",
+      "line": 32
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji",
+      "line": 31
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 69
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 65
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji",
+      "line": 272
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 69
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 71
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 85
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 145
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 147
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 193
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 195
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 197
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 199
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 203
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 204
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 208
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 218
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 219
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 220
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 221
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 225
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 234
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 235
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 243
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 247
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 249
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 252
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 253
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 255
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 261
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji",
+      "line": 200
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 52
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 63
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 66
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 70
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 73
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 75
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 77
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 78
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 82
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 85
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 87
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 152
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 155
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 157
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 136
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 147
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 82
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 85
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 88
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 91
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 92
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 94
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 95
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 104
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 122
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 182
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 241
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 246
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 262
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 272
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 274
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 280
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 288
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 289
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 290
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 291
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 293
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 294
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 304
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 308
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 320
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 322
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 350
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 352
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 353
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 355
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 357
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 359
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 360
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 362
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 363
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 365
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 366
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 368
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 369
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 372
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 385
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 386
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 396
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 410
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 411
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 412
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 429
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 438
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 442
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 446
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 449
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 451
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 493
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 495
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 504
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_maszyny.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_maszyny.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 9
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 248
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 443
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 444
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 447
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 450
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 453
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 463
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 494
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 495
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 497
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 498
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 499
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 500
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 501
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 546
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 553
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 554
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 557
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 563
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 577
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 596
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 597
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 610
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 623
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 636
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 637
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 649
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 661
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 665
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 666
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 673
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 675
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 729
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 732
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 743
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 745
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 748
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 757
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 793
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 795
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 798
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 894
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 895
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 40
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 45
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 49
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 67
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 74
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 81
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 88
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 138
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 139
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 141
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 142
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 144
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 146
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 148
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 150
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 151
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 154
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 155
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 158
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 159
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 160
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 217
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 245
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 248
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 249
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 250
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 252
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 256
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 259
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 263
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 195
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 204
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 98
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 100
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 103
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 104
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 105
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 106
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 109
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 112
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 114
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 116
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 118
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 121
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 125
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 126
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 127
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 128
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 131
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 139
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 140
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 141
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 201
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 202
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 207
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 210
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 212
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 214
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 216
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 233
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 94
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 95
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 98
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 99
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 100
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 119
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 121
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 125
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 126
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 127
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 130
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 133
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 134
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 141
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 21
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 16
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 42
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 51
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 52
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 53
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 53
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 54
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 54
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 58
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 67
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 73
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 79
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 91
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 91
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 92
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 92
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 95
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 98
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 99
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 100
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 101
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 102
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 103
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 105
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 106
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 111
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 111
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 112
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 112
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 126
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 133
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 19
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 32
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 77
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 78
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 81
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 82
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 83
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 84
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 86
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 87
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 89
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 90
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 91
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 94
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 108
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 194
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 196
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 202
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 204
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 206
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 209
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 211
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 213
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 215
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 241
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 242
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 243
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 256
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 257
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 258
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 266
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 271
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 272
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia_plikow.py",
+      "severity": "INFO",
+      "kind": "HEADER",
+      "message": "Nagłówek # Plik wskazuje 'kreator_sprawdzenia.py', ale plik to 'kreator_sprawdzenia_plikow.py'",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 9
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 18
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 22
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 26
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 30
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 34
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 38
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 44
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 41
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logger.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 89
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_zadan.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrate_profiles_config.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrate_profiles_config.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrations.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrations.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 43
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 45
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 135
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 148
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 148
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 148
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 170
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profile_utils.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 91
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 92
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 95
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 105
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 142
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
+      "line": 143
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji",
+      "line": 135
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_wersji.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 158
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 203
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 206
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 210
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 215
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 217
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 219
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 223
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 228
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 234
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 235
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 236
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 245
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 249
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 368
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 377
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 380
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 391
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 392
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 84
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 85
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 86
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 87
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 88
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 89
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 90
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 93
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 95
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 96
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 97
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 98
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 101
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 103
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 104
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 105
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 106
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 108
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 156
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 157
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 160
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 162
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 163
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 164
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 165
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 177
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 22
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 29
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 38
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 68
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 73
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "GUI",
+      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
+      "line": 78
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\wymagane_pliki_version_check.py",
+      "severity": "INFO",
+      "kind": "HEADER",
+      "message": "Nagłówek # Plik wskazuje 'kreator_sprawdzenia.py', ale plik to 'wymagane_pliki_version_check.py'",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Plik: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_utils.py",
+      "severity": "WARN",
+      "kind": "HEADER",
+      "message": "Brak nagłówka # Wersja: ...",
+      "line": null
+    },
+    {
+      "file": "gui_panel.py :: gui_uzytkownicy.py :: gui_profil.py :: gui_panel.py",
+      "severity": "WARN",
+      "kind": "IMPORT",
+      "message": "Cykliczne importy (rozważ refaktor)",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '__init__' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_read' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_ensure_dirs' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\profile_utils.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_load_json' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\profile_utils.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_save_json' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'get' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_tick' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'apply_theme' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_add_type' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_build_ui' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_load' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_refresh' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'open_panel_magazyn' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_ustawien_magazyn' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_maszyny.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_maszyny' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_narzedzia' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\logger.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'log_akcja' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_ustawien' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_uzytkownicy' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'panel_zlecenia' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'uruchom_panel' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_add_row' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_del_row' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_list_produkty' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_ok' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_read_json' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_write_json' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_save' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia_plikow.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\wymagane_pliki_version_check.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'sprawdz' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_cfg' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_path' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_log_info' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_now' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_wersji.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'zapisz_log' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja 'UpdatesUI' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py, C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Definicja '_style_exists' występuje w wielu plikach – rozważ prefiks albo wydzielenie wspólnego modułu",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: Counter",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: annotations",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: deque",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: traceback",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: annotations",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: panel_ustawien",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: messagebox",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: tk",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: tk",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrations.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: annotations",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: time",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: time",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: os",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: tk",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: annotations",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: tk",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\wymagane_pliki_version_check.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: os",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "severity": "INFO",
+      "kind": "STYLE",
+      "message": "Możliwy nieużyty import: os",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 173
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 173
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 174
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 174
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 174
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 176
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 176
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 176
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "severity": "INFO",
+      "kind": "TODO",
+      "message": "Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania",
+      "line": 176
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "severity": "WARN",
+      "kind": "ERROR-HANDLING",
+      "message": "Goły except – dodaj konkretny wyjątek i logowanie",
+      "line": 182
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "severity": "WARN",
+      "kind": "ERROR-HANDLING",
+      "message": "Goły except – dodaj konkretny wyjątek i logowanie",
+      "line": 227
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "WARN",
+      "kind": "ERROR-HANDLING",
+      "message": "Goły except – dodaj konkretny wyjątek i logowanie",
+      "line": 28
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "severity": "WARN",
+      "kind": "ERROR-HANDLING",
+      "message": "Goły except – dodaj konkretny wyjątek i logowanie",
+      "line": 30
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['theme', 'start_view', 'pin_required'] w obiekcie ",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [0]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [1]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [2]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [3]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [4]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [5]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [6]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [7]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [8]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [9]",
+      "line": null
+    },
+    {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\maszyny.json",
+      "severity": "WARN",
+      "kind": "JSON",
+      "message": "Brak kluczy ['id', 'hala'] w obiekcie [10]",
+      "line": null
+    }
+  ],
+  "summaries": {
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\arch\\start_full_1_4_3.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\arch\\start_full_1_4_3.py",
+      "has_header_file": false,
+      "has_header_ver": true,
+      "declared_name": null,
+      "declared_ver": "1.4.3",
+      "syntax_ok": true,
+      "defs": [],
+      "imports": [
+        "gui_logowanie",
+        "json",
+        "os",
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\audyt_mw.py",
+      "has_header_file": true,
+      "has_header_ver": true,
+      "declared_name": "audyt_mw.py",
+      "declared_ver": "0.9.0",
+      "syntax_ok": true,
+      "defs": [
+        "AudytMW",
+        "FileIssue",
+        "FileSummary",
+        "__init__",
+        "_check_json_file",
+        "_collect_defs",
+        "_collect_imports",
+        "_find_cycles",
+        "_find_module_path",
+        "_issue",
+        "_parse_ast",
+        "_read",
+        "_read_headers",
+        "_render_md",
+        "build_suggestions",
+        "check_obj",
+        "dfs",
+        "discover",
+        "main",
+        "pass_deep",
+        "pass_fast",
+        "pass_risk",
+        "write_reports"
+      ],
+      "imports": [
+        "__future__",
+        "ast",
+        "collections",
+        "dataclasses",
+        "json",
+        "os",
+        "re",
+        "sys",
+        "traceback",
+        "typing"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\config_manager.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "ConfigError",
+        "ConfigManager",
+        "__init__",
+        "_audit_change",
+        "_ensure_dirs",
+        "_load_json",
+        "_load_json_or_raise",
+        "_merge_all",
+        "_prune_rollbacks",
+        "_save_json",
+        "_schema_index",
+        "_validate_all",
+        "_validate_value",
+        "apply_import",
+        "deep_merge",
+        "export_public",
+        "flatten",
+        "get",
+        "get_by_key",
+        "import_with_dry_run",
+        "save_all",
+        "set",
+        "set_by_key"
+      ],
+      "imports": [
+        "__future__",
+        "datetime",
+        "json",
+        "os",
+        "shutil",
+        "typing"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\dashboard_demo_fs.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "WMDashboard",
+        "WMMiniHala",
+        "WMSpark",
+        "WMTile",
+        "__init__",
+        "_enable_dpi_awareness",
+        "load_awarie",
+        "load_hale",
+        "on_click",
+        "on_drag",
+        "on_release",
+        "on_resize",
+        "redraw",
+        "sample_list_short",
+        "sample_orders",
+        "save_hale",
+        "toggle_edit_mode"
+      ],
+      "imports": [
+        "ctypes",
+        "json",
+        "math",
+        "os",
+        "sys",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_logowanie.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_logowanie.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_on_destroy",
+        "_tick",
+        "apply_theme",
+        "draw_login_shift",
+        "ekran_logowania",
+        "logowanie",
+        "zamknij"
+      ],
+      "imports": [
+        "PIL",
+        "datetime",
+        "gui_panel",
+        "json",
+        "os",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_magazyn.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_magazyn.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "PanelMagazyn",
+        "__init__",
+        "_act_rezerwuj",
+        "_act_zuzyj",
+        "_act_zwolnij",
+        "_act_zwrot",
+        "_add_type",
+        "_ask_float",
+        "_build_ui",
+        "_color_for",
+        "_extract_prefix",
+        "_filter",
+        "_get_selected_type",
+        "_has_priv",
+        "_init_lists",
+        "_load",
+        "_napraw",
+        "_refresh",
+        "_reload_types",
+        "_remove_type",
+        "_resolve_role",
+        "_sel_id",
+        "_show_historia",
+        "_submit",
+        "_suggest_id",
+        "_update_alerts",
+        "_update_sum_label",
+        "apply_theme",
+        "attach_magazyn_button",
+        "open_panel_magazyn",
+        "panel_ustawien_magazyn"
+      ],
+      "imports": [
+        "logika_magazyn",
+        "re",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_maszyny.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_maszyny.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_maszyny.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "panel_maszyny"
+      ],
+      "imports": [
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_narzedzia.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_narzedzia.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_add_from_template",
+        "_add_task",
+        "_add_type",
+        "_append_type_to_config",
+        "_apply_template_for_phase",
+        "_band_tag",
+        "_bar_text",
+        "_can_convert_nn_to_sn",
+        "_clean_list",
+        "_dbg",
+        "_del_sel",
+        "_ensure_folder",
+        "_existing_numbers",
+        "_has_title",
+        "_is_taken",
+        "_iter_folder_items",
+        "_iter_legacy_json_items",
+        "_legacy_parse_tasks",
+        "_load_all_tools",
+        "_load_config",
+        "_maybe_seed_config_templates",
+        "_next_free_in_range",
+        "_normalize_status",
+        "_on_status_change",
+        "_phase_for_status",
+        "_read_tool",
+        "_resolve_tools_dir",
+        "_save_config",
+        "_save_tool",
+        "_sel_idx",
+        "_stare_convert_templates_from_config",
+        "_statusy_for_mode",
+        "_suggest_after",
+        "_sync_conv_mode",
+        "_task_templates_from_config",
+        "_tasks_for_type",
+        "_toggle_done",
+        "_types_from_config",
+        "apply_theme",
+        "choose_mode_and_add",
+        "on_double",
+        "open_tool_dialog",
+        "panel_narzedzia",
+        "refresh_list",
+        "repaint_hist",
+        "repaint_tasks",
+        "row",
+        "save",
+        "toggle_hist"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "logika_zadan",
+        "os",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_panel.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_panel.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_is_admin_role",
+        "_on_shift_destroy",
+        "_open_profil",
+        "_shift_bounds",
+        "_shift_progress",
+        "_tick",
+        "apply_theme",
+        "draw_shift_bar",
+        "log_akcja",
+        "open_panel_magazyn",
+        "otworz_panel",
+        "panel_maszyny",
+        "panel_narzedzia",
+        "panel_ustawien",
+        "panel_uzytkownicy",
+        "panel_zlecenia",
+        "uruchom_panel",
+        "wyczysc_content"
+      ],
+      "imports": [
+        "datetime",
+        "gui_magazyn",
+        "gui_maszyny",
+        "gui_narzedzia",
+        "gui_uzytkownicy",
+        "gui_zlecenia",
+        "logger",
+        "tkinter",
+        "traceback",
+        "ui_theme",
+        "ustawienia_systemu"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_produkty.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_produkty.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "ProduktyBOM",
+        "__init__",
+        "_add_row",
+        "_build_ui",
+        "_del_row",
+        "_delete_product",
+        "_ensure_dirs",
+        "_get_sel_index",
+        "_list_materialy_z_magazynu",
+        "_list_produkty",
+        "_load_selected",
+        "_name_for",
+        "_new_product",
+        "_ok",
+        "_read_json",
+        "_reload_lists",
+        "_save_current",
+        "_write_json",
+        "apply_theme",
+        "open_panel_produkty"
+      ],
+      "imports": [
+        "glob",
+        "json",
+        "os",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profil.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_profil.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_build_header",
+        "_build_stats",
+        "_build_tasks",
+        "_is_open",
+        "_is_urgent",
+        "_load_avatar",
+        "_open_zlecenia",
+        "_read_tasks",
+        "_safe_theme",
+        "_shift_bounds_label",
+        "_stats_from_tasks",
+        "_tag",
+        "apply_theme",
+        "chip",
+        "uruchom_panel"
+      ],
+      "imports": [
+        "datetime",
+        "gui_panel",
+        "gui_zlecenia",
+        "json",
+        "os",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_profile.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_profile.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "apply_theme",
+        "panel_profile"
+      ],
+      "imports": [
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_ustawienia.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_browse",
+        "_get_shift_val",
+        "_save",
+        "_save_cfg",
+        "_wm_build_presence_settings_tab",
+        "_wm_build_profiles_settings_tab",
+        "panel_ustawien"
+      ],
+      "imports": [
+        "json",
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_uzytkownicy.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "gui_uzytkownicy.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_build_tab_profil",
+        "apply_theme",
+        "panel_uzytkownicy",
+        "uruchom_panel"
+      ],
+      "imports": [
+        "gui_profil",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\gui_zlecenia.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_apply_theme",
+        "_bar10",
+        "_edit_status_dialog",
+        "_fmt",
+        "_kreator_zlecenia",
+        "_match",
+        "_maybe_theme",
+        "_odswiez",
+        "_on_dbl",
+        "_popup",
+        "_usun_zlecenie",
+        "akcept",
+        "ok",
+        "panel_zlecenia"
+      ],
+      "imports": [
+        "tkinter",
+        "ui_theme",
+        "zlecenia_logika"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "check_config_min_keys",
+        "check_file_version",
+        "check_required_paths",
+        "compare_versions",
+        "extract_version_from_text",
+        "load_expected_versions",
+        "main",
+        "parse_args",
+        "read_text_head",
+        "version_tuple",
+        "write_sample_versions"
+      ],
+      "imports": [
+        "argparse",
+        "datetime",
+        "json",
+        "os",
+        "re"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia_plikow.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\kreator_sprawdzenia_plikow.py",
+      "has_header_file": true,
+      "has_header_ver": true,
+      "declared_name": "kreator_sprawdzenia.py",
+      "declared_ver": "1.0",
+      "syntax_ok": true,
+      "defs": [
+        "oblicz_sha256",
+        "sprawdz"
+      ],
+      "imports": [
+        "hashlib",
+        "os"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\layout_prosty.py",
+      "has_header_file": false,
+      "has_header_ver": true,
+      "declared_name": null,
+      "declared_ver": "1.4.4",
+      "syntax_ok": true,
+      "defs": [
+        "LayoutProsty",
+        "__init__",
+        "filtruj_liste",
+        "ustaw_liste",
+        "ustaw_szczegoly"
+      ],
+      "imports": [
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\leaves.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_cfg",
+        "_path",
+        "_read",
+        "_read_users",
+        "_write",
+        "add_entry",
+        "entitlements_for",
+        "read_all",
+        "totals_for"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "os"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logger.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logger.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "logger.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "log_akcja",
+        "log_magazyn"
+      ],
+      "imports": [
+        "datetime",
+        "json"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_magazyn.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "logika_magazyn.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_default_magazyn",
+        "_ensure_dirs",
+        "_history_entry",
+        "_log_info",
+        "_log_mag",
+        "_now",
+        "add_item_type",
+        "get_item",
+        "get_item_types",
+        "historia_item",
+        "lista_items",
+        "load_magazyn",
+        "remove_item_type",
+        "rezerwuj",
+        "save_magazyn",
+        "sprawdz_progi",
+        "upsert_item",
+        "zuzyj",
+        "zwolnij_rezerwacje",
+        "zwrot"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "logger",
+        "os",
+        "threading"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_zadan.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\logika_zadan.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "logika_zadan.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_load_bom",
+        "consume_for_task"
+      ],
+      "imports": [
+        "json",
+        "logika_magazyn",
+        "os"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrate_profiles_config.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrate_profiles_config.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [],
+      "imports": [
+        "json",
+        "os",
+        "sys"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrations.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrations.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "migrate",
+        "needs_migration"
+      ],
+      "imports": [
+        "__future__",
+        "typing"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_atomic_write",
+        "_cfg_dir",
+        "_get_cfg",
+        "_now_utc_iso",
+        "_on_exit",
+        "_presence_path",
+        "_read_all",
+        "_tick",
+        "end_session",
+        "heartbeat",
+        "read_presence",
+        "start_heartbeat"
+      ],
+      "imports": [
+        "atexit",
+        "datetime",
+        "json",
+        "os",
+        "platform",
+        "tempfile",
+        "time"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\presence_watcher.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_active_shift",
+        "_cfg",
+        "_ensure_alert",
+        "_is_online",
+        "_now",
+        "_parse_hhmm",
+        "_path",
+        "_read_json",
+        "_shifts_from_cfg",
+        "_tick",
+        "_today_str",
+        "_users_meta",
+        "_write_json",
+        "run_check",
+        "schedule_watcher"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "os",
+        "presence",
+        "time"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profile_utils.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profile_utils.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "profile_utils.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_load_json",
+        "_save_json",
+        "ensure_user_fields",
+        "find_user_by_pin",
+        "get_tasks_for",
+        "read_users",
+        "write_users"
+      ],
+      "imports": [
+        "json",
+        "os"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
+      "has_header_file": false,
+      "has_header_ver": true,
+      "declared_name": null,
+      "declared_ver": "0.3 — szerokie wykrywanie Ustawień, logi, skrót Ctrl+Alt+U",
+      "syntax_ok": true,
+      "defs": [
+        "_apply",
+        "_attach_tab",
+        "_candidate_score",
+        "_cfg_get",
+        "_cfg_set",
+        "_find_candidate_notebooks",
+        "_get_title",
+        "_iter_all_windows",
+        "_nb_has_settings_like_tabs",
+        "force_attach_to_focused",
+        "start",
+        "tick"
+      ],
+      "imports": [
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "TeeLogger",
+        "Tmp",
+        "__init__",
+        "_excepthook",
+        "_log_error",
+        "_log_info",
+        "_safe_log",
+        "flush",
+        "get",
+        "init_config",
+        "main",
+        "write"
+      ],
+      "imports": [
+        "config_manager",
+        "datetime",
+        "gui_logowanie",
+        "json",
+        "os",
+        "sys",
+        "tkinter",
+        "traceback",
+        "uuid"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_gui.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "test_kreator_gui.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "zapisz_log"
+      ],
+      "imports": [
+        "os",
+        "pyautogui",
+        "time",
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_wersji.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\test_kreator_wersji.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "test_kreator_wersji.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "zapisz_log"
+      ],
+      "imports": [
+        "os",
+        "time"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ui_theme.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_init_styles",
+        "apply_theme"
+      ],
+      "imports": [
+        "__future__",
+        "tkinter"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\updater.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "updater.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "UpdatesUI",
+        "__init__",
+        "_append_out",
+        "_apply_local_theme",
+        "_backup_files",
+        "_build",
+        "_copy_versions",
+        "_do_restore",
+        "_ensure_dirs",
+        "_extract_zip_overwrite",
+        "_iter_python_files",
+        "_list_backups",
+        "_now_stamp",
+        "_ok",
+        "_on_git_pull",
+        "_on_restore",
+        "_on_zip_update",
+        "_read_head",
+        "_refresh_versions",
+        "_restart_app",
+        "_restore_backup",
+        "_run_git_pull",
+        "_scan_versions",
+        "_style_exists",
+        "_theme_colors",
+        "_versions_to_text",
+        "_write_log"
+      ],
+      "imports": [
+        "datetime",
+        "io",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tkinter",
+        "zipfile"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_produkty_bom.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "ustawienia_produkty_bom.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_add_row",
+        "_del_row",
+        "_delete",
+        "_ensure_dirs",
+        "_list_materialy",
+        "_list_produkty",
+        "_load",
+        "_new",
+        "_ok",
+        "_read_json",
+        "_refresh",
+        "_save",
+        "_select_idx",
+        "_write_json",
+        "apply_theme",
+        "make_tab"
+      ],
+      "imports": [
+        "glob",
+        "json",
+        "os",
+        "tkinter",
+        "ui_theme"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\ustawienia_systemu.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "ustawienia_systemu.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "UpdatesUI",
+        "__init__",
+        "_make_frame",
+        "_style_exists",
+        "apply_theme",
+        "panel_ustawien",
+        "panel_ustawien_magazyn",
+        "panel_ustawien_produkty"
+      ],
+      "imports": [
+        "gui_magazyn",
+        "tkinter",
+        "ui_theme",
+        "updater",
+        "ustawienia_produkty_bom"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\wymagane_pliki_version_check.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\wymagane_pliki_version_check.py",
+      "has_header_file": true,
+      "has_header_ver": true,
+      "declared_name": "kreator_sprawdzenia.py",
+      "declared_ver": "1.1",
+      "syntax_ok": true,
+      "defs": [
+        "sprawdz",
+        "sprawdz_wersje"
+      ],
+      "imports": [
+        "os",
+        "re"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_logika.py",
+      "has_header_file": false,
+      "has_header_ver": false,
+      "declared_name": null,
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "_ensure_dirs",
+        "_next_id",
+        "_read_json",
+        "_write_json",
+        "check_materials",
+        "create_zlecenie",
+        "delete_zlecenie",
+        "list_produkty",
+        "list_zlecenia",
+        "read_bom",
+        "read_magazyn",
+        "reserve_materials",
+        "update_status"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "os",
+        "pathlib"
+      ]
+    },
+    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_utils.py": {
+      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\zlecenia_utils.py",
+      "has_header_file": true,
+      "has_header_ver": false,
+      "declared_name": "zlecenia_utils.py",
+      "declared_ver": null,
+      "syntax_ok": true,
+      "defs": [
+        "przelicz_zapotrzebowanie",
+        "sprawdz_magazyn",
+        "zapisz_zlecenie"
+      ],
+      "imports": [
+        "datetime",
+        "json",
+        "os"
+      ]
+    }
+  },
+  "suggestions": [
+    "Ujednolić nagłówki # Plik/# Wersja we wszystkich plikach (generator nagłówka w pre-commit).",
+    "Rozbić cykliczne importy – wydzielić warstwę 'core' (modele, utils), 'gui' (widoki), 'app' (uruchomienie).",
+    "Zamienić gołe 'except' na konkretne wyjątki + logger z poziomami (info/warn/error).",
+    "Zapewnić pojedynczy mainloop, kontrolować .after() (cleanup przy zamknięciu), nie mieszać pack/grid w jednym kontenerze.",
+    "Dodać pre-commit (ruff + black, isort). Włączyć flake nieużytych importów.",
+    "Walidować config.json/maszyny.json/uzytkownicy.json z JSON Schema na starcie aplikacji.",
+    "Moduł serwisowy jako oddzielny pakiet z event-busem (pub/sub) i kolejką zadań – izolacja od GUI.",
+    "Potrójne potwierdzenie usuwania: dialog modalny z 3-krotnym 'OK' + timeout i klawisz ESC – antymisclick.",
+    "Wydzielić ui_theme.py jako jedyne źródło kolorów/typografii; zakaz inline kolorów w GUI."
+  ]
+}

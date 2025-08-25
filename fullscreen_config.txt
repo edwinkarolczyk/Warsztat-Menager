@@ -1,0 +1,3 @@
+# Konfiguracja ekranu Warsztat Menager
+# Od wersji 1.4.4 zawsze tryb fullscreen
+fullscreen = true

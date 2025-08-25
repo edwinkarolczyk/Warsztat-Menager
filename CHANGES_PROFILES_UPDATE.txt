@@ -1,0 +1,22 @@
+# Update: Profile użytkowników (pod aktualizacje)
+Data: 2025-08-21 11:35:00
+
+Pliki do podmiany:
+- gui_uzytkownicy.py 1.1.3 — dodany Notebook z kartą „👤 Profil” (styl WM.*); fallback do starego widoku.
+- gui_profil.py 1.0.5 — render profilu (login/nazwa/rola/zmiana), domyślne pola jeśli puste, aliasy.
+- gui_ustawienia.py 1.5.3 — helper doklejający kartę „Profile użytkowników” i wywołanie z kilkoma próbami (after).
+
+Dodatkowo:
+- config_profiles_seed.json — opcjonalny seed configu z profiles.*
+- migrate_profiles_config.py — migrator dodający profiles.* do istniejącego config.json (bez ruszania reszty).
+
+Instrukcja wdrożenia:
+1) Zatrzymaj program WM.
+2) Skopiuj powyższe pliki z paczki do projektu (zachowaj nazwy plików).
+3) (Opcjonalnie) Uruchom migrator:  python migrate_profiles_config.py  config.json
+   — doda profiles.* jeśli brakuje.
+4) Uruchom WM:
+   - Ustawienia → karta „Profile użytkowników”: włącz/wyłącz kartę profilu i label w nagłówku, ustaw avatar/pola.
+   - Panel → Użytkownicy: zobaczysz „👥 Użytkownicy” + „👤 Profil”.
+
+Zmiany są minimalne i odwracalne — nie naruszają logiki logowania/zleceń/magazynu.
