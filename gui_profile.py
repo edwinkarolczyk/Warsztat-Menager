@@ -119,6 +119,16 @@ def _is_overdue(task):
     d=_parse_date(task.get("termin",""))
     return bool(d and d<_dt.now().date())
 
+def _priority_value(task):
+    """Return numeric priority used for sorting tasks.
+
+    Overdue tasks have highest priority (``-1``). Tasks with a deadline
+    get ``0`` and tasks without a deadline get ``1``.
+    """
+    if _is_overdue(task):
+        return -1
+    return 0 if task.get("termin") else 1
+
 # ====== Converters ======
 def _convert_order_to_task(order):
     oid = order.get("nr") or order.get("id") or "?"
@@ -252,6 +262,11 @@ def _read_tasks(login, rola=None):
     for t in tasks:
         ov = ovr.get(str(t.get("id")))
         if ov: t["status"]=ov
+
+    # priorytety i sortowanie – zadania z terminem przed pozostałymi
+    for t in tasks:
+        t["_prio"] = _priority_value(t)
+    tasks.sort(key=lambda x: x.get("_prio", 0))
 
     return tasks
 
