@@ -2,7 +2,7 @@
 INSTALL (na stałe w Ustawieniach):
 
 1) Podmień w projekcie pliki z tej paczki:
-   - ustawienia_systemu.py – zawiera kartę „Profile użytkowników” dodawaną wewnątrz panel_ustawien(...)
+
    - gui_uzytkownicy.py – usunięta inicjalizacja injektora (reszta bez zmian)
 
 2) (Opcjonalnie) Usuń plik profiles_settings_injector.py z projektu – nie jest już potrzebny.

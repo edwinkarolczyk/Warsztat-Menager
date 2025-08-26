@@ -2,7 +2,7 @@ PATCH C – Profil + Alerty (23.08.2025)
 ======================================
 Pliki:
 - gui_profil.py 1.3.0
-- ustawienia_systemu.py (zaktualizowany panel_ustawien)
+
 
 Zmiany:
 - Profil: avatar 96x96, lista zadań z kolorami, dwuklik otwiera szczegóły zadania (edycja statusu, opis, zlecenie).
