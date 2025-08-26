@@ -107,6 +107,55 @@ def _extract_zip_overwrite(zip_path: Path, stamp: str):
                 shutil.copyfileobj(src, dst)
     return changed
 
+
+def _git_has_updates(cwd: Path) -> bool:
+    """Sprawdza, czy zdalne repozytorium zawiera nowe commity.
+
+    Wykonuje ``git fetch`` oraz ``git rev-list HEAD..origin/<branch>``.
+    Zwraca ``True`` jeśli dostępne są aktualizacje lub ``False`` w
+    przeciwnym przypadku. W razie błędów subprocess zwraca ``False`` i
+    zapisuje informację do logu.
+    """
+    try:
+        # aktualizacja odniesień zdalnych
+        subprocess.run(
+            ["git", "fetch"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+
+        # ustalenie bieżącej gałęzi
+        proc_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        branch = proc_branch.stdout.strip()
+
+        # sprawdzenie różnic między HEAD a origin/<branch>
+        proc_rev = subprocess.run(
+            ["git", "rev-list", f"HEAD..origin/{branch}"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        return bool(proc_rev.stdout.strip())
+    except subprocess.SubprocessError as e:
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        return False
+    except Exception as e:
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        return False
+
+
 def _run_git_pull(cwd: Path, stamp: str):
     """Wykonuje git pull w katalogu aplikacji."""
     cmd = ["git", "pull"]
