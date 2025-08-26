@@ -129,7 +129,7 @@ def _load_avatar(parent, login):
     except Exception:
         pass
     photo = ImageTk.PhotoImage(img)
-    lbl = tk.Label(parent, image=photo)
+    lbl = ttk.Label(parent, image=photo, style="WM.TLabel")
     lbl.image = photo  # zapobiega zbieraniu przez GC
     return lbl
 
@@ -299,31 +299,31 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
     apply_theme(win)
 
     # Nagłówki
-    ttk.Label(win, text=f"ID: {task.get('id','')}").pack(anchor="w", padx=8, pady=(8,2))
-    ttk.Label(win, text=f"Tytuł: {task.get('tytul','')}").pack(anchor="w", padx=8, pady=2)
+    ttk.Label(win, text=f"ID: {task.get('id','')}", style="WM.TLabel").pack(anchor="w", padx=8, pady=(8,2))
+    ttk.Label(win, text=f"Tytuł: {task.get('tytul','')}", style="WM.TLabel").pack(anchor="w", padx=8, pady=2)
 
     # Opis
-    frm_opis = ttk.Frame(win); frm_opis.pack(fill="x", padx=8, pady=2)
-    ttk.Label(frm_opis, text="Opis:").pack(side="left")
+    frm_opis = ttk.Frame(win, style="WM.TFrame"); frm_opis.pack(fill="x", padx=8, pady=2)
+    ttk.Label(frm_opis, text="Opis:", style="WM.TLabel").pack(side="left")
     txt = tk.Text(frm_opis, height=4, width=60)
     txt.pack(side="left", fill="x", expand=True)
     txt.insert("1.0", task.get("opis",""))
 
     # Status
     status_var = tk.StringVar(value=task.get("status","Nowe"))
-    ttk.Label(win, text="Status:").pack(anchor="w", padx=8, pady=(6,0))
+    ttk.Label(win, text="Status:", style="WM.TLabel").pack(anchor="w", padx=8, pady=(6,0))
     cb = ttk.Combobox(win, textvariable=status_var, values=["Nowe","W toku","Pilne","Zrobione"], state="readonly")
     cb.pack(anchor="w", padx=8, pady=2)
 
-    ttk.Label(win, text=f"Termin: {task.get('termin','')}").pack(anchor="w", padx=8, pady=(2,8))
+    ttk.Label(win, text=f"Termin: {task.get('termin','')}", style="WM.TLabel").pack(anchor="w", padx=8, pady=(2,8))
 
     # Przypisz do
     is_order = str(task.get("id","")).startswith("ZLEC-") or task.get("_kind")=="order"
     is_tool  = str(task.get("id","")).startswith("NARZ-") or task.get("_kind")=="tooltask"
     assign_var = tk.StringVar(value="")
     if rola=="brygadzista" and (is_order or is_tool):
-        frm = ttk.Frame(win); frm.pack(fill="x", padx=8, pady=6)
-        ttk.Label(frm, text="Przypisz do (login):").pack(side="left")
+        frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="x", padx=8, pady=6)
+        ttk.Label(frm, text="Przypisz do (login):", style="WM.TLabel").pack(side="left")
         ent = ttk.Combobox(frm, textvariable=assign_var, values=_login_list(), state="normal", width=24)
         ent.pack(side="left", padx=6)
         if is_order:
@@ -357,7 +357,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
 
 def _build_table(frame, root, login, rola, tasks):
     # Toolbar
-    bar = ttk.Frame(frame); bar.pack(fill="x", padx=12, pady=(8,6))
+    bar = ttk.Frame(frame, style="WM.TFrame"); bar.pack(fill="x", padx=12, pady=(8,6))
     show_orders = tk.BooleanVar(value=True)
     show_tools  = tk.BooleanVar(value=True)
     only_mine   = tk.BooleanVar(value=False)   # dla brygadzisty filtruje do jego zadań
@@ -368,14 +368,14 @@ def _build_table(frame, root, login, rola, tasks):
     ttk.Checkbutton(bar,text="Pokaż zadania z narzędzi",variable=show_tools).pack(side="left", padx=(8,0))
     ttk.Checkbutton(bar,text="Tylko przypisane do mnie",variable=only_mine).pack(side="left", padx=(8,0))
     ttk.Checkbutton(bar,text="Tylko po terminie",variable=only_over).pack(side="left", padx=(8,0))
-    ttk.Label(bar,text="Szukaj:").pack(side="left", padx=(12,4))
+    ttk.Label(bar,text="Szukaj:", style="WM.TLabel").pack(side="left", padx=(12,4))
     ent = ttk.Entry(bar,textvariable=q,width=28); ent.pack(side="left")
     btn = ttk.Button(bar,text="Odśwież"); btn.pack(side="left", padx=8)
 
     # Tabela
-    container = ttk.Frame(frame); container.pack(fill="both",expand=True, padx=12, pady=(0,12))
+    container = ttk.Frame(frame, style="WM.TFrame"); container.pack(fill="both",expand=True, padx=12, pady=(0,12))
     cols = ("id","tytul","status","termin")
-    tv = ttk.Treeview(container, columns=cols, show="headings", height=18)
+    tv = ttk.Treeview(container, columns=cols, show="headings", height=18, style="WM.Treeview")
     for c,w in zip(cols,(180,600,160,160)):
         tv.heading(c, text=c.capitalize())
         tv.column(c, width=w, anchor="w")
@@ -469,6 +469,10 @@ def uruchom_panel(root, frame, login=None, rola=None):
     """
 
     apply_theme(root.winfo_toplevel())
+    try:
+        frame.configure(style="WM.TFrame")
+    except Exception:
+        pass
 
     # wyczyść
     for w in list(frame.winfo_children()):
@@ -476,23 +480,23 @@ def uruchom_panel(root, frame, login=None, rola=None):
         except: pass
 
     # Nagłówek
-    head = ttk.Frame(frame); head.pack(fill="x", padx=12, pady=10)
+    head = ttk.Frame(frame, style="WM.TFrame"); head.pack(fill="x", padx=12, pady=10)
     _load_avatar(head, login).pack(side="left", padx=(0,12))
-    info = ttk.Frame(head); info.pack(side="left")
-    ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold")).pack(anchor="w")
-    ttk.Label(info, text=f"Rola: {rola or '-'}").pack(anchor="w")
+    info = ttk.Frame(head, style="WM.TFrame"); info.pack(side="left")
+    ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold"), style="WM.TLabel").pack(anchor="w")
+    ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
 
     # Dane
     tasks = _read_tasks(login, rola)
 
     # Pasek statystyk
-    stats = ttk.Frame(frame); stats.pack(fill="x", padx=12, pady=(0,6))
+    stats = ttk.Frame(frame, style="WM.TFrame"); stats.pack(fill="x", padx=12, pady=(0,6))
     total = len(tasks)
     open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
     urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
     done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
     for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
-        ttk.Label(stats, text=txt, relief="groove").pack(side="left", padx=4)
+        ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
 
     # Tabela + filtry
     _build_table(frame, root, login, rola, tasks)
