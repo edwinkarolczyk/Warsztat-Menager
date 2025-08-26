@@ -22,10 +22,14 @@ from ui_theme import apply_theme_safe as apply_theme
 entry_pin = None
 root_global = None
 
-def ekran_logowania(root=None):
+def ekran_logowania(root=None, update_available=False):
     """Ekran logowania: logo u góry na środku, box PIN w centrum,
        pasek postępu zmiany (1/3 szerokości) wyśrodkowany,
        na samym dole przycisk 'Zamknij program' + stopka z wersją.
+
+       Parametry:
+           root: opcjonalne istniejące okno główne tkinter.
+           update_available (bool): jeśli True, pokaż komunikat o dostępnej aktualizacji.
     """
     global entry_pin, root_global
     if root is None:
@@ -152,6 +156,8 @@ def ekran_logowania(root=None):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+    if update_available:
+        ttk.Label(root, text="Dostępna aktualizacja – uruchom 'git pull'", style="WM.Muted.TLabel").pack(side="bottom", pady=(0,2))
 
 def logowanie():
     pin = entry_pin.get().strip()
