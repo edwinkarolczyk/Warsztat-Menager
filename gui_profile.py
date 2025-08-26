@@ -199,6 +199,7 @@ def _convert_tool_task(tool_num, tool_name, worker_login, idx, item):
 
 # ====== Widoczność ======
 def _order_visible_for(order, login, rola):
+    rola = str(rola).lower()
     if rola=="brygadzista": return True
     # przypisanie bezpośrednie
     for key in ("login","operator","pracownik","przydzielono","assigned_to"):
@@ -211,6 +212,7 @@ def _order_visible_for(order, login, rola):
     return False
 
 def _tool_visible_for(tool_task, login, rola):
+    rola = str(rola).lower()
     if rola=="brygadzista": return True
     if str(tool_task.get("login","")).lower()==str(login).lower(): return True
     if str(_load_assign_tools().get(tool_task["id"],"")).lower()==str(login).lower(): return True
@@ -218,6 +220,7 @@ def _tool_visible_for(tool_task, login, rola):
 
 # ====== Czytanie zadań ======
 def _read_tasks(login, rola=None):
+    rola = str(rola).lower()
     tasks = []
 
     def _load_orders_dir(dir_path):
@@ -287,6 +290,7 @@ def _read_tasks(login, rola=None):
 
 # ====== UI ======
 def _show_task_details(root, frame, login, rola, task, after_save=None):
+    rola = str(rola).lower()
     win = tk.Toplevel(root)
     win.title(f"Zadanie {task.get('id','')}")
     apply_theme(win)
