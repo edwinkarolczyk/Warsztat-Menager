@@ -5,7 +5,20 @@
     "zmiana_plan": "I",
     "status": "",
     "stanowisko": "",
-    "pin": "1"
+    "pin": "1",
+    "imie": "Edwin",
+    "nazwisko": "Kowalski",
+    "staz": 5,
+    "umiejetnosci": {"spawanie": 4, "tokarka": 3},
+    "kursy": ["BHP", "Spawanie MIG"],
+    "ostrzezenia": ["Brak kasku 2024-05-12"],
+    "nagrody": ["Pracownik miesi\u0105ca 2024-06"],
+    "historia_maszyn": ["TOK-1", "FREZ-3"],
+    "awarie": ["TOK-1 2024-02-11"],
+    "sugestie": ["Zakup nowych r\u0119kawic"],
+    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "zadania": [],
+    "opis": ""
   },
   {
     "login": "dawid",
@@ -13,7 +26,20 @@
     "zmiana_plan": "I",
     "status": "",
     "stanowisko": "",
-    "pin": "2"
+    "pin": "2",
+    "imie": "",
+    "nazwisko": "",
+    "staz": 0,
+    "umiejetnosci": {},
+    "kursy": [],
+    "ostrzezenia": [],
+    "nagrody": [],
+    "historia_maszyn": [],
+    "awarie": [],
+    "sugestie": [],
+    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "zadania": [],
+    "opis": ""
   },
   {
     "login": "marek",
@@ -21,7 +47,20 @@
     "zmiana_plan": "I",
     "status": "",
     "stanowisko": "",
-    "pin": "3"
+    "pin": "3",
+    "imie": "",
+    "nazwisko": "",
+    "staz": 0,
+    "umiejetnosci": {},
+    "kursy": [],
+    "ostrzezenia": [],
+    "nagrody": [],
+    "historia_maszyn": [],
+    "awarie": [],
+    "sugestie": [],
+    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "zadania": [],
+    "opis": ""
   },
   {
     "login": "sebastian",
@@ -29,7 +68,20 @@
     "zmiana_plan": "I",
     "status": "",
     "stanowisko": "",
-    "pin": ""
+    "pin": "",
+    "imie": "",
+    "nazwisko": "",
+    "staz": 0,
+    "umiejetnosci": {},
+    "kursy": [],
+    "ostrzezenia": [],
+    "nagrody": [],
+    "historia_maszyn": [],
+    "awarie": [],
+    "sugestie": [],
+    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "zadania": [],
+    "opis": ""
   },
   {
     "login": "jacek",
@@ -37,6 +89,19 @@
     "zmiana_plan": "I",
     "status": "",
     "stanowisko": "",
-    "pin": ""
+    "pin": "",
+    "imie": "",
+    "nazwisko": "",
+    "staz": 0,
+    "umiejetnosci": {},
+    "kursy": [],
+    "ostrzezenia": [],
+    "nagrody": [],
+    "historia_maszyn": [],
+    "awarie": [],
+    "sugestie": [],
+    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "zadania": [],
+    "opis": ""
   }
 ]
