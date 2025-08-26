@@ -66,7 +66,7 @@ def _resolve_role(parent, rola_hint=None):
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
-        apply_theme(master)
+        apply_theme(master.winfo_toplevel())
         self._build_ui()
         self._load()
 
@@ -251,7 +251,7 @@ class PanelMagazyn(ttk.Frame):
             self.var_alerty.set(txt)
 
 def panel_magazyn(root, frame, login=None, rola=None):
-    apply_theme(root)
+    apply_theme(root.winfo_toplevel())
     for w in frame.winfo_children():
         w.destroy()
     PanelMagazyn(frame).pack(fill="both", expand=True)
@@ -278,7 +278,7 @@ def attach_magazyn_button(root, toolbar):
     return btn
 
 def panel_ustawien_magazyn(parent, rola=None):
-    apply_theme(parent)
+    apply_theme(parent.winfo_toplevel())
     frm = ttk.Frame(parent, style="WM.Card.TFrame")
     frm.pack(fill="both", expand=True, padx=12, pady=12)
 

@@ -468,13 +468,12 @@ def uruchom_panel(root, frame, login=None, rola=None):
         Ta sama ramka *frame* z dobudowanymi widżetami.
     """
 
+    apply_theme(root.winfo_toplevel())
+
     # wyczyść
     for w in list(frame.winfo_children()):
         try: w.destroy()
         except: pass
-
-    apply_theme(root)
-    apply_theme(frame)
 
     # Nagłówek
     head = ttk.Frame(frame); head.pack(fill="x", padx=12, pady=10)

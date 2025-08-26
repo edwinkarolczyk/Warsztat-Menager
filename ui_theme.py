@@ -79,6 +79,11 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     except Exception:
         pass
 
+    # Bazowe style dla standardowych klas
+    style.configure("TFrame", background=DARK_BG)
+    style.configure("TLabel", background=DARK_BG, foreground=FG)
+    style.configure("TButton", background=BTN_BG, foreground=FG, padding=6)
+
     # Frames / cards / side
     style.configure("WM.TFrame", background=DARK_BG)
     style.configure("WM.Card.TFrame", background=CARD_BG)
@@ -91,7 +96,6 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     style.configure("WM.H1.TLabel", background=DARK_BG, foreground=FG, font=("Segoe UI", 16, "bold"))
 
     # Buttons (w tym boczne)
-    style.configure("TButton", padding=6)
     style.configure("WM.Side.TButton", background=BTN_BG, foreground=FG, padding=6)
     style.map("WM.Side.TButton",
               background=[("active", BTN_BG_HOVER), ("pressed", BTN_BG_ACT)],
