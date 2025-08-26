@@ -89,23 +89,8 @@ except Exception:
         for w in frame.winfo_children(): w.destroy()
         ttk.Label(frame, text="Ustawienia systemu").pack(pady=20)
 
-# --- NOWE: IMPORT MAGAZYNU (bezpieczny) ---
-try:
-    from gui_magazyn import panel_magazyn as _panel_magazyn_real
-    _PANEL_MAG_ERR = None
-    def panel_magazyn(root, frame, login=None, rola=None):
-        return _panel_magazyn_real(root, frame, login, rola)
-except Exception as e:
-    import traceback
-    _PANEL_MAG_ERR = traceback.format_exc()
-    def panel_magazyn(root, frame, login=None, rola=None):
-        for w in frame.winfo_children():
-            w.destroy()
-        tk.Label(
-            frame,
-            text="Błąd importu gui_magazyn.py:" + _PANEL_MAG_ERR,
-            fg="#e53935", justify="left", anchor="w"
-        ).pack(padx=12, pady=12, anchor="w")
+# --- IMPORT MAGAZYNU ---
+from gui_magazyn import panel_magazyn
 
 
 try:
@@ -248,7 +233,7 @@ def uruchom_panel(root, login, rola):
     ttk.Button(side, text="Zlecenia",  command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),  style="WM.Side.TButton").pack(padx=10, pady=(12,6), fill="x")
     ttk.Button(side, text="Narzędzia", command=lambda: otworz_panel(panel_narzedzia, "Narzędzia"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
     ttk.Button(side, text="Maszyny",   command=lambda: otworz_panel(panel_maszyny, "Maszyny"),    style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
-    # NOWE: wejście do Magazynu (otwiera osobne okno panelu magazynowego)
+    # Wejście do Magazynu
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
 
     admin_roles = {"admin","kierownik","brygadzista","lider"}
