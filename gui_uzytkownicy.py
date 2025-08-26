@@ -7,7 +7,7 @@
 
 import json
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -72,6 +72,57 @@ def _build_tab_users(parent, rola):
         entry_login.config(state="disabled")
     lb.bind("<<ListboxSelect>>", load_selected)
 
+    PRESENCE_FILE = "uzytkownicy_presence.json"
+
+    def _sync_presence():
+        try:
+            with open(PRESENCE_FILE, encoding="utf-8") as f:
+                presence_data = json.load(f)
+            if not isinstance(presence_data, list):
+                presence_data = []
+        except Exception:
+            presence_data = []
+
+        presence_map = {p.get("login"): p for p in presence_data if isinstance(p, dict)}
+        current = set()
+        for u in users:
+            login = u.get("login")
+            if not login:
+                continue
+            current.add(login)
+            rec = presence_map.get(login)
+            if rec:
+                rec["rola"] = u.get("rola", "")
+                rec["zmiana_plan"] = u.get("zmiana_plan", "")
+            else:
+                presence_map[login] = {
+                    "login": login,
+                    "rola": u.get("rola", ""),
+                    "zmiana_plan": u.get("zmiana_plan", ""),
+                    "status": "",
+                }
+        for login in list(presence_map.keys()):
+            if login not in current:
+                presence_map.pop(login, None)
+        try:
+            with open(PRESENCE_FILE, "w", encoding="utf-8") as f:
+                json.dump(list(presence_map.values()), f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _is_logged_in(login):
+        if not login:
+            return False
+        try:
+            import presence
+            recs, _ = presence.read_presence()
+            for r in recs:
+                if r.get("login") == login and r.get("online"):
+                    return True
+        except Exception:
+            pass
+        return False
+
     def save_user():
         if lb.curselection():
             idx = lb.curselection()[0]
@@ -90,6 +141,7 @@ def _build_tab_users(parent, rola):
         for f in fields:
             user[f] = vars[f].get()
         _save_users(users)
+        _sync_presence()
         load_selected()
     ttk.Button(form, text="Zapisz", command=save_user).grid(row=len(fields)+1, column=0, columnspan=2, pady=5)
 
@@ -106,9 +158,14 @@ def _build_tab_users(parent, rola):
             if not lb.curselection():
                 return
             idx = lb.curselection()[0]
+            login = users[idx].get("login", "")
+            if _is_logged_in(login):
+                if not messagebox.askyesno("Usuń konto", f"Użytkownik '{login}' jest zalogowany. Kontynuować?"):
+                    return
             lb.delete(idx)
             users.pop(idx)
             _save_users(users)
+            _sync_presence()
             new_user()
         ttk.Button(btns, text="Nowy", command=new_user).pack(side="left", padx=2)
         ttk.Button(btns, text="Usuń", command=delete_user).pack(side="left", padx=2)
