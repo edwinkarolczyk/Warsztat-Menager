@@ -151,8 +151,24 @@ def uruchom_panel(root, login, rola):
     shift_info = ttk.Label(shift_wrap, text="", style="WM.Muted.TLabel"); shift_info.pack(anchor="w", padx=8, pady=(0,6))
 
     # prawa część: stałe przyciski
+    def _logout():
+        """Powrót do ekranu logowania + opcjonalne oznaczenie wylogowania."""
+        # heartbeat logout if available
+        try:
+            from presence import heartbeat
+            heartbeat(login, rola, logout=True)
+        except Exception:
+            pass
+        try:
+            import gui_logowanie
+            gui_logowanie.ekran_logowania(root)
+        except Exception:
+            try:
+                root.destroy()
+            except Exception:
+                pass
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
-    ttk.Button(btns, text="Wyloguj", command=root.destroy, style="WM.Side.TButton").pack(side="right", padx=(6,0))
+    ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
     ttk.Button(btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton").pack(side="right")
 
     # --- bezpieczny timer paska zmiany ---
