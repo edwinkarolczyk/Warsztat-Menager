@@ -50,18 +50,21 @@ def read_users():
     - lista użytkowników: [ {...}, {...} ]
     - dict z kluczem "users": {"users":[...]}
     Przy braku pliku – tworzy z DEFAULT_USER.
+    Po odczycie uzupełnia brakujące pola przez ``ensure_user_fields``.
     """
     data = _load_json(USERS_FILE)
     if data is None:
         users = [DEFAULT_USER.copy()]
         _save_json(USERS_FILE, users)
-        return users
+        return ensure_user_fields(users)
     if isinstance(data, list):
-        return data
-    if isinstance(data, dict) and "users" in data and isinstance(data["users"], list):
-        return data["users"]
-    # Nieznany format -> spróbuj odczytać pole 'users' lub zamienić na listę
-    return [DEFAULT_USER.copy()]
+        users = data
+    elif isinstance(data, dict) and "users" in data and isinstance(data["users"], list):
+        users = data["users"]
+    else:
+        # Nieznany format -> spróbuj odczytać pole 'users' lub zamienić na listę
+        users = [DEFAULT_USER.copy()]
+    return ensure_user_fields(users)
 
 def write_users(users):
     """ Zapisuje jako listę (najprościej i spójnie). """
@@ -122,9 +125,8 @@ def save_user(user: dict):
         users.append(user)
     return write_users(users)
 
-def ensure_user_fields():
-    """ Uzupełnia brakujące pola w uzytkownicy.json (nie nadpisuje istniejących). """
-    users = read_users()
+def ensure_user_fields(users):
+    """Uzupełnia brakujące pola w przekazanej liście użytkowników."""
     changed = False
     for u in users:
         if "preferencje" not in u: u["preferencje"] = {"motyw": "dark", "widok_startowy": "panel"}; changed = True
@@ -141,4 +143,5 @@ def ensure_user_fields():
         if "sugestie" not in u: u["sugestie"] = []; changed = True
         if "opis" not in u: u["opis"] = ""; changed = True
     if changed:
-        write_users(users)
+        _save_json(USERS_FILE, users)
+    return users
