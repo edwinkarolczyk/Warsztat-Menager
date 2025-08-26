@@ -27,6 +27,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from PIL import Image, ImageTk, UnidentifiedImageError
+from profile_utils import get_user, save_user
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -109,6 +110,15 @@ def _login_list():
             nm=os.path.basename(p).split("_",1)[-1].replace(".json","")
             if _valid_login(nm): s.add(nm)
     return sorted(s)
+
+def _count_presence(login):
+    """Zwraca liczbę wpisów frekwencji dla danego loginu."""
+    data = _load_json("presence.json", {})
+    cnt = 0
+    for v in data.values():
+        if str(v.get("login", "")).lower() == str(login).lower():
+            cnt += 1
+    return cnt
 
 def _load_avatar(parent, login):
     """Wczytuje avatar użytkownika.
@@ -431,6 +441,81 @@ def _build_table(frame, root, login, rola, tasks):
     tv.bind("<Double-1>", on_dbl)
     reload_table()
 
+def _stars(rating):
+    """Zwraca graficzną reprezentację gwiazdek dla oceny 0-5."""
+    try:
+        r = int(rating)
+    except Exception:
+        r = 0
+    r = max(0, min(5, r))
+    return "★" * r + "☆" * (5 - r)
+
+def _build_basic_tab(parent, user):
+    imie_var = tk.StringVar(value=user.get("imie", ""))
+    nazwisko_var = tk.StringVar(value=user.get("nazwisko", ""))
+    staz_var = tk.StringVar(value=str(user.get("staz", 0)))
+    ttk.Label(parent, text="Imię:", style="WM.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=imie_var).grid(row=0, column=1, sticky="ew", padx=4, pady=2)
+    ttk.Label(parent, text="Nazwisko:", style="WM.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=nazwisko_var).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
+    ttk.Label(parent, text="Staż:", style="WM.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=staz_var).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+    parent.columnconfigure(1, weight=1)
+    def _save():
+        user["imie"] = imie_var.get()
+        user["nazwisko"] = nazwisko_var.get()
+        try:
+            user["staz"] = int(staz_var.get())
+        except Exception:
+            user["staz"] = 0
+        save_user(user)
+        messagebox.showinfo("Zapisano", "Dane zapisane.")
+    ttk.Button(parent, text="Zapisz", command=_save).grid(row=3, column=0, columnspan=2, pady=6)
+
+def _build_skills_tab(parent, user):
+    skills = user.get("umiejetnosci", {})
+    if not skills:
+        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
+    else:
+        for name, rating in skills.items():
+            ttk.Label(parent, text=f"{name}: {_stars(rating)}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+
+def _build_tasks_tab(parent, root, login, rola, tasks):
+    stats = ttk.Frame(parent, style="WM.TFrame"); stats.pack(fill="x", padx=12, pady=(0,6))
+    total = len(tasks)
+    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
+    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
+    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
+    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
+        ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
+    _build_table(parent, root, login, rola, tasks)
+
+def _build_stats_tab(parent, tasks, login):
+    presence = _count_presence(login)
+    total = len(tasks)
+    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
+    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
+    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
+    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}", f"Frekwencja: {presence}"):
+        ttk.Label(parent, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4, pady=4)
+
+def _build_simple_list_tab(parent, items):
+    if not items:
+        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
+    else:
+        for it in items:
+            ttk.Label(parent, text=f"- {it}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+
+def _build_preferences_tab(parent, prefs):
+    if not prefs:
+        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
+    else:
+        for k, v in prefs.items():
+            ttk.Label(parent, text=f"{k}: {v}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+
+def _build_description_tab(parent, text):
+    ttk.Label(parent, text=text or "", style="WM.TLabel", wraplength=400, justify="left").pack(anchor="w", padx=6, pady=6)
+
 def uruchom_panel(root, frame, login=None, rola=None):
     """Wypełnia podaną *frame* widokiem profilu użytkownika.
 
@@ -471,18 +556,47 @@ def uruchom_panel(root, frame, login=None, rola=None):
 
     # Dane
     tasks = _read_tasks(login, rola)
+    user = get_user(login) or {}
 
-    # Pasek statystyk
-    stats = ttk.Frame(frame, style="WM.TFrame"); stats.pack(fill="x", padx=12, pady=(0,6))
-    total = len(tasks)
-    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
-    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
-    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
-    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
-        ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
+    nb = ttk.Notebook(frame)
+    nb.pack(fill="both", expand=True, padx=12, pady=(0,12))
 
-    # Tabela + filtry
-    _build_table(frame, root, login, rola, tasks)
+    tab_basic = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_basic, text="Dane podstawowe")
+    _build_basic_tab(tab_basic, user)
+
+    tab_skill = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_skill, text="Umiejętności")
+    _build_skills_tab(tab_skill, user)
+
+    tab_tasks = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_tasks, text="Zadania")
+    _build_tasks_tab(tab_tasks, root, login, rola, tasks)
+
+    tab_stats = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_stats, text="Statystyki")
+    _build_stats_tab(tab_stats, tasks, login)
+
+    tab_courses = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_courses, text="Kursy")
+    _build_simple_list_tab(tab_courses, user.get("kursy", []))
+
+    tab_awards = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_awards, text="Nagrody")
+    _build_simple_list_tab(tab_awards, user.get("nagrody", []))
+
+    tab_warn = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_warn, text="Ostrzeżenia")
+    _build_simple_list_tab(tab_warn, user.get("ostrzezenia", []))
+
+    tab_hist = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_hist, text="Historia maszyn")
+    _build_simple_list_tab(tab_hist, user.get("historia_maszyn", []))
+
+    tab_fail = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_fail, text="Zgłoszone awarie")
+    _build_simple_list_tab(tab_fail, user.get("awarie", []))
+
+    tab_sug = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_sug, text="Sugestie")
+    _build_simple_list_tab(tab_sug, user.get("sugestie", []))
+
+    tab_pref = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_pref, text="Preferencje")
+    _build_preferences_tab(tab_pref, user.get("preferencje", {}))
+
+    tab_desc = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_desc, text="Opis")
+    _build_description_tab(tab_desc, user.get("opis", ""))
+
     return frame
 
 # API zgodne z wcześniejszymi wersjami:
