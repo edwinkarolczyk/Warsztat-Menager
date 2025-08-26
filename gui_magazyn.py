@@ -65,8 +65,8 @@ def _resolve_role(parent, rola_hint=None):
 
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
-        super().__init__(master)
-        apply_theme(master.winfo_toplevel())
+        super().__init__(master, style="WM.Card.TFrame")
+        apply_theme(self)
         self._build_ui()
         self._load()
 
@@ -75,22 +75,22 @@ class PanelMagazyn(ttk.Frame):
         self.rowconfigure(1, weight=1)
 
         # Pasek narzędzi
-        bar = ttk.Frame(self)
+        bar = ttk.Frame(self, style="WM.TFrame")
         bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8,4))
         bar.columnconfigure(3, weight=1)
 
-        ttk.Label(bar, text="Szukaj:").grid(row=0, column=0, sticky="w")
+        ttk.Label(bar, text="Szukaj:", style="WM.Muted.TLabel").grid(row=0, column=0, sticky="w")
         self.var_szukaj = tk.StringVar()
         ent = ttk.Entry(bar, textvariable=self.var_szukaj)
         ent.grid(row=0, column=1, sticky="ew", padx=6)
         ent.bind("<KeyRelease>", lambda e: self._filter())
 
-        ttk.Button(bar, text="Odśwież", command=self._load).grid(row=0, column=2, padx=6)
-        ttk.Button(bar, text="Zużyj", command=self._act_zuzyj).grid(row=0, column=4, padx=3)
-        ttk.Button(bar, text="Zwrot", command=self._act_zwrot).grid(row=0, column=5, padx=3)
-        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj).grid(row=0, column=6, padx=3)
-        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij).grid(row=0, column=7, padx=3)
-        ttk.Button(bar, text="Historia", command=self._show_historia).grid(row=0, column=8, padx=6)
+        ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
+        ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
+        ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton").grid(row=0, column=5, padx=3)
+        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=6, padx=3)
+        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
+        ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=8, padx=6)
 
         # Tabela (styl WM.Treeview)
         self.tree = ttk.Treeview(
@@ -110,12 +110,9 @@ class PanelMagazyn(ttk.Frame):
 
         self.tree.bind("<Double-1>", lambda e: self._show_historia())
 
-        style = ttk.Style(self)
-        style.map("Treeview", background=[("selected", "#444")])
-
         # Pasek alertów
         self.var_alerty = tk.StringVar()
-        lab = ttk.Label(self, textvariable=self.var_alerty)
+        lab = ttk.Label(self, textvariable=self.var_alerty, style="WM.Muted.TLabel")
         lab.grid(row=2, column=0, sticky="ew", padx=8, pady=(0,8))
 
     def _load(self):
