@@ -26,7 +26,7 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, UnidentifiedImageError
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -121,8 +121,11 @@ def _load_avatar(parent, login):
     default_path = os.path.join("avatars", "default.jpg")
     try:
         img = Image.open(path)
-    except FileNotFoundError:
-        img = Image.open(default_path)
+    except (FileNotFoundError, OSError, UnidentifiedImageError):
+        try:
+            img = Image.open(default_path)
+        except (FileNotFoundError, OSError, UnidentifiedImageError):
+            return ttk.Label(parent, style="WM.TLabel")
     # dopasuj rozmiar obrazka do maksymalnych wymiarów
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
