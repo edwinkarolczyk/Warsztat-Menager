@@ -7,9 +7,10 @@
 # ⏹ KONIEC KODU
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
+from config_manager import ConfigManager, ConfigError
 
 # --- import panelu magazynowego ---
 try:
@@ -47,6 +48,8 @@ def _make_frame(parent, style_name: str | None = None) -> ttk.Frame:
     return ttk.Frame(parent)
 
 def panel_ustawien(root, frame, login=None, rola=None):
+    cfg = ConfigManager()
+
     # wyczyść
     for w in frame.winfo_children():
         w.destroy()
@@ -64,7 +67,39 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # --- Ogólne ---
     tab1 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab1, text="Ogólne")
-    ttk.Label(tab1, text="Ustawienia ogólne systemu").pack(padx=12, pady=12)
+
+    frm = ttk.Frame(tab1)
+    frm.pack(fill="x", padx=12, pady=12)
+    frm.columnconfigure(1, weight=1)
+
+    lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
+    theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
+    backup_var = tk.StringVar(value=cfg.get("backup.folder", ""))
+    auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
+
+    ttk.Label(frm, text="Język UI:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
+    ttk.Combobox(frm, textvariable=lang_var, values=["pl", "en"], state="readonly").grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+
+    ttk.Label(frm, text="Motyw:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
+    ttk.Combobox(frm, textvariable=theme_var, values=["dark", "light"], state="readonly").grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+
+    ttk.Label(frm, text="Katalog kopii zapasowych:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+    ttk.Entry(frm, textvariable=backup_var).grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+
+    ttk.Label(frm, text="Automatyczne aktualizacje:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
+    ttk.Checkbutton(frm, variable=auto_var).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+
+    def _save():
+        try:
+            cfg.set("ui.language", lang_var.get())
+            cfg.set("ui.theme", theme_var.get())
+            cfg.set("backup.folder", backup_var.get())
+            cfg.set("updates.auto", bool(auto_var.get()))
+            cfg.save_all()
+        except ConfigError as e:
+            messagebox.showerror("Błąd", str(e))
+
+    ttk.Button(frm, text="Zapisz", command=_save).grid(row=4, column=0, columnspan=2, pady=10)
 
     # --- Użytkownicy ---
     tab2 = _make_frame(nb, "WM.Card.TFrame")

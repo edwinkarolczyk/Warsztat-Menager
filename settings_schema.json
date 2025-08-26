@@ -1,10 +1,10 @@
 {
   "config_version": 1,
   "options": [
-    {
-      "key": "ui.theme",
-      "group": "Ogólne",
-      "label": "Motyw",
+  {
+        "key": "ui.theme",
+        "group": "Ogólne",
+        "label": "Motyw",
       "type": "enum",
       "enum": [
         "dark",
@@ -13,12 +13,23 @@
       "default": "dark",
       "widget": "select",
       "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.accent",
-      "group": "Ogólne",
-      "label": "Akcent kolorystyczny",
+        "requires_restart": false
+      },
+      {
+        "key": "ui.language",
+        "group": "Ogólne",
+        "label": "Język interfejsu",
+        "type": "enum",
+        "enum": ["pl", "en"],
+        "default": "pl",
+        "widget": "select",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "ui.accent",
+        "group": "Ogólne",
+        "label": "Akcent kolorystyczny",
       "type": "enum",
       "enum": [
         "red",
@@ -38,11 +49,11 @@
       "type": "bool",
       "default": true,
       "widget": "switch",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "app.start_view",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "app.start_view",
       "group": "Ogólne",
       "label": "Widok startowy",
       "type": "enum",
@@ -121,20 +132,30 @@
       "scope": "global",
       "requires_restart": false
     },
-    {
-      "key": "backup.folder",
-      "group": "Pliki i ścieżki",
-      "label": "Folder kopii zapasowych",
+      {
+        "key": "backup.folder",
+        "group": "Pliki i ścieżki",
+        "label": "Folder kopii zapasowych",
       "type": "path",
       "default": "backup_wersji",
       "widget": "dir",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "modules.service.enabled",
-      "group": "Moduły i widoki",
-      "label": "Moduł serwisowy włączony",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "updates.auto",
+        "group": "Aktualizacje",
+        "label": "Automatyczne aktualizacje",
+        "type": "bool",
+        "default": true,
+        "widget": "switch",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "modules.service.enabled",
+        "group": "Moduły i widoki",
+        "label": "Moduł serwisowy włączony",
       "type": "bool",
       "default": true,
       "widget": "switch",
