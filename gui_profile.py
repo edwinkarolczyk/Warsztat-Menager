@@ -132,7 +132,7 @@ def _load_avatar(parent, login):
     except Exception:
         pass
     photo = ImageTk.PhotoImage(img)
-    lbl = ttk.Label(parent, image=photo, style="WM.TLabel")
+    lbl = tk.Label(parent, image=photo)
     lbl.image = photo  # zapobiega zbieraniu przez GC
     return lbl
 
@@ -210,53 +210,56 @@ def _tool_visible_for(tool_task, login, rola):
 def _read_tasks(login, rola=None):
     tasks = []
 
-    # Wspólna tabela źródeł zadań (ścieżka + filtr)
+    def _load_orders_dir(dir_path):
+        res = []
+        if os.path.isdir(dir_path):
+            for path in glob.glob(os.path.join(dir_path, "*.json")):
+                z = _load_json(path, {})
+                if isinstance(z, dict) and _order_visible_for(z, login, rola):
+                    res.append(_convert_order_to_task(z))
+        return res
+
+    def _load_tools_dir(dir_path):
+        res = []
+        if os.path.isdir(dir_path):
+            for path in glob.glob(os.path.join(dir_path, "*.json")):
+                tool = _load_json(path, {})
+                if not isinstance(tool, dict):
+                    continue
+                num  = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
+                name = tool.get("nazwa", "narzędzie")
+                worker = tool.get("pracownik", "")
+                items = tool.get("zadania", [])
+                for i, it in enumerate(items):
+                    t = _convert_tool_task(num, name, worker, i, it)
+                    if _tool_visible_for(t, login, rola):
+                        res.append(t)
+        return res
+
+    # Wspólna tabela źródeł zadań (ścieżka + funkcja zwracająca listę)
     sources = [
         (os.path.join("data", f"zadania_{login}.json"),
-         lambda zlist: zlist),
+         lambda p: _load_json(p, [])),
         (os.path.join("data", "zadania.json"),
-         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
         (os.path.join("data", "zadania_narzedzia.json"),
-         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
         (os.path.join("data", "zadania_zlecenia.json"),
-         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
         (os.path.join("data", f"zlecenia_{login}.json"),
-         lambda zlist: [_convert_order_to_task(z) for z in zlist]),
+         lambda p: [_convert_order_to_task(z) for z in _load_json(p, [])]),
         (os.path.join("data", "zlecenia.json"),
-         lambda zlist: [_convert_order_to_task(z)
-                        for z in zlist if _order_visible_for(z, login, rola)]),
+         lambda p: [_convert_order_to_task(z)
+                    for z in _load_json(p, []) if _order_visible_for(z, login, rola)]),
+        (os.path.join("data", "zlecenia"), _load_orders_dir),
+        (os.path.join("data", "narzedzia"), _load_tools_dir),
     ]
 
-    for path, filt in sources:
-        if os.path.exists(path):
-            try:
-                tasks.extend(filt(_load_json(path, [])))
-            except Exception:
-                pass
-
-    # g) katalog data/zlecenia/*.json
-    orders_dir = os.path.join("data", "zlecenia")
-    if os.path.isdir(orders_dir):
-        for path in glob.glob(os.path.join(orders_dir, "*.json")):
-            z = _load_json(path, {})
-            if isinstance(z, dict) and _order_visible_for(z, login, rola):
-                tasks.append(_convert_order_to_task(z))
-
-    # h) katalog data/narzedzia/*.json – generuj zadania per narzędzie
-    tools_dir = os.path.join("data", "narzedzia")
-    if os.path.isdir(tools_dir):
-        for path in glob.glob(os.path.join(tools_dir, "*.json")):
-            tool = _load_json(path, {})
-            if not isinstance(tool, dict): 
-                continue
-            num  = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
-            name = tool.get("nazwa","narzędzie")
-            worker = tool.get("pracownik","")
-            items = tool.get("zadania", [])
-            for i, it in enumerate(items):
-                t = _convert_tool_task(num, name, worker, i, it)
-                if _tool_visible_for(t, login, rola):
-                    tasks.append(t)
+    for path, loader in sources:
+        try:
+            tasks.extend(loader(path))
+        except Exception:
+            pass
 
     # i) status overrides
     ovr = _load_status_overrides(login)
