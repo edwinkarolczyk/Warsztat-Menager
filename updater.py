@@ -10,6 +10,7 @@ import os
 import sys
 import io
 import re
+import json
 import shutil
 import zipfile
 import subprocess
@@ -36,6 +37,24 @@ def _write_log(stamp: str, text: str, kind: str = "update"):
     p = LOGS_DIR / f"{kind}_{stamp}.log"
     with p.open("a", encoding="utf-8") as f:
         f.write(text.rstrip() + "\n")
+
+
+def load_last_update_info() -> str:
+    """Return info about the last update.
+
+    Reads the latest entry from ``logi_wersji.json`` and returns a
+    user-facing string with the timestamp.  If the file is missing or
+    malformed, a fallback string is returned.
+    """
+
+    try:
+        with open("logi_wersji.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list) and data:
+            return f"Ostatnia aktualizacja: {data[-1].get('data', '')}"
+    except Exception:
+        pass
+    return "brak danych o aktualizacjach"
 
 def _restart_app():
     python = sys.executable
