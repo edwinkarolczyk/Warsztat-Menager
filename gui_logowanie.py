@@ -8,6 +8,7 @@
 
 import os
 import json
+import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -17,6 +18,7 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
 from ui_theme import apply_theme_safe as apply_theme
+from updater import load_last_update_info
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
@@ -159,6 +161,17 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+    lbl_update = ttk.Label(root, text=load_last_update_info(), style="WM.Muted.TLabel")
+    lbl_update.pack(side="bottom", pady=(0, 2))
+    try:
+        local_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        upstream_commit = subprocess.check_output(["git", "rev-parse", "@{upstream}"], text=True).strip()
+        if local_commit == upstream_commit:
+            lbl_update.configure(text="Aktualna", foreground="green")
+        else:
+            lbl_update.configure(text="Nieaktualna", foreground="red")
+    except Exception:
+        lbl_update.configure(text="brak danych o aktualizacjach")
     if update_available:
         ttk.Label(
             root,
