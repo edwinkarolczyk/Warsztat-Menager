@@ -10,6 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
+from gui_uzytkownicy import _build_tab_users
 
 # --- import panelu magazynowego ---
 try:
@@ -69,7 +70,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # --- Użytkownicy ---
     tab2 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab2, text="Użytkownicy")
-    ttk.Label(tab2, text="Zarządzanie użytkownikami").pack(padx=12, pady=12)
+    _build_tab_users(tab2, rola)
 
     # --- Magazyn ---
     tab3 = _make_frame(nb, "WM.Card.TFrame")
