@@ -27,7 +27,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from PIL import Image, ImageTk, UnidentifiedImageError
-from profile_utils import get_user, save_user
+from profile_utils import get_user, save_user, DEFAULT_USER
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -510,12 +510,41 @@ def _build_simple_list_tab(parent, items):
         for it in items:
             ttk.Label(parent, text=f"- {it}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
 
-def _build_preferences_tab(parent, prefs):
-    if not prefs:
-        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
-    else:
-        for k, v in prefs.items():
-            ttk.Label(parent, text=f"{k}: {v}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+def _build_preferences_tab(parent, user):
+    prefs = dict(DEFAULT_USER.get("preferencje", {}))
+    prefs.update(user.get("preferencje", {}))
+
+    widgets = {}
+    for k, v in prefs.items():
+        row = ttk.Frame(parent, style="WM.TFrame"); row.pack(fill="x", padx=6, pady=2)
+        ttk.Label(row, text=f"{k}:", style="WM.TLabel").pack(side="left", padx=(0,6))
+        if k == "motyw":
+            w = ttk.Combobox(row, values=["dark", "light"], state="readonly")
+            w.set(v)
+        elif k == "widok_startowy":
+            w = ttk.Combobox(row, values=["panel", "dashboard"], state="readonly")
+            w.set(v)
+        else:
+            w = ttk.Entry(row)
+            w.insert(0, str(v))
+        w.pack(side="left", fill="x", expand=True)
+        widgets[k] = w
+
+    def zapisz():
+        prefs = user.setdefault("preferencje", {})
+        for k, w in widgets.items():
+            prefs[k] = w.get()
+        save_user(user)
+
+    def resetuj():
+        defaults = DEFAULT_USER.get("preferencje", {})
+        for k, w in widgets.items():
+            w.delete(0, tk.END)
+            w.insert(0, defaults.get(k, ""))
+
+    btn_row = ttk.Frame(parent, style="WM.TFrame"); btn_row.pack(anchor="e", padx=6, pady=6)
+    ttk.Button(btn_row, text="Zapisz", command=zapisz).pack(side="right", padx=4)
+    ttk.Button(btn_row, text="Domyślne", command=resetuj).pack(side="right", padx=4)
 
 def _build_description_tab(parent, text):
     ttk.Label(parent, text=text or "", style="WM.TLabel", wraplength=400, justify="left").pack(anchor="w", padx=6, pady=6)
@@ -596,7 +625,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
     _build_simple_list_tab(tab_sug, user.get("sugestie", []))
 
     tab_pref = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_pref, text="Preferencje")
-    _build_preferences_tab(tab_pref, user.get("preferencje", {}))
+    _build_preferences_tab(tab_pref, user)
 
     tab_desc = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_desc, text="Opis")
     _build_description_tab(tab_desc, user.get("opis", ""))
