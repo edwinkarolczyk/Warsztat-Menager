@@ -160,7 +160,11 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
     if update_available:
-        ttk.Label(root, text="Dostępna aktualizacja – uruchom 'git pull'", style="WM.Muted.TLabel").pack(side="bottom", pady=(0,2))
+        ttk.Label(
+            root,
+            text="Dostępna aktualizacja – uruchom 'git pull'",
+            style="WM.Muted.TLabel",
+        ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
     pin = entry_pin.get().strip()
