@@ -16,6 +16,9 @@ import tkinter as tk
 from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
+from config_manager import ConfigManager
+from updater import _run_git_pull, _now_stamp
+from pathlib import Path
 
 # ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
 def _ts():
@@ -43,6 +46,20 @@ def _dbg(msg):
     _log(f"[WM-DBG] {msg}")
 
 SESSION_ID = None
+
+# ====== AUTO UPDATE ======
+def auto_update_on_start():
+    """Run git pull if updates.auto flag is enabled."""
+    try:
+        cfg = ConfigManager()
+    except Exception as e:
+        _error(f"ConfigManager init failed: {e}")
+        return
+    if cfg.get("updates.auto", False):
+        try:
+            _run_git_pull(Path.cwd(), _now_stamp())
+        except Exception as e:
+            _error(f"auto_update_on_start error: {e}")
 
 # ====== USER FILE (NOWE) ======
 def _ensure_user_file(login, rola):
@@ -132,6 +149,8 @@ def main():
     _info(f"{_ts()} Start programu Warsztat Menager (start.py 1.1.2)")
     _info(f"{_ts()} Log file: {_log_path()}")
     _info(f"{_ts()} === START SESJI: {datetime.now()} | ID={SESSION_ID} ===")
+
+    auto_update_on_start()
 
     # Wstępna inicjalizacja konfiguracji, jeśli masz ConfigManager, zostawiamy symbolicznie:
     try:
