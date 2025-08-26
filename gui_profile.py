@@ -210,52 +210,29 @@ def _tool_visible_for(tool_task, login, rola):
 def _read_tasks(login, rola=None):
     tasks = []
 
-    # a) zadania_<login>.json
-    p = os.path.join("data", f"zadania_{login}.json")
-    if os.path.exists(p):
-        try: tasks.extend(_load_json(p, []))
-        except Exception: pass
+    # Wspólna tabela źródeł zadań (ścieżka + filtr)
+    sources = [
+        (os.path.join("data", f"zadania_{login}.json"),
+         lambda zlist: zlist),
+        (os.path.join("data", "zadania.json"),
+         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+        (os.path.join("data", "zadania_narzedzia.json"),
+         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+        (os.path.join("data", "zadania_zlecenia.json"),
+         lambda zlist: [z for z in zlist if str(z.get("login")) == str(login)]),
+        (os.path.join("data", f"zlecenia_{login}.json"),
+         lambda zlist: [_convert_order_to_task(z) for z in zlist]),
+        (os.path.join("data", "zlecenia.json"),
+         lambda zlist: [_convert_order_to_task(z)
+                        for z in zlist if _order_visible_for(z, login, rola)]),
+    ]
 
-    # b) zadania.json
-    p = os.path.join("data", "zadania.json")
-    if os.path.exists(p):
-        try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # c) zadania_narzedzia.json
-    p = os.path.join("data", "zadania_narzedzia.json")
-    if os.path.exists(p):
-        try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # d) zadania_zlecenia.json
-    p = os.path.join("data", "zadania_zlecenia.json")
-    if os.path.exists(p):
-        try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # e) zlecenia_<login>.json
-    p = os.path.join("data", f"zlecenia_{login}.json")
-    if os.path.exists(p):
-        try:
-            for z in _load_json(p, []):
-                tasks.append(_convert_order_to_task(z))
-        except Exception: pass
-
-    # f) zlecenia.json (globalne)
-    p = os.path.join("data", "zlecenia.json")
-    if os.path.exists(p):
-        try:
-            for z in _load_json(p, []):
-                if _order_visible_for(z, login, rola):
-                    tasks.append(_convert_order_to_task(z))
-        except Exception: pass
+    for path, filt in sources:
+        if os.path.exists(path):
+            try:
+                tasks.extend(filt(_load_json(path, [])))
+            except Exception:
+                pass
 
     # g) katalog data/zlecenia/*.json
     orders_dir = os.path.join("data", "zlecenia")
