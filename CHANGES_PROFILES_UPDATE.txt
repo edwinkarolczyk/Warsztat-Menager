@@ -4,7 +4,7 @@ Data: 2025-08-21 11:35:00
 Pliki do podmiany:
 - gui_uzytkownicy.py 1.1.3 — dodany Notebook z kartą „👤 Profil” (styl WM.*); fallback do starego widoku.
 - gui_profil.py 1.0.5 — render profilu (login/nazwa/rola/zmiana), domyślne pola jeśli puste, aliasy.
-- gui_ustawienia.py 1.5.3 — helper doklejający kartę „Profile użytkowników” i wywołanie z kilkoma próbami (after).
+- ustawienia_systemu.py — panel_ustawien doklejający kartę „Profile użytkowników” i wywołanie z kilkoma próbami (after).
 
 Dodatkowo:
 - config_profiles_seed.json — opcjonalny seed configu z profiles.*
