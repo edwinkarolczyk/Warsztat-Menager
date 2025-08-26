@@ -3,7 +3,8 @@
   "ui": {
     "theme": "dark",
     "accent": "red",
-    "always_searchbar": true
+    "always_searchbar": true,
+    "language": "pl"
   },
   "app": {
     "start_view": "dashboard"
@@ -20,6 +21,9 @@
   },
   "backup": {
     "folder": "backup_wersji"
+  },
+  "updates": {
+    "auto": true
   },
   "modules": {
     "service": {
