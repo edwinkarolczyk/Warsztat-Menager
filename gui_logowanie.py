@@ -21,20 +21,23 @@ from ui_theme import apply_theme_safe as apply_theme
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
 root_global = None
+_on_login_cb = None
 
-def ekran_logowania(root=None, update_available=False):
+def ekran_logowania(root=None, on_login=None, update_available=False):
     """Ekran logowania: logo u góry na środku, box PIN w centrum,
        pasek postępu zmiany (1/3 szerokości) wyśrodkowany,
        na samym dole przycisk 'Zamknij program' + stopka z wersją.
 
        Parametry:
            root: opcjonalne istniejące okno główne tkinter.
+           on_login: opcjonalny callback (login, rola, extra=None) wywoływany po poprawnym logowaniu.
            update_available (bool): jeśli True, pokaż komunikat o dostępnej aktualizacji.
     """
-    global entry_pin, root_global
+    global entry_pin, root_global, _on_login_cb
     if root is None:
         root = tk.Tk()
     root_global = root
+    _on_login_cb = on_login
 
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
@@ -184,7 +187,13 @@ def logowanie():
                     messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
                     return
                 rola = dane.get("rola", "pracownik")
-                gui_panel.uruchom_panel(root_global, login, rola)
+                if _on_login_cb:
+                    try:
+                        _on_login_cb(login, rola, None)
+                    except Exception:
+                        pass
+                else:
+                    gui_panel.uruchom_panel(root_global, login, rola)
                 return
         messagebox.showerror("Błąd", "Nieprawidłowy PIN")
     except Exception as e:

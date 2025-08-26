@@ -17,7 +17,7 @@ from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
-from updater import _run_git_pull, _now_stamp
+from updater import _run_git_pull, _now_stamp, _git_has_updates
 from pathlib import Path
 
 # ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
@@ -152,6 +152,8 @@ def main():
 
     auto_update_on_start()
 
+    update_available = _git_has_updates(Path.cwd())
+
     # Wstępna inicjalizacja konfiguracji, jeśli masz ConfigManager, zostawiamy symbolicznie:
     try:
         _info("ConfigManager: OK")
@@ -168,15 +170,11 @@ def main():
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 
         import gui_logowanie
-
-        # Spróbuj wywołać z callbackiem (jeśli nowa wersja to wspiera)
-        used_callback = False
-        try:
-            gui_logowanie.ekran_logowania(root, on_login=lambda login, rola, extra=None: _on_login(root, login, rola, extra))
-            used_callback = True
-        except TypeError:
-            # starsza sygnatura (bez on_login) – zachowujemy dotychczasowe zachowanie
-            gui_logowanie.ekran_logowania(root)
+        gui_logowanie.ekran_logowania(
+            root,
+            on_login=lambda login, rola, extra=None: _on_login(root, login, rola, extra),
+            update_available=update_available,
+        )
 
         # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
         # to po prostu zostawiamy pętlę główną jak dotąd:
