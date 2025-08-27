@@ -25,14 +25,15 @@ def load_last_update_info():
     """Pobierz informację o ostatniej aktualizacji.
 
     Funkcja próbuje odczytać ostatni wpis ``data`` i ``wersje`` z pliku
-    ``logi_wersji.json``.  Jeżeli plik nie istnieje lub jest uszkodzony,
-    analizuje linię ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.  Gdy
-    żadna z metod się nie powiedzie, zwracany jest komunikat
+    ``logi_wersji.json``. Jeżeli plik nie istnieje lub jest uszkodzony,
+    analizowana jest linia ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.
+    Gdy żadna z metod się nie powiedzie, zwracane jest ``None`` –
+    wywołujący powinien wtedy wyświetlić komunikat
     ``"brak danych o aktualizacjach"``.
 
     Returns:
-        tuple[str, str | None]: ``(tekst, wersja)`` z ostatniej
-        aktualizacji; gdy brak danych o wersji drugi element to ``None``.
+        tuple[str, str | None] | None: ``(tekst, wersja)`` z ostatniej
+        aktualizacji; gdy brak danych funkcja zwraca ``None``.
     """
 
     try:
@@ -60,7 +61,7 @@ def load_last_update_info():
     except Exception:
         pass
 
-    return "brak danych o aktualizacjach", None
+    return None
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
@@ -206,8 +207,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     update_info = load_last_update_info()
     if isinstance(update_info, tuple):
         update_text = update_info[0]
-    else:
+    elif isinstance(update_info, str):  # kompatybilność z poprzednią wersją
         update_text = update_info
+    else:
+        update_text = None
     if not update_text:
         update_text = "brak danych o aktualizacjach"
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
