@@ -101,7 +101,11 @@ def test_load_last_update_info_fallback(tmp_path, monkeypatch):
     )
 
 
-def test_load_last_update_info_error(tmp_path, monkeypatch):
+# brak informacji przy niepoprawnym lub brakującym pliku
+@pytest.mark.parametrize("json_content", [None, "[{"])
+def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_content):
+    if json_content is not None:
+        (tmp_path / "logi_wersji.json").write_text(json_content, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert gui_logowanie.load_last_update_info() is None
 
