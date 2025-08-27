@@ -25,14 +25,14 @@ def load_last_update_info():
     """Pobierz informację o ostatniej aktualizacji.
 
     Funkcja próbuje odczytać ostatni wpis ``data`` i ``wersje`` z pliku
-    ``logi_wersji.json``.  Jeżeli plik nie istnieje lub jest uszkodzony,
-    analizuje linię ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.  Gdy
-    żadna z metod się nie powiedzie, zwracany jest komunikat
-    ``"brak danych o aktualizacjach"``.
+    ``logi_wersji.json``. Jeżeli plik nie istnieje lub jest uszkodzony,
+    analizowana jest linia ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.
+    Jeżeli obie metody zawiodą, zwracane jest ``None``.
 
     Returns:
-        tuple[str, str | None]: ``(tekst, wersja)`` z ostatniej
+        tuple[str, str | None] | None: ``(tekst, wersja)`` z ostatniej
         aktualizacji; gdy brak danych o wersji drugi element to ``None``.
+        ``None`` oznacza brak informacji o aktualizacjach.
     """
 
     try:
@@ -60,7 +60,7 @@ def load_last_update_info():
     except Exception:
         pass
 
-    return "brak danych o aktualizacjach", None
+    return None
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
@@ -204,12 +204,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
     update_info = load_last_update_info()
-    if isinstance(update_info, tuple):
-        update_text = update_info[0]
-    else:
-        update_text = update_info
-    if not update_text:
+    if update_info is None:
         update_text = "brak danych o aktualizacjach"
+    else:
+        update_text = update_info[0]
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     try:
