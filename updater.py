@@ -54,6 +54,15 @@ def load_last_update_info() -> str:
             return f"Ostatnia aktualizacja: {data[-1].get('data', '')}"
     except Exception:
         pass
+
+    try:
+        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("Data:"):
+                    return f"Ostatnia aktualizacja: {line.split('Data:')[1].strip()}"
+    except Exception:
+        pass
+
     return "brak danych o aktualizacjach"
 
 def _restart_app():

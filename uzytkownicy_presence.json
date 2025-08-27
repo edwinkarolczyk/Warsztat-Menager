@@ -3,18 +3,24 @@
     "login": "edwin",
     "rola": "brygadzista",
     "zmiana_plan": "I",
-    "status": ""
+    "status": "",
+    "imie": "Edwin",
+    "nazwisko": "Kowalski"
   },
   {
     "login": "dawid",
     "rola": "uzytkownik",
     "zmiana_plan": "II",
-    "status": ""
+    "status": "",
+    "imie": "",
+    "nazwisko": ""
   },
   {
     "login": "marek",
     "rola": "uzytkownik",
     "zmiana_plan": "II",
-    "status": ""
+    "status": "",
+    "imie": "",
+    "nazwisko": ""
   }
 ]
