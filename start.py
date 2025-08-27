@@ -97,6 +97,37 @@ def _open_main_panel(root, ctx):
     Uruchamia główny panel po udanym logowaniu.
     ctx: dict zawierający co najmniej: {'login': ..., 'rola': ...}
     """
+    login = (ctx or {}).get("login")
+    rola = (ctx or {}).get("rola")
+
+    # Pobierz preferencje użytkownika
+    try:
+        import profile_utils
+        user = profile_utils.get_user(login) or {}
+    except Exception:
+        traceback.print_exc()
+        _error("Nie można pobrać profilu użytkownika.")
+        user = {}
+
+    pref = user.get("preferencje", {}).get("widok_startowy", "panel")
+    _dbg(f"[START] widok_startowy={pref}")
+
+    if pref == "dashboard":
+        # Uruchom dashboard w osobnym głównym oknie
+        try:
+            root.destroy()
+        except Exception:
+            pass
+        try:
+            import dashboard_demo_fs
+            dash = dashboard_demo_fs.WMDashboard(login=login, rola=rola)
+            dash.mainloop()
+        except Exception:
+            traceback.print_exc()
+            _error("Błąd uruchamiania dashboardu.")
+        return
+
+    # Domyślnie uruchom panel
     try:
         import gui_panel
     except Exception:
@@ -105,8 +136,6 @@ def _open_main_panel(root, ctx):
         return
 
     try:
-        login = (ctx or {}).get("login")
-        rola  = (ctx or {}).get("rola")
         _dbg(f"[PANEL] uruchamiam z kontekstem {ctx}")
         gui_panel.uruchom_panel(root, ctx)  # zakładamy istniejący podpis jak dotąd
     except TypeError:
