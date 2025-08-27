@@ -211,24 +211,23 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     try:
-        subprocess.run([
-            "git",
-            "fetch",
-            "origin",
-            "proby-rozwoju",
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["git", "fetch", "origin", "proby-rozwoju"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         remote_commit = subprocess.check_output(
             ["git", "rev-parse", "origin/proby-rozwoju"], text=True
         ).strip()
         local_commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip()
-        if local_commit == remote_commit:
-            lbl_update.configure(text="Aktualna", foreground="green")
-        else:
-            lbl_update.configure(text="Nieaktualna", foreground="red")
+        status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
+        colour = "green" if status == "Aktualna" else "red"
+        lbl_update.configure(text=f"{update_text} – {status}", foreground=colour)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
+        lbl_update.configure(text=update_text)
     if update_available:
         ttk.Label(
             root,
