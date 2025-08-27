@@ -46,12 +46,16 @@ def _sync_presence(users):
         if rec:
             rec["rola"] = u.get("rola", "")
             rec["zmiana_plan"] = u.get("zmiana_plan", "")
+            rec["imie"] = u.get("imie", "")
+            rec["nazwisko"] = u.get("nazwisko", "")
         else:
             presence_map[login] = {
                 "login": login,
                 "rola": u.get("rola", ""),
                 "zmiana_plan": u.get("zmiana_plan", ""),
                 "status": "",
+                "imie": u.get("imie", ""),
+                "nazwisko": u.get("nazwisko", ""),
             }
     for login in list(presence_map.keys()):
         if login not in current:
@@ -99,12 +103,45 @@ def make_tab(parent, rola):
     entry_login = ttk.Entry(form, textvariable=login_var, state="disabled")
     entry_login.grid(row=0, column=1, sticky="ew")
 
-    fields = ["rola", "zmiana_plan", "status", "stanowisko", "pin"]
+    fields_entry = [
+        "rola",
+        "zmiana_plan",
+        "status",
+        "stanowisko",
+        "pin",
+        "imie",
+        "nazwisko",
+        "staz",
+    ]
+    text_fields = [
+        "umiejetnosci",
+        "kursy",
+        "ostrzezenia",
+        "nagrody",
+        "historia_maszyn",
+        "awarie",
+        "sugestie",
+        "preferencje",
+        "opis",
+    ]
+    fields = fields_entry + text_fields
+
     vars = {}
-    for i, f in enumerate(fields, start=1):
+    text_widgets = {}
+
+    row = 1
+    for f in fields_entry:
         vars[f] = tk.StringVar()
-        ttk.Label(form, text=f).grid(row=i, column=0, sticky="e")
-        ttk.Entry(form, textvariable=vars[f]).grid(row=i, column=1, sticky="ew")
+        ttk.Label(form, text=f).grid(row=row, column=0, sticky="e")
+        ttk.Entry(form, textvariable=vars[f]).grid(row=row, column=1, sticky="ew")
+        row += 1
+
+    for f in text_fields:
+        ttk.Label(form, text=f).grid(row=row, column=0, sticky="ne")
+        txt = tk.Text(form, height=3)
+        txt.grid(row=row, column=1, sticky="ew")
+        text_widgets[f] = txt
+        row += 1
 
     def load_selected(_=None):
         if not lb.curselection():
@@ -112,8 +149,16 @@ def make_tab(parent, rola):
         idx = lb.curselection()[0]
         user = users[idx]
         login_var.set(user.get("login", ""))
-        for f in fields:
+        for f in fields_entry:
             vars[f].set(user.get(f, ""))
+        for f in text_fields:
+            w = text_widgets[f]
+            w.delete("1.0", "end")
+            val = user.get(f, "")
+            if isinstance(val, (list, dict)):
+                w.insert("1.0", json.dumps(val, ensure_ascii=False, indent=2))
+            else:
+                w.insert("1.0", val)
         entry_login.config(state="disabled")
 
     lb.bind("<<ListboxSelect>>", load_selected)
@@ -133,8 +178,28 @@ def make_tab(parent, rola):
             lb.insert("end", login)
             lb.selection_clear(0, tk.END)
             lb.selection_set(lb.size() - 1)
-        for f in fields:
+        for f in fields_entry:
             user[f] = vars[f].get()
+        defaults = {
+            "umiejetnosci": {},
+            "kursy": [],
+            "ostrzezenia": [],
+            "nagrody": [],
+            "historia_maszyn": [],
+            "awarie": [],
+            "sugestie": [],
+            "preferencje": {},
+            "opis": "",
+        }
+        for f in text_fields:
+            text = text_widgets[f].get("1.0", "end").strip()
+            if text:
+                try:
+                    user[f] = json.loads(text)
+                except Exception:
+                    user[f] = text
+            else:
+                user[f] = defaults[f]
         _save_users(users)
         _sync_presence(users)
         load_selected()
@@ -150,8 +215,10 @@ def make_tab(parent, rola):
         def new_user():
             lb.selection_clear(0, tk.END)
             login_var.set("")
-            for f in fields:
+            for f in fields_entry:
                 vars[f].set("")
+            for f in text_fields:
+                text_widgets[f].delete("1.0", "end")
             entry_login.config(state="normal")
 
         def delete_user():
