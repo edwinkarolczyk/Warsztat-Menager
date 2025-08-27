@@ -179,8 +179,10 @@ class WMSpark(ttk.Frame):
 
 # ------------------ MAIN APP ------------------
 class WMDashboard(tk.Tk):
-    def __init__(self):
+    def __init__(self, login=None, rola=None):
         super().__init__()
+        self.login = login
+        self.rola = rola
         self.title(APP_TITLE)
         self._enable_dpi_awareness()
         apply_theme(self)
