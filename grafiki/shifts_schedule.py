@@ -2,7 +2,6 @@
 # Plik: grafiki/shifts_schedule.py
 # Zmiany:
 # - Silnik rotacji zmian A/B/C oraz API
-# ⏹ KONIEC KODU
 
 from __future__ import annotations
 
@@ -222,3 +221,4 @@ def set_anchor_monday(iso_date: str) -> None:
     _save_json(_MODES_FILE, data)
     print(f"[WM-DBG][SHIFTS] anchor saved: {d.isoformat()}")
 
+# ⏹ KONIEC KODU

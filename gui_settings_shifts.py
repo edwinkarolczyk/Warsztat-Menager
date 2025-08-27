@@ -2,7 +2,6 @@
 # Plik: gui_settings_shifts.py
 # Zmiany:
 # - Panel ustawień grafiku zmian
-# ⏹ KONIEC KODU
 
 import json
 import os
@@ -87,3 +86,5 @@ class ShiftsSettingsFrame(ttk.Frame):
 
         cb.bind("<<ComboboxSelected>>", _on_select)
         cb.bind("<FocusOut>", lambda e: cb.destroy())
+
+# ⏹ KONIEC KODU
