@@ -112,31 +112,46 @@ def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_
 
 def test_label_color_current(monkeypatch, dummy_gui):
     def fake_run(cmd, *args, **kwargs):
-        if cmd == ["git", "rev-parse", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="abc\n")
-        if cmd == ["git", "rev-parse", "@{upstream}"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="abc\n")
+        # allow fetch to succeed silently
+        if cmd == ["git", "fetch", "origin", "proby-rozwoju"]:
+            return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
+
+    def fake_check_output(cmd, *args, **kwargs):
+        if cmd == ["git", "rev-parse", "origin/proby-rozwoju"]:
+            return "abc\n"
+        if cmd == ["git", "rev-parse", "HEAD"]:
+            return "abc\n"
+        raise AssertionError(cmd)
+
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
     monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: ("init", None))
     root = DummyRoot()
     gui_logowanie.ekran_logowania(root=root)
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
-    assert lbl.kwargs["text"] == "Aktualna"
+    assert lbl.kwargs["text"] == "init – Aktualna"
     assert lbl.kwargs["foreground"] == "green"
 
 
 def test_label_color_outdated(monkeypatch, dummy_gui):
     def fake_run(cmd, *args, **kwargs):
-        if cmd == ["git", "rev-parse", "HEAD"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="abc\n")
-        if cmd == ["git", "rev-parse", "@{upstream}"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout="def\n")
+        if cmd == ["git", "fetch", "origin", "proby-rozwoju"]:
+            return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
+
+    def fake_check_output(cmd, *args, **kwargs):
+        if cmd == ["git", "rev-parse", "origin/proby-rozwoju"]:
+            return "def\n"
+        if cmd == ["git", "rev-parse", "HEAD"]:
+            return "abc\n"
+        raise AssertionError(cmd)
+
     monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
     monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: ("init", None))
     root = DummyRoot()
     gui_logowanie.ekran_logowania(root=root)
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
-    assert lbl.kwargs["text"] == "Nieaktualna"
+    assert lbl.kwargs["text"] == "init – Nieaktualna"
     assert lbl.kwargs["foreground"] == "red"

@@ -28,6 +28,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from PIL import Image, ImageTk, UnidentifiedImageError
 from profile_utils import get_user, save_user, DEFAULT_USER
+from logger import log_akcja
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -95,11 +96,14 @@ def _login_list():
     ufile=os.path.join("data","users.json")
     if os.path.exists(ufile):
         try:
-            data=json.load(open(ufile,encoding="utf-8"))
-            if isinstance(data,list):
+            with open(ufile, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
                 for it in data:
-                    if isinstance(it,str) and _valid_login(it): s.add(it)
-                    elif isinstance(it,dict) and _valid_login(it.get("login","")): s.add(it["login"])
+                    if isinstance(it, str) and _valid_login(it):
+                        s.add(it)
+                    elif isinstance(it, dict) and _valid_login(it.get("login", "")):
+                        s.add(it["login"])
         except Exception: pass
     if os.path.isdir("avatars"):
         for p in glob.glob("avatars/*.png"):
@@ -271,8 +275,8 @@ def _read_tasks(login, rola=None):
     for path, loader in sources:
         try:
             tasks.extend(loader(path))
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"Nie udało się wczytać {path}: {e}")
 
     # i) status overrides
     ovr = _load_status_overrides(login)

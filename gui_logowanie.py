@@ -211,14 +211,23 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     try:
-        local_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-        upstream_commit = subprocess.check_output(["git", "rev-parse", "@{upstream}"], text=True).strip()
-        if local_commit == upstream_commit:
-            lbl_update.configure(text="Aktualna", foreground="green")
-        else:
-            lbl_update.configure(text="Nieaktualna", foreground="red")
-    except Exception:
-        lbl_update.configure(text="brak danych o aktualizacjach")
+        subprocess.run(
+            ["git", "fetch", "origin", "proby-rozwoju"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        remote_commit = subprocess.check_output(
+            ["git", "rev-parse", "origin/proby-rozwoju"], text=True
+        ).strip()
+        local_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
+        status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
+        colour = "green" if status == "Aktualna" else "red"
+        lbl_update.configure(text=f"{update_text} – {status}", foreground=colour)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        lbl_update.configure(text=update_text)
     if update_available:
         ttk.Label(
             root,
