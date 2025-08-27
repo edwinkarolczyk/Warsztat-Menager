@@ -213,10 +213,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     try:
         subprocess.run(["git", "fetch", "origin", "proby-rozwoju"], check=True)
         remote_commit = subprocess.check_output(
-            ["git", "rev-parse", "origin/proby-rozwoju"], text=True
+            ["git", "rev-parse", "origin/proby-rozwoju"], text=True  # remote commit
         ).strip()
         local_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True
+            ["git", "rev-parse", "HEAD"], text=True  # local commit
         ).strip()
         status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
         colour = "green" if status == "Aktualna" else "red"
