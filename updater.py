@@ -10,6 +10,7 @@ import os
 import sys
 import io
 import re
+import json
 import shutil
 import zipfile
 import subprocess
@@ -36,6 +37,33 @@ def _write_log(stamp: str, text: str, kind: str = "update"):
     p = LOGS_DIR / f"{kind}_{stamp}.log"
     with p.open("a", encoding="utf-8") as f:
         f.write(text.rstrip() + "\n")
+
+
+def load_last_update_info() -> str:
+    """Return info about the last update.
+
+    Reads the latest entry from ``logi_wersji.json`` and returns a
+    user-facing string with the timestamp.  If the file is missing or
+    malformed, a fallback string is returned.
+    """
+
+    try:
+        with open("logi_wersji.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list) and data:
+            return f"Ostatnia aktualizacja: {data[-1].get('data', '')}"
+    except Exception:
+        pass
+
+    try:
+        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("Data:"):
+                    return f"Ostatnia aktualizacja: {line.split('Data:')[1].strip()}"
+    except Exception:
+        pass
+
+    return "brak danych o aktualizacjach"
 
 def _restart_app():
     python = sys.executable
@@ -106,6 +134,55 @@ def _extract_zip_overwrite(zip_path: Path, stamp: str):
             with zf.open(zi, "r") as src, open(rel_path, "wb") as dst:
                 shutil.copyfileobj(src, dst)
     return changed
+
+
+def _git_has_updates(cwd: Path) -> bool:
+    """Sprawdza, czy zdalne repozytorium zawiera nowe commity.
+
+    Wykonuje ``git fetch`` oraz ``git rev-list HEAD..origin/<branch>``.
+    Zwraca ``True`` jeśli dostępne są aktualizacje lub ``False`` w
+    przeciwnym przypadku. W razie błędów subprocess zwraca ``False`` i
+    zapisuje informację do logu.
+    """
+    try:
+        # aktualizacja odniesień zdalnych
+        subprocess.run(
+            ["git", "fetch"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+
+        # ustalenie bieżącej gałęzi
+        proc_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        branch = proc_branch.stdout.strip()
+
+        # sprawdzenie różnic między HEAD a origin/<branch>
+        proc_rev = subprocess.run(
+            ["git", "rev-list", f"HEAD..origin/{branch}"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        return bool(proc_rev.stdout.strip())
+    except subprocess.SubprocessError as e:
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        return False
+    except Exception as e:
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        return False
+
 
 def _run_git_pull(cwd: Path, stamp: str):
     """Wykonuje git pull w katalogu aplikacji."""

@@ -1,51 +1,34 @@
 # Plik: test_kreator_wersji.py
-# Wersja pliku: 0.1.0
+# Wersja pliku: 0.2.0
 # Zmiany:
 # - Porównuje plik kodu z wymaganiami wersji (zdefiniowanymi w pliku JSON lub wewnętrznie)
-# - Zapisuje wynik testu do test_log_wersji.txt
-# - Nadaje status: DZIAŁA / NIE DZIAŁA / BRAKUJE
+# - Zwraca wynik testu zamiast zapisywać do pliku
+# - Używa asercji `assert` do weryfikacji wyników
 #
 # Autor: AI – Idea: Edwin Karolczyk
 
 import os
-import time
+from typing import Dict, List
 
-# Ścieżka do testowanego pliku
-plik = "gui_logowanie.py"
 
-# Lista wymagań wersji (można rozbudować o inne pliki)
-wymagania = [
-    "def logowanie()",
-    "entry_pin = tk.Entry",
-    "label_info = tk.Label",
-    "bg=\"#000000\"",
-    "image = Image.open",
-    "root.attributes('-fullscreen', True)",
-    "imie, dane in uzytkownicy.items()",
-    "dane[\"pin\"] == pin"
-]
+def sprawdz_wymagania(plik: str, wymagania: List[str]) -> Dict[str, bool]:
+    if not os.path.exists(plik):
+        raise FileNotFoundError(f"Plik {plik} nie istnieje!")
+    with open(plik, "r", encoding="utf-8") as f:
+        kod = f.read()
+    return {linia: linia in kod for linia in wymagania}
 
-# Plik logu
-log_file = "test_log_wersji.txt"
 
-def zapisz_log(wiadomosc):
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} – {wiadomosc}\n")
+def test_gui_logowanie_spelnia_wymagania():
+    plik = "gui_logowanie.py"
+    wymagania = [
+        "def ekran_logowania(root=None, on_login=None, update_available=False):",
+        "entry_pin = ttk.Entry",
+        "img = Image.open",
+        "root.attributes(\"-fullscreen\", True)",
+        "str(dane.get(\"pin\", \"\")).strip() == pin",
+    ]
+    wyniki = sprawdz_wymagania(plik, wymagania)
+    brakujace = [linia for linia, ok in wyniki.items() if not ok]
+    assert not brakujace, f"Brakujące wymagania: {', '.join(brakujace)}"
 
-zapisz_log(f"[START] Sprawdzanie pliku {plik}")
-
-if not os.path.exists(plik):
-    zapisz_log(f"[BŁĄD] Plik {plik} nie istnieje!")
-    exit()
-
-with open(plik, "r", encoding="utf-8") as f:
-    kod = f.read()
-
-for linia in wymagania:
-    if linia in kod:
-        zapisz_log(f"[OK] Znaleziono: {linia}")
-    else:
-        zapisz_log(f"[BRAK] NIE ZNALEZIONO: {linia}")
-
-zapisz_log("[STOP] Sprawdzanie zakończone")
-print(f"Test zakończony. Sprawdź: {log_file}")

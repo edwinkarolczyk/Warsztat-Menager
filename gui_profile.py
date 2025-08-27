@@ -26,7 +26,8 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, UnidentifiedImageError
+from profile_utils import get_user, save_user, DEFAULT_USER
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -110,6 +111,15 @@ def _login_list():
             if _valid_login(nm): s.add(nm)
     return sorted(s)
 
+def _count_presence(login):
+    """Zwraca liczbę wpisów frekwencji dla danego loginu."""
+    data = _load_json("presence.json", {})
+    cnt = 0
+    for v in data.values():
+        if str(v.get("login", "")).lower() == str(login).lower():
+            cnt += 1
+    return cnt
+
 def _load_avatar(parent, login):
     """Wczytuje avatar użytkownika.
 
@@ -121,15 +131,18 @@ def _load_avatar(parent, login):
     default_path = os.path.join("avatars", "default.jpg")
     try:
         img = Image.open(path)
-    except FileNotFoundError:
-        img = Image.open(default_path)
+    except (FileNotFoundError, OSError, UnidentifiedImageError):
+        try:
+            img = Image.open(default_path)
+        except (FileNotFoundError, OSError, UnidentifiedImageError):
+            return ttk.Label(parent, style="WM.TLabel")
     # dopasuj rozmiar obrazka do maksymalnych wymiarów
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
     except Exception:
         pass
     photo = ImageTk.PhotoImage(img)
-    lbl = ttk.Label(parent, image=photo, style="WM.TLabel")
+    lbl = tk.Label(parent, image=photo)
     lbl.image = photo  # zapobiega zbieraniu przez GC
     return lbl
 
@@ -186,7 +199,8 @@ def _convert_tool_task(tool_num, tool_name, worker_login, idx, item):
 
 # ====== Widoczność ======
 def _order_visible_for(order, login, rola):
-    if rola=="brygadzista": return True
+    role = str(rola or "").lower()
+    if role=="brygadzista": return True
     # przypisanie bezpośrednie
     for key in ("login","operator","pracownik","przydzielono","assigned_to"):
         val = order.get(key)
@@ -198,85 +212,67 @@ def _order_visible_for(order, login, rola):
     return False
 
 def _tool_visible_for(tool_task, login, rola):
-    if rola=="brygadzista": return True
+    role = str(rola or "").lower()
+    if role=="brygadzista": return True
     if str(tool_task.get("login","")).lower()==str(login).lower(): return True
     if str(_load_assign_tools().get(tool_task["id"],"")).lower()==str(login).lower(): return True
     return False
 
 # ====== Czytanie zadań ======
 def _read_tasks(login, rola=None):
+    role = str(rola or "").lower()
     tasks = []
 
-    # a) zadania_<login>.json
-    p = os.path.join("data", f"zadania_{login}.json")
-    if os.path.exists(p):
-        try: tasks.extend(_load_json(p, []))
-        except Exception: pass
+    def _load_orders_dir(dir_path):
+        res = []
+        if os.path.isdir(dir_path):
+            for path in glob.glob(os.path.join(dir_path, "*.json")):
+                z = _load_json(path, {})
+                if isinstance(z, dict) and _order_visible_for(z, login, role):
+                    res.append(_convert_order_to_task(z))
+        return res
 
-    # b) zadania.json
-    p = os.path.join("data", "zadania.json")
-    if os.path.exists(p):
+    def _load_tools_dir(dir_path):
+        res = []
+        if os.path.isdir(dir_path):
+            for path in glob.glob(os.path.join(dir_path, "*.json")):
+                tool = _load_json(path, {})
+                if not isinstance(tool, dict):
+                    continue
+                num  = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
+                name = tool.get("nazwa", "narzędzie")
+                worker = tool.get("pracownik", "")
+                items = tool.get("zadania", [])
+                for i, it in enumerate(items):
+                    t = _convert_tool_task(num, name, worker, i, it)
+                    if _tool_visible_for(t, login, role):
+                        res.append(t)
+        return res
+
+    # Wspólna tabela źródeł zadań (ścieżka + funkcja zwracająca listę)
+    sources = [
+        (os.path.join("data", f"zadania_{login}.json"),
+         lambda p: _load_json(p, [])),
+        (os.path.join("data", "zadania.json"),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
+        (os.path.join("data", "zadania_narzedzia.json"),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
+        (os.path.join("data", "zadania_zlecenia.json"),
+         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
+        (os.path.join("data", f"zlecenia_{login}.json"),
+         lambda p: [_convert_order_to_task(z) for z in _load_json(p, [])]),
+        (os.path.join("data", "zlecenia.json"),
+         lambda p: [_convert_order_to_task(z)
+                    for z in _load_json(p, []) if _order_visible_for(z, login, role)]),
+        (os.path.join("data", "zlecenia"), _load_orders_dir),
+        (os.path.join("data", "narzedzia"), _load_tools_dir),
+    ]
+
+    for path, loader in sources:
         try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # c) zadania_narzedzia.json
-    p = os.path.join("data", "zadania_narzedzia.json")
-    if os.path.exists(p):
-        try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # d) zadania_zlecenia.json
-    p = os.path.join("data", "zadania_zlecenia.json")
-    if os.path.exists(p):
-        try:
-            zlist = _load_json(p, [])
-            tasks.extend([z for z in zlist if str(z.get("login"))==str(login)])
-        except Exception: pass
-
-    # e) zlecenia_<login>.json
-    p = os.path.join("data", f"zlecenia_{login}.json")
-    if os.path.exists(p):
-        try:
-            for z in _load_json(p, []):
-                tasks.append(_convert_order_to_task(z))
-        except Exception: pass
-
-    # f) zlecenia.json (globalne)
-    p = os.path.join("data", "zlecenia.json")
-    if os.path.exists(p):
-        try:
-            for z in _load_json(p, []):
-                if _order_visible_for(z, login, rola):
-                    tasks.append(_convert_order_to_task(z))
-        except Exception: pass
-
-    # g) katalog data/zlecenia/*.json
-    orders_dir = os.path.join("data", "zlecenia")
-    if os.path.isdir(orders_dir):
-        for path in glob.glob(os.path.join(orders_dir, "*.json")):
-            z = _load_json(path, {})
-            if isinstance(z, dict) and _order_visible_for(z, login, rola):
-                tasks.append(_convert_order_to_task(z))
-
-    # h) katalog data/narzedzia/*.json – generuj zadania per narzędzie
-    tools_dir = os.path.join("data", "narzedzia")
-    if os.path.isdir(tools_dir):
-        for path in glob.glob(os.path.join(tools_dir, "*.json")):
-            tool = _load_json(path, {})
-            if not isinstance(tool, dict): 
-                continue
-            num  = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
-            name = tool.get("nazwa","narzędzie")
-            worker = tool.get("pracownik","")
-            items = tool.get("zadania", [])
-            for i, it in enumerate(items):
-                t = _convert_tool_task(num, name, worker, i, it)
-                if _tool_visible_for(t, login, rola):
-                    tasks.append(t)
+            tasks.extend(loader(path))
+        except Exception:
+            pass
 
     # i) status overrides
     ovr = _load_status_overrides(login)
@@ -294,6 +290,7 @@ def _read_tasks(login, rola=None):
 
 # ====== UI ======
 def _show_task_details(root, frame, login, rola, task, after_save=None):
+    role = str(rola or "").lower()
     win = tk.Toplevel(root)
     win.title(f"Zadanie {task.get('id','')}")
     apply_theme(win)
@@ -321,7 +318,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
     is_order = str(task.get("id","")).startswith("ZLEC-") or task.get("_kind")=="order"
     is_tool  = str(task.get("id","")).startswith("NARZ-") or task.get("_kind")=="tooltask"
     assign_var = tk.StringVar(value="")
-    if rola=="brygadzista" and (is_order or is_tool):
+    if role=="brygadzista" and (is_order or is_tool):
         frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="x", padx=8, pady=6)
         ttk.Label(frm, text="Przypisz do (login):", style="WM.TLabel").pack(side="left")
         ent = ttk.Combobox(frm, textvariable=assign_var, values=_login_list(), state="normal", width=24)
@@ -343,7 +340,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
         task["status"] = new_status
 
         # przypisania
-        if rola=="brygadzista":
+        if role=="brygadzista":
             who = assign_var.get().strip() or None
             if is_order:
                 _save_assign_order(task.get("zlecenie"), who)
@@ -448,6 +445,110 @@ def _build_table(frame, root, login, rola, tasks):
     tv.bind("<Double-1>", on_dbl)
     reload_table()
 
+def _stars(rating):
+    """Zwraca graficzną reprezentację gwiazdek dla oceny 0-5."""
+    try:
+        r = int(rating)
+    except Exception:
+        r = 0
+    r = max(0, min(5, r))
+    return "★" * r + "☆" * (5 - r)
+
+def _build_basic_tab(parent, user):
+    imie_var = tk.StringVar(value=user.get("imie", ""))
+    nazwisko_var = tk.StringVar(value=user.get("nazwisko", ""))
+    staz_var = tk.StringVar(value=str(user.get("staz", 0)))
+    ttk.Label(parent, text="Imię:", style="WM.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=imie_var).grid(row=0, column=1, sticky="ew", padx=4, pady=2)
+    ttk.Label(parent, text="Nazwisko:", style="WM.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=nazwisko_var).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
+    ttk.Label(parent, text="Staż:", style="WM.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(parent, textvariable=staz_var).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+    parent.columnconfigure(1, weight=1)
+    def _save():
+        user["imie"] = imie_var.get()
+        user["nazwisko"] = nazwisko_var.get()
+        try:
+            user["staz"] = int(staz_var.get())
+        except Exception:
+            user["staz"] = 0
+        save_user(user)
+        messagebox.showinfo("Zapisano", "Dane zapisane.")
+    ttk.Button(parent, text="Zapisz", command=_save).grid(row=3, column=0, columnspan=2, pady=6)
+
+def _build_skills_tab(parent, user):
+    skills = user.get("umiejetnosci", {})
+    if not skills:
+        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
+    else:
+        for name, rating in skills.items():
+            ttk.Label(parent, text=f"{name}: {_stars(rating)}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+
+def _build_tasks_tab(parent, root, login, rola, tasks):
+    stats = ttk.Frame(parent, style="WM.TFrame"); stats.pack(fill="x", padx=12, pady=(0,6))
+    total = len(tasks)
+    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
+    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
+    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
+    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
+        ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
+    _build_table(parent, root, login, rola, tasks)
+
+def _build_stats_tab(parent, tasks, login):
+    presence = _count_presence(login)
+    total = len(tasks)
+    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
+    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
+    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
+    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}", f"Frekwencja: {presence}"):
+        ttk.Label(parent, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4, pady=4)
+
+def _build_simple_list_tab(parent, items):
+    if not items:
+        ttk.Label(parent, text="Brak danych", style="WM.Muted.TLabel").pack(anchor="w", padx=6, pady=4)
+    else:
+        for it in items:
+            ttk.Label(parent, text=f"- {it}", style="WM.TLabel").pack(anchor="w", padx=6, pady=2)
+
+def _build_preferences_tab(parent, user):
+    prefs = dict(DEFAULT_USER.get("preferencje", {}))
+    prefs.update(user.get("preferencje", {}))
+
+    widgets = {}
+    for k, v in prefs.items():
+        row = ttk.Frame(parent, style="WM.TFrame"); row.pack(fill="x", padx=6, pady=2)
+        ttk.Label(row, text=f"{k}:", style="WM.TLabel").pack(side="left", padx=(0,6))
+        if k == "motyw":
+            w = ttk.Combobox(row, values=["dark", "light"], state="readonly")
+            w.set(v)
+        elif k == "widok_startowy":
+            w = ttk.Combobox(row, values=["panel", "dashboard"], state="readonly")
+            w.set(v)
+        else:
+            w = ttk.Entry(row)
+            w.insert(0, str(v))
+        w.pack(side="left", fill="x", expand=True)
+        widgets[k] = w
+
+    def zapisz():
+        prefs = user.setdefault("preferencje", {})
+        for k, w in widgets.items():
+            prefs[k] = w.get()
+        save_user(user)
+
+    def resetuj():
+        defaults = DEFAULT_USER.get("preferencje", {})
+        for k, w in widgets.items():
+            w.delete(0, tk.END)
+            w.insert(0, defaults.get(k, ""))
+
+    btn_row = ttk.Frame(parent, style="WM.TFrame"); btn_row.pack(anchor="e", padx=6, pady=6)
+    ttk.Button(btn_row, text="Zapisz", command=zapisz).pack(side="right", padx=4)
+    ttk.Button(btn_row, text="Domyślne", command=resetuj).pack(side="right", padx=4)
+
+def _build_description_tab(parent, text):
+    ttk.Label(parent, text=text or "", style="WM.TLabel", wraplength=400, justify="left").pack(anchor="w", padx=6, pady=6)
+
 def uruchom_panel(root, frame, login=None, rola=None):
     """Wypełnia podaną *frame* widokiem profilu użytkownika.
 
@@ -487,19 +588,49 @@ def uruchom_panel(root, frame, login=None, rola=None):
     ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
 
     # Dane
-    tasks = _read_tasks(login, rola)
+    rola_norm = str(rola).lower()
+    tasks = _read_tasks(login, rola_norm)
+    user = get_user(login) or {}
 
-    # Pasek statystyk
-    stats = ttk.Frame(frame, style="WM.TFrame"); stats.pack(fill="x", padx=12, pady=(0,6))
-    total = len(tasks)
-    open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
-    urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
-    done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
-    for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
-        ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
+    nb = ttk.Notebook(frame)
+    nb.pack(fill="both", expand=True, padx=12, pady=(0,12))
 
-    # Tabela + filtry
-    _build_table(frame, root, login, rola, tasks)
+    tab_basic = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_basic, text="Dane podstawowe")
+    _build_basic_tab(tab_basic, user)
+
+    tab_skill = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_skill, text="Umiejętności")
+    _build_skills_tab(tab_skill, user)
+
+    tab_tasks = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_tasks, text="Zadania")
+    _build_tasks_tab(tab_tasks, root, login, rola_norm, tasks)
+
+    tab_stats = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_stats, text="Statystyki")
+    _build_stats_tab(tab_stats, tasks, login)
+
+    tab_courses = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_courses, text="Kursy")
+    _build_simple_list_tab(tab_courses, user.get("kursy", []))
+
+    tab_awards = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_awards, text="Nagrody")
+    _build_simple_list_tab(tab_awards, user.get("nagrody", []))
+
+    tab_warn = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_warn, text="Ostrzeżenia")
+    _build_simple_list_tab(tab_warn, user.get("ostrzezenia", []))
+
+    tab_hist = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_hist, text="Historia maszyn")
+    _build_simple_list_tab(tab_hist, user.get("historia_maszyn", []))
+
+    tab_fail = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_fail, text="Zgłoszone awarie")
+    _build_simple_list_tab(tab_fail, user.get("awarie", []))
+
+    tab_sug = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_sug, text="Sugestie")
+    _build_simple_list_tab(tab_sug, user.get("sugestie", []))
+
+    tab_pref = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_pref, text="Preferencje")
+    _build_preferences_tab(tab_pref, user)
+
+    tab_desc = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_desc, text="Opis")
+    _build_description_tab(tab_desc, user.get("opis", ""))
+
     return frame
 
 # API zgodne z wcześniejszymi wersjami:

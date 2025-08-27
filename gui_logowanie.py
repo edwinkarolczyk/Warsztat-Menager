@@ -8,6 +8,7 @@
 
 import os
 import json
+import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -18,19 +19,69 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 # Motyw
 from ui_theme import apply_theme_safe as apply_theme
 
+
+# --- informacje o ostatniej aktualizacji ---
+def load_last_update_info():
+    """Pobierz informację o ostatniej aktualizacji.
+
+    Funkcja próbuje odczytać ostatni wpis ``data`` i ``wersje`` z pliku
+    ``logi_wersji.json``.  Jeżeli plik nie istnieje lub jest uszkodzony,
+    analizuje linię ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.  Gdy
+    żadna z metod się nie powiedzie, zwracany jest komunikat
+    ``"brak danych o aktualizacjach"``.
+
+    Returns:
+        tuple[str, str | None]: ``(tekst, wersja)`` z ostatniej
+        aktualizacji; gdy brak danych o wersji drugi element to ``None``.
+    """
+
+    try:
+        with open("logi_wersji.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list) and data:
+            last = data[-1]
+            data_str = last.get("data")
+            wersje = last.get("wersje", {})
+            version = None
+            if isinstance(wersje, dict):
+                version = next(iter(wersje.values()), None)
+            if data_str:
+                return f"Ostatnia aktualizacja: {data_str}", version
+    except Exception:
+        pass
+
+    try:
+        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().lower().startswith("data:"):
+                    date_str = line.split(":", 1)[1].strip()
+                    if date_str:
+                        return f"Ostatnia aktualizacja: {date_str}", None
+    except Exception:
+        pass
+
+    return "brak danych o aktualizacjach", None
+
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
 root_global = None
+_on_login_cb = None
 
-def ekran_logowania(root=None):
+def ekran_logowania(root=None, on_login=None, update_available=False):
     """Ekran logowania: logo u góry na środku, box PIN w centrum,
        pasek postępu zmiany (1/3 szerokości) wyśrodkowany,
        na samym dole przycisk 'Zamknij program' + stopka z wersją.
+
+       Parametry:
+           root: opcjonalne istniejące okno główne tkinter.
+           on_login: opcjonalny callback (login, rola, extra=None) wywoływany po poprawnym logowaniu.
+           update_available (bool): jeśli True, pokaż komunikat o dostępnej aktualizacji.
     """
-    global entry_pin, root_global
+    global entry_pin, root_global, _on_login_cb
     if root is None:
         root = tk.Tk()
     root_global = root
+    _on_login_cb = on_login
 
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
@@ -152,6 +203,30 @@ def ekran_logowania(root=None):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+    update_info = load_last_update_info()
+    if isinstance(update_info, tuple):
+        update_text = update_info[0]
+    else:
+        update_text = update_info
+    if not update_text:
+        update_text = "brak danych o aktualizacjach"
+    lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
+    lbl_update.pack(side="bottom", pady=(0, 2))
+    try:
+        local_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+        upstream_commit = subprocess.check_output(["git", "rev-parse", "@{upstream}"], text=True).strip()
+        if local_commit == upstream_commit:
+            lbl_update.configure(text="Aktualna", foreground="green")
+        else:
+            lbl_update.configure(text="Nieaktualna", foreground="red")
+    except Exception:
+        lbl_update.configure(text="brak danych o aktualizacjach")
+    if update_available:
+        ttk.Label(
+            root,
+            text="Dostępna aktualizacja – uruchom 'git pull'",
+            style="WM.Muted.TLabel",
+        ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
     pin = entry_pin.get().strip()
@@ -178,7 +253,13 @@ def logowanie():
                     messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
                     return
                 rola = dane.get("rola", "pracownik")
-                gui_panel.uruchom_panel(root_global, login, rola)
+                if _on_login_cb:
+                    try:
+                        _on_login_cb(login, rola, None)
+                    except Exception:
+                        pass
+                else:
+                    gui_panel.uruchom_panel(root_global, login, rola)
                 return
         messagebox.showerror("Błąd", "Nieprawidłowy PIN")
     except Exception as e:
