@@ -16,7 +16,6 @@ def root():
 
 def test_first_login_frame_has_height(root):
     gui_panel.uruchom_panel(root, "demo", "brygadzista")
-    root.update_idletasks()
     # main frame is second child of root; content is second child of main
     children = root.winfo_children()
     assert len(children) >= 2
