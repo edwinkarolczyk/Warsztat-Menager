@@ -14,6 +14,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from config_manager import ConfigManager
 from updates_utils import load_last_update_info
+from grafiki.shifts_schedule import today_summary
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -78,6 +79,24 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
     center = ttk.Frame(root, style="WM.TFrame")
     center.pack(fill="both", expand=True)
+
+    try:
+        banner_txt = today_summary(datetime.now())
+    except Exception as e:
+        print("[WM-DBG][LOGIN] today_summary error:", e)
+        banner_txt = "Grafik zmian: błąd"
+
+    banner_label = tk.Label(
+        center,
+        text=banner_txt,
+        fg="#ff4d4d",
+        bg="#1b1b1b",
+        font=("Consolas", 11, "bold"),
+        anchor="w",
+        padx=12,
+        pady=6,
+    )
+    banner_label.pack(fill="x", pady=(0, 8))
 
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek

@@ -13,6 +13,7 @@ import subprocess
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
+from gui_settings_shifts import ShiftsSettingsFrame
 
 # --- import panelu magazynowego ---
 try:
@@ -152,6 +153,11 @@ def panel_ustawien(root, frame, login=None, rola=None):
     tab4 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab4, text="Produkty (BOM)")
     panel_ustawien_produkty(tab4, rola)
+
+    # --- Grafiki zmian ---
+    tab_sh = _make_frame(nb, "WM.Card.TFrame")
+    nb.add(tab_sh, text="Grafiki zmian")
+    ShiftsSettingsFrame(tab_sh).pack(fill="both", expand=True)
 
     # --- Aktualizacje ---
     tab5 = UpdatesUI(nb)
