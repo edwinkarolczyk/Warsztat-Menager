@@ -26,7 +26,8 @@ ENV/
 Thumbs.db
 
 # ---- Logs & Backups (WM) ----
-logi/
+logi/*
+!logi/.gitkeep
 logs/
 *.log
 backup_wersji/
