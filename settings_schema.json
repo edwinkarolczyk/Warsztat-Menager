@@ -153,6 +153,26 @@
         "requires_restart": false
       },
       {
+        "key": "updates.remote",
+        "group": "Aktualizacje",
+        "label": "Zdalne repozytorium",
+        "type": "string",
+        "default": "origin",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "updates.branch",
+        "group": "Aktualizacje",
+        "label": "Gałąź aktualizacji",
+        "type": "string",
+        "default": "proby-rozwoju",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
         "key": "modules.service.enabled",
         "group": "Moduły i widoki",
         "label": "Moduł serwisowy włączony",

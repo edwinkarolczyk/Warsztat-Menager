@@ -23,7 +23,9 @@
     "folder": "backup_wersji"
   },
   "updates": {
-    "auto": true
+    "auto": true,
+    "remote": "origin",
+    "branch": "proby-rozwoju"
   },
   "modules": {
     "service": {

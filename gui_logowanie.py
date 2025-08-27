@@ -12,6 +12,7 @@ import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from config_manager import ConfigManager
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -210,10 +211,13 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         update_text = update_info[0]
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
+    cfg = ConfigManager()
+    remote = cfg.get("updates.remote", "origin")
+    branch = cfg.get("updates.branch", "proby-rozwoju")
     try:
-        subprocess.run(["git", "fetch", "origin", "proby-rozwoju"], check=True)
+        subprocess.run(["git", "fetch", remote, branch], check=True)
         remote_commit = subprocess.check_output(
-            ["git", "rev-parse", "origin/proby-rozwoju"], text=True  # remote commit
+            ["git", "rev-parse", f"{remote}/{branch}"], text=True  # remote commit
         ).strip()
         local_commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True  # local commit
