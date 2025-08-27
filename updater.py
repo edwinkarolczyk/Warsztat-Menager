@@ -9,7 +9,6 @@
 import os
 import sys
 import re
-import json
 import shutil
 import zipfile
 import subprocess
@@ -38,31 +37,18 @@ def _write_log(stamp: str, text: str, kind: str = "update"):
         f.write(text.rstrip() + "\n")
 
 
+from update_info import load_last_update_info as _load_update_info
+
+
 def load_last_update_info() -> str:
     """Return info about the last update.
 
-    Reads the latest entry from ``logi_wersji.json`` and returns a
-    user-facing string with the timestamp.  If the file is missing or
-    malformed, a fallback string is returned.
+    This is a thin wrapper around :func:`update_info.load_last_update_info`
+    that returns only the user-facing text.
     """
 
-    try:
-        with open("logi_wersji.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list) and data:
-            return f"Ostatnia aktualizacja: {data[-1].get('data', '')}"
-    except Exception:
-        pass
-
-    try:
-        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("Data:"):
-                    return f"Ostatnia aktualizacja: {line.split('Data:')[1].strip()}"
-    except Exception:
-        pass
-
-    return "brak danych o aktualizacjach"
+    text, _ = _load_update_info()
+    return text
 
 def _restart_app():
     python = sys.executable
