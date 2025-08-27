@@ -37,18 +37,7 @@ def _write_log(stamp: str, text: str, kind: str = "update"):
         f.write(text.rstrip() + "\n")
 
 
-from update_info import load_last_update_info as _load_update_info
-
-
-def load_last_update_info() -> str:
-    """Return info about the last update.
-
-    This is a thin wrapper around :func:`update_info.load_last_update_info`
-    that returns only the user-facing text.
-    """
-
-    text, _ = _load_update_info()
-    return text
+from updates_utils import load_last_update_info
 
 def _restart_app():
     python = sys.executable
