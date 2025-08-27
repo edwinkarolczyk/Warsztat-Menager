@@ -105,17 +105,17 @@ def _open_main_panel(root, ctx):
         return
 
     try:
-        login = (ctx or {}).get("login")
-        rola  = (ctx or {}).get("rola")
+        ctx = ctx or {}
+        login = ctx.get("login")
+        rola = ctx.get("rola")
         _dbg(f"[PANEL] uruchamiam z kontekstem {ctx}")
-        gui_panel.uruchom_panel(root, ctx)  # zakładamy istniejący podpis jak dotąd
+        gui_panel.uruchom_panel(root, login, rola)
     except TypeError:
-        # starsza sygnatura: (root, frame?, context?) – spróbuj wersji „legacy”
+        # starsza sygnatura: (root, login, rola, frame?) – spróbuj wersji „legacy”
         try:
-            # przygotuj pustą ramkę jeżeli poprzednia wersja jej oczekuje
             frame = ttk.Frame(root)
             frame.pack(fill="both", expand=True)
-            gui_panel.uruchom_panel(root, frame, ctx)
+            gui_panel.uruchom_panel(root, login, rola, frame)
         except Exception:
             traceback.print_exc()
             _error("Błąd uruchamiania panelu (legacy).")
