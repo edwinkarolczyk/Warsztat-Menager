@@ -23,11 +23,12 @@ Danych źródłowych w ``data/*`` nie modyfikujemy.
 # Wersja: 1.6.4 (H2c FULL)
 
 import os, json, glob, re
+import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from PIL import Image, ImageTk, UnidentifiedImageError
-from profile_utils import get_user, save_user, DEFAULT_USER
+from profile_utils import get_user, save_user, DEFAULT_USER, read_users
 from logger import log_akcja
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
@@ -594,7 +595,19 @@ def uruchom_panel(root, frame, login=None, rola=None):
     # Dane
     rola_norm = str(rola).lower()
     tasks = _read_tasks(login, rola_norm)
-    user = get_user(login) or {}
+    try:
+        user = get_user(login) or {}
+    except sqlite3.Error:
+        messagebox.showinfo(
+            "Dane profilu",
+            "Brak tabeli w bazie danych. Użyto danych z pliku.",
+        )
+        users = read_users()
+        user = next(
+            (u for u in users if str(u.get("login", "")).lower()
+             == str(login).lower()),
+            {},
+        )
 
     nb = ttk.Notebook(frame)
     nb.pack(fill="both", expand=True, padx=12, pady=(0,12))
