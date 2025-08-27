@@ -1,0 +1,8 @@
+{
+  "kod": "PRD001",
+  "nazwa": "Stojak spawany",
+  "polprodukty": [
+    { "kod": "PP001", "ilosc_na_szt": 2.0 },
+    { "kod": "PP002", "ilosc_na_szt": 1.0 }
+  ]
+}

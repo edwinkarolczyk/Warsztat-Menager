@@ -1,0 +1,7 @@
+{
+  "auto_update_on_start": false,
+  "repo_branch": "main",
+  "remote_name": "origin",
+  "magazyn_rezerwacje": true,
+  "magazyn_precision_mb": 3
+}
