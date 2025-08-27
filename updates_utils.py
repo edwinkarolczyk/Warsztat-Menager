@@ -21,8 +21,8 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
 
     1. Read the last entry from ``logi_wersji.json``.
     2. Parse the ``Data:`` line from ``CHANGES_PROFILES_UPDATE.txt``.
-    3. Use ``git log -1 --format=%ci`` to obtain the date of the most
-       recent commit.
+    3. Use ``git log -1 --format=%ci`` (or ``git show -s --format=%ci HEAD``)
+       to obtain the date of the most recent commit.
 
     Returns a tuple ``("Ostatnia aktualizacja: <date>", version)``.  If
     the version could not be determined ``None`` is returned instead.  If
@@ -55,16 +55,18 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
     except Exception:
         pass
 
-    try:
-        ts = subprocess.check_output(
-            ["git", "log", "-1", "--format=%ci"],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
-        formatted = dt.strftime("%Y-%m-%d %H:%M:%S")
-        return f"Ostatnia aktualizacja: {formatted}", None
-    except Exception:
-        pass
+    for cmd in (["git", "log", "-1", "--format=%ci"],
+                ["git", "show", "-s", "--format=%ci", "HEAD"]):
+        try:
+            ts = subprocess.check_output(
+                cmd,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
+            formatted = dt.strftime("%Y-%m-%d %H:%M:%S")
+            return f"Ostatnia aktualizacja: {formatted}", None
+        except Exception:
+            continue
 
     return "brak danych o aktualizacjach", None

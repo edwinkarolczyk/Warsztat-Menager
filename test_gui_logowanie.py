@@ -121,6 +121,23 @@ def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_
     )
 
 
+def test_load_last_update_info_git_show_fallback(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    def fake_check_output(cmd, text=True, stderr=None):
+        if cmd[:3] == ["git", "log", "-1"]:
+            raise subprocess.CalledProcessError(1, cmd)
+        assert cmd == ["git", "show", "-s", "--format=%ci", "HEAD"]
+        return "2024-06-02 11:00:00 +0000"
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+
+    assert gui_logowanie.load_last_update_info() == (
+        "Ostatnia aktualizacja: 2024-06-02 11:00:00",
+        None,
+    )
+
+
 def test_label_color_current(monkeypatch, dummy_gui):
     cfg = ConfigManager()
     remote = cfg.get("updates.remote")
