@@ -95,11 +95,14 @@ def _login_list():
     ufile=os.path.join("data","users.json")
     if os.path.exists(ufile):
         try:
-            data=json.load(open(ufile,encoding="utf-8"))
-            if isinstance(data,list):
+            with open(ufile, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
                 for it in data:
-                    if isinstance(it,str) and _valid_login(it): s.add(it)
-                    elif isinstance(it,dict) and _valid_login(it.get("login","")): s.add(it["login"])
+                    if isinstance(it, str) and _valid_login(it):
+                        s.add(it)
+                    elif isinstance(it, dict) and _valid_login(it.get("login", "")):
+                        s.add(it["login"])
         except Exception: pass
     if os.path.isdir("avatars"):
         for p in glob.glob("avatars/*.png"):
