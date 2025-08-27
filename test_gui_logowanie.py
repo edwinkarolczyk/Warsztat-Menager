@@ -3,7 +3,6 @@ import types
 import subprocess
 import pytest
 
-import updater
 import gui_logowanie
 
 
@@ -83,22 +82,32 @@ def dummy_gui(monkeypatch):
 
 
 def test_load_last_update_info_json(tmp_path, monkeypatch):
-    data = [{"data": "2024-01-02"}]
+    data = [{"data": "2024-01-02", "wersje": {"app": "1.0"}}]
     (tmp_path / "logi_wersji.json").write_text(json.dumps(data), encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert updater.load_last_update_info() == "Ostatnia aktualizacja: 2024-01-02"
+    assert gui_logowanie.load_last_update_info() == (
+        "Ostatnia aktualizacja: 2024-01-02",
+        "1.0",
+    )
 
 
 def test_load_last_update_info_fallback(tmp_path, monkeypatch):
     content = "# Info\nData: 2023-10-15 12:00\n"
     (tmp_path / "CHANGES_PROFILES_UPDATE.txt").write_text(content, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert updater.load_last_update_info() == "Ostatnia aktualizacja: 2023-10-15 12:00"
+    assert gui_logowanie.load_last_update_info() == (
+        "Ostatnia aktualizacja: 2023-10-15 12:00",
+        None,
+    )
 
 
-def test_load_last_update_info_error(tmp_path, monkeypatch):
+# brak informacji przy niepoprawnym lub brakującym pliku
+@pytest.mark.parametrize("json_content", [None, "[{"])
+def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_content):
+    if json_content is not None:
+        (tmp_path / "logi_wersji.json").write_text(json_content, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert updater.load_last_update_info() == "brak danych o aktualizacjach"
+    assert gui_logowanie.load_last_update_info() is None
 
 
 def test_label_color_current(monkeypatch, dummy_gui):
@@ -109,7 +118,7 @@ def test_label_color_current(monkeypatch, dummy_gui):
             return subprocess.CompletedProcess(cmd, 0, stdout="abc\n")
         raise AssertionError(cmd)
     monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: "init")
+    monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: ("init", None))
     root = DummyRoot()
     gui_logowanie.ekran_logowania(root=root)
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
@@ -125,7 +134,7 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
             return subprocess.CompletedProcess(cmd, 0, stdout="def\n")
         raise AssertionError(cmd)
     monkeypatch.setattr(subprocess, "run", fake_run)
-    monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: "init")
+    monkeypatch.setattr(gui_logowanie, "load_last_update_info", lambda: ("init", None))
     root = DummyRoot()
     gui_logowanie.ekran_logowania(root=root)
     lbl = next(l for l in dummy_gui if l.initial_text == "init")

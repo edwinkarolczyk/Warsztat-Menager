@@ -8,7 +8,6 @@
 from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
-import ustawienia_uzytkownicy
 
 def _build_tab_profil(parent, login, rola):
     import gui_profile
@@ -31,14 +30,6 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
     tab_profil = ttk.Frame(nb); nb.add(tab_profil, text="Profil")
     _build_tab_profil(tab_profil, login, rola)
 
-    # Zakładka zarządzania użytkownikami dla brygadzisty/admina
-    if str(rola).lower() in ("brygadzista", "admin"):
-        tab_users = ttk.Frame(nb); nb.add(tab_users, text="Użytkownicy")
-        ustawienia_uzytkownicy.make_tab(tab_users, rola)
-
-    # domyślnie przełącz na Profil dla zwykłego użytkownika
-    if str(rola).lower() not in ("brygadzista","admin"):
-        nb.select(tab_profil)
 
     return nb
 
