@@ -1,5 +1,5 @@
 import importlib
-
+import json
 
 def test_foreman_role_case_insensitive():
     mod = importlib.import_module('gui_profile')
@@ -9,3 +9,15 @@ def test_foreman_role_case_insensitive():
     for r in roles:
         assert mod._order_visible_for(order, 'user', r)
         assert mod._tool_visible_for(tool, 'user', r)
+
+
+def test_read_tasks_foreman_role_case_insensitive(tmp_path, monkeypatch):
+    mod = importlib.import_module('gui_profile')
+    data_dir = tmp_path / 'data'
+    data_dir.mkdir()
+    (data_dir / 'zlecenia.json').write_text(json.dumps([{'nr': 1}]), encoding='utf-8')
+    monkeypatch.chdir(tmp_path)
+    roles = ['brygadzista', 'BRYGADZISTA', 'Brygadzista', 'BrYgAdZiStA']
+    for r in roles:
+        tasks = mod._read_tasks('user', r)
+        assert any(t.get('id') == 'ZLEC-1' for t in tasks)
