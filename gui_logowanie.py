@@ -18,7 +18,41 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
 from ui_theme import apply_theme_safe as apply_theme
-from updater import load_last_update_info
+
+
+def load_last_update_info():
+    """Zwraca informacje o ostatniej aktualizacji.
+
+    Próbuje odczytać ostatni wpis z ``logi_wersji.json`` i zwraca krotkę
+    ``(tekst, wersja)``.  ``tekst`` zawiera komunikat z datą aktualizacji,
+    a ``wersja`` to słownik wersji plików.  Jeśli plik logu jest niedostępny
+    lub uszkodzony, funkcja próbuje odczytać datę z
+    ``CHANGES_PROFILES_UPDATE.txt``.  Gdy obie próby się nie powiodą,
+    zwracane jest ``None``.
+    """
+
+    try:
+        with open("logi_wersji.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list) and data:
+            last = data[-1]
+            tekst = f"Ostatnia aktualizacja: {last.get('data', '')}"
+            wersja = last.get("wersje")
+            return tekst, wersja
+    except Exception:
+        pass
+
+    try:
+        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("Data:"):
+                    data_str = line.split("Data:", 1)[1].strip()
+                    tekst = f"Ostatnia aktualizacja: {data_str}"
+                    return tekst, None
+    except Exception:
+        pass
+
+    return None
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
@@ -161,7 +195,14 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
-    lbl_update = ttk.Label(root, text=load_last_update_info(), style="WM.Muted.TLabel")
+    _info = load_last_update_info()
+    if isinstance(_info, tuple):
+        update_text, _ = _info
+    elif isinstance(_info, str):
+        update_text = _info
+    else:
+        update_text = "brak danych o aktualizacjach"
+    lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     try:
         local_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
