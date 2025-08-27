@@ -94,7 +94,7 @@ def _ensure_user_file(login, rola):
 def _open_main_panel(root, ctx):
     """
     Uruchamia główny panel po udanym logowaniu.
-    ctx: dict zawierający co najmniej: {'login': ..., 'rola': ...}
+    ctx: dict zawierający co najmniej: {'login': <str>, 'rola': <str>}
     """
     login = str((ctx or {}).get("login", ""))
     rola = str((ctx or {}).get("rola", ""))
