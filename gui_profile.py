@@ -588,7 +588,8 @@ def uruchom_panel(root, frame, login=None, rola=None):
     ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
 
     # Dane
-    tasks = _read_tasks(login, rola)
+    rola_norm = str(rola).lower()
+    tasks = _read_tasks(login, rola_norm)
     user = get_user(login) or {}
 
     nb = ttk.Notebook(frame)
@@ -601,7 +602,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
     _build_skills_tab(tab_skill, user)
 
     tab_tasks = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_tasks, text="Zadania")
-    _build_tasks_tab(tab_tasks, root, login, rola, tasks)
+    _build_tasks_tab(tab_tasks, root, login, rola_norm, tasks)
 
     tab_stats = ttk.Frame(nb, style="WM.TFrame"); nb.add(tab_stats, text="Statystyki")
     _build_stats_tab(tab_stats, tasks, login)
