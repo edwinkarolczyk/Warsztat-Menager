@@ -13,7 +13,6 @@ import json
 import traceback
 from datetime import datetime
 import tkinter as tk
-from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
@@ -97,8 +96,8 @@ def _open_main_panel(root, ctx):
     Uruchamia główny panel po udanym logowaniu.
     ctx: dict zawierający co najmniej: {'login': ..., 'rola': ...}
     """
-    login = (ctx or {}).get("login")
-    rola = (ctx or {}).get("rola")
+    login = str((ctx or {}).get("login", ""))
+    rola = str((ctx or {}).get("rola", ""))
 
     # Pobierz preferencje użytkownika
     try:
@@ -137,17 +136,10 @@ def _open_main_panel(root, ctx):
 
     try:
         _dbg(f"[PANEL] uruchamiam z kontekstem {ctx}")
-        gui_panel.uruchom_panel(root, ctx)  # zakładamy istniejący podpis jak dotąd
-    except TypeError:
-        # starsza sygnatura: (root, frame?, context?) – spróbuj wersji „legacy”
-        try:
-            # przygotuj pustą ramkę jeżeli poprzednia wersja jej oczekuje
-            frame = ttk.Frame(root)
-            frame.pack(fill="both", expand=True)
-            gui_panel.uruchom_panel(root, frame, ctx)
-        except Exception:
-            traceback.print_exc()
-            _error("Błąd uruchamiania panelu (legacy).")
+        gui_panel.uruchom_panel(root, login, rola)
+    except Exception:
+        traceback.print_exc()
+        _error("Błąd uruchamiania panelu.")
 
 # ====== CALLBACK LOGOWANIA (jeśli gui_logowanie go wspiera) ======
 def _on_login(root, login, rola, extra=None):
@@ -160,7 +152,7 @@ def _on_login(root, login, rola, extra=None):
         _ensure_user_file(login, rola)
 
         # Zbuduj ctx (zachowujemy minimalny zestaw, żeby nie wprowadzać zmian)
-        ctx = {"login": login, "rola": rola}
+        ctx = {"login": str(login), "rola": str(rola)}
         if isinstance(extra, dict):
             ctx.update(extra)
 
