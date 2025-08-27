@@ -262,7 +262,8 @@ def uruchom_panel(root, login, rola):
             pass
     else:
         ttk.Button(side, text="Profil", command=_open_profil, style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
-    otworz_panel(panel_zlecenia, "Zlecenia (start)")
+    root.update_idletasks()
+    root.after_idle(lambda: otworz_panel(panel_zlecenia, "Zlecenia (start)"))
 
 # eksportowane dla logowania
 __all__ = ["uruchom_panel", "_shift_bounds", "_shift_progress"]
