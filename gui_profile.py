@@ -26,7 +26,13 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
-from PIL import Image, ImageTk, UnidentifiedImageError
+try:
+    from PIL import Image, ImageTk, UnidentifiedImageError
+except ImportError:  # Pillow missing
+    Image = ImageTk = None
+
+    class UnidentifiedImageError(Exception):
+        ...
 from profile_utils import get_user, save_user, DEFAULT_USER
 from logger import log_akcja
 
@@ -133,21 +139,25 @@ def _load_avatar(parent, login):
     """
     path = os.path.join("avatars", f"{login}.png")
     default_path = os.path.join("avatars", "default.jpg")
+
+    if Image is None or ImageTk is None:
+        txt = str(login or "?")
+        return ttk.Label(parent, text=txt, style="WM.TLabel")
+
     try:
         img = Image.open(path)
     except (FileNotFoundError, OSError, UnidentifiedImageError):
         try:
             img = Image.open(default_path)
         except (FileNotFoundError, OSError, UnidentifiedImageError):
-            return ttk.Label(parent, style="WM.TLabel")
-    # dopasuj rozmiar obrazka do maksymalnych wymiarów
+            return ttk.Label(parent, text=str(login or ""), style="WM.TLabel")
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
     except Exception:
         pass
     photo = ImageTk.PhotoImage(img)
     lbl = tk.Label(parent, image=photo)
-    lbl.image = photo  # zapobiega zbieraniu przez GC
+    lbl.image = photo
     return lbl
 
 def _map_status_generic(raw):
