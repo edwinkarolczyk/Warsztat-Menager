@@ -13,7 +13,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from config_manager import ConfigManager
-from update_info import load_last_update_info
+from updates_utils import load_last_update_info
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -22,7 +22,7 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 from ui_theme import apply_theme_safe as apply_theme
 
 
- # -- informacje o ostatniej aktualizacji dostarcza moduł update_info --
+ # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
