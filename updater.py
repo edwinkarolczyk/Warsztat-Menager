@@ -8,7 +8,6 @@
 
 import os
 import sys
-import io
 import re
 import json
 import shutil
@@ -187,17 +186,24 @@ def _git_has_updates(cwd: Path) -> bool:
 def _run_git_pull(cwd: Path, stamp: str):
     """Wykonuje git pull w katalogu aplikacji."""
     cmd = ["git", "pull"]
-    proc = subprocess.Popen(cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    out = io.StringIO()
-    if proc.stdout:
-        for line in proc.stdout:
-            out.write(line)
-    code = proc.wait()
-    output = out.getvalue()
-    _write_log(stamp, "[GIT PULL OUTPUT]\n" + output, kind="update")
-    if code != 0:
-        raise RuntimeError(f"git pull error (code {code}).")
-    return output
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        log_text = "[GIT PULL OUTPUT]\n" + result.stdout
+        if result.stderr:
+            log_text += "\n[GIT PULL ERROR]\n" + result.stderr
+        _write_log(stamp, log_text, kind="update")
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "") + "\n[GIT PULL ERROR]\n" + (e.stderr or "")
+        _write_log(stamp, log_text, kind="update")
+        raise RuntimeError(f"git pull failed: {e.stderr.strip()}")
 
 # --- version scanner ---
 
