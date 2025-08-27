@@ -2,6 +2,7 @@ import json
 import types
 import subprocess
 import pytest
+from config_manager import ConfigManager
 
 import gui_logowanie
 
@@ -111,14 +112,17 @@ def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_
 
 
 def test_label_color_current(monkeypatch, dummy_gui):
+    cfg = ConfigManager()
+    remote = cfg.get("updates.remote")
+    branch = cfg.get("updates.branch")
+
     def fake_run(cmd, *args, **kwargs):
-        # allow fetch to succeed silently
-        if cmd == ["git", "fetch", "origin", "proby-rozwoju"]:
+        if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
 
     def fake_check_output(cmd, *args, **kwargs):
-        if cmd == ["git", "rev-parse", "origin/proby-rozwoju"]:
+        if cmd == ["git", "rev-parse", f"{remote}/{branch}"]:
             return "abc\n"
         if cmd == ["git", "rev-parse", "HEAD"]:
             return "abc\n"
@@ -135,13 +139,17 @@ def test_label_color_current(monkeypatch, dummy_gui):
 
 
 def test_label_color_outdated(monkeypatch, dummy_gui):
+    cfg = ConfigManager()
+    remote = cfg.get("updates.remote")
+    branch = cfg.get("updates.branch")
+
     def fake_run(cmd, *args, **kwargs):
-        if cmd == ["git", "fetch", "origin", "proby-rozwoju"]:
+        if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
 
     def fake_check_output(cmd, *args, **kwargs):
-        if cmd == ["git", "rev-parse", "origin/proby-rozwoju"]:
+        if cmd == ["git", "rev-parse", f"{remote}/{branch}"]:
             return "def\n"
         if cmd == ["git", "rev-parse", "HEAD"]:
             return "abc\n"
