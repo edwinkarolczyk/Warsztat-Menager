@@ -8,6 +8,7 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import subprocess
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
@@ -98,6 +99,21 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Label(frm, text="Gałąź aktualizacji:").grid(row=5, column=0, sticky="w", padx=5, pady=5)
     ttk.Entry(frm, textvariable=branch_var).grid(row=5, column=1, sticky="ew", padx=5, pady=5)
 
+    def _check_git_connection():
+        remote = remote_var.get()
+        branch = branch_var.get()
+        try:
+            subprocess.run([
+                "git",
+                "ls-remote",
+                remote,
+                branch,
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            messagebox.showinfo("Git", "Połączenie prawidłowe")
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.decode("utf-8", errors="ignore") if e.stderr else str(e)
+            messagebox.showerror("Git", err)
+
     def _save():
         try:
             cfg.set("ui.language", lang_var.get())
@@ -110,7 +126,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
         except ConfigError as e:
             messagebox.showerror("Błąd", str(e))
 
-    ttk.Button(frm, text="Zapisz", command=_save).grid(row=6, column=0, columnspan=2, pady=10)
+    ttk.Button(frm, text="Sprawdź połączenie", command=_check_git_connection).grid(
+        row=6, column=0, columnspan=2, pady=5
+    )
+    ttk.Button(frm, text="Zapisz", command=_save).grid(row=7, column=0, columnspan=2, pady=10)
 
     # --- Użytkownicy ---
     tab2 = _make_frame(nb, "WM.Card.TFrame")
