@@ -108,7 +108,17 @@ def test_load_last_update_info_missing_or_malformed(tmp_path, monkeypatch, json_
     if json_content is not None:
         (tmp_path / "logi_wersji.json").write_text(json_content, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert gui_logowanie.load_last_update_info() is None
+
+    def fake_check_output(cmd, text=True, stderr=None):
+        assert cmd == ["git", "log", "-1", "--format=%ci"]
+        return "2024-06-01 10:00:00 +0000"
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+
+    assert gui_logowanie.load_last_update_info() == (
+        "Ostatnia aktualizacja: 2024-06-01 10:00:00",
+        None,
+    )
 
 
 def test_label_color_current(monkeypatch, dummy_gui):

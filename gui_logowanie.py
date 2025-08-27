@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from config_manager import ConfigManager
+from update_info import load_last_update_info
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -21,47 +22,7 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 from ui_theme import apply_theme_safe as apply_theme
 
 
-# --- informacje o ostatniej aktualizacji ---
-def load_last_update_info():
-    """Pobierz informację o ostatniej aktualizacji.
-
-    Funkcja próbuje odczytać ostatni wpis ``data`` i ``wersje`` z pliku
-    ``logi_wersji.json``. Jeżeli plik nie istnieje lub jest uszkodzony,
-    analizowana jest linia ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.
-    Jeżeli obie metody zawiodą, zwracane jest ``None``.
-
-    Returns:
-        tuple[str, str | None] | None: ``(tekst, wersja)`` z ostatniej
-        aktualizacji; gdy brak danych o wersji drugi element to ``None``.
-        ``None`` oznacza brak informacji o aktualizacjach.
-    """
-
-    try:
-        with open("logi_wersji.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list) and data:
-            last = data[-1]
-            data_str = last.get("data")
-            wersje = last.get("wersje", {})
-            version = None
-            if isinstance(wersje, dict):
-                version = next(iter(wersje.values()), None)
-            if data_str:
-                return f"Ostatnia aktualizacja: {data_str}", version
-    except Exception:
-        pass
-
-    try:
-        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip().lower().startswith("data:"):
-                    date_str = line.split(":", 1)[1].strip()
-                    if date_str:
-                        return f"Ostatnia aktualizacja: {date_str}", None
-    except Exception:
-        pass
-
-    return None
+ # -- informacje o ostatniej aktualizacji dostarcza moduł update_info --
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
@@ -204,11 +165,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
-    update_info = load_last_update_info()
-    if update_info is None:
-        update_text = "brak danych o aktualizacjach"
-    else:
-        update_text = update_info[0]
+    update_text, _ = load_last_update_info()
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     cfg = ConfigManager()
