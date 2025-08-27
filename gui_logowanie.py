@@ -211,12 +211,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     try:
-        subprocess.run(
-            ["git", "fetch", "origin", "proby-rozwoju"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        subprocess.run(["git", "fetch", "origin", "proby-rozwoju"], check=True)
         remote_commit = subprocess.check_output(
             ["git", "rev-parse", "origin/proby-rozwoju"], text=True
         ).strip()
