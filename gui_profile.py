@@ -199,8 +199,8 @@ def _convert_tool_task(tool_num, tool_name, worker_login, idx, item):
 
 # ====== Widoczność ======
 def _order_visible_for(order, login, rola):
-    rola = str(rola).lower()
-    if rola=="brygadzista": return True
+    role = str(rola or "").lower()
+    if role=="brygadzista": return True
     # przypisanie bezpośrednie
     for key in ("login","operator","pracownik","przydzielono","assigned_to"):
         val = order.get(key)
@@ -212,15 +212,15 @@ def _order_visible_for(order, login, rola):
     return False
 
 def _tool_visible_for(tool_task, login, rola):
-    rola = str(rola).lower()
-    if rola=="brygadzista": return True
+    role = str(rola or "").lower()
+    if role=="brygadzista": return True
     if str(tool_task.get("login","")).lower()==str(login).lower(): return True
     if str(_load_assign_tools().get(tool_task["id"],"")).lower()==str(login).lower(): return True
     return False
 
 # ====== Czytanie zadań ======
 def _read_tasks(login, rola=None):
-    rola = str(rola).lower()
+    role = str(rola or "").lower()
     tasks = []
 
     def _load_orders_dir(dir_path):
@@ -228,7 +228,7 @@ def _read_tasks(login, rola=None):
         if os.path.isdir(dir_path):
             for path in glob.glob(os.path.join(dir_path, "*.json")):
                 z = _load_json(path, {})
-                if isinstance(z, dict) and _order_visible_for(z, login, rola):
+                if isinstance(z, dict) and _order_visible_for(z, login, role):
                     res.append(_convert_order_to_task(z))
         return res
 
@@ -245,7 +245,7 @@ def _read_tasks(login, rola=None):
                 items = tool.get("zadania", [])
                 for i, it in enumerate(items):
                     t = _convert_tool_task(num, name, worker, i, it)
-                    if _tool_visible_for(t, login, rola):
+                    if _tool_visible_for(t, login, role):
                         res.append(t)
         return res
 
@@ -263,7 +263,7 @@ def _read_tasks(login, rola=None):
          lambda p: [_convert_order_to_task(z) for z in _load_json(p, [])]),
         (os.path.join("data", "zlecenia.json"),
          lambda p: [_convert_order_to_task(z)
-                    for z in _load_json(p, []) if _order_visible_for(z, login, rola)]),
+                    for z in _load_json(p, []) if _order_visible_for(z, login, role)]),
         (os.path.join("data", "zlecenia"), _load_orders_dir),
         (os.path.join("data", "narzedzia"), _load_tools_dir),
     ]
@@ -290,7 +290,7 @@ def _read_tasks(login, rola=None):
 
 # ====== UI ======
 def _show_task_details(root, frame, login, rola, task, after_save=None):
-    rola = str(rola).lower()
+    role = str(rola or "").lower()
     win = tk.Toplevel(root)
     win.title(f"Zadanie {task.get('id','')}")
     apply_theme(win)
@@ -318,7 +318,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
     is_order = str(task.get("id","")).startswith("ZLEC-") or task.get("_kind")=="order"
     is_tool  = str(task.get("id","")).startswith("NARZ-") or task.get("_kind")=="tooltask"
     assign_var = tk.StringVar(value="")
-    if rola=="brygadzista" and (is_order or is_tool):
+    if role=="brygadzista" and (is_order or is_tool):
         frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="x", padx=8, pady=6)
         ttk.Label(frm, text="Przypisz do (login):", style="WM.TLabel").pack(side="left")
         ent = ttk.Combobox(frm, textvariable=assign_var, values=_login_list(), state="normal", width=24)
@@ -340,7 +340,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
         task["status"] = new_status
 
         # przypisania
-        if rola=="brygadzista":
+        if role=="brygadzista":
             who = assign_var.get().strip() or None
             if is_order:
                 _save_assign_order(task.get("zlecenie"), who)
