@@ -77,6 +77,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
     theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
     backup_var = tk.StringVar(value=cfg.get("backup.folder", ""))
     auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
+    remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
+    branch_var = tk.StringVar(value=cfg.get("updates.branch", "proby-rozwoju"))
 
     ttk.Label(frm, text="Język UI:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
     ttk.Combobox(frm, textvariable=lang_var, values=["pl", "en"], state="readonly").grid(row=0, column=1, sticky="ew", padx=5, pady=5)
@@ -90,17 +92,25 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Label(frm, text="Automatyczne aktualizacje:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
     ttk.Checkbutton(frm, variable=auto_var).grid(row=3, column=1, sticky="w", padx=5, pady=5)
 
+    ttk.Label(frm, text="Zdalne repozytorium:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
+    ttk.Entry(frm, textvariable=remote_var).grid(row=4, column=1, sticky="ew", padx=5, pady=5)
+
+    ttk.Label(frm, text="Gałąź aktualizacji:").grid(row=5, column=0, sticky="w", padx=5, pady=5)
+    ttk.Entry(frm, textvariable=branch_var).grid(row=5, column=1, sticky="ew", padx=5, pady=5)
+
     def _save():
         try:
             cfg.set("ui.language", lang_var.get())
             cfg.set("ui.theme", theme_var.get())
             cfg.set("backup.folder", backup_var.get())
             cfg.set("updates.auto", bool(auto_var.get()))
+            cfg.set("updates.remote", remote_var.get())
+            cfg.set("updates.branch", branch_var.get())
             cfg.save_all()
         except ConfigError as e:
             messagebox.showerror("Błąd", str(e))
 
-    ttk.Button(frm, text="Zapisz", command=_save).grid(row=4, column=0, columnspan=2, pady=10)
+    ttk.Button(frm, text="Zapisz", command=_save).grid(row=6, column=0, columnspan=2, pady=10)
 
     # --- Użytkownicy ---
     tab2 = _make_frame(nb, "WM.Card.TFrame")
