@@ -21,6 +21,7 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
 
 
  # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
@@ -47,8 +48,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     _on_login_cb = on_login
 
     # wyczyść i ustaw motyw
-    for w in root.winfo_children():
-        w.destroy()
+    clear_frame(root)
     apply_theme(root)
 
     # pełny ekran i tytuł

@@ -35,6 +35,7 @@ except ImportError:  # Pillow missing
         ...
 from profile_utils import get_user, save_user, DEFAULT_USER
 from logger import log_akcja
+from utils.gui_helpers import clear_frame
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -592,9 +593,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
         pass
 
     # wyczyść
-    for w in list(frame.winfo_children()):
-        try: w.destroy()
-        except: pass
+    clear_frame(frame)
 
     # Nagłówek
     head = ttk.Frame(frame, style="WM.TFrame"); head.pack(fill="x", padx=12, pady=10)

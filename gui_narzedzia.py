@@ -22,6 +22,7 @@ import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH  = "config.json"
@@ -431,9 +432,7 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 def panel_narzedzia(root, frame, login=None, rola=None):
     _maybe_seed_config_templates()
     apply_theme(root)
-
-    for w in frame.winfo_children():
-        w.destroy()
+    clear_frame(frame)
 
     header = ttk.Frame(frame, style="WM.TFrame")
     header.pack(fill="x", padx=10, pady=(10, 0))
