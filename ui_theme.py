@@ -92,20 +92,17 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     if _inited:
         return
     cfg = ConfigManager()
-    colors = cfg.get("ui.colors", {})
-    DARK_BG = colors.get("dark_bg", _DEFAULT_COLORS["dark_bg"])
-    DARK_BG_2 = colors.get("dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
-    SIDE_BG = colors.get("side_bg", _DEFAULT_COLORS["side_bg"])
-    CARD_BG = colors.get("card_bg", _DEFAULT_COLORS["card_bg"])
-    FG = colors.get("fg", _DEFAULT_COLORS["fg"])
-    MUTED_FG = colors.get("muted_fg", _DEFAULT_COLORS["muted_fg"])
-    BTN_BG = colors.get("btn_bg", _DEFAULT_COLORS["btn_bg"])
-    BTN_BG_HOVER = colors.get(
-        "btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"]
-    )
-    BTN_BG_ACT = colors.get("btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
-    BANNER_FG = colors.get("banner_fg", _DEFAULT_COLORS["banner_fg"])
-    BANNER_BG = colors.get("banner_bg", _DEFAULT_COLORS["banner_bg"])
+    DARK_BG = cfg.get("ui.colors.dark_bg", _DEFAULT_COLORS["dark_bg"])
+    DARK_BG_2 = cfg.get("ui.colors.dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
+    SIDE_BG = cfg.get("ui.colors.side_bg", _DEFAULT_COLORS["side_bg"])
+    CARD_BG = cfg.get("ui.colors.card_bg", _DEFAULT_COLORS["card_bg"])
+    FG = cfg.get("ui.colors.fg", _DEFAULT_COLORS["fg"])
+    MUTED_FG = cfg.get("ui.colors.muted_fg", _DEFAULT_COLORS["muted_fg"])
+    BTN_BG = cfg.get("ui.colors.btn_bg", _DEFAULT_COLORS["btn_bg"])
+    BTN_BG_HOVER = cfg.get("ui.colors.btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"])
+    BTN_BG_ACT = cfg.get("ui.colors.btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
+    BANNER_FG = cfg.get("ui.colors.banner_fg", _DEFAULT_COLORS["banner_fg"])
+    BANNER_BG = cfg.get("ui.colors.banner_bg", _DEFAULT_COLORS["banner_bg"])
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
