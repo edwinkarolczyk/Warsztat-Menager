@@ -67,16 +67,9 @@ def panel_ustawien(root, frame, login=None, rola=None):
         nb = ttk.Notebook(frame)
     nb.pack(fill="both", expand=True, padx=12, pady=12)
 
-    # --- Ogólne ---
-    tab1 = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab1, text="Ogólne")
-
-    frm = ttk.Frame(tab1)
-    frm.pack(fill="x", padx=12, pady=12)
-    frm.columnconfigure(1, weight=1)
-
     lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
     theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
+    accent_var = tk.StringVar(value=cfg.get("ui.accent", "red"))
     backup_var = tk.StringVar(value=cfg.get("backup.folder", ""))
     auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
@@ -116,26 +109,91 @@ def panel_ustawien(root, frame, login=None, rola=None):
         ),
     }
 
-    ttk.Label(frm, text="Język UI:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-    ttk.Combobox(frm, textvariable=lang_var, values=["pl", "en"], state="readonly").grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+    # --- Motyw ---
+    tab_theme = _make_frame(nb, "WM.Card.TFrame")
+    nb.add(tab_theme, text="Motyw")
 
-    ttk.Label(frm, text="Motyw:").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-    ttk.Combobox(frm, textvariable=theme_var, values=["dark", "light"], state="readonly").grid(row=1, column=1, sticky="ew", padx=5, pady=5)
+    frm_theme = ttk.Frame(tab_theme)
+    frm_theme.pack(fill="x", padx=12, pady=12)
+    frm_theme.columnconfigure(1, weight=1)
 
-    ttk.Label(frm, text="Katalog kopii zapasowych:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
-    ttk.Entry(frm, textvariable=backup_var).grid(row=2, column=1, sticky="ew", padx=5, pady=5)
+    ttk.Label(frm_theme, text="Motyw:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Combobox(
+        frm_theme,
+        textvariable=theme_var,
+        values=["dark", "light"],
+        state="readonly",
+    ).grid(row=0, column=1, sticky="ew", padx=5, pady=5)
 
-    ttk.Label(frm, text="Automatyczne aktualizacje:").grid(row=3, column=0, sticky="w", padx=5, pady=5)
-    ttk.Checkbutton(frm, variable=auto_var).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+    ttk.Label(frm_theme, text="Akcent:").grid(
+        row=1, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Combobox(
+        frm_theme,
+        textvariable=accent_var,
+        values=["red", "blue", "green", "orange"],
+        state="readonly",
+    ).grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
-    ttk.Label(frm, text="Zdalne repozytorium:").grid(row=4, column=0, sticky="w", padx=5, pady=5)
-    ttk.Entry(frm, textvariable=remote_var).grid(row=4, column=1, sticky="ew", padx=5, pady=5)
+    for i, (color_key, var) in enumerate(color_vars.items(), start=2):
+        ttk.Label(frm_theme, text=f"{color_key}:").grid(
+            row=i, column=0, sticky="w", padx=5, pady=5
+        )
+        ttk.Entry(frm_theme, textvariable=var).grid(
+            row=i, column=1, sticky="ew", padx=5, pady=5
+        )
+    _theme_save_row = len(color_vars) + 2
 
-    ttk.Label(frm, text="Gałąź aktualizacji:").grid(row=5, column=0, sticky="w", padx=5, pady=5)
-    ttk.Entry(frm, textvariable=branch_var).grid(row=5, column=1, sticky="ew", padx=5, pady=5)
+    # --- Ogólne ---
+    tab1 = _make_frame(nb, "WM.Card.TFrame")
+    nb.add(tab1, text="Ogólne")
+
+    frm = ttk.Frame(tab1)
+    frm.pack(fill="x", padx=12, pady=12)
+    frm.columnconfigure(1, weight=1)
+
+    ttk.Label(frm, text="Język UI:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Combobox(
+        frm,
+        textvariable=lang_var,
+        values=["pl", "en"],
+        state="readonly",
+    ).grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+
+    ttk.Label(frm, text="Katalog kopii zapasowych:").grid(
+        row=1, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=backup_var).grid(
+        row=1, column=1, sticky="ew", padx=5, pady=5
+    )
+
+    ttk.Label(frm, text="Automatyczne aktualizacje:").grid(
+        row=2, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Checkbutton(frm, variable=auto_var).grid(
+        row=2, column=1, sticky="w", padx=5, pady=5
+    )
+
+    ttk.Label(frm, text="Zdalne repozytorium:").grid(
+        row=3, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=remote_var).grid(
+        row=3, column=1, sticky="ew", padx=5, pady=5
+    )
+
+    ttk.Label(frm, text="Gałąź aktualizacji:").grid(
+        row=4, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=branch_var).grid(
+        row=4, column=1, sticky="ew", padx=5, pady=5
+    )
 
     ttk.Label(frm, textvariable=connection_status_var).grid(
-        row=6, column=0, columnspan=2, sticky="w", padx=5, pady=5
+        row=5, column=0, columnspan=2, sticky="w", padx=5, pady=5
     )
 
     def _check_git_connection():
@@ -157,6 +215,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         try:
             cfg.set("ui.language", lang_var.get())
             cfg.set("ui.theme", theme_var.get())
+            cfg.set("ui.accent", accent_var.get())
             cfg.set("backup.folder", backup_var.get())
             cfg.set("updates.auto", bool(auto_var.get()))
             cfg.set("updates.remote", remote_var.get())
@@ -172,9 +231,14 @@ def panel_ustawien(root, frame, login=None, rola=None):
             messagebox.showerror("Błąd", str(e))
 
     ttk.Button(frm, text="Aktualizuj", command=_check_git_connection).grid(
-        row=7, column=0, columnspan=2, pady=5
+        row=6, column=0, columnspan=2, pady=5
     )
-    ttk.Button(frm, text="Zapisz", command=_save).grid(row=8, column=0, columnspan=2, pady=10)
+    ttk.Button(frm, text="Zapisz", command=_save).grid(
+        row=7, column=0, columnspan=2, pady=10
+    )
+    ttk.Button(frm_theme, text="Zapisz", command=_save).grid(
+        row=_theme_save_row, column=0, columnspan=2, pady=10
+    )
 
     _check_git_connection()
 

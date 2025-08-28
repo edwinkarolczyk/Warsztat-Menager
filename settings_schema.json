@@ -3,7 +3,7 @@
   "options": [
   {
         "key": "ui.theme",
-        "group": "Ogólne",
+        "group": "Motyw",
         "label": "Motyw",
       "type": "enum",
       "enum": [
@@ -28,7 +28,7 @@
       },
       {
         "key": "ui.accent",
-        "group": "Ogólne",
+        "group": "Motyw",
         "label": "Akcent kolorystyczny",
       "type": "enum",
       "enum": [
@@ -54,7 +54,7 @@
       },
     {
       "key": "ui.colors.dark_bg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Tło główne",
       "type": "string",
       "default": "#1b1f24",
@@ -64,7 +64,7 @@
     },
     {
       "key": "ui.colors.dark_bg_2",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Tło pól",
       "type": "string",
       "default": "#20262e",
@@ -74,7 +74,7 @@
     },
     {
       "key": "ui.colors.side_bg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Tło panelu bocznego",
       "type": "string",
       "default": "#14181d",
@@ -84,7 +84,7 @@
     },
     {
       "key": "ui.colors.card_bg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Tło kart",
       "type": "string",
       "default": "#20262e",
@@ -94,7 +94,7 @@
     },
     {
       "key": "ui.colors.fg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Kolor tekstu",
       "type": "string",
       "default": "#e6e6e6",
@@ -104,7 +104,7 @@
     },
     {
       "key": "ui.colors.muted_fg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Tekst przygaszony",
       "type": "string",
       "default": "#9aa0a6",
@@ -114,7 +114,7 @@
     },
     {
       "key": "ui.colors.btn_bg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Przyciski – tło",
       "type": "string",
       "default": "#2a3139",
@@ -124,7 +124,7 @@
     },
     {
       "key": "ui.colors.btn_bg_hover",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Przyciski – hover",
       "type": "string",
       "default": "#343b45",
@@ -134,7 +134,7 @@
     },
     {
       "key": "ui.colors.btn_bg_act",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Przyciski – aktywny",
       "type": "string",
       "default": "#3b434e",
@@ -144,7 +144,7 @@
     },
     {
       "key": "ui.colors.banner_fg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Banner – tekst",
       "type": "string",
       "default": "#ff4d4d",
@@ -154,7 +154,7 @@
     },
     {
       "key": "ui.colors.banner_bg",
-      "group": "Wygląd",
+      "group": "Motyw",
       "label": "Banner – tło",
       "type": "string",
       "default": "#1b1b1b",
