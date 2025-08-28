@@ -55,25 +55,56 @@ def read_magazyn():
     return _read_json(p)
 
 def check_materials(bom, ilosc=1):
-    mag = read_magazyn()
+    """Sprawdza dostępność materiałów lub półproduktów."""
+    if "sklad" in bom:
+        mag_path = MAG_DIR / "stany.json"
+        items_key = "sklad"
+        qty_key = "ilosc"
+    else:
+        mag_path = MAG_DIR / "polprodukty.json"
+        items_key = "polprodukty"
+        qty_key = "ilosc_na_szt"
+
+    mag = _read_json(mag_path) if mag_path.exists() else {}
     braki = []
-    for poz in bom.get("sklad", []):
+    for poz in bom.get(items_key, []):
         kod = poz["kod"]
-        req = poz["ilosc"] * ilosc
+        req = poz.get(qty_key, 0) * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         if stan < req:
-            braki.append({"kod": kod, "nazwa": mag.get(kod, {}).get("nazwa", kod), "potrzeba": req, "stan": stan, "brakuje": req - stan})
+            braki.append(
+                {
+                    "kod": kod,
+                    "nazwa": mag.get(kod, {}).get("nazwa", kod),
+                    "potrzeba": req,
+                    "stan": stan,
+                    "brakuje": req - stan,
+                }
+            )
     return braki
 
+
 def reserve_materials(bom, ilosc=1):
-    mag = read_magazyn()
-    for poz in bom.get("sklad", []):
+    """Rezerwuje materiały lub półprodukty na magazynie."""
+    if "sklad" in bom:
+        mag_path = MAG_DIR / "stany.json"
+        items_key = "sklad"
+        qty_key = "ilosc"
+        default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
+    else:
+        mag_path = MAG_DIR / "polprodukty.json"
+        items_key = "polprodukty"
+        qty_key = "ilosc_na_szt"
+        default_item = lambda k: {"stan": 0, "jednostka": "szt"}
+
+    mag = _read_json(mag_path) if mag_path.exists() else {}
+    for poz in bom.get(items_key, []):
         kod = poz["kod"]
-        req = poz["ilosc"] * ilosc
+        req = poz.get(qty_key, 0) * ilosc
         if kod not in mag:
-            mag[kod] = {"nazwa": kod, "stan": 0, "prog_alert": 0}
+            mag[kod] = default_item(kod)
         mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
-    _write_json(MAG_DIR / "stany.json", mag)
+    _write_json(mag_path, mag)
     return mag
 
 def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None):
