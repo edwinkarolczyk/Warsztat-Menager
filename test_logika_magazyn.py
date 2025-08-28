@@ -1,6 +1,11 @@
-import logika_magazyn as lm
-import multiprocessing as mp
 import json
+import multiprocessing as mp
+import os
+import sys
+
+import pytest
+
+import logika_magazyn as lm
 
 
 def _save_worker(idx, path, start_q, finish_q, ready_evt):
@@ -93,3 +98,56 @@ def test_parallel_saves_are_serial(tmp_path, monkeypatch):
     p2.join()
 
     assert t1_start < t2_start < t1_finish < t2_finish
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="test dla systemów Unix")
+def test_save_magazyn_uses_lock_unix(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    data = lm._default_magazyn()
+    calls = []
+
+    orig_lock = lm.lock_file
+    orig_unlock = lm.unlock_file
+
+    def lock_spy(f):
+        calls.append("lock")
+        orig_lock(f)
+
+    def unlock_spy(f):
+        calls.append("unlock")
+        orig_unlock(f)
+
+    monkeypatch.setattr(lm, "lock_file", lock_spy)
+    monkeypatch.setattr(lm, "unlock_file", unlock_spy)
+
+    lm.save_magazyn(data)
+
+    assert calls == ["lock", "unlock"]
+    with open(lm.MAGAZYN_PATH, "r", encoding="utf-8") as f:
+        assert json.load(f)["meta"]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="test tylko dla Windows")
+def test_save_magazyn_uses_lock_windows(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    data = lm._default_magazyn()
+    calls = []
+
+    orig_lock = lm.lock_file
+    orig_unlock = lm.unlock_file
+
+    def lock_spy(f):
+        calls.append("lock")
+        orig_lock(f)
+
+    def unlock_spy(f):
+        calls.append("unlock")
+        orig_unlock(f)
+
+    monkeypatch.setattr(lm, "lock_file", lock_spy)
+    monkeypatch.setattr(lm, "unlock_file", unlock_spy)
+
+    lm.save_magazyn(data)
+
+    assert calls == ["lock", "unlock"]
+    assert os.path.exists(lm.MAGAZYN_PATH)

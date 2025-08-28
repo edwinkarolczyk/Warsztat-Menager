@@ -10,7 +10,34 @@ import json
 import os
 from datetime import datetime
 from threading import RLock
-import fcntl
+try:
+    import fcntl
+
+    def lock_file(f):
+        fcntl.flock(f, fcntl.LOCK_EX)
+
+    def unlock_file(f):
+        fcntl.flock(f, fcntl.LOCK_UN)
+except ImportError:  # pragma: no cover - Windows path
+    try:
+        import msvcrt
+
+        def lock_file(f):
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+
+        def unlock_file(f):
+            try:
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
+    except ImportError:
+        import portalocker
+
+        def lock_file(f):
+            portalocker.lock(f, portalocker.LOCK_EX)
+
+        def unlock_file(f):
+            portalocker.unlock(f)
 
 try:
     import logger
@@ -93,13 +120,13 @@ def save_magazyn(data):
     lock_path = MAGAZYN_PATH + ".lock"
     lock_f = open(lock_path, "w")
     try:
-        fcntl.flock(lock_f, fcntl.LOCK_EX)
+        lock_file(lock_f)
         tmp = MAGAZYN_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp, MAGAZYN_PATH)
     finally:
-        fcntl.flock(lock_f, fcntl.LOCK_UN)
+        unlock_file(lock_f)
         lock_f.close()
 
 def _history_entry(typ_op, item_id, ilosc, uzytkownik, kontekst=None):
