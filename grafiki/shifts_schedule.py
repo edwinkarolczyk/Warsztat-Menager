@@ -48,6 +48,15 @@ def _load_modes() -> dict:
     return data
 
 
+def _last_update_date() -> str:
+    """Return the last modification date of the modes file."""
+    try:
+        ts = os.path.getmtime(_MODES_FILE)
+    except OSError:
+        return "-"
+    return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
+
+
 def _anchor_monday() -> date:
     modes = _load_modes()
     anchor = modes.get("anchor_monday")
@@ -179,9 +188,8 @@ def today_summary(now: Optional[datetime] = None) -> str:
         s = times["P_START"].strftime("%H:%M")
         e = times["P_END"].strftime("%H:%M")
         label = "Popołudniowa"
-    dow_pl = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"][now.weekday()]
     names = ", ".join(info["users"]) if info["users"] else "—"
-    return f"Dziś {dow_pl} {now.strftime('%d.%m.%Y')} | {label} {s}–{e} → {names}"
+    return f"Ostatnia aktualizacja {_last_update_date()} | {label} {s}–{e} → {names}"
 
 
 def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
