@@ -186,6 +186,16 @@ def apply_theme_safe(widget: tk.Misc | None) -> None:
     except Exception:
         pass
 
+
+def apply_theme_tree(widget: tk.Misc | None) -> None:
+    """Zastosuj motyw dla widgetu i jego potomków."""
+    try:
+        apply_theme(widget)
+        for child in getattr(widget, "winfo_children", lambda: [])():
+            apply_theme_tree(child)
+    except Exception:
+        pass
+
 # ===== Kolory magazynu (używane przez gui_magazyn) =====
 COLORS = {
     "stock_ok":   "#2d6a4f",
