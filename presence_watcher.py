@@ -1,7 +1,19 @@
 # presence_watcher.py
 # Prosty watcher nieobecności: po starcie zmiany + grace, jeśli brak online -> tworzy alert.
-import os, json, time
+import os, json, time, traceback
 from datetime import datetime, timezone, timedelta
+
+try:
+    from tkinter import TclError
+except ImportError:  # pragma: no cover - tkinter may be absent
+    class TclError(Exception):
+        pass
+
+try:
+    from logger import log_akcja
+except ImportError:  # pragma: no cover
+    def log_akcja(msg: str) -> None:
+        print(msg)
 
 def _now():
     return datetime.now(timezone.utc)
@@ -156,18 +168,26 @@ def run_check():
 
 def schedule_watcher(root):
     """Uruchom cykliczny watcher (co 60 s)."""
-    if not root: 
+    if not root:
         return
     def _tick():
         try:
             n = run_check()
             if n:
                 print(f"[ALERTS] utworzono {n} alert(ów) nieobecności")
+        except (OSError, ValueError) as e:
+            log_akcja(f"[ALERTS] watcher error: {e}")
         except Exception as e:
-            print("[ALERTS] watcher error:", e, flush=True)
+            log_akcja(
+                f"[ALERTS] unexpected watcher error: {e}\n{traceback.format_exc()}"
+            )
         finally:
             try:
                 root.after(60000, _tick)
-            except Exception:
-                pass
+            except TclError:
+                log_akcja("[ALERTS] watcher scheduling stopped")
+            except Exception as e:
+                log_akcja(
+                    f"[ALERTS] unexpected watcher scheduling error: {e}\n{traceback.format_exc()}"
+                )
     _tick()
