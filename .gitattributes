@@ -6,4 +6,5 @@
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
+avatars/default.jpg -filter -merge -diff -text
 *.xlsm filter=lfs diff=lfs merge=lfs -text
