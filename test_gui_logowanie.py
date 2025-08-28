@@ -190,3 +190,35 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
     assert lbl.kwargs["text"] == "init – Nieaktualna"
     assert lbl.kwargs["foreground"] == "red"
+
+
+def test_logowanie_missing_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    gui_logowanie.entry_pin = types.SimpleNamespace(get=lambda: "1234")
+
+    called = {}
+
+    def fake_showerror(title, message):
+        called["msg"] = message
+
+    monkeypatch.setattr(gui_logowanie.messagebox, "showerror", fake_showerror)
+    gui_logowanie.logowanie()
+    assert called["msg"] == "Brak pliku uzytkownicy.json"
+
+
+def test_logowanie_corrupted_json(tmp_path, monkeypatch):
+    (tmp_path / "uzytkownicy.json").write_text("{", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    gui_logowanie.entry_pin = types.SimpleNamespace(get=lambda: "1234")
+
+    called = {}
+
+    def fake_showerror(title, message):
+        called["msg"] = message
+
+    monkeypatch.setattr(gui_logowanie.messagebox, "showerror", fake_showerror)
+    gui_logowanie.logowanie()
+    assert (
+        called["msg"]
+        == "Błąd w pliku uzytkownicy.json (uszkodzony JSON)"
+    )
