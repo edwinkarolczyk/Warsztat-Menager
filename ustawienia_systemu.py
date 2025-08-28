@@ -82,6 +82,39 @@ def panel_ustawien(root, frame, login=None, rola=None):
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
     branch_var = tk.StringVar(value=cfg.get("updates.branch", "proby-rozwoju"))
     connection_status_var = tk.StringVar()
+    color_vars = {
+        "dark_bg": tk.StringVar(
+            value=cfg.get("ui.colors.dark_bg", "#1b1f24")
+        ),
+        "dark_bg_2": tk.StringVar(
+            value=cfg.get("ui.colors.dark_bg_2", "#20262e")
+        ),
+        "side_bg": tk.StringVar(
+            value=cfg.get("ui.colors.side_bg", "#14181d")
+        ),
+        "card_bg": tk.StringVar(
+            value=cfg.get("ui.colors.card_bg", "#20262e")
+        ),
+        "fg": tk.StringVar(value=cfg.get("ui.colors.fg", "#e6e6e6")),
+        "muted_fg": tk.StringVar(
+            value=cfg.get("ui.colors.muted_fg", "#9aa0a6")
+        ),
+        "btn_bg": tk.StringVar(
+            value=cfg.get("ui.colors.btn_bg", "#2a3139")
+        ),
+        "btn_bg_hover": tk.StringVar(
+            value=cfg.get("ui.colors.btn_bg_hover", "#343b45")
+        ),
+        "btn_bg_act": tk.StringVar(
+            value=cfg.get("ui.colors.btn_bg_act", "#3b434e")
+        ),
+        "banner_fg": tk.StringVar(
+            value=cfg.get("ui.colors.banner_fg", "#ff4d4d")
+        ),
+        "banner_bg": tk.StringVar(
+            value=cfg.get("ui.colors.banner_bg", "#1b1b1b")
+        ),
+    }
 
     ttk.Label(frm, text="Język UI:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
     ttk.Combobox(frm, textvariable=lang_var, values=["pl", "en"], state="readonly").grid(row=0, column=1, sticky="ew", padx=5, pady=5)
@@ -128,7 +161,13 @@ def panel_ustawien(root, frame, login=None, rola=None):
             cfg.set("updates.auto", bool(auto_var.get()))
             cfg.set("updates.remote", remote_var.get())
             cfg.set("updates.branch", branch_var.get())
+            for key, var in color_vars.items():
+                cfg.set(f"ui.colors.{key}", var.get())
             cfg.save_all()
+            import ui_theme
+
+            ui_theme._inited = False
+            ui_theme.apply_theme(frame.winfo_toplevel())
         except ConfigError as e:
             messagebox.showerror("Błąd", str(e))
 
