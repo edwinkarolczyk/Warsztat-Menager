@@ -223,13 +223,20 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         wolne = float(it.get("stan", 0)) - float(it.get("rezerwacje", 0.0))
-        if wolne < dok:
-            raise ValueError(f"Za mało wolnego (stan - rezerwacje) dla {item_id}")
-        it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + dok
-        it["historia"].append(_history_entry("rezerwacja", item_id, dok, uzytkownik, kontekst))
+        wolne = max(0.0, wolne)
+        faktyczne = min(dok, wolne)
+        if faktyczne <= 0:
+            return 0.0
+        it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + faktyczne
+        it["historia"].append(
+            _history_entry("rezerwacja", item_id, faktyczne, uzytkownik, kontekst)
+        )
         save_magazyn(m)
-        _log_mag("rezerwacja", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
-        return it
+        _log_mag(
+            "rezerwacja",
+            {"item_id": item_id, "ilosc": faktyczne, "by": uzytkownik, "ctx": kontekst},
+        )
+        return faktyczne
 
 def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:
