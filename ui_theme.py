@@ -56,18 +56,33 @@ import tkinter as tk
 from tkinter import ttk
 from config_manager import ConfigManager
 
-# Paleta
-DARK_BG      = "#1b1f24"   # tło główne
-DARK_BG_2    = "#20262e"   # tło pól
-SIDE_BG      = "#14181d"
-CARD_BG      = "#20262e"
-FG           = "#e6e6e6"
-MUTED_FG     = "#9aa0a6"
-BTN_BG       = "#2a3139"
-BTN_BG_HOVER = "#343b45"
-BTN_BG_ACT   = "#3b434e"
-BANNER_FG    = "#ff4d4d"
-BANNER_BG    = "#1b1b1b"
+# Paleta domyślna
+_DEFAULT_COLORS = {
+    "dark_bg": "#1b1f24",      # tło główne
+    "dark_bg_2": "#20262e",    # tło pól
+    "side_bg": "#14181d",
+    "card_bg": "#20262e",
+    "fg": "#e6e6e6",
+    "muted_fg": "#9aa0a6",
+    "btn_bg": "#2a3139",
+    "btn_bg_hover": "#343b45",
+    "btn_bg_act": "#3b434e",
+    "banner_fg": "#ff4d4d",
+    "banner_bg": "#1b1b1b",
+}
+
+# Bieżące kolory
+DARK_BG = _DEFAULT_COLORS["dark_bg"]
+DARK_BG_2 = _DEFAULT_COLORS["dark_bg_2"]
+SIDE_BG = _DEFAULT_COLORS["side_bg"]
+CARD_BG = _DEFAULT_COLORS["card_bg"]
+FG = _DEFAULT_COLORS["fg"]
+MUTED_FG = _DEFAULT_COLORS["muted_fg"]
+BTN_BG = _DEFAULT_COLORS["btn_bg"]
+BTN_BG_HOVER = _DEFAULT_COLORS["btn_bg_hover"]
+BTN_BG_ACT = _DEFAULT_COLORS["btn_bg_act"]
+BANNER_FG = _DEFAULT_COLORS["banner_fg"]
+BANNER_BG = _DEFAULT_COLORS["banner_bg"]
 
 _inited = False
 
@@ -78,17 +93,19 @@ def _init_styles(root: tk.Misc | None = None) -> None:
         return
     cfg = ConfigManager()
     colors = cfg.get("ui.colors", {})
-    DARK_BG = colors.get("dark_bg", DARK_BG)
-    DARK_BG_2 = colors.get("dark_bg_2", DARK_BG_2)
-    SIDE_BG = colors.get("side_bg", SIDE_BG)
-    CARD_BG = colors.get("card_bg", CARD_BG)
-    FG = colors.get("fg", FG)
-    MUTED_FG = colors.get("muted_fg", MUTED_FG)
-    BTN_BG = colors.get("btn_bg", BTN_BG)
-    BTN_BG_HOVER = colors.get("btn_bg_hover", BTN_BG_HOVER)
-    BTN_BG_ACT = colors.get("btn_bg_act", BTN_BG_ACT)
-    BANNER_FG = colors.get("banner_fg", BANNER_FG)
-    BANNER_BG = colors.get("banner_bg", BANNER_BG)
+    DARK_BG = colors.get("dark_bg", _DEFAULT_COLORS["dark_bg"])
+    DARK_BG_2 = colors.get("dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
+    SIDE_BG = colors.get("side_bg", _DEFAULT_COLORS["side_bg"])
+    CARD_BG = colors.get("card_bg", _DEFAULT_COLORS["card_bg"])
+    FG = colors.get("fg", _DEFAULT_COLORS["fg"])
+    MUTED_FG = colors.get("muted_fg", _DEFAULT_COLORS["muted_fg"])
+    BTN_BG = colors.get("btn_bg", _DEFAULT_COLORS["btn_bg"])
+    BTN_BG_HOVER = colors.get(
+        "btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"]
+    )
+    BTN_BG_ACT = colors.get("btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
+    BANNER_FG = colors.get("banner_fg", _DEFAULT_COLORS["banner_fg"])
+    BANNER_BG = colors.get("banner_bg", _DEFAULT_COLORS["banner_bg"])
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
