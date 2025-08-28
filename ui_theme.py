@@ -125,6 +125,8 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     style.configure("WM.Card.TLabel", background=CARD_BG, foreground=FG)
     style.configure("WM.Muted.TLabel", background=DARK_BG, foreground=MUTED_FG)
     style.configure("WM.H1.TLabel", background=DARK_BG, foreground=FG, font=("Segoe UI", 16, "bold"))
+    style.configure("WM.Banner.TLabel", background=BANNER_BG, foreground=BANNER_FG,
+                    font=("Consolas", 11, "bold"))
 
     # Buttons (w tym boczne)
     style.configure("WM.Side.TButton", background=BTN_BG, foreground=FG, padding=6)
