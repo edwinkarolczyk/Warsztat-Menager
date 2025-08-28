@@ -1,7 +1,11 @@
 # presence_watcher.py
 # Prosty watcher nieobecności: po starcie zmiany + grace, jeśli brak online -> tworzy alert.
 import os, json, time, traceback
+import logging
 from datetime import datetime, timezone, timedelta
+
+# Initialize module logger
+logger = logging.getLogger(__name__)
 
 try:
     from tkinter import TclError
@@ -12,8 +16,10 @@ except ImportError:  # pragma: no cover - tkinter may be absent
 try:
     from logger import log_akcja
 except ImportError:  # pragma: no cover
+    logging.basicConfig(level=logging.INFO)
+
     def log_akcja(msg: str) -> None:
-        print(msg)
+        logger.info(msg)
 
 def _now():
     return datetime.now(timezone.utc)
@@ -174,7 +180,7 @@ def schedule_watcher(root):
         try:
             n = run_check()
             if n:
-                print(f"[ALERTS] utworzono {n} alert(ów) nieobecności")
+                log_akcja(f"[ALERTS] utworzono {n} alert(ów) nieobecności")
         except (OSError, ValueError) as e:
             log_akcja(f"[ALERTS] watcher error: {e}")
         except Exception as e:

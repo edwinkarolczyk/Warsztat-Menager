@@ -1,6 +1,10 @@
 # presence.py (enhanced)
 import os, json, time, tempfile, platform, atexit, traceback
+import logging
 from datetime import datetime, timezone
+
+# Initialize module logger
+logger = logging.getLogger(__name__)
 
 try:
     from tkinter import TclError
@@ -11,8 +15,10 @@ except ImportError:  # pragma: no cover - fallback when tkinter is unavailable
 try:
     from logger import log_akcja
 except ImportError:  # pragma: no cover - logger module might be absent in tests
+    logging.basicConfig(level=logging.INFO)
+
     def log_akcja(msg: str) -> None:
-        print(msg)
+        logger.info(msg)
 
 def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
