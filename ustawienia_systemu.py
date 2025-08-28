@@ -161,8 +161,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
             cfg.set("updates.auto", bool(auto_var.get()))
             cfg.set("updates.remote", remote_var.get())
             cfg.set("updates.branch", branch_var.get())
-            for key, var in color_vars.items():
-                cfg.set(f"ui.colors.{key}", var.get())
+            for color_key, var in color_vars.items():
+                cfg.set(f"ui.colors.{color_key}", var.get())
             cfg.save_all()
             import ui_theme
 
