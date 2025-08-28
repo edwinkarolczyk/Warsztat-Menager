@@ -13,6 +13,7 @@ from tkinter import ttk
 from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
 
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
@@ -24,8 +25,7 @@ try:
         a wewnątrz woła panel_zlecenia(parent, root, None, None) i pakuje wynik do frame.
         """
         # wyczyść miejsce docelowe
-        for w in frame.winfo_children():
-            w.destroy()
+        clear_frame(frame)
         try:
             tab = _panel_zl_src(frame, root, None, None)
         except TypeError:
@@ -42,7 +42,7 @@ try:
             ttk.Label(frame, text="Panel Zleceń – załadowano").pack(pady=12)
 except Exception:
     def panel_zlecenia(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel zleceń (fallback) – błąd importu gui_zlecenia").pack(pady=20)
 
 # --- IMPORT NARZĘDZI Z CZYTELNYM TRACEBACKIEM ---
@@ -55,8 +55,7 @@ except Exception as e:
     import traceback
     _PANEL_NARZ_ERR = traceback.format_exc()
     def panel_narzedzia(root, frame, login=None, rola=None):
-        for w in frame.winfo_children():
-            w.destroy()
+        clear_frame(frame)
         tk.Label(
             frame,
             text="Błąd importu gui_narzedzia.py:" + _PANEL_NARZ_ERR,
@@ -67,14 +66,14 @@ try:
     from gui_maszyny import panel_maszyny
 except Exception:
     def panel_maszyny(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel maszyn").pack(pady=20)
 
 try:
     from gui_uzytkownicy import panel_uzytkownicy
 except Exception:
     def panel_uzytkownicy(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel użytkowników").pack(pady=20)
 
 try:
@@ -86,7 +85,7 @@ try:
     from ustawienia_systemu import panel_ustawien
 except Exception:
     def panel_ustawien(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Ustawienia systemu").pack(pady=20)
 
 # --- IMPORT MAGAZYNU ---
@@ -129,7 +128,7 @@ def _shift_progress(now: datetime):
 def uruchom_panel(root, login, rola):
     apply_theme(root)
     root.title(f"Warsztat Menager - zalogowano jako {login} ({rola})")
-    for w in root.winfo_children(): w.destroy()
+    clear_frame(root)
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
@@ -218,7 +217,7 @@ def uruchom_panel(root, login, rola):
 
     # nawigacja
     def wyczysc_content():
-        for w in content.winfo_children(): w.destroy()
+        clear_frame(content)
 
     def otworz_panel(funkcja, nazwa):
         wyczysc_content(); log_akcja(f"Kliknięto: {nazwa}")
@@ -234,9 +233,7 @@ def uruchom_panel(root, login, rola):
 
     def _open_profil():
         # clear content
-        for w in content.winfo_children():
-            try: w.destroy()
-            except: pass
+        clear_frame(content)
         try:
             if gui_profile is None:
                 raise RuntimeError("Brak modułu gui_profile")

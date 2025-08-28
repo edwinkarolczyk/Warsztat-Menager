@@ -16,6 +16,7 @@ from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
 from gui_settings_shifts import ShiftsSettingsFrame
+from utils.gui_helpers import clear_frame
 
 # --- import panelu magazynowego ---
 try:
@@ -56,8 +57,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     cfg = ConfigManager()
 
     # wyczyść
-    for w in frame.winfo_children():
-        w.destroy()
+    clear_frame(frame)
 
     # Zastosuj motyw NA OKNIE nadrzędnym
     apply_theme(frame.winfo_toplevel())
