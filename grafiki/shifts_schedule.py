@@ -126,6 +126,16 @@ def _slot_for_mode(mode: str, week_idx: int) -> str:
 
 
 def who_is_on_now(now: Optional[datetime] = None) -> Dict[str, List[str]]:
+    """Return the current shift slot and active user names.
+
+    Parameters:
+        now: Optional ``datetime`` representing the moment to check. If
+            omitted, the current time is used.
+
+    Returns:
+        dict: Mapping with keys ``slot`` (``"RANO"``, ``"POPO"`` or ``None``)
+            and ``users`` (list of user display names).
+    """
     now = now or datetime.now()
     times = _shift_times()
     slot = None
@@ -145,6 +155,17 @@ def who_is_on_now(now: Optional[datetime] = None) -> Dict[str, List[str]]:
 
 
 def today_summary(now: Optional[datetime] = None) -> str:
+    """Generate a human readable summary for today's shift.
+
+    Parameters:
+        now: Optional ``datetime`` used to determine the current day and
+            shift. Defaults to the current time.
+
+    Returns:
+        str: Formatted string describing today's date, shift label and
+            participating users. When outside shift hours a default message is
+            returned.
+    """
     now = now or datetime.now()
     info = who_is_on_now(now)
     if info["slot"] is None:
@@ -164,6 +185,16 @@ def today_summary(now: Optional[datetime] = None) -> str:
 
 
 def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
+    """Build a weekly schedule matrix starting from the given date.
+
+    Parameters:
+        start_date: Date from which the week begins; any day within the week
+            may be provided.
+
+    Returns:
+        dict: Structure with the ISO formatted ``week_start`` and ``rows`` for
+            each active user containing shift details for every day.
+    """
     week_start = start_date - timedelta(days=start_date.weekday())
     times = _shift_times()
     rows: List[Dict] = []
@@ -201,6 +232,15 @@ def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
 
 
 def set_user_mode(user_id: str, mode: str) -> None:
+    """Persist rotation mode for a specific user.
+
+    Parameters:
+        user_id: Identifier of the user whose mode will be stored.
+        mode: Rotation mode, one of ``"A"``, ``"B"`` or ``"C"``.
+
+    Returns:
+        None
+    """
     if mode not in TRYBY:
         raise ValueError("mode must be A, B or C")
     data = _load_modes()
@@ -210,6 +250,15 @@ def set_user_mode(user_id: str, mode: str) -> None:
 
 
 def set_anchor_monday(iso_date: str) -> None:
+    """Set the Monday used as the rotation anchor date.
+
+    Parameters:
+        iso_date: Date string in ``YYYY-MM-DD`` format representing any day of
+            the desired anchor week.
+
+    Returns:
+        None
+    """
     try:
         d = datetime.strptime(iso_date, "%Y-%m-%d").date()
     except Exception:
