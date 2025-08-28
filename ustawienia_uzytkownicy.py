@@ -144,9 +144,10 @@ def make_tab(parent, rola):
         row += 1
 
     def load_selected(_=None):
-        if not lb.curselection():
+        sel = lb.curselection()
+        if not sel:
             return
-        idx = lb.curselection()[0]
+        idx = sel[0]
         user = users[idx]
         login_var.set(user.get("login", ""))
         for f in fields_entry:
@@ -164,8 +165,9 @@ def make_tab(parent, rola):
     lb.bind("<<ListboxSelect>>", load_selected)
 
     def save_user():
-        if lb.curselection():
-            idx = lb.curselection()[0]
+        sel = lb.curselection()
+        if sel:
+            idx = sel[0]
             user = users[idx]
         else:
             if str(rola).lower() != "admin":
@@ -222,9 +224,10 @@ def make_tab(parent, rola):
             entry_login.config(state="normal")
 
         def delete_user():
-            if not lb.curselection():
+            sel = lb.curselection()
+            if not sel:
                 return
-            idx = lb.curselection()[0]
+            idx = sel[0]
             login = users[idx].get("login", "")
             if _is_logged_in(login):
                 if not messagebox.askyesno(
