@@ -3,7 +3,7 @@
 # Plik: profile_utils.py
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
-import os, json
+from io_utils import read_json, write_json
 
 USERS_FILE = "uzytkownicy.json"
 
@@ -27,23 +27,6 @@ DEFAULT_USER = {
     "zadania": []
 }
 
-def _load_json(path):
-    try:
-        if os.path.isfile(path):
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return None
-
-def _save_json(path, data):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception:
-        return False
-
 def read_users():
     """
     Obsługuje 2 formaty:
@@ -52,10 +35,10 @@ def read_users():
     Przy braku pliku – tworzy z DEFAULT_USER.
     Po odczycie uzupełnia brakujące pola przez ``ensure_user_fields``.
     """
-    data = _load_json(USERS_FILE)
+    data = read_json(USERS_FILE)
     if data is None:
         users = [DEFAULT_USER.copy()]
-        _save_json(USERS_FILE, users)
+        write_json(USERS_FILE, users)
         return ensure_user_fields(users)
     if isinstance(data, list):
         users = data
@@ -89,7 +72,7 @@ def write_users(users):
         u.setdefault("preferencje", {"motyw": "dark", "widok_startowy": "panel"})
         u.setdefault("zadania", [])
         norm.append(u)
-    return _save_json(USERS_FILE, norm)
+    return write_json(USERS_FILE, norm)
 
 def find_user_by_pin(pin):
     users = read_users()
@@ -143,5 +126,5 @@ def ensure_user_fields(users):
         if "sugestie" not in u: u["sugestie"] = []; changed = True
         if "opis" not in u: u["opis"] = ""; changed = True
     if changed:
-        _save_json(USERS_FILE, users)
+        write_json(USERS_FILE, users)
     return users
