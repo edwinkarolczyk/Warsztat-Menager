@@ -13,10 +13,12 @@ import json
 import traceback
 from datetime import datetime
 import tkinter as tk
+from tkinter import messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
+import updater
 from pathlib import Path
 
 # ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
@@ -45,6 +47,72 @@ def _dbg(msg):
     _log(f"[WM-DBG] {msg}")
 
 SESSION_ID = None
+
+
+def show_startup_error(e):
+    """Pokazuje okno z informacją o błędzie startowym.
+
+    Wczytuje treść aktualnego logu i udostępnia trzy przyciski:
+    - "Skopiuj log" – kopiuje całą zawartość logu do schowka,
+    - "Przywróć kopię" – przywraca najnowszą kopię zapasową,
+    - "Zamknij" – zamyka program.
+    """
+
+    log_path = _log_path()
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            log_text = f.read()
+    except Exception:
+        log_text = ""
+
+    root = tk.Tk()
+    root.title("Błąd startu")
+
+    tk.Label(
+        root,
+        text="Wystąpił błąd podczas uruchamiania programu. Szczegóły w logu.",
+    ).pack(padx=10, pady=10)
+
+    text = tk.Text(root, height=20, width=80)
+    text.insert("1.0", log_text)
+    text.config(state="disabled")
+    text.pack(padx=10, pady=10)
+
+    def copy_log():
+        root.clipboard_clear()
+        root.clipboard_append(log_text)
+
+    def restore_backup():
+        try:
+            backups = updater._list_backups()
+            if backups:
+                stamp = backups[-1]
+                updater._restore_backup(stamp)
+                messagebox.showinfo(
+                    "Przywrócono kopię",
+                    "Przywrócono kopię zapasową. Uruchom ponownie aplikację.",
+                )
+            else:
+                messagebox.showwarning(
+                    "Brak kopii", "Nie znaleziono kopii zapasowych.")
+        except Exception as exc:  # pragma: no cover - defensywne
+            messagebox.showerror("Błąd przywracania", str(exc))
+
+    btn_frame = tk.Frame(root)
+    btn_frame.pack(pady=5)
+
+    tk.Button(btn_frame, text="Skopiuj log", command=copy_log).pack(
+        side=tk.LEFT, padx=5
+    )
+    tk.Button(btn_frame, text="Przywróć kopię", command=restore_backup).pack(
+        side=tk.LEFT, padx=5
+    )
+    tk.Button(btn_frame, text="Zamknij", command=root.destroy).pack(
+        side=tk.LEFT, padx=5
+    )
+
+    root.mainloop()
+
 
 # ====== AUTO UPDATE ======
 def auto_update_on_start():
@@ -204,12 +272,7 @@ def main():
     except Exception as e:
         traceback.print_exc()
         _error(f"Błąd startu GUI:\n{traceback.format_exc()}")
-        _log("Program zakonczyl sie kodem 1.")
-        # Zatrzymaj konsolę pod Windows (zachowanie z Twoich logów)
-        try:
-            input("Press any key to continue . . .")
-        except Exception:
-            pass
+        show_startup_error(e)
         sys.exit(1)
 
 if __name__ == "__main__":
