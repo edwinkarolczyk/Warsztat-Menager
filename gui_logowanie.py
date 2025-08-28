@@ -30,6 +30,7 @@ apply_theme = apply_theme_tree
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
+entry_login = None
 root_global = None
 _on_login_cb = None
 
@@ -43,7 +44,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
            on_login: opcjonalny callback (login, rola, extra=None) wywoływany po poprawnym logowaniu.
            update_available (bool): jeśli True, pokaż komunikat o dostępnej aktualizacji.
     """
-    global entry_pin, root_global, _on_login_cb
+    global entry_login, entry_pin, root_global, _on_login_cb
     if root is None:
         root = tk.Tk()
     root_global = root
@@ -128,6 +129,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
+
+    ttk.Label(box, text="Login:", style="WM.H2.TLabel").pack(pady=(8, 6))
+    entry_login = ttk.Entry(box, width=22)
+    entry_login.pack(ipadx=10, ipady=6)
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
     entry_pin = ttk.Entry(box, show="*", width=22)
@@ -240,6 +245,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
+    login = entry_login.get().strip()
     pin = entry_pin.get().strip()
     try:
         with open("uzytkownicy.json", "r", encoding="utf-8") as f:
@@ -257,8 +263,8 @@ def logowanie():
         else:
             raise TypeError("uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)")
 
-        for login, dane in iterator:
-            if str(dane.get("pin", "")).strip() == pin:
+        for login_key, dane in iterator:
+            if str(login_key).strip() == login and str(dane.get("pin", "")).strip() == pin:
                 status = str(dane.get("status", "")).strip().lower()
                 if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
                     messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
@@ -266,13 +272,13 @@ def logowanie():
                 rola = dane.get("rola", "pracownik")
                 if _on_login_cb:
                     try:
-                        _on_login_cb(login, rola, None)
+                        _on_login_cb(login_key, rola, None)
                     except Exception:
                         pass
                 else:
-                    gui_panel.uruchom_panel(root_global, login, rola)
+                    gui_panel.uruchom_panel(root_global, login_key, rola)
                 return
-        messagebox.showerror("Błąd", "Nieprawidłowy PIN")
+        messagebox.showerror("Błąd", "Nieprawidłowy login lub PIN")
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
 

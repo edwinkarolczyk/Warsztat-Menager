@@ -190,3 +190,45 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
     assert lbl.kwargs["text"] == "init – Nieaktualna"
     assert lbl.kwargs["foreground"] == "red"
+
+
+def test_logowanie_success(tmp_path, monkeypatch):
+    users = [{"login": "user", "pin": "1234", "rola": "admin"}]
+    (tmp_path / "uzytkownicy.json").write_text(
+        json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
+    monkeypatch.setattr(gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "1234"))
+    logged = {}
+
+    def fake_cb(login, rola, extra):
+        logged["login"] = login
+        logged["rola"] = rola
+
+    monkeypatch.setattr(gui_logowanie, "_on_login_cb", fake_cb)
+    monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
+    gui_logowanie.logowanie()
+    assert logged == {"login": "user", "rola": "admin"}
+
+
+def test_logowanie_invalid_pair(tmp_path, monkeypatch):
+    users = [{"login": "user", "pin": "1234"}]
+    (tmp_path / "uzytkownicy.json").write_text(
+        json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
+    monkeypatch.setattr(gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "0000"))
+    errors = []
+
+    def fake_error(title, msg):
+        errors.append(msg)
+
+    monkeypatch.setattr(gui_logowanie, "messagebox", types.SimpleNamespace(showerror=fake_error))
+    logged = []
+    monkeypatch.setattr(gui_logowanie, "_on_login_cb", lambda *args: logged.append(args))
+    monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
+    gui_logowanie.logowanie()
+    assert errors and errors[0] == "Nieprawidłowy login lub PIN"
+    assert not logged
