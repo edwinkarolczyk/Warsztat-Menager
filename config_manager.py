@@ -11,6 +11,7 @@ Funkcje:
 """
 from __future__ import annotations
 import json, os, shutil, datetime
+import logging
 from typing import Any, Dict, List
 
 # Ścieżki domyślne (katalog główny aplikacji)
@@ -22,6 +23,9 @@ SECRETS_PATH  = "secrets.json"
 AUDIT_DIR     = "audit"
 BACKUP_DIR    = "backup_wersji"
 ROLLBACK_KEEP = 10
+
+# Initialize module logger
+logger = logging.getLogger(__name__)
 
 class ConfigError(Exception):
     pass
@@ -49,7 +53,7 @@ class ConfigManager:
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[WARN] Problem z wczytaniem {path}: {e}")
+            logger.warning("Problem z wczytaniem %s: %s", path, e)
             return None
 
     def _load_json_or_raise(self, path: str, msg_prefix: str = "") -> Dict[str, Any]:
