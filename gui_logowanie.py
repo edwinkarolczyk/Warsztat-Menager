@@ -86,15 +86,12 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         print("[WM-DBG][LOGIN] today_summary error:", e)
         banner_txt = "Grafik zmian: błąd"
 
-    banner_label = tk.Label(
+    banner_label = ttk.Label(
         center,
         text=banner_txt,
-        fg="#ff4d4d",
-        bg="#1b1b1b",
-        font=("Consolas", 11, "bold"),
+        style="WM.Banner.TLabel",
         anchor="w",
-        padx=12,
-        pady=6,
+        padding=(12, 6),
     )
     banner_label.pack(fill="x", pady=(0, 8))
 
