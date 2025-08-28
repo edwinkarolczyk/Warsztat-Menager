@@ -9,34 +9,39 @@ Funkcje:
 - Import/eksport (eksport bez sekretów)
 - Rollback przez katalogi w backup_wersji (utrzymujemy ostatnie 10)
 """
+
 from __future__ import annotations
 import json, os, shutil, datetime
 import logging
 from typing import Any, Dict, List
 
 # Ścieżki domyślne (katalog główny aplikacji)
-SCHEMA_PATH   = "settings_schema.json"
+SCHEMA_PATH = "settings_schema.json"
 DEFAULTS_PATH = "config.defaults.json"
-GLOBAL_PATH   = "config.json"
-LOCAL_PATH    = "config.local.json"
-SECRETS_PATH  = "secrets.json"
-AUDIT_DIR     = "audit"
-BACKUP_DIR    = "backup_wersji"
+GLOBAL_PATH = "config.json"
+LOCAL_PATH = "config.local.json"
+SECRETS_PATH = "secrets.json"
+AUDIT_DIR = "audit"
+BACKUP_DIR = "backup_wersji"
 ROLLBACK_KEEP = 10
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
 
+
 class ConfigError(Exception):
     pass
 
+
 class ConfigManager:
     def __init__(self):
-        self.schema     = self._load_json_or_raise(SCHEMA_PATH, msg_prefix="Brak pliku schematu")
-        self.defaults   = self._load_json(DEFAULTS_PATH) or {}
+        self.schema = self._load_json_or_raise(
+            SCHEMA_PATH, msg_prefix="Brak pliku schematu"
+        )
+        self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(GLOBAL_PATH) or {}
-        self.local_cfg  = self._load_json(LOCAL_PATH) or {}
-        self.secrets    = self._load_json(SECRETS_PATH) or {}
+        self.local_cfg = self._load_json(LOCAL_PATH) or {}
+        self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
         self.merged = self._merge_all()
         self._validate_all()
@@ -96,10 +101,14 @@ class ConfigManager:
         t = opt.get("type")
         if t == "bool":
             if not isinstance(value, bool):
-                raise ConfigError(f"{opt['key']}: oczekiwano bool, dostano {type(value).__name__}")
+                raise ConfigError(
+                    f"{opt['key']}: oczekiwano bool, dostano {type(value).__name__}"
+                )
         elif t == "int":
             if not isinstance(value, int):
-                raise ConfigError(f"{opt['key']}: oczekiwano int, dostano {type(value).__name__}")
+                raise ConfigError(
+                    f"{opt['key']}: oczekiwano int, dostano {type(value).__name__}"
+                )
             if "min" in opt and value < opt["min"]:
                 raise ConfigError(f"{opt['key']}: < min {opt['min']}")
             if "max" in opt and value > opt["max"]:
@@ -124,7 +133,11 @@ class ConfigManager:
         if opt:
             self._validate_value(opt, value)
             scope = opt.get("scope", "global")
-            target = {"global": self.global_cfg, "local": self.local_cfg, "secret": self.secrets}.get(scope, self.global_cfg)
+            target = {
+                "global": self.global_cfg,
+                "local": self.local_cfg,
+                "secret": self.secrets,
+            }.get(scope, self.global_cfg)
         else:
             # klucz spoza schematu → zapis do global
             target = self.global_cfg
@@ -183,7 +196,7 @@ class ConfigManager:
             "user": who,
             "key": key,
             "before": before_val,
-            "after": after_val
+            "after": after_val,
         }
         os.makedirs(AUDIT_DIR, exist_ok=True)
         path = os.path.join(AUDIT_DIR, "config_changes.jsonl")
@@ -192,14 +205,22 @@ class ConfigManager:
 
     def _prune_rollbacks(self):
         try:
-            subdirs = sorted([d for d in os.listdir(BACKUP_DIR) if os.path.isdir(os.path.join(BACKUP_DIR, d))])
+            subdirs = sorted(
+                [
+                    d
+                    for d in os.listdir(BACKUP_DIR)
+                    if os.path.isdir(os.path.join(BACKUP_DIR, d))
+                ]
+            )
             if len(subdirs) > ROLLBACK_KEEP:
                 for d in subdirs[:-ROLLBACK_KEEP]:
                     shutil.rmtree(os.path.join(BACKUP_DIR, d), ignore_errors=True)
         except FileNotFoundError:
             pass
 
+
 # ========== Helpers ==========
+
 
 def deep_merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(a)
@@ -209,6 +230,7 @@ def deep_merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
         else:
             out[k] = v
     return out
+
 
 def flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
     res: Dict[str, Any] = {}
@@ -220,16 +242,18 @@ def flatten(d: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
             res[key] = v
     return res
 
+
 def get_by_key(d: Dict[str, Any], dotted: str, default: Any = None) -> Any:
     cur: Any = d
-    for part in dotted.split('.'):
+    for part in dotted.split("."):
         if not isinstance(cur, dict) or part not in cur:
             return default
         cur = cur[part]
     return cur
 
+
 def set_by_key(d: Dict[str, Any], dotted: str, value: Any):
-    parts = dotted.split('.')
+    parts = dotted.split(".")
     cur = d
     for p in parts[:-1]:
         if p not in cur or not isinstance(cur[p], dict):
