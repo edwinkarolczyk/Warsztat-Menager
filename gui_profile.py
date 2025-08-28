@@ -36,6 +36,12 @@ except ImportError:  # Pillow missing
 from profile_utils import get_user, save_user, DEFAULT_USER
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
+from grafiki.shifts_schedule import (
+    _user_mode,
+    _week_idx,
+    _slot_for_mode,
+    _shift_times,
+)
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -601,6 +607,37 @@ def uruchom_panel(root, frame, login=None, rola=None):
     info = ttk.Frame(head, style="WM.TFrame"); info.pack(side="left")
     ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold"), style="WM.TLabel").pack(anchor="w")
     ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
+
+    # Dzisiejsza zmiana
+    shift_text = "Dzisiejsza zmiana: —"
+    shift_style = "WM.Muted.TLabel"
+    on_shift = True
+    try:
+        if login:
+            now = _dt.now()
+            mode = _user_mode(str(login))
+            slot = _slot_for_mode(mode, _week_idx(now.date()))
+            times = _shift_times()
+            if slot == "RANO":
+                start = times["R_START"].strftime("%H:%M")
+                end = times["R_END"].strftime("%H:%M")
+                shift_text = f"Dzisiejsza zmiana: Poranna {start}–{end}"
+                on_shift = times["R_START"] <= now.time() < times["R_END"]
+            else:
+                start = times["P_START"].strftime("%H:%M")
+                end = times["P_END"].strftime("%H:%M")
+                shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
+                on_shift = times["P_START"] <= now.time() < times["P_END"]
+            shift_style = "WM.TLabel"
+    except Exception:
+        pass
+    lbl_shift = ttk.Label(info, text=shift_text, style=shift_style)
+    if shift_style == "WM.TLabel" and not on_shift:
+        try:
+            lbl_shift.configure(foreground="red")
+        except Exception:
+            pass
+    lbl_shift.pack(anchor="w")
 
     # Dane
     rola_norm = str(rola).lower()
