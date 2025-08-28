@@ -1,6 +1,18 @@
 # presence.py (enhanced)
-import os, json, time, tempfile, platform, atexit
+import os, json, time, tempfile, platform, atexit, traceback
 from datetime import datetime, timezone
+
+try:
+    from tkinter import TclError
+except ImportError:  # pragma: no cover - fallback when tkinter is unavailable
+    class TclError(Exception):
+        pass
+
+try:
+    from logger import log_akcja
+except ImportError:  # pragma: no cover - logger module might be absent in tests
+    def log_akcja(msg: str) -> None:
+        print(msg)
 
 def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -101,31 +113,48 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
     if interval_ms is None:
         try:
             hb_sec = int(cfg.get("presence", {}).get("heartbeat_sec", 30))
-        except Exception:
+        except (TypeError, ValueError):
             hb_sec = 30
         interval_ms = max(5000, hb_sec * 1000)
 
     def _tick():
         try:
             heartbeat(login, role, logout=False)
-        except Exception as e:
-            print("[USERS-DBG] heartbeat error:", e, flush=True)
+        except (OSError, ValueError) as e:
+            log_akcja(f"[USERS-DBG] heartbeat error: {e}")
+        except Exception as e:  # unexpected
+            log_akcja(
+                f"[USERS-DBG] unexpected heartbeat error: {e}\n{traceback.format_exc()}"
+            )
         finally:
             try:
                 root.after(interval_ms, _tick)
-            except Exception:
-                pass
+            except TclError:
+                log_akcja("[USERS-DBG] heartbeat scheduling stopped")
+            except Exception as e:
+                log_akcja(
+                    f"[USERS-DBG] unexpected scheduling error: {e}\n{traceback.format_exc()}"
+                )
 
     # Rejestruj zakończenie procesu (program zamykany) => natychmiast offline
     def _on_exit():
         try:
             end_session(login, role)
-        except Exception:
-            pass
+        except (OSError, ValueError) as e:
+            log_akcja(f"[USERS-DBG] end_session error: {e}")
+        except Exception as e:
+            log_akcja(
+                f"[USERS-DBG] unexpected end_session error: {e}\n{traceback.format_exc()}"
+            )
+
     try:
         atexit.register(_on_exit)
-    except Exception:
-        pass
+    except (RuntimeError, ValueError) as e:
+        log_akcja(f"[USERS-DBG] atexit register error: {e}")
+    except Exception as e:
+        log_akcja(
+            f"[USERS-DBG] unexpected atexit register error: {e}\n{traceback.format_exc()}"
+        )
 
     _tick()
 
