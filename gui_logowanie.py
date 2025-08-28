@@ -14,7 +14,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from config_manager import ConfigManager
 from updates_utils import load_last_update_info
-from grafiki.shifts_schedule import today_summary
+from grafiki.shifts_schedule import who_is_on_now
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -83,20 +83,48 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     center = ttk.Frame(root, style="WM.TFrame")
     center.pack(fill="both", expand=True)
 
-    try:
-        banner_txt = today_summary(datetime.now())
-    except Exception as e:
-        print("[WM-DBG][LOGIN] today_summary error:", e)
-        banner_txt = "Grafik zmian: błąd"
+    banner = ttk.Frame(center, style="WM.Card.TFrame", padding=(12, 6))
+    banner.pack(fill="x", pady=(0, 8))
 
-    banner_label = ttk.Label(
-        center,
-        text=banner_txt,
-        style="WM.Banner.TLabel",
-        anchor="w",
-        padding=(12, 6),
-    )
-    banner_label.pack(fill="x", pady=(0, 8))
+    shift_label = ttk.Label(banner, text="", style="WM.Banner.TLabel", anchor="w")
+    shift_label.pack(fill="x")
+
+    users_box = ttk.Frame(banner, style="WM.TFrame")
+    users_box.pack(fill="x", pady=(2, 0))
+
+    def _update_banner():
+        try:
+            info = who_is_on_now(datetime.now())
+        except Exception as e:
+            print("[WM-DBG][LOGIN] who_is_on_now error:", e)
+            shift_label.config(text="Grafik zmian: błąd")
+            for w in users_box.winfo_children():
+                w.destroy()
+            return
+
+        for w in users_box.winfo_children():
+            w.destroy()
+
+        if not info.get("slot"):
+            shift_label.config(text="Poza godzinami zmian")
+            ttk.Label(
+                users_box,
+                text="Brak aktywnych użytkowników",
+                style="WM.Muted.TLabel",
+                anchor="w",
+            ).pack(anchor="w")
+            return
+
+        s, e, *_ = gui_panel._shift_bounds(datetime.now())
+        label = "Poranna" if info["slot"] == "RANO" else "Popołudniowa"
+        shift_label.config(text=f"{label} {s.strftime('%H:%M')}–{e.strftime('%H:%M')}")
+        if info["users"]:
+            for name in info["users"]:
+                ttk.Label(users_box, text=name, style="WM.TLabel", anchor="w").pack(anchor="w")
+        else:
+            ttk.Label(users_box, text="—", style="WM.Muted.TLabel", anchor="w").pack(anchor="w")
+
+    _update_banner()
 
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
@@ -162,6 +190,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             shift_job["id"] = None
             return
         draw_login_shift()
+        _update_banner()
         shift_job["id"] = root.after(1000, _tick)
 
     def _on_destroy(_e=None):
