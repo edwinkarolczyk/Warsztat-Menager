@@ -449,12 +449,14 @@ def _build_table(frame, root, login, rola, tasks):
         var.trace_add("write", lambda *_: reload_table())
 
     def on_dbl(_ev):
-        sel=tv.selection()
-        if not sel: return
-        idx=tv.index(sel[0])
-        arr=filtered()
-        if 0<=idx<len(arr):
-            _show_task_details(root, frame, login, rola, arr[idx], reload_table)
+        sel = tv.selection()
+        if not sel:
+            return
+        idx = tv.index(sel[0])
+        arr = filtered()
+        if not (0 <= idx < len(arr)):
+            return
+        _show_task_details(root, frame, login, rola, arr[idx], reload_table)
 
     tv.bind("<Double-1>", on_dbl)
     reload_table()
