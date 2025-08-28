@@ -4,17 +4,17 @@ Czyta dane z pliku JSON i pozwala wyciągnąć kolejne zadania.
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from io_utils import read_json
 
 DATA_FILE: Path = Path("maszyny.json")
 
 
 def load_machines() -> List[Dict[str, Any]]:
     """Wczytuje listę maszyn z pliku JSON."""
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(DATA_FILE) or []
 
 
 def next_task(machine: Dict[str, Any]) -> Optional[Dict[str, Any]]:
