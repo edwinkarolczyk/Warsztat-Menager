@@ -20,8 +20,10 @@ from grafiki.shifts_schedule import today_summary
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
-from ui_theme import apply_theme_safe as apply_theme
-from utils.gui_helpers import clear_frame
+from ui_theme import apply_theme_tree
+
+# Alias zachowany dla kompatybilności testów
+apply_theme = apply_theme_tree
 
 
  # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
@@ -48,8 +50,9 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     _on_login_cb = on_login
 
     # wyczyść i ustaw motyw
-    clear_frame(root)
-    apply_theme(root)
+    for w in root.winfo_children():
+        w.destroy()
+    apply_theme_tree(root)
 
     # pełny ekran i tytuł
     root.title("Warsztat Menager")
