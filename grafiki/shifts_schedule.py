@@ -96,15 +96,28 @@ def _load_users() -> List[Dict[str, str]]:
         raw = profiles.get_all_users()
         print(f"[WM-DBG][SHIFTS] users via profiles: {len(raw)}")
     except Exception:
-        path = os.path.join("data", "users", "users.json")
-        raw = _read_json(path) or []
-        print(f"[WM-DBG][SHIFTS] users via fallback: {len(raw)}")
+        profiles_path = os.path.join("data", "profiles.json")
+        raw_dict = _read_json(profiles_path)
+        if raw_dict:
+            raw = [
+                {"login": login, **info} for login, info in raw_dict.items()
+            ]
+            print(
+                f"[WM-DBG][SHIFTS] users via profiles.json: {len(raw)}"
+            )
+        else:
+            path = os.path.join("data", "users", "users.json")
+            raw = _read_json(path) or []
+            print(
+                f"[WM-DBG][SHIFTS] users via fallback: {len(raw)}"
+            )
     users: List[Dict[str, str]] = []
     for u in raw:
         uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
         name = (
             u.get("name")
             or u.get("full_name")
+            or u.get("nazwa")
             or f"{u.get('imie', '')} {u.get('nazwisko', '')}".strip()
         )
         active = bool(u.get("active", True))
