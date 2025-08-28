@@ -10,7 +10,7 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
-TRYBY = ["A", "B", "C"]
+_DEFAULT_PATTERNS = {"A": "112", "B": "111", "C": "12"}
 
 _DATA_DIR = os.path.join("data", "grafiki")
 _MODES_FILE = os.path.join(_DATA_DIR, "tryby_userow.json")
@@ -43,9 +43,26 @@ def _load_cfg() -> dict:
 def _load_modes() -> dict:
     data = _read_json(_MODES_FILE)
     if not data:
-        data = {"version": "1.0.0", "anchor_monday": "2025-01-06", "modes": {}}
+        data = {
+            "version": "1.0.0",
+            "anchor_monday": "2025-01-06",
+            "patterns": _DEFAULT_PATTERNS.copy(),
+            "modes": {},
+        }
         _save_json(_MODES_FILE, data)
+    if not data.get("patterns"):
+        data["patterns"] = _DEFAULT_PATTERNS.copy()
     return data
+
+
+def _available_patterns(data: Optional[dict] = None) -> Dict[str, str]:
+    data = data or _load_modes()
+    patterns = data.get("patterns", {})
+    if isinstance(patterns, list):
+        patterns = {p: p for p in patterns}
+    if not patterns:
+        patterns = _DEFAULT_PATTERNS.copy()
+    return patterns
 
 
 def _last_update_date() -> str:
@@ -138,13 +155,13 @@ def _week_idx(day: date) -> int:
 
 
 def _slot_for_mode(mode: str, week_idx: int) -> str:
-    if mode == "A":
-        return "RANO" if week_idx % 3 in (0, 1) else "POPO"
-    if mode == "B":
-        return "RANO"
-    if mode == "C":
-        return "RANO" if week_idx % 2 == 0 else "POPO"
-    return "RANO"
+    patterns = _available_patterns()
+    pattern = patterns.get(mode, mode)
+    if not pattern:
+        pattern = "1"
+    idx = week_idx % len(pattern)
+    digit = pattern[idx]
+    return "RANO" if digit == "1" else "POPO"
 
 
 def who_is_on_now(now: Optional[datetime] = None) -> Dict[str, List[str]]:
@@ -258,14 +275,16 @@ def set_user_mode(user_id: str, mode: str) -> None:
 
     Args:
         user_id (str): Identifier of the user whose mode will be stored.
-        mode (str): Rotation mode, one of ``"A"``, ``"B"`` or ``"C"``.
+        mode (str): Rotation pattern identifier available in configuration.
 
     Returns:
         None
     """
-    if mode not in TRYBY:
-        raise ValueError("mode must be A, B or C")
     data = _load_modes()
+    patterns = _available_patterns(data)
+    if mode not in patterns:
+        allowed = ", ".join(sorted(patterns))
+        raise ValueError(f"mode must be one of: {allowed}")
     data.setdefault("modes", {})[user_id] = mode
     _save_json(_MODES_FILE, data)
     print(f"[WM-DBG][SHIFTS] mode saved: {user_id} -> {mode}")
