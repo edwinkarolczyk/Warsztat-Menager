@@ -1,7 +1,7 @@
 # Wersja pliku: 1.4.12.1
 # Plik: gui_logowanie.py
 # Zmiany 1.4.12.1:
-# - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją)
+# - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
 # - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
 # - Bezpieczny timer (after) + anulowanie przy Destroy
 # - Spójny wygląd z motywem (apply_theme), brak pływania elementów
