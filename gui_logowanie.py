@@ -273,6 +273,12 @@ def logowanie():
                     gui_panel.uruchom_panel(root_global, login, rola)
                 return
         messagebox.showerror("Błąd", "Nieprawidłowy PIN")
+    except FileNotFoundError:
+        messagebox.showerror("Błąd", "Brak pliku uzytkownicy.json")
+    except json.JSONDecodeError:
+        messagebox.showerror(
+            "Błąd", "Błąd w pliku uzytkownicy.json (uszkodzony JSON)"
+        )
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
 
