@@ -10,6 +10,7 @@ import json
 import os
 from datetime import datetime
 from threading import RLock
+import fcntl
 
 try:
     import logger
@@ -78,15 +79,28 @@ def load_magazyn():
     return mj
 
 def save_magazyn(data):
+    """Zapisuje magazyn na dysku.
+
+    Operacja korzysta z blokady międzyprocesowej opartej na pliku
+    ``.lock`` aby zserializować równoległe zapisy. Blokada jest zawsze
+    zwalniana w bloku ``finally``.
+    """
     _ensure_dirs()
     data.setdefault("meta", {})["updated"] = _now()
     # sanity: item_types zawsze lista
     if not isinstance(data["meta"].get("item_types"), list):
         data["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES)
-    tmp = MAGAZYN_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, MAGAZYN_PATH)
+    lock_path = MAGAZYN_PATH + ".lock"
+    lock_f = open(lock_path, "w")
+    try:
+        fcntl.flock(lock_f, fcntl.LOCK_EX)
+        tmp = MAGAZYN_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, MAGAZYN_PATH)
+    finally:
+        fcntl.flock(lock_f, fcntl.LOCK_UN)
+        lock_f.close()
 
 def _history_entry(typ_op, item_id, ilosc, uzytkownik, kontekst=None):
     return {
