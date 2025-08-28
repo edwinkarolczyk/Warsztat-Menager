@@ -92,3 +92,43 @@ def test_show_startup_error_restores_and_copies_log(tmp_path, monkeypatch):
     root = roots[0]
     assert root.clipboard == "example log"
     assert restored == ["new"]
+
+
+def test_auto_update_on_start_conflict(monkeypatch):
+    msgs = []
+
+    class DummyCfg:
+        def __init__(self):
+            pass
+
+        def get(self, key, default=None):
+            return True
+
+    monkeypatch.setattr(start, "ConfigManager", DummyCfg)
+
+    def fake_pull(cwd, stamp):
+        raise RuntimeError(
+            "W repozytorium istnieją lokalne zmiany. "
+            "Zapisz lub odrzuć je przed aktualizacją."
+        )
+
+    monkeypatch.setattr(start, "_run_git_pull", fake_pull)
+
+    def fake_showerror(title, message):
+        msgs.append(message)
+
+    mb = types.SimpleNamespace(showerror=fake_showerror)
+    monkeypatch.setattr(start, "messagebox", mb)
+
+    class FakeRoot:
+        def withdraw(self):
+            pass
+
+        def destroy(self):
+            pass
+
+    monkeypatch.setattr(start.tk, "Tk", lambda: FakeRoot())
+    monkeypatch.setattr(start, "_error", lambda msg: None)
+
+    start.auto_update_on_start()
+    assert any("Zapisz lub odrzuć" in m for m in msgs)

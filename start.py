@@ -127,6 +127,15 @@ def auto_update_on_start():
             _run_git_pull(Path.cwd(), _now_stamp())
         except Exception as e:
             _error(f"auto_update_on_start error: {e}")
+            msg = str(e).lower()
+            if "lokalne zmiany" in msg or "local changes" in msg:
+                try:
+                    r = tk.Tk()
+                    r.withdraw()
+                    messagebox.showerror("Aktualizacje", str(e))
+                    r.destroy()
+                except Exception:
+                    pass
 
 # ====== USER FILE (NOWE) ======
 def _ensure_user_file(login, rola):
