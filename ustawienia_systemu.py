@@ -273,7 +273,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
     tab4 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab4, text="Produkty (BOM)")
     try:
-        panel_ustawien_produkty(tab4, rola)
+        frm_prod = panel_ustawien_produkty(tab4, rola)
+        frm_prod.pack(fill="both", expand=True)
     except Exception as e:
         ttk.Label(tab4, text=f"Panel Produktów (BOM) – błąd: {e}").pack(padx=10, pady=10)
 
