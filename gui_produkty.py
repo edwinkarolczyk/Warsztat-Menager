@@ -17,7 +17,7 @@ import os, json, glob
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 DATA_DIR = os.path.join("data", "produkty")
 MAG_DIR  = os.path.join("data", "magazyn")
@@ -81,7 +81,7 @@ class ProduktyBOM(tk.Toplevel):
         super().__init__(root)
         self.title("Produkty (BOM)")
         self.geometry("1000x600+140+140")
-        apply_theme(self)
+        apply_theme_tree(self)
         _ensure_dirs()
         self._build_ui()
         self._reload_lists()
@@ -194,7 +194,7 @@ class ProduktyBOM(tk.Toplevel):
 
     def _add_row(self):
         # okienko wyboru materiału z listy magazynu + ilość + długość
-        win = tk.Toplevel(self); win.title("Dodaj pozycję BOM"); apply_theme(win)
+        win = tk.Toplevel(self); win.title("Dodaj pozycję BOM"); apply_theme_tree(win)
         frm = ttk.Frame(win); frm.pack(padx=10, pady=10, fill="x")
         ttk.Label(frm, text="Materiał:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
         mat_ids  = [it["id"] for it in self._materials]

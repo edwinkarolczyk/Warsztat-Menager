@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from datetime import datetime, time, timedelta
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
@@ -127,7 +127,7 @@ def _shift_progress(now: datetime):
 # ---------- Główny panel ----------
 
 def uruchom_panel(root, login, rola):
-    apply_theme(root)
+    apply_theme_tree(root)
     root.title(f"Warsztat Menager - zalogowano jako {login} ({rola})")
     for w in root.winfo_children(): w.destroy()
 

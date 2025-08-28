@@ -1,7 +1,7 @@
 # Plik: ustawienia_systemu.py
 # Wersja pliku: 1.5.2
 # Zmiany 1.5.2 (2025-08-18):
-# - apply_theme wywoływany na oknie nadrzędnym (frame.winfo_toplevel())
+# - apply_theme_tree wywoływany na oknie nadrzędnym (frame.winfo_toplevel())
 # - Notebook i Frame używają stylu WM.* tylko jeśli taki styl istnieje (fallback do domyślnego)
 # - Bez zmian funkcjonalnych w zakładkach
 # ⏹ KONIEC KODU
@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
 from gui_settings_shifts import ShiftsSettingsFrame
@@ -58,7 +58,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         w.destroy()
 
     # Zastosuj motyw NA OKNIE nadrzędnym
-    apply_theme(frame.winfo_toplevel())
+    apply_theme_tree(frame.winfo_toplevel())
 
     # Notebook — użyj stylu tylko jeśli istnieje
     if _style_exists("WM.TNotebook"):
@@ -240,7 +240,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             import ui_theme
 
             ui_theme._inited = False
-            ui_theme.apply_theme(frame.winfo_toplevel())
+            ui_theme.apply_theme_tree(frame.winfo_toplevel())
         except ConfigError as e:
             messagebox.showerror("Błąd", str(e))
 

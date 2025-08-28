@@ -1,7 +1,7 @@
 # start.py
 # Wersja: 1.1.2
 # Zmiany względem 1.1.1:
-#  - [NOWE] Ładowanie motywu zaraz po utworzeniu root (apply_theme(root))
+#  - [NOWE] Ładowanie motywu zaraz po utworzeniu root (apply_theme_tree(root))
 #  - [NOWE] Tworzenie pliku data/user/<login>.json po udanym logowaniu (idempotentnie)
 #
 # Uwaga: Nie zmieniamy istniejącej logiki poza powyższymi punktami. Plik jest
@@ -15,7 +15,7 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
 import updater
@@ -254,7 +254,7 @@ def main():
         root = tk.Tk()
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
-        apply_theme(root)
+        apply_theme_tree(root)
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 

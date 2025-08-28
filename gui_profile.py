@@ -39,7 +39,7 @@ from logger import log_akcja
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 # Domyślny termin dla zadań bez daty – bardzo odległa przyszłość, aby sortowanie
 # umieszczało je na końcu listy.
@@ -307,7 +307,7 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
     role = str(rola or "").lower()
     win = tk.Toplevel(root)
     win.title(f"Zadanie {task.get('id','')}")
-    apply_theme(win)
+    apply_theme_tree(win)
 
     # Nagłówki
     ttk.Label(win, text=f"ID: {task.get('id','')}", style="WM.TLabel").pack(anchor="w", padx=8, pady=(8,2))
@@ -585,7 +585,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
         Ta sama ramka *frame* z dobudowanymi widżetami.
     """
 
-    apply_theme(root.winfo_toplevel())
+    apply_theme_tree(root.winfo_toplevel())
     try:
         frame.configure(style="WM.TFrame")
     except Exception:

@@ -28,7 +28,7 @@ from datetime import datetime, date
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 MACHINES_FILE = "maszyny.json"
 
@@ -82,7 +82,7 @@ def panel_maszyny(root, frame, login=None, rola=None):
     for widget in frame.winfo_children():
         widget.destroy()
 
-    apply_theme(frame)
+    apply_theme_tree(frame)
 
     tk.Label(
         frame,
@@ -129,7 +129,7 @@ def panel_maszyny(root, frame, login=None, rola=None):
 
         win = tk.Toplevel(root)
         win.title(f"Zadania – {maszyna.get('nazwa', '')}")
-        apply_theme(win)
+        apply_theme_tree(win)
 
         cols = ("data", "typ_zadania", "uwagi")
         tv = ttk.Treeview(win, columns=cols, show="headings", height=10)

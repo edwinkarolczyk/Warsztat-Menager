@@ -76,7 +76,7 @@ def dummy_gui(monkeypatch):
 
     monkeypatch.setattr(gui_logowanie, "ttk", fake_ttk)
     monkeypatch.setattr(gui_logowanie, "tk", fake_tk)
-    monkeypatch.setattr(gui_logowanie, "apply_theme", lambda root: None)
+    monkeypatch.setattr(gui_logowanie, "apply_theme_tree", lambda root: None)
     monkeypatch.setattr(gui_logowanie.gui_panel, "_shift_progress", lambda now: (0, False))
     monkeypatch.setattr(gui_logowanie.gui_panel, "_shift_bounds", lambda now: (now, now))
     return labels

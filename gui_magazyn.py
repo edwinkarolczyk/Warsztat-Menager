@@ -22,7 +22,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import re
 
-from ui_theme import apply_theme_safe as apply_theme, COLORS
+from ui_theme import apply_theme_tree, COLORS
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -66,7 +66,7 @@ def _resolve_role(parent, rola_hint=None):
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
-        apply_theme(self)
+        apply_theme_tree(self)
         self._build_ui()
         self._load()
 
@@ -230,7 +230,7 @@ class PanelMagazyn(ttk.Frame):
         hist = LM.historia_item(iid, limit=200)
         win = tk.Toplevel(self)
         win.title(f"Historia: {iid}")
-        apply_theme(win)
+        apply_theme_tree(win)
         tv = ttk.Treeview(win, columns=("czas","op","ile","kto","ctx"), show="headings", style="WM.Treeview")
         tv.pack(fill="both", expand=True, padx=8, pady=8)
         for c, t, w in [("czas","Czas",150),("op","Operacja",120),("ile","Ilość",80),("kto","Użytkownik",140),("ctx","Kontekst",300)]:
@@ -248,7 +248,7 @@ class PanelMagazyn(ttk.Frame):
             self.var_alerty.set(txt)
 
 def panel_magazyn(root, frame, login=None, rola=None):
-    apply_theme(root.winfo_toplevel())
+    apply_theme_tree(root.winfo_toplevel())
     for w in frame.winfo_children():
         w.destroy()
     PanelMagazyn(frame).pack(fill="both", expand=True)
@@ -258,7 +258,7 @@ def open_panel_magazyn(root):
     win = tk.Toplevel(root)
     win.title("Magazyn")
     win.geometry("980x540+120+120")
-    apply_theme(win)
+    apply_theme_tree(win)
     PanelMagazyn(win).pack(fill="both", expand=True)
     return win
 
@@ -275,7 +275,7 @@ def attach_magazyn_button(root, toolbar):
     return btn
 
 def panel_ustawien_magazyn(parent, rola=None):
-    apply_theme(parent.winfo_toplevel())
+    apply_theme_tree(parent.winfo_toplevel())
     frm = ttk.Frame(parent, style="WM.Card.TFrame")
     frm.pack(fill="both", expand=True, padx=12, pady=12)
 

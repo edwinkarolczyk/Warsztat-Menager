@@ -21,7 +21,7 @@ from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 
 # ===================== MOTYW (użytkownika) =====================
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH  = "config.json"
@@ -430,7 +430,7 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 # ===================== UI GŁÓWNY =====================
 def panel_narzedzia(root, frame, login=None, rola=None):
     _maybe_seed_config_templates()
-    apply_theme(root)
+    apply_theme_tree(root)
 
     for w in frame.winfo_children():
         w.destroy()
@@ -485,7 +485,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     # ===================== POPUP WYBORU TRYBU =====================
     def choose_mode_and_add():
         dlg = tk.Toplevel(root); dlg.title("Dodaj narzędzie – wybierz tryb")
-        apply_theme(dlg)
+        apply_theme_tree(dlg)
         dlg.bind("<Return>", lambda e: None)
         frm = ttk.Frame(dlg, padding=10, style="WM.Card.TFrame"); frm.pack(fill="both", expand=True)
         ttk.Label(frm, text="Jakie narzędzie chcesz dodać?", style="WM.Card.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,6))
@@ -537,7 +537,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             nr_auto = ""
 
         dlg = tk.Toplevel(root); dlg.title(("Edytuj" if editing else "Dodaj") + " – " + tool_mode)
-        apply_theme(dlg)
+        apply_theme_tree(dlg)
         dlg.bind("<Return>", lambda e: None)
         nb = ttk.Notebook(dlg, style="TNotebook"); nb.pack(fill="both", expand=True)
 

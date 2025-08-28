@@ -4,7 +4,7 @@
 # - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
 # - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
 # - Bezpieczny timer (after) + anulowanie przy Destroy
-# - Spójny wygląd z motywem (apply_theme), brak pływania elementów
+# - Spójny wygląd z motywem (apply_theme_tree), brak pływania elementów
 
 import os
 import json
@@ -20,7 +20,7 @@ from grafiki.shifts_schedule import today_summary
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 
  # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
@@ -49,7 +49,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
         w.destroy()
-    apply_theme(root)
+    apply_theme_tree(root)
 
     # pełny ekran i tytuł
     root.title("Warsztat Menager")

@@ -3,7 +3,7 @@
 # Zmiany 1.0.0:
 # - Zakładka "Produkty (BOM)" do Ustawień: lista produktów, edycja BOM, zapis do data/produkty/<KOD>.json
 # - Obsługa materiałów zarówno z plików per-materiał (data/magazyn/*.json) jak i zbiorczego stanu (data/magazyn/stany.json)
-# - Ciemny motyw przez ui_theme.apply_theme
+# - Ciemny motyw przez ui_theme.apply_theme_tree
 # ⏹ KONIEC KODU
 
 import os
@@ -12,7 +12,7 @@ import glob
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
@@ -62,7 +62,7 @@ def _list_polprodukty():
 def make_tab(parent, rola=None):
     """Zwraca Frame do wpięcia jako zakładka w Ustawieniach."""
     frm = ttk.Frame(parent)
-    apply_theme(frm)
+    apply_theme_tree(frm)
     _ensure_dirs()
 
     # layout
@@ -159,7 +159,7 @@ def make_tab(parent, rola=None):
     def _add_row():
         win = tk.Toplevel(frm)
         win.title("Dodaj pozycję BOM")
-        apply_theme(win)
+        apply_theme_tree(win)
         f = ttk.Frame(win)
         f.pack(padx=10, pady=10, fill="x")
         ttk.Label(f, text="Półprodukt:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)

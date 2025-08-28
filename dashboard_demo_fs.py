@@ -8,9 +8,9 @@ from tkinter import ttk, simpledialog
 from math import ceil
 
 try:
-    from ui_theme import apply_theme
+    from ui_theme import apply_theme_tree
 except Exception:
-    apply_theme = lambda _: None
+    apply_theme_tree = lambda _: None
 
 APP_TITLE = "Warsztat Menager - Dashboard (TEST)"
 
@@ -185,7 +185,7 @@ class WMDashboard(tk.Tk):
         self.rola = rola
         self.title(APP_TITLE)
         self._enable_dpi_awareness()
-        apply_theme(self)
+        apply_theme_tree(self)
 
         try:
             self.state("zoomed")
