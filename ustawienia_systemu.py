@@ -147,12 +147,18 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # --- Magazyn ---
     tab3 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab3, text="Magazyn")
-    panel_ustawien_magazyn(tab3)
+    try:
+        panel_ustawien_magazyn(tab3)
+    except Exception as e:
+        ttk.Label(tab3, text=f"Panel Magazynu – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Produkty (BOM) ---
     tab4 = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab4, text="Produkty (BOM)")
-    panel_ustawien_produkty(tab4, rola)
+    try:
+        panel_ustawien_produkty(tab4, rola)
+    except Exception as e:
+        ttk.Label(tab4, text=f"Panel Produktów (BOM) – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Grafiki zmian ---
     tab_sh = _make_frame(nb, "WM.Card.TFrame")
