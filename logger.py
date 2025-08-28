@@ -6,18 +6,36 @@
 
 from datetime import datetime
 import json
+import logging
+from pathlib import Path
+
+LOG_FILE = Path("logi_gui.txt")
+
+
+def get_logger(name: str) -> logging.Logger:
+    """Return a configured logger writing to ``logi_gui.txt``."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+        fmt = logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
+        handler.setFormatter(fmt)
+        logger.addHandler(handler)
+    return logger
+
 
 def log_akcja(tekst: str) -> None:
     """Zapis prostych zdarzeń GUI/aplikacji do logi_gui.txt (linia tekstowa)."""
     try:
-        with open("logi_gui.txt", "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {tekst}\n")
-    except Exception as e:
-        # awaryjnie do konsoli – nie podnosimy wyjątku, żeby nie wywalać GUI
-        print(f"[Błąd loggera] {e}")
+        logger = get_logger("gui")
+        logger.info(tekst)
+    except Exception:
+        logging.getLogger(__name__).exception("log_akcja failed")
+
 
 # zgodność wstecz: wiele miejsc może używać starej nazwy
 zapisz_log = log_akcja
+
 
 def log_magazyn(akcja: str, dane: dict) -> None:
     """
@@ -29,10 +47,9 @@ def log_magazyn(akcja: str, dane: dict) -> None:
         line = {
             "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "akcja": akcja,
-            "dane": dane
+            "dane": dane,
         }
         with open("logi_magazyn.txt", "a", encoding="utf-8") as f:
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
-    except Exception as e:
-        # awaryjnie do konsoli – nie przerywamy działania
-        print(f"[Błąd log_magazyn] {e}")
+    except Exception:
+        logging.getLogger(__name__).exception("log_magazyn failed")
