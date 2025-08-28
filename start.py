@@ -70,7 +70,7 @@ def show_startup_error(e):
 
     tk.Label(
         root,
-        text="Wystąpił błąd podczas uruchamiania programu. Szczegóły w logu.",
+        text=f"Wystąpił błąd: {e}\nSzczegóły w logu.",
     ).pack(padx=10, pady=10)
 
     text = tk.Text(root, height=20, width=80)
