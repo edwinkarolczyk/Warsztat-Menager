@@ -54,6 +54,7 @@
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
+from config_manager import ConfigManager
 
 # Paleta
 DARK_BG      = "#1b1f24"   # tło główne
@@ -65,13 +66,29 @@ MUTED_FG     = "#9aa0a6"
 BTN_BG       = "#2a3139"
 BTN_BG_HOVER = "#343b45"
 BTN_BG_ACT   = "#3b434e"
+BANNER_FG    = "#ff4d4d"
+BANNER_BG    = "#1b1b1b"
 
 _inited = False
 
 def _init_styles(root: tk.Misc | None = None) -> None:
-    global _inited
+    global _inited, DARK_BG, DARK_BG_2, SIDE_BG, CARD_BG, FG, MUTED_FG
+    global BTN_BG, BTN_BG_HOVER, BTN_BG_ACT, BANNER_FG, BANNER_BG
     if _inited:
         return
+    cfg = ConfigManager()
+    colors = cfg.get("ui.colors", {})
+    DARK_BG = colors.get("dark_bg", DARK_BG)
+    DARK_BG_2 = colors.get("dark_bg_2", DARK_BG_2)
+    SIDE_BG = colors.get("side_bg", SIDE_BG)
+    CARD_BG = colors.get("card_bg", CARD_BG)
+    FG = colors.get("fg", FG)
+    MUTED_FG = colors.get("muted_fg", MUTED_FG)
+    BTN_BG = colors.get("btn_bg", BTN_BG)
+    BTN_BG_HOVER = colors.get("btn_bg_hover", BTN_BG_HOVER)
+    BTN_BG_ACT = colors.get("btn_bg_act", BTN_BG_ACT)
+    BANNER_FG = colors.get("banner_fg", BANNER_FG)
+    BANNER_BG = colors.get("banner_bg", BANNER_BG)
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
