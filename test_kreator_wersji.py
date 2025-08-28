@@ -26,6 +26,7 @@ def test_gui_logowanie_spelnia_wymagania():
         "entry_pin = ttk.Entry",
         "img = Image.open",
         "root.attributes(\"-fullscreen\", True)",
+        "str(login_key).strip() == login",
         "str(dane.get(\"pin\", \"\")).strip() == pin",
     ]
     wyniki = sprawdz_wymagania(plik, wymagania)
