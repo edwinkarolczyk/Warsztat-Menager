@@ -52,8 +52,118 @@
         "scope": "global",
         "requires_restart": false
       },
-      {
-        "key": "app.start_view",
+    {
+      "key": "ui.colors.dark_bg",
+      "group": "Wygląd",
+      "label": "Tło główne",
+      "type": "string",
+      "default": "#1b1f24",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.dark_bg_2",
+      "group": "Wygląd",
+      "label": "Tło pól",
+      "type": "string",
+      "default": "#20262e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.side_bg",
+      "group": "Wygląd",
+      "label": "Tło panelu bocznego",
+      "type": "string",
+      "default": "#14181d",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.card_bg",
+      "group": "Wygląd",
+      "label": "Tło kart",
+      "type": "string",
+      "default": "#20262e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.fg",
+      "group": "Wygląd",
+      "label": "Kolor tekstu",
+      "type": "string",
+      "default": "#e6e6e6",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.muted_fg",
+      "group": "Wygląd",
+      "label": "Tekst przygaszony",
+      "type": "string",
+      "default": "#9aa0a6",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg",
+      "group": "Wygląd",
+      "label": "Przyciski – tło",
+      "type": "string",
+      "default": "#2a3139",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg_hover",
+      "group": "Wygląd",
+      "label": "Przyciski – hover",
+      "type": "string",
+      "default": "#343b45",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg_act",
+      "group": "Wygląd",
+      "label": "Przyciski – aktywny",
+      "type": "string",
+      "default": "#3b434e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.banner_fg",
+      "group": "Wygląd",
+      "label": "Banner – tekst",
+      "type": "string",
+      "default": "#ff4d4d",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.banner_bg",
+      "group": "Wygląd",
+      "label": "Banner – tło",
+      "type": "string",
+      "default": "#1b1b1b",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "app.start_view",
       "group": "Ogólne",
       "label": "Widok startowy",
       "type": "enum",
