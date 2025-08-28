@@ -178,6 +178,12 @@ def _run_git_pull(cwd: Path, stamp: str):
     except subprocess.CalledProcessError as e:
         log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "") + "\n[GIT PULL ERROR]\n" + (e.stderr or "")
         _write_log(stamp, log_text, kind="update")
+        err = (e.stderr or "").lower()
+        if "would be overwritten" in err:
+            raise RuntimeError(
+                "W repozytorium istnieją lokalne zmiany. "
+                "Zapisz lub odrzuć je przed aktualizacją."
+            )
         raise RuntimeError(f"git pull failed: {e.stderr.strip()}")
 
 # --- version scanner ---
