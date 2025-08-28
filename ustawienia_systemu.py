@@ -109,6 +109,20 @@ def panel_ustawien(root, frame, login=None, rola=None):
         ),
     }
 
+    color_labels = {
+        "dark_bg": "Tło główne",
+        "dark_bg_2": "Tło drugiego planu",
+        "side_bg": "Tło panelu bocznego",
+        "card_bg": "Tło kart (ramki ustawień)",
+        "fg": "Kolor tekstu",
+        "muted_fg": "Kolor tekstu przygaszonego",
+        "btn_bg": "Tło przycisków",
+        "btn_bg_hover": "Tło przycisków (najechanie)",
+        "btn_bg_act": "Tło przycisków (aktywny)",
+        "banner_fg": "Kolor tekstu baneru",
+        "banner_bg": "Tło baneru",
+    }
+
     # --- Motyw ---
     tab_theme = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab_theme, text="Motyw")
@@ -138,7 +152,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ).grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
     for i, (color_key, var) in enumerate(color_vars.items(), start=2):
-        ttk.Label(frm_theme, text=f"{color_key}:").grid(
+        ttk.Label(frm_theme, text=f"{color_labels[color_key]}:").grid(
             row=i, column=0, sticky="w", padx=5, pady=5
         )
         ttk.Entry(frm_theme, textvariable=var).grid(
