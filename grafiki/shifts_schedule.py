@@ -269,5 +269,4 @@ def set_anchor_monday(iso_date: str) -> None:
     data["anchor_monday"] = d.isoformat()
     _save_json(_MODES_FILE, data)
     print(f"[WM-DBG][SHIFTS] anchor saved: {d.isoformat()}")
-
 # ⏹ KONIEC KODU

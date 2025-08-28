@@ -86,5 +86,4 @@ class ShiftsSettingsFrame(ttk.Frame):
 
         cb.bind("<<ComboboxSelected>>", _on_select)
         cb.bind("<FocusOut>", lambda e: cb.destroy())
-
 # ⏹ KONIEC KODU
