@@ -54,7 +54,7 @@ def _last_update_date() -> str:
         ts = os.path.getmtime(_MODES_FILE)
     except OSError:
         return "-"
-    return datetime.fromtimestamp(ts).strftime("%d.%m.%Y")
+    return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
 
 
 def _anchor_monday() -> date:
@@ -179,6 +179,7 @@ def today_summary(now: Optional[datetime] = None) -> str:
     info = who_is_on_now(now)
     if info["slot"] is None:
         return "Poza godzinami zmian"
+    last_update = _last_update_date()
     times = _shift_times()
     if info["slot"] == "RANO":
         s = times["R_START"].strftime("%H:%M")
@@ -189,7 +190,7 @@ def today_summary(now: Optional[datetime] = None) -> str:
         e = times["P_END"].strftime("%H:%M")
         label = "Popołudniowa"
     names = ", ".join(info["users"]) if info["users"] else "—"
-    return f"Ostatnia aktualizacja {_last_update_date()} | {label} {s}–{e} → {names}"
+    return f"Ostatnia aktualizacja {last_update} | {label} {s}–{e} → {names}"
 
 
 def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
@@ -277,4 +278,6 @@ def set_anchor_monday(iso_date: str) -> None:
     data["anchor_monday"] = d.isoformat()
     _save_json(_MODES_FILE, data)
     print(f"[WM-DBG][SHIFTS] anchor saved: {d.isoformat()}")
+
+
 # ⏹ KONIEC KODU
