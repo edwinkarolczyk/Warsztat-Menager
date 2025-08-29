@@ -23,6 +23,11 @@ from updater import _run_git_pull, _now_stamp, _git_has_updates
 import updater
 from pathlib import Path
 
+try:
+    CONFIG_MANAGER = ConfigManager()
+except Exception:  # pragma: no cover - fallback if config init fails
+    CONFIG_MANAGER = None
+
 # ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
 def _ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
