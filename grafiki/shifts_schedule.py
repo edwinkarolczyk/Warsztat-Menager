@@ -252,16 +252,25 @@ def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
             continue
         mode = modes.get(u["id"], "B")
         slot = _slot_for_mode(mode, widx)
-        start = times["R_START"] if slot == "RANO" else times["P_START"]
-        end = times["R_END"] if slot == "RANO" else times["P_END"]
         days = []
         for i in range(7):
             d = week_start + timedelta(days=i)
+            wd = d.weekday()
+            if wd == 6:
+                continue
+            if wd == 5:
+                shift = "R"
+                start = times["R_START"]
+                end = times["R_END"]
+            else:
+                shift = "R" if slot == "RANO" else "P"
+                start = times["R_START"] if shift == "R" else times["P_START"]
+                end = times["R_END"] if shift == "R" else times["P_END"]
             days.append(
                 {
                     "date": d.strftime("%Y-%m-%d"),
                     "dow": d.strftime("%a"),
-                    "shift": "R" if slot == "RANO" else "P",
+                    "shift": shift,
                     "start": start.strftime("%H:%M"),
                     "end": end.strftime("%H:%M"),
                 }
