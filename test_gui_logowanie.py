@@ -226,7 +226,7 @@ def test_logowanie_success(tmp_path, monkeypatch):
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+        gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
     )
     monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
@@ -250,7 +250,7 @@ def test_logowanie_invalid_pair(tmp_path, monkeypatch):
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+        gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
     )
     monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
@@ -278,7 +278,7 @@ def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+        gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
     )
     monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(
@@ -306,7 +306,7 @@ def test_logowanie_callback_error(tmp_path, monkeypatch):
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+        gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
     )
     monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(

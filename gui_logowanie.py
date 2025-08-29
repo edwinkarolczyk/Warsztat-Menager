@@ -25,7 +25,7 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 # Motyw
 from ui_theme import apply_theme_tree
 
-BASE_DIR = Path(__file__).resolve().parents[1]
+BASE_DIR = Path(__file__).resolve().parent
 
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
