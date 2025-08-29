@@ -55,7 +55,10 @@ class ShiftsSettingsFrame(ttk.Frame):
         self.winfo_toplevel().destroy()
 
     def _save_anchor(self):
-        set_anchor_monday(self.anchor_var.get())
+        try:
+            set_anchor_monday(self.anchor_var.get())
+        except ValueError as e:
+            messagebox.showerror("Błąd", str(e))
 
     def _populate(self):
         for i in self.tree.get_children():
