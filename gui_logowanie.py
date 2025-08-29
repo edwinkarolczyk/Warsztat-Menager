@@ -12,6 +12,7 @@ import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from pathlib import Path
 from config_manager import ConfigManager
 from updates_utils import load_last_update_info
 from grafiki.shifts_schedule import who_is_on_now
@@ -245,10 +246,11 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
+    user_file = Path(__file__).with_name("uzytkownicy.json")
     login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
-        with open("uzytkownicy.json", "r", encoding="utf-8") as f:
+        with user_file.open("r", encoding="utf-8") as f:
             users = json.load(f)
 
         # Kompatybilność: dict (stary format) lub list (nowy format)
