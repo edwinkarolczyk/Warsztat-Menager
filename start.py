@@ -16,6 +16,7 @@ import logging
 import tkinter as tk
 from tkinter import messagebox
 from utils import error_dialogs
+from dirty_guard import DirtyGuard
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
@@ -357,6 +358,8 @@ def main():
     # === GUI start ===
     try:
         root = tk.Tk()
+        guard = DirtyGuard()
+        guard.attach_window_close(root)
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
