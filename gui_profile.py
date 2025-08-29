@@ -615,20 +615,27 @@ def uruchom_panel(root, frame, login=None, rola=None):
     try:
         if login:
             now = _dt.now()
-            mode = _user_mode(str(login))
-            slot = _slot_for_mode(mode, _week_idx(now.date()))
             times = _shift_times()
-            if slot == "RANO":
-                start = times["R_START"].strftime("%H:%M")
-                end = times["R_END"].strftime("%H:%M")
-                shift_text = f"Dzisiejsza zmiana: Poranna {start}–{end}"
-                on_shift = times["R_START"] <= now.time() < times["R_END"]
+            weekday = now.weekday()
+            if weekday == 6:
+                shift_text = "Dzisiejsza zmiana: Wolne"
+                on_shift = False
             else:
-                start = times["P_START"].strftime("%H:%M")
-                end = times["P_END"].strftime("%H:%M")
-                shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
-                on_shift = times["P_START"] <= now.time() < times["P_END"]
-            shift_style = "WM.TLabel"
+                mode = _user_mode(str(login))
+                slot = _slot_for_mode(mode, _week_idx(now.date()))
+                if weekday == 5:
+                    slot = "RANO"
+                if slot == "RANO":
+                    start = times["R_START"].strftime("%H:%M")
+                    end = times["R_END"].strftime("%H:%M")
+                    shift_text = f"Dzisiejsza zmiana: Poranna {start}–{end}"
+                    on_shift = times["R_START"] <= now.time() < times["R_END"]
+                else:
+                    start = times["P_START"].strftime("%H:%M")
+                    end = times["P_END"].strftime("%H:%M")
+                    shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
+                    on_shift = times["P_START"] <= now.time() < times["P_END"]
+                shift_style = "WM.TLabel"
     except Exception:
         pass
     lbl_shift = ttk.Label(info, text=shift_text, style=shift_style)
