@@ -8,8 +8,10 @@
 # Poprzednio (1.6.15):
 # - Adapter zgodności do panelu zleceń.
 
+import json
+import os
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -287,6 +289,56 @@ def uruchom_panel(root, login, rola):
         except Exception as e:
             log_akcja(f"Błąd otwierania panelu: {e}")
             ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
+
+    def _open_feedback():
+        win = tk.Toplevel(root)
+        win.title("Wyślij opinię")
+        ttk.Label(win, text="Twoja opinia:").pack(
+            anchor="w", padx=10, pady=(10, 0)
+        )
+        txt = tk.Text(win, width=60, height=10)
+        txt.pack(padx=10, pady=6)
+
+        def _submit():
+            message = txt.get("1.0", "end").strip()
+            if not message:
+                messagebox.showwarning("Brak treści", "Wpisz treść opinii.")
+                return
+            payload = {
+                "login": login,
+                "rola": rola,
+                "ts": datetime.now().isoformat(),
+                "message": message,
+            }
+            sent = False
+            try:
+                import requests
+
+                cm = globals().get("CONFIG_MANAGER")
+                url = cm.get("feedback.url") if cm else None
+                if url:
+                    resp = requests.post(url, json=payload, timeout=5)
+                    resp.raise_for_status()
+                    sent = True
+            except Exception:
+                sent = False
+            if not sent:
+                os.makedirs("data", exist_ok=True)
+                path = os.path.join("data", "opinie.json")
+                try:
+                    with open(path, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                except Exception:
+                    data = []
+                data.append(payload)
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(data, fh, ensure_ascii=False, indent=2)
+            messagebox.showinfo(
+                "Dziękujemy", "Twoja opinia została przesłana."
+            )
+            win.destroy()
+
+        ttk.Button(win, text="Wyślij", command=_submit).pack(pady=(0, 10))
     
     # przyciski boczne
     ttk.Button(side, text="Zlecenia",  command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),  style="WM.Side.TButton").pack(padx=10, pady=(12,6), fill="x")
@@ -294,6 +346,13 @@ def uruchom_panel(root, login, rola):
     ttk.Button(side, text="Maszyny",   command=lambda: otworz_panel(panel_maszyny, "Maszyny"),    style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
     # Wejście do Magazynu
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+
+    ttk.Button(
+        side,
+        text="Wyślij opinię",
+        command=_open_feedback,
+        style="WM.Side.TButton",
+    ).pack(padx=10, pady=6, fill="x")
 
     admin_roles = {"admin","kierownik","brygadzista","lider"}
     if str(rola).strip().lower() in admin_roles:
