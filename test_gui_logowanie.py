@@ -225,7 +225,10 @@ def test_logowanie_success(tmp_path, monkeypatch):
         json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py"))
+    monkeypatch.setattr(
+        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+    )
+    monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
     monkeypatch.setattr(gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "1234"))
     logged = {}
@@ -246,7 +249,10 @@ def test_logowanie_invalid_pair(tmp_path, monkeypatch):
         json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py"))
+    monkeypatch.setattr(
+        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+    )
+    monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user"))
     monkeypatch.setattr(gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "0000"))
     errors = []
@@ -271,7 +277,10 @@ def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
         json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py"))
+    monkeypatch.setattr(
+        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
+    )
+    monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(
         gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: attempt_login)
     )
@@ -297,8 +306,9 @@ def test_logowanie_callback_error(tmp_path, monkeypatch):
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
+        gui_logowanie, "__file__", str(tmp_path / "gui" / "logowanie.py")
     )
+    monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
     monkeypatch.setattr(
         gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user")
     )
