@@ -49,9 +49,19 @@
       "type": "bool",
       "default": true,
       "widget": "switch",
-        "scope": "global",
-        "requires_restart": false
-      },
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.confirm_on_close",
+      "group": "Ogólne",
+      "label": "Potwierdzaj zamykanie przy niezapisanych zmianach",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false
+    },
     {
       "key": "ui.colors.dark_bg",
       "group": "Motyw",

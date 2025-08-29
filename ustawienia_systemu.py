@@ -77,6 +77,9 @@ def panel_ustawien(root, frame, login=None, rola=None):
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
     branch_var = tk.StringVar(value=cfg.get("updates.branch", "proby-rozwoju"))
     push_branch_var = tk.StringVar(value=cfg.get("updates.push_branch", "git-push"))
+    confirm_close_var = tk.BooleanVar(
+        value=cfg.get("ui.confirm_on_close", True)
+    )
     connection_status_var = tk.StringVar()
     color_vars = {
         "dark_bg": tk.StringVar(
@@ -243,6 +246,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("updates.remote", remote_var, str)
     track("updates.branch", branch_var, str)
     track("updates.push_branch", push_branch_var, str)
+    track("ui.confirm_on_close", confirm_close_var, bool)
     for color_key, var in color_vars.items():
         track(f"ui.colors.{color_key}", var, str)
 
@@ -423,6 +427,14 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     _check_git_connection()
+
+    ttk.Label(
+        frm,
+        text="Potwierdzaj zamykanie przy niezapisanych zmianach:",
+    ).grid(row=8, column=0, sticky="w", padx=5, pady=5)
+    ttk.Checkbutton(frm, variable=confirm_close_var).grid(
+        row=8, column=1, sticky="w", padx=5, pady=5
+    )
 
     # --- Logowanie/Autoryzacja ---
     tab_auth = _make_frame(nb, "WM.Card.TFrame")
