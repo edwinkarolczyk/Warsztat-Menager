@@ -15,6 +15,12 @@ from datetime import datetime, time, timedelta
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 
+try:
+    from logger import log_akcja
+except Exception:
+    def log_akcja(msg: str):
+        print(f"[LOG] {msg}")
+
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
     # oryginalna funkcja z gui_zlecenia: panel_zlecenia(parent, root=None, app=None, notebook=None)
@@ -83,19 +89,19 @@ except Exception:
 
 try:
     from ustawienia_systemu import panel_ustawien
-except Exception:
+except Exception as e:
+    log_akcja(f"Błąd importu ustawień: {e}")
+
     def panel_ustawien(root, frame, login=None, rola=None):
         clear_frame(frame)
-        ttk.Label(frame, text="Ustawienia systemu").pack(pady=20)
+        ttk.Label(
+            frame,
+            text=f"Ustawienia systemu – błąd importu: {e}"
+        ).pack(pady=20)
 
 # --- IMPORT MAGAZYNU ---
 from gui_magazyn import panel_magazyn
 
-
-try:
-    from logger import log_akcja
-except Exception:
-    def log_akcja(msg: str): print(f"[LOG] {msg}")
 
 # ---------- Zmiany / czas pracy ----------
 
