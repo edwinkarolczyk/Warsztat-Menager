@@ -55,6 +55,7 @@ config.json
 *.zip
 *.apk
 *.png
+!grafiki/login_bg.png
 *.jpg
 *.jpeg
 *.xlsm

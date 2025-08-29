@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 from pathlib import Path
+from PIL import Image, ImageTk
 from config_manager import ConfigManager
 from updates_utils import load_last_update_info
 from grafiki.shifts_schedule import who_is_on_now
@@ -64,6 +65,19 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
     # bazowe rozmiary ekranu
     szer, wys = root.winfo_screenwidth(), root.winfo_screenheight()
+
+    # tło z pliku grafiki/login_bg.png
+    bg_path = os.path.join("grafiki", "login_bg.png")
+    if os.path.exists(bg_path):
+        try:
+            img = Image.open(bg_path).resize((szer, wys))
+            bg_image = ImageTk.PhotoImage(img)
+            bg_label = tk.Label(root, image=bg_image)
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+            bg_label.image = bg_image  # pin referencji
+            bg_label.lower()
+        except Exception as e:  # pragma: no cover - tylko logowanie
+            logging.warning("Nie można załadować tła logowania: %s", e)
 
     # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
     top = ttk.Frame(root, style="WM.TFrame")
