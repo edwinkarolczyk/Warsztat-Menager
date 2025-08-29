@@ -108,15 +108,35 @@ def logout():
         pass
 
 
+_USER_ACTIVITY_MONITOR = None
+
+
 def monitor_user_activity(root, timeout_sec=300, callback=None):
     """Rozpoczyna monitorowanie aktywności użytkownika na danym ``root``.
 
     Zwraca obiekt monitora, który można anulować metodą ``cancel``.
     """
 
+    global _USER_ACTIVITY_MONITOR
     if callback is None:
         callback = logout
-    return _InactivityMonitor(root, timeout_sec, callback)
+    if _USER_ACTIVITY_MONITOR:
+        _USER_ACTIVITY_MONITOR.cancel()
+    _USER_ACTIVITY_MONITOR = _InactivityMonitor(root, timeout_sec, callback)
+    return _USER_ACTIVITY_MONITOR
+
+
+def restart_user_activity_monitor(timeout_sec):
+    """Restartuje monitor aktywności z nowym timeoutem (w sekundach)."""
+
+    global _USER_ACTIVITY_MONITOR
+    if not _USER_ACTIVITY_MONITOR:
+        return None
+    root = _USER_ACTIVITY_MONITOR.root
+    callback = _USER_ACTIVITY_MONITOR.callback
+    _USER_ACTIVITY_MONITOR.cancel()
+    _USER_ACTIVITY_MONITOR = _InactivityMonitor(root, timeout_sec, callback)
+    return _USER_ACTIVITY_MONITOR
 
 
 def show_startup_error(e):

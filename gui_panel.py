@@ -247,8 +247,31 @@ def uruchom_panel(root, login, rola):
                 pass
             logout_job["id"] = None
 
+    def _restart_logout_timer(_event=None):
+        nonlocal _logout_deadline
+        try:
+            cm = globals().get("CONFIG_MANAGER")
+            new_min = int(cm.get("auth.session_timeout_min", 30)) if cm else 30
+        except Exception:
+            new_min = 30
+        total = max(0, new_min * 60)
+        _logout_deadline = datetime.now() + timedelta(seconds=total)
+        if logout_job["id"]:
+            try:
+                root.after_cancel(logout_job["id"])
+            except Exception:
+                pass
+            logout_job["id"] = None
+        _logout_tick()
+        try:
+            from start import restart_user_activity_monitor
+            restart_user_activity_monitor(total)
+        except Exception:
+            pass
+
     _logout_tick()
     logout_label.bind("<Destroy>", _on_logout_destroy)
+    root.bind("<<AuthTimeoutChanged>>", _restart_logout_timer, add="+")
 
     # --- bezpieczny timer paska zmiany ---
     shift_job = {"id": None}
