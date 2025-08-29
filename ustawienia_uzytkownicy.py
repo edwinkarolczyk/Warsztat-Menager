@@ -6,6 +6,8 @@ import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from utils.dirty_guard import DirtyGuard
+
 _USERS_FILE = "uzytkownicy.json"
 _PRESENCE_FILE = "uzytkownicy_presence.json"
 
@@ -229,9 +231,8 @@ def make_tab(parent, rola):
         _sync_presence(users)
         load_selected()
 
-    ttk.Button(form, text="Zapisz", command=save_user).grid(
-        row=len(fields) + 1, column=0, columnspan=2, pady=5
-    )
+    btn_save = ttk.Button(form, text="Zapisz")
+    btn_save.grid(row=len(fields) + 1, column=0, columnspan=2, pady=5)
 
     if str(rola).lower() == "admin":
         btns = ttk.Frame(frame)
@@ -264,8 +265,38 @@ def make_tab(parent, rola):
             _sync_presence(users)
             new_user()
 
-        ttk.Button(btns, text="Nowy", command=new_user).pack(side="left", padx=2)
-        ttk.Button(btns, text="Usuń", command=delete_user).pack(side="left", padx=2)
+        btn_new = ttk.Button(btns, text="Nowy")
+        btn_new.pack(side="left", padx=2)
+        btn_del = ttk.Button(btns, text="Usuń")
+        btn_del.pack(side="left", padx=2)
+
+    notebook = parent.nametowidget(parent.winfo_parent())
+    base_title = notebook.tab(parent, "text")
+    guard = DirtyGuard(
+        "Użytkownicy",
+        on_save=lambda: (save_user(), guard.reset()),
+        on_reset=lambda: (load_selected(), guard.reset()),
+        on_dirty_change=lambda d: notebook.tab(
+            parent, text=base_title + (" •" if d else "")
+        ),
+    )
+    guard.watch(frame)
+
+    lb.bind(
+        "<<ListboxSelect>>",
+        lambda e: guard.check_before(lambda: (load_selected(), guard.reset())),
+    )
+    btn_save.configure(command=guard.on_save)
+
+    if str(rola).lower() == "admin":
+        btn_new.configure(
+            command=lambda: guard.check_before(lambda: (new_user(), guard.reset()))
+        )
+        btn_del.configure(
+            command=lambda: guard.check_before(
+                lambda: (delete_user(), guard.reset())
+            )
+        )
 
     return frame
 

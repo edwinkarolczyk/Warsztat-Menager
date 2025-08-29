@@ -14,6 +14,7 @@ from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils import error_dialogs
+from utils.dirty_guard import DirtyGuard
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
@@ -74,10 +75,14 @@ def make_tab(parent, rola=None):
     left = ttk.Frame(frm, style="WM.Card.TFrame"); left.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(10,6), pady=10)
     ttk.Label(left, text="Produkty", style="WM.Card.TLabel").pack(anchor="w")
     lb = tk.Listbox(left, height=22); lb.pack(fill="y", expand=False, pady=(6,6))
-    btns = ttk.Frame(left); btns.pack(fill="x")
-    ttk.Button(btns, text="Nowy",  command=lambda:_new(),  style="WM.Side.TButton").pack(side="left", padx=2)
-    ttk.Button(btns, text="Usuń",  command=lambda:_delete(),style="WM.Side.TButton").pack(side="left", padx=2)
-    ttk.Button(btns, text="Zapisz",command=lambda:_save(),  style="WM.Side.TButton").pack(side="left", padx=2)
+    btns = ttk.Frame(left)
+    btns.pack(fill="x")
+    btn_new = ttk.Button(btns, text="Nowy", style="WM.Side.TButton")
+    btn_new.pack(side="left", padx=2)
+    btn_del = ttk.Button(btns, text="Usuń", style="WM.Side.TButton")
+    btn_del.pack(side="left", padx=2)
+    btn_save = ttk.Button(btns, text="Zapisz", style="WM.Side.TButton")
+    btn_save.pack(side="left", padx=2)
 
     # prawy panel (nagłówek + BOM)
     right = ttk.Frame(frm, style="WM.Card.TFrame"); right.grid(row=0, column=1, sticky="new", padx=(6,10), pady=(10,0))
@@ -232,6 +237,29 @@ def make_tab(parent, rola=None):
                 lb.activate(i)
                 break
 
-    lb.bind("<<ListboxSelect>>", lambda e:_load())
+    notebook = parent.nametowidget(parent.winfo_parent())
+    base_title = notebook.tab(parent, "text")
+    guard = DirtyGuard(
+        "Produkty (BOM)",
+        on_save=lambda: (_save(), guard.reset()),
+        on_reset=lambda: (_load(), guard.reset()),
+        on_dirty_change=lambda d: notebook.tab(
+            parent, text=base_title + (" •" if d else "")
+        ),
+    )
+    guard.watch(frm)
+
+    lb.bind(
+        "<<ListboxSelect>>",
+        lambda e: guard.check_before(lambda: (_load(), guard.reset())),
+    )
+    btn_new.configure(
+        command=lambda: guard.check_before(lambda: (_new(), guard.reset()))
+    )
+    btn_del.configure(
+        command=lambda: guard.check_before(lambda: (_delete(), guard.reset()))
+    )
+    btn_save.configure(command=guard.on_save)
+
     _refresh()
     return frm
