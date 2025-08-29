@@ -1,7 +1,7 @@
 # Wersja pliku: 1.0.0
 # Plik: grafiki/shifts_schedule.py
 # Zmiany:
-# - Silnik rotacji zmian A/B/C oraz API
+# - Silnik rotacji zmian w oparciu o identyfikatory numeryczne oraz API
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
-_DEFAULT_PATTERNS = {"A": "112", "B": "111", "C": "12"}
+_DEFAULT_PATTERNS = {"112": "112", "111": "111", "12": "12"}
 
 _DATA_DIR = os.path.join("data", "grafiki")
 _MODES_FILE = os.path.join(_DATA_DIR, "tryby_userow.json")
@@ -50,8 +50,34 @@ def _load_modes() -> dict:
             "modes": {},
         }
         _save_json(_MODES_FILE, data)
-    if not data.get("patterns"):
-        data["patterns"] = _DEFAULT_PATTERNS.copy()
+
+    patterns = data.get("patterns")
+    migrated = False
+    if isinstance(patterns, dict):
+        old_map = {"A": "112", "B": "111", "C": "12"}
+        if any(k in old_map for k in patterns):
+            patterns = {old_map.get(k, k): v for k, v in patterns.items()}
+            patterns = {v: v for v in patterns.values()}
+            migrated = True
+    elif isinstance(patterns, list):
+        patterns = {p: p for p in patterns}
+        migrated = True
+    else:
+        patterns = _DEFAULT_PATTERNS.copy()
+        migrated = True
+    data["patterns"] = patterns
+
+    modes = data.get("modes", {})
+    old_map = {"A": "112", "B": "111", "C": "12"}
+    for uid, mode in list(modes.items()):
+        if mode in old_map:
+            modes[uid] = old_map[mode]
+            migrated = True
+    data["modes"] = modes
+
+    if migrated:
+        _save_json(_MODES_FILE, data)
+
     return data
 
 
@@ -146,7 +172,7 @@ def _load_users() -> List[Dict[str, str]]:
 
 def _user_mode(user_id: str) -> str:
     modes = _load_modes().get("modes", {})
-    return modes.get(user_id, "B")
+    return modes.get(user_id, "111")
 
 
 def _week_idx(day: date) -> int:
@@ -244,7 +270,7 @@ def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
     for u in _load_users():
         if not u.get("active"):
             continue
-        mode = modes.get(u["id"], "B")
+        mode = modes.get(u["id"], "111")
         slot = _slot_for_mode(mode, widx)
         start = times["R_START"] if slot == "RANO" else times["P_START"]
         end = times["R_END"] if slot == "RANO" else times["P_END"]
