@@ -25,7 +25,8 @@
   "auth": {
     "required": true,
     "session_timeout_min": 30,
-    "pin_length": 4
+    "pin_length": 4,
+    "pinless_brygadzista": false
   },
   "paths": {
     "maszyny": "maszyny.json",
