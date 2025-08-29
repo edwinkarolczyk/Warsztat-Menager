@@ -157,6 +157,7 @@ def _shift_progress(now: datetime):
 def uruchom_panel(root, login, rola):
     global active_guard
     active_guard = DirtyGuard()
+    active_guard.attach_window_close(root)
     apply_theme(root)
     root.title(
         f"Warsztat Menager v{APP_VERSION} - zalogowano jako {login} ({rola})"
