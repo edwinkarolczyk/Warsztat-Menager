@@ -128,15 +128,20 @@ def show_startup_error(e):
 
 # ====== AUTO UPDATE ======
 def auto_update_on_start():
-    """Run git pull if updates.auto flag is enabled."""
+    """Run git pull if ``updates.auto`` flag is enabled.
+
+    Returns ``True`` if the repository was updated, otherwise ``False``.
+    """
     try:
         cfg = ConfigManager()
     except Exception as e:
         _error(f"ConfigManager init failed: {e}")
-        return
+        return False
     if cfg.get("updates.auto", False):
         try:
-            _run_git_pull(Path.cwd(), _now_stamp())
+            output = _run_git_pull(Path.cwd(), _now_stamp())
+            if output and "Already up to date." not in output:
+                return True
         except Exception as e:
             _error(f"auto_update_on_start error: {e}")
             msg = str(e).lower()
@@ -148,6 +153,7 @@ def auto_update_on_start():
                     r.destroy()
                 except Exception:
                     pass
+    return False
 
 # ====== USER FILE (NOWE) ======
 def _ensure_user_file(login, rola):
@@ -260,7 +266,14 @@ def main():
     _info(f"{_ts()} Log file: {_log_path()}")
     _info(f"{_ts()} === START SESJI: {datetime.now()} | ID={SESSION_ID} ===")
 
-    auto_update_on_start()
+    updated = auto_update_on_start()
+
+    if updated:
+        try:
+            import gui_changelog
+            gui_changelog.show_changelog()
+        except Exception as e:
+            _error(f"Nie można wyświetlić changelog: {e}")
 
     update_available = _git_has_updates(Path.cwd())
 
