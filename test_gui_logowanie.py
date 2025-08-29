@@ -234,9 +234,12 @@ def test_logowanie_invalid_pair(tmp_path, monkeypatch):
     assert not logged
 
 
-@pytest.mark.parametrize("attempt_login", ["Edwin", "EDWIN"])
-def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
-    users = [{"login": "edwin", "pin": "1234", "rola": "pracownik"}]
+@pytest.mark.parametrize("stored_login", ["edwin", "Edwin", "EDWIN"])
+@pytest.mark.parametrize("attempt_login", ["edwin", "Edwin", "EDWIN"])
+def test_logowanie_case_insensitive(
+    tmp_path, monkeypatch, stored_login, attempt_login
+):
+    users = [{"login": stored_login, "pin": "1234", "rola": "pracownik"}]
     (tmp_path / "uzytkownicy.json").write_text(
         json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -256,4 +259,4 @@ def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
     monkeypatch.setattr(gui_logowanie, "_on_login_cb", fake_cb)
     monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
     gui_logowanie.logowanie()
-    assert logged == {"login": "edwin", "rola": "pracownik"}
+    assert logged == {"login": stored_login, "rola": "pracownik"}
