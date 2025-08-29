@@ -5,3 +5,4 @@
 {"ts": "2025-08-23 22:01:08", "akcja": "zuzycie", "dane": {"item_id": "MAT-003", "ilosc": 320.0, "by": "system", "ctx": "GUI Magazyn"}}
 {"ts": "2025-08-23 22:01:17", "akcja": "rezerwacja", "dane": {"item_id": "MAT-003", "ilosc": 10.0, "by": "system", "ctx": "GUI Magazyn"}}
 {"ts": "2025-08-28 20:38:56", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
+{"ts": "2025-08-29 07:30:29", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
