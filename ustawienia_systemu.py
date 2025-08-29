@@ -9,7 +9,7 @@
 # ⏹ KONIEC KODU
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, colorchooser
 import subprocess
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -219,13 +219,41 @@ def panel_ustawien(root, frame, login=None, rola=None):
         state="readonly",
     ).grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
+    def _pick_color(var: tk.StringVar) -> None:
+        color = colorchooser.askcolor(var.get())[1]
+        if color:
+            var.set(color)
+
+    def _make_color_row(row: int, key: str, var: tk.StringVar) -> None:
+        ttk.Label(frm_theme, text=f"{color_labels[key]}:").grid(
+            row=row, column=0, sticky="w", padx=5, pady=5
+        )
+        frm_row = ttk.Frame(frm_theme)
+        frm_row.grid(row=row, column=1, sticky="ew", padx=5, pady=5)
+        frm_row.columnconfigure(0, weight=1)
+        ttk.Entry(frm_row, textvariable=var).grid(
+            row=0, column=0, sticky="ew"
+        )
+        btn = tk.Button(frm_row, width=3, command=lambda v=var: _pick_color(v))
+        btn.grid(row=0, column=1, padx=(5, 0))
+
+        def _update_btn(*_args: object, v=var, b=btn) -> None:
+            color = v.get()
+            try:
+                b.configure(bg=color)
+            except tk.TclError:
+                return
+            import ui_theme
+
+            ui_theme._inited = False
+            apply_theme(frame.winfo_toplevel())
+
+        var.trace_add("write", _update_btn)
+        _update_btn()
+
     for i, (color_key, var) in enumerate(color_vars.items(), start=2):
-        ttk.Label(frm_theme, text=f"{color_labels[color_key]}:").grid(
-            row=i, column=0, sticky="w", padx=5, pady=5
-        )
-        ttk.Entry(frm_theme, textvariable=var).grid(
-            row=i, column=1, sticky="ew", padx=5, pady=5
-        )
+        _make_color_row(i, color_key, var)
+
     _theme_save_row = len(color_vars) + 2
 
     # --- Ogólne ---
