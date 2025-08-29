@@ -92,17 +92,6 @@ def _today_str(dtobj=None):
         dtobj = datetime.now()
     return dtobj.strftime("%Y-%m-%d")
 
-def _is_online(login, max_age_sec=None):
-    try:
-        import presence
-        recs, _ = presence.read_presence(max_age_sec=max_age_sec)
-        for r in recs:
-            if r.get("login")==login:
-                return bool(r.get("online"))
-    except Exception:
-        pass
-    return False
-
 def _users_meta():
     meta = _read_json(_path("uzytkownicy.json"), [])
     out = {}
@@ -160,13 +149,21 @@ def run_check():
         return 0
 
     users = _users_meta()
+    online_logins = set()
+    try:
+        import presence
+        recs, _ = presence.read_presence(max_age_sec=None)
+        online_logins = {r.get("login") for r in recs if r.get("online")}
+    except Exception:
+        pass
+
     created = 0
     for lg, meta in users.items():
         # tylko użytkownicy przypisani do tej zmiany (meta["zmiana"])
-        mshift = str(meta.get("zmiana","")).upper().replace("3","III").replace("2","II").replace("1","I")
-        if mshift != active: 
+        mshift = str(meta.get("zmiana", "")).upper().replace("3", "III").replace("2", "II").replace("1", "I")
+        if mshift != active:
             continue
-        if _is_online(lg, max_age_sec=None):
+        if lg in online_logins:
             continue
         if _ensure_alert(_today_str(now_local), active, lg):
             created += 1
