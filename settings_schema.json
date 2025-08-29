@@ -529,6 +529,25 @@
       "default": 7,
       "widget": "spinbox",
       "scope": "global"
+    },
+    {
+      "key": "notifications.enabled",
+      "group": "Powiadomienia",
+      "label": "Włącz powiadomienia",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
+      "key": "notifications.method",
+      "group": "Powiadomienia",
+      "label": "Typ powiadomień",
+      "type": "enum",
+      "enum": ["toast", "messagebox"],
+      "default": "messagebox",
+      "widget": "select",
+      "scope": "global"
     }
   ]
 }

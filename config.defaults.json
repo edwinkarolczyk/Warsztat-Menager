@@ -47,6 +47,10 @@
       "enabled": true
     }
   },
+  "notifications": {
+    "enabled": true,
+    "method": "messagebox"
+  },
   "dashboard": {
     "mini_hall": {
       "enabled": true
