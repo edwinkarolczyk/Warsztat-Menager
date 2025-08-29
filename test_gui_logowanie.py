@@ -232,3 +232,28 @@ def test_logowanie_invalid_pair(tmp_path, monkeypatch):
     gui_logowanie.logowanie()
     assert errors and errors[0] == "Nieprawidłowy login lub PIN"
     assert not logged
+
+
+@pytest.mark.parametrize("typed_login", ["Edwin", "EDWIN"])
+def test_logowanie_case_insensitive(tmp_path, monkeypatch, typed_login):
+    users = [{"login": "Edwin", "pin": "1234", "rola": "admin"}]
+    (tmp_path / "uzytkownicy.json").write_text(
+        json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: typed_login)
+    )
+    monkeypatch.setattr(
+        gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "1234")
+    )
+    logged = {}
+
+    def fake_cb(login, rola, extra):
+        logged["login"] = login
+        logged["rola"] = rola
+
+    monkeypatch.setattr(gui_logowanie, "_on_login_cb", fake_cb)
+    monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
+    gui_logowanie.logowanie()
+    assert logged == {"login": "Edwin", "rola": "admin"}
