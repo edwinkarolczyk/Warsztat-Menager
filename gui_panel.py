@@ -10,6 +10,7 @@
 
 import json
 import os
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, time, timedelta
@@ -19,6 +20,7 @@ from utils.gui_helpers import clear_frame
 from dirty_guard import DirtyGuard
 
 active_guard = DirtyGuard()
+feedback_lock = threading.Lock()
 
 
 def _get_app_version() -> str:
@@ -389,35 +391,46 @@ def uruchom_panel(root, login, rola):
                 "ts": datetime.now().isoformat(),
                 "message": message,
             }
-            sent = False
-            try:
-                import requests
+            btn.config(state="disabled")
 
-                cm = globals().get("CONFIG_MANAGER")
-                url = cm.get("feedback.url") if cm else None
-                if url:
-                    resp = requests.post(url, json=payload, timeout=5)
-                    resp.raise_for_status()
-                    sent = True
-            except Exception:
+            def _worker() -> None:
                 sent = False
-            if not sent:
-                os.makedirs("data", exist_ok=True)
-                path = os.path.join("data", "opinie.json")
                 try:
-                    with open(path, "r", encoding="utf-8") as fh:
-                        data = json.load(fh)
-                except Exception:
-                    data = []
-                data.append(payload)
-                with open(path, "w", encoding="utf-8") as fh:
-                    json.dump(data, fh, ensure_ascii=False, indent=2)
-            messagebox.showinfo(
-                "Dziękujemy", "Twoja opinia została przesłana."
-            )
-            win.destroy()
+                    import requests
 
-        ttk.Button(win, text="Wyślij", command=_submit).pack(pady=(0, 10))
+                    cm = globals().get("CONFIG_MANAGER")
+                    url = cm.get("feedback.url") if cm else None
+                    if url:
+                        resp = requests.post(url, json=payload, timeout=5)
+                        resp.raise_for_status()
+                        sent = True
+                except Exception:
+                    sent = False
+                if not sent:
+                    os.makedirs("data", exist_ok=True)
+                    path = os.path.join("data", "opinie.json")
+                    with feedback_lock:
+                        try:
+                            with open(path, "r", encoding="utf-8") as fh:
+                                data = json.load(fh)
+                        except Exception:
+                            data = []
+                        data.append(payload)
+                        with open(path, "w", encoding="utf-8") as fh:
+                            json.dump(data, fh, ensure_ascii=False, indent=2)
+
+                def _done() -> None:
+                    messagebox.showinfo(
+                        "Dziękujemy", "Twoja opinia została przesłana."
+                    )
+                    win.destroy()
+
+                root.after(0, _done)
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        btn = ttk.Button(win, text="Wyślij", command=_submit)
+        btn.pack(pady=(0, 10))
     
     # przyciski boczne
     ttk.Button(side, text="Zlecenia",  command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),  style="WM.Side.TButton").pack(padx=10, pady=(12,6), fill="x")
