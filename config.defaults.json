@@ -4,6 +4,7 @@
     "theme": "dark",
     "accent": "red",
     "always_searchbar": true,
+    "confirm_on_close": true,
     "language": "pl",
     "colors": {
       "dark_bg": "#1b1f24",

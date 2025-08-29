@@ -17,6 +17,7 @@ from datetime import datetime, time, timedelta
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from dirty_guard import DirtyGuard
+from config_manager import ConfigManager
 
 active_guard = DirtyGuard()
 
@@ -163,6 +164,17 @@ def uruchom_panel(root, login, rola):
     )
     clear_frame(root)
 
+    def _confirm_guard(action):
+        cm = globals().get("CONFIG_MANAGER")
+        try:
+            confirm = (cm or ConfigManager()).get("ui.confirm_on_close", True)
+        except Exception:
+            confirm = True
+        if confirm:
+            active_guard.check_before(action)
+        else:
+            action()
+
     def _show_about():
         messagebox.showinfo(
             "O programie", f"Warsztat Menager\nWersja {APP_VERSION}"
@@ -213,7 +225,7 @@ def uruchom_panel(root, login, rola):
                 except Exception:
                     pass
 
-        active_guard.check_before(_do_logout)
+        _confirm_guard(_do_logout)
     def _quit():
         """Zamknij aplikację, pytając o zapis przy brudnych danych."""
 
@@ -223,7 +235,7 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 pass
 
-        active_guard.check_before(_do_quit)
+        _confirm_guard(_do_quit)
 
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
     ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
@@ -339,7 +351,7 @@ def uruchom_panel(root, login, rola):
                 else:
                     active_guard = DirtyGuard()
 
-        active_guard.check_before(_open_panel)
+        _confirm_guard(_open_panel)
 
     # --- role helpers + quick open profile ---
     def _is_admin_role(r):
@@ -366,7 +378,7 @@ def uruchom_panel(root, login, rola):
                 else:
                     active_guard = DirtyGuard()
 
-        active_guard.check_before(_do_open)
+        _confirm_guard(_do_open)
 
     def _open_feedback():
         win = tk.Toplevel(root)
