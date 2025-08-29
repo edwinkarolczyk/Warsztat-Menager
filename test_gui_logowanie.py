@@ -55,20 +55,30 @@ class DummyLabel(DummyWidget):
         self.initial_text = kwargs.get("text")
 
 
+class DummyElements(list):
+    pass
+
+
 @pytest.fixture
 def dummy_gui(monkeypatch):
-    labels = []
+    elements = DummyElements()
+    buttons = []
 
     def fake_label(master=None, **kwargs):
         lbl = DummyLabel(**kwargs)
-        labels.append(lbl)
+        elements.append(lbl)
         return lbl
+
+    def fake_button(master=None, **kwargs):
+        btn = DummyWidget(**kwargs)
+        buttons.append(btn)
+        return btn
 
     fake_ttk = types.SimpleNamespace(
         Frame=DummyWidget,
         Label=fake_label,
         Entry=DummyWidget,
-        Button=DummyWidget,
+        Button=fake_button,
         Style=DummyWidget,
     )
     fake_tk = types.SimpleNamespace(Canvas=DummyWidget, Label=DummyLabel)
@@ -78,7 +88,8 @@ def dummy_gui(monkeypatch):
     monkeypatch.setattr(gui_logowanie, "apply_theme", lambda root: None)
     monkeypatch.setattr(gui_logowanie.gui_panel, "_shift_progress", lambda now: (0, False))
     monkeypatch.setattr(gui_logowanie.gui_panel, "_shift_bounds", lambda now: (now, now))
-    return labels
+    elements.buttons = buttons
+    return elements
 
 
 def test_load_last_update_info_json(tmp_path, monkeypatch):
@@ -189,6 +200,23 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
     lbl = next(l for l in dummy_gui if l.initial_text == "init")
     assert lbl.kwargs["text"] == "init – Nieaktualna"
     assert lbl.kwargs["foreground"] == "red"
+
+
+def test_pinless_button_present(monkeypatch, dummy_gui):
+    original_get = ConfigManager.get
+
+    def fake_get(self, key, default=None):
+        if key == "auth.pinless_brygadzista":
+            return True
+        return original_get(self, key, default)
+
+    monkeypatch.setattr(ConfigManager, "get", fake_get)
+    root = DummyRoot()
+    gui_logowanie.ekran_logowania(root=root)
+    assert any(
+        btn.kwargs.get("text") == "Logowanie bez PIN"
+        for btn in dummy_gui.buttons
+    )
 
 
 def test_logowanie_success(tmp_path, monkeypatch):

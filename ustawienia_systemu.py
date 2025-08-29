@@ -132,6 +132,9 @@ def panel_ustawien(root, frame, login=None, rola=None):
         value=cfg.get("auth.session_timeout_min", 30)
     )
     auth_pin_var = tk.IntVar(value=cfg.get("auth.pin_length", 4))
+    pinless_brygadzista_var = tk.BooleanVar(
+        value=cfg.get("auth.pinless_brygadzista", False)
+    )
 
     path_maszyny_var = tk.StringVar(
         value=cfg.get("paths.maszyny", "maszyny.json")
@@ -366,6 +369,13 @@ def panel_ustawien(root, frame, login=None, rola=None):
         frm_auth, from_=4, to=8, textvariable=auth_pin_var, width=5
     ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
+    ttk.Label(frm_auth, text="Logowanie brygadzisty bez PIN:").grid(
+        row=3, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Checkbutton(
+        frm_auth, variable=pinless_brygadzista_var
+    ).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+
     def _save_auth():
         try:
             cfg.set("auth.required", bool(auth_required_var.get()))
@@ -373,13 +383,16 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 "auth.session_timeout_min", int(auth_timeout_var.get())
             )
             cfg.set("auth.pin_length", int(auth_pin_var.get()))
+            cfg.set(
+                "auth.pinless_brygadzista", bool(pinless_brygadzista_var.get())
+            )
             cfg.save_all()
             apply_theme(frame.winfo_toplevel())
         except ConfigError as e:
             messagebox.showerror("Błąd", str(e))
 
     ttk.Button(frm_auth, text="Zapisz", command=_save_auth).grid(
-        row=3, column=0, columnspan=2, pady=10
+        row=4, column=0, columnspan=2, pady=10
     )
 
     # --- Ścieżki danych ---

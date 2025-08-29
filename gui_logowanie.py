@@ -51,6 +51,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         root = tk.Tk()
     root_global = root
     _on_login_cb = on_login
+    cfg = ConfigManager()
 
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
@@ -140,6 +141,13 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     entry_pin = ttk.Entry(box, show="*", width=22)
     entry_pin.pack(ipadx=10, ipady=6)
     ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
+    if cfg.get("auth.pinless_brygadzista", False):
+        ttk.Button(
+            box,
+            text="Logowanie bez PIN",
+            command=_login_pinless,
+            style="WM.Side.TButton",
+        ).pack(pady=(0, 16))
 
     # --- PASEK POSTĘPU ZMIANY (1/3 szer., wyśrodkowany) ---
     prefooter = ttk.Frame(root, style="WM.TFrame")
@@ -223,7 +231,6 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     update_text, _ = load_last_update_info()
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
-    cfg = ConfigManager()
     remote = cfg.get("updates.remote", "origin")
     branch = cfg.get("updates.branch", "proby-rozwoju")
     try:
@@ -246,6 +253,43 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             style="WM.Muted.TLabel",
         ).pack(side="bottom", pady=(0, 2))
 
+def _login_pinless():
+    user_file = Path(__file__).with_name("uzytkownicy.json")
+    try:
+        with user_file.open("r", encoding="utf-8") as f:
+            users = json.load(f)
+
+        if isinstance(users, dict):
+            iterator = users.items()
+        elif isinstance(users, list):
+            iterator = (
+                (str(rec.get("login") or idx), rec)
+                for idx, rec in enumerate(users)
+                if isinstance(rec, dict)
+            )
+        else:
+            raise TypeError(
+                "uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)"
+            )
+
+        for login_key, dane in iterator:
+            if str(dane.get("rola", "")).strip().lower() == "brygadzista":
+                if _on_login_cb:
+                    try:
+                        _on_login_cb(login_key, "brygadzista", None)
+                    except Exception as err:
+                        logging.exception("Error in login callback")
+                        messagebox.showerror(
+                            "Błąd", f"Błąd w callbacku logowania: {err}"
+                        )
+                else:
+                    gui_panel.uruchom_panel(root_global, login_key, "brygadzista")
+                return
+        messagebox.showerror("Błąd", "Nie znaleziono brygadzisty")
+    except Exception as e:
+        messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
+
+
 def logowanie():
     user_file = Path(__file__).with_name("uzytkownicy.json")
     login = entry_login.get().strip().lower()
@@ -264,7 +308,9 @@ def logowanie():
                 if isinstance(rec, dict)
             )
         else:
-            raise TypeError("uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)")
+            raise TypeError(
+                "uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)"
+            )
 
         for login_key, dane in iterator:
             if (

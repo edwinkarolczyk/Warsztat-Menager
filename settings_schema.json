@@ -213,6 +213,16 @@
       "requires_restart": false
     },
     {
+      "key": "auth.pinless_brygadzista",
+      "group": "Logowanie/Autoryzacja",
+      "label": "Logowanie brygadzisty bez PIN",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
       "key": "paths.maszyny",
       "group": "Pliki i ścieżki",
       "label": "Ścieżka: maszyny.json",
