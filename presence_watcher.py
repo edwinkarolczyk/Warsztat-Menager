@@ -46,12 +46,15 @@ def _path(fname):
     return os.path.join(base, fname)
 
 def _read_json(path, default):
+    if not os.path.exists(path):
+        return default
     try:
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-    except Exception:
-        pass
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        log_akcja(f"[JSON] read error for {path}: {e}")
+    except Exception as e:
+        log_akcja(f"[JSON] unexpected read error for {path}: {e}")
     return default
 
 def _write_json(path, data):
