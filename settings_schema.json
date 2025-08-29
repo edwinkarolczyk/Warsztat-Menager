@@ -283,10 +283,20 @@
         "requires_restart": false
       },
       {
+        "key": "updates.push_branch",
+        "group": "Aktualizacje",
+        "label": "Gałąź git push",
+        "type": "string",
+        "default": "git-push",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
         "key": "modules.service.enabled",
         "group": "Moduły i widoki",
         "label": "Moduł serwisowy włączony",
-      "type": "bool",
+        "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",

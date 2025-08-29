@@ -76,6 +76,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
     branch_var = tk.StringVar(value=cfg.get("updates.branch", "proby-rozwoju"))
+    push_branch_var = tk.StringVar(value=cfg.get("updates.push_branch", "git-push"))
     connection_status_var = tk.StringVar()
     color_vars = {
         "dark_bg": tk.StringVar(
@@ -273,8 +274,15 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=4, column=1, sticky="ew", padx=5, pady=5
     )
 
+    ttk.Label(frm, text="Gałąź git push:").grid(
+        row=5, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=push_branch_var).grid(
+        row=5, column=1, sticky="ew", padx=5, pady=5
+    )
+
     ttk.Label(frm, textvariable=connection_status_var).grid(
-        row=5, column=0, columnspan=2, sticky="w", padx=5, pady=5
+        row=6, column=0, columnspan=2, sticky="w", padx=5, pady=5
     )
 
     def _check_git_connection():
@@ -301,6 +309,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             cfg.set("updates.auto", bool(auto_var.get()))
             cfg.set("updates.remote", remote_var.get())
             cfg.set("updates.branch", branch_var.get())
+            cfg.set("updates.push_branch", push_branch_var.get())
             for color_key, var in color_vars.items():
                 cfg.set(f"ui.colors.{color_key}", var.get())
             cfg.save_all()
@@ -312,10 +321,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
             messagebox.showerror("Błąd", str(e))
 
     ttk.Button(frm, text="Aktualizuj", command=_check_git_connection).grid(
-        row=6, column=0, columnspan=2, pady=5
+        row=7, column=0, columnspan=2, pady=5
     )
     ttk.Button(frm, text="Zapisz", command=_save).grid(
-        row=7, column=0, columnspan=2, pady=10
+        row=8, column=0, columnspan=2, pady=10
     )
     ttk.Button(frm_theme, text="Zapisz", command=_save).grid(
         row=_theme_save_row, column=0, columnspan=2, pady=10

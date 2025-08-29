@@ -38,7 +38,8 @@
   "updates": {
     "auto": true,
     "remote": "origin",
-    "branch": "proby-rozwoju"
+    "branch": "proby-rozwoju",
+    "push_branch": "git-push"
   },
   "modules": {
     "service": {
