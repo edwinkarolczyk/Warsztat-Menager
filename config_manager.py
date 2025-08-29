@@ -38,6 +38,9 @@ class ConfigManager:
         self.schema = self._load_json_or_raise(
             SCHEMA_PATH, msg_prefix="Brak pliku schematu"
         )
+        self._schema_idx: Dict[str, Dict[str, Any]] = {
+            opt["key"]: opt for opt in self.schema.get("options", [])
+        }
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(GLOBAL_PATH) or {}
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
@@ -90,14 +93,12 @@ class ConfigManager:
         return merged
 
     def _schema_index(self) -> Dict[str, Dict[str, Any]]:
-        idx: Dict[str, Dict[str, Any]] = {}
-        for opt in self.schema.get("options", []):
-            idx[opt["key"]] = opt
-        return idx
+        """Zwraca zbuforowany indeks schematu."""
+        return self._schema_idx
 
     # ========== walidacja ==========
     def _validate_all(self):
-        idx = self._schema_index()
+        idx = self._schema_idx
         for key, value in flatten(self.merged).items():
             if key not in idx:
                 # klucz spoza schematu – dopuszczamy (forward‑compat), ale można by zalogować
@@ -135,7 +136,7 @@ class ConfigManager:
         return get_by_key(self.merged, key, default)
 
     def set(self, key: str, value: Any, who: str = "system"):
-        idx = self._schema_index()
+        idx = self._schema_idx
         opt = idx.get(key)
         if opt:
             self._validate_value(opt, value)
@@ -178,7 +179,7 @@ class ConfigManager:
 
     def import_with_dry_run(self, path: str) -> Dict[str, Any]:
         incoming = self._load_json_or_raise(path, msg_prefix="Brak pliku do importu")
-        idx = self._schema_index()
+        idx = self._schema_idx
         diffs: List[Dict[str, Any]] = []
         for k, v in flatten(incoming).items():
             if k in idx:
