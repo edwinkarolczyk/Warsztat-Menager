@@ -20,5 +20,11 @@ py -3 start.py
 
 > Uwaga: `config.json` nie trafia do repo (jest w `.gitignore`). Komitujemy `config.sample.json` z bezpiecznymi wartościami.
 
+## Konfiguracja zmian
+Plik `config.json` obsługuje pola:
+- `zmiana_rano_start` / `zmiana_rano_end`
+- `zmiana_pop_start` / `zmiana_pop_end`
+- `rotacja_anchor_monday`
+
 ## Licencja
 Wewnętrzny projekt (prywatny repozytorium) – do użytku w zespole.

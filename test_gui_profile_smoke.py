@@ -1,5 +1,6 @@
 import importlib
 import os
+import pytest
 
 def test_public_api():
     mod = importlib.import_module('gui_profile')
@@ -11,6 +12,8 @@ def test_public_api():
 
 def test_default_avatar_used(monkeypatch):
     mod = importlib.import_module('gui_profile')
+    if mod.Image is None or mod.ImageTk is None:
+        pytest.skip("Pillow not installed")
 
     opened = []
 
@@ -43,3 +46,20 @@ def test_default_avatar_used(monkeypatch):
         os.path.join('avatars', 'default.jpg'),
     ]
     assert isinstance(lbl.image, DummyPhoto)
+
+
+def test_avatar_fallback_without_pillow(monkeypatch):
+    mod = importlib.import_module('gui_profile')
+
+    monkeypatch.setattr(mod, 'Image', None)
+    monkeypatch.setattr(mod, 'ImageTk', None)
+
+    class DummyLabel:
+        def __init__(self, parent, text=None, style=None):
+            self.text = text
+
+    monkeypatch.setattr(mod.ttk, 'Label', DummyLabel)
+
+    lbl = mod._load_avatar(None, 'ghost')
+    assert isinstance(lbl, DummyLabel)
+    assert 'ghost' in lbl.text

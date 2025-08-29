@@ -3,7 +3,7 @@
   "options": [
   {
         "key": "ui.theme",
-        "group": "Ogólne",
+        "group": "Motyw",
         "label": "Motyw",
       "type": "enum",
       "enum": [
@@ -28,7 +28,7 @@
       },
       {
         "key": "ui.accent",
-        "group": "Ogólne",
+        "group": "Motyw",
         "label": "Akcent kolorystyczny",
       "type": "enum",
       "enum": [
@@ -52,8 +52,118 @@
         "scope": "global",
         "requires_restart": false
       },
-      {
-        "key": "app.start_view",
+    {
+      "key": "ui.colors.dark_bg",
+      "group": "Motyw",
+      "label": "Tło główne",
+      "type": "string",
+      "default": "#1b1f24",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.dark_bg_2",
+      "group": "Motyw",
+      "label": "Tło pól",
+      "type": "string",
+      "default": "#20262e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.side_bg",
+      "group": "Motyw",
+      "label": "Tło panelu bocznego",
+      "type": "string",
+      "default": "#14181d",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.card_bg",
+      "group": "Motyw",
+      "label": "Tło kart",
+      "type": "string",
+      "default": "#20262e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.fg",
+      "group": "Motyw",
+      "label": "Kolor tekstu",
+      "type": "string",
+      "default": "#e6e6e6",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.muted_fg",
+      "group": "Motyw",
+      "label": "Tekst przygaszony",
+      "type": "string",
+      "default": "#9aa0a6",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg",
+      "group": "Motyw",
+      "label": "Przyciski – tło",
+      "type": "string",
+      "default": "#2a3139",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg_hover",
+      "group": "Motyw",
+      "label": "Przyciski – hover",
+      "type": "string",
+      "default": "#343b45",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.btn_bg_act",
+      "group": "Motyw",
+      "label": "Przyciski – aktywny",
+      "type": "string",
+      "default": "#3b434e",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.banner_fg",
+      "group": "Motyw",
+      "label": "Banner – tekst",
+      "type": "string",
+      "default": "#ff4d4d",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.colors.banner_bg",
+      "group": "Motyw",
+      "label": "Banner – tło",
+      "type": "string",
+      "default": "#1b1b1b",
+      "widget": "color",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "app.start_view",
       "group": "Ogólne",
       "label": "Widok startowy",
       "type": "enum",
@@ -153,10 +263,40 @@
         "requires_restart": false
       },
       {
+        "key": "updates.remote",
+        "group": "Aktualizacje",
+        "label": "Zdalne repozytorium",
+        "type": "string",
+        "default": "origin",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "updates.branch",
+        "group": "Aktualizacje",
+        "label": "Gałąź aktualizacji",
+        "type": "string",
+        "default": "proby-rozwoju",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
+        "key": "updates.push_branch",
+        "group": "Aktualizacje",
+        "label": "Gałąź git push",
+        "type": "string",
+        "default": "git-push",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
         "key": "modules.service.enabled",
         "group": "Moduły i widoki",
         "label": "Moduł serwisowy włączony",
-      "type": "bool",
+        "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",

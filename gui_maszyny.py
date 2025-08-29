@@ -29,6 +29,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
 
 MACHINES_FILE = "maszyny.json"
 
@@ -78,9 +79,7 @@ def _next_task_str(maszyna: dict) -> str:
 
 def panel_maszyny(root, frame, login=None, rola=None):
     """Buduje panel maszyn w przekazanym kontenerze ``frame``."""
-
-    for widget in frame.winfo_children():
-        widget.destroy()
+    clear_frame(frame)
 
     apply_theme(frame)
 

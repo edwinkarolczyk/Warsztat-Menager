@@ -1,12 +1,12 @@
 # Plik: zlecenia_utils.py
 # Wersja pliku: 1.0.0
 
-import json, os
+import os
+from io_utils import read_json, write_json
 from datetime import datetime
 
 def przelicz_zapotrzebowanie(plik_produktu, ilosc):
-    with open(plik_produktu, encoding="utf-8") as f:
-        data = json.load(f)
+    data = read_json(plik_produktu) or {}
     wynik = {}
     for el in data["komponenty"]:
         typ = el["typ"]
@@ -15,8 +15,7 @@ def przelicz_zapotrzebowanie(plik_produktu, ilosc):
     return wynik
 
 def sprawdz_magazyn(plik_magazynu, zapotrzebowanie, prog=0.1):
-    with open(plik_magazynu, encoding="utf-8") as f:
-        magazyn = json.load(f)
+    magazyn = read_json(plik_magazynu) or {}
     alerty = []
     zuzycie = []
     for typ, potrzebne in zapotrzebowanie.items():
@@ -43,5 +42,4 @@ def zapisz_zlecenie(folder, produkt, ilosc):
         "użytkownik": "Edwin",
         "komentarze": []
     }
-    with open(os.path.join(folder, f"{numer}.json"), "w", encoding="utf-8") as f:
-        json.dump(dane, f, indent=2, ensure_ascii=False)
+    write_json(os.path.join(folder, f"{numer}.json"), dane)

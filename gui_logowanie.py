@@ -1,69 +1,38 @@
 # Wersja pliku: 1.4.12.1
 # Plik: gui_logowanie.py
 # Zmiany 1.4.12.1:
-# - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją)
+# - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
 # - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
 # - Bezpieczny timer (after) + anulowanie przy Destroy
 # - Spójny wygląd z motywem (apply_theme), brak pływania elementów
 
 import os
 import json
+import logging
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from pathlib import Path
+from config_manager import ConfigManager
+from updates_utils import load_last_update_info
+from grafiki.shifts_schedule import who_is_on_now
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_tree
+
+# Alias zachowany dla kompatybilności testów
+apply_theme = apply_theme_tree
 
 
-# --- informacje o ostatniej aktualizacji ---
-def load_last_update_info():
-    """Pobierz informację o ostatniej aktualizacji.
-
-    Funkcja próbuje odczytać ostatni wpis ``data`` i ``wersje`` z pliku
-    ``logi_wersji.json``. Jeżeli plik nie istnieje lub jest uszkodzony,
-    analizowana jest linia ``Data:`` w ``CHANGES_PROFILES_UPDATE.txt``.
-    Jeżeli obie metody zawiodą, zwracane jest ``None``.
-
-    Returns:
-        tuple[str, str | None] | None: ``(tekst, wersja)`` z ostatniej
-        aktualizacji; gdy brak danych o wersji drugi element to ``None``.
-        ``None`` oznacza brak informacji o aktualizacjach.
-    """
-
-    try:
-        with open("logi_wersji.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list) and data:
-            last = data[-1]
-            data_str = last.get("data")
-            wersje = last.get("wersje", {})
-            version = None
-            if isinstance(wersje, dict):
-                version = next(iter(wersje.values()), None)
-            if data_str:
-                return f"Ostatnia aktualizacja: {data_str}", version
-    except Exception:
-        pass
-
-    try:
-        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip().lower().startswith("data:"):
-                    date_str = line.split(":", 1)[1].strip()
-                    if date_str:
-                        return f"Ostatnia aktualizacja: {date_str}", None
-    except Exception:
-        pass
-
-    return None
+ # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
+entry_login = None
 root_global = None
 _on_login_cb = None
 
@@ -77,7 +46,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
            on_login: opcjonalny callback (login, rola, extra=None) wywoływany po poprawnym logowaniu.
            update_available (bool): jeśli True, pokaż komunikat o dostępnej aktualizacji.
     """
-    global entry_pin, root_global, _on_login_cb
+    global entry_login, entry_pin, root_global, _on_login_cb
     if root is None:
         root = tk.Tk()
     root_global = root
@@ -86,7 +55,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
         w.destroy()
-    apply_theme(root)
+    apply_theme_tree(root)
 
     # pełny ekran i tytuł
     root.title("Warsztat Menager")
@@ -117,8 +86,55 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     center = ttk.Frame(root, style="WM.TFrame")
     center.pack(fill="both", expand=True)
 
+    banner = ttk.Frame(center, style="WM.Card.TFrame", padding=(12, 6))
+    banner.pack(fill="x", pady=(0, 8))
+
+    shift_label = ttk.Label(banner, text="", style="WM.Banner.TLabel", anchor="w")
+    shift_label.pack(fill="x")
+
+    users_box = ttk.Frame(banner, style="WM.TFrame")
+    users_box.pack(fill="x", pady=(2, 0))
+
+    def _update_banner():
+        try:
+            info = who_is_on_now(datetime.now())
+        except Exception as e:
+            print("[WM-DBG][LOGIN] who_is_on_now error:", e)
+            shift_label.config(text="Grafik zmian: błąd")
+            for w in users_box.winfo_children():
+                w.destroy()
+            return
+
+        for w in users_box.winfo_children():
+            w.destroy()
+
+        if not info.get("slot"):
+            shift_label.config(text="Poza godzinami zmian")
+            ttk.Label(
+                users_box,
+                text="Brak aktywnych użytkowników",
+                style="WM.Muted.TLabel",
+                anchor="w",
+            ).pack(anchor="w")
+            return
+
+        s, e, *_ = gui_panel._shift_bounds(datetime.now())
+        label = "Poranna" if info["slot"] == "RANO" else "Popołudniowa"
+        shift_label.config(text=f"{label} {s.strftime('%H:%M')}–{e.strftime('%H:%M')}")
+        if info["users"]:
+            for name in info["users"]:
+                ttk.Label(users_box, text=name, style="WM.TLabel", anchor="w").pack(anchor="w")
+        else:
+            ttk.Label(users_box, text="—", style="WM.Muted.TLabel", anchor="w").pack(anchor="w")
+
+    _update_banner()
+
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
+
+    ttk.Label(box, text="Login:", style="WM.H2.TLabel").pack(pady=(8, 6))
+    entry_login = ttk.Entry(box, width=22)
+    entry_login.pack(ipadx=10, ipady=6)
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
     entry_pin = ttk.Entry(box, show="*", width=22)
@@ -181,6 +197,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             shift_job["id"] = None
             return
         draw_login_shift()
+        _update_banner()
         shift_job["id"] = root.after(1000, _tick)
 
     def _on_destroy(_e=None):
@@ -203,25 +220,19 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
-    update_info = load_last_update_info()
-    if update_info is None:
-        update_text = "brak danych o aktualizacjach"
-    else:
-        update_text = update_info[0]
+    update_text, _ = load_last_update_info()
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
+    cfg = ConfigManager()
+    remote = cfg.get("updates.remote", "origin")
+    branch = cfg.get("updates.branch", "proby-rozwoju")
     try:
-        subprocess.run(
-            ["git", "fetch", "origin", "proby-rozwoju"],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        subprocess.run(["git", "fetch", remote, branch], check=True)
         remote_commit = subprocess.check_output(
-            ["git", "rev-parse", "origin/proby-rozwoju"], text=True
+            ["git", "rev-parse", f"{remote}/{branch}"], text=True  # remote commit
         ).strip()
         local_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True
+            ["git", "rev-parse", "HEAD"], text=True  # local commit
         ).strip()
         status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
         colour = "green" if status == "Aktualna" else "red"
@@ -236,9 +247,11 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
+    user_file = Path(__file__).with_name("uzytkownicy.json")
+    login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
-        with open("uzytkownicy.json", "r", encoding="utf-8") as f:
+        with user_file.open("r", encoding="utf-8") as f:
             users = json.load(f)
 
         # Kompatybilność: dict (stary format) lub list (nowy format)
@@ -253,8 +266,11 @@ def logowanie():
         else:
             raise TypeError("uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)")
 
-        for login, dane in iterator:
-            if str(dane.get("pin", "")).strip() == pin:
+        for login_key, dane in iterator:
+            if (
+                str(login_key).strip().lower() == login
+                and str(dane.get("pin", "")).strip() == pin
+            ):
                 status = str(dane.get("status", "")).strip().lower()
                 if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
                     messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
@@ -262,13 +278,16 @@ def logowanie():
                 rola = dane.get("rola", "pracownik")
                 if _on_login_cb:
                     try:
-                        _on_login_cb(login, rola, None)
-                    except Exception:
-                        pass
+                        _on_login_cb(login_key, rola, None)
+                    except Exception as err:
+                        logging.exception("Error in login callback")
+                        messagebox.showerror(
+                            "Błąd", f"Błąd w callbacku logowania: {err}"
+                        )
                 else:
-                    gui_panel.uruchom_panel(root_global, login, rola)
+                    gui_panel.uruchom_panel(root_global, login_key, rola)
                 return
-        messagebox.showerror("Błąd", "Nieprawidłowy PIN")
+        messagebox.showerror("Błąd", "Nieprawidłowy login lub PIN")
     except Exception as e:
         messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
 

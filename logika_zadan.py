@@ -6,18 +6,15 @@
 # ⏹ KONIEC KODU
 
 import os
-import json
 
 import logika_magazyn as LM
+from io_utils import read_json
 
 BOM_DIR = os.path.join("data", "produkty")  # zgodnie z ustaleniami
 
 def _load_bom(product_code):
     path = os.path.join(BOM_DIR, f"{product_code}.json")
-    if not os.path.exists(path):
-        return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    return read_json(path)
 
 def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
     """

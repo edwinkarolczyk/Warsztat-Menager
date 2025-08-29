@@ -23,6 +23,7 @@ from tkinter import ttk, messagebox, simpledialog
 import re
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
+from utils.gui_helpers import clear_frame
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -249,8 +250,7 @@ class PanelMagazyn(ttk.Frame):
 
 def panel_magazyn(root, frame, login=None, rola=None):
     apply_theme(root.winfo_toplevel())
-    for w in frame.winfo_children():
-        w.destroy()
+    clear_frame(frame)
     PanelMagazyn(frame).pack(fill="both", expand=True)
 
 def open_panel_magazyn(root):

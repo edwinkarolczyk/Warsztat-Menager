@@ -13,6 +13,13 @@ from tkinter import ttk
 from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
+
+try:
+    from logger import log_akcja
+except Exception:
+    def log_akcja(msg: str):
+        print(f"[LOG] {msg}")
 
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
@@ -24,8 +31,7 @@ try:
         a wewnątrz woła panel_zlecenia(parent, root, None, None) i pakuje wynik do frame.
         """
         # wyczyść miejsce docelowe
-        for w in frame.winfo_children():
-            w.destroy()
+        clear_frame(frame)
         try:
             tab = _panel_zl_src(frame, root, None, None)
         except TypeError:
@@ -42,7 +48,7 @@ try:
             ttk.Label(frame, text="Panel Zleceń – załadowano").pack(pady=12)
 except Exception:
     def panel_zlecenia(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel zleceń (fallback) – błąd importu gui_zlecenia").pack(pady=20)
 
 # --- IMPORT NARZĘDZI Z CZYTELNYM TRACEBACKIEM ---
@@ -55,8 +61,7 @@ except Exception as e:
     import traceback
     _PANEL_NARZ_ERR = traceback.format_exc()
     def panel_narzedzia(root, frame, login=None, rola=None):
-        for w in frame.winfo_children():
-            w.destroy()
+        clear_frame(frame)
         tk.Label(
             frame,
             text="Błąd importu gui_narzedzia.py:" + _PANEL_NARZ_ERR,
@@ -67,14 +72,14 @@ try:
     from gui_maszyny import panel_maszyny
 except Exception:
     def panel_maszyny(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel maszyn").pack(pady=20)
 
 try:
     from gui_uzytkownicy import panel_uzytkownicy
 except Exception:
     def panel_uzytkownicy(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
+        clear_frame(frame)
         ttk.Label(frame, text="Panel użytkowników").pack(pady=20)
 
 try:
@@ -84,19 +89,19 @@ except Exception:
 
 try:
     from ustawienia_systemu import panel_ustawien
-except Exception:
+except Exception as e:
+    log_akcja(f"Błąd importu ustawień: {e}")
+
     def panel_ustawien(root, frame, login=None, rola=None):
-        for w in frame.winfo_children(): w.destroy()
-        ttk.Label(frame, text="Ustawienia systemu").pack(pady=20)
+        clear_frame(frame)
+        ttk.Label(
+            frame,
+            text=f"Ustawienia systemu – błąd importu: {e}"
+        ).pack(pady=20)
 
 # --- IMPORT MAGAZYNU ---
 from gui_magazyn import panel_magazyn
 
-
-try:
-    from logger import log_akcja
-except Exception:
-    def log_akcja(msg: str): print(f"[LOG] {msg}")
 
 # ---------- Zmiany / czas pracy ----------
 
@@ -129,7 +134,7 @@ def _shift_progress(now: datetime):
 def uruchom_panel(root, login, rola):
     apply_theme(root)
     root.title(f"Warsztat Menager - zalogowano jako {login} ({rola})")
-    for w in root.winfo_children(): w.destroy()
+    clear_frame(root)
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
@@ -218,7 +223,7 @@ def uruchom_panel(root, login, rola):
 
     # nawigacja
     def wyczysc_content():
-        for w in content.winfo_children(): w.destroy()
+        clear_frame(content)
 
     def otworz_panel(funkcja, nazwa):
         wyczysc_content(); log_akcja(f"Kliknięto: {nazwa}")
@@ -234,9 +239,7 @@ def uruchom_panel(root, login, rola):
 
     def _open_profil():
         # clear content
-        for w in content.winfo_children():
-            try: w.destroy()
-            except: pass
+        clear_frame(content)
         try:
             if gui_profile is None:
                 raise RuntimeError("Brak modułu gui_profile")
@@ -253,7 +256,7 @@ def uruchom_panel(root, login, rola):
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
 
     admin_roles = {"admin","kierownik","brygadzista","lider"}
-    if str(rola).lower() in admin_roles:
+    if str(rola).strip().lower() in admin_roles:
         ttk.Button(side, text="Użytkownicy", command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
         try:
             from ustawienia_systemu import panel_ustawien as _pust
@@ -263,7 +266,8 @@ def uruchom_panel(root, login, rola):
     else:
         ttk.Button(side, text="Profil", command=_open_profil, style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
     root.update_idletasks()
-    root.after_idle(lambda: otworz_panel(panel_zlecenia, "Zlecenia (start)"))
+    otworz_panel(panel_zlecenia, "Zlecenia (start)")
+    root.update_idletasks()
 
 # eksportowane dla logowania
 __all__ = ["uruchom_panel", "_shift_bounds", "_shift_progress"]

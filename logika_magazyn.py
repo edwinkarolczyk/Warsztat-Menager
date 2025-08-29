@@ -10,6 +10,34 @@ import json
 import os
 from datetime import datetime
 from threading import RLock
+try:
+    import fcntl
+
+    def lock_file(f):
+        fcntl.flock(f, fcntl.LOCK_EX)
+
+    def unlock_file(f):
+        fcntl.flock(f, fcntl.LOCK_UN)
+except ImportError:  # pragma: no cover - Windows path
+    try:
+        import msvcrt
+
+        def lock_file(f):
+            msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+
+        def unlock_file(f):
+            try:
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
+    except ImportError:
+        import portalocker
+
+        def lock_file(f):
+            portalocker.lock(f, portalocker.LOCK_EX)
+
+        def unlock_file(f):
+            portalocker.unlock(f)
 
 try:
     import logger
@@ -78,15 +106,28 @@ def load_magazyn():
     return mj
 
 def save_magazyn(data):
+    """Zapisuje magazyn na dysku.
+
+    Operacja korzysta z blokady międzyprocesowej opartej na pliku
+    ``.lock`` aby zserializować równoległe zapisy. Blokada jest zawsze
+    zwalniana w bloku ``finally``.
+    """
     _ensure_dirs()
     data.setdefault("meta", {})["updated"] = _now()
     # sanity: item_types zawsze lista
     if not isinstance(data["meta"].get("item_types"), list):
         data["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES)
-    tmp = MAGAZYN_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, MAGAZYN_PATH)
+    lock_path = MAGAZYN_PATH + ".lock"
+    lock_f = open(lock_path, "w")
+    try:
+        lock_file(lock_f)
+        tmp = MAGAZYN_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, MAGAZYN_PATH)
+    finally:
+        unlock_file(lock_f)
+        lock_f.close()
 
 def _history_entry(typ_op, item_id, ilosc, uzytkownik, kontekst=None):
     return {
@@ -191,12 +232,22 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         if it["stan"] < dok:
-            raise ValueError(f"Niewystarczający stan {item_id}: {it['stan']} < {dok}")
+            raise ValueError(
+                f"Niewystarczający stan {item_id}: {it['stan']} < {dok}"
+            )
         it["stan"] -= dok
-        it["historia"].append(_history_entry("zuzycie", item_id, dok, uzytkownik, kontekst))
+        it["historia"].append(
+            _history_entry("zuzycie", item_id, dok, uzytkownik, kontekst)
+        )
         save_magazyn(m)
-        _log_mag("zuzycie", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
-        return it
+        _log_mag(
+            "zuzycie",
+            {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
+        )
+        res = it
+    for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
+        _log_mag("prog_alert", al)
+    return res
 
 def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:
@@ -208,10 +259,18 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         it["stan"] += dok
-        it["historia"].append(_history_entry("zwrot", item_id, dok, uzytkownik, kontekst))
+        it["historia"].append(
+            _history_entry("zwrot", item_id, dok, uzytkownik, kontekst)
+        )
         save_magazyn(m)
-        _log_mag("zwrot", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
-        return it
+        _log_mag(
+            "zwrot",
+            {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
+        )
+        res = it
+    for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
+        _log_mag("prog_alert", al)
+    return res
 
 def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:
@@ -223,13 +282,20 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         wolne = float(it.get("stan", 0)) - float(it.get("rezerwacje", 0.0))
-        if wolne < dok:
-            raise ValueError(f"Za mało wolnego (stan - rezerwacje) dla {item_id}")
-        it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + dok
-        it["historia"].append(_history_entry("rezerwacja", item_id, dok, uzytkownik, kontekst))
+        wolne = max(0.0, wolne)
+        faktyczne = min(dok, wolne)
+        if faktyczne <= 0:
+            return 0.0
+        it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + faktyczne
+        it["historia"].append(
+            _history_entry("rezerwacja", item_id, faktyczne, uzytkownik, kontekst)
+        )
         save_magazyn(m)
-        _log_mag("rezerwacja", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
-        return it
+        _log_mag(
+            "rezerwacja",
+            {"item_id": item_id, "ilosc": faktyczne, "by": uzytkownik, "ctx": kontekst},
+        )
+        return faktyczne
 
 def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:

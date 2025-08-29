@@ -8,9 +8,7 @@
 
 import os
 import sys
-import io
 import re
-import json
 import shutil
 import zipfile
 import subprocess
@@ -19,6 +17,8 @@ from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+
+from config_manager import ConfigManager
 
 LOGS_DIR = Path("logs")
 BACKUP_DIR = Path("backups")
@@ -39,31 +39,7 @@ def _write_log(stamp: str, text: str, kind: str = "update"):
         f.write(text.rstrip() + "\n")
 
 
-def load_last_update_info() -> str:
-    """Return info about the last update.
-
-    Reads the latest entry from ``logi_wersji.json`` and returns a
-    user-facing string with the timestamp.  If the file is missing or
-    malformed, a fallback string is returned.
-    """
-
-    try:
-        with open("logi_wersji.json", "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, list) and data:
-            return f"Ostatnia aktualizacja: {data[-1].get('data', '')}"
-    except Exception:
-        pass
-
-    try:
-        with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("Data:"):
-                    return f"Ostatnia aktualizacja: {line.split('Data:')[1].strip()}"
-    except Exception:
-        pass
-
-    return "brak danych o aktualizacjach"
+from updates_utils import load_last_update_info
 
 def _restart_app():
     python = sys.executable
@@ -187,17 +163,30 @@ def _git_has_updates(cwd: Path) -> bool:
 def _run_git_pull(cwd: Path, stamp: str):
     """Wykonuje git pull w katalogu aplikacji."""
     cmd = ["git", "pull"]
-    proc = subprocess.Popen(cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    out = io.StringIO()
-    if proc.stdout:
-        for line in proc.stdout:
-            out.write(line)
-    code = proc.wait()
-    output = out.getvalue()
-    _write_log(stamp, "[GIT PULL OUTPUT]\n" + output, kind="update")
-    if code != 0:
-        raise RuntimeError(f"git pull error (code {code}).")
-    return output
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        log_text = "[GIT PULL OUTPUT]\n" + result.stdout
+        if result.stderr:
+            log_text += "\n[GIT PULL ERROR]\n" + result.stderr
+        _write_log(stamp, log_text, kind="update")
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "") + "\n[GIT PULL ERROR]\n" + (e.stderr or "")
+        _write_log(stamp, log_text, kind="update")
+        err = (e.stderr or "").lower()
+        if "would be overwritten" in err:
+            raise RuntimeError(
+                "W repozytorium istnieją lokalne zmiany. "
+                "Zapisz lub odrzuć je przed aktualizacją."
+            )
+        raise RuntimeError(f"git pull failed: {e.stderr.strip()}")
 
 # --- version scanner ---
 
@@ -290,16 +279,25 @@ class UpdatesUI(ttk.Frame):
         # przyciski akcji
         btns = ttk.Frame(self)
         btns.grid(row=3, column=0, sticky="ew", padx=8, pady=8)
-        for i in range(3):
+        for i in range(4):
             btns.columnconfigure(i, weight=1)
 
-        self.git_button = ttk.Button(btns, text="Pobierz z Git (git pull)", command=self._on_git_pull)
-        self.git_button.grid(row=0, column=0, sticky="ew", padx=(0,4))
+        self.git_button = ttk.Button(
+            btns, text="Pobierz z Git (git pull)", command=self._on_git_pull
+        )
+        self.git_button.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.git_button.state(["disabled"])  # domyślnie nieaktywne, dopóki nie sprawdzimy statusu
+
+        self.push_button = ttk.Button(
+            btns, text="Wyślij na Git (git push)", command=self._on_git_push
+        )
+        self.push_button.grid(row=0, column=1, sticky="ew", padx=4)
+        self.push_button.state(["disabled"])
+
         ttk.Button(btns, text="Wgraj paczkę .zip (lokalnie)", command=self._on_zip_update)\
-            .grid(row=0, column=1, sticky="ew", padx=4)
+            .grid(row=0, column=2, sticky="ew", padx=4)
         ttk.Button(btns, text="Cofnij aktualizację (restore)", command=self._on_restore)\
-            .grid(row=0, column=2, sticky="ew", padx=(4,0))
+            .grid(row=0, column=3, sticky="ew", padx=(4, 0))
 
         # log/wyjście tekstowe
         self.out = tk.Text(self, height=10, highlightthickness=0, bd=0)
@@ -402,8 +400,18 @@ class UpdatesUI(ttk.Frame):
             ], cwd=str(Path.cwd()), stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, text=True, check=True)
             behind = int(proc.stdout.strip() or "0")
+            proc_ahead = subprocess.run(
+                ["git", "rev-list", "--count", "@{u}..HEAD"],
+                cwd=str(Path.cwd()),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            ahead = int(proc_ahead.stdout.strip() or "0")
         except Exception:
             behind = 0
+            ahead = 0
 
         if behind > 0:
             self.status_var.set(f"Dostępne aktualizacje: {behind}")
@@ -419,6 +427,14 @@ class UpdatesUI(ttk.Frame):
             except Exception:
                 pass
 
+        try:
+            if ahead > 0:
+                self.push_button.state(["!disabled"])
+            else:
+                self.push_button.state(["disabled"])
+        except Exception:
+            pass
+
     # --- actions ---
 
     def _on_git_pull(self):
@@ -433,6 +449,40 @@ class UpdatesUI(ttk.Frame):
         except Exception as e:
             _write_log(stamp, f"[ERROR] git pull: {e}", kind="update")
             messagebox.showerror("Aktualizacje", f"Błąd git pull:\n{e}")
+
+    def _on_git_push(self):
+        cfg = ConfigManager()
+        remote = cfg.get("updates.remote", "origin")
+        branch = cfg.get("updates.push_branch", "git-push")
+        stamp = _now_stamp()
+        try:
+            self._append_out("[INFO] Rozpoczynam git push…")
+            result = subprocess.run(
+                ["git", "push", remote, f"HEAD:{branch}"],
+                cwd=str(Path.cwd()),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+            log_text = "[GIT PUSH OUTPUT]\n" + result.stdout
+            if result.stderr:
+                log_text += "\n[GIT PUSH ERROR]\n" + result.stderr
+            _write_log(stamp, log_text, kind="update")
+            self._append_out(result.stdout.strip() or "[INFO] Brak danych wyjściowych.")
+            self.check_remote_status()
+            messagebox.showinfo(
+                "Aktualizacje", "Wysłano zmiany na zdalne repozytorium."
+            )
+        except subprocess.CalledProcessError as e:
+            log_text = "[GIT PUSH OUTPUT]\n" + (e.stdout or "") + "\n[GIT PUSH ERROR]\n" + (e.stderr or "")
+            _write_log(stamp, log_text, kind="update")
+            messagebox.showerror(
+                "Aktualizacje", f"Błąd git push:\n{e.stderr.strip() if e.stderr else e}"
+            )
+        except Exception as e:
+            _write_log(stamp, f"[ERROR] git push: {e}", kind="update")
+            messagebox.showerror("Aktualizacje", f"Błąd git push:\n{e}")
 
     def _on_zip_update(self):
         zip_path = filedialog.askopenfilename(

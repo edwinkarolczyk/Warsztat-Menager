@@ -54,24 +54,55 @@
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
+from config_manager import ConfigManager
 
-# Paleta
-DARK_BG      = "#1b1f24"   # tło główne
-DARK_BG_2    = "#20262e"   # tło pól
-SIDE_BG      = "#14181d"
-CARD_BG      = "#20262e"
-FG           = "#e6e6e6"
-MUTED_FG     = "#9aa0a6"
-BTN_BG       = "#2a3139"
-BTN_BG_HOVER = "#343b45"
-BTN_BG_ACT   = "#3b434e"
+# Paleta domyślna
+_DEFAULT_COLORS = {
+    "dark_bg": "#1b1f24",      # tło główne
+    "dark_bg_2": "#20262e",    # tło pól
+    "side_bg": "#14181d",
+    "card_bg": "#20262e",
+    "fg": "#e6e6e6",
+    "muted_fg": "#9aa0a6",
+    "btn_bg": "#2a3139",
+    "btn_bg_hover": "#343b45",
+    "btn_bg_act": "#3b434e",
+    "banner_fg": "#ff4d4d",
+    "banner_bg": "#1b1b1b",
+}
+
+# Bieżące kolory
+DARK_BG = _DEFAULT_COLORS["dark_bg"]
+DARK_BG_2 = _DEFAULT_COLORS["dark_bg_2"]
+SIDE_BG = _DEFAULT_COLORS["side_bg"]
+CARD_BG = _DEFAULT_COLORS["card_bg"]
+FG = _DEFAULT_COLORS["fg"]
+MUTED_FG = _DEFAULT_COLORS["muted_fg"]
+BTN_BG = _DEFAULT_COLORS["btn_bg"]
+BTN_BG_HOVER = _DEFAULT_COLORS["btn_bg_hover"]
+BTN_BG_ACT = _DEFAULT_COLORS["btn_bg_act"]
+BANNER_FG = _DEFAULT_COLORS["banner_fg"]
+BANNER_BG = _DEFAULT_COLORS["banner_bg"]
 
 _inited = False
 
 def _init_styles(root: tk.Misc | None = None) -> None:
-    global _inited
+    global _inited, DARK_BG, DARK_BG_2, SIDE_BG, CARD_BG, FG, MUTED_FG
+    global BTN_BG, BTN_BG_HOVER, BTN_BG_ACT, BANNER_FG, BANNER_BG
     if _inited:
         return
+    cfg = ConfigManager()
+    DARK_BG = cfg.get("ui.colors.dark_bg", _DEFAULT_COLORS["dark_bg"])
+    DARK_BG_2 = cfg.get("ui.colors.dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
+    SIDE_BG = cfg.get("ui.colors.side_bg", _DEFAULT_COLORS["side_bg"])
+    CARD_BG = cfg.get("ui.colors.card_bg", _DEFAULT_COLORS["card_bg"])
+    FG = cfg.get("ui.colors.fg", _DEFAULT_COLORS["fg"])
+    MUTED_FG = cfg.get("ui.colors.muted_fg", _DEFAULT_COLORS["muted_fg"])
+    BTN_BG = cfg.get("ui.colors.btn_bg", _DEFAULT_COLORS["btn_bg"])
+    BTN_BG_HOVER = cfg.get("ui.colors.btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"])
+    BTN_BG_ACT = cfg.get("ui.colors.btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
+    BANNER_FG = cfg.get("ui.colors.banner_fg", _DEFAULT_COLORS["banner_fg"])
+    BANNER_BG = cfg.get("ui.colors.banner_bg", _DEFAULT_COLORS["banner_bg"])
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
@@ -94,6 +125,8 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     style.configure("WM.Card.TLabel", background=CARD_BG, foreground=FG)
     style.configure("WM.Muted.TLabel", background=DARK_BG, foreground=MUTED_FG)
     style.configure("WM.H1.TLabel", background=DARK_BG, foreground=FG, font=("Segoe UI", 16, "bold"))
+    style.configure("WM.Banner.TLabel", background=BANNER_BG, foreground=BANNER_FG,
+                    font=("Consolas", 11, "bold"))
 
     # Buttons (w tym boczne)
     style.configure("WM.Side.TButton", background=BTN_BG, foreground=FG, padding=6)
@@ -152,6 +185,14 @@ def apply_theme_safe(widget: tk.Misc | None) -> None:
         apply_theme(widget)
     except Exception:
         pass
+
+
+def apply_theme_tree(widget: tk.Misc | None) -> None:
+    """Zastosuj motyw dla podanego widgetu i całego jego drzewa potomków."""
+    apply_theme_safe(widget)
+    if hasattr(widget, "winfo_children"):
+        for child in widget.winfo_children():
+            apply_theme_tree(child)
 
 # ===== Kolory magazynu (używane przez gui_magazyn) =====
 COLORS = {

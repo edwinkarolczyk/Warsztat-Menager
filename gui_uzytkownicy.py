@@ -8,6 +8,7 @@
 from tkinter import ttk
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils.gui_helpers import clear_frame
 
 def _build_tab_profil(parent, login, rola):
     import gui_profile
@@ -19,9 +20,7 @@ def _build_tab_profil(parent, login, rola):
 
 def panel_uzytkownicy(root, frame, login=None, rola=None):
     # Czyść
-    for w in frame.winfo_children():
-        try: w.destroy()
-        except: pass
+    clear_frame(frame)
     apply_theme(frame)
 
     nb = ttk.Notebook(frame); nb.pack(fill="both", expand=True)

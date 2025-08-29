@@ -47,3 +47,25 @@ def test_machines_with_next_task(tmp_path, monkeypatch):
     assert machines, 'Powinna istnieć co najmniej jedna maszyna'
     tokarka = next(m for m in machines if m['nr_ewid'] == '27')
     assert tokarka['next_task']['data'] == '2025-01-01'
+
+
+def test_polprodukty_check_and_reserve(tmp_path, monkeypatch):
+    data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
+    bom = zl.read_bom('PRD001')
+
+    braki = zl.check_materials(bom, 30)
+    braki_dict = {b['kod']: b['brakuje'] for b in braki}
+    assert braki_dict['PP001'] == 10
+    assert braki_dict['PP002'] == 18
+
+    mag_path = data_copy / 'magazyn' / 'polprodukty.json'
+    with open(mag_path, encoding='utf-8') as f:
+        mag_before = json.load(f)
+
+    zl.reserve_materials(bom, 5)
+
+    with open(mag_path, encoding='utf-8') as f:
+        mag_after = json.load(f)
+
+    assert mag_after['PP001']['stan'] == mag_before['PP001']['stan'] - 10
+    assert mag_after['PP002']['stan'] == mag_before['PP002']['stan'] - 5

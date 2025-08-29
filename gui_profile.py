@@ -26,9 +26,22 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
-from PIL import Image, ImageTk, UnidentifiedImageError
+try:
+    from PIL import Image, ImageTk, UnidentifiedImageError
+except ImportError:  # Pillow missing
+    Image = ImageTk = None
+
+    class UnidentifiedImageError(Exception):
+        ...
 from profile_utils import get_user, save_user, DEFAULT_USER
 from logger import log_akcja
+from utils.gui_helpers import clear_frame
+from grafiki.shifts_schedule import (
+    _user_mode,
+    _week_idx,
+    _slot_for_mode,
+    _shift_times,
+)
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -133,21 +146,25 @@ def _load_avatar(parent, login):
     """
     path = os.path.join("avatars", f"{login}.png")
     default_path = os.path.join("avatars", "default.jpg")
+
+    if Image is None or ImageTk is None:
+        txt = str(login or "?")
+        return ttk.Label(parent, text=txt, style="WM.TLabel")
+
     try:
         img = Image.open(path)
     except (FileNotFoundError, OSError, UnidentifiedImageError):
         try:
             img = Image.open(default_path)
         except (FileNotFoundError, OSError, UnidentifiedImageError):
-            return ttk.Label(parent, style="WM.TLabel")
-    # dopasuj rozmiar obrazka do maksymalnych wymiarów
+            return ttk.Label(parent, text=str(login or ""), style="WM.TLabel")
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
     except Exception:
         pass
     photo = ImageTk.PhotoImage(img)
     lbl = tk.Label(parent, image=photo)
-    lbl.image = photo  # zapobiega zbieraniu przez GC
+    lbl.image = photo
     return lbl
 
 def _map_status_generic(raw):
@@ -439,12 +456,14 @@ def _build_table(frame, root, login, rola, tasks):
         var.trace_add("write", lambda *_: reload_table())
 
     def on_dbl(_ev):
-        sel=tv.selection()
-        if not sel: return
-        idx=tv.index(sel[0])
-        arr=filtered()
-        if 0<=idx<len(arr):
-            _show_task_details(root, frame, login, rola, arr[idx], reload_table)
+        sel = tv.selection()
+        if not sel:
+            return
+        idx = tv.index(sel[0])
+        arr = filtered()
+        if not (0 <= idx < len(arr)):
+            return
+        _show_task_details(root, frame, login, rola, arr[idx], reload_table)
 
     tv.bind("<Double-1>", on_dbl)
     reload_table()
@@ -580,9 +599,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
         pass
 
     # wyczyść
-    for w in list(frame.winfo_children()):
-        try: w.destroy()
-        except: pass
+    clear_frame(frame)
 
     # Nagłówek
     head = ttk.Frame(frame, style="WM.TFrame"); head.pack(fill="x", padx=12, pady=10)
@@ -590,6 +607,44 @@ def uruchom_panel(root, frame, login=None, rola=None):
     info = ttk.Frame(head, style="WM.TFrame"); info.pack(side="left")
     ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold"), style="WM.TLabel").pack(anchor="w")
     ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
+
+    # Dzisiejsza zmiana
+    shift_text = "Dzisiejsza zmiana: —"
+    shift_style = "WM.Muted.TLabel"
+    on_shift = True
+    try:
+        if login:
+            now = _dt.now()
+            times = _shift_times()
+            weekday = now.weekday()
+            if weekday == 6:
+                shift_text = "Dzisiejsza zmiana: Wolne"
+                on_shift = False
+            else:
+                mode = _user_mode(str(login))
+                slot = _slot_for_mode(mode, _week_idx(now.date()))
+                if weekday == 5:
+                    slot = "RANO"
+                if slot == "RANO":
+                    start = times["R_START"].strftime("%H:%M")
+                    end = times["R_END"].strftime("%H:%M")
+                    shift_text = f"Dzisiejsza zmiana: Poranna {start}–{end}"
+                    on_shift = times["R_START"] <= now.time() < times["R_END"]
+                else:
+                    start = times["P_START"].strftime("%H:%M")
+                    end = times["P_END"].strftime("%H:%M")
+                    shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
+                    on_shift = times["P_START"] <= now.time() < times["P_END"]
+                shift_style = "WM.TLabel"
+    except Exception:
+        pass
+    lbl_shift = ttk.Label(info, text=shift_text, style=shift_style)
+    if shift_style == "WM.TLabel" and not on_shift:
+        try:
+            lbl_shift.configure(foreground="red")
+        except Exception:
+            pass
+    lbl_shift.pack(anchor="w")
 
     # Dane
     rola_norm = str(rola).lower()
