@@ -1,7 +1,7 @@
 # Wersja pliku: 1.0.0
 # Plik: grafiki/shifts_schedule.py
 # Zmiany:
-# - Silnik rotacji zmian A/B/C oraz API
+# - Silnik rotacji zmian oraz API
 
 from __future__ import annotations
 
@@ -11,9 +11,10 @@ from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
 _DEFAULT_PATTERNS = {
-    "A": "112",
-    "B": "111",
-    "C": "12",
+    "112": "112",
+    "111": "111",
+    "12": "12",
+    "121": "121",
     "211": "211",
     "1212": "1212",
 }
@@ -123,7 +124,7 @@ def _load_users() -> List[Dict[str, str]]:
     defaults_map = {}
     for u in defaults_raw:
         uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
-        defaults_map[uid] = u.get("tryb_zmian", "B")
+        defaults_map[uid] = u.get("tryb_zmian", "111")
     try:
         import profiles
 
@@ -156,7 +157,7 @@ def _load_users() -> List[Dict[str, str]]:
             or f"{u.get('imie', '')} {u.get('nazwisko', '')}".strip()
         )
         active = bool(u.get("active", True))
-        default_mode = defaults_map.get(uid, "B")
+        default_mode = defaults_map.get(uid, "111")
         _USER_DEFAULTS[uid] = default_mode
         users.append(
             {
@@ -173,7 +174,7 @@ def _user_mode(user_id: str) -> str:
     modes = _load_modes().get("modes", {})
     if user_id not in _USER_DEFAULTS:
         _load_users()
-    return modes.get(user_id, _USER_DEFAULTS.get(user_id, "B"))
+    return modes.get(user_id, _USER_DEFAULTS.get(user_id, "111"))
 
 
 def _week_idx(day: date) -> int:
