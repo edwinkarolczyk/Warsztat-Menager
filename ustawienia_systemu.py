@@ -59,14 +59,17 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # wyczyść
     clear_frame(frame)
 
+    container = ttk.Frame(frame)
+    container.pack(fill="both", expand=True)
+
     # Zastosuj motyw NA OKNIE nadrzędnym
-    apply_theme(frame.winfo_toplevel())
+    apply_theme(container.winfo_toplevel())
 
     # Notebook — użyj stylu tylko jeśli istnieje
     if _style_exists("WM.TNotebook"):
-        nb = ttk.Notebook(frame, style="WM.TNotebook")
+        nb = ttk.Notebook(container, style="WM.TNotebook")
     else:
-        nb = ttk.Notebook(frame)
+        nb = ttk.Notebook(container)
     nb.pack(fill="both", expand=True, padx=12, pady=12)
 
     lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
@@ -287,7 +290,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
                     val = var.get()
                 cfg.set(key, val)
             cfg.save_all()
-            top = frame.winfo_toplevel()
+            top = container.winfo_toplevel()
             apply_theme(top)
             if "auth.session_timeout_min" in changed:
                 try:
@@ -300,7 +303,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 var.set(original_vals[key])
         dirty_keys.clear()
 
-    frame.bind("<Destroy>", on_exit)
+    container.bind("<Destroy>", on_exit)
 
     # --- Motyw ---
     tab_theme = _make_frame(nb, "WM.Card.TFrame")
@@ -348,7 +351,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             if color:
                 v.set(color)
                 b.configure(bg=color)
-                apply_theme(frame.winfo_toplevel())
+                apply_theme(container.winfo_toplevel())
 
         btn.configure(command=_choose_color)
         var.trace_add(
