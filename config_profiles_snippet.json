@@ -15,8 +15,9 @@
       "urlop"
     ],
     "fields_editable_by_user": [
-      "telefon",
-      "email"
+      "imie",
+      "nazwisko",
+      "staz"
     ],
     "allow_pin_change": false
   }
