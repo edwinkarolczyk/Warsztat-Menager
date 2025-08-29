@@ -1,5 +1,5 @@
 import importlib
-from datetime import date, time
+from datetime import date, time, timedelta
 
 import grafiki.shifts_schedule as shifts_schedule
 
@@ -65,6 +65,32 @@ def test_set_anchor_monday(monkeypatch):
     monkeypatch.setattr(shifts_schedule, "_save_json", fake_save)
 
     assert shifts_schedule._anchor_monday() == date(2025, 1, 6)
-    shifts_schedule.set_anchor_monday("2023-05-17")
-    assert saved["anchor_monday"] == "2023-05-15"
-    assert shifts_schedule._anchor_monday() == date(2023, 5, 15)
+    future = date.today() + timedelta(days=14)
+    shifts_schedule.set_anchor_monday(future.isoformat())
+    expected = future - timedelta(days=future.weekday())
+    assert saved["anchor_monday"] == expected.isoformat()
+    assert shifts_schedule._anchor_monday() == expected
+
+
+def test_patterns_subset_defaults(monkeypatch):
+    patterns = {
+        "111": "111",
+        "112": "112",
+        "12": "12",
+        "121": "121",
+        "211": "211",
+        "1212": "1212",
+    }
+    modes = {"anchor_monday": "2025-01-06", "patterns": patterns, "modes": {}}
+    _patch_loads(monkeypatch, modes=modes)
+    available = shifts_schedule._available_patterns()
+    for pattern in available.values():
+        assert pattern in shifts_schedule._DEFAULT_PATTERNS
+
+
+def test_slot_for_mode_121(monkeypatch):
+    _patch_loads(monkeypatch)
+    assert shifts_schedule._slot_for_mode("121", 0) == "RANO"
+    assert shifts_schedule._slot_for_mode("121", 1) == "POPO"
+    assert shifts_schedule._slot_for_mode("121", 2) == "RANO"
+
