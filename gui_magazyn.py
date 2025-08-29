@@ -29,12 +29,18 @@ from utils import error_dialogs
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
 
+try:  # obsługa opcjonalnego modułu drukarki
+    from escpos import printer as escpos_printer
+except Exception:  # pragma: no cover - środowisko bez biblioteki
+    escpos_printer = None
+
 __all__ = [
     "PanelMagazyn",
     "panel_magazyn",
     "open_panel_magazyn",
     "panel_ustawien_magazyn",
     "attach_magazyn_button",
+    "drukuj_etykiete",
 ]
 
 # ----- uprawnienia -----
@@ -65,6 +71,20 @@ def _resolve_role(parent, rola_hint=None):
         pass
     return None
 
+
+def drukuj_etykiete(item_id: str, host: str = "127.0.0.1", port: int = 9100) -> None:
+    """Drukuje etykietę z kodem kreskowym dla wskazanej pozycji."""
+    if escpos_printer is None:
+        raise RuntimeError("Moduł python-escpos nie jest dostępny.")
+    it = LM.get_item(item_id)
+    if not it:
+        raise ValueError(f"Pozycja {item_id} nie istnieje.")
+    p = escpos_printer.Network(host, port=port)
+    p.text(f"{it['nazwa']}\n")
+    p.barcode(it["id"], "CODE39", width=2, height=64, function_type="B")
+    p.text(f"{it['id']}\n")
+    p.cut()
+
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
@@ -93,6 +113,12 @@ class PanelMagazyn(ttk.Frame):
         ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=6, padx=3)
         ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
         ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=8, padx=6)
+        ttk.Button(
+            bar,
+            text="Etykieta",
+            command=self._act_drukuj_etykiete,
+            style="WM.Side.TButton",
+        ).grid(row=0, column=9, padx=6)
 
         # Tabela (styl WM.Treeview)
         self.tree = ttk.Treeview(
@@ -225,6 +251,16 @@ class PanelMagazyn(ttk.Frame):
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))
+
+    def _act_drukuj_etykiete(self):
+        iid = self._sel_id()
+        if not iid:
+            return
+        try:
+            drukuj_etykiete(iid)
+            messagebox.showinfo("Magazyn", "Etykieta wysłana do drukarki.")
+        except Exception as e:
+            messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _show_historia(self):
         iid = self._sel_id()
