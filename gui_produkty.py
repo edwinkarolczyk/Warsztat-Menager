@@ -18,6 +18,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils import error_dialogs
 
 DATA_DIR = os.path.join("data", "produkty")
 MAG_DIR  = os.path.join("data", "magazyn")
@@ -223,7 +224,8 @@ class ProduktyBOM(tk.Toplevel):
                 dl = var_dl.get().strip()
                 dl = int(dl) if dl else ""
             except Exception:
-                messagebox.showerror("BOM", "Podaj poprawną ilość/długość."); return
+                error_dialogs.show_error_dialog("BOM", "Podaj poprawną ilość/długość.")
+                return
             self.tree.insert("", "end", values=(mat_id, mat_nm, il, dl))
             win.destroy()
 
@@ -251,13 +253,15 @@ class ProduktyBOM(tk.Toplevel):
                 il = int(il)
                 if il <= 0: raise ValueError
             except Exception:
-                messagebox.showerror("BOM", "Ilość w BOM musi być dodatnią liczbą całkowitą."); return
+                error_dialogs.show_error_dialog("BOM", "Ilość w BOM musi być dodatnią liczbą całkowitą.")
+                return
             rec = {"kod_materialu": mat, "ilosc": il}
             if str(dl).strip() not in ("", "0"):
                 try:
                     rec["dlugosc_mm"] = int(dl)
                 except Exception:
-                    messagebox.showerror("BOM", "Długość musi być liczbą (mm)."); return
+                    error_dialogs.show_error_dialog("BOM", "Długość musi być liczbą (mm).")
+                    return
             bom.append(rec)
 
         payload = {"kod": kod, "nazwa": naz, "BOM": bom}

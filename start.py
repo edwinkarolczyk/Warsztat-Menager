@@ -15,6 +15,7 @@ from datetime import datetime
 import logging
 import tkinter as tk
 from tkinter import messagebox
+from utils import error_dialogs
 
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
@@ -107,7 +108,7 @@ def show_startup_error(e):
                 messagebox.showwarning(
                     "Brak kopii", "Nie znaleziono kopii zapasowych.")
         except Exception as exc:  # pragma: no cover - defensywne
-            messagebox.showerror("Błąd przywracania", str(exc))
+            error_dialogs.show_error_dialog("Błąd przywracania", str(exc))
 
     btn_frame = tk.Frame(root)
     btn_frame.pack(pady=5)
@@ -143,7 +144,7 @@ def auto_update_on_start():
                 try:
                     r = tk.Tk()
                     r.withdraw()
-                    messagebox.showerror("Aktualizacje", str(e))
+                    error_dialogs.show_error_dialog("Aktualizacje", str(e))
                     r.destroy()
                 except Exception:
                     pass

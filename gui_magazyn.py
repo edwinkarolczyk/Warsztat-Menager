@@ -24,6 +24,7 @@ import re
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
+from utils import error_dialogs
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -178,7 +179,7 @@ class PanelMagazyn(ttk.Frame):
             if x <= 0: raise ValueError
             return x
         except Exception:
-            messagebox.showerror("Błąd", "Podaj dodatnią liczbę.")
+            error_dialogs.show_error_dialog("Błąd", "Podaj dodatnią liczbę.")
             return None
 
     def _act_zuzyj(self):
@@ -190,7 +191,7 @@ class PanelMagazyn(ttk.Frame):
             LM.zuzyj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
-            messagebox.showerror("Błąd", str(e))
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _act_zwrot(self):
         iid = self._sel_id()
@@ -201,7 +202,7 @@ class PanelMagazyn(ttk.Frame):
             LM.zwrot(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
-            messagebox.showerror("Błąd", str(e))
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _act_rezerwuj(self):
         iid = self._sel_id()
@@ -212,7 +213,7 @@ class PanelMagazyn(ttk.Frame):
             LM.rezerwuj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
-            messagebox.showerror("Błąd", str(e))
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _act_zwolnij(self):
         iid = self._sel_id()
@@ -223,7 +224,7 @@ class PanelMagazyn(ttk.Frame):
             LM.zwolnij_rezerwacje(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
-            messagebox.showerror("Błąd", str(e))
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _show_historia(self):
         iid = self._sel_id()
@@ -299,7 +300,7 @@ def panel_ustawien_magazyn(parent, rola=None):
             LM.save_magazyn(m)
             messagebox.showinfo("Magazyn", "Struktura magazyn.json OK (items/meta uzupełnione).")
         except Exception as e:
-            messagebox.showerror("Magazyn", f"Błąd sprawdzania/naprawy: {e}")
+            error_dialogs.show_error_dialog("Magazyn", f"Błąd sprawdzania/naprawy: {e}")
 
     ttk.Button(frm, text="Sprawdź/napraw magazyn.json", command=_napraw, style="WM.Side.TButton").grid(row=2, column=0, columnspan=3, sticky="w", padx=8, pady=(10,12))
 
@@ -412,7 +413,8 @@ def panel_ustawien_magazyn(parent, rola=None):
             ln  = float((var_len.get() or "0").replace(",", "."))
             if st < 0 or mn < 0 or ln < 0: raise ValueError
         except Exception:
-            messagebox.showerror("Magazyn", "Wartości 'Stan', 'Min.' i 'Dł.' muszą być liczbami ≥ 0."); return
+            error_dialogs.show_error_dialog("Magazyn", "Wartości 'Stan', 'Min.' i 'Dł.' muszą być liczbami ≥ 0.")
+            return
 
         try:
             payload = {"id": iid, "nazwa": nm, "typ": typ, "jednostka": jed, "stan": st, "min_poziom": mn}
@@ -423,7 +425,7 @@ def panel_ustawien_magazyn(parent, rola=None):
             var_id.set(""); var_nm.set(""); var_jed.set("szt"); var_st.set("0"); var_min.set("0"); var_len.set("0")
             _update_sum_label()
         except Exception as e:
-            messagebox.showerror("Magazyn", f"Błąd zapisu: {e}")
+            error_dialogs.show_error_dialog("Magazyn", f"Błąd zapisu: {e}")
 
     btn = ttk.Button(box, text="Dodaj / aktualizuj pozycję", command=_submit, style="WM.Side.TButton")
     btn.grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(4,8))
@@ -463,7 +465,7 @@ def panel_ustawien_magazyn(parent, rola=None):
             else:
                 messagebox.showinfo("Typy", f"Typ '{name}' już jest na liście.")
         except Exception as e:
-            messagebox.showerror("Typy", f"Błąd dodawania typu: {e}")
+            error_dialogs.show_error_dialog("Typy", f"Błąd dodawania typu: {e}")
 
     def _get_selected_type():
         sel = types_tree.selection()
@@ -487,7 +489,7 @@ def panel_ustawien_magazyn(parent, rola=None):
             else:
                 messagebox.showwarning("Typy", f"Nie można usunąć typu '{name}' (nie istnieje lub jest w użyciu).")
         except Exception as e:
-            messagebox.showerror("Typy", f"Błąd usuwania typu: {e}")
+            error_dialogs.show_error_dialog("Typy", f"Błąd usuwania typu: {e}")
 
     btn_add_type = ttk.Button(types_box, text="➕ Dodaj typ", command=_add_type, style="WM.Side.TButton")
     btn_add_type.grid(row=2, column=2, sticky="w", padx=8, pady=6)

@@ -7,6 +7,7 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+from utils import error_dialogs
 
 from grafiki.shifts_schedule import _load_users, TRYBY, set_user_mode, set_anchor_monday
 
@@ -58,7 +59,7 @@ class ShiftsSettingsFrame(ttk.Frame):
         try:
             set_anchor_monday(self.anchor_var.get())
         except ValueError as e:
-            messagebox.showerror("Błąd", str(e))
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _populate(self):
         for i in self.tree.get_children():

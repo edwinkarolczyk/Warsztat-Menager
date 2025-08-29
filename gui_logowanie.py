@@ -12,6 +12,7 @@ import logging
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
+from utils import error_dialogs
 from datetime import datetime
 from pathlib import Path
 from PIL import Image, ImageTk
@@ -305,15 +306,15 @@ def _login_pinless():
                         _on_login_cb(login_key, "brygadzista", None)
                     except Exception as err:
                         logging.exception("Error in login callback")
-                        messagebox.showerror(
+                        error_dialogs.show_error_dialog(
                             "Błąd", f"Błąd w callbacku logowania: {err}"
                         )
                 else:
                     gui_panel.uruchom_panel(root_global, login_key, "brygadzista")
                 return
-        messagebox.showerror("Błąd", "Nie znaleziono brygadzisty")
+        error_dialogs.show_error_dialog("Błąd", "Nie znaleziono brygadzisty")
     except Exception as e:
-        messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
+        error_dialogs.show_error_dialog("Błąd", f"Błąd podczas logowania: {e}")
 
 
 def logowanie():
@@ -345,7 +346,7 @@ def logowanie():
             ):
                 status = str(dane.get("status", "")).strip().lower()
                 if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
-                    messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
+                    error_dialogs.show_error_dialog("Błąd", "Użytkownik oznaczony jako nieobecny")
                     return
                 rola = dane.get("rola", "pracownik")
                 if _on_login_cb:
@@ -353,15 +354,15 @@ def logowanie():
                         _on_login_cb(login_key, rola, None)
                     except Exception as err:
                         logging.exception("Error in login callback")
-                        messagebox.showerror(
+                        error_dialogs.show_error_dialog(
                             "Błąd", f"Błąd w callbacku logowania: {err}"
                         )
                 else:
                     gui_panel.uruchom_panel(root_global, login_key, rola)
                 return
-        messagebox.showerror("Błąd", "Nieprawidłowy login lub PIN")
+        error_dialogs.show_error_dialog("Błąd", "Nieprawidłowy login lub PIN")
     except Exception as e:
-        messagebox.showerror("Błąd", f"Błąd podczas logowania: {e}")
+        error_dialogs.show_error_dialog("Błąd", f"Błąd podczas logowania: {e}")
 
 def zamknij():
     # Zamknij zawsze z dołu, bez pływania

@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
+from utils import error_dialogs
 
 try:
     from zlecenia_logika import (
@@ -281,4 +282,4 @@ def _usun_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, on_done):
         else:
             messagebox.showwarning("Usuwanie", f"Nie znaleziono pliku zlecenia {zid}")
     except Exception as e:
-        messagebox.showerror("Usuwanie", f"Błąd: {e}")
+        error_dialogs.show_error_dialog("Usuwanie", f"Błąd: {e}")
