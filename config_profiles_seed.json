@@ -8,7 +8,13 @@
       "nazwa",
       "rola",
       "zmiana"
-    ]
+    ],
+    "fields_editable_by_user": [
+      "imie",
+      "nazwisko",
+      "staz"
+    ],
+    "allow_pin_change": false
   },
   "profiles.tab_enabled": true,
   "profiles.show_name_in_header": true,
@@ -18,5 +24,12 @@
     "nazwa",
     "rola",
     "zmiana"
-  ]
+  ],
+  "profiles.fields_editable_by_user": [
+    "imie",
+    "nazwisko",
+    "staz"
+  ],
+  "profiles.allow_pin_change": false
 }
+
