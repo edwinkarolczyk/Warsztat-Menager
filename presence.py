@@ -20,6 +20,9 @@ except ImportError:  # pragma: no cover - logger module might be absent in tests
     def log_akcja(msg: str) -> None:
         logger.info(msg)
 
+# Track the currently registered atexit handler to avoid duplicates
+_atexit_handler = None
+
 def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
@@ -112,7 +115,12 @@ def end_session(login, role=None, machine=None):
         pass
 
 def start_heartbeat(root, login, role=None, interval_ms=None):
-    """Uruchom cykliczne bicie serca. interval_ms z configu: presence.heartbeat_sec (domyślnie 30s)."""
+    """Uruchom cykliczne bicie serca.
+
+    interval_ms z configu: presence.heartbeat_sec (domyślnie 30s).
+    Kolejne wywołania zastępują poprzedni hook ``atexit`` aby nie
+    gromadzić wielu rejestracji zakończenia programu.
+    """
     if not root or not login:
         return
     cfg = _get_cfg()
@@ -153,8 +161,18 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
                 f"[USERS-DBG] unexpected end_session error: {e}\n{traceback.format_exc()}"
             )
 
+    global _atexit_handler
+
     try:
-        atexit.register(_on_exit)
+        unreg = getattr(atexit, "unregister", None)
+        if _atexit_handler and unreg:
+            try:
+                unreg(_atexit_handler)
+            except Exception:
+                pass
+        if _atexit_handler is None or unreg:
+            atexit.register(_on_exit)
+            _atexit_handler = _on_exit
     except (RuntimeError, ValueError) as e:
         log_akcja(f"[USERS-DBG] atexit register error: {e}")
     except Exception as e:

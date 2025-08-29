@@ -21,6 +21,7 @@ def test_start_heartbeat_success(monkeypatch):
     logs = []
     monkeypatch.setattr(presence, "log_akcja", lambda m: logs.append(m))
 
+    presence._atexit_handler = None
     presence.start_heartbeat(root, "jan")
 
     assert called and called[0]
@@ -39,10 +40,27 @@ def test_start_heartbeat_failure_logs(monkeypatch):
     logs = []
     monkeypatch.setattr(presence, "log_akcja", lambda m: logs.append(m))
 
+    presence._atexit_handler = None
     presence.start_heartbeat(root, "jan")
 
     assert any("heartbeat error" in m for m in logs)
     assert root.after_calls
+
+
+def test_start_heartbeat_replaces_handler(monkeypatch):
+    root = DummyRoot()
+    monkeypatch.setattr(presence, "heartbeat", lambda *a, **k: None)
+    regs = []
+    unregs = []
+    monkeypatch.setattr(presence.atexit, "register", lambda f: regs.append(f))
+    monkeypatch.setattr(presence.atexit, "unregister", lambda f: unregs.append(f))
+
+    presence._atexit_handler = None
+    presence.start_heartbeat(root, "a")
+    presence.start_heartbeat(root, "b")
+
+    assert regs[0] in unregs
+    assert len(regs) == 2
 
 
 def test_schedule_watcher_success(monkeypatch):
