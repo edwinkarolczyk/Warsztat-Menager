@@ -14,6 +14,7 @@ from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+from auth.roles import Role, has_role
 
 
 def _get_app_version() -> str:
@@ -306,7 +307,7 @@ def uruchom_panel(root, login, rola):
 
     # --- role helpers + quick open profile ---
     def _is_admin_role(r):
-        return str(r).lower() in {"admin","kierownik","brygadzista","lider"}
+        return has_role(r, Role.ADMIN, Role.KIEROWNIK, Role.BRYGADZISTA, Role.LIDER)
 
     def _open_profil():
         # clear content
@@ -326,8 +327,7 @@ def uruchom_panel(root, login, rola):
     # Wejście do Magazynu
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
 
-    admin_roles = {"admin","kierownik","brygadzista","lider"}
-    if str(rola).strip().lower() in admin_roles:
+    if _is_admin_role(rola):
         ttk.Button(side, text="Użytkownicy", command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
         try:
             from ustawienia_systemu import panel_ustawien as _pust
