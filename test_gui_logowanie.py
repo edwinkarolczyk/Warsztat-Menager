@@ -3,7 +3,6 @@ import types
 import subprocess
 import pytest
 from config_manager import ConfigManager
-
 import gui_logowanie
 
 
