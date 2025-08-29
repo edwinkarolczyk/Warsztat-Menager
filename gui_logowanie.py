@@ -8,6 +8,7 @@
 
 import os
 import json
+import logging
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -278,8 +279,11 @@ def logowanie():
                 if _on_login_cb:
                     try:
                         _on_login_cb(login_key, rola, None)
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        logging.exception("Error in login callback")
+                        messagebox.showerror(
+                            "Błąd", f"Błąd w callbacku logowania: {err}"
+                        )
                 else:
                     gui_panel.uruchom_panel(root_global, login_key, rola)
                 return

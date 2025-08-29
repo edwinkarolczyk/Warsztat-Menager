@@ -260,3 +260,41 @@ def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
     monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
     gui_logowanie.logowanie()
     assert logged == {"login": "edwin", "rola": "pracownik"}
+
+
+def test_logowanie_callback_error(tmp_path, monkeypatch):
+    users = [{"login": "user", "pin": "1234", "rola": "admin"}]
+    (tmp_path / "uzytkownicy.json").write_text(
+        json.dumps(users, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: "user")
+    )
+    monkeypatch.setattr(
+        gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "1234")
+    )
+
+    errors = []
+
+    def fake_error(title, msg):
+        errors.append(msg)
+
+    monkeypatch.setattr(
+        gui_logowanie, "messagebox", types.SimpleNamespace(showerror=fake_error)
+    )
+
+    logged = []
+    monkeypatch.setattr(
+        gui_logowanie, "logging", types.SimpleNamespace(exception=lambda msg: logged.append(msg))
+    )
+
+    def failing_cb(login, rola, extra):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(gui_logowanie, "_on_login_cb", failing_cb)
+    monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
+
+    gui_logowanie.logowanie()
+    assert errors and "boom" in errors[0]
+    assert logged and logged[0] == "Error in login callback"
