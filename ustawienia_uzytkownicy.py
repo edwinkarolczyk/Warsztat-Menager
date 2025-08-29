@@ -99,6 +99,7 @@ def make_tab(parent, rola):
     form.columnconfigure(1, weight=1)
 
     login_var = tk.StringVar()
+    widok_var = tk.StringVar()
     ttk.Label(form, text="login").grid(row=0, column=0, sticky="e")
     entry_login = ttk.Entry(form, textvariable=login_var, state="disabled")
     entry_login.grid(row=0, column=1, sticky="ew")
@@ -136,6 +137,15 @@ def make_tab(parent, rola):
         ttk.Entry(form, textvariable=vars[f]).grid(row=row, column=1, sticky="ew")
         row += 1
 
+    ttk.Label(form, text="widok_startowy").grid(row=row, column=0, sticky="e")
+    ttk.Combobox(
+        form,
+        textvariable=widok_var,
+        values=["panel", "dashboard"],
+        state="readonly",
+    ).grid(row=row, column=1, sticky="ew")
+    row += 1
+
     for f in text_fields:
         ttk.Label(form, text=f).grid(row=row, column=0, sticky="ne")
         txt = tk.Text(form, height=3)
@@ -156,10 +166,14 @@ def make_tab(parent, rola):
             w = text_widgets[f]
             w.delete("1.0", "end")
             val = user.get(f, "")
+            if f == "preferencje" and isinstance(val, dict):
+                val = dict(val)
+                val.pop("widok_startowy", None)
             if isinstance(val, (list, dict)):
                 w.insert("1.0", json.dumps(val, ensure_ascii=False, indent=2))
             else:
                 w.insert("1.0", val)
+        widok_var.set(user.get("preferencje", {}).get("widok_startowy", "panel"))
         entry_login.config(state="disabled")
 
     lb.bind("<<ListboxSelect>>", load_selected)
@@ -197,11 +211,20 @@ def make_tab(parent, rola):
             text = text_widgets[f].get("1.0", "end").strip()
             if text:
                 try:
-                    user[f] = json.loads(text)
+                    val = json.loads(text)
+                    if f == "preferencje" and isinstance(val, dict):
+                        val.pop("widok_startowy", None)
+                        text_widgets[f].delete("1.0", "end")
+                        text_widgets[f].insert(
+                            "1.0", json.dumps(val, ensure_ascii=False, indent=2)
+                        )
+                    user[f] = val
                 except Exception:
                     user[f] = text
             else:
                 user[f] = defaults[f]
+        prefs = user.setdefault("preferencje", {})
+        prefs["widok_startowy"] = widok_var.get()
         _save_users(users)
         _sync_presence(users)
         load_selected()
@@ -221,6 +244,7 @@ def make_tab(parent, rola):
                 vars[f].set("")
             for f in text_fields:
                 text_widgets[f].delete("1.0", "end")
+            widok_var.set("panel")
             entry_login.config(state="normal")
 
         def delete_user():
