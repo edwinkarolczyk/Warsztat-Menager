@@ -64,9 +64,14 @@ class DirtyGuard:
         self._after_id = None
         self._watched = []
 
-        # Keyboard shortcuts
-        self.root.bind_all("<Control-s>", self._on_save, add=True)
-        self.root.bind_all("<Escape>", self._on_reset, add=True)
+        # Keyboard shortcuts bound to this widget only
+        self._bind_ids: dict[str, str] = {}
+        self._bind_ids["<Control-s>"] = self.root.bind(
+            "<Control-s>", self._on_save, add=True
+        )
+        self._bind_ids["<Escape>"] = self.root.bind(
+            "<Escape>", self._on_reset, add=True
+        )
 
     # ------------------------------------------------------------------
     # state handling
@@ -122,7 +127,12 @@ class DirtyGuard:
     # window / navigation helpers
     def attach_window_close(self, window: tk.Tk | tk.Toplevel | None = None) -> None:
         target = window or self.root
-        target.protocol("WM_DELETE_WINDOW", lambda: self.check_before(target.destroy))
+
+        def _on_close() -> None:
+            if self.check_before(target.destroy):
+                self.dispose()
+
+        target.protocol("WM_DELETE_WINDOW", _on_close)
 
     def check_before(self, proceed_cb) -> bool:
         """Check for unsaved changes before continuing."""
@@ -150,6 +160,21 @@ class DirtyGuard:
                 self.mark_clean()
         proceed_cb()
         return True
+
+    # ------------------------------------------------------------------
+    # cleanup
+    def dispose(self) -> None:
+        """Remove event bindings and cancel pending tasks."""
+
+        for seq, bid in list(self._bind_ids.items()):
+            try:
+                self.root.unbind(seq, bid)
+            except Exception:
+                pass
+        self._bind_ids.clear()
+        if self._after_id is not None:
+            self.root.after_cancel(self._after_id)
+            self._after_id = None
 
     # ------------------------------------------------------------------
     # shortcuts
