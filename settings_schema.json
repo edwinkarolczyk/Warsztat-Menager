@@ -499,6 +499,16 @@
       "requires_restart": false
       },
       {
+        "key": "feedback.url",
+        "group": "Ogólne",
+        "label": "Adres wysyłania opinii",
+        "type": "string",
+        "default": "",
+        "widget": "entry",
+        "scope": "global",
+        "requires_restart": false
+      },
+      {
         "key": "warn_on_unsaved",
         "group": "Ogólne",
         "label": "Ostrzegaj przy niezapisanych zmianach",

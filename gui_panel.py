@@ -370,7 +370,7 @@ def uruchom_panel(root, login, rola):
                 import requests
 
                 cm = globals().get("CONFIG_MANAGER")
-                url = cm.get("feedback.url") if cm else None
+                url = cm.get("feedback.url", "").strip() if cm else ""
                 if url:
                     resp = requests.post(url, json=payload, timeout=5)
                     resp.raise_for_status()

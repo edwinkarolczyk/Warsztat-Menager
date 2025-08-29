@@ -77,6 +77,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
     branch_var = tk.StringVar(value=cfg.get("updates.branch", "proby-rozwoju"))
     push_branch_var = tk.StringVar(value=cfg.get("updates.push_branch", "git-push"))
+    feedback_url_var = tk.StringVar(value=cfg.get("feedback.url", ""))
     connection_status_var = tk.StringVar()
     color_vars = {
         "dark_bg": tk.StringVar(
@@ -243,6 +244,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("updates.remote", remote_var, str)
     track("updates.branch", branch_var, str)
     track("updates.push_branch", push_branch_var, str)
+    track("feedback.url", feedback_url_var, str)
     for color_key, var in color_vars.items():
         track(f"ui.colors.{color_key}", var, str)
 
@@ -406,8 +408,15 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=5, column=1, sticky="ew", padx=5, pady=5
     )
 
+    ttk.Label(frm, text="Adres wysyłania opinii:").grid(
+        row=6, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=feedback_url_var).grid(
+        row=6, column=1, sticky="ew", padx=5, pady=5
+    )
+
     ttk.Label(frm, textvariable=connection_status_var).grid(
-        row=6, column=0, columnspan=2, sticky="w", padx=5, pady=5
+        row=7, column=0, columnspan=2, sticky="w", padx=5, pady=5
     )
 
     def _check_git_connection():
@@ -426,7 +435,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             connection_status_var.set(err)
 
     ttk.Button(frm, text="Aktualizuj", command=_check_git_connection).grid(
-        row=7, column=0, columnspan=2, pady=5
+        row=8, column=0, columnspan=2, pady=5
     )
 
     _check_git_connection()

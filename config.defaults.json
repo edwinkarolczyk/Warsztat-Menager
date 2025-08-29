@@ -48,6 +48,9 @@
     "branch": "proby-rozwoju",
     "push_branch": "git-push"
   },
+  "feedback": {
+    "url": ""
+  },
   "modules": {
     "service": {
       "enabled": true
