@@ -175,6 +175,45 @@ def uruchom_panel(root, login, rola):
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
     ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
     ttk.Button(btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton").pack(side="right")
+    # --- licznik automatycznego wylogowania ---
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        _logout_min = int(cm.get("auth.session_timeout_min", 30)) if cm else 30
+    except Exception:
+        _logout_min = 30
+    _logout_total = max(0, _logout_min * 60)
+    _logout_deadline = datetime.now() + timedelta(seconds=_logout_total)
+    logout_job = {"id": None}
+    logout_label = ttk.Label(btns, text="", style="WM.Muted.TLabel")
+    logout_label.pack(side="right", padx=(0, 6))
+
+    def _logout_tick():
+        if not logout_label.winfo_exists():
+            logout_job["id"] = None
+            return
+        remaining = int((_logout_deadline - datetime.now()).total_seconds())
+        if remaining <= 0:
+            logout_label.config(text="Wylogowanie za 0 s")
+            logout_job["id"] = None
+            _logout()
+            return
+        m, s = divmod(remaining, 60)
+        if m:
+            logout_label.config(text=f"Wylogowanie za {m} min {s} s")
+        else:
+            logout_label.config(text=f"Wylogowanie za {s} s")
+        logout_job["id"] = root.after(1000, _logout_tick)
+
+    def _on_logout_destroy(_e=None):
+        if logout_job["id"]:
+            try:
+                root.after_cancel(logout_job["id"])
+            except Exception:
+                pass
+            logout_job["id"] = None
+
+    _logout_tick()
+    logout_label.bind("<Destroy>", _on_logout_destroy)
 
     # --- bezpieczny timer paska zmiany ---
     shift_job = {"id": None}
