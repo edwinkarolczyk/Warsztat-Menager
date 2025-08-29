@@ -97,6 +97,21 @@ def load_magazyn():
     # item_types
     if "item_types" not in mj["meta"] or not isinstance(mj["meta"].get("item_types"), list):
         mj["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES); fixed = True
+    # order list
+    if "order" not in mj["meta"] or not isinstance(mj["meta"].get("order"), list):
+        mj["meta"]["order"] = list((mj.get("items") or {}).keys()); fixed = True
+    else:
+        items_keys = list((mj.get("items") or {}).keys())
+        new_order = []
+        for iid in mj["meta"]["order"]:
+            if iid in items_keys and iid not in new_order:
+                new_order.append(iid)
+        for iid in items_keys:
+            if iid not in new_order:
+                new_order.append(iid)
+        if new_order != mj["meta"]["order"]:
+            mj["meta"]["order"] = new_order
+            fixed = True
 
     # uaktualnij timestamp meta
     mj["meta"]["updated"] = _now()
@@ -117,6 +132,17 @@ def save_magazyn(data):
     # sanity: item_types zawsze lista
     if not isinstance(data["meta"].get("item_types"), list):
         data["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES)
+    # sanitize order list
+    items_keys = list((data.get("items") or {}).keys())
+    order = data["meta"].get("order")
+    if not isinstance(order, list):
+        data["meta"]["order"] = items_keys
+    else:
+        new_order = [i for i in order if i in items_keys]
+        for iid in items_keys:
+            if iid not in new_order:
+                new_order.append(iid)
+        data["meta"]["order"] = new_order
     lock_path = MAGAZYN_PATH + ".lock"
     lock_f = open(lock_path, "w")
     try:
@@ -240,6 +266,9 @@ def upsert_item(item):
             "rezerwacje": float(item.get("rezerwacje", it.get("rezerwacje", 0))),
             "historia": it.get("historia", [])
         })
+        order = m.setdefault("meta", {}).setdefault("order", list(items.keys()))
+        if item["id"] not in order:
+            order.append(item["id"])
         save_magazyn(m)
         _log_info(f"Upsert item {item['id']} ({it['nazwa']})")
         return it
@@ -336,10 +365,25 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         _log_mag("zwolnienie_rezerwacji", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
         return it
 
+def set_order(order_ids):
+    """Ustawia kolejność elementów magazynu zgodnie z listą identyfikatorów."""
+    with _LOCK:
+        m = load_magazyn()
+        items = m.get("items") or {}
+        new_order = [iid for iid in order_ids if iid in items]
+        for iid in items.keys():
+            if iid not in new_order:
+                new_order.append(iid)
+        m.setdefault("meta", {})["order"] = new_order
+        save_magazyn(m)
+        return new_order
+
 def lista_items():
     with _LOCK:
         m = load_magazyn()
-        return list((m.get("items") or {}).values())
+        items = m.get("items") or {}
+        order = (m.get("meta") or {}).get("order") or list(items.keys())
+        return [items[i] for i in order if i in items]
 
 def sprawdz_progi():
     """Zwraca listę alertów: {item_id, nazwa, stan, min_poziom} gdzie stan <= min_poziom."""

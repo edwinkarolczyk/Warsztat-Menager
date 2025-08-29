@@ -137,6 +137,9 @@ class PanelMagazyn(ttk.Frame):
             self.tree.column(cid, width=w, anchor="w")
 
         self.tree.bind("<Double-1>", lambda e: self._show_historia())
+        self.tree.bind("<ButtonPress-1>", self._drag_start)
+        self.tree.bind("<B1-Motion>", self._drag_motion)
+        self.tree.bind("<ButtonRelease-1>", self._drag_release)
 
         # Pasek alertów
         self.var_alerty = tk.StringVar()
@@ -167,6 +170,30 @@ class PanelMagazyn(ttk.Frame):
         self.tree.tag_configure("#stock_low", background=COLORS.get("stock_low", "#c0392b"))
         self.tree.tag_configure("#stock_warn", background=COLORS.get("stock_warn", "#d35400"))
         self.tree.tag_configure("#stock_ok", background=COLORS.get("stock_ok", "#2d6a4f"))
+
+    def _drag_start(self, event):
+        item = self.tree.identify_row(event.y)
+        if item:
+            self._dragging = item
+
+    def _drag_motion(self, event):
+        item = getattr(self, "_dragging", None)
+        if not item:
+            return
+        target = self.tree.identify_row(event.y)
+        if target and target != item:
+            idx = self.tree.index(target)
+            self.tree.move(item, "", idx)
+
+    def _drag_release(self, _event):
+        item = getattr(self, "_dragging", None)
+        if not item:
+            return
+        order = [self.tree.set(ch, "id") for ch in self.tree.get_children("")]
+        self._all.sort(key=lambda x: order.index(x["id"]))
+        LM.set_order(order)
+        self._refresh()
+        self._dragging = None
 
     def _filter(self):
         q = (self.var_szukaj.get() or "").strip().lower()

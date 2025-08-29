@@ -74,6 +74,24 @@ def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
     assert alerts[0]['min_poziom'] == 2.0
 
 
+def test_set_order_persists(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
+    lm.load_magazyn()
+    lm.upsert_item({
+        'id': 'A', 'nazwa': 'A', 'typ': 'komponent', 'jednostka': 'szt',
+        'stan': 1, 'min_poziom': 0
+    })
+    lm.upsert_item({
+        'id': 'B', 'nazwa': 'B', 'typ': 'komponent', 'jednostka': 'szt',
+        'stan': 1, 'min_poziom': 0
+    })
+    lm.set_order(['B', 'A'])
+    ids = [it['id'] for it in lm.lista_items()]
+    assert ids[:2] == ['B', 'A']
+    ids = [it['id'] for it in lm.lista_items()]
+    assert ids[:2] == ['B', 'A']
+
+
 def test_parallel_saves_are_serial(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()
