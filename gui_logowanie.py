@@ -73,7 +73,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     bg_path = os.path.join("grafiki", "login_bg.png")
     if os.path.exists(bg_path):
         try:
-            img = Image.open(bg_path).resize((szer, wys))
+            img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
             bg_image = ImageTk.PhotoImage(img)
             bg_label = tk.Label(root, image=bg_image)
             bg_label.place(x=0, y=0, relwidth=1, relheight=1)
@@ -90,10 +90,13 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     logo_path = "logo.png"
     if os.path.exists(logo_path):
         try:
-            from PIL import Image, ImageTk
-            img = Image.open(logo_path).resize((300, 100))
+            img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
             logo_img = ImageTk.PhotoImage(img)
-            lbl_logo = tk.Label(top, image=logo_img, bg=root["bg"] if "bg" in root.keys() else "#0f1113")
+            lbl_logo = tk.Label(
+                top,
+                image=logo_img,
+                bg=root["bg"] if "bg" in root.keys() else "#0f1113",
+            )
             lbl_logo.image = logo_img  # pin referencji
             lbl_logo.pack()
         except Exception:
