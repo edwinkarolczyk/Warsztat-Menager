@@ -63,6 +63,12 @@ def test_set_anchor_monday(monkeypatch):
 
     monkeypatch.setattr(shifts_schedule, "_load_modes", lambda: modes)
     monkeypatch.setattr(shifts_schedule, "_save_json", fake_save)
+    class _D(date):
+        @classmethod
+        def today(cls):
+            return date(2023, 5, 10)
+
+    monkeypatch.setattr(shifts_schedule, "date", _D)
 
     assert shifts_schedule._anchor_monday() == date(2025, 1, 6)
     shifts_schedule.set_anchor_monday("2023-05-17")
