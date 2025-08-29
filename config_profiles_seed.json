@@ -10,6 +10,9 @@
       "zmiana"
     ],
     "fields_editable_by_user": [
+      "imie",
+      "nazwisko",
+      "staz",
       "telefon",
       "email"
     ],
@@ -25,6 +28,9 @@
     "zmiana"
   ],
   "profiles.fields_editable_by_user": [
+    "imie",
+    "nazwisko",
+    "staz",
     "telefon",
     "email"
   ],
