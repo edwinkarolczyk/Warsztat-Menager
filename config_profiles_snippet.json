@@ -15,6 +15,9 @@
       "urlop"
     ],
     "fields_editable_by_user": [
+      "imie",
+      "nazwisko",
+      "staz",
       "telefon",
       "email"
     ],
