@@ -34,7 +34,13 @@
     "zlecenia": "zlecenia.json"
   },
   "backup": {
-    "folder": "backup_wersji"
+    "folder": "backup_wersji",
+    "cloud": {
+      "url": "",
+      "username": "",
+      "password": "",
+      "folder": ""
+    }
   },
   "updates": {
     "auto": true,

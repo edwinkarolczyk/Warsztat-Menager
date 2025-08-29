@@ -252,21 +252,61 @@
       "scope": "global",
       "requires_restart": false
     },
-      {
-        "key": "backup.folder",
-        "group": "Pliki i ścieżki",
-        "label": "Folder kopii zapasowych",
-      "type": "path",
-      "default": "backup_wersji",
-      "widget": "dir",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.auto",
-        "group": "Aktualizacje",
-        "label": "Automatyczne aktualizacje",
-        "type": "bool",
+        {
+          "key": "backup.folder",
+          "group": "Pliki i ścieżki",
+          "label": "Folder kopii zapasowych",
+        "type": "path",
+        "default": "backup_wersji",
+        "widget": "dir",
+          "scope": "global",
+          "requires_restart": false
+        },
+        {
+          "key": "backup.cloud.url",
+          "group": "Kopie w chmurze",
+          "label": "Adres serwera WebDAV",
+          "type": "string",
+          "default": "",
+          "widget": "string",
+          "scope": "global",
+          "requires_restart": false
+        },
+        {
+          "key": "backup.cloud.username",
+          "group": "Kopie w chmurze",
+          "label": "Użytkownik WebDAV",
+          "type": "string",
+          "default": "",
+          "widget": "string",
+          "scope": "global",
+          "requires_restart": false
+        },
+        {
+          "key": "backup.cloud.password",
+          "group": "Kopie w chmurze",
+          "label": "Hasło WebDAV",
+          "type": "string",
+          "default": "",
+          "widget": "password",
+          "scope": "secret",
+          "requires_restart": false
+        },
+        {
+          "key": "backup.cloud.folder",
+          "group": "Kopie w chmurze",
+          "label": "Folder w chmurze",
+          "type": "path",
+          "default": "",
+          "widget": "dir",
+          "scope": "global",
+          "requires_restart": false
+        },
+        {
+          "key": "updates.auto",
+          "group": "Aktualizacje",
+          "label": "Automatyczne aktualizacje",
+          "type": "bool",
         "default": true,
         "widget": "switch",
         "scope": "global",
