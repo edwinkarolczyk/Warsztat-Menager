@@ -25,6 +25,8 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 # Motyw
 from ui_theme import apply_theme_tree
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
 
@@ -278,7 +280,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def _login_pinless():
-    user_file = Path(__file__).with_name("uzytkownicy.json")
+    user_file = BASE_DIR / "uzytkownicy.json"
     try:
         with user_file.open("r", encoding="utf-8") as f:
             users = json.load(f)
@@ -315,7 +317,7 @@ def _login_pinless():
 
 
 def logowanie():
-    user_file = Path(__file__).with_name("uzytkownicy.json")
+    user_file = BASE_DIR / "uzytkownicy.json"
     login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
