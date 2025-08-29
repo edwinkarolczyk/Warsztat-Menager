@@ -15,6 +15,9 @@ _DEFAULT_PATTERNS = {"A": "112", "B": "111", "C": "12"}
 _DATA_DIR = os.path.join("data", "grafiki")
 _MODES_FILE = os.path.join(_DATA_DIR, "tryby_userow.json")
 _CONFIG_FILE = "config.json"
+_USERS_FILE = "uzytkownicy.json"
+
+_USER_DEFAULTS: Dict[str, str] = {}
 
 
 def _read_json(path: str) -> dict:
@@ -109,6 +112,12 @@ def _shift_times() -> Dict[str, time]:
 
 
 def _load_users() -> List[Dict[str, str]]:
+    global _USER_DEFAULTS
+    defaults_raw = _read_json(_USERS_FILE) or []
+    defaults_map = {}
+    for u in defaults_raw:
+        uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
+        defaults_map[uid] = u.get("tryb_zmian", "B")
     try:
         import profiles
 
@@ -126,11 +135,12 @@ def _load_users() -> List[Dict[str, str]]:
             )
         else:
             path = os.path.join("data", "users", "users.json")
-            raw = _read_json(path) or []
+            raw = _read_json(path) or defaults_raw
             print(
                 f"[WM-DBG][SHIFTS] users via fallback: {len(raw)}"
             )
     users: List[Dict[str, str]] = []
+    _USER_DEFAULTS = {}
     for u in raw:
         uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
         name = (
@@ -140,13 +150,24 @@ def _load_users() -> List[Dict[str, str]]:
             or f"{u.get('imie', '')} {u.get('nazwisko', '')}".strip()
         )
         active = bool(u.get("active", True))
-        users.append({"id": uid, "name": name, "active": active})
+        default_mode = defaults_map.get(uid, "B")
+        _USER_DEFAULTS[uid] = default_mode
+        users.append(
+            {
+                "id": uid,
+                "name": name,
+                "active": active,
+                "tryb_zmian": default_mode,
+            }
+        )
     return users
 
 
 def _user_mode(user_id: str) -> str:
     modes = _load_modes().get("modes", {})
-    return modes.get(user_id, "B")
+    if user_id not in _USER_DEFAULTS:
+        _load_users()
+    return modes.get(user_id, _USER_DEFAULTS.get(user_id, "B"))
 
 
 def _week_idx(day: date) -> int:
@@ -240,11 +261,10 @@ def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
     times = _shift_times()
     rows: List[Dict] = []
     widx = _week_idx(week_start)
-    modes = _load_modes().get("modes", {})
     for u in _load_users():
         if not u.get("active"):
             continue
-        mode = modes.get(u["id"], "B")
+        mode = _user_mode(u["id"])
         slot = _slot_for_mode(mode, widx)
         start = times["R_START"] if slot == "RANO" else times["P_START"]
         end = times["R_END"] if slot == "RANO" else times["P_END"]
