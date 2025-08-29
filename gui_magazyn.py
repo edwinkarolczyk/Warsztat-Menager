@@ -175,6 +175,9 @@ class PanelMagazyn(ttk.Frame):
         item = self.tree.identify_row(event.y)
         if item:
             self._dragging = item
+            # zapamiętaj indeks początkowy oraz zresetuj flagę ruchu
+            self._drag_start_index = self.tree.index(item)
+            self._drag_moved = False
 
     def _drag_motion(self, event):
         item = getattr(self, "_dragging", None)
@@ -184,16 +187,20 @@ class PanelMagazyn(ttk.Frame):
         if target and target != item:
             idx = self.tree.index(target)
             self.tree.move(item, "", idx)
+            # oznacz jako przesunięte tylko, jeśli zmieniło się położenie
+            self._drag_moved = idx != getattr(self, "_drag_start_index", idx)
 
     def _drag_release(self, _event):
         item = getattr(self, "_dragging", None)
         if not item:
             return
-        order = [self.tree.set(ch, "id") for ch in self.tree.get_children("")]
-        self._all.sort(key=lambda x: order.index(x["id"]))
-        LM.set_order(order)
-        self._refresh()
+        if getattr(self, "_drag_moved", False):
+            order = [self.tree.set(ch, "id") for ch in self.tree.get_children("")]
+            self._all.sort(key=lambda x: order.index(x["id"]))
+            LM.set_order(order)
+            self._refresh()
         self._dragging = None
+        self._drag_moved = False
 
     def _filter(self):
         q = (self.var_szukaj.get() or "").strip().lower()
