@@ -304,14 +304,20 @@ def set_anchor_monday(iso_date: str) -> None:
     """
     try:
         d = datetime.strptime(iso_date, "%Y-%m-%d").date()
-    except Exception:
-        print("[ERROR] invalid date format:", iso_date)
-        return
-    d = d - timedelta(days=d.weekday())
+    except ValueError as exc:
+        raise ValueError(f"invalid date format: {iso_date}") from exc
+
+    monday = d - timedelta(days=d.weekday())
+    today = date.today()
+    if monday < today:
+        raise ValueError("anchor date cannot be in the past")
+    if monday > today + timedelta(days=365):
+        raise ValueError("anchor date is too far in the future")
+
     data = _load_modes()
-    data["anchor_monday"] = d.isoformat()
+    data["anchor_monday"] = monday.isoformat()
     _save_json(_MODES_FILE, data)
-    print(f"[WM-DBG][SHIFTS] anchor saved: {d.isoformat()}")
+    print(f"[WM-DBG][SHIFTS] anchor saved: {monday.isoformat()}")
 
 
 __all__ = [
