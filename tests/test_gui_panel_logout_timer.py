@@ -39,6 +39,8 @@ def test_logout_timer_updates(root, monkeypatch):
     btns = footer.winfo_children()[1]
     label = [w for w in btns.winfo_children() if isinstance(w, ttk.Label)][0]
     start = _parse_seconds(label.cget("text"))
+    # początek powinien odzwierciedlać wartość z konfiguracji (2 minuty)
+    assert 118 <= start <= 120
     root.after(1100, root.quit)
     root.mainloop()
     after = _parse_seconds(label.cget("text"))
