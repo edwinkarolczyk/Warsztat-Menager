@@ -245,7 +245,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def logowanie():
-    login = entry_login.get().strip()
+    login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
         with open("uzytkownicy.json", "r", encoding="utf-8") as f:
@@ -264,7 +264,10 @@ def logowanie():
             raise TypeError("uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)")
 
         for login_key, dane in iterator:
-            if str(login_key).strip() == login and str(dane.get("pin", "")).strip() == pin:
+            if (
+                str(login_key).strip().lower() == login
+                and str(dane.get("pin", "")).strip() == pin
+            ):
                 status = str(dane.get("status", "")).strip().lower()
                 if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
                     messagebox.showerror("Błąd", "Użytkownik oznaczony jako nieobecny")
