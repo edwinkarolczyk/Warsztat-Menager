@@ -64,7 +64,7 @@ class ShiftsSettingsFrame(ttk.Frame):
         for u in _load_users():
             if not u.get("active"):
                 continue
-            mode = modes.get(u["id"], "B")
+            mode = modes.get(u["id"], "111")
             self.tree.insert("", "end", iid=u["id"], values=(u["id"], u["name"], mode))
 
     def _edit_mode(self, event):
