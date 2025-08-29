@@ -256,7 +256,7 @@ def uruchom_panel(root, login, rola):
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
 
     admin_roles = {"admin","kierownik","brygadzista","lider"}
-    if str(rola).lower() in admin_roles:
+    if str(rola).strip().lower() in admin_roles:
         ttk.Button(side, text="Użytkownicy", command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
         try:
             from ustawienia_systemu import panel_ustawien as _pust
