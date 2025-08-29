@@ -3,6 +3,8 @@
 import os, json
 from datetime import datetime
 
+from start import CONFIG_MANAGER  # noqa: F401
+
 def _cfg():
     try:
         cm = globals().get("CONFIG_MANAGER")
