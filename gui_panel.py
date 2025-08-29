@@ -16,6 +16,7 @@ from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+from start import CONFIG_MANAGER  # noqa: F401
 
 
 def _get_app_version() -> str:
