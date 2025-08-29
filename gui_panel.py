@@ -9,11 +9,29 @@
 # - Adapter zgodności do panelu zleceń.
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+
+
+def _get_app_version() -> str:
+    """Zwróć numer wersji z ``__version__.py`` lub ``pyproject.toml``."""
+    try:
+        from __version__ import __version__  # type: ignore
+        return __version__
+    except Exception:
+        try:
+            import tomllib  # type: ignore
+            with open("pyproject.toml", "rb") as fh:
+                data = tomllib.load(fh)
+            return data.get("project", {}).get("version", "dev")
+        except Exception:
+            return "dev"
+
+
+APP_VERSION = _get_app_version()
 
 try:
     from logger import log_akcja
@@ -133,8 +151,21 @@ def _shift_progress(now: datetime):
 
 def uruchom_panel(root, login, rola):
     apply_theme(root)
-    root.title(f"Warsztat Menager - zalogowano jako {login} ({rola})")
+    root.title(
+        f"Warsztat Menager v{APP_VERSION} - zalogowano jako {login} ({rola})"
+    )
     clear_frame(root)
+
+    def _show_about():
+        messagebox.showinfo(
+            "O programie", f"Warsztat Menager\nWersja {APP_VERSION}"
+        )
+
+    menubar = tk.Menu(root)
+    help_menu = tk.Menu(menubar, tearoff=False)
+    help_menu.add_command(label="O programie", command=_show_about)
+    menubar.add_cascade(label="Pomoc", menu=help_menu)
+    root.config(menu=menubar)
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
