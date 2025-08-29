@@ -214,105 +214,84 @@ def panel_ustawien(root, frame, login=None, rola=None):
             else:
                 self.widget.insert("1.0", str(value))
 
-    def prompt_save(key, var, cast):
-        old_val = cfg.get(key)
-        try:
-            new_val = cast(var.get())
-        except Exception:
-            new_val = var.get()
-        if old_val == new_val:
+    original_vals = {}
+    dirty_keys = {}
+    tracked_vars = {}
+
+    def track(key, var, cast):
+        original_vals[key] = cast(var.get())
+        tracked_vars[key] = (var, cast)
+        def _mark(*_):
+            try:
+                val = cast(var.get())
+            except Exception:
+                val = var.get()
+            if val != original_vals[key]:
+                dirty_keys[key] = True
+            else:
+                dirty_keys.pop(key, None)
+        if hasattr(var, "trace_add"):
+            var.trace_add("write", _mark)
+        else:
+            var.widget.bind("<FocusOut>", _mark)
+
+    track("ui.language", lang_var, str)
+    track("ui.theme", theme_var, str)
+    track("ui.accent", accent_var, str)
+    track("backup.folder", backup_var, str)
+    track("updates.auto", auto_var, bool)
+    track("updates.remote", remote_var, str)
+    track("updates.branch", branch_var, str)
+    track("updates.push_branch", push_branch_var, str)
+    for color_key, var in color_vars.items():
+        track(f"ui.colors.{color_key}", var, str)
+
+    track("auth.required", auth_required_var, bool)
+    track("auth.session_timeout_min", auth_timeout_var, int)
+    track("auth.pin_length", auth_pin_var, int)
+    track("auth.pinless_brygadzista", pinless_brygadzista_var, bool)
+
+    track("paths.maszyny", path_maszyny_var, str)
+    track("paths.narzedzia", path_narzedzia_var, str)
+    track("paths.zlecenia", path_zlecenia_var, str)
+    track("sciezka_danych", data_dir_var, str)
+
+    track("app.start_view", start_view_var, str)
+    track("modules.service.enabled", module_service_var, bool)
+    track("dashboard.mini_hall.enabled", mini_hall_var, bool)
+
+    track("local.fullscreen_on_start", fullscreen_var, bool)
+    track("local.ui_scale", ui_scale_var, int)
+    track("hall.grid_size_px", hall_grid_var, int)
+
+    track("profiles.tab_enabled", profiles_tab_enabled_var, bool)
+    track("profiles.show_name_in_header", profiles_show_name_var, bool)
+    track("profiles.avatar_dir", profiles_avatar_dir_var, str)
+    track("profiles.allow_pin_change", profiles_allow_pin_change_var, bool)
+    track(
+        "profiles.task_default_deadline_days", profiles_task_deadline_var, int
+    )
+
+    def on_exit(_event=None):
+        if not dirty_keys:
             return
-        if messagebox.askyesno("Zapisz", f"Czy zapisać zmianę {key}?"):
-            cfg.set(key, new_val)
+        if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?"):
+            for key in list(dirty_keys):
+                var, cast = tracked_vars[key]
+                try:
+                    val = cast(var.get())
+                except Exception:
+                    val = var.get()
+                cfg.set(key, val)
             cfg.save_all()
             apply_theme(frame.winfo_toplevel())
         else:
-            var.set(old_val)
+            for key in list(dirty_keys):
+                var, _ = tracked_vars[key]
+                var.set(original_vals[key])
+        dirty_keys.clear()
 
-    lang_var.trace_add("write", lambda *_: prompt_save("ui.language", lang_var, str))
-    theme_var.trace_add("write", lambda *_: prompt_save("ui.theme", theme_var, str))
-    accent_var.trace_add("write", lambda *_: prompt_save("ui.accent", accent_var, str))
-    backup_var.trace_add("write", lambda *_: prompt_save("backup.folder", backup_var, str))
-    auto_var.trace_add("write", lambda *_: prompt_save("updates.auto", auto_var, bool))
-    remote_var.trace_add("write", lambda *_: prompt_save("updates.remote", remote_var, str))
-    branch_var.trace_add("write", lambda *_: prompt_save("updates.branch", branch_var, str))
-    push_branch_var.trace_add(
-        "write", lambda *_: prompt_save("updates.push_branch", push_branch_var, str)
-    )
-    for color_key, var in color_vars.items():
-        var.trace_add(
-            "write",
-            lambda *_a, ck=color_key, v=var: prompt_save(f"ui.colors.{ck}", v, str),
-        )
-
-    auth_required_var.trace_add(
-        "write", lambda *_: prompt_save("auth.required", auth_required_var, bool)
-    )
-    auth_timeout_var.trace_add(
-        "write", lambda *_: prompt_save("auth.session_timeout_min", auth_timeout_var, int)
-    )
-    auth_pin_var.trace_add(
-        "write", lambda *_: prompt_save("auth.pin_length", auth_pin_var, int)
-    )
-    pinless_brygadzista_var.trace_add(
-        "write",
-        lambda *_: prompt_save("auth.pinless_brygadzista", pinless_brygadzista_var, bool),
-    )
-
-    path_maszyny_var.trace_add(
-        "write", lambda *_: prompt_save("paths.maszyny", path_maszyny_var, str)
-    )
-    path_narzedzia_var.trace_add(
-        "write", lambda *_: prompt_save("paths.narzedzia", path_narzedzia_var, str)
-    )
-    path_zlecenia_var.trace_add(
-        "write", lambda *_: prompt_save("paths.zlecenia", path_zlecenia_var, str)
-    )
-    data_dir_var.trace_add(
-        "write", lambda *_: prompt_save("sciezka_danych", data_dir_var, str)
-    )
-
-    start_view_var.trace_add(
-        "write", lambda *_: prompt_save("app.start_view", start_view_var, str)
-    )
-    module_service_var.trace_add(
-        "write", lambda *_: prompt_save("modules.service.enabled", module_service_var, bool)
-    )
-    mini_hall_var.trace_add(
-        "write",
-        lambda *_: prompt_save("dashboard.mini_hall.enabled", mini_hall_var, bool),
-    )
-
-    fullscreen_var.trace_add(
-        "write", lambda *_: prompt_save("local.fullscreen_on_start", fullscreen_var, bool)
-    )
-    ui_scale_var.trace_add(
-        "write", lambda *_: prompt_save("local.ui_scale", ui_scale_var, int)
-    )
-    hall_grid_var.trace_add(
-        "write", lambda *_: prompt_save("hall.grid_size_px", hall_grid_var, int)
-    )
-
-    profiles_tab_enabled_var.trace_add(
-        "write", lambda *_: prompt_save("profiles.tab_enabled", profiles_tab_enabled_var, bool)
-    )
-    profiles_show_name_var.trace_add(
-        "write",
-        lambda *_: prompt_save("profiles.show_name_in_header", profiles_show_name_var, bool),
-    )
-    profiles_avatar_dir_var.trace_add(
-        "write", lambda *_: prompt_save("profiles.avatar_dir", profiles_avatar_dir_var, str)
-    )
-    profiles_allow_pin_change_var.trace_add(
-        "write",
-        lambda *_: prompt_save("profiles.allow_pin_change", profiles_allow_pin_change_var, bool),
-    )
-    profiles_task_deadline_var.trace_add(
-        "write",
-        lambda *_: prompt_save(
-            "profiles.task_default_deadline_days", profiles_task_deadline_var, int
-        ),
-    )
+    frame.bind("<Destroy>", on_exit)
 
     # --- Motyw ---
     tab_theme = _make_frame(nb, "WM.Card.TFrame")
@@ -594,38 +573,15 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_typy.insert("1.0", typy_narzedzi_text)
 
     statusy_nowe_var = _TextWrapper(txt_statusy_nowe)
-    txt_statusy_nowe.bind(
-        "<FocusOut>",
-        lambda e, v=statusy_nowe_var: prompt_save(
-            "statusy_narzedzi_nowe", v, lambda x: x
-        ),
-    )
+    track("statusy_narzedzi_nowe", statusy_nowe_var, lambda x: x)
     statusy_stare_var = _TextWrapper(txt_statusy_stare)
-    txt_statusy_stare.bind(
-        "<FocusOut>",
-        lambda e, v=statusy_stare_var: prompt_save(
-            "statusy_narzedzi_stare", v, lambda x: x
-        ),
-    )
+    track("statusy_narzedzi_stare", statusy_stare_var, lambda x: x)
     szablony_var = _TextWrapper(txt_szablony)
-    txt_szablony.bind(
-        "<FocusOut>",
-        lambda e, v=szablony_var: prompt_save(
-            "szablony_zadan_narzedzia", v, lambda x: x
-        ),
-    )
+    track("szablony_zadan_narzedzia", szablony_var, lambda x: x)
     szablony_stare_var = _TextWrapper(txt_szablony_stare)
-    txt_szablony_stare.bind(
-        "<FocusOut>",
-        lambda e, v=szablony_stare_var: prompt_save(
-            "szablony_zadan_narzedzia_stare", v, lambda x: x
-        ),
-    )
+    track("szablony_zadan_narzedzia_stare", szablony_stare_var, lambda x: x)
     typy_var = _TextWrapper(txt_typy)
-    txt_typy.bind(
-        "<FocusOut>",
-        lambda e, v=typy_var: prompt_save("typy_narzedzi", v, lambda x: x),
-    )
+    track("typy_narzedzi", typy_var, lambda x: x)
 
     # --- Profile użytkowników ---
     tab_profiles = _make_frame(nb, "WM.Card.TFrame")
@@ -670,19 +626,9 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_fields_editable.insert("1.0", profiles_fields_editable_text)
 
     fields_visible_var = _TextWrapper(txt_fields_visible)
-    txt_fields_visible.bind(
-        "<FocusOut>",
-        lambda e, v=fields_visible_var: prompt_save(
-            "profiles.fields_visible", v, lambda x: x
-        ),
-    )
+    track("profiles.fields_visible", fields_visible_var, lambda x: x)
     fields_editable_var = _TextWrapper(txt_fields_editable)
-    txt_fields_editable.bind(
-        "<FocusOut>",
-        lambda e, v=fields_editable_var: prompt_save(
-            "profiles.fields_editable_by_user", v, lambda x: x
-        ),
-    )
+    track("profiles.fields_editable_by_user", fields_editable_var, lambda x: x)
 
     ttk.Checkbutton(
         frm_profiles,

@@ -8,19 +8,22 @@ import ustawienia_systemu
 from test_config_manager import make_manager
 
 
-def test_auth_timeout_save_prompt(make_manager, monkeypatch):
+def test_settings_single_prompt(make_manager, monkeypatch):
     schema = {
         "config_version": 1,
-        "options": [{"key": "auth.session_timeout_min", "type": "int"}],
+        "options": [
+            {"key": "auth.session_timeout_min", "type": "int"},
+            {"key": "auth.pin_length", "type": "int"},
+        ],
     }
-    defaults = {"auth": {"session_timeout_min": 30}}
+    defaults = {"auth": {"session_timeout_min": 30, "pin_length": 4}}
     make_manager(defaults=defaults, schema=schema)
 
     monkeypatch.setattr(ustawienia_systemu, "apply_theme", lambda *a, **k: None)
-    called = {}
+    calls = {"count": 0}
 
     def fake_askyesno(title, message):
-        called["asked"] = True
+        calls["count"] += 1
         return True
 
     monkeypatch.setattr(ustawienia_systemu.messagebox, "askyesno", fake_askyesno)
@@ -42,13 +45,24 @@ def test_auth_timeout_save_prompt(make_manager, monkeypatch):
         for w in frm_auth.winfo_children()
         if w.winfo_class() == "TSpinbox" and w.grid_info().get("row") == 1
     ][0]
-    var_name = sp_timeout.cget("textvariable")
+    sp_pin = [
+        w
+        for w in frm_auth.winfo_children()
+        if w.winfo_class() == "TSpinbox" and w.grid_info().get("row") == 2
+    ][0]
+    var_timeout = sp_timeout.cget("textvariable")
+    var_pin = sp_pin.cget("textvariable")
 
-    root.setvar(var_name, 99)
+    root.setvar(var_timeout, 99)
+    root.setvar(var_pin, 7)
+    root.update_idletasks()
+
+    frame.destroy()
     root.update_idletasks()
     root.destroy()
 
-    assert called.get("asked") is True
+    assert calls["count"] == 1
     reloaded = cm.ConfigManager()
     assert reloaded.get("auth.session_timeout_min") == 99
+    assert reloaded.get("auth.pin_length") == 7
 
