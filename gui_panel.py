@@ -214,9 +214,20 @@ def uruchom_panel(root, login, rola):
                     pass
 
         active_guard.check_before(_do_logout)
+    def _quit():
+        """Zamknij aplikację, pytając o zapis przy brudnych danych."""
+
+        def _do_quit():
+            try:
+                root.destroy()
+            except Exception:
+                pass
+
+        active_guard.check_before(_do_quit)
+
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
     ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
-    ttk.Button(btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton").pack(side="right")
+    ttk.Button(btns, text="Zamknij program", command=_quit, style="WM.Side.TButton").pack(side="right")
     # --- licznik automatycznego wylogowania ---
     try:
         cm = globals().get("CONFIG_MANAGER")
