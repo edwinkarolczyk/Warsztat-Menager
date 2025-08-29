@@ -172,6 +172,12 @@ def panel_ustawien(root, frame, login=None, rola=None):
     profiles_fields_visible_text = "\n".join(
         cfg.get("profiles.fields_visible", [])
     )
+    profiles_fields_editable_text = "\n".join(
+        cfg.get("profiles.fields_editable_by_user", [])
+    )
+    profiles_allow_pin_change_var = tk.BooleanVar(
+        value=cfg.get("profiles.allow_pin_change", False)
+    )
     profiles_task_deadline_var = tk.IntVar(
         value=cfg.get("profiles.task_default_deadline_days", 7)
     )
@@ -612,16 +618,29 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_fields_visible.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
     txt_fields_visible.insert("1.0", profiles_fields_visible_text)
 
+    ttk.Label(frm_profiles, text="Pola edytowalne w profilu:").grid(
+        row=4, column=0, sticky="nw", padx=5, pady=5
+    )
+    txt_fields_editable = tk.Text(frm_profiles, height=4)
+    txt_fields_editable.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
+    txt_fields_editable.insert("1.0", profiles_fields_editable_text)
+
+    ttk.Checkbutton(
+        frm_profiles,
+        text="Pozwól użytkownikowi zmieniać PIN",
+        variable=profiles_allow_pin_change_var,
+    ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+
     ttk.Label(
-        frm_profiles, text="Domyślny termin zadania (dni):"
-    ).grid(row=4, column=0, sticky="w", padx=5, pady=5)
+        frm_profiles, text="Domyślny termin zadania (dni):",
+    ).grid(row=6, column=0, sticky="w", padx=5, pady=5)
     ttk.Spinbox(
         frm_profiles,
         from_=1,
         to=365,
         textvariable=profiles_task_deadline_var,
         width=5,
-    ).grid(row=4, column=1, sticky="w", padx=5, pady=5)
+    ).grid(row=6, column=1, sticky="w", padx=5, pady=5)
 
     def _save_profiles():
         try:
@@ -638,6 +657,14 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 _lines_from_text(txt_fields_visible),
             )
             cfg.set(
+                "profiles.fields_editable_by_user",
+                _lines_from_text(txt_fields_editable),
+            )
+            cfg.set(
+                "profiles.allow_pin_change",
+                bool(profiles_allow_pin_change_var.get()),
+            )
+            cfg.set(
                 "profiles.task_default_deadline_days",
                 int(profiles_task_deadline_var.get()),
             )
@@ -646,7 +673,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             messagebox.showerror("Błąd", str(e))
 
     ttk.Button(frm_profiles, text="Zapisz", command=_save_profiles).grid(
-        row=5, column=0, columnspan=2, pady=10
+        row=7, column=0, columnspan=2, pady=10
     )
 
     # --- Użytkownicy ---

@@ -86,6 +86,13 @@ def _attach_tab(nb):
     if not isinstance(cur_fields, (list,tuple)) or not cur_fields:
         cur_fields = list(_fields_default)
     var_fields = tk.StringVar(value=",".join(cur_fields))
+    cur_edit_fields = _cfg_get("profiles.fields_editable_by_user", [])
+    if isinstance(cur_edit_fields, str):
+        cur_edit_fields = [x.strip() for x in cur_edit_fields.split(",") if x.strip()]
+    if not isinstance(cur_edit_fields, (list, tuple)):
+        cur_edit_fields = []
+    var_fields_edit = tk.StringVar(value=",".join(cur_edit_fields))
+    var_allow_pin = tk.BooleanVar(value=bool(_cfg_get("profiles.allow_pin_change", False)))
 
     row=0
     ttk.Label(tab, text="Widoczność", style="WM.H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(12,6)); row+=1
@@ -95,13 +102,19 @@ def _attach_tab(nb):
     ttk.Label(tab, text="Pola w profilu", style="WM.H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16,6)); row+=1
     ttk.Label(tab, text="Lista (po przecinku):").grid(row=row, column=0, sticky="w", padx=12, pady=4)
     ttk.Entry(tab, textvariable=var_fields, width=42).grid(row=row, column=1, sticky="w", padx=(0,6), pady=4); row+=1
+    ttk.Label(tab, text="Pola edytowalne (po przecinku):").grid(row=row, column=0, sticky="w", padx=12, pady=4)
+    ttk.Entry(tab, textvariable=var_fields_edit, width=42).grid(row=row, column=1, sticky="w", padx=(0,6), pady=4); row+=1
+    ttk.Checkbutton(tab, text="Pozwól na zmianę PIN", variable=var_allow_pin).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=4); row+=1
 
     def _apply():
         _cfg_set("profiles.tab_enabled", bool(var_tab.get()))
         _cfg_set("profiles.show_name_in_header", bool(var_head.get()))
         fields = [x.strip() for x in var_fields.get().split(",") if x.strip()] or _fields_default
         _cfg_set("profiles.fields_visible", fields)
-        print("[PROFILES-DBG] injector: apply ->", {"tab_enabled": var_tab.get(),"show_name_in_header": var_head.get(),"fields": var_fields.get()}, flush=True)
+        editable = [x.strip() for x in var_fields_edit.get().split(",") if x.strip()]
+        _cfg_set("profiles.fields_editable_by_user", editable)
+        _cfg_set("profiles.allow_pin_change", bool(var_allow_pin.get()))
+        print("[PROFILES-DBG] injector: apply ->", {"tab_enabled": var_tab.get(),"show_name_in_header": var_head.get(),"fields": var_fields.get(),"editable": var_fields_edit.get(),"allow_pin": var_allow_pin.get()}, flush=True)
     ttk.Button(tab, text="Zastosuj", command=_apply).grid(row=row, column=0, sticky="w", padx=12, pady=(16,12))
 
     for c in range(2): tab.grid_columnconfigure(c, weight=0)
