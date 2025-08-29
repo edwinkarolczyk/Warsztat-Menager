@@ -276,7 +276,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
         if not dirty_keys:
             return
         if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?"):
-            for key in list(dirty_keys):
+            changed = list(dirty_keys)
+            for key in changed:
                 var, cast = tracked_vars[key]
                 try:
                     val = cast(var.get())
@@ -284,7 +285,13 @@ def panel_ustawien(root, frame, login=None, rola=None):
                     val = var.get()
                 cfg.set(key, val)
             cfg.save_all()
-            apply_theme(frame.winfo_toplevel())
+            top = frame.winfo_toplevel()
+            apply_theme(top)
+            if "auth.session_timeout_min" in changed:
+                try:
+                    top.event_generate("<<AuthTimeoutChanged>>")
+                except Exception:
+                    pass
         else:
             for key in list(dirty_keys):
                 var, _ = tracked_vars[key]

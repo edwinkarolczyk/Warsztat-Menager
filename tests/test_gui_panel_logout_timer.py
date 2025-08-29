@@ -45,3 +45,23 @@ def test_logout_timer_updates(root, monkeypatch):
     root.mainloop()
     after = _parse_seconds(label.cget("text"))
     assert after < start
+
+
+def test_logout_timer_restart_on_event(root, monkeypatch):
+    monkeypatch.setattr(gui_panel, "CONFIG_MANAGER", DummyCM())
+    gui_panel.uruchom_panel(root, "demo", "user")
+    main = root.winfo_children()[1]
+    footer = main.winfo_children()[2]
+    btns = footer.winfo_children()[1]
+    label = [w for w in btns.winfo_children() if isinstance(w, ttk.Label)][0]
+    # zmiana konfiguracji na 1 minutę
+    class NewCM:
+        def get(self, key, default=None):
+            if key == "auth.session_timeout_min":
+                return 1
+            return default
+    gui_panel.CONFIG_MANAGER = NewCM()
+    root.event_generate("<<AuthTimeoutChanged>>")
+    root.update()
+    new = _parse_seconds(label.cget("text"))
+    assert 58 <= new <= 60
