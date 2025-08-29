@@ -8,6 +8,14 @@ Moduły: **Maszyny, Narzędzia, Zlecenia, Magazyn, Serwis, Ustawienia**.
 py -3 start.py
 ```
 
+## Instalacja
+```bash
+pip install -r requirements.txt
+py -3 start.py
+```
+
+Plik `requirements.txt` zawiera minimalny zestaw bibliotek potrzebnych do uruchomienia aplikacji.
+
 ## Struktura katalogów (skrót)
 ```
 .
