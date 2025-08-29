@@ -11,5 +11,8 @@
   "rotacja_anchor_monday": "2025-01-06",
   "updates": {
     "push_branch": "git-push"
-  }
+  },
+  "warn_on_unsaved": true,
+  "autosave_draft": false,
+  "autosave_draft_interval_sec": 15
 }

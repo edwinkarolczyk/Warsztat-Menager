@@ -68,6 +68,9 @@
   "profiles": {
     "task_default_deadline_days": 7
   },
+  "warn_on_unsaved": true,
+  "autosave_draft": false,
+  "autosave_draft_interval_sec": 15,
   "tutorial_completed": false,
   "secrets": {
     "admin_pin": ""
