@@ -22,7 +22,9 @@ def test_append_type_uses_config_manager(monkeypatch):
     sys.path.append(str(Path(__file__).resolve().parents[1]))
     gn = importlib.import_module("gui_narzedzia")
     dummy = DummyManager()
-    monkeypatch.setattr(gn, "CFG", dummy)
+
+    # Replace factory returning ConfigManager with our dummy instance
+    monkeypatch.setattr(gn, "_cfg", lambda: dummy)
 
     assert gn._append_type_to_config("Nowy typ") is True
     assert dummy.data["typy_narzedzi"] == ["Nowy typ"]
