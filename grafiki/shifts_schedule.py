@@ -64,6 +64,8 @@ def _available_patterns(data: Optional[dict] = None) -> Dict[str, str]:
         patterns = _DEFAULT_PATTERNS.copy()
     return patterns
 
+TRYBY = list(_available_patterns().keys())
+
 
 def _last_update_date() -> str:
     """Return the last modification date of the modes file."""
@@ -311,5 +313,14 @@ def set_anchor_monday(iso_date: str) -> None:
     _save_json(_MODES_FILE, data)
     print(f"[WM-DBG][SHIFTS] anchor saved: {d.isoformat()}")
 
+
+__all__ = [
+    "who_is_on_now",
+    "today_summary",
+    "week_matrix",
+    "set_user_mode",
+    "set_anchor_monday",
+    "TRYBY",
+]
 
 # ⏹ KONIEC KODU
