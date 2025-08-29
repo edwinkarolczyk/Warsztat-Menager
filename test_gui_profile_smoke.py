@@ -3,7 +3,7 @@ import os
 import pytest
 
 def test_public_api():
-    mod = importlib.import_module('gui_profile')
+    mod = importlib.import_module('gui.profile')
     assert hasattr(mod, 'uruchom_panel')
     assert callable(mod.uruchom_panel)
     assert hasattr(mod, 'panel_profil')
@@ -11,7 +11,7 @@ def test_public_api():
 
 
 def test_default_avatar_used(monkeypatch):
-    mod = importlib.import_module('gui_profile')
+    mod = importlib.import_module('gui.profile')
     if mod.Image is None or mod.ImageTk is None:
         pytest.skip("Pillow not installed")
 
@@ -49,7 +49,7 @@ def test_default_avatar_used(monkeypatch):
 
 
 def test_avatar_fallback_without_pillow(monkeypatch):
-    mod = importlib.import_module('gui_profile')
+    mod = importlib.import_module('gui.profile')
 
     monkeypatch.setattr(mod, 'Image', None)
     monkeypatch.setattr(mod, 'ImageTk', None)

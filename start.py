@@ -205,10 +205,10 @@ def _open_main_panel(root, ctx):
 
     # Domyślnie uruchom panel
     try:
-        import gui_panel
+        from gui import panel as gui_panel
     except Exception:
         traceback.print_exc()
-        _error("Nie można zaimportować gui_panel.")
+        _error("Nie można zaimportować gui.panel.")
         return
 
     try:
@@ -267,7 +267,7 @@ def main():
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 
-        import gui_logowanie
+        from gui import logowanie as gui_logowanie
         gui_logowanie.ekran_logowania(
             root,
             on_login=lambda login, rola, extra=None: _on_login(root, login, rola, extra),

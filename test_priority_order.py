@@ -1,4 +1,4 @@
-import gui_profile as gp
+from gui import profile as gp
 
 
 def test_deadline_sorting_and_default():

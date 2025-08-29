@@ -20,9 +20,9 @@ Konfiguracja oczekiwanych wersji:
 - Format (przyklad):
   {
     "start.py": {"min": "1.0.2"},
-    "gui_logowanie.py": {"min": "1.4.12.1"},
-    "gui_panel.py": {"min": "1.6.13"},
-    "gui_narzedzia.py": {"min": "1.5.9"}
+    "gui/logowanie.py": {"min": "1.4.12.1"},
+    "gui/panel.py": {"min": "1.6.13"},
+    "gui/narzedzia.py": {"min": "1.5.9"}
   }
 
 Uwaga:
@@ -41,13 +41,13 @@ TOOL_VERSION = "1.3.0"
 # Wbudowane oczekiwane wersje (moga byc nadpisane przez versions_expected.json)
 DEFAULT_EXPECTED = {
     "start.py": {"min": "1.0.2"},
-    "gui_logowanie.py": {"min": "1.4.12.1"},
-    "gui_panel.py": {"min": "1.6.13"},
-    "gui_narzedzia.py": {"min": "1.5.9"},
-    "gui_maszyny.py": {"min": "1.0.1"},
-    "gui_zlecenia.py": {"min": "1.0.1"},
+    "gui/logowanie.py": {"min": "1.4.12.1"},
+    "gui/panel.py": {"min": "1.6.13"},
+    "gui/narzedzia.py": {"min": "1.5.9"},
+    "gui/maszyny.py": {"min": "1.0.1"},
+    "gui/zlecenia.py": {"min": "1.0.1"},
     "zlecenia_logika.py": {"min": "1.0.0"},
-    "gui_uzytkownicy.py": {"min": "1.0.1"},
+    "gui/uzytkownicy.py": {"min": "1.0.1"},
     "ui_theme.py": {"min": "1.0.0"},
     "ustawienia_systemu.py": {"min": "1.0.0"},
     "modul_serwisowy.py": {"min": "0.9.0"},
@@ -215,13 +215,13 @@ def check_config_min_keys(root):
 def write_sample_versions(root):
     sample = {
         "start.py": {"min": "1.0.2"},
-        "gui_logowanie.py": {"min": "1.4.12.1"},
-        "gui_panel.py": {"min": "1.6.13"},
-        "gui_narzedzia.py": {"min": "1.5.9"},
-        "gui_maszyny.py": {"min": "1.0.1"},
-        "gui_zlecenia.py": {"min": "1.1.2"},
+        "gui/logowanie.py": {"min": "1.4.12.1"},
+        "gui/panel.py": {"min": "1.6.13"},
+        "gui/narzedzia.py": {"min": "1.5.9"},
+        "gui/maszyny.py": {"min": "1.0.1"},
+        "gui/zlecenia.py": {"min": "1.1.2"},
         "zlecenia_logika.py": {"min": "1.1.2"},
-        "gui_uzytkownicy.py": {"min": "1.0.1"},
+        "gui/uzytkownicy.py": {"min": "1.0.1"},
         "ui_theme.py": {"min": "1.0.0"},
         "ustawienia_systemu.py": {"min": "1.0.0"},
         "modul_serwisowy.py": {"min": "0.9.0"},

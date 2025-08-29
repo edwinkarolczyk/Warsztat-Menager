@@ -24,7 +24,7 @@ except Exception:
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
     # oryginalna funkcja z gui_zlecenia: panel_zlecenia(parent, root=None, app=None, notebook=None)
-    from gui_zlecenia import panel_zlecenia as _panel_zl_src
+    from gui.zlecenia import panel_zlecenia as _panel_zl_src
 
     def panel_zlecenia(root, frame, login=None, rola=None):
         """Adapter: zachowuje sygnaturę (root, frame, ...),
@@ -53,7 +53,7 @@ except Exception:
 
 # --- IMPORT NARZĘDZI Z CZYTELNYM TRACEBACKIEM ---
 try:
-    from gui_narzedzia import panel_narzedzia as _panel_narzedzia_real
+    from gui.narzedzia import panel_narzedzia as _panel_narzedzia_real
     _PANEL_NARZ_ERR = None
     def panel_narzedzia(root, frame, login=None, rola=None):
         return _panel_narzedzia_real(root, frame, login, rola)
@@ -69,21 +69,21 @@ except Exception as e:
         ).pack(padx=12, pady=12, anchor="w")
 
 try:
-    from gui_maszyny import panel_maszyny
+    from gui.maszyny import panel_maszyny
 except Exception:
     def panel_maszyny(root, frame, login=None, rola=None):
         clear_frame(frame)
         ttk.Label(frame, text="Panel maszyn").pack(pady=20)
 
 try:
-    from gui_uzytkownicy import panel_uzytkownicy
+    from gui.uzytkownicy import panel_uzytkownicy
 except Exception:
     def panel_uzytkownicy(root, frame, login=None, rola=None):
         clear_frame(frame)
         ttk.Label(frame, text="Panel użytkowników").pack(pady=20)
 
 try:
-    import gui_profile
+    from gui import profile as gui_profile
 except Exception:
     gui_profile = None
 
@@ -100,7 +100,7 @@ except Exception as e:
         ).pack(pady=20)
 
 # --- IMPORT MAGAZYNU ---
-from gui_magazyn import panel_magazyn
+from gui.magazyn import panel_magazyn
 
 
 # ---------- Zmiany / czas pracy ----------
@@ -165,7 +165,7 @@ def uruchom_panel(root, login, rola):
         except Exception:
             pass
         try:
-            import gui_logowanie
+            from gui import logowanie as gui_logowanie
             gui_logowanie.ekran_logowania(root)
         except Exception:
             try:

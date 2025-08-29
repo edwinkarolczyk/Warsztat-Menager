@@ -20,7 +20,7 @@ from updates_utils import load_last_update_info
 from grafiki.shifts_schedule import who_is_on_now
 
 # Pasek zmiany i przejście do panelu głównego
-import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
+from gui import panel as gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
 from ui_theme import apply_theme_tree

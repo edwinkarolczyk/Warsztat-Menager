@@ -11,7 +11,7 @@ from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 
 def _build_tab_profil(parent, login, rola):
-    import gui_profile
+    from gui import profile as gui_profile
     frame = ttk.Frame(parent)
     frame.pack(fill="both", expand=True)
     # Wywołanie nowego panelu profilu w ramach zakładki

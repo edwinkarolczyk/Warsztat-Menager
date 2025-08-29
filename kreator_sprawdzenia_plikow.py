@@ -8,8 +8,8 @@ import hashlib
 # Lista wymaganych plików z sumami kontrolnymi SHA256 (mogą być uzupełniane)
 wymagane_pliki = {
     "start.py": None,
-    "gui_logowanie.py": None,
-    "gui_panel.py": None,
+    "gui/logowanie.py": None,
+    "gui/panel.py": None,
     "layout_prosty.py": None,
     "ustawienia_systemu.py": None,
     "uzytkownicy.json": None,

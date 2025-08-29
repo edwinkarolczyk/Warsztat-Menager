@@ -1,7 +1,7 @@
 import pytest
 import tkinter as tk
 from tkinter import ttk
-import gui_panel
+from gui import panel as gui_panel
 
 
 @pytest.fixture

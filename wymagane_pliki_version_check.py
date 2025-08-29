@@ -8,8 +8,8 @@ import re
 # Lista wymaganych plików i oczekiwanych wersji
 wymagane_pliki = {
     "start.py": "1.4.7",
-    "gui_logowanie.py": "1.4.7",
-    "gui_panel.py": "1.4.8",
+    "gui/logowanie.py": "1.4.7",
+    "gui/panel.py": "1.4.8",
     "layout_prosty.py": "1.4.7",
     "ustawienia_systemu.py": "1.4.8",
     "uzytkownicy.json": None,

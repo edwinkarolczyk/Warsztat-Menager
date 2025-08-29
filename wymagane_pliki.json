@@ -1,11 +1,11 @@
 {
   "start.py": "1.0.2",
-  "gui_logowanie.py": "1.4.12.1",
-  "gui_panel.py": "1.6.13",
-  "gui_narzedzia.py": "1.5.3",
-  "gui_maszyny.py": "1.0.1",
-  "gui_zlecenia.py": "1.0.1",
-  "gui_uzytkownicy.py": "1.0.1",
+  "gui/logowanie.py": "1.4.12.1",
+  "gui/panel.py": "1.6.13",
+  "gui/narzedzia.py": "1.5.3",
+  "gui/maszyny.py": "1.0.1",
+  "gui/zlecenia.py": "1.0.1",
+  "gui/uzytkownicy.py": "1.0.1",
   "logger.py": "1.0.2",
   "ustawienia_systemu.py": "1.0.1"
 }

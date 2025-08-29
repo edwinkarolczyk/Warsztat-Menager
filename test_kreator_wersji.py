@@ -20,7 +20,7 @@ def sprawdz_wymagania(plik: str, wymagania: List[str]) -> Dict[str, bool]:
 
 
 def test_gui_logowanie_spelnia_wymagania():
-    plik = "gui_logowanie.py"
+    plik = "gui/logowanie.py"
     wymagania = [
         "def ekran_logowania(root=None, on_login=None, update_available=False):",
         "entry_pin = ttk.Entry",

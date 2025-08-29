@@ -15,12 +15,12 @@ import subprocess
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
-from gui_settings_shifts import ShiftsSettingsFrame
+from gui.settings_shifts import ShiftsSettingsFrame
 from utils.gui_helpers import clear_frame
 
 # --- import panelu magazynowego ---
 try:
-    from gui_magazyn import panel_ustawien_magazyn
+    from gui.magazyn import panel_ustawien_magazyn
 except Exception:
     def panel_ustawien_magazyn(parent):
         ttk.Label(parent, text="Panel ustawień Magazynu – błąd importu").pack(padx=10, pady=10)

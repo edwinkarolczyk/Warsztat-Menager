@@ -10,7 +10,7 @@ import ustawienia_uzytkownicy
 
 
 def test_foreman_role_case_insensitive():
-    mod = importlib.import_module("gui_profile")
+    mod = importlib.import_module("gui.profile")
     order = {"nr": 1}
     tool = {"id": "NARZ-1-1"}
     roles = ["brygadzista", "BRYGADZISTA", "Brygadzista", "BrYgAdZiStA"]
@@ -20,7 +20,7 @@ def test_foreman_role_case_insensitive():
 
 
 def test_read_tasks_foreman_role_case_insensitive(monkeypatch, tmp_path):
-    mod = importlib.import_module("gui_profile")
+    mod = importlib.import_module("gui.profile")
 
     cfg = ConfigManager()
     assert isinstance(cfg.get("updates.remote"), str)
