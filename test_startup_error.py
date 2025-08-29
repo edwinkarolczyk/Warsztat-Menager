@@ -114,11 +114,10 @@ def test_auto_update_on_start_conflict(monkeypatch):
 
     monkeypatch.setattr(start, "_run_git_pull", fake_pull)
 
-    def fake_showerror(title, message):
+    def fake_showerror(title, message, suggestion=None):
         msgs.append(message)
 
-    mb = types.SimpleNamespace(showerror=fake_showerror)
-    monkeypatch.setattr(start, "messagebox", mb)
+    monkeypatch.setattr(start.error_dialogs, "show_error_dialog", fake_showerror)
 
     class FakeRoot:
         def withdraw(self):

@@ -257,10 +257,10 @@ def test_logowanie_invalid_pair(tmp_path, monkeypatch):
     monkeypatch.setattr(gui_logowanie, "entry_pin", types.SimpleNamespace(get=lambda: "0000"))
     errors = []
 
-    def fake_error(title, msg):
+    def fake_error(title, msg, suggestion=None):
         errors.append(msg)
 
-    monkeypatch.setattr(gui_logowanie, "messagebox", types.SimpleNamespace(showerror=fake_error))
+    monkeypatch.setattr(gui_logowanie.error_dialogs, "show_error_dialog", fake_error)
     logged = []
     monkeypatch.setattr(gui_logowanie, "_on_login_cb", lambda *args: logged.append(args))
     monkeypatch.setattr(gui_logowanie, "root_global", DummyRoot())
@@ -318,12 +318,10 @@ def test_logowanie_callback_error(tmp_path, monkeypatch):
 
     errors = []
 
-    def fake_error(title, msg):
+    def fake_error(title, msg, suggestion=None):
         errors.append(msg)
 
-    monkeypatch.setattr(
-        gui_logowanie, "messagebox", types.SimpleNamespace(showerror=fake_error)
-    )
+    monkeypatch.setattr(gui_logowanie.error_dialogs, "show_error_dialog", fake_error)
 
     logged = []
     monkeypatch.setattr(

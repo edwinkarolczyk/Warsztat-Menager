@@ -23,6 +23,7 @@ import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+from utils import error_dialogs
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH  = "config.json"
@@ -803,13 +804,16 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             raw = (var_nr.get() or "").strip()
             numer = (f"{int(raw):03d}") if raw.isdigit() else raw.zfill(3)
             if (not numer.isdigit()) or len(numer) != 3:
-                messagebox.showerror("Błąd", "Numer musi mieć dokładnie 3 cyfry (np. 001)."); return
+                error_dialogs.show_error_dialog("Błąd", "Numer musi mieć dokładnie 3 cyfry (np. 001).")
+                return
             nint = int(numer)
 
             if tool_mode == "NOWE" and not (1 <= nint <= 499):
-                messagebox.showerror("Błąd", "Dla trybu NOWE numer 001–499."); return
+                error_dialogs.show_error_dialog("Błąd", "Dla trybu NOWE numer 001–499.")
+                return
             if tool_mode == "STARE" and not (500 <= nint <= 1000):
-                messagebox.showerror("Błąd", "Dla trybu STARE numer 500–1000."); return
+                error_dialogs.show_error_dialog("Błąd", "Dla trybu STARE numer 500–1000.")
+                return
 
             current_nr = str(start.get("nr","")).zfill(3) if editing else None
             if _is_taken(numer) and (not editing or numer != current_nr):
@@ -826,21 +830,24 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             nazwa = (var_nm.get() or "").strip()
             typ   = (cb_ty.get() or "").strip()
             if not nazwa or not typ:
-                messagebox.showerror("Błąd", "Pola 'Nazwa' i 'Typ' są wymagane."); return
+                error_dialogs.show_error_dialog("Błąd", "Pola 'Nazwa' i 'Typ' są wymagane.")
+                return
 
             raw_status = (var_st.get() or "").strip()
             st_new = _normalize_status(raw_status)
 
             allowed = _statusy_for_mode(tool_mode)
             if (st_new.lower() not in [x.lower() for x in allowed]) and (raw_status.lower() not in [x.lower() for x in allowed]):
-                messagebox.showerror("Błąd", f"Status '{raw_status}' nie jest dozwolony."); return
+                error_dialogs.show_error_dialog("Błąd", f"Status '{raw_status}' nie jest dozwolony.")
+                return
 
             # KONWERSJA: tylko jeśli NN, checkbox zaznaczony i rola pozwala
             tool_mode_local = tool_mode
             now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
             if tool_mode == "NOWE" and convert_var.get():
                 if not _can_convert_nn_to_sn(rola):
-                    messagebox.showerror("Uprawnienia", "Tę operację może wykonać tylko brygadzista."); return
+                    error_dialogs.show_error_dialog("Uprawnienia", "Tę operację może wykonać tylko brygadzista.")
+                    return
                 tool_mode_local = "STARE"
 
                 # co zrobić z zadaniami?

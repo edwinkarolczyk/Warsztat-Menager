@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme
+from utils import error_dialogs
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
@@ -185,7 +186,7 @@ def make_tab(parent, rola=None):
                 if il <= 0:
                     raise ValueError
             except Exception:
-                messagebox.showerror("BOM", "Ilość musi być dodatnią liczbą")
+                error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
                 return
             if il.is_integer():
                 il = int(il)
@@ -214,7 +215,7 @@ def make_tab(parent, rola=None):
                 if il <= 0:
                     raise ValueError
             except Exception:
-                messagebox.showerror("BOM", "Ilość musi być dodatnią liczbą")
+                error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
                 return
             if il.is_integer():
                 il = int(il)

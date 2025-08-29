@@ -17,6 +17,7 @@ from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from utils import error_dialogs
 
 from config_manager import ConfigManager
 
@@ -448,7 +449,7 @@ class UpdatesUI(ttk.Frame):
             _restart_app()
         except Exception as e:
             _write_log(stamp, f"[ERROR] git pull: {e}", kind="update")
-            messagebox.showerror("Aktualizacje", f"Błąd git pull:\n{e}")
+            error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git pull:\n{e}")
 
     def _on_git_push(self):
         cfg = ConfigManager()
@@ -477,12 +478,12 @@ class UpdatesUI(ttk.Frame):
         except subprocess.CalledProcessError as e:
             log_text = "[GIT PUSH OUTPUT]\n" + (e.stdout or "") + "\n[GIT PUSH ERROR]\n" + (e.stderr or "")
             _write_log(stamp, log_text, kind="update")
-            messagebox.showerror(
+            error_dialogs.show_error_dialog(
                 "Aktualizacje", f"Błąd git push:\n{e.stderr.strip() if e.stderr else e}"
             )
         except Exception as e:
             _write_log(stamp, f"[ERROR] git push: {e}", kind="update")
-            messagebox.showerror("Aktualizacje", f"Błąd git push:\n{e}")
+            error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git push:\n{e}")
 
     def _on_zip_update(self):
         zip_path = filedialog.askopenfilename(
@@ -506,7 +507,7 @@ class UpdatesUI(ttk.Frame):
             _restart_app()
         except Exception as e:
             _write_log(stamp, f"[ERROR] ZIP update: {e}", kind="update")
-            messagebox.showerror("Aktualizacje", f"Błąd podczas importu ZIP:\n{e}")
+            error_dialogs.show_error_dialog("Aktualizacje", f"Błąd podczas importu ZIP:\n{e}")
 
     def _on_restore(self):
         backups = _list_backups()
@@ -575,7 +576,7 @@ class UpdatesUI(ttk.Frame):
             _restart_app()
         except Exception as e:
             _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}", kind="restore")
-            messagebox.showerror("Przywracanie", f"Błąd przywracania:\n{e}")
+            error_dialogs.show_error_dialog("Przywracanie", f"Błąd przywracania:\n{e}")
 
     # --- versions UI ---
 
