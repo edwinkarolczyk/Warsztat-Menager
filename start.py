@@ -11,7 +11,7 @@ import os
 import sys
 import json
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 import tkinter as tk
 from tkinter import messagebox
@@ -59,6 +59,59 @@ def _dbg(msg):
     _log(f"[WM-DBG] {msg}")
 
 SESSION_ID = None
+
+
+# ====== AKTYWNOŚĆ UŻYTKOWNIKA ======
+class _InactivityMonitor:
+    """Obserwuje aktywność użytkownika i wywołuje callback po bezczynności."""
+
+    def __init__(self, root, timeout_sec, callback):
+        self.root = root
+        self.timeout = timeout_sec
+        self.callback = callback
+        self._deadline = datetime.now() + timedelta(seconds=timeout_sec)
+        self._job = None
+        for seq in ("<Key>", "<Button>", "<Motion>"):
+            root.bind_all(seq, self._reset, add="+")
+        self._tick()
+
+    def _reset(self, _event=None):
+        self._deadline = datetime.now() + timedelta(seconds=self.timeout)
+
+    def _tick(self):
+        if datetime.now() >= self._deadline:
+            self.callback()
+            return
+        self._job = self.root.after(1000, self._tick)
+
+    def cancel(self):
+        if self._job:
+            try:
+                self.root.after_cancel(self._job)
+            except Exception:  # pragma: no cover - defensywne
+                pass
+            self._job = None
+
+
+def logout():
+    """Domyślne wylogowanie wywoływane po bezczynności."""
+    _info(f"[{SESSION_ID}] Wylogowanie z powodu bezczynności")
+    try:
+        if tk._default_root:
+            tk._default_root.destroy()
+    except Exception:  # pragma: no cover - defensywne
+        pass
+
+
+def monitor_user_activity(root, timeout_sec=300, callback=None):
+    """Rozpoczyna monitorowanie aktywności użytkownika na danym ``root``.
+
+    Zwraca obiekt monitora, który można anulować metodą ``cancel``.
+    """
+
+    if callback is None:
+        callback = logout
+    return _InactivityMonitor(root, timeout_sec, callback)
 
 
 def show_startup_error(e):
@@ -318,6 +371,13 @@ def main():
             on_login=lambda login, rola, extra=None: _on_login(root, login, rola, extra),
             update_available=update_available,
         )
+
+        try:
+            cm = ConfigManager()
+            timeout = int(cm.get("auth.session_timeout_min", 30)) * 60
+        except Exception:
+            timeout = 30 * 60
+        monitor_user_activity(root, timeout)
 
         # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
         # to po prostu zostawiamy pętlę główną jak dotąd:
