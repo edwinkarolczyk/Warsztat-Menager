@@ -1,6 +1,7 @@
 import importlib
 import os
 import pytest
+from dirty_guard import DirtyGuard
 
 def test_public_api():
     mod = importlib.import_module('gui_profile')
@@ -8,6 +9,20 @@ def test_public_api():
     assert callable(mod.uruchom_panel)
     assert hasattr(mod, 'panel_profil')
     assert mod.panel_profil is mod.uruchom_panel
+
+
+def test_dialog_invoked_on_unsaved_navigation():
+    guard = DirtyGuard()
+    guard.mark_dirty()
+    calls = []
+
+    def dialog():
+        calls.append(True)
+        return "cancel"
+
+    result = guard.check_before(dialog, None, None)
+    assert result is False
+    assert calls == [True]
 
 
 def test_default_avatar_used(monkeypatch):
