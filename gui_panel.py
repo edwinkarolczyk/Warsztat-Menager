@@ -184,6 +184,7 @@ def uruchom_panel(root, login, rola):
     _logout_total = max(0, _logout_min * 60)
     _logout_deadline = datetime.now() + timedelta(seconds=_logout_total)
     logout_job = {"id": None}
+    # label pokazujący czas pozostały do automatycznego wylogowania
     logout_label = ttk.Label(btns, text="", style="WM.Muted.TLabel")
     logout_label.pack(side="right", padx=(0, 6))
 
