@@ -27,6 +27,7 @@ from utils.gui_helpers import clear_frame
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
+from auth.roles import Role, has_role
 
 __all__ = [
     "PanelMagazyn",
@@ -38,8 +39,14 @@ __all__ = [
 
 # ----- uprawnienia -----
 def _has_priv(rola: str | None) -> bool:
-    r = (rola or "").strip().lower()
-    return r in {"brygadzista", "brygadzista_serwisant", "admin", "kierownik"}
+    return has_role(
+        rola,
+        Role.ADMIN,
+        Role.MAGAZYNIER,
+        Role.BRYGADZISTA,
+        Role.BRYGADZISTA_SERWISANT,
+        Role.KIEROWNIK,
+    )
 
 def _resolve_role(parent, rola_hint=None):
     # 1) z parametru
@@ -65,9 +72,10 @@ def _resolve_role(parent, rola_hint=None):
     return None
 
 class PanelMagazyn(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, rola=None):
         super().__init__(master, style="WM.Card.TFrame")
         apply_theme(self)
+        self.rola = _resolve_role(master, rola)
         self._build_ui()
         self._load()
 
@@ -182,10 +190,15 @@ class PanelMagazyn(ttk.Frame):
             return None
 
     def _act_zuzyj(self):
+        if not _has_priv(self.rola):
+            messagebox.showerror("Magazyn", "Brak uprawnień.")
+            return
         iid = self._sel_id()
-        if not iid: return
+        if not iid:
+            return
         il = self._ask_float("Zużycie", "Ilość do zużycia:")
-        if il is None: return
+        if il is None:
+            return
         try:
             LM.zuzyj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
@@ -193,10 +206,15 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Błąd", str(e))
 
     def _act_zwrot(self):
+        if not _has_priv(self.rola):
+            messagebox.showerror("Magazyn", "Brak uprawnień.")
+            return
         iid = self._sel_id()
-        if not iid: return
+        if not iid:
+            return
         il = self._ask_float("Zwrot", "Ilość do zwrotu:")
-        if il is None: return
+        if il is None:
+            return
         try:
             LM.zwrot(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
@@ -204,10 +222,15 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Błąd", str(e))
 
     def _act_rezerwuj(self):
+        if not _has_priv(self.rola):
+            messagebox.showerror("Magazyn", "Brak uprawnień.")
+            return
         iid = self._sel_id()
-        if not iid: return
+        if not iid:
+            return
         il = self._ask_float("Rezerwacja", "Ilość do rezerwacji:")
-        if il is None: return
+        if il is None:
+            return
         try:
             LM.rezerwuj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
@@ -215,10 +238,15 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Błąd", str(e))
 
     def _act_zwolnij(self):
+        if not _has_priv(self.rola):
+            messagebox.showerror("Magazyn", "Brak uprawnień.")
+            return
         iid = self._sel_id()
-        if not iid: return
+        if not iid:
+            return
         il = self._ask_float("Zwolnienie rezerwacji", "Ilość do zwolnienia:")
-        if il is None: return
+        if il is None:
+            return
         try:
             LM.zwolnij_rezerwacje(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
             self._load()
@@ -251,7 +279,7 @@ class PanelMagazyn(ttk.Frame):
 def panel_magazyn(root, frame, login=None, rola=None):
     apply_theme(root.winfo_toplevel())
     clear_frame(frame)
-    PanelMagazyn(frame).pack(fill="both", expand=True)
+    PanelMagazyn(frame, rola=rola).pack(fill="both", expand=True)
 
 def open_panel_magazyn(root):
     """Otwiera Toplevel z panelem Magazynu."""
@@ -259,7 +287,7 @@ def open_panel_magazyn(root):
     win.title("Magazyn")
     win.geometry("980x540+120+120")
     apply_theme(win)
-    PanelMagazyn(win).pack(fill="both", expand=True)
+    PanelMagazyn(win, rola=getattr(root, "rola", None)).pack(fill="both", expand=True)
     return win
 
 def attach_magazyn_button(root, toolbar):
@@ -278,17 +306,28 @@ def panel_ustawien_magazyn(parent, rola=None):
     apply_theme(parent.winfo_toplevel())
     frm = ttk.Frame(parent, style="WM.Card.TFrame")
     frm.pack(fill="both", expand=True, padx=12, pady=12)
-
-    # wykryj rolę (fallbacki)
     resolved_role = _resolve_role(parent, rola)
-    is_priv = _has_priv(resolved_role)
+    if not _has_priv(resolved_role):
+        messagebox.showerror("Magazyn", "Brak uprawnień do ustawień magazynu.")
+        return frm
 
-    # Nagłówek + rola
     hdr = ttk.Frame(frm)
     hdr.grid(row=0, column=0, columnspan=3, sticky="ew")
-    ttk.Label(hdr, text="Ścieżka pliku magazynu:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=8, pady=(8,4))
-    ttk.Label(hdr, text="data/magazyn.json", style="WM.Muted.TLabel").grid(row=0, column=1, sticky="w", padx=8, pady=(8,4))
-    ttk.Label(hdr, text=f"Twoja rola: {resolved_role or 'nieznana'}", style="WM.Muted.TLabel").grid(row=0, column=2, sticky="e", padx=8, pady=(8,4))
+    ttk.Label(
+        hdr,
+        text="Ścieżka pliku magazynu:",
+        style="WM.Card.TLabel",
+    ).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
+    ttk.Label(
+        hdr,
+        text="data/magazyn.json",
+        style="WM.Muted.TLabel",
+    ).grid(row=0, column=1, sticky="w", padx=8, pady=(8, 4))
+    ttk.Label(
+        hdr,
+        text=f"Twoja rola: {resolved_role or 'nieznana'}",
+        style="WM.Muted.TLabel",
+    ).grid(row=0, column=2, sticky="e", padx=8, pady=(8, 4))
 
     ttk.Label(frm, text="Folder BOM (produkty):", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=8, pady=4)
     ttk.Label(frm, text="data/produkty/", style="WM.Muted.TLabel").grid(row=1, column=1, sticky="w", padx=8, pady=4)
