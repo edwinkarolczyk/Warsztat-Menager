@@ -19,6 +19,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+from config_manager import ConfigManager
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -26,7 +27,6 @@ from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
-CONFIG_PATH  = "config.json"
 STATUSY_NOWE_DEFAULT  = ["projekt", "w budowie", "próby narzędzia", "odbiór", "sprawne"]
 STATUSY_STARE_DEFAULT = ["sprawne", "do ostrzenia", "w ostrzeniu", "po ostrzeniu", "w naprawie", "uszkodzone", "wycofane"]
 
@@ -49,28 +49,21 @@ TYPY_NARZEDZI_DEFAULT = ["Tłoczące", "Wykrawające", "Postępowe", "Giętarka"
 
 # Statusy NN uznawane za fazę "produkcja" (lower)
 NN_PROD_STATES = {
-    "projekt","w budowie","1 próba","1 proba","2 próba","2 proba","próby narzędzia","proby narzedzia","odbiór","odbior"
+    "projekt",
+    "w budowie",
+    "1 próba",
+    "1 proba",
+    "2 próba",
+    "2 proba",
+    "próby narzędzia",
+    "proby narzedzia",
+    "odbiór",
+    "odbior",
 }
 
 # ===================== CONFIG / DEBUG =====================
-def _load_config():
-    if not os.path.exists(CONFIG_PATH):
-        return {}
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def _save_config(cfg: dict):
-    try:
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
-
-_CFG_CACHE = _load_config()
-DEBUG = bool(os.environ.get("WM_DEBUG") or _CFG_CACHE.get("tryb_testowy"))
+CFG = ConfigManager()
+DEBUG = bool(os.environ.get("WM_DEBUG") or CFG.get("tryb_testowy", False))
 
 def _dbg(*args):
     if DEBUG:
@@ -81,16 +74,18 @@ def _dbg(*args):
 
 def _maybe_seed_config_templates():
     try:
-        cfg = _load_config()
         changed = False
-        if "szablony_zadan_narzedzia" not in cfg:
-            cfg["szablony_zadan_narzedzia"] = TASK_TEMPLATES_DEFAULT[:]; changed = True
-        if "szablony_zadan_narzedzia_stare" not in cfg:
-            cfg["szablony_zadan_narzedzia_stare"] = STARE_CONVERT_TEMPLATES_DEFAULT[:]; changed = True
-        if "typy_narzedzi" not in cfg:
-            cfg["typy_narzedzi"] = TYPY_NARZEDZI_DEFAULT[:]; changed = True
+        if CFG.get("szablony_zadan_narzedzia") is None:
+            CFG.set("szablony_zadan_narzedzia", TASK_TEMPLATES_DEFAULT[:])
+            changed = True
+        if CFG.get("szablony_zadan_narzedzia_stare") is None:
+            CFG.set("szablony_zadan_narzedzia_stare", STARE_CONVERT_TEMPLATES_DEFAULT[:])
+            changed = True
+        if CFG.get("typy_narzedzi") is None:
+            CFG.set("typy_narzedzi", TYPY_NARZEDZI_DEFAULT[:])
+            changed = True
         if changed:
-            _save_config(cfg)
+            CFG.save_all()
             _dbg("Dosiano brakujące klucze (szablony/typy) w config.json")
     except Exception as e:
         _dbg("Błąd seedowania config:", e)
@@ -107,24 +102,21 @@ def _clean_list(lst):
 
 def _task_templates_from_config():
     try:
-        cfg = _load_config()
-        lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
+        lst = _clean_list(CFG.get("szablony_zadan_narzedzia", []))
         return lst or TASK_TEMPLATES_DEFAULT
     except Exception:
         return TASK_TEMPLATES_DEFAULT
 
 def _stare_convert_templates_from_config():
     try:
-        cfg = _load_config()
-        lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
+        lst = _clean_list(CFG.get("szablony_zadan_narzedzia_stare", []))
         return lst or STARE_CONVERT_TEMPLATES_DEFAULT
     except Exception:
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
 def _types_from_config():
     try:
-        cfg = _load_config()
-        lst = _clean_list(cfg.get("typy_narzedzi"))
+        lst = _clean_list(CFG.get("typy_narzedzi", []))
         return lst or TYPY_NARZEDZI_DEFAULT
     except Exception:
         return TYPY_NARZEDZI_DEFAULT
@@ -133,21 +125,19 @@ def _append_type_to_config(new_type: str) -> bool:
     t = (new_type or "").strip()
     if not t:
         return False
-    cfg = _load_config()
-    cur = _clean_list(cfg.get("typy_narzedzi")) or []
+    cur = _clean_list(CFG.get("typy_narzedzi", [])) or []
     if t.lower() in [x.lower() for x in cur]:
         return False
     cur.append(t)
-    cfg["typy_narzedzi"] = cur
-    _save_config(cfg)
+    CFG.set("typy_narzedzi", cur)
+    CFG.save_all()
     _dbg("Dopisano typ do config:", t)
     return True
 
 # ===== Uprawnienia z config =====
 def _can_convert_nn_to_sn(rola: str | None) -> bool:
     """Sprawdza uprawnienie narzedzia.uprawnienia.zmiana_klasy: 'brygadzista' | 'brygadzista_serwisant'."""
-    cfg = _load_config()
-    setg = (((cfg.get("narzedzia") or {}).get("uprawnienia") or {}).get("zmiana_klasy") or "brygadzista").strip().lower()
+    setg = (CFG.get("narzedzia.uprawnienia.zmiana_klasy", "brygadzista") or "").strip().lower()
     if setg == "brygadzista_serwisant":
         allowed = {"brygadzista", "serwisant"}
     else:
@@ -163,10 +153,8 @@ def _tasks_for_type(typ: str, phase: str):
     phase: 'produkcja' | 'serwis'
     Czyta z config['narzedzia']['typy'][typ][phase], z fallbackiem na płaskie listy.
     """
-    cfg = _load_config()
     try:
-        narz = cfg.get("narzedzia", {})
-        typy = narz.get("typy", {})
+        typy = CFG.get("narzedzia.typy", {}) or {}
         entry = typy.get(typ)
         if not entry:
             for k in typy.keys():
@@ -186,8 +174,7 @@ def _tasks_for_type(typ: str, phase: str):
 
 # ===================== ŚCIEŻKI DANYCH =====================
 def _resolve_tools_dir():
-    cfg = _load_config()
-    base = (cfg.get("sciezka_danych") or "").strip()
+    base = (CFG.get("sciezka_danych", "") or "").strip()
     if base and not os.path.isabs(base):
         base = os.path.normpath(base)
     folder = os.path.join(base, "narzedzia") if base else "narzedzia"
@@ -200,11 +187,18 @@ def _ensure_folder():
 
 # ===================== STATUSY / NORMALIZACJA =====================
 def _statusy_for_mode(mode):
-    cfg = _load_config()
     if mode == "NOWE":
-        lst = _clean_list(cfg.get("statusy_narzedzi_nowe")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_NOWE_DEFAULT[:]
+        lst = (
+            _clean_list(CFG.get("statusy_narzedzi_nowe", []))
+            or _clean_list(CFG.get("statusy_narzedzi", []))
+            or STATUSY_NOWE_DEFAULT[:]
+        )
     else:
-        lst = _clean_list(cfg.get("statusy_narzedzi_stare")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_STARE_DEFAULT[:]
+        lst = (
+            _clean_list(CFG.get("statusy_narzedzi_stare", []))
+            or _clean_list(CFG.get("statusy_narzedzi", []))
+            or STATUSY_STARE_DEFAULT[:]
+        )
     if "sprawne" not in [x.lower() for x in lst]:
         lst = lst + ["sprawne"]
     return lst
@@ -311,10 +305,9 @@ def _iter_folder_items():
     return items
 
 def _iter_legacy_json_items():
-    cfg = _load_config()
     cands = []
-    p_cfg_flat = cfg.get("paths.narzedzia")
-    base = (cfg.get("sciezka_danych") or "").strip()
+    p_cfg_flat = CFG.get("paths.narzedzia")
+    base = (CFG.get("sciezka_danych", "") or "").strip()
     p_in_base = os.path.join(base, "narzedzia.json") if base else None
     p_cwd = "narzedzia.json"
 
