@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
+from start import CONFIG_MANAGER  # noqa: F401
 
 try:
     from tkinter import TclError
