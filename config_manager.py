@@ -46,6 +46,13 @@ class ConfigManager:
         self.merged = self._merge_all()
         self._validate_all()
 
+        # Settings for unsaved changes handling
+        self.warn_on_unsaved = self.get("warn_on_unsaved", True)
+        self.autosave_draft = self.get("autosave_draft", False)
+        self.autosave_draft_interval_sec = self.get(
+            "autosave_draft_interval_sec", 15
+        )
+
     # ========== I/O pomocnicze ==========
     def _ensure_dirs(self):
         os.makedirs(AUDIT_DIR, exist_ok=True)
