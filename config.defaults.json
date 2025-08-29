@@ -62,6 +62,7 @@
   "profiles": {
     "task_default_deadline_days": 7
   },
+  "tutorial_completed": false,
   "secrets": {
     "admin_pin": ""
   }

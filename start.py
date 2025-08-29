@@ -229,6 +229,24 @@ def _open_main_panel(root, ctx):
         traceback.print_exc()
         _error("Błąd uruchamiania panelu.")
 
+# ====== TUTORIAL ======
+def _show_tutorial_if_first_run(root):
+    """Wyświetla instrukcje przy pierwszym uruchomieniu."""
+    try:
+        cfg = ConfigManager()
+        if not cfg.get("tutorial_completed", False):
+            steps = [
+                "Witaj w Warsztat Menager!",
+                "Tu zobaczysz, jak korzystać z aplikacji.",
+                "Powodzenia!",
+            ]
+            for text in steps:
+                messagebox.showinfo("Instrukcje", text, parent=root)
+            cfg.set("tutorial_completed", True)
+            cfg.save_all()
+    except Exception as e:  # pragma: no cover - defensywne
+        _error(f"Błąd tutorialu: {e}")
+
 # ====== CALLBACK LOGOWANIA (jeśli gui_logowanie go wspiera) ======
 def _on_login(root, login, rola, extra=None):
     """
@@ -275,6 +293,8 @@ def main():
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+
+        _show_tutorial_if_first_run(root)
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 
