@@ -123,8 +123,30 @@ def save_magazyn(data):
         lock_file(lock_f)
         tmp = MAGAZYN_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, MAGAZYN_PATH)
+            try:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                _log_info(f"save_magazyn dump error: {e}")
+                try:
+                    os.remove(tmp)
+                except Exception:
+                    pass
+                raise
+        try:
+            os.replace(tmp, MAGAZYN_PATH)
+        except Exception as e:
+            _log_info(f"save_magazyn replace error: {e}")
+            try:
+                if os.path.exists(MAGAZYN_PATH):
+                    os.remove(MAGAZYN_PATH)
+                os.rename(tmp, MAGAZYN_PATH)
+            except Exception as e2:
+                _log_info(f"save_magazyn rename error: {e2}")
+                try:
+                    os.remove(tmp)
+                except Exception:
+                    pass
+                raise
     finally:
         unlock_file(lock_f)
         lock_f.close()
