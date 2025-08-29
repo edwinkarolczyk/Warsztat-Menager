@@ -24,6 +24,7 @@ import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
+import logger
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH  = "config.json"
@@ -59,15 +60,18 @@ def _load_config():
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.log_akcja(f"Błąd wczytywania {CONFIG_PATH}: {e}")
+        error_dialogs.show_error_dialog("Config", f"Błąd wczytywania {CONFIG_PATH}: {e}")
         return {}
 
 def _save_config(cfg: dict):
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.log_akcja(f"Błąd zapisu {CONFIG_PATH}: {e}")
+        error_dialogs.show_error_dialog("Config", f"Błąd zapisu {CONFIG_PATH}: {e}")
 
 _CFG_CACHE = _load_config()
 DEBUG = bool(os.environ.get("WM_DEBUG") or _CFG_CACHE.get("tryb_testowy"))
