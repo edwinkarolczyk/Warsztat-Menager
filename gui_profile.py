@@ -26,6 +26,7 @@ import os, json, glob, re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
+from config_manager import ConfigManager
 try:
     from PIL import Image, ImageTk, UnidentifiedImageError
 except ImportError:  # Pillow missing
@@ -478,26 +479,55 @@ def _stars(rating):
     return "★" * r + "☆" * (5 - r)
 
 def _build_basic_tab(parent, user):
-    imie_var = tk.StringVar(value=user.get("imie", ""))
-    nazwisko_var = tk.StringVar(value=user.get("nazwisko", ""))
-    staz_var = tk.StringVar(value=str(user.get("staz", 0)))
-    ttk.Label(parent, text="Imię:", style="WM.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(parent, textvariable=imie_var).grid(row=0, column=1, sticky="ew", padx=4, pady=2)
-    ttk.Label(parent, text="Nazwisko:", style="WM.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(parent, textvariable=nazwisko_var).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
-    ttk.Label(parent, text="Staż:", style="WM.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(parent, textvariable=staz_var).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+    cfg = ConfigManager()
+    fields = cfg.get(
+        "profiles.fields_editable_by_user", ["telefon", "email"]
+    )
+    allow_pin = cfg.get("profiles.allow_pin_change", False)
+
+    widgets = {}
+    row = 0
+    for field in fields:
+        var = tk.StringVar(value=str(user.get(field, "")))
+        label = field.replace("_", " ").capitalize()
+        ttk.Label(parent, text=f"{label}:", style="WM.TLabel").grid(
+            row=row, column=0, sticky="w", padx=4, pady=2
+        )
+        ttk.Entry(parent, textvariable=var).grid(
+            row=row, column=1, sticky="ew", padx=4, pady=2
+        )
+        widgets[field] = var
+        row += 1
+
+    if allow_pin:
+        pin_var = tk.StringVar(value=str(user.get("pin", "")))
+        ttk.Label(parent, text="PIN:", style="WM.TLabel").grid(
+            row=row, column=0, sticky="w", padx=4, pady=2
+        )
+        ttk.Entry(parent, textvariable=pin_var, show="*").grid(
+            row=row, column=1, sticky="ew", padx=4, pady=2
+        )
+        widgets["pin"] = pin_var
+        row += 1
+
     parent.columnconfigure(1, weight=1)
+
     def _save():
-        user["imie"] = imie_var.get()
-        user["nazwisko"] = nazwisko_var.get()
-        try:
-            user["staz"] = int(staz_var.get())
-        except Exception:
-            user["staz"] = 0
+        for field, var in widgets.items():
+            val = var.get()
+            if isinstance(user.get(field), int):
+                try:
+                    user[field] = int(val)
+                except Exception:
+                    user[field] = 0
+            else:
+                user[field] = val
         save_user(user)
         messagebox.showinfo("Zapisano", "Dane zapisane.")
-    ttk.Button(parent, text="Zapisz", command=_save).grid(row=3, column=0, columnspan=2, pady=6)
+
+    ttk.Button(parent, text="Zapisz", command=_save).grid(
+        row=row, column=0, columnspan=2, pady=6
+    )
 
 def _build_skills_tab(parent, user):
     skills = user.get("umiejetnosci", {})

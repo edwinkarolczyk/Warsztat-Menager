@@ -489,6 +489,27 @@
       "scope": "global"
     },
     {
+      "key": "profiles.fields_editable_by_user",
+      "group": "Profile użytkowników",
+      "label": "Pola edytowalne przez użytkownika",
+      "type": "array",
+      "default": [
+        "telefon",
+        "email"
+      ],
+      "widget": "list",
+      "scope": "global"
+    },
+    {
+      "key": "profiles.allow_pin_change",
+      "group": "Profile użytkowników",
+      "label": "Zezwól na zmianę PIN-u",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
       "key": "profiles.task_default_deadline_days",
       "group": "Profile użytkowników",
       "label": "Domyślny termin wykonania zadania (dni)",

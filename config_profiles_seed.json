@@ -8,7 +8,12 @@
       "nazwa",
       "rola",
       "zmiana"
-    ]
+    ],
+    "fields_editable_by_user": [
+      "telefon",
+      "email"
+    ],
+    "allow_pin_change": false
   },
   "profiles.tab_enabled": true,
   "profiles.show_name_in_header": true,
@@ -18,5 +23,11 @@
     "nazwa",
     "rola",
     "zmiana"
-  ]
+  ],
+  "profiles.fields_editable_by_user": [
+    "telefon",
+    "email"
+  ],
+  "profiles.allow_pin_change": false
 }
+
