@@ -10,7 +10,13 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
-_DEFAULT_PATTERNS = {"A": "112", "B": "111", "C": "12"}
+_DEFAULT_PATTERNS = {
+    "A": "112",
+    "B": "111",
+    "C": "12",
+    "211": "211",
+    "1212": "1212",
+}
 
 _DATA_DIR = os.path.join("data", "grafiki")
 _MODES_FILE = os.path.join(_DATA_DIR, "tryby_userow.json")
