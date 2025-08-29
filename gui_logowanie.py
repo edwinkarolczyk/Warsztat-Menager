@@ -86,49 +86,6 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     center = ttk.Frame(root, style="WM.TFrame")
     center.pack(fill="both", expand=True)
 
-    banner = ttk.Frame(center, style="WM.Card.TFrame", padding=(12, 6))
-    banner.pack(fill="x", pady=(0, 8))
-
-    shift_label = ttk.Label(banner, text="", style="WM.Banner.TLabel", anchor="w")
-    shift_label.pack(fill="x")
-
-    users_box = ttk.Frame(banner, style="WM.TFrame")
-    users_box.pack(fill="x", pady=(2, 0))
-
-    def _update_banner():
-        try:
-            info = who_is_on_now(datetime.now())
-        except Exception as e:
-            print("[WM-DBG][LOGIN] who_is_on_now error:", e)
-            shift_label.config(text="Grafik zmian: błąd")
-            for w in users_box.winfo_children():
-                w.destroy()
-            return
-
-        for w in users_box.winfo_children():
-            w.destroy()
-
-        if not info.get("slot"):
-            shift_label.config(text="Poza godzinami zmian")
-            ttk.Label(
-                users_box,
-                text="Brak aktywnych użytkowników",
-                style="WM.Muted.TLabel",
-                anchor="w",
-            ).pack(anchor="w")
-            return
-
-        s, e, *_ = gui_panel._shift_bounds(datetime.now())
-        label = "Poranna" if info["slot"] == "RANO" else "Popołudniowa"
-        shift_label.config(text=f"{label} {s.strftime('%H:%M')}–{e.strftime('%H:%M')}")
-        if info["users"]:
-            for name in info["users"]:
-                ttk.Label(users_box, text=name, style="WM.TLabel", anchor="w").pack(anchor="w")
-        else:
-            ttk.Label(users_box, text="—", style="WM.Muted.TLabel", anchor="w").pack(anchor="w")
-
-    _update_banner()
-
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
 
@@ -148,7 +105,60 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     wrap = ttk.Frame(prefooter, style="WM.Card.TFrame")
     wrap.pack()  # centralnie
 
-    ttk.Label(wrap, text="Zmiana", style="WM.Card.TLabel").pack(anchor="w", padx=8, pady=(8, 2))
+    bottom_banner = ttk.Frame(wrap, style="WM.Card.TFrame", padding=(12, 6))
+    bottom_banner.pack(fill="x", pady=(0, 8))
+
+    shift_label_bottom = ttk.Label(
+        bottom_banner, text="", style="WM.Banner.TLabel", anchor="w"
+    )
+    shift_label_bottom.pack(fill="x")
+
+    users_box_bottom = ttk.Frame(bottom_banner, style="WM.TFrame")
+    users_box_bottom.pack(fill="x", pady=(2, 0))
+
+    def _update_banner():
+        try:
+            info = who_is_on_now(datetime.now())
+        except Exception as e:
+            print("[WM-DBG][LOGIN] who_is_on_now error:", e)
+            shift_label_bottom.config(text="Grafik zmian: błąd")
+            for w in users_box_bottom.winfo_children():
+                w.destroy()
+            return
+
+        for w in users_box_bottom.winfo_children():
+            w.destroy()
+
+        if not info.get("slot"):
+            shift_label_bottom.config(text="Poza godzinami zmian")
+            ttk.Label(
+                users_box_bottom,
+                text="Brak aktywnych użytkowników",
+                style="WM.Muted.TLabel",
+                anchor="w",
+            ).pack(anchor="w")
+            return
+
+        s, e, *_ = gui_panel._shift_bounds(datetime.now())
+        label = "Poranna" if info["slot"] == "RANO" else "Popołudniowa"
+        shift_label_bottom.config(
+            text=f"{label} {s.strftime('%H:%M')}–{e.strftime('%H:%M')}"
+        )
+        if info["users"]:
+            for name in info["users"]:
+                ttk.Label(
+                    users_box_bottom, text=name, style="WM.TLabel", anchor="w"
+                ).pack(anchor="w")
+        else:
+            ttk.Label(
+                users_box_bottom, text="—", style="WM.Muted.TLabel", anchor="w"
+            ).pack(anchor="w")
+
+    _update_banner()
+
+    ttk.Label(wrap, text="Zmiana", style="WM.Card.TLabel").pack(
+        anchor="w", padx=8, pady=(0, 2)
+    )
 
     CANVAS_W = max(int(szer/3), 420)  # 1/3 ekranu, min. 420
     CANVAS_H = 18
