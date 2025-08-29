@@ -142,7 +142,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         try:
             info = who_is_on_now(datetime.now())
         except Exception as e:
-            print("[WM-DBG][LOGIN] who_is_on_now error:", e)
+            logging.exception("who_is_on_now error")
             shift_label_bottom.config(text="Grafik zmian: błąd")
             for w in users_box_bottom.winfo_children():
                 w.destroy()

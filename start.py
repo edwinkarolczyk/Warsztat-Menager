@@ -12,6 +12,7 @@ import sys
 import json
 import traceback
 from datetime import datetime
+import logging
 import tkinter as tk
 from tkinter import messagebox
 
@@ -30,6 +31,16 @@ def _ensure_log_dir():
 
 def _log_path():
     return os.path.join("logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log")
+
+_ensure_log_dir()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(_log_path(), encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
+)
 
 def _log(line):
     _ensure_log_dir()
