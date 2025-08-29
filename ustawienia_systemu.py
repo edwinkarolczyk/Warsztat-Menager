@@ -9,7 +9,7 @@
 # ⏹ KONIEC KODU
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, colorchooser
 import subprocess
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -325,8 +325,25 @@ def panel_ustawien(root, frame, login=None, rola=None):
         ttk.Label(frm_theme, text=f"{color_labels[color_key]}:").grid(
             row=i, column=0, sticky="w", padx=5, pady=5
         )
-        ttk.Entry(frm_theme, textvariable=var).grid(
-            row=i, column=1, sticky="ew", padx=5, pady=5
+        row_frame = ttk.Frame(frm_theme)
+        row_frame.grid(row=i, column=1, sticky="ew", padx=5, pady=5)
+        row_frame.columnconfigure(0, weight=1)
+        ttk.Entry(row_frame, textvariable=var).grid(
+            row=0, column=0, sticky="ew"
+        )
+        btn = tk.Button(row_frame, width=2, bg=var.get())
+        btn.grid(row=0, column=1, padx=(5, 0))
+
+        def _choose_color(v=var, b=btn):
+            color = colorchooser.askcolor(initialcolor=v.get())[1]
+            if color:
+                v.set(color)
+                b.configure(bg=color)
+                apply_theme(frame.winfo_toplevel())
+
+        btn.configure(command=_choose_color)
+        var.trace_add(
+            "write", lambda *_v, v=var, b=btn: b.configure(bg=v.get())
         )
 
     # --- Ogólne ---
