@@ -16,6 +16,9 @@ from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+from dirty_guard import DirtyGuard
+
+active_guard = DirtyGuard()
 
 
 def _get_app_version() -> str:
@@ -152,6 +155,8 @@ def _shift_progress(now: datetime):
 # ---------- Główny panel ----------
 
 def uruchom_panel(root, login, rola):
+    global active_guard
+    active_guard = DirtyGuard()
     apply_theme(root)
     root.title(
         f"Warsztat Menager v{APP_VERSION} - zalogowano jako {login} ({rola})"
@@ -191,20 +196,24 @@ def uruchom_panel(root, login, rola):
     # prawa część: stałe przyciski
     def _logout():
         """Powrót do ekranu logowania + opcjonalne oznaczenie wylogowania."""
-        # heartbeat logout if available
-        try:
-            from presence import heartbeat
-            heartbeat(login, rola, logout=True)
-        except Exception:
-            pass
-        try:
-            import gui_logowanie
-            gui_logowanie.ekran_logowania(root)
-        except Exception:
+
+        def _do_logout():
+            # heartbeat logout if available
             try:
-                root.destroy()
+                from presence import heartbeat
+                heartbeat(login, rola, logout=True)
             except Exception:
                 pass
+            try:
+                import gui_logowanie
+                gui_logowanie.ekran_logowania(root)
+            except Exception:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+        active_guard.check_before(_do_logout)
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
     ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
     ttk.Button(btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton").pack(side="right")
@@ -299,27 +308,54 @@ def uruchom_panel(root, login, rola):
         clear_frame(content)
 
     def otworz_panel(funkcja, nazwa):
-        wyczysc_content(); log_akcja(f"Kliknięto: {nazwa}")
-        try:
-            funkcja(root, content, login, rola)
-        except Exception as e:
-            log_akcja(f"Błąd przy otwieraniu panelu {nazwa}: {e}")
-            ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
+
+        def _open_panel():
+            wyczysc_content()
+            log_akcja(f"Kliknięto: {nazwa}")
+            try:
+                result = funkcja(root, content, login, rola)
+            except Exception as e:
+                log_akcja(f"Błąd przy otwieraniu panelu {nazwa}: {e}")
+                ttk.Label(
+                    content,
+                    text=f"Błąd otwierania panelu: {e}",
+                    foreground="#e53935",
+                ).pack(pady=20)
+            else:
+                global active_guard
+                if isinstance(result, DirtyGuard):
+                    active_guard = result
+                else:
+                    active_guard = DirtyGuard()
+
+        active_guard.check_before(_open_panel)
 
     # --- role helpers + quick open profile ---
     def _is_admin_role(r):
         return str(r).lower() in {"admin","kierownik","brygadzista","lider"}
 
     def _open_profil():
-        # clear content
-        clear_frame(content)
-        try:
-            if gui_profile is None:
-                raise RuntimeError("Brak modułu gui_profile")
-            gui_profile.uruchom_panel(root, content, login, rola)
-        except Exception as e:
-            log_akcja(f"Błąd otwierania panelu: {e}")
-            ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
+        def _do_open():
+            clear_frame(content)
+            try:
+                if gui_profile is None:
+                    raise RuntimeError("Brak modułu gui_profile")
+                result = gui_profile.uruchom_panel(root, content, login, rola)
+            except Exception as e:
+                log_akcja(f"Błąd otwierania panelu: {e}")
+                ttk.Label(
+                    content,
+                    text=f"Błąd otwierania panelu: {e}",
+                    foreground="#e53935",
+                ).pack(pady=20)
+            else:
+                global active_guard
+                if isinstance(result, DirtyGuard):
+                    active_guard = result
+                else:
+                    active_guard = DirtyGuard()
+
+        active_guard.check_before(_do_open)
 
     def _open_feedback():
         win = tk.Toplevel(root)
@@ -400,6 +436,6 @@ def uruchom_panel(root, login, rola):
     root.update_idletasks()
 
 # eksportowane dla logowania
-__all__ = ["uruchom_panel", "_shift_bounds", "_shift_progress"]
+__all__ = ["uruchom_panel", "_shift_bounds", "_shift_progress", "active_guard"]
 
 # ⏹ KONIEC KODU
