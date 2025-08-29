@@ -200,6 +200,120 @@ def panel_ustawien(root, frame, login=None, rola=None):
             if ln.strip()
         ]
 
+    class _TextWrapper:
+        def __init__(self, widget: tk.Text):
+            self.widget = widget
+
+        def get(self):
+            return _lines_from_text(self.widget)
+
+        def set(self, value):
+            self.widget.delete("1.0", "end")
+            if isinstance(value, list):
+                self.widget.insert("1.0", "\n".join(value))
+            else:
+                self.widget.insert("1.0", str(value))
+
+    def prompt_save(key, var, cast):
+        old_val = cfg.get(key)
+        try:
+            new_val = cast(var.get())
+        except Exception:
+            new_val = var.get()
+        if old_val == new_val:
+            return
+        if messagebox.askyesno("Zapisz", f"Czy zapisać zmianę {key}?"):
+            cfg.set(key, new_val)
+            cfg.save_all()
+            apply_theme(frame.winfo_toplevel())
+        else:
+            var.set(old_val)
+
+    lang_var.trace_add("write", lambda *_: prompt_save("ui.language", lang_var, str))
+    theme_var.trace_add("write", lambda *_: prompt_save("ui.theme", theme_var, str))
+    accent_var.trace_add("write", lambda *_: prompt_save("ui.accent", accent_var, str))
+    backup_var.trace_add("write", lambda *_: prompt_save("backup.folder", backup_var, str))
+    auto_var.trace_add("write", lambda *_: prompt_save("updates.auto", auto_var, bool))
+    remote_var.trace_add("write", lambda *_: prompt_save("updates.remote", remote_var, str))
+    branch_var.trace_add("write", lambda *_: prompt_save("updates.branch", branch_var, str))
+    push_branch_var.trace_add(
+        "write", lambda *_: prompt_save("updates.push_branch", push_branch_var, str)
+    )
+    for color_key, var in color_vars.items():
+        var.trace_add(
+            "write",
+            lambda *_a, ck=color_key, v=var: prompt_save(f"ui.colors.{ck}", v, str),
+        )
+
+    auth_required_var.trace_add(
+        "write", lambda *_: prompt_save("auth.required", auth_required_var, bool)
+    )
+    auth_timeout_var.trace_add(
+        "write", lambda *_: prompt_save("auth.session_timeout_min", auth_timeout_var, int)
+    )
+    auth_pin_var.trace_add(
+        "write", lambda *_: prompt_save("auth.pin_length", auth_pin_var, int)
+    )
+    pinless_brygadzista_var.trace_add(
+        "write",
+        lambda *_: prompt_save("auth.pinless_brygadzista", pinless_brygadzista_var, bool),
+    )
+
+    path_maszyny_var.trace_add(
+        "write", lambda *_: prompt_save("paths.maszyny", path_maszyny_var, str)
+    )
+    path_narzedzia_var.trace_add(
+        "write", lambda *_: prompt_save("paths.narzedzia", path_narzedzia_var, str)
+    )
+    path_zlecenia_var.trace_add(
+        "write", lambda *_: prompt_save("paths.zlecenia", path_zlecenia_var, str)
+    )
+    data_dir_var.trace_add(
+        "write", lambda *_: prompt_save("sciezka_danych", data_dir_var, str)
+    )
+
+    start_view_var.trace_add(
+        "write", lambda *_: prompt_save("app.start_view", start_view_var, str)
+    )
+    module_service_var.trace_add(
+        "write", lambda *_: prompt_save("modules.service.enabled", module_service_var, bool)
+    )
+    mini_hall_var.trace_add(
+        "write",
+        lambda *_: prompt_save("dashboard.mini_hall.enabled", mini_hall_var, bool),
+    )
+
+    fullscreen_var.trace_add(
+        "write", lambda *_: prompt_save("local.fullscreen_on_start", fullscreen_var, bool)
+    )
+    ui_scale_var.trace_add(
+        "write", lambda *_: prompt_save("local.ui_scale", ui_scale_var, int)
+    )
+    hall_grid_var.trace_add(
+        "write", lambda *_: prompt_save("hall.grid_size_px", hall_grid_var, int)
+    )
+
+    profiles_tab_enabled_var.trace_add(
+        "write", lambda *_: prompt_save("profiles.tab_enabled", profiles_tab_enabled_var, bool)
+    )
+    profiles_show_name_var.trace_add(
+        "write",
+        lambda *_: prompt_save("profiles.show_name_in_header", profiles_show_name_var, bool),
+    )
+    profiles_avatar_dir_var.trace_add(
+        "write", lambda *_: prompt_save("profiles.avatar_dir", profiles_avatar_dir_var, str)
+    )
+    profiles_allow_pin_change_var.trace_add(
+        "write",
+        lambda *_: prompt_save("profiles.allow_pin_change", profiles_allow_pin_change_var, bool),
+    )
+    profiles_task_deadline_var.trace_add(
+        "write",
+        lambda *_: prompt_save(
+            "profiles.task_default_deadline_days", profiles_task_deadline_var, int
+        ),
+    )
+
     # --- Motyw ---
     tab_theme = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab_theme, text="Motyw")
@@ -235,7 +349,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         ttk.Entry(frm_theme, textvariable=var).grid(
             row=i, column=1, sticky="ew", padx=5, pady=5
         )
-    _theme_save_row = len(color_vars) + 2
 
     # --- Ogólne ---
     tab1 = _make_frame(nb, "WM.Card.TFrame")
@@ -309,34 +422,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
             err = e.stderr.decode("utf-8", errors="ignore") if e.stderr else str(e)
             connection_status_var.set(err)
 
-    def _save():
-        try:
-            cfg.set("ui.language", lang_var.get())
-            cfg.set("ui.theme", theme_var.get())
-            cfg.set("ui.accent", accent_var.get())
-            cfg.set("backup.folder", backup_var.get())
-            cfg.set("updates.auto", bool(auto_var.get()))
-            cfg.set("updates.remote", remote_var.get())
-            cfg.set("updates.branch", branch_var.get())
-            cfg.set("updates.push_branch", push_branch_var.get())
-            for color_key, var in color_vars.items():
-                cfg.set(f"ui.colors.{color_key}", var.get())
-            cfg.save_all()
-            import ui_theme
-
-            ui_theme._inited = False
-            ui_theme.apply_theme(frame.winfo_toplevel())
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
     ttk.Button(frm, text="Aktualizuj", command=_check_git_connection).grid(
         row=7, column=0, columnspan=2, pady=5
-    )
-    ttk.Button(frm, text="Zapisz", command=_save).grid(
-        row=8, column=0, columnspan=2, pady=10
-    )
-    ttk.Button(frm_theme, text="Zapisz", command=_save).grid(
-        row=_theme_save_row, column=0, columnspan=2, pady=10
     )
 
     _check_git_connection()
@@ -376,25 +463,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         frm_auth, variable=pinless_brygadzista_var
     ).grid(row=3, column=1, sticky="w", padx=5, pady=5)
 
-    def _save_auth():
-        try:
-            cfg.set("auth.required", bool(auth_required_var.get()))
-            cfg.set(
-                "auth.session_timeout_min", int(auth_timeout_var.get())
-            )
-            cfg.set("auth.pin_length", int(auth_pin_var.get()))
-            cfg.set(
-                "auth.pinless_brygadzista", bool(pinless_brygadzista_var.get())
-            )
-            cfg.save_all()
-            apply_theme(frame.winfo_toplevel())
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_auth, text="Zapisz", command=_save_auth).grid(
-        row=4, column=0, columnspan=2, pady=10
-    )
-
     # --- Ścieżki danych ---
     tab_paths = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab_paths, text="Ścieżki danych")
@@ -427,20 +495,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=3, column=1, sticky="ew", padx=5, pady=5
     )
 
-    def _save_paths():
-        try:
-            cfg.set("paths.maszyny", path_maszyny_var.get())
-            cfg.set("paths.narzedzia", path_narzedzia_var.get())
-            cfg.set("paths.zlecenia", path_zlecenia_var.get())
-            cfg.set("sciezka_danych", data_dir_var.get())
-            cfg.save_all()
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_paths, text="Zapisz", command=_save_paths).grid(
-        row=4, column=0, columnspan=2, pady=10
-    )
-
     # --- Moduły i widoki ---
     tab_modules = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab_modules, text="Moduły i widoki")
@@ -471,23 +525,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=2, column=1, sticky="w", padx=5, pady=5
     )
 
-    def _save_modules():
-        try:
-            cfg.set("app.start_view", start_view_var.get())
-            cfg.set(
-                "modules.service.enabled", bool(module_service_var.get())
-            )
-            cfg.set(
-                "dashboard.mini_hall.enabled", bool(mini_hall_var.get())
-            )
-            cfg.save_all()
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_modules, text="Zapisz", command=_save_modules).grid(
-        row=3, column=0, columnspan=2, pady=10
-    )
-
     # --- Wygląd i rozdzielczość ---
     tab_display = _make_frame(nb, "WM.Card.TFrame")
     nb.add(tab_display, text="Wygląd i rozdzielczość")
@@ -513,22 +550,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Spinbox(
         frm_display, from_=1, to=20, textvariable=hall_grid_var, width=5
     ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
-
-    def _save_display():
-        try:
-            cfg.set(
-                "local.fullscreen_on_start", bool(fullscreen_var.get())
-            )
-            cfg.set("local.ui_scale", int(ui_scale_var.get()))
-            cfg.set("hall.grid_size_px", int(hall_grid_var.get()))
-            cfg.save_all()
-            apply_theme(frame.winfo_toplevel())
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_display, text="Zapisz", command=_save_display).grid(
-        row=3, column=0, columnspan=2, pady=10
-    )
 
     # --- Narzędzia ---
     tab_tools = _make_frame(nb, "WM.Card.TFrame")
@@ -572,28 +593,38 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_typy.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
     txt_typy.insert("1.0", typy_narzedzi_text)
 
-    def _save_tools():
-        try:
-            cfg.set(
-                "statusy_narzedzi_nowe", _lines_from_text(txt_statusy_nowe)
-            )
-            cfg.set(
-                "statusy_narzedzi_stare", _lines_from_text(txt_statusy_stare)
-            )
-            cfg.set(
-                "szablony_zadan_narzedzia", _lines_from_text(txt_szablony)
-            )
-            cfg.set(
-                "szablony_zadan_narzedzia_stare",
-                _lines_from_text(txt_szablony_stare),
-            )
-            cfg.set("typy_narzedzi", _lines_from_text(txt_typy))
-            cfg.save_all()
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_tools, text="Zapisz", command=_save_tools).grid(
-        row=5, column=0, columnspan=2, pady=10
+    statusy_nowe_var = _TextWrapper(txt_statusy_nowe)
+    txt_statusy_nowe.bind(
+        "<FocusOut>",
+        lambda e, v=statusy_nowe_var: prompt_save(
+            "statusy_narzedzi_nowe", v, lambda x: x
+        ),
+    )
+    statusy_stare_var = _TextWrapper(txt_statusy_stare)
+    txt_statusy_stare.bind(
+        "<FocusOut>",
+        lambda e, v=statusy_stare_var: prompt_save(
+            "statusy_narzedzi_stare", v, lambda x: x
+        ),
+    )
+    szablony_var = _TextWrapper(txt_szablony)
+    txt_szablony.bind(
+        "<FocusOut>",
+        lambda e, v=szablony_var: prompt_save(
+            "szablony_zadan_narzedzia", v, lambda x: x
+        ),
+    )
+    szablony_stare_var = _TextWrapper(txt_szablony_stare)
+    txt_szablony_stare.bind(
+        "<FocusOut>",
+        lambda e, v=szablony_stare_var: prompt_save(
+            "szablony_zadan_narzedzia_stare", v, lambda x: x
+        ),
+    )
+    typy_var = _TextWrapper(txt_typy)
+    txt_typy.bind(
+        "<FocusOut>",
+        lambda e, v=typy_var: prompt_save("typy_narzedzi", v, lambda x: x),
     )
 
     # --- Profile użytkowników ---
@@ -638,6 +669,21 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_fields_editable.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
     txt_fields_editable.insert("1.0", profiles_fields_editable_text)
 
+    fields_visible_var = _TextWrapper(txt_fields_visible)
+    txt_fields_visible.bind(
+        "<FocusOut>",
+        lambda e, v=fields_visible_var: prompt_save(
+            "profiles.fields_visible", v, lambda x: x
+        ),
+    )
+    fields_editable_var = _TextWrapper(txt_fields_editable)
+    txt_fields_editable.bind(
+        "<FocusOut>",
+        lambda e, v=fields_editable_var: prompt_save(
+            "profiles.fields_editable_by_user", v, lambda x: x
+        ),
+    )
+
     ttk.Checkbutton(
         frm_profiles,
         text="Pozwól użytkownikowi zmieniać PIN",
@@ -655,39 +701,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         width=5,
     ).grid(row=6, column=1, sticky="w", padx=5, pady=5)
 
-    def _save_profiles():
-        try:
-            cfg.set(
-                "profiles.tab_enabled", bool(profiles_tab_enabled_var.get())
-            )
-            cfg.set(
-                "profiles.show_name_in_header",
-                bool(profiles_show_name_var.get()),
-            )
-            cfg.set("profiles.avatar_dir", profiles_avatar_dir_var.get())
-            cfg.set(
-                "profiles.fields_visible",
-                _lines_from_text(txt_fields_visible),
-            )
-            cfg.set(
-                "profiles.fields_editable_by_user",
-                _lines_from_text(txt_fields_editable),
-            )
-            cfg.set(
-                "profiles.allow_pin_change",
-                bool(profiles_allow_pin_change_var.get()),
-            )
-            cfg.set(
-                "profiles.task_default_deadline_days",
-                int(profiles_task_deadline_var.get()),
-            )
-            cfg.save_all()
-        except ConfigError as e:
-            messagebox.showerror("Błąd", str(e))
-
-    ttk.Button(frm_profiles, text="Zapisz", command=_save_profiles).grid(
-        row=7, column=0, columnspan=2, pady=10
-    )
 
     # --- Użytkownicy ---
     tab2 = _make_frame(nb, "WM.Card.TFrame")
