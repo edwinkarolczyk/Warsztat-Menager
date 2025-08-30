@@ -17,7 +17,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, time, timedelta, timezone
 
-from io_utils import read_json, write_json
+from profile_utils import get_user, save_user
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
@@ -43,13 +43,10 @@ def _get_app_version() -> str:
 APP_VERSION = _get_app_version()
 
 
-def _session_file(login: str) -> str:
-    return os.path.join("data", "user", f"{login}.json")
-
-
-def _load_last_session(login: str) -> datetime:
-    data = read_json(_session_file(login)) or {}
-    ts = data.get("last_session")
+def _load_last_visit(login: str) -> datetime:
+    """Odczytaj datę ostatniej wizyty z profilu użytkownika."""
+    user = get_user(login) or {}
+    ts = user.get("ostatnia_wizyta")
     if isinstance(ts, str):
         try:
             return datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -58,13 +55,13 @@ def _load_last_session(login: str) -> datetime:
     return datetime.fromtimestamp(0, tz=timezone.utc)
 
 
-def _save_last_session(login: str, dt: datetime) -> None:
-    path = _session_file(login)
-    data = read_json(path) or {}
-    data["last_session"] = dt.astimezone(timezone.utc).isoformat().replace(
-        "+00:00", "Z"
+def _save_last_visit(login: str, dt: datetime) -> None:
+    """Zapisz datę ostatniej wizyty w profilu użytkownika."""
+    user = get_user(login) or {"login": login}
+    user["ostatnia_wizyta"] = (
+        dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     )
-    write_json(path, data)
+    save_user(user)
 
 
 try:
@@ -195,12 +192,12 @@ def uruchom_panel(root, login, rola):
     )
     clear_frame(root)
 
-    last_session = _load_last_session(login)
+    last_visit = _load_last_visit(login)
     markers: list[tk.Widget] = []
     menu_markers: list[tuple[tk.Menu, int, str]] = []
 
     def _clear_markers() -> None:
-        nonlocal last_session
+        nonlocal last_visit
         for dot in markers:
             try:
                 dot.destroy()
@@ -213,18 +210,20 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 pass
         menu_markers.clear()
-        last_session = datetime.now(timezone.utc)
-        _save_last_session(login, last_session)
+        last_visit = datetime.now(timezone.utc)
+        _save_last_visit(login, last_visit)
 
-    def _maybe_mark_button(widget: tk.Widget, last_modified: datetime) -> None:
-        if last_modified > last_session:
-            dot = tk.Canvas(widget, width=8, height=8, highlightthickness=0, bd=0)
-            dot.create_oval(0, 0, 8, 8, fill="#e53935", outline="")
+    def _maybe_mark_button(widget: tk.Widget) -> None:
+        lm = getattr(widget, "last_modified", None)
+        if isinstance(lm, datetime) and lm > last_visit:
+            dot = tk.Label(widget, text="\u25CF", fg="#e53935", bg=widget.cget("background"))
             dot.place(relx=1, x=-4, y=4, anchor="ne")
             markers.append(dot)
 
-    def _maybe_mark_menu(menu: tk.Menu, index: int, last_modified: datetime) -> None:
-        if last_modified > last_session:
+    def _maybe_mark_menu(menu: tk.Menu, index: int) -> None:
+        lm_map = getattr(menu, "last_modified", {})
+        lm = lm_map.get(index)
+        if isinstance(lm, datetime) and lm > last_visit:
             label = menu.entrycget(index, "label")
             menu.entryconfig(index, label=f"{label} \u25CF", foreground="#e53935")
             menu_markers.append((menu, index, label))
@@ -240,9 +239,10 @@ def uruchom_panel(root, login, rola):
     menubar.add_cascade(label="Akcje", menu=actions_menu)
     help_menu = tk.Menu(menubar, tearoff=False)
     help_menu.add_command(label="O programie", command=_show_about)
+    help_menu.last_modified = {0: datetime(2025, 8, 1, tzinfo=timezone.utc)}
     menubar.add_cascade(label="Pomoc", menu=help_menu)
     root.config(menu=menubar)
-    _maybe_mark_menu(help_menu, 0, datetime(2025, 8, 1, tzinfo=timezone.utc))
+    _maybe_mark_menu(help_menu, 0)
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
@@ -311,6 +311,15 @@ def uruchom_panel(root, login, rola):
             messagebox.showerror("Błąd", f"Nie można otworzyć changeloga: {e}")
 
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
+    btn_hide = ttk.Button(
+        btns,
+        text="Ukryj zmiany",
+        command=_clear_markers,
+        style="WM.Side.TButton",
+    )
+    btn_hide.last_modified = datetime(2025, 9, 1, tzinfo=timezone.utc)
+    btn_hide.pack(side="right", padx=(6, 0))
+    _maybe_mark_button(btn_hide)
     ttk.Button(
         btns,
         text="Changelog",
@@ -523,8 +532,9 @@ def uruchom_panel(root, login, rola):
         command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),
         style="WM.Side.TButton",
     )
+    btn_zl.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
     btn_zl.pack(padx=10, pady=(12, 6), fill="x")
-    _maybe_mark_button(btn_zl, datetime(2025, 8, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_zl)
 
     btn_narz = ttk.Button(
         side,
@@ -532,8 +542,9 @@ def uruchom_panel(root, login, rola):
         command=lambda: otworz_panel(panel_narzedzia, "Narzędzia"),
         style="WM.Side.TButton",
     )
+    btn_narz.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
     btn_narz.pack(padx=10, pady=6, fill="x")
-    _maybe_mark_button(btn_narz, datetime(2025, 7, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_narz)
 
     btn_masz = ttk.Button(
         side,
@@ -541,8 +552,9 @@ def uruchom_panel(root, login, rola):
         command=lambda: otworz_panel(panel_maszyny, "Maszyny"),
         style="WM.Side.TButton",
     )
+    btn_masz.last_modified = datetime(2025, 6, 1, tzinfo=timezone.utc)
     btn_masz.pack(padx=10, pady=6, fill="x")
-    _maybe_mark_button(btn_masz, datetime(2025, 6, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_masz)
 
     btn_mag = ttk.Button(
         side,
@@ -550,8 +562,9 @@ def uruchom_panel(root, login, rola):
         command=lambda: otworz_panel(panel_magazyn, "Magazyn"),
         style="WM.Side.TButton",
     )
+    btn_mag.last_modified = datetime(2025, 5, 1, tzinfo=timezone.utc)
     btn_mag.pack(padx=10, pady=6, fill="x")
-    _maybe_mark_button(btn_mag, datetime(2025, 5, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_mag)
 
     btn_hale = ttk.Button(
         side,
@@ -559,8 +572,9 @@ def uruchom_panel(root, login, rola):
         command=_open_hala,
         style="WM.Side.TButton",
     )
+    btn_hale.last_modified = datetime(2025, 4, 1, tzinfo=timezone.utc)
     btn_hale.pack(padx=10, pady=6, fill="x")
-    _maybe_mark_button(btn_hale, datetime(2025, 4, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_hale)
 
     btn_feedback = ttk.Button(
         side,
@@ -568,8 +582,9 @@ def uruchom_panel(root, login, rola):
         command=_open_feedback,
         style="WM.Side.TButton",
     )
+    btn_feedback.last_modified = datetime(2025, 3, 1, tzinfo=timezone.utc)
     btn_feedback.pack(padx=10, pady=6, fill="x")
-    _maybe_mark_button(btn_feedback, datetime(2025, 3, 1, tzinfo=timezone.utc))
+    _maybe_mark_button(btn_feedback)
 
     admin_roles = {"admin", "kierownik", "brygadzista", "lider"}
     if str(rola).strip().lower() in admin_roles:
@@ -579,8 +594,9 @@ def uruchom_panel(root, login, rola):
             command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"),
             style="WM.Side.TButton",
         )
+        btn_users.last_modified = datetime(2025, 2, 1, tzinfo=timezone.utc)
         btn_users.pack(padx=10, pady=6, fill="x")
-        _maybe_mark_button(btn_users, datetime(2025, 2, 1, tzinfo=timezone.utc))
+        _maybe_mark_button(btn_users)
         try:
             from ustawienia_systemu import panel_ustawien as _pust
             btn_settings = ttk.Button(
@@ -589,8 +605,9 @@ def uruchom_panel(root, login, rola):
                 command=lambda: otworz_panel(_pust, "Ustawienia"),
                 style="WM.Side.TButton",
             )
+            btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
             btn_settings.pack(padx=10, pady=6, fill="x")
-            _maybe_mark_button(btn_settings, datetime(2025, 1, 1, tzinfo=timezone.utc))
+            _maybe_mark_button(btn_settings)
         except Exception:
             pass
     else:
@@ -600,8 +617,9 @@ def uruchom_panel(root, login, rola):
             command=_open_profil,
             style="WM.Side.TButton",
         )
+        btn_profile.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
         btn_profile.pack(padx=10, pady=6, fill="x")
-        _maybe_mark_button(btn_profile, datetime(2025, 1, 1, tzinfo=timezone.utc))
+        _maybe_mark_button(btn_profile)
     root.update_idletasks()
     otworz_panel(panel_zlecenia, "Zlecenia (start)")
     root.update_idletasks()

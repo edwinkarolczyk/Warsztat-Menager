@@ -19,7 +19,8 @@
     "sugestie": ["Zakup nowych r\u0119kawic"],
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
     "zadania": [],
-    "opis": ""
+    "opis": "",
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
   },
   {
     "login": "dawid",
@@ -41,7 +42,8 @@
     "sugestie": [],
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
     "zadania": [],
-    "opis": ""
+    "opis": "",
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
   },
   {
     "login": "marek",
@@ -63,7 +65,8 @@
     "sugestie": [],
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
     "zadania": [],
-    "opis": ""
+    "opis": "",
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
   },
   {
     "login": "sebastian",
@@ -85,7 +88,8 @@
     "sugestie": [],
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
     "zadania": [],
-    "opis": ""
+    "opis": "",
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
   },
   {
     "login": "jacek",
@@ -107,6 +111,7 @@
     "sugestie": [],
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
     "zadania": [],
-    "opis": ""
+    "opis": "",
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
   }
 ]
