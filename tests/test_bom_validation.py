@@ -45,3 +45,26 @@ def test_compute_sr_for_pp_missing_ilosc_na_szt(tmp_path, monkeypatch):
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
     with pytest.raises(KeyError, match="ilosc_na_szt"):
         bom.compute_sr_for_pp("X", 1)
+
+
+def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
+    product = {
+        "kod": "X",
+        "polprodukty": [
+            {
+                "kod": "PP1",
+                "ilosc_na_szt": 1,
+                "czynnosci": ["ciecie", "spawanie"],
+                "surowiec": {"typ": "pret", "dlugosc": 2},
+            }
+        ],
+    }
+    produkty = tmp_path / "produkty"
+    produkty.mkdir()
+    with open(produkty / "X.json", "w", encoding="utf-8") as f:
+        json.dump(product, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    res = bom.compute_bom_for_prd("X", 2)
+    assert res["PP1"]["ilosc"] == 2
+    assert res["PP1"]["czynnosci"] == ["ciecie", "spawanie"]
+    assert res["PP1"]["surowiec"]["typ"] == "pret"
