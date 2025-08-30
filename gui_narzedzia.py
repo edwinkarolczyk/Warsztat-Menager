@@ -65,7 +65,7 @@ NN_PROD_STATES = {
 
 
 def _cfg() -> ConfigManager:
-    """Return fresh ConfigManager to avoid stale snapshots."""
+    """Zwraca świeżą instancję ConfigManagera, aby uniknąć przestarzałych danych."""
     return ConfigManager()
 
 
