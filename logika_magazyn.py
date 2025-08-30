@@ -305,6 +305,9 @@ def zwrot(item_id, ilosc, uzytkownik):
 
     Podnosi stan magazynowy o ``ilosc`` oraz zapisuje informację w historii
     operacji. Użytkownik wywołujący przekazywany jest w logach i historii.
+
+    Returns:
+        dict: Zaktualizowany wpis magazynu.
     """
     if ilosc <= 0:
         raise ValueError("Ilość zwrotu musi być > 0")
