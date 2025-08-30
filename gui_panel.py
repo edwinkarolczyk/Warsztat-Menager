@@ -54,6 +54,11 @@ try:
         # wyczyść miejsce docelowe
         clear_frame(frame)
         try:
+            setattr(root, "_wm_login", login)
+            setattr(root, "_wm_rola", rola)
+        except Exception:
+            pass
+        try:
             tab = _panel_zl_src(frame, root, None, None)
         except TypeError:
             # fallback dla starszych wersji przyjmujących samo parent

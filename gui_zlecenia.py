@@ -14,6 +14,7 @@ from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+from config_manager import ConfigManager
 
 try:
     from zlecenia_logika import (
@@ -22,6 +23,7 @@ try:
         create_zlecenie,
         STATUSY,
         update_status,
+        update_zlecenie,
         read_bom,
         read_magazyn,
         reserve_materials,
@@ -87,6 +89,11 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     _maybe_theme(root)
     frame = ttk.Frame(parent, style="WM.TFrame")
 
+    cm = ConfigManager()
+    allowed = {str(r).lower() for r in cm.get("zlecenia.edit_roles", [])}
+    user_role = str(getattr(root, "_wm_rola", "")).lower()
+    can_edit = user_role in allowed if allowed else False
+
     # H1
     header = ttk.Frame(frame, style="WM.TFrame"); header.pack(fill="x", padx=12, pady=(10, 6))
     ttk.Label(header, text="Zlecenia", style="WM.H1.TLabel").pack(side="left")
@@ -95,8 +102,15 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     actions = ttk.Frame(frame, style="WM.TFrame"); actions.pack(fill="x", padx=12, pady=(0, 8))
     btn_nowe = ttk.Button(actions, text="Nowe zlecenie"); btn_nowe.pack(side="left")
     btn_odsw = ttk.Button(actions, text="Odśwież");      btn_odsw.pack(side="left", padx=6)
+    btn_edyt = ttk.Button(actions, text="Edytuj");       btn_edyt.pack(side="left", padx=6)
     btn_usun = ttk.Button(actions, text="Usuń");         btn_usun.pack(side="left", padx=6)
     btn_rez  = ttk.Button(actions, text="Rezerwuj");     btn_rez.pack(side="left", padx=6)
+
+    if not can_edit:
+        try:
+            btn_edyt.state(["disabled"])
+        except Exception:
+            pass
 
     right = ttk.Frame(actions, style="WM.TFrame"); right.pack(side="right")
     ttk.Label(right, text="Status:", style="WM.TLabel").pack(side="left", padx=(0, 6))
@@ -124,6 +138,8 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 
     # Menu PPM + Delete
     menu = tk.Menu(tree, tearoff=False)
+    if can_edit:
+        menu.add_command(label="Edytuj zlecenie", command=lambda: _edit_zlecenie(tree, lbl_info, root, _odswiez))
     menu.add_command(label="Usuń zlecenie", command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez))
 
     def _popup(e):
@@ -187,6 +203,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     # Akcje
     btn_nowe.configure(command=lambda: _kreator_zlecenia(frame, lbl_info, root, _odswiez))
     btn_odsw.configure(command=_odswiez)
+    btn_edyt.configure(command=lambda: _edit_zlecenie(tree, lbl_info, root, _odswiez))
     btn_usun.configure(command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez))
     btn_rez.configure(command=lambda: _rezerwuj_materialy(tree, lbl_info, root))
 
@@ -278,6 +295,66 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     ttk.Button(btns, text="Utwórz", command=akcept).pack(side="right", padx=6)
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
 
+
+def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> None:
+    item = tree.selection()
+    if not item:
+        messagebox.showinfo("Edycja", "Wybierz zlecenie z listy.")
+        return
+    zid = tree.set(item[0], "id")
+    if not zid or zid.strip() == "— brak zleceń —":
+        return
+    rows = list_zlecenia()
+    data = next((r for r in rows if str(r.get("id")) == zid), None)
+    if not data:
+        messagebox.showerror("Edycja", f"Nie znaleziono zlecenia {zid}.")
+        return
+
+    win = tk.Toplevel(root); win.title(f"Edytuj zlecenie {zid}")
+    _maybe_theme(win)
+    win.geometry("480x300")
+
+    frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
+    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=0, column=0, sticky="w")
+    spn = ttk.Spinbox(frm, from_=1, to=999, width=10)
+    spn.set(data.get("ilosc", 1))
+    spn.grid(row=0, column=1, sticky="w", padx=(8, 0))
+
+    ttk.Label(frm, text="Tyczy nr", style="WM.TLabel").grid(row=1, column=0, sticky="w", pady=(8,0))
+    ent_ref = ttk.Entry(frm, width=18)
+    if data.get("zlec_wew") is not None:
+        ent_ref.insert(0, str(data.get("zlec_wew")))
+    ent_ref.grid(row=1, column=1, sticky="w", padx=(8,0), pady=(8,0))
+
+    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=2, column=0, sticky="nw", pady=(8,0))
+    txt = tk.Text(frm, height=8)
+    txt.grid(row=2, column=1, sticky="nsew", padx=(8,0), pady=(8,0))
+    try:
+        txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
+                      highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
+    except Exception:
+        pass
+    txt.insert("1.0", data.get("uwagi", ""))
+
+    frm.columnconfigure(1, weight=1)
+    frm.rowconfigure(2, weight=1)
+
+    def zapisz():
+        try:
+            ilosc = int(spn.get())
+        except Exception:
+            messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
+            return
+        uw = txt.get("1.0", "end").strip()
+        ref_raw = (ent_ref.get() or "").strip()
+        zw = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
+        update_zlecenie(zid, ilosc=ilosc, uwagi=uw, zlec_wew=zw, kto="GUI")
+        lbl_info.config(text=f"Zmieniono zlecenie {zid}")
+        win.destroy(); on_done()
+
+    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0,12))
+    ttk.Button(btns, text="Zapisz", command=zapisz).pack(side="right", padx=6)
+    ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
 
 def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
                         lbl_info: ttk.Label, root, on_done) -> None:

@@ -680,6 +680,17 @@
       "description": "Pozwala użytkownikowi zmienić własny PIN."
     },
     {
+      "key": "zlecenia.edit_roles",
+      "group": "Zlecenia",
+      "label": "Role uprawnione do edycji zleceń",
+      "type": "array",
+      "default": [],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Role uprawnione do edycji zleceń"
+    },
+    {
       "key": "profiles.task_default_deadline_days",
       "group": "Profile",
       "label": "Domyślny termin wykonania zadania (dni)",
