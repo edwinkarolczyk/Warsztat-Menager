@@ -124,6 +124,11 @@ class ConfigManager:
         elif t == "enum":
             if value not in opt.get("enum", []):
                 raise ConfigError(f"{opt['key']}: {value} nie w {opt.get('enum')}")
+        elif t == "array":
+            if not isinstance(value, list):
+                raise ConfigError(
+                    f"{opt['key']}: oczekiwano listy, dostano {type(value).__name__}"
+                )
         elif t in ("string", "path"):
             if not isinstance(value, str):
                 raise ConfigError(f"{opt['key']}: oczekiwano string")

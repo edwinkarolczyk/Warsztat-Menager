@@ -2,8 +2,11 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
 import zlecenia_logika as zl
 import maszyny_logika as ml
+from config_manager import ConfigManager
+import gui_zlecenia
 
 
 def _setup_zlecenia_copy(tmp_path, monkeypatch):
@@ -71,3 +74,34 @@ def test_polprodukty_check_and_reserve(tmp_path, monkeypatch):
     assert mag_after['PP002']['stan'] == mag_before['PP002']['stan'] - 5
     assert updated['PP001'] == mag_after['PP001']['stan']
     assert updated['PP002'] == mag_after['PP002']['stan']
+
+
+def test_role_without_permission_cannot_edit(monkeypatch):
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+
+    root.withdraw()
+    root._wm_rola = "goscie"
+
+    def fake_get(self, key, default=None):
+        if key == "zlecenia.edit_roles":
+            return ["admin"]
+        return default
+
+    monkeypatch.setattr(ConfigManager, "get", fake_get, raising=False)
+    frame = gui_zlecenia.panel_zlecenia(root, root)
+    actions = frame.winfo_children()[1]
+    btns = {
+        w.cget("text"): w
+        for w in actions.winfo_children()
+        if isinstance(w, ttk.Button)
+    }
+    assert btns["Nowe zlecenie"].instate(["disabled"])
+    assert btns["Edytuj"].instate(["disabled"])
+    assert btns["Usuń"].instate(["disabled"])
+    assert btns["Rezerwuj"].instate(["disabled"])
+    root.destroy()
