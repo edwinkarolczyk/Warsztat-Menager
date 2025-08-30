@@ -3,6 +3,7 @@
 # Zakładka zarządzania użytkownikami wydzielona z gui_uzytkownicy.py
 
 import json
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -301,5 +302,23 @@ def make_tab(parent, rola):
     return frame
 
 
-__all__ = ["make_tab"]
+def cofnij_przeniesienie_do_sn(numer):
+    """Cofa oznaczenie narzędzia jako SN (is_old/kategoria)."""
+    path = os.path.join("data", "narzedzia", f"{str(numer).zfill(3)}.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("is_old"):
+            data["is_old"] = False
+            data["kategoria"] = ""
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            messagebox.showinfo("SN", f"Cofnięto przeniesienie narzędzia {numer} do SN.")
+        else:
+            messagebox.showinfo("SN", f"Narzędzie {numer} nie jest oznaczone jako SN.")
+    except Exception as e:
+        messagebox.showwarning("SN", f"Błąd podczas cofania: {e}")
+
+
+__all__ = ["make_tab", "cofnij_przeniesienie_do_sn"]
 
