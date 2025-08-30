@@ -1,6 +1,11 @@
 {
   "kod": "PROD_X",
   "nazwa": "Zestaw X",
+  "version": "1.0",
+  "bom_revision": 1,
+  "effective_from": "2025-01-01",
+  "effective_to": null,
+  "is_default": true,
   "sklad": [
     {
       "kod": "RURKA_30",

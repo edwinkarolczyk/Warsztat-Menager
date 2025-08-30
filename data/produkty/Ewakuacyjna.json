@@ -13,5 +13,10 @@
       "na_sztuke": 600,
       "ilość_na_produkt": 1
     }
-  ]
+  ],
+  "version": "1.0",
+  "bom_revision": 1,
+  "effective_from": "2025-01-01",
+  "effective_to": null,
+  "is_default": true
 }
