@@ -1,8 +1,8 @@
 # =============================
 # FILE: zlecenia_logika.py
-# VERSION: 1.1.4
-# Zmiany 1.1.4:
-# - Podbicie wersji; bez zmian funkcjonalnych (utrzymanie kompatybilności z aktualnym magazynem)
+# VERSION: 1.1.5
+# Zmiany 1.1.5:
+# - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
 # - Dalej: create_zlecenie obsługuje opcjonalne `zlec_wew`; start = "nowe"
 # =============================
 
@@ -107,13 +107,24 @@ def reserve_materials(bom, ilosc=1):
     _write_json(mag_path, mag)
     return mag
 
-def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None):
-    """Tworzy zlecenie w statusie "nowe". Opcjonalnie zapisuje numer zlecenia wewnętrznego.
-    Nie rezerwuje materiałów na starcie.
+def create_zlecenie(
+    kod_produktu,
+    ilosc,
+    uwagi: str = "",
+    autor: str = "system",
+    reserve: bool = True,
+    zlec_wew=None,
+):
+    """Tworzy zlecenie w statusie "nowe".
+
+    Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje
+    materiały na magazynie.
     """
     _ensure_dirs()
     bom = read_bom(kod_produktu)
     braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
+    if reserve and not braki:
+        reserve_materials(bom, ilosc)
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,

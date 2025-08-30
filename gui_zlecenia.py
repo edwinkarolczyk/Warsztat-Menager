@@ -1,12 +1,17 @@
 # =============================
 # FILE: gui_zlecenia.py
-# VERSION: 1.1.3
-# Zmiany 1.1.3:
+# VERSION: 1.1.4
+# Zmiany 1.1.4:
+# - Kreator: dialog zamówienia brakujących materiałów
 # - Tabela: nowa kolumna "Tyczy nr" (zlec_wew)
 # - Szukaj: obejmuje też numer wewnętrzny
 # - Kreator: pole "Tyczy się zlecenia nr (wew.)" i przekazanie do create_zlecenie(zlec_wew=...)
 # - Dialog statusu: ciemne okno (highlight off) — jak wcześniej
 # =============================
+
+import json
+from datetime import datetime
+from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -225,8 +230,35 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew)
-        messagebox.showinfo("Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win)
+        zlec, braki = create_zlecenie(
+            kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew
+        )
+        if braki:
+            braki_txt = ", ".join(f"{b['kod']} ({b['brakuje']})" for b in braki)
+            if messagebox.askyesno(
+                "Braki materiałowe",
+                f"Brakuje {braki_txt} – zamówić?",
+                parent=win,
+            ):
+                zam_path = Path("data") / "zamowienia_oczekujace.json"
+                try:
+                    with open(zam_path, "r", encoding="utf-8") as f:
+                        zam = json.load(f)
+                except Exception:
+                    zam = []
+                zam.append(
+                    {
+                        "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "produkt": kod,
+                        "braki": {b["kod"]: b["brakuje"] for b in braki},
+                        "status": "do_zamowienia",
+                    }
+                )
+                with open(zam_path, "w", encoding="utf-8") as f:
+                    json.dump(zam, f, ensure_ascii=False, indent=2)
+        messagebox.showinfo(
+            "Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win
+        )
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
         win.destroy(); on_done()
 
