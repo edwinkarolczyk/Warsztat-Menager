@@ -216,7 +216,17 @@ def uruchom_panel(root, login, rola):
     def _maybe_mark_button(widget: tk.Widget) -> None:
         lm = getattr(widget, "last_modified", None)
         if isinstance(lm, datetime) and lm > last_visit:
-            dot = tk.Label(widget, text="\u25CF", fg="#e53935", bg=widget.cget("background"))
+            try:
+                bg = widget.cget("background")
+            except tk.TclError:
+                try:
+                    bg = widget.master.cget("bg")
+                except Exception:
+                    bg = None
+            dot_kwargs = {"text": "\u25CF", "fg": "#e53935"}
+            if bg is not None:
+                dot_kwargs["bg"] = bg
+            dot = tk.Label(widget, **dot_kwargs)
             dot.place(relx=1, x=-4, y=4, anchor="ne")
             markers.append(dot)
 
