@@ -526,6 +526,9 @@ def panel_ustawien_magazyn(parent, rola=None):
             cb_typ.config(values=types)
         except Exception:
             pass
+        types_tree.delete(*types_tree.get_children())
+        for t in types:
+            types_tree.insert('', 'end', values=(t,))
         if (var_typ.get() or "") not in types:
             var_typ.set(types[0] if types else "komponent")
 
