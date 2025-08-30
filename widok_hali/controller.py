@@ -7,7 +7,7 @@ from tkinter import simpledialog, ttk
 from typing import List
 
 from .const import HALL_OUTLINE
-from .models import Hala
+from .models import Hala, Machine, TechnicianRoute, WallSegment
 from .renderer import HalaRenderer
 from .storage import load_hale, save_hale
 

@@ -7,7 +7,7 @@ import os
 from typing import List
 
 from .const import HALLS_FILE
-from .models import Hala
+from .models import Hala, Machine, TechnicianRoute, WallSegment
 
 
 def load_hale() -> List[Hala]:
