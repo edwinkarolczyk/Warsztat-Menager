@@ -19,6 +19,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+import logika_magazyn as LM  # [MAGAZYN] zwroty materiałów przy cofnięciu
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -787,6 +788,19 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     except Exception:
                         pass
             else:
+                # [MAGAZYN] cofnięcie zużycia materiałów jeśli było zużycie
+                zuzyte = t.get("zuzyte_materialy") or []
+                if zuzyte:
+                    try:
+                        kontekst = f"narzędzie:{nr_auto}; zadanie:{t.get('id') or t.get('tytul')}"
+                        for poz in zuzyte:
+                            LM.zwrot(poz["id"], poz["ilosc"], uzytkownik=login or "system", kontekst=kontekst)
+                    except Exception as _e:
+                        try:
+                            _dbg("[MAGAZYN] błąd zwrotu", _e)
+                        except Exception:
+                            pass
+                    t["zuzyte_materialy"] = []
                 t["by"] = ""; t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
