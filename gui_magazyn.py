@@ -434,7 +434,7 @@ def panel_ustawien_magazyn(parent, rola=None):
     ttk.Label(hdr, text="Ścieżka pliku magazynu:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=8, pady=(8,4))
     ttk.Label(
         hdr,
-        text="data/magazyn/magazyn.json",
+        text=LM.MAGAZYN_PATH,
         style="WM.Muted.TLabel",
     ).grid(row=0, column=1, sticky="w", padx=8, pady=(8, 4))
     ttk.Label(hdr, text=f"Twoja rola: {resolved_role or 'nieznana'}", style="WM.Muted.TLabel").grid(row=0, column=2, sticky="e", padx=8, pady=(8,4))

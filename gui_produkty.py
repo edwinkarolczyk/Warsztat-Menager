@@ -13,15 +13,18 @@
 #   }
 # ⏹ KONIEC KODU
 
-import os, json, glob
+import glob
+import json
+import os
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils import error_dialogs
+import logika_magazyn as LM
 
 DATA_DIR = os.path.join("data", "produkty")
-MAG_DIR  = os.path.join("data", "magazyn")
+MAG_DIR  = os.path.dirname(LM.MAGAZYN_PATH)
 
 def _ensure_dirs():
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -55,26 +58,35 @@ def _list_produkty():
     return out
 
 def _list_materialy_z_magazynu():
-    # akceptujemy dwa formaty: pliki per-materiał (RURA_FI30.json) lub zbiorczy stany.json
-    items = []
+    # akceptujemy dwa formaty: pliki per-materiał (RURA_FI30.json) lub zbiorczy magazyn.json
+    items: list[dict] = []
+
     # 1) pliki per-materiał
+    magazyn_file = os.path.basename(LM.MAGAZYN_PATH).lower()
     for p in glob.glob(os.path.join(MAG_DIR, "*.json")):
         base = os.path.basename(p)
-        if base.lower() == "stany.json" or base.startswith("_"): 
+        if base.lower() == magazyn_file or base.startswith("_"):
             continue
         j = _read_json(p, {})
         iid = j.get("kod") or os.path.splitext(base)[0]
-        nm  = j.get("nazwa", iid)
+        nm = j.get("nazwa", iid)
         items.append({"id": iid, "nazwa": nm})
-    # 2) zbiorczy
-    stany = _read_json(os.path.join(MAG_DIR, "stany.json"), {})
-    for k, v in stany.items():
-        items.append({"id": k, "nazwa": v.get("nazwa", k)})
+
+    # 2) zbiorczy magazyn
+    try:
+        for it in LM.lista_items():
+            items.append({"id": it.get("id"), "nazwa": it.get("nazwa", it.get("id"))})
+    except Exception:
+        pass
+
     # deduplikacja
-    seen = set(); out=[]
+    seen: set[str] = set()
+    out: list[dict] = []
     for it in items:
-        if it["id"] in seen: continue
-        seen.add(it["id"]); out.append(it)
+        if not it or it.get("id") in seen:
+            continue
+        seen.add(it["id"])
+        out.append(it)
     return sorted(out, key=lambda x: x["id"])
 
 class ProduktyBOM(tk.Toplevel):
