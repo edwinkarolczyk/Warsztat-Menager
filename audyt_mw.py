@@ -170,7 +170,7 @@ class AudytMW:
             for m in re.finditer(r"except\s*:\s*", text):
                 line = text.count('\n', 0, m.start()) + 1
                 self._issue(path, 'WARN', 'ERROR-HANDLING', 'Goły except – dodaj konkretny wyjątek i logowanie', line)
-            # TODO/FIXME
+            # wyszukiwanie znaczników TODO/FIXME/HACK
             for m in re.finditer(r"\b(TODO|FIXME|HACK)\b", text):
                 line = text.count('\n', 0, m.start()) + 1
                 self._issue(path, 'INFO', 'TODO', 'Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania', line)
