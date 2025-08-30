@@ -1,11 +1,15 @@
 {
   "RURKA_30": {
     "nazwa": "Rurka 30mm",
+    "jednostka": "szt",
+    "wsp_konwersji": 1.0,
     "stan": 21,
     "prog_alert": 5
   },
   "PLASK_40": {
     "nazwa": "Płaskownik 40mm",
+    "jednostka": "szt",
+    "wsp_konwersji": 1.0,
     "stan": 6,
     "prog_alert": 3
   }

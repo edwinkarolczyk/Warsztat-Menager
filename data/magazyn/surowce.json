@@ -1,4 +1,16 @@
 {
-  "SR001": { "nazwa": "Rura stalowa fi40", "jednostka": "mb", "stan": 120.0, "prog_alertu": 10.0 },
-  "SR002": { "nazwa": "Płaskownik 40x5", "jednostka": "mb", "stan": 60.0, "prog_alertu": 5.0 }
+  "SR001": {
+    "nazwa": "Rura stalowa fi40",
+    "jednostka": "mb",
+    "wsp_konwersji": 1.0,
+    "stan": 120.0,
+    "prog_alertu": 10.0
+  },
+  "SR002": {
+    "nazwa": "Płaskownik 40x5",
+    "jednostka": "mb",
+    "wsp_konwersji": 1.0,
+    "stan": 60.0,
+    "prog_alertu": 5.0
+  }
 }
