@@ -98,7 +98,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         "Magazyn": True,
         "Zlecenia": False,
         "Narzędzia": False,
-        "Profile/Użytkownicy": True,
+        "Profile": True,
         "Zaawansowane": True,
     }
 
@@ -489,8 +489,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
     _check_git_connection()
 
     # --- Logowanie/Autoryzacja ---
-    tab_auth = _make_frame(group_containers["Profile/Użytkownicy"], "WM.Card.TFrame")
-    group_containers["Profile/Użytkownicy"].add(
+    tab_auth = _make_frame(group_containers["Profile"], "WM.Card.TFrame")
+    group_containers["Profile"].add(
         tab_auth, text="Logowanie/Autoryzacja"
     )
     frm_auth = ttk.Frame(tab_auth)
@@ -668,8 +668,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("typy_narzedzi", typy_var, lambda x: x)
 
     # --- Profile użytkowników ---
-    tab_profiles = _make_frame(group_containers["Profile/Użytkownicy"], "WM.Card.TFrame")
-    group_containers["Profile/Użytkownicy"].add(
+    tab_profiles = _make_frame(group_containers["Profile"], "WM.Card.TFrame")
+    group_containers["Profile"].add(
         tab_profiles, text="Profile użytkowników"
     )
     frm_profiles = ttk.Frame(tab_profiles)
@@ -741,8 +741,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
 
 
     # --- Użytkownicy ---
-    tab2 = _make_frame(group_containers["Profile/Użytkownicy"], "WM.Card.TFrame")
-    group_containers["Profile/Użytkownicy"].add(tab2, text="Użytkownicy")
+    tab2 = _make_frame(group_containers["Profile"], "WM.Card.TFrame")
+    group_containers["Profile"].add(tab2, text="Użytkownicy")
     ustawienia_uzytkownicy.make_tab(tab2, rola)
 
     # --- Magazyn ---

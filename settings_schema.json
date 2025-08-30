@@ -199,7 +199,7 @@
     },
     {
       "key": "auth.required",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Wymagaj logowania",
       "type": "bool",
       "default": true,
@@ -210,7 +210,7 @@
     },
     {
       "key": "auth.session_timeout_min",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Limit bezczynności (min)",
       "type": "int",
       "min": 1,
@@ -223,7 +223,7 @@
     },
     {
       "key": "auth.pin_length",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Długość PIN",
       "type": "int",
       "min": 4,
@@ -236,7 +236,7 @@
     },
     {
       "key": "auth.pinless_brygadzista",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Logowanie brygadzisty bez PIN",
       "type": "bool",
       "default": false,
@@ -614,7 +614,7 @@
     },
     {
       "key": "profiles.tab_enabled",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Włącz kartę „Profil użytkownika”",
       "type": "bool",
       "default": true,
@@ -624,7 +624,7 @@
     },
     {
       "key": "profiles.show_name_in_header",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Pokaż zalogowanego w nagłówku",
       "type": "bool",
       "default": true,
@@ -634,7 +634,7 @@
     },
     {
       "key": "profiles.avatar_dir",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Folder z avatarami (opcjonalnie)",
       "type": "path",
       "default": "",
@@ -644,7 +644,7 @@
     },
     {
       "key": "profiles.fields_visible",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Pola widoczne w profilu",
       "type": "array",
       "default": [
@@ -658,7 +658,7 @@
     },
     {
       "key": "profiles.fields_editable_by_user",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Pola edytowalne przez użytkownika",
       "type": "array",
       "default": [
@@ -671,7 +671,7 @@
     },
     {
       "key": "profiles.allow_pin_change",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Zezwól na zmianę PIN-u",
       "type": "bool",
       "default": false,
@@ -681,7 +681,7 @@
     },
     {
       "key": "profiles.task_default_deadline_days",
-      "group": "Profile/Użytkownicy",
+      "group": "Profile",
       "label": "Domyślny termin wykonania zadania (dni)",
       "type": "int",
       "min": 1,

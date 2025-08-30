@@ -178,9 +178,11 @@ def check_required_paths(root):
         else:
             results.append(("WARN", f"path missing: {rel}"))
     # dodatkowo sprawdz pliki
+    from logika_magazyn import MAGAZYN_PATH
+
     for relf in [
         os.path.join("data", "maszyny.json"),
-        os.path.join("data", "magazyn", "magazyn.json"),
+        MAGAZYN_PATH,
         "config.json",
     ]:
         p = os.path.join(root, relf)
