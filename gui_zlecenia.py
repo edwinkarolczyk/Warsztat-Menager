@@ -80,7 +80,8 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     cb_status = ttk.Combobox(right, state="readonly", values=["(wszystkie)"] + STATUSY, width=18)
     cb_status.current(0); cb_status.pack(side="left")
     ttk.Label(right, text="Szukaj:", style="WM.TLabel").pack(side="left", padx=(12, 6))
-    ent_search = ttk.Entry(right, width=28); ent_search.pack(side="left")
+    var_search = tk.StringVar()
+    ent_search = ttk.Entry(right, width=28, textvariable=var_search); ent_search.pack(side="left")
 
     # Info bar
     info_bar = ttk.Frame(frame, style="WM.TFrame"); info_bar.pack(fill="x", padx=12, pady=(0, 6))
@@ -89,7 +90,14 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 
     # Tabela – dodana kolumna zlec_wew (Tyczy nr)
     cols = ("id", "zlec_wew", "produkt", "ilosc", "status", "utworzono", "postep")
-    tree = ttk.Treeview(frame, columns=cols, show="headings", height=18, style="WM.Treeview")
+    tree_box = ttk.Frame(frame, style="WM.TFrame")
+    tree_box.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+    tree_box.columnconfigure(0, weight=1)
+    tree_box.rowconfigure(0, weight=1)
+    tree = ttk.Treeview(tree_box, columns=cols, show="headings", height=18, style="WM.Treeview")
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb = ttk.Scrollbar(tree_box, orient="vertical", command=tree.yview)
+    vsb.grid(row=0, column=1, sticky="ns")
     tree.heading("id", text="ID");                 tree.column("id", width=110, anchor="center")
     tree.heading("zlec_wew", text="Tyczy nr");      tree.column("zlec_wew", width=110, anchor="center")
     tree.heading("produkt", text="Produkt");       tree.column("produkt", width=240, anchor="w")
@@ -97,7 +105,6 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     tree.heading("status", text="Status");         tree.column("status", width=170, anchor="center")
     tree.heading("utworzono", text="Utworzono");    tree.column("utworzono", width=180, anchor="center")
     tree.heading("postep", text="Postęp (10 kratek)"); tree.column("postep", width=180, anchor="center")
-    tree.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
     # Menu PPM + Delete
     menu = tk.Menu(tree, tearoff=False)
@@ -115,12 +122,39 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     tree.bind("<Button-3>", _popup)
     tree.bind("<Delete>", lambda e: _usun_zlecenie(tree, lbl_info, _odswiez))
 
+    _rows = []
+    _view = []
+    _loaded = 0
+    _chunk = 100
+
+    def _load_more():
+        nonlocal _loaded
+        start = _loaded
+        end = min(start + _chunk, len(_view))
+        for z in _view[start:end]:
+            pid = _fmt(z.get("id"))
+            zw = _fmt(z.get("zlec_wew"))
+            prod = _fmt(z.get("produkt"))
+            ilo = _fmt(z.get("ilosc"))
+            stat = _fmt(z.get("status"))
+            utw = _fmt(z.get("utworzono"))
+            pct = z.get("postep") if isinstance(z.get("postep"), int) else _STATUS_TO_PCT.get(stat, 0)
+            tree.insert("", "end", values=(pid, zw, prod, ilo, stat, utw, _bar10(pct)))
+        _loaded = end
+
+    def _on_tree_scroll(first, last):
+        vsb.set(first, last)
+        nonlocal _loaded
+        if float(last) >= 1.0 and _loaded < len(_view):
+            _load_more()
+
+    tree.configure(yscrollcommand=_on_tree_scroll)
+
     # Odświeżanie + filtr
     def _odswiez(*_):
-        for i in tree.get_children():
-            tree.delete(i)
-        rows = list_zlecenia()
-        q  = (ent_search.get() or "").strip().lower()
+        nonlocal _rows, _view, _loaded
+        _rows = list_zlecenia()
+        q = (var_search.get() or "").strip().lower()
         st = cb_status.get() or "(wszystkie)"
 
         def _match(row):
@@ -128,24 +162,22 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
                 return False
             if not q:
                 return True
-            sid  = _fmt(row.get("id")).lower()
+            sid = _fmt(row.get("id")).lower()
             prod = _fmt(row.get("produkt")).lower()
-            zwf  = _fmt(row.get("zlec_wew")).lower()
+            zwf = _fmt(row.get("zlec_wew")).lower()
             return (q in sid) or (q in prod) or (q in zwf)
 
-        rows = [r for r in rows if _match(r)]
+        _view = [r for r in _rows if _match(r)]
+        tree.delete(*tree.get_children())
+        _loaded = 0
 
-        if not rows:
+        if not _view:
             tree.insert("", "end", values=("— brak zleceń —", "", "", "", "", "", _bar10(0)))
             lbl_info.config(text="Panel Zleceń – brak wyników")
             return
 
-        for z in rows:
-            pid = _fmt(z.get("id")); zw = _fmt(z.get("zlec_wew")); prod = _fmt(z.get("produkt")); ilo = _fmt(z.get("ilosc"))
-            stat = _fmt(z.get("status")); utw = _fmt(z.get("utworzono"))
-            pct  = z.get("postep") if isinstance(z.get("postep"), int) else _STATUS_TO_PCT.get(stat, 0)
-            tree.insert("", "end", values=(pid, zw, prod, ilo, stat, utw, _bar10(pct)))
-        lbl_info.config(text=f"Panel Zleceń – odświeżono listę ({len(rows)})")
+        _load_more()
+        lbl_info.config(text=f"Panel Zleceń – odświeżono listę ({len(_view)})")
 
     def _on_dbl(_):
         item = tree.selection()
@@ -160,6 +192,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     ent_search.bind("<Return>",   lambda e: _odswiez())
     ent_search.bind("<KP_Enter>", lambda e: _odswiez())
     cb_status.bind("<<ComboboxSelected>>", _odswiez)
+    var_search.trace_add("write", lambda *_: _odswiez())
 
     # Akcje
     btn_nowe.configure(command=lambda: _kreator_zlecenia(frame, lbl_info, root, _odswiez))
