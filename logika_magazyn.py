@@ -113,6 +113,13 @@ def load_magazyn():
             mj["meta"]["order"] = new_order
             fixed = True
 
+    # per-item prog_alert
+    items = mj.get("items") or {}
+    for it in items.values():
+        if "prog_alert" not in it:
+            it["prog_alert"] = float(it.get("min_poziom", 0))
+            fixed = True
+
     # uaktualnij timestamp meta
     mj["meta"]["updated"] = _now()
     if fixed:

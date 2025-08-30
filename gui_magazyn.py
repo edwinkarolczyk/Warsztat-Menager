@@ -120,13 +120,32 @@ class PanelMagazyn(ttk.Frame):
             style="WM.Side.TButton",
         ).grid(row=0, column=9, padx=6)
 
-        # Tabela (styl WM.Treeview)
+        # Notebook z widokami tabel
+        self.nb = ttk.Notebook(self, style="WM.TNotebook")
+        self.nb.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0,8))
+
+        frm_all = ttk.Frame(self.nb, style="WM.TFrame")
+        frm_all.columnconfigure(0, weight=1)
+        frm_all.rowconfigure(0, weight=1)
+        frm_low = ttk.Frame(self.nb, style="WM.TFrame")
+        frm_low.columnconfigure(0, weight=1)
+        frm_low.rowconfigure(0, weight=1)
+
         self.tree = ttk.Treeview(
-            self, style="WM.Treeview",
+            frm_all,
+            style="WM.Treeview",
             columns=("id","nazwa","typ","jed","stan","min","rez","dl_mm","suma_m"),
-            show="headings"
+            show="headings",
         )
-        self.tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0,8))
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        self.tree_low = ttk.Treeview(
+            frm_low,
+            style="WM.Treeview",
+            columns=("id","nazwa","typ","jed","stan","min","rez","dl_mm","suma_m"),
+            show="headings",
+        )
+        self.tree_low.grid(row=0, column=0, sticky="nsew")
 
         for cid, txt, w in [
             ("id","ID",100), ("nazwa","Nazwa",220), ("typ","Typ",100),
@@ -135,11 +154,17 @@ class PanelMagazyn(ttk.Frame):
         ]:
             self.tree.heading(cid, text=txt)
             self.tree.column(cid, width=w, anchor="w")
+            self.tree_low.heading(cid, text=txt)
+            self.tree_low.column(cid, width=w, anchor="w")
+
+        self.nb.add(frm_all, text="Wszystkie")
+        self.nb.add(frm_low, text="Do zamówienia")
 
         self.tree.bind("<Double-1>", lambda e: self._show_historia())
         self.tree.bind("<ButtonPress-1>", self._drag_start)
         self.tree.bind("<B1-Motion>", self._drag_motion)
         self.tree.bind("<ButtonRelease-1>", self._drag_release)
+        self.tree_low.bind("<Double-1>", lambda e: self._show_historia())
 
         # Pasek alertów
         self.var_alerty = tk.StringVar()
@@ -149,6 +174,12 @@ class PanelMagazyn(ttk.Frame):
     def _load(self):
         self._all = LM.lista_items()
         self._refresh()
+        self._low = [
+            it
+            for it in self._all
+            if float(it.get("stan", 0)) <= float(it.get("min_poziom", 0))
+        ]
+        self._refresh_low()
         self._update_alerts()
 
     def _refresh(self, items=None):
@@ -170,6 +201,42 @@ class PanelMagazyn(ttk.Frame):
         self.tree.tag_configure("#stock_low", background=COLORS.get("stock_low", "#c0392b"))
         self.tree.tag_configure("#stock_warn", background=COLORS.get("stock_warn", "#d35400"))
         self.tree.tag_configure("#stock_ok", background=COLORS.get("stock_ok", "#2d6a4f"))
+
+    def _refresh_low(self):
+        self.tree_low.delete(*self.tree_low.get_children())
+        for it in getattr(self, "_low", []):
+            dl_mm = float(it.get("dl_jednostkowa_mm", 0) or 0.0)
+            suma_m = (
+                LM.calc_total_length_m(it)
+                if hasattr(LM, "calc_total_length_m")
+                else 0.0
+            )
+            col = self._color_for(it)
+            self.tree_low.insert(
+                "",
+                "end",
+                values=(
+                    it["id"],
+                    it["nazwa"],
+                    it.get("typ", "komponent"),
+                    it.get("jednostka", "szt"),
+                    f'{float(it.get("stan", 0)):.3f}',
+                    f'{float(it.get("min_poziom", 0)):.3f}',
+                    f'{float(it.get("rezerwacje", 0)):.3f}',
+                    f"{dl_mm:.0f}" if dl_mm > 0 else "",
+                    f"{suma_m:.3f}" if suma_m > 0 else "",
+                ),
+                tags=(col,),
+            )
+        self.tree_low.tag_configure(
+            "#stock_low", background=COLORS.get("stock_low", "#c0392b")
+        )
+        self.tree_low.tag_configure(
+            "#stock_warn", background=COLORS.get("stock_warn", "#d35400")
+        )
+        self.tree_low.tag_configure(
+            "#stock_ok", background=COLORS.get("stock_ok", "#2d6a4f")
+        )
 
     def _drag_start(self, event):
         item = self.tree.identify_row(event.y)
@@ -199,6 +266,12 @@ class PanelMagazyn(ttk.Frame):
             self._all.sort(key=lambda x: order.index(x["id"]))
             LM.set_order(order)
             self._refresh()
+            self._low = [
+                it
+                for it in self._all
+                if float(it.get("stan", 0)) <= float(it.get("min_poziom", 0))
+            ]
+            self._refresh_low()
         self._dragging = None
         self._drag_moved = False
 
@@ -224,11 +297,12 @@ class PanelMagazyn(ttk.Frame):
         return "#stock_ok"
 
     def _sel_id(self):
-        sel = self.tree.selection()
+        tree = self.tree if self.nb.index(self.nb.select()) == 0 else self.tree_low
+        sel = tree.selection()
         if not sel:
             messagebox.showwarning("Magazyn", "Zaznacz pozycję.")
             return None
-        vals = self.tree.item(sel[0],"values")
+        vals = tree.item(sel[0], "values")
         return vals[0]
 
     def _ask_float(self, tytul, pytanie):
