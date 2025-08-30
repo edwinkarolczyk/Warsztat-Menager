@@ -65,12 +65,30 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # Zastosuj motyw NA OKNIE nadrzędnym
     apply_theme(container.winfo_toplevel())
 
-    # Notebook — użyj stylu tylko jeśli istnieje
+    # Notebook grup głównych
     if _style_exists("WM.TNotebook"):
         nb = ttk.Notebook(container, style="WM.TNotebook")
     else:
         nb = ttk.Notebook(container)
     nb.pack(fill="both", expand=True, padx=12, pady=12)
+
+    group_tabs: dict[str, ttk.Notebook] = {}
+
+    def add_tab(group: str, title: str) -> ttk.Frame:
+        """Create or reuse group notebook and add sub‑tab."""
+        if group not in group_tabs:
+            group_frame = _make_frame(nb, "WM.Card.TFrame")
+            if _style_exists("WM.TNotebook"):
+                inner = ttk.Notebook(group_frame, style="WM.TNotebook")
+            else:
+                inner = ttk.Notebook(group_frame)
+            inner.pack(fill="both", expand=True)
+            nb.add(group_frame, text=group)
+            group_tabs[group] = inner
+        inner_nb = group_tabs[group]
+        tab = _make_frame(inner_nb, "WM.Card.TFrame")
+        inner_nb.add(tab, text=title)
+        return tab
 
     lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
     theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
@@ -312,8 +330,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     container.bind("<Destroy>", on_exit)
 
     # --- Motyw ---
-    tab_theme = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_theme, text="Motyw")
+    tab_theme = add_tab("Wygląd", "Motyw")
 
     frm_theme = ttk.Frame(tab_theme)
     frm_theme.pack(fill="x", padx=12, pady=12)
@@ -365,8 +382,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         )
 
     # --- Ogólne ---
-    tab1 = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab1, text="Ogólne")
+    tab1 = add_tab("Ogólne", "Ogólne")
 
     frm = ttk.Frame(tab1)
     frm.pack(fill="x", padx=12, pady=12)
@@ -393,39 +409,44 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=2, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Checkbutton(frm, variable=auto_var).grid(
-        row=2, column=1, sticky="w", padx=5, pady=5
+        row=2, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm,
+        text="Pobieraj i instaluj aktualizacje automatycznie.",
+        font=("", 8),
+    ).grid(row=3, column=1, sticky="w", padx=5, pady=(0, 5))
 
     ttk.Label(frm, text="Zdalne repozytorium:").grid(
-        row=3, column=0, sticky="w", padx=5, pady=5
-    )
-    ttk.Entry(frm, textvariable=remote_var).grid(
-        row=3, column=1, sticky="ew", padx=5, pady=5
-    )
-
-    ttk.Label(frm, text="Gałąź aktualizacji:").grid(
         row=4, column=0, sticky="w", padx=5, pady=5
     )
-    ttk.Entry(frm, textvariable=branch_var).grid(
+    ttk.Entry(frm, textvariable=remote_var).grid(
         row=4, column=1, sticky="ew", padx=5, pady=5
     )
 
-    ttk.Label(frm, text="Gałąź git push:").grid(
+    ttk.Label(frm, text="Gałąź aktualizacji:").grid(
         row=5, column=0, sticky="w", padx=5, pady=5
     )
-    ttk.Entry(frm, textvariable=push_branch_var).grid(
+    ttk.Entry(frm, textvariable=branch_var).grid(
         row=5, column=1, sticky="ew", padx=5, pady=5
     )
 
-    ttk.Label(frm, text="Adres wysyłania opinii:").grid(
+    ttk.Label(frm, text="Gałąź git push:").grid(
         row=6, column=0, sticky="w", padx=5, pady=5
     )
-    ttk.Entry(frm, textvariable=feedback_url_var).grid(
+    ttk.Entry(frm, textvariable=push_branch_var).grid(
         row=6, column=1, sticky="ew", padx=5, pady=5
     )
 
+    ttk.Label(frm, text="Adres wysyłania opinii:").grid(
+        row=7, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Entry(frm, textvariable=feedback_url_var).grid(
+        row=7, column=1, sticky="ew", padx=5, pady=5
+    )
+
     ttk.Label(frm, textvariable=connection_status_var).grid(
-        row=7, column=0, columnspan=2, sticky="w", padx=5, pady=5
+        row=8, column=0, columnspan=2, sticky="w", padx=5, pady=5
     )
 
     def _check_git_connection():
@@ -444,14 +465,13 @@ def panel_ustawien(root, frame, login=None, rola=None):
             connection_status_var.set(err)
 
     ttk.Button(frm, text="Aktualizuj", command=_check_git_connection).grid(
-        row=8, column=0, columnspan=2, pady=5
+        row=9, column=0, columnspan=2, pady=5
     )
 
     _check_git_connection()
 
     # --- Logowanie/Autoryzacja ---
-    tab_auth = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_auth, text="Logowanie/Autoryzacja")
+    tab_auth = add_tab("Profile/Użytkownicy", "Logowanie/Autoryzacja")
     frm_auth = ttk.Frame(tab_auth)
     frm_auth.pack(fill="x", padx=12, pady=12)
     frm_auth.columnconfigure(1, weight=1)
@@ -460,33 +480,42 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=0, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Checkbutton(frm_auth, variable=auth_required_var).grid(
-        row=0, column=1, sticky="w", padx=5, pady=5
+        row=0, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm_auth,
+        text="Wymaga podania danych użytkownika przy starcie.",
+        font=("", 8),
+    ).grid(row=1, column=1, sticky="w", padx=5, pady=(0, 5))
 
     ttk.Label(frm_auth, text="Limit bezczynności (min):").grid(
-        row=1, column=0, sticky="w", padx=5, pady=5
-    )
-    ttk.Spinbox(
-        frm_auth, from_=1, to=480, textvariable=auth_timeout_var, width=5
-    ).grid(row=1, column=1, sticky="w", padx=5, pady=5)
-
-    ttk.Label(frm_auth, text="Długość PIN:").grid(
         row=2, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Spinbox(
-        frm_auth, from_=4, to=8, textvariable=auth_pin_var, width=5
+        frm_auth, from_=1, to=480, textvariable=auth_timeout_var, width=5
     ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
 
-    ttk.Label(frm_auth, text="Logowanie brygadzisty bez PIN:").grid(
+    ttk.Label(frm_auth, text="Długość PIN:").grid(
         row=3, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Spinbox(
+        frm_auth, from_=4, to=8, textvariable=auth_pin_var, width=5
+    ).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+
+    ttk.Label(frm_auth, text="Logowanie brygadzisty bez PIN:").grid(
+        row=4, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Checkbutton(
         frm_auth, variable=pinless_brygadzista_var
-    ).grid(row=3, column=1, sticky="w", padx=5, pady=5)
+    ).grid(row=4, column=1, sticky="w", padx=5, pady=(5, 0))
+    ttk.Label(
+        frm_auth,
+        text="Brygadzista może zalogować się bez użycia PIN-u.",
+        font=("", 8),
+    ).grid(row=5, column=1, sticky="w", padx=5, pady=(0, 5))
 
     # --- Ścieżki danych ---
-    tab_paths = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_paths, text="Ścieżki danych")
+    tab_paths = add_tab("Zaawansowane", "Ścieżki danych")
     frm_paths = ttk.Frame(tab_paths)
     frm_paths.pack(fill="x", padx=12, pady=12)
     frm_paths.columnconfigure(1, weight=1)
@@ -517,8 +546,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     # --- Moduły i widoki ---
-    tab_modules = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_modules, text="Moduły i widoki")
+    tab_modules = add_tab("Hala/Widok", "Moduły i widoki")
     frm_modules = ttk.Frame(tab_modules)
     frm_modules.pack(fill="x", padx=12, pady=12)
     frm_modules.columnconfigure(1, weight=1)
@@ -537,18 +565,27 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=1, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Checkbutton(frm_modules, variable=module_service_var).grid(
-        row=1, column=1, sticky="w", padx=5, pady=5
+        row=1, column=1, sticky="w", padx=5, pady=(5, 0)
     )
     ttk.Label(
+        frm_modules,
+        text="Aktywuje funkcje serwisowe aplikacji.",
+        font=("", 8),
+    ).grid(row=2, column=1, sticky="w", padx=5, pady=(0, 5))
+    ttk.Label(
         frm_modules, text="Mini-widok hali w Dashboard:"
-    ).grid(row=2, column=0, sticky="w", padx=5, pady=5)
+    ).grid(row=3, column=0, sticky="w", padx=5, pady=5)
     ttk.Checkbutton(frm_modules, variable=mini_hall_var).grid(
-        row=2, column=1, sticky="w", padx=5, pady=5
+        row=3, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm_modules,
+        text="Wyświetla miniaturę hali na ekranie głównym.",
+        font=("", 8),
+    ).grid(row=4, column=1, sticky="w", padx=5, pady=(0, 5))
 
     # --- Wygląd i rozdzielczość ---
-    tab_display = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_display, text="Wygląd i rozdzielczość")
+    tab_display = add_tab("Hala/Widok", "Wygląd i rozdzielczość")
     frm_display = ttk.Frame(tab_display)
     frm_display.pack(fill="x", padx=12, pady=12)
     frm_display.columnconfigure(1, weight=1)
@@ -557,24 +594,28 @@ def panel_ustawien(root, frame, login=None, rola=None):
         row=0, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Checkbutton(frm_display, variable=fullscreen_var).grid(
-        row=0, column=1, sticky="w", padx=5, pady=5
+        row=0, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm_display,
+        text="Uruchamia aplikację w trybie pełnoekranowym.",
+        font=("", 8),
+    ).grid(row=1, column=1, sticky="w", padx=5, pady=(0, 5))
     ttk.Label(frm_display, text="Skalowanie UI (%):").grid(
-        row=1, column=0, sticky="w", padx=5, pady=5
-    )
-    ttk.Spinbox(
-        frm_display, from_=80, to=150, textvariable=ui_scale_var, width=5
-    ).grid(row=1, column=1, sticky="w", padx=5, pady=5)
-    ttk.Label(frm_display, text="Siatka hali (px):").grid(
         row=2, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Spinbox(
-        frm_display, from_=1, to=20, textvariable=hall_grid_var, width=5
+        frm_display, from_=80, to=150, textvariable=ui_scale_var, width=5
     ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
+    ttk.Label(frm_display, text="Siatka hali (px):").grid(
+        row=3, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Spinbox(
+        frm_display, from_=1, to=20, textvariable=hall_grid_var, width=5
+    ).grid(row=3, column=1, sticky="w", padx=5, pady=5)
 
     # --- Narzędzia ---
-    tab_tools = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_tools, text="Narzędzia")
+    tab_tools = add_tab("Narzędzia", "Narzędzia")
     frm_tools = ttk.Frame(tab_tools)
     frm_tools.pack(fill="both", expand=True, padx=12, pady=12)
     frm_tools.columnconfigure(1, weight=1)
@@ -626,8 +667,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("typy_narzedzi", typy_var, lambda x: x)
 
     # --- Profile użytkowników ---
-    tab_profiles = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_profiles, text="Profile użytkowników")
+    tab_profiles = add_tab("Profile/Użytkownicy", "Profile użytkowników")
     frm_profiles = ttk.Frame(tab_profiles)
     frm_profiles.pack(fill="x", padx=12, pady=12)
     frm_profiles.columnconfigure(1, weight=1)
@@ -636,35 +676,45 @@ def panel_ustawien(root, frame, login=None, rola=None):
         frm_profiles, text="Włącz kartę \"Profil użytkownika\":"
     ).grid(row=0, column=0, sticky="w", padx=5, pady=5)
     ttk.Checkbutton(frm_profiles, variable=profiles_tab_enabled_var).grid(
-        row=0, column=1, sticky="w", padx=5, pady=5
+        row=0, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm_profiles,
+        text="Pokazuje kartę profilu w menu bocznym.",
+        font=("", 8),
+    ).grid(row=1, column=1, sticky="w", padx=5, pady=(0, 5))
 
     ttk.Label(
         frm_profiles, text="Pokaż zalogowanego w nagłówku:"
-    ).grid(row=1, column=0, sticky="w", padx=5, pady=5)
+    ).grid(row=2, column=0, sticky="w", padx=5, pady=5)
     ttk.Checkbutton(frm_profiles, variable=profiles_show_name_var).grid(
-        row=1, column=1, sticky="w", padx=5, pady=5
+        row=2, column=1, sticky="w", padx=5, pady=(5, 0)
     )
+    ttk.Label(
+        frm_profiles,
+        text="Wyświetla nazwę użytkownika w pasku tytułu.",
+        font=("", 8),
+    ).grid(row=3, column=1, sticky="w", padx=5, pady=(0, 5))
 
     ttk.Label(frm_profiles, text="Folder z avatarami:").grid(
-        row=2, column=0, sticky="w", padx=5, pady=5
+        row=4, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Entry(frm_profiles, textvariable=profiles_avatar_dir_var).grid(
-        row=2, column=1, sticky="ew", padx=5, pady=5
+        row=4, column=1, sticky="ew", padx=5, pady=5
     )
 
     ttk.Label(frm_profiles, text="Pola widoczne w profilu:").grid(
-        row=3, column=0, sticky="nw", padx=5, pady=5
+        row=5, column=0, sticky="nw", padx=5, pady=5
     )
     txt_fields_visible = tk.Text(frm_profiles, height=4)
-    txt_fields_visible.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
+    txt_fields_visible.grid(row=5, column=1, sticky="ew", padx=5, pady=5)
     txt_fields_visible.insert("1.0", profiles_fields_visible_text)
 
     ttk.Label(frm_profiles, text="Pola edytowalne w profilu:").grid(
-        row=4, column=0, sticky="nw", padx=5, pady=5
+        row=6, column=0, sticky="nw", padx=5, pady=5
     )
     txt_fields_editable = tk.Text(frm_profiles, height=4)
-    txt_fields_editable.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
+    txt_fields_editable.grid(row=6, column=1, sticky="ew", padx=5, pady=5)
     txt_fields_editable.insert("1.0", profiles_fields_editable_text)
 
     fields_visible_var = _TextWrapper(txt_fields_visible)
@@ -676,36 +726,42 @@ def panel_ustawien(root, frame, login=None, rola=None):
         frm_profiles,
         text="Pozwól użytkownikowi zmieniać PIN",
         variable=profiles_allow_pin_change_var,
-    ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+    ).grid(row=7, column=0, columnspan=2, sticky="w", padx=5, pady=(5, 0))
+    ttk.Label(
+        frm_profiles,
+        text="Użytkownik może zmienić własny PIN.",
+        font=("", 8),
+    ).grid(row=8, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
     ttk.Label(
         frm_profiles, text="Domyślny termin zadania (dni):",
-    ).grid(row=6, column=0, sticky="w", padx=5, pady=5)
+    ).grid(row=9, column=0, sticky="w", padx=5, pady=5)
     ttk.Spinbox(
         frm_profiles,
         from_=1,
         to=365,
         textvariable=profiles_task_deadline_var,
         width=5,
-    ).grid(row=6, column=1, sticky="w", padx=5, pady=5)
+    ).grid(row=9, column=1, sticky="w", padx=5, pady=5)
 
+
+    # --- Zlecenia (placeholder) ---
+    tab_orders = add_tab("Zlecenia", "Ogólne")
+    ttk.Label(tab_orders, text="Brak ustawień").pack(padx=10, pady=10)
 
     # --- Użytkownicy ---
-    tab2 = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab2, text="Użytkownicy")
+    tab2 = add_tab("Profile/Użytkownicy", "Użytkownicy")
     ustawienia_uzytkownicy.make_tab(tab2, rola)
 
     # --- Magazyn ---
-    tab3 = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab3, text="Magazyn")
+    tab3 = add_tab("Magazyn", "Magazyn")
     try:
         panel_ustawien_magazyn(tab3)
     except Exception as e:
         ttk.Label(tab3, text=f"Panel Magazynu – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Produkty (BOM) ---
-    tab4 = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab4, text="Produkty (BOM)")
+    tab4 = add_tab("Magazyn", "Produkty (BOM)")
     try:
         frm_prod = panel_ustawien_produkty(tab4, rola)
         frm_prod.pack(fill="both", expand=True)
@@ -713,12 +769,11 @@ def panel_ustawien(root, frame, login=None, rola=None):
         ttk.Label(tab4, text=f"Panel Produktów (BOM) – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Grafiki zmian ---
-    tab_sh = _make_frame(nb, "WM.Card.TFrame")
-    nb.add(tab_sh, text="Grafiki zmian")
+    tab_sh = add_tab("Profile/Użytkownicy", "Grafiki zmian")
     ShiftsSettingsFrame(tab_sh).pack(fill="both", expand=True)
 
     # --- Aktualizacje ---
-    tab5 = UpdatesUI(nb)
-    nb.add(tab5, text="Aktualizacje")
+    tab5 = add_tab("Zaawansowane", "Aktualizacje")
+    UpdatesUI(tab5).pack(fill="both", expand=True)
 
 # ⏹ KONIEC KODU

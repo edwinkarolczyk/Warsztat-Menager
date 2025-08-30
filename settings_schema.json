@@ -1,10 +1,10 @@
 {
   "config_version": 1,
   "options": [
-  {
-        "key": "ui.theme",
-        "group": "Motyw",
-        "label": "Motyw",
+    {
+      "key": "ui.theme",
+      "group": "Wygląd",
+      "label": "Motyw",
       "type": "enum",
       "enum": [
         "dark",
@@ -13,23 +13,28 @@
       "default": "dark",
       "widget": "select",
       "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "ui.language",
-        "group": "Ogólne",
-        "label": "Język interfejsu",
-        "type": "enum",
-        "enum": ["pl", "en"],
-        "default": "pl",
-        "widget": "select",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "ui.accent",
-        "group": "Motyw",
-        "label": "Akcent kolorystyczny",
+      "requires_restart": false,
+      "description": "Motyw"
+    },
+    {
+      "key": "ui.language",
+      "group": "Ogólne",
+      "label": "Język interfejsu",
+      "type": "enum",
+      "enum": [
+        "pl",
+        "en"
+      ],
+      "default": "pl",
+      "widget": "select",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Język interfejsu"
+    },
+    {
+      "key": "ui.accent",
+      "group": "Wygląd",
+      "label": "Akcent kolorystyczny",
       "type": "enum",
       "enum": [
         "red",
@@ -40,7 +45,8 @@
       "default": "red",
       "widget": "select",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Akcent kolorystyczny"
     },
     {
       "key": "ui.always_searchbar",
@@ -49,118 +55,130 @@
       "type": "bool",
       "default": true,
       "widget": "switch",
-        "scope": "global",
-        "requires_restart": false
-      },
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Stała wyszukiwarka w panelach"
+    },
     {
       "key": "ui.colors.dark_bg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Tło główne",
       "type": "string",
       "default": "#1b1f24",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Tło główne"
     },
     {
       "key": "ui.colors.dark_bg_2",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Tło pól",
       "type": "string",
       "default": "#20262e",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Tło pól"
     },
     {
       "key": "ui.colors.side_bg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Tło panelu bocznego",
       "type": "string",
       "default": "#14181d",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Tło panelu bocznego"
     },
     {
       "key": "ui.colors.card_bg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Tło kart",
       "type": "string",
       "default": "#20262e",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Tło kart"
     },
     {
       "key": "ui.colors.fg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Kolor tekstu",
       "type": "string",
       "default": "#e6e6e6",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Kolor tekstu"
     },
     {
       "key": "ui.colors.muted_fg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Tekst przygaszony",
       "type": "string",
       "default": "#9aa0a6",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Tekst przygaszony"
     },
     {
       "key": "ui.colors.btn_bg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Przyciski – tło",
       "type": "string",
       "default": "#2a3139",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Przyciski – tło"
     },
     {
       "key": "ui.colors.btn_bg_hover",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Przyciski – hover",
       "type": "string",
       "default": "#343b45",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Przyciski – hover"
     },
     {
       "key": "ui.colors.btn_bg_act",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Przyciski – aktywny",
       "type": "string",
       "default": "#3b434e",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Przyciski – aktywny"
     },
     {
       "key": "ui.colors.banner_fg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Banner – tekst",
       "type": "string",
       "default": "#ff4d4d",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Banner – tekst"
     },
     {
       "key": "ui.colors.banner_bg",
-      "group": "Motyw",
+      "group": "Wygląd",
       "label": "Banner – tło",
       "type": "string",
       "default": "#1b1b1b",
       "widget": "color",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Banner – tło"
     },
     {
       "key": "app.start_view",
@@ -176,21 +194,23 @@
       "default": "dashboard",
       "widget": "select",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Widok startowy"
     },
     {
       "key": "auth.required",
-      "group": "Logowanie",
+      "group": "Profile/Użytkownicy",
       "label": "Wymagaj logowania",
       "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Wymagaj logowania"
     },
     {
       "key": "auth.session_timeout_min",
-      "group": "Logowanie",
+      "group": "Profile/Użytkownicy",
       "label": "Limit bezczynności (min)",
       "type": "int",
       "min": 1,
@@ -198,11 +218,12 @@
       "default": 30,
       "widget": "spinbox",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Limit bezczynności (min)"
     },
     {
       "key": "auth.pin_length",
-      "group": "Logowanie",
+      "group": "Profile/Użytkownicy",
       "label": "Długość PIN",
       "type": "int",
       "min": 4,
@@ -210,161 +231,177 @@
       "default": 4,
       "widget": "spinbox",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Długość PIN"
     },
     {
       "key": "auth.pinless_brygadzista",
-      "group": "Logowanie/Autoryzacja",
+      "group": "Profile/Użytkownicy",
       "label": "Logowanie brygadzisty bez PIN",
       "type": "bool",
       "default": false,
       "widget": "switch",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Logowanie brygadzisty bez PIN"
     },
     {
       "key": "paths.maszyny",
-      "group": "Pliki i ścieżki",
+      "group": "Zaawansowane",
       "label": "Ścieżka: maszyny.json",
       "type": "path",
       "default": "maszyny.json",
       "widget": "file",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Ścieżka: maszyny.json"
     },
     {
       "key": "paths.narzedzia",
-      "group": "Pliki i ścieżki",
+      "group": "Zaawansowane",
       "label": "Ścieżka: narzedzia.json",
       "type": "path",
       "default": "narzedzia.json",
       "widget": "file",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Ścieżka: narzedzia.json"
     },
     {
       "key": "paths.zlecenia",
-      "group": "Pliki i ścieżki",
+      "group": "Zaawansowane",
       "label": "Ścieżka: zlecenia.json",
       "type": "path",
       "default": "zlecenia.json",
       "widget": "file",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Ścieżka: zlecenia.json"
     },
-        {
-          "key": "backup.folder",
-          "group": "Pliki i ścieżki",
-          "label": "Folder kopii zapasowych",
-        "type": "path",
-        "default": "backup_wersji",
-        "widget": "dir",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.url",
-          "group": "Kopie w chmurze",
-          "label": "Adres serwera WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "string",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.username",
-          "group": "Kopie w chmurze",
-          "label": "Użytkownik WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "string",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.password",
-          "group": "Kopie w chmurze",
-          "label": "Hasło WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "password",
-          "scope": "secret",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.folder",
-          "group": "Kopie w chmurze",
-          "label": "Folder w chmurze",
-          "type": "path",
-          "default": "",
-          "widget": "dir",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "updates.auto",
-          "group": "Aktualizacje",
-          "label": "Automatyczne aktualizacje",
-          "type": "bool",
-        "default": true,
-        "widget": "switch",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.remote",
-        "group": "Aktualizacje",
-        "label": "Zdalne repozytorium",
-        "type": "string",
-        "default": "origin",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.branch",
-        "group": "Aktualizacje",
-        "label": "Gałąź aktualizacji",
-        "type": "string",
-        "default": "proby-rozwoju",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.push_branch",
-        "group": "Aktualizacje",
-        "label": "Gałąź git push",
-        "type": "string",
-        "default": "git-push",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "modules.service.enabled",
-        "group": "Moduły i widoki",
-        "label": "Moduł serwisowy włączony",
-        "type": "bool",
+    {
+      "key": "backup.folder",
+      "group": "Zaawansowane",
+      "label": "Folder kopii zapasowych",
+      "type": "path",
+      "default": "backup_wersji",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Folder kopii zapasowych"
+    },
+    {
+      "key": "backup.cloud.url",
+      "group": "Zaawansowane",
+      "label": "Adres serwera WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "string",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Adres serwera WebDAV"
+    },
+    {
+      "key": "backup.cloud.username",
+      "group": "Zaawansowane",
+      "label": "Użytkownik WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "string",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Użytkownik WebDAV"
+    },
+    {
+      "key": "backup.cloud.password",
+      "group": "Zaawansowane",
+      "label": "Hasło WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "password",
+      "scope": "secret",
+      "requires_restart": false,
+      "description": "Hasło WebDAV"
+    },
+    {
+      "key": "backup.cloud.folder",
+      "group": "Zaawansowane",
+      "label": "Folder w chmurze",
+      "type": "path",
+      "default": "",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Folder w chmurze"
+    },
+    {
+      "key": "updates.auto",
+      "group": "Zaawansowane",
+      "label": "Automatyczne aktualizacje",
+      "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",
-      "requires_restart": true
+      "requires_restart": false,
+      "description": "Automatyczne aktualizacje"
+    },
+    {
+      "key": "updates.remote",
+      "group": "Zaawansowane",
+      "label": "Zdalne repozytorium",
+      "type": "string",
+      "default": "origin",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Zdalne repozytorium"
+    },
+    {
+      "key": "updates.branch",
+      "group": "Zaawansowane",
+      "label": "Gałąź aktualizacji",
+      "type": "string",
+      "default": "proby-rozwoju",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Gałąź aktualizacji"
+    },
+    {
+      "key": "updates.push_branch",
+      "group": "Zaawansowane",
+      "label": "Gałąź git push",
+      "type": "string",
+      "default": "git-push",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Gałąź git push"
+    },
+    {
+      "key": "modules.service.enabled",
+      "group": "Hala/Widok",
+      "label": "Moduł serwisowy włączony",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": true,
+      "description": "Moduł serwisowy włączony"
     },
     {
       "key": "dashboard.mini_hall.enabled",
-      "group": "Moduły i widoki",
+      "group": "Hala/Widok",
       "label": "Mini-widok hali w Dashboard",
       "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",
-      "requires_restart": true
+      "requires_restart": true,
+      "description": "Mini-widok hali w Dashboard"
     },
     {
       "key": "hall.grid_size_px",
-      "group": "Moduły i widoki",
+      "group": "Hala/Widok",
       "label": "Siatka hali (px na 20 cm)",
       "type": "int",
       "min": 1,
@@ -372,21 +409,23 @@
       "default": 4,
       "widget": "spinbox",
       "scope": "global",
-      "requires_restart": true
+      "requires_restart": true,
+      "description": "Siatka hali (px na 20 cm)"
     },
     {
       "key": "local.fullscreen_on_start",
-      "group": "Lokalne stanowisko",
+      "group": "Hala/Widok",
       "label": "Pełny ekran przy starcie",
       "type": "bool",
       "default": false,
       "widget": "switch",
       "scope": "local",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Pełny ekran przy starcie"
     },
     {
       "key": "local.ui_scale",
-      "group": "Lokalne stanowisko",
+      "group": "Hala/Widok",
       "label": "Skalowanie UI (%)",
       "type": "int",
       "min": 80,
@@ -394,17 +433,19 @@
       "default": 100,
       "widget": "slider",
       "scope": "local",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Skalowanie UI (%)"
     },
     {
       "key": "secrets.admin_pin",
-      "group": "Sekrety",
+      "group": "Zaawansowane",
       "label": "PIN brygadzisty",
       "type": "string",
       "default": "",
       "widget": "password",
       "scope": "secret",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "PIN brygadzisty"
     },
     {
       "key": "sciezka_danych",
@@ -414,7 +455,8 @@
       "default": "data/",
       "widget": "dir",
       "scope": "global",
-      "requires_restart": true
+      "requires_restart": true,
+      "description": "Folder danych (baza)"
     },
     {
       "key": "statusy_narzedzi_nowe",
@@ -430,7 +472,8 @@
       ],
       "widget": "list",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Statusy – NOWE (1 wiersz = 1 status)"
     },
     {
       "key": "statusy_narzedzi_stare",
@@ -448,7 +491,8 @@
       ],
       "widget": "list",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Statusy – STARE (1 wiersz = 1 status)"
     },
     {
       "key": "szablony_zadan_narzedzia",
@@ -464,7 +508,8 @@
       ],
       "widget": "list",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Szablony zadań (dodawanie z listy)"
     },
     {
       "key": "szablony_zadan_narzedzia_stare",
@@ -480,7 +525,8 @@
       ],
       "widget": "list",
       "scope": "global",
-      "requires_restart": false
+      "requires_restart": false,
+      "description": "Szablony serwisowe (po konwersji do STARE)"
     },
     {
       "key": "typy_narzedzi",
@@ -496,77 +542,85 @@
       ],
       "widget": "list",
       "scope": "global",
-      "requires_restart": false
-      },
-      {
-        "key": "feedback.url",
-        "group": "Ogólne",
-        "label": "Adres wysyłania opinii",
-        "type": "string",
-        "default": "",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "warn_on_unsaved",
-        "group": "Ogólne",
-        "label": "Ostrzegaj przy niezapisanych zmianach",
-        "type": "bool",
-        "default": true,
-        "widget": "switch",
-        "scope": "global"
-      },
-      {
-        "key": "autosave_draft",
-        "group": "Ogólne",
-        "label": "Automatyczny zapis roboczy",
-        "type": "bool",
-        "default": false,
-        "widget": "switch",
-        "scope": "global"
-      },
-      {
-        "key": "autosave_draft_interval_sec",
-        "group": "Ogólne",
-        "label": "Interwał automatycznego zapisu (s)",
-        "type": "int",
-        "min": 1,
-        "max": 3600,
-        "default": 15,
-        "widget": "spinbox",
-        "scope": "global"
-      },
-      {
-        "key": "profiles.tab_enabled",
-        "group": "Profile użytkowników",
-        "label": "Włącz kartę „Profil użytkownika”",
-        "type": "bool",
-        "default": true,
-        "widget": "switch",
-      "scope": "global"
+      "requires_restart": false,
+      "description": "Typy narzędzi (lista do comboboxa)"
+    },
+    {
+      "key": "feedback.url",
+      "group": "Ogólne",
+      "label": "Adres wysyłania opinii",
+      "type": "string",
+      "default": "",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Adres wysyłania opinii"
+    },
+    {
+      "key": "warn_on_unsaved",
+      "group": "Ogólne",
+      "label": "Ostrzegaj przy niezapisanych zmianach",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "description": "Ostrzegaj przy niezapisanych zmianach"
+    },
+    {
+      "key": "autosave_draft",
+      "group": "Ogólne",
+      "label": "Automatyczny zapis roboczy",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global",
+      "description": "Automatyczny zapis roboczy"
+    },
+    {
+      "key": "autosave_draft_interval_sec",
+      "group": "Ogólne",
+      "label": "Interwał automatycznego zapisu (s)",
+      "type": "int",
+      "min": 1,
+      "max": 3600,
+      "default": 15,
+      "widget": "spinbox",
+      "scope": "global",
+      "description": "Interwał automatycznego zapisu (s)"
+    },
+    {
+      "key": "profiles.tab_enabled",
+      "group": "Profile/Użytkownicy",
+      "label": "Włącz kartę „Profil użytkownika”",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "description": "Włącz kartę „Profil użytkownika”"
     },
     {
       "key": "profiles.show_name_in_header",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Pokaż zalogowanego w nagłówku",
       "type": "bool",
       "default": true,
       "widget": "switch",
-      "scope": "global"
+      "scope": "global",
+      "description": "Pokaż zalogowanego w nagłówku"
     },
     {
       "key": "profiles.avatar_dir",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Folder z avatarami (opcjonalnie)",
       "type": "path",
       "default": "",
       "widget": "dir",
-      "scope": "global"
+      "scope": "global",
+      "description": "Folder z avatarami (opcjonalnie)"
     },
     {
       "key": "profiles.fields_visible",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Pola widoczne w profilu",
       "type": "array",
       "default": [
@@ -575,11 +629,12 @@
         "zmiana"
       ],
       "widget": "list",
-      "scope": "global"
+      "scope": "global",
+      "description": "Pola widoczne w profilu"
     },
     {
       "key": "profiles.fields_editable_by_user",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Pola edytowalne przez użytkownika",
       "type": "array",
       "default": [
@@ -587,27 +642,30 @@
         "email"
       ],
       "widget": "list",
-      "scope": "global"
+      "scope": "global",
+      "description": "Pola edytowalne przez użytkownika"
     },
     {
       "key": "profiles.allow_pin_change",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Zezwól na zmianę PIN-u",
       "type": "bool",
       "default": false,
       "widget": "switch",
-      "scope": "global"
+      "scope": "global",
+      "description": "Zezwól na zmianę PIN-u"
     },
     {
       "key": "profiles.task_default_deadline_days",
-      "group": "Profile użytkowników",
+      "group": "Profile/Użytkownicy",
       "label": "Domyślny termin wykonania zadania (dni)",
       "type": "int",
       "min": 1,
       "max": 365,
       "default": 7,
       "widget": "spinbox",
-      "scope": "global"
+      "scope": "global",
+      "description": "Domyślny termin wykonania zadania (dni)"
     }
   ]
 }
