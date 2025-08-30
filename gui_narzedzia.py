@@ -453,37 +453,64 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     wrap.pack(fill="both", expand=True, padx=10, pady=10)
 
     columns = ("nr", "nazwa", "typ", "status", "data", "postep")
-    headers = {"nr":"Nr","nazwa":"Nazwa","typ":"Typ","status":"Status aktualny","data":"Data","postep":"Postęp (10 kratek)"}
-    widths  = {"nr":80,"nazwa":240,"typ":170,"status":160,"data":150,"postep":220}
+    headers = {"nr": "Nr", "nazwa": "Nazwa", "typ": "Typ", "status": "Status aktualny", "data": "Data", "postep": "Postęp (10 kratek)"}
+    widths = {"nr": 80, "nazwa": 240, "typ": 170, "status": 160, "data": 150, "postep": 220}
 
     tree = ttk.Treeview(wrap, columns=columns, show="headings", style="WM.Treeview")
+    vsb = ttk.Scrollbar(wrap, orient="vertical", command=tree.yview)
+    tree.pack(side="left", fill="both", expand=True)
+    vsb.pack(side="right", fill="y")
     for c in columns:
         tree.heading(c, text=headers[c])
         tree.column(c, width=widths[c], anchor="w")
-    tree.pack(fill="both", expand=True)
 
-    tree.tag_configure("p0",   foreground="#9aa0a6")
-    tree.tag_configure("p25",  foreground="#d93025")
-    tree.tag_configure("p75",  foreground="#f9ab00")
+    tree.tag_configure("p0", foreground="#9aa0a6")
+    tree.tag_configure("p25", foreground="#d93025")
+    tree.tag_configure("p75", foreground="#f9ab00")
     tree.tag_configure("p100", foreground="#188038")
 
     row_data = {}
+    _all = []
+    _view = []
+    _loaded = 0
+    _chunk = 100
 
-    def refresh_list(*_):
-        tree.delete(*tree.get_children()); row_data.clear()
-        q = (search_var.get() or "").strip().lower()
-        data = _load_all_tools()
-        for t in data:
-            blob = ("%s %s %s %s %s %s %s %s" % (
-                t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], t["postep"], t.get("tryb",""), t.get("opis","")
-            )).lower()
-            if q and q not in blob:
-                continue
+    def _load_more():
+        nonlocal _loaded
+        start = _loaded
+        end = min(start + _chunk, len(_view))
+        for t in _view[start:end]:
             tag = _band_tag(t["postep"])
             bar = _bar_text(t["postep"])
             iid = tree.insert("", "end", values=(t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], bar), tags=(tag,))
             row_data[iid] = t
-        if not data:
+        _loaded = end
+
+    def _on_scroll(first, last):
+        vsb.set(first, last)
+        nonlocal _loaded
+        if float(last) >= 1.0 and _loaded < len(_view):
+            _load_more()
+
+    tree.configure(yscrollcommand=_on_scroll)
+
+    def refresh_list(*_):
+        nonlocal _all, _view, _loaded
+        row_data.clear()
+        _all = _load_all_tools()
+        q = (search_var.get() or "").strip().lower()
+        _view = []
+        for t in _all:
+            blob = ("%s %s %s %s %s %s %s %s" % (
+                t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], t["postep"], t.get("tryb", ""), t.get("opis", "")
+            )).lower()
+            if q and q not in blob:
+                continue
+            _view.append(t)
+        tree.delete(*tree.get_children())
+        _loaded = 0
+        _load_more()
+        if not _all:
             _dbg("Lista narzędzi pusta – filtr:", q or "(brak)")
 
     # ===================== POPUP WYBORU TRYBU =====================

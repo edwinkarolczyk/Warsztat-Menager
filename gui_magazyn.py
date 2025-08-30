@@ -89,6 +89,9 @@ class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
         apply_theme(self)
+        self._all = []
+        self._view = []
+        self._loaded = 0
         self._build_ui()
         self._load()
 
@@ -105,7 +108,7 @@ class PanelMagazyn(ttk.Frame):
         self.var_szukaj = tk.StringVar()
         ent = ttk.Entry(bar, textvariable=self.var_szukaj)
         ent.grid(row=0, column=1, sticky="ew", padx=6)
-        ent.bind("<KeyRelease>", lambda e: self._filter())
+        ent.bind("<KeyRelease>", lambda e: self._apply_filter())
 
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
         ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
@@ -120,13 +123,21 @@ class PanelMagazyn(ttk.Frame):
             style="WM.Side.TButton",
         ).grid(row=0, column=9, padx=6)
 
-        # Tabela (styl WM.Treeview)
+        # Tabela (styl WM.Treeview) + wirtualne ładowanie
+        tree_box = ttk.Frame(self, style="WM.TFrame")
+        tree_box.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0,8))
+        tree_box.columnconfigure(0, weight=1)
+        tree_box.rowconfigure(0, weight=1)
+
         self.tree = ttk.Treeview(
-            self, style="WM.Treeview",
+            tree_box, style="WM.Treeview",
             columns=("id","nazwa","typ","jed","stan","min","rez","dl_mm","suma_m"),
             show="headings"
         )
-        self.tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0,8))
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self._vsb = ttk.Scrollbar(tree_box, orient="vertical", command=self.tree.yview)
+        self._vsb.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=lambda f, l: self._on_scroll(f, l))
 
         for cid, txt, w in [
             ("id","ID",100), ("nazwa","Nazwa",220), ("typ","Typ",100),
@@ -148,13 +159,32 @@ class PanelMagazyn(ttk.Frame):
 
     def _load(self):
         self._all = LM.lista_items()
-        self._refresh()
+        self._apply_filter()
         self._update_alerts()
 
-    def _refresh(self, items=None):
-        items = items if items is not None else self._all
+    def _apply_filter(self):
+        q = (self.var_szukaj.get() or "").strip().lower()
+        if not q:
+            self._view = self._all[:]
+        else:
+            self._view = [
+                it for it in self._all
+                if (q in it["id"].lower()
+                    or q in it["nazwa"].lower()
+                    or q in it.get("typ", "").lower())
+            ]
+        self._reset_tree()
+
+    def _reset_tree(self):
         self.tree.delete(*self.tree.get_children())
-        for it in items:
+        self._loaded = 0
+        self._load_more()
+
+    def _load_more(self):
+        chunk = 100
+        start = self._loaded
+        end = min(start + chunk, len(self._view))
+        for it in self._view[start:end]:
             dl_mm = float(it.get("dl_jednostkowa_mm", 0) or 0.0)
             suma_m = LM.calc_total_length_m(it) if hasattr(LM, "calc_total_length_m") else 0.0
             col = self._color_for(it)
@@ -167,9 +197,15 @@ class PanelMagazyn(ttk.Frame):
                 f'{dl_mm:.0f}' if dl_mm > 0 else "",
                 f'{suma_m:.3f}' if suma_m > 0 else ""
             ), tags=(col,))
+        self._loaded = end
         self.tree.tag_configure("#stock_low", background=COLORS.get("stock_low", "#c0392b"))
         self.tree.tag_configure("#stock_warn", background=COLORS.get("stock_warn", "#d35400"))
         self.tree.tag_configure("#stock_ok", background=COLORS.get("stock_ok", "#2d6a4f"))
+
+    def _on_scroll(self, first, last):
+        self._vsb.set(first, last)
+        if float(last) >= 1.0 and self._loaded < len(self._view):
+            self._load_more()
 
     def _drag_start(self, event):
         item = self.tree.identify_row(event.y)
@@ -198,21 +234,12 @@ class PanelMagazyn(ttk.Frame):
             order = [self.tree.set(ch, "id") for ch in self.tree.get_children("")]
             self._all.sort(key=lambda x: order.index(x["id"]))
             LM.set_order(order)
-            self._refresh()
+            self._apply_filter()
         self._dragging = None
         self._drag_moved = False
 
     def _filter(self):
-        q = (self.var_szukaj.get() or "").strip().lower()
-        if not q:
-            self._refresh(self._all); return
-        out = []
-        for it in self._all:
-            if (q in it["id"].lower()
-                or q in it["nazwa"].lower()
-                or q in it.get("typ","").lower()):
-                out.append(it)
-        self._refresh(out)
+        self._apply_filter()
 
     def _color_for(self, it):
         stan = float(it.get("stan",0))
