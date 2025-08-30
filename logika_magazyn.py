@@ -48,16 +48,25 @@ except Exception:
     def _log_mag(akcja, dane): print(f"[MAGAZYN] {akcja}: {dane}")
 
 MAGAZYN_PATH = os.path.join("data", "magazyn", "magazyn.json")
+"""Ścieżka do głównego pliku magazynu."""
+
 _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
 
+
+def _magazyn_dir() -> str:
+    """Zwraca katalog zawierający plik magazynu."""
+    return os.path.dirname(MAGAZYN_PATH)
+
+
 def _ensure_dirs():
-    os.makedirs(os.path.dirname(MAGAZYN_PATH), exist_ok=True)
+    """Tworzy wymagane katalogi dla pliku magazynu."""
+    os.makedirs(_magazyn_dir(), exist_ok=True)
 
 
 def _history_path():
-    return os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
+    return os.path.join(_magazyn_dir(), "magazyn_history.json")
 
 def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
