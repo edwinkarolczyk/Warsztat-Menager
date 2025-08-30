@@ -25,6 +25,7 @@ import re
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
+from config_manager import ConfigManager
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -89,6 +90,9 @@ class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
         apply_theme(self)
+        self.cfg = ConfigManager()
+        self.precision = int(self.cfg.get("magazyn.precision_mb", 3))
+        self.rezerwacje_enabled = self.cfg.get("magazyn.rezerwacje", True)
         self._build_ui()
         self._load()
 
@@ -110,9 +114,27 @@ class PanelMagazyn(ttk.Frame):
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
         ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
         ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton").grid(row=0, column=5, padx=3)
-        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=6, padx=3)
-        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
-        ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=8, padx=6)
+        col = 6
+        if self.rezerwacje_enabled:
+            ttk.Button(
+                bar,
+                text="Rezerwuj",
+                command=self._act_rezerwuj,
+                style="WM.Side.TButton",
+            ).grid(row=0, column=col, padx=3)
+            ttk.Button(
+                bar,
+                text="Zwolnij rez.",
+                command=self._act_zwolnij,
+                style="WM.Side.TButton",
+            ).grid(row=0, column=col + 1, padx=3)
+            col += 2
+        ttk.Button(
+            bar,
+            text="Historia",
+            command=self._show_historia,
+            style="WM.Side.TButton",
+        ).grid(row=0, column=col, padx=6)
         ttk.Button(
             bar,
             text="Etykieta",
@@ -187,17 +209,27 @@ class PanelMagazyn(ttk.Frame):
         self.tree.delete(*self.tree.get_children())
         for it in items:
             dl_mm = float(it.get("dl_jednostkowa_mm", 0) or 0.0)
-            suma_m = LM.calc_total_length_m(it) if hasattr(LM, "calc_total_length_m") else 0.0
+            suma_m = (
+                LM.calc_total_length_m(it) if hasattr(LM, "calc_total_length_m") else 0.0
+            )
             col = self._color_for(it)
-            self.tree.insert("", "end", values=(
-                it["id"], it["nazwa"], it.get("typ","komponent"),
-                it.get("jednostka","szt"),
-                f'{float(it.get("stan",0)):.3f}',
-                f'{float(it.get("min_poziom",0)):.3f}',
-                f'{float(it.get("rezerwacje",0)):.3f}',
-                f'{dl_mm:.0f}' if dl_mm > 0 else "",
-                f'{suma_m:.3f}' if suma_m > 0 else ""
-            ), tags=(col,))
+            p = self.precision
+            self.tree.insert(
+                "",
+                "end",
+                values=(
+                    it["id"],
+                    it["nazwa"],
+                    it.get("typ", "komponent"),
+                    it.get("jednostka", "szt"),
+                    f"{float(it.get('stan', 0)):.{p}f}",
+                    f"{float(it.get('min_poziom', 0)):.{p}f}",
+                    f"{float(it.get('rezerwacje', 0)):.{p}f}",
+                    f"{dl_mm:.0f}" if dl_mm > 0 else "",
+                    f"{suma_m:.{p}f}" if suma_m > 0 else "",
+                ),
+                tags=(col,),
+            )
         self.tree.tag_configure("#stock_low", background=COLORS.get("stock_low", "#c0392b"))
         self.tree.tag_configure("#stock_warn", background=COLORS.get("stock_warn", "#d35400"))
         self.tree.tag_configure("#stock_ok", background=COLORS.get("stock_ok", "#2d6a4f"))
@@ -212,6 +244,7 @@ class PanelMagazyn(ttk.Frame):
                 else 0.0
             )
             col = self._color_for(it)
+            p = self.precision
             self.tree_low.insert(
                 "",
                 "end",
@@ -220,11 +253,11 @@ class PanelMagazyn(ttk.Frame):
                     it["nazwa"],
                     it.get("typ", "komponent"),
                     it.get("jednostka", "szt"),
-                    f'{float(it.get("stan", 0)):.3f}',
-                    f'{float(it.get("min_poziom", 0)):.3f}',
-                    f'{float(it.get("rezerwacje", 0)):.3f}',
+                    f"{float(it.get('stan', 0)):.{p}f}",
+                    f"{float(it.get('min_poziom', 0)):.{p}f}",
+                    f"{float(it.get('rezerwacje', 0)):.{p}f}",
                     f"{dl_mm:.0f}" if dl_mm > 0 else "",
-                    f"{suma_m:.3f}" if suma_m > 0 else "",
+                    f"{suma_m:.{p}f}" if suma_m > 0 else "",
                 ),
                 tags=(col,),
             )
@@ -519,6 +552,8 @@ def panel_ustawien_magazyn(parent, rola=None):
 
     sum_lbl = ttk.Label(box, text="Suma długości: 0.000 m", style="WM.Muted.TLabel")
     sum_lbl.grid(row=3, column=0, columnspan=6, sticky="w", padx=8, pady=(2,8))
+    cfg = ConfigManager()
+    prec = int(cfg.get("magazyn.precision_mb", 3))
 
     def _reload_types():
         types = LM.get_item_types()
@@ -535,9 +570,9 @@ def panel_ustawien_magazyn(parent, rola=None):
     def _update_sum_label(*_):
         try:
             szt = float((var_st.get() or "0").replace(",", "."))
-            mm  = float((var_len.get() or "0").replace(",", "."))
-            m   = (szt * mm) / 1000.0 if szt > 0 and mm > 0 else 0.0
-            sum_lbl.configure(text=f"Suma długości: {m:.3f} m")
+            mm = float((var_len.get() or "0").replace(",", "."))
+            m = (szt * mm) / 1000.0 if szt > 0 and mm > 0 else 0.0
+            sum_lbl.configure(text=f"Suma długości: {m:.{prec}f} m")
         except Exception:
             sum_lbl.configure(text="Suma długości: -")
 

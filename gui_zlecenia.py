@@ -14,6 +14,7 @@ from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+from config_manager import ConfigManager
 
 try:
     from zlecenia_logika import (
@@ -318,6 +319,20 @@ def _usun_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, on_done):
         return
     if not messagebox.askyesno("Usuwanie zlecenia", f"Na pewno usunąć zlecenie {zid}?", icon="warning"):
         return
+    cfg = ConfigManager()
+    if cfg.get("zlecenia.triple_confirm_delete", False):
+        if not messagebox.askyesno(
+            "Usuwanie zlecenia",
+            "Potwierdź usunięcie (2/3)",
+            icon="warning",
+        ):
+            return
+        if not messagebox.askyesno(
+            "Usuwanie zlecenia",
+            "Potwierdź usunięcie (3/3)",
+            icon="warning",
+        ):
+            return
     try:
         ok = _delete_zlecenie(zid)
         if ok:

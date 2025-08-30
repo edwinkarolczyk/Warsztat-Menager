@@ -62,7 +62,12 @@
     }
   },
   "hall": {
-    "grid_size_px": 4
+    "grid_size_px": 4,
+    "show_grid": true
+  },
+  "magazyn": {
+    "rezerwacje": true,
+    "precision_mb": 3
   },
   "local": {
     "fullscreen_on_start": false,
@@ -70,6 +75,9 @@
   },
   "profiles": {
     "task_default_deadline_days": 7
+  },
+  "zlecenia": {
+    "triple_confirm_delete": false
   },
   "warn_on_unsaved": true,
   "autosave_draft": false,

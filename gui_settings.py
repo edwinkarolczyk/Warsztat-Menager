@@ -17,20 +17,61 @@ class BackupCloudSettings(ttk.Frame):
         self.user_var = tk.StringVar(value=self.cfg.get("backup.cloud.username", ""))
         self.pass_var = tk.StringVar(value=self.cfg.get("backup.cloud.password", ""))
         self.folder_var = tk.StringVar(value=self.cfg.get("backup.cloud.folder", ""))
+        row = 0
+        ttk.Label(
+            self,
+            text="Kopia w chmurze",
+            font=("TkDefaultFont", 12, "bold"),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 8))
+        row += 1
 
-        ttk.Label(self, text="WebDAV URL:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.url_var, width=40).grid(row=0, column=1, pady=2, sticky="ew")
+        ttk.Label(self, text="WebDAV URL:").grid(row=row, column=0, sticky="w", padx=5, pady=(5, 0))
+        ttk.Entry(self, textvariable=self.url_var, width=40).grid(
+            row=row, column=1, pady=(5, 0), sticky="ew"
+        )
+        row += 1
+        ttk.Label(
+            self,
+            text="Adres serwera WebDAV.",
+            font=("", 8),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        row += 1
 
-        ttk.Label(self, text="Użytkownik:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.user_var, width=40).grid(row=1, column=1, pady=2, sticky="ew")
+        ttk.Label(self, text="Użytkownik:").grid(row=row, column=0, sticky="w", padx=5, pady=(5, 0))
+        ttk.Entry(self, textvariable=self.user_var, width=40).grid(
+            row=row, column=1, pady=(5, 0), sticky="ew"
+        )
+        row += 1
+        ttk.Label(self, text="Login do serwera.", font=("", 8)).grid(
+            row=row, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
+        )
+        row += 1
 
-        ttk.Label(self, text="Hasło:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.pass_var, show="*", width=40).grid(row=2, column=1, pady=2, sticky="ew")
+        ttk.Label(self, text="Hasło:").grid(row=row, column=0, sticky="w", padx=5, pady=(5, 0))
+        ttk.Entry(self, textvariable=self.pass_var, show="*", width=40).grid(
+            row=row, column=1, pady=(5, 0), sticky="ew"
+        )
+        row += 1
+        ttk.Label(self, text="Hasło do WebDAV.", font=("", 8)).grid(
+            row=row, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
+        )
+        row += 1
 
-        ttk.Label(self, text="Folder docelowy:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.folder_var, width=40).grid(row=3, column=1, pady=2, sticky="ew")
+        ttk.Label(self, text="Folder docelowy:").grid(row=row, column=0, sticky="w", padx=5, pady=(5, 0))
+        ttk.Entry(self, textvariable=self.folder_var, width=40).grid(
+            row=row, column=1, pady=(5, 0), sticky="ew"
+        )
+        row += 1
+        ttk.Label(
+            self,
+            text="Docelowy katalog w chmurze.",
+            font=("", 8),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        row += 1
 
-        ttk.Button(self, text="Zapisz", command=self.save).grid(row=4, column=0, columnspan=2, pady=6)
+        ttk.Button(self, text="Zapisz", command=self.save).grid(
+            row=row, column=0, columnspan=2, pady=6
+        )
 
         self.columnconfigure(1, weight=1)
 

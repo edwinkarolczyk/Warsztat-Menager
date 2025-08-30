@@ -413,6 +413,17 @@
       "description": "Siatka hali (px na 20 cm)"
     },
     {
+      "key": "hall.show_grid",
+      "group": "Hala/Widok",
+      "label": "Pokaż linie siatki",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Wyświetla linie siatki w widoku hali."
+    },
+    {
       "key": "local.fullscreen_on_start",
       "group": "Wygląd",
       "label": "Pełny ekran przy starcie",
@@ -587,6 +598,41 @@
       "widget": "spinbox",
       "scope": "global",
       "description": "Interwał automatycznego zapisu (s)"
+    },
+    {
+      "key": "magazyn.rezerwacje",
+      "group": "Magazyn",
+      "label": "Włącz rezerwacje magazynu",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Pozwala na rezerwację materiałów w magazynie."
+    },
+    {
+      "key": "magazyn.precision_mb",
+      "group": "Magazyn",
+      "label": "Dokładność wyświetlania (m.b.)",
+      "type": "int",
+      "min": 0,
+      "max": 6,
+      "default": 3,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Liczba miejsc po przecinku dla ilości w magazynie."
+    },
+    {
+      "key": "zlecenia.triple_confirm_delete",
+      "group": "Zlecenia",
+      "label": "Potrójne potwierdzenie usuwania",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Wymaga trzech potwierdzeń przed usunięciem zlecenia."
     },
     {
       "key": "profiles.tab_enabled",
