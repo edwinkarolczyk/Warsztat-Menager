@@ -1,5 +1,8 @@
 # Plik: gui_narzedzia.py
-# Wersja pliku: 1.5.29
+# Wersja pliku: 1.5.30
+# Zmiany 1.5.30:
+# - [MAGAZYN] Zwrot materiałów przy cofnięciu oznaczenia zadania jako wykonane
+#
 # Zmiany 1.5.29:
 # - [MAGAZYN] Integracja z magazynem: przy oznaczeniu zadania jako wykonane zużywamy materiały (consume_for_task)
 # - [MAGAZYN] Dodano import logika_zadan jako LZ
@@ -19,6 +22,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -787,6 +791,17 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     except Exception:
                         pass
             else:
+                try:
+                    zuzyte = t.get("zuzyte_materialy") or []
+                    if zuzyte:
+                        for poz in zuzyte:
+                            LM.zwrot(poz["id"], float(poz["ilosc"]), uzytkownik=login or "system")
+                        t.pop("zuzyte_materialy", None)
+                except Exception as _e:
+                    try:
+                        _dbg("[MAGAZYN] błąd zwrotu", _e)
+                    except Exception:
+                        pass
                 t["by"] = ""; t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
