@@ -730,8 +730,26 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         if not t.get("done"):
                             t["done"] = True
                             t["by"] = login or "system"
-                            t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            t["ts_done"] = datetime.now().strftime(
+                                "%Y-%m-%d %H:%M"
+                            )
                             t["komentarz"] = "Oznaczono przy przeniesieniu do SN"
+                            # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
+                            try:
+                                zuzyte = LZ.consume_for_task(
+                                    tool_id=str(nr_auto),
+                                    task=t,
+                                    uzytkownik=login or "system",
+                                )
+                                if zuzyte:
+                                    t["zuzyte_materialy"] = (
+                                        t.get("zuzyte_materialy") or []
+                                    ) + list(zuzyte)
+                            except Exception as _e:
+                                try:
+                                    _dbg("[MAGAZYN] błąd zużycia", _e)
+                                except Exception:
+                                    pass
                     repaint_tasks()
             last_status[0] = new_st
             last_applied_status[0] = new_st
