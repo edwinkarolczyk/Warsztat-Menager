@@ -1,5 +1,7 @@
 # Plik: gui_narzedzia.py
-# Wersja pliku: 1.5.29
+# Wersja pliku: 1.5.30
+# Zmiany 1.5.30:
+# - [MAGAZYN] Przy cofnięciu wykonania zadania zwracamy zużyte materiały (zwrot)
 # Zmiany 1.5.29:
 # - [MAGAZYN] Integracja z magazynem: przy oznaczeniu zadania jako wykonane zużywamy materiały (consume_for_task)
 # - [MAGAZYN] Dodano import logika_zadan jako LZ
@@ -19,6 +21,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+import logika_magazyn as LM  # [MAGAZYN] zwroty materiałów
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -787,7 +790,27 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     except Exception:
                         pass
             else:
-                t["by"] = ""; t["ts_done"] = ""
+                if t.get("zuzyte_materialy"):
+                    try:
+                        kontekst = (
+                            f"narzędzie:{nr_auto}; "
+                            f"zadanie:{t.get('id') or t.get('nazwa')}"
+                        )
+                        for poz in t["zuzyte_materialy"]:
+                            LM.zwrot(
+                                poz["id"],
+                                float(poz.get("ilosc", 0)),
+                                uzytkownik=login or "system",
+                                kontekst=kontekst,
+                            )
+                    except Exception as _e:
+                        try:
+                            _dbg("[MAGAZYN] błąd zwrotu", _e)
+                        except Exception:
+                            pass
+                    t["zuzyte_materialy"] = []
+                t["by"] = ""
+                t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
                    command=_del_sel).pack(side="left", padx=(6,0))
