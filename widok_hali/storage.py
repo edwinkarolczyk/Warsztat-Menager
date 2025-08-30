@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 WALLS_PATH = Path("data") / "sciany.json"
-AWARIE_PATH = Path("awarie.json")
+AWARIE_PATH = Path("data") / "awarie.json"
 
 
 def _validate_wall(entry: Dict[str, Any]) -> None:
@@ -56,7 +56,7 @@ def _validate_awaria(entry: Dict[str, Any]) -> None:
 
 
 def load_awarie() -> List[Dict[str, Any]]:
-    """Load machine failure reports from ``awarie.json``.
+    """Load machine failure reports from ``data/awarie.json``.
 
     Returns an empty list when the file does not exist.
     Raises :class:`ValueError` for invalid JSON or structure.
@@ -78,7 +78,7 @@ def load_awarie() -> List[Dict[str, Any]]:
 
 
 def save_awarie(entries: List[Dict[str, Any]]) -> None:
-    """Save machine failure reports to ``awarie.json``.
+    """Save machine failure reports to ``data/awarie.json``.
 
     The function validates entries before writing. On invalid data a
     :class:`ValueError` is raised.
