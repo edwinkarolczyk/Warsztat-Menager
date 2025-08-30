@@ -9,7 +9,7 @@
 # ⏹ KONIEC KODU
 
 import tkinter as tk
-from tkinter import ttk, messagebox, colorchooser
+from tkinter import ttk, messagebox
 import subprocess
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -74,13 +74,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
 
     lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
     theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
-    theme_var.trace_add(
-        "write", lambda *_: apply_theme(container.winfo_toplevel())
-    )
     accent_var = tk.StringVar(value=cfg.get("ui.accent", "red"))
-    accent_var.trace_add(
-        "write", lambda *_: apply_theme(container.winfo_toplevel())
-    )
     backup_var = tk.StringVar(value=cfg.get("backup.folder", ""))
     auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
@@ -88,53 +82,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
     push_branch_var = tk.StringVar(value=cfg.get("updates.push_branch", "git-push"))
     feedback_url_var = tk.StringVar(value=cfg.get("feedback.url", ""))
     connection_status_var = tk.StringVar()
-    color_vars = {
-        "dark_bg": tk.StringVar(
-            value=cfg.get("ui.colors.dark_bg", "#1b1f24")
-        ),
-        "dark_bg_2": tk.StringVar(
-            value=cfg.get("ui.colors.dark_bg_2", "#20262e")
-        ),
-        "side_bg": tk.StringVar(
-            value=cfg.get("ui.colors.side_bg", "#14181d")
-        ),
-        "card_bg": tk.StringVar(
-            value=cfg.get("ui.colors.card_bg", "#20262e")
-        ),
-        "fg": tk.StringVar(value=cfg.get("ui.colors.fg", "#e6e6e6")),
-        "muted_fg": tk.StringVar(
-            value=cfg.get("ui.colors.muted_fg", "#9aa0a6")
-        ),
-        "btn_bg": tk.StringVar(
-            value=cfg.get("ui.colors.btn_bg", "#2a3139")
-        ),
-        "btn_bg_hover": tk.StringVar(
-            value=cfg.get("ui.colors.btn_bg_hover", "#343b45")
-        ),
-        "btn_bg_act": tk.StringVar(
-            value=cfg.get("ui.colors.btn_bg_act", "#3b434e")
-        ),
-        "banner_fg": tk.StringVar(
-            value=cfg.get("ui.colors.banner_fg", "#ff4d4d")
-        ),
-        "banner_bg": tk.StringVar(
-            value=cfg.get("ui.colors.banner_bg", "#1b1b1b")
-        ),
-    }
-
-    color_labels = {
-        "dark_bg": "Tło główne",
-        "dark_bg_2": "Tło drugiego planu",
-        "side_bg": "Tło panelu bocznego",
-        "card_bg": "Tło kart (ramki ustawień)",
-        "fg": "Kolor tekstu",
-        "muted_fg": "Kolor tekstu przygaszonego",
-        "btn_bg": "Tło przycisków",
-        "btn_bg_hover": "Tło przycisków (najechanie)",
-        "btn_bg_act": "Tło przycisków (aktywny)",
-        "banner_fg": "Kolor tekstu baneru",
-        "banner_bg": "Tło baneru",
-    }
 
     # zmienne dla dodatkowych zakładek
     auth_required_var = tk.BooleanVar(value=cfg.get("auth.required", True))
@@ -254,8 +201,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("updates.branch", branch_var, str)
     track("updates.push_branch", push_branch_var, str)
     track("feedback.url", feedback_url_var, str)
-    for color_key, var in color_vars.items():
-        track(f"ui.colors.{color_key}", var, str)
 
     track("auth.required", auth_required_var, bool)
     track("auth.session_timeout_min", auth_timeout_var, int)
@@ -325,7 +270,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Combobox(
         frm_theme,
         textvariable=theme_var,
-        values=["dark", "light"],
+        values=["dark", "light", "funky"],
         state="readonly",
     ).grid(row=0, column=1, sticky="ew", padx=5, pady=5)
 
@@ -338,31 +283,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         values=["red", "blue", "green", "orange"],
         state="readonly",
     ).grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-
-    for i, (color_key, var) in enumerate(color_vars.items(), start=2):
-        ttk.Label(frm_theme, text=f"{color_labels[color_key]}:").grid(
-            row=i, column=0, sticky="w", padx=5, pady=5
-        )
-        row_frame = ttk.Frame(frm_theme)
-        row_frame.grid(row=i, column=1, sticky="ew", padx=5, pady=5)
-        row_frame.columnconfigure(0, weight=1)
-        ttk.Entry(row_frame, textvariable=var).grid(
-            row=0, column=0, sticky="ew"
-        )
-        btn = tk.Button(row_frame, width=2, bg=var.get())
-        btn.grid(row=0, column=1, padx=(5, 0))
-
-        def _choose_color(v=var, b=btn):
-            color = colorchooser.askcolor(initialcolor=v.get())[1]
-            if color:
-                v.set(color)
-                b.configure(bg=color)
-                apply_theme(container.winfo_toplevel())
-
-        btn.configure(command=_choose_color)
-        var.trace_add(
-            "write", lambda *_v, v=var, b=btn: b.configure(bg=v.get())
-        )
 
     # --- Ogólne ---
     tab1 = _make_frame(nb, "WM.Card.TFrame")
