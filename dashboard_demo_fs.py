@@ -4,8 +4,9 @@
 
 import sys, os, json
 import tkinter as tk
-from tkinter import ttk, simpledialog
+from tkinter import ttk
 from math import ceil
+from widok_hali.renderer import HalaRenderer
 
 try:
     from ui_theme import apply_theme
@@ -28,25 +29,6 @@ def load_awarie():
     except Exception:
         return 0
 
-def load_hale():
-    path = "hale.json"
-    if not os.path.exists(path):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump([], f, indent=2, ensure_ascii=False)
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-def save_hale(hale_list):
-    path = "hale.json"
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(hale_list, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print("Błąd zapisu hale.json:", e)
 
 # Demo orders
 def sample_orders():
@@ -74,75 +56,6 @@ class WMTile(ttk.Frame):
         self.val.pack(anchor="w", pady=(8, 0))
         self.grid_propagate(False)
         self.configure(width=width, height=height)
-
-# ------------------ MINI HALA ------------------
-class WMMiniHala(ttk.Frame):
-    def __init__(self, parent, *, edit_mode=False):
-        super().__init__(parent, style="WM.Card.TFrame", padding=12)
-        self.edit_mode = edit_mode
-        self.hale = load_hale()
-        self.start_x = None
-        self.start_y = None
-
-        self.style = ttk.Style()
-        bg = self.style.lookup("WM.Card.TFrame", "background")
-        self.cv = tk.Canvas(self, bg=bg, bd=0, highlightthickness=0)
-        self.cv.pack(fill="both", expand=True)
-
-        self.cv.bind("<Configure>", self.on_resize)
-        if self.edit_mode:
-            self.cv.bind("<Button-1>", self.on_click)
-            self.cv.bind("<B1-Motion>", self.on_drag)
-            self.cv.bind("<ButtonRelease-1>", self.on_release)
-
-        self.redraw()
-
-    def on_resize(self, event):
-        self.redraw()
-
-    def redraw(self):
-        self.cv.delete("all")
-        w = self.cv.winfo_width()
-        h = self.cv.winfo_height()
-        # Grid
-        step = 40
-        for x in range(0, w, step):
-            self.cv.create_line(x, 0, x, h, fill="#2e323c")
-        for y in range(0, h, step):
-            self.cv.create_line(0, y, w, y, fill="#2e323c")
-        # Hale
-        for hala in self.hale:
-            x1, y1, x2, y2 = hala["x1"], hala["y1"], hala["x2"], hala["y2"]
-            self.cv.create_rectangle(x1, y1, x2, y2, outline="#ff4b4b", width=2)
-            fg = self.style.lookup("WM.TLabel", "foreground")
-            self.cv.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=hala["nazwa"], fill=fg)
-
-    def on_click(self, event):
-        self.start_x = event.x
-        self.start_y = event.y
-
-    def on_drag(self, event):
-        if self.start_x is None or self.start_y is None:
-            return
-        self.redraw()
-        self.cv.create_rectangle(self.start_x, self.start_y, event.x, event.y, outline="#ff4b4b", dash=(4, 2))
-
-    def on_release(self, event):
-        if self.start_x is None or self.start_y is None:
-            return
-        name = simpledialog.askstring("Nowa hala", "Podaj nazwę hali:")
-        if name:
-            self.hale.append({
-                "nazwa": name,
-                "x1": self.start_x,
-                "y1": self.start_y,
-                "x2": event.x,
-                "y2": event.y
-            })
-            save_hale(self.hale)
-        self.start_x = None
-        self.start_y = None
-        self.redraw()
 
 # ------------------ WYKRES ------------------
 class WMSpark(ttk.Frame):
@@ -261,13 +174,16 @@ class WMDashboard(tk.Tk):
         mini_card = ttk.Frame(body, style="WM.Card.TFrame", padding=12)
         mini_card.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(12, 0))
         ttk.Label(mini_card, text="Widok Hali", style="WM.Card.TLabel").pack(anchor="w", pady=(0, 8))
-        self.mini_hala = WMMiniHala(mini_card, edit_mode=self.edit_mode)
+
+        self.mini_hala = HalaRenderer(mini_card, edit_mode=self.edit_mode)
         self.mini_hala.pack(fill="both", expand=True)
 
     def toggle_edit_mode(self):
         self.edit_mode = not self.edit_mode
         self.mini_hala.destroy()
-        self.mini_hala = WMMiniHala(self.mini_hala.master, edit_mode=self.edit_mode)
+        self.mini_hala = HalaRenderer(
+            self.mini_hala.master, edit_mode=self.edit_mode
+        )
         self.mini_hala.pack(fill="both", expand=True)
 
     def _enable_dpi_awareness(self):
