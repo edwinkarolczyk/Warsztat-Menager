@@ -248,13 +248,13 @@
     {
       "key": "paths.maszyny",
       "group": "Zaawansowane",
-      "label": "Ścieżka: maszyny.json",
+      "label": "Ścieżka: data/maszyny.json",
       "type": "path",
-      "default": "maszyny.json",
+      "default": "data/maszyny.json",
       "widget": "file",
       "scope": "global",
       "requires_restart": false,
-      "description": "Ścieżka: maszyny.json"
+      "description": "Ścieżka: data/maszyny.json"
     },
     {
       "key": "paths.narzedzia",

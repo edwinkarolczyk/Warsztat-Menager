@@ -24,37 +24,84 @@ Zmiany w wersji 1.1.0:
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, date
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from logger import log_akcja
+
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 
-MACHINES_FILE = "maszyny.json"
+MACHINES_FILE = os.path.join("data", "maszyny.json")
 
 
 def load_machines() -> list[dict]:
     """Odczytuje i zwraca listę maszyn z pliku ``maszyny.json``.
 
+    Waliduje istnienie kluczy ``hala``, ``x``, ``y`` oraz ``status``.
     Jeśli plik nie istnieje lub jest niepoprawny zwracana jest pusta lista.
     """
 
     try:
         with open(MACHINES_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if isinstance(data, list):
-                return data
-    except Exception:
-        pass
-    return []
+    except FileNotFoundError:
+        log_akcja(f"[GUI_MASZYNY] Brak pliku {MACHINES_FILE}")
+        return []
+    except Exception as e:  # pragma: no cover - defensywne
+        log_akcja(f"[GUI_MASZYNY] Błąd odczytu {MACHINES_FILE}: {e}")
+        return []
+
+    if not isinstance(data, list):
+        log_akcja("[GUI_MASZYNY] Nieprawidłowy format danych maszyn")
+        return []
+
+    valid: list[dict] = []
+    for m in data:
+        if not isinstance(m, dict):
+            log_akcja("[GUI_MASZYNY] Pominięto rekord – nie jest dict")
+            continue
+        missing = [k for k in ("hala", "x", "y", "status") if k not in m]
+        if missing:
+            log_akcja(
+                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} brak pól {missing}"
+            )
+            continue
+        if not isinstance(m["x"], (int, float)) or not isinstance(
+            m["y"], (int, float)
+        ):
+            log_akcja(
+                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} ma nieprawidłowe "
+                "współrzędne"
+            )
+            continue
+        valid.append(m)
+    return valid
 
 
 def _save_machines(data: list[dict]) -> None:
     """Zapisuje listę maszyn do pliku danych."""
 
-    with open(MACHINES_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    valid: list[dict] = []
+    for m in data:
+        if not isinstance(m, dict):
+            log_akcja("[GUI_MASZYNY] Nieprawidłowy rekord przy zapisie")
+            continue
+        missing = [k for k in ("hala", "x", "y", "status") if k not in m]
+        if missing:
+            log_akcja(
+                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} brak pól {missing}"
+            )
+            continue
+        valid.append(m)
+
+    try:
+        with open(MACHINES_FILE, "w", encoding="utf-8") as f:
+            json.dump(valid, f, indent=2, ensure_ascii=False)
+    except Exception as e:  # pragma: no cover - defensywne
+        log_akcja(f"[GUI_MASZYNY] Błąd zapisu {MACHINES_FILE}: {e}")
 
 
 def _next_task_str(maszyna: dict) -> str:

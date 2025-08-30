@@ -7,7 +7,7 @@
 #       2) DEEP: AST – importy, graf zależności, cykle, zduplikowane definicje, proste unused imports
 #       3) RISK: heurystyki miejsc ryzyka w GUI (tkinter), gołe excepty, eval/exec, wildcard importy
 #  - Tworzy: audit_mw_report.json + audit_mw_report.md z wnioskami i sugestiami
-#  - Opcjonalnie weryfikuje config.json, maszyny.json, uzytkownicy.json jeśli występują
+#  - Opcjonalnie weryfikuje config.json, data/maszyny.json, uzytkownicy.json jeśli występują
 # Użycie:
 #   python audyt_mw.py "C:\\ścieżka\\do\\MW"
 #   (bez argumentu – bierze bieżący katalog)
@@ -177,7 +177,7 @@ class AudytMW:
 
         # JSON sanity
         self._check_json_file('config.json', required_keys=['theme', 'start_view', 'pin_required'])
-        self._check_json_file('maszyny.json', required_keys=['id', 'nazwa', 'hala'])
+        self._check_json_file('data/maszyny.json', required_keys=['id', 'nazwa', 'hala'])
         self._check_json_file('uzytkownicy.json', required_keys=['login', 'pin', 'rola'])
 
     # ---------- REPORT ----------
