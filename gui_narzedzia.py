@@ -811,7 +811,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 except Exception as _e:
                     t.clear()
                     t.update(prev_state)
-                    messagebox.showerror(
+                    error_dialogs.show_error_dialog(
                         "Magazyn", f"Brak materiału: {_e}"
                     )
                     repaint_tasks()
@@ -828,7 +828,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 except Exception as _e:
                     t.clear()
                     t.update(prev_state)
-                    messagebox.showerror(
+                    error_dialogs.show_error_dialog(
                         "Magazyn", f"Brak materiału: {_e}"
                     )
                     repaint_tasks()
