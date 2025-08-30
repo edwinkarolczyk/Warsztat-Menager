@@ -16,7 +16,7 @@
 import os
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 
@@ -793,6 +793,50 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                    command=_del_sel).pack(side="left", padx=(6,0))
         ttk.Button(tools_bar, text="Oznacz/Cofnij ✔", style="WM.Side.TButton",
                    command=_toggle_done).pack(side="left", padx=(6,0))
+
+        def _update_global_tasks(comment, ts):
+            path = os.path.join("data", "zadania_narzedzia.json")
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = []
+            changed = False
+            for item in data:
+                if item.get("status") != "Zrobione":
+                    item["status"] = "Zrobione"
+                    item["by"] = login or "nieznany"
+                    item["ts_done"] = ts
+                    if comment:
+                        item["komentarz"] = comment
+                    changed = True
+            if changed:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+
+        def _mark_all_done():
+            comment = simpledialog.askstring(
+                "Komentarz",
+                "Komentarz do wykonania wszystkich zadań:",
+                parent=dlg,
+            )
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+            for t in tasks:
+                if not t.get("done"):
+                    t["done"] = True
+                    t["by"] = login or "nieznany"
+                    t["ts_done"] = ts
+                    if comment:
+                        t["komentarz"] = comment
+            repaint_tasks()
+            _update_global_tasks(comment, ts)
+
+        ttk.Button(
+            tools_bar,
+            text="Zaznacz wszystkie jako wykonane",
+            style="WM.Side.TButton",
+            command=_mark_all_done,
+        ).pack(side="left", padx=(6,0))
 
         # --- PRZYCISKI ZAPISU ---
         btns = ttk.Frame(dlg, padding=8, style="WM.TFrame"); btns.pack(fill="x")
