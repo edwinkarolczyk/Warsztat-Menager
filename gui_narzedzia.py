@@ -791,7 +791,8 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             tasks.pop(i); repaint_tasks()
         def _toggle_done():
             i = _sel_idx()
-            if i < 0: return
+            if i < 0:
+                return
             t = tasks[i]
             t["done"] = not t["done"]
             if t["done"]:
@@ -799,16 +800,18 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                 # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
                 try:
-                    zuzyte = LZ.consume_for_task(tool_id=str(nr_auto), task=t, uzytkownik=login or "system")
+                    zuzyte = LZ.consume_for_task(
+                        tool_id=str(nr_auto), task=t, uzytkownik=login or "system"
+                    )
                     if zuzyte:
-                        t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(zuzyte)
+                        t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(
+                            zuzyte
+                        )
                 except Exception as _e:
                     t["done"] = False
                     t["by"] = ""
                     t["ts_done"] = ""
-                    messagebox.showerror(
-                        "Magazyn", f"Błąd zużycia: {_e}"
-                    )
+                    messagebox.showerror("Magazyn", f"Błąd zużycia: {_e}")
             else:
                 try:
                     zuzyte = t.get("zuzyte_materialy")
@@ -821,11 +824,11 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                             )
                         t["zuzyte_materialy"] = []
                 except Exception as _e:
-                    try:
-                        _dbg("[MAGAZYN] błąd zwrotu", _e)
-                    except Exception:
-                        pass
-                t["by"] = ""; t["ts_done"] = ""
+                    t["done"] = True
+                    messagebox.showerror("Magazyn", f"Błąd zwrotu: {_e}")
+                    return
+                t["by"] = ""
+                t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
                    command=_del_sel).pack(side="left", padx=(6,0))

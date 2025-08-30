@@ -4,6 +4,8 @@
 - 2025-08-30 – Wprowadzono wersjonowanie produktów (pola version, bom_revision,
   daty obowiązywania i domyślną wersję) oraz edycję w ustawieniach BOM.
 - 2025-08-30 – Rozszerzono edytor BOM o dodatkowe pola i usprawnienia interfejsu.
+- 2025-08-30 – Cofnięcie zadania narzędzi zwraca materiały i zgłasza błąd przy braku stanu;
+  ujednolicono ścieżkę pliku magazynu.
 
 ## Planowane
 - Pogrupowanie ustawień i krótkie opisy
