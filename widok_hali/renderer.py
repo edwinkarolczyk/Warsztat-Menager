@@ -37,18 +37,25 @@ def render(config: Dict[str, Any]) -> Any:
     """Render the hall view according to *config*.
 
     The function checks that required keys exist and referenced files are
-    present. Missing backgrounds result in a checkerboard image along with a
-    warning log.
+    present. ``background`` may be either a filesystem path or a preloaded
+    ``PIL.Image`` instance. Missing backgrounds result in a checkerboard image
+    along with a warning log.
     """
     try:
-        bg_path = config.get("background") if isinstance(config, dict) else None
-        if not bg_path or not os.path.isfile(bg_path):
+        bg_obj = config.get("background") if isinstance(config, dict) else None
+        if isinstance(bg_obj, str):
+            if not os.path.isfile(bg_obj):
+                _log("WARN", "brak tła lub plik nie istnieje – używam szachownicy")
+                canvas = checkerboard()
+            else:
+                if Image is None:
+                    raise RuntimeError("Pillow is not available")
+                canvas = Image.open(bg_obj)
+        elif Image is not None and isinstance(bg_obj, Image.Image):
+            canvas = bg_obj
+        else:
             _log("WARN", "brak tła lub plik nie istnieje – używam szachownicy")
             canvas = checkerboard()
-        else:
-            if Image is None:
-                raise RuntimeError("Pillow is not available")
-            canvas = Image.open(bg_path)
 
         sprites = config.get("sprites", {}) if isinstance(config, dict) else {}
         if not isinstance(sprites, dict):
