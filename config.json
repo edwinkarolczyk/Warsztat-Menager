@@ -12,6 +12,21 @@
   "updates": {
     "push_branch": "git-push"
   },
+  "hala": {
+    "show_grid": true,
+    "grid_step_px": 4,
+    "backgrounds": {
+      "1": "grafiki/hala_1.jpg",
+      "2": "grafiki/hala_2.jpg"
+    },
+    "workshop_start": {
+      "x": 20,
+      "y": 20
+    },
+    "anim_interval_ms": 100,
+    "drag_snap_px": 4,
+    "triple_confirm_delete": true
+  },
   "warn_on_unsaved": true,
   "autosave_draft": false,
   "autosave_draft_interval_sec": 15
