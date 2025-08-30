@@ -1,5 +1,5 @@
 ## Wdrożone
-*(na razie brak)*
+- 2024-06-02 – Grupowanie ustawień, wersje BOM produktów, automatyczne przeniesienie narzędzi i zwroty materiałów
 
 ## Planowane
 - Pogrupowanie ustawień i krótkie opisy
