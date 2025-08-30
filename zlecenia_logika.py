@@ -1,9 +1,9 @@
 # =============================
 # FILE: zlecenia_logika.py
-# VERSION: 1.1.4
-# Zmiany 1.1.4:
-# - Podbicie wersji; bez zmian funkcjonalnych (utrzymanie kompatybilności z aktualnym magazynem)
-# - Dalej: create_zlecenie obsługuje opcjonalne `zlec_wew`; start = "nowe"
+# VERSION: 1.1.5
+# Zmiany 1.1.5:
+# - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
+# - create_zlecenie nadal obsługuje `zlec_wew`; start = "nowe"
 # =============================
 
 import json, os
@@ -107,13 +107,23 @@ def reserve_materials(bom, ilosc=1):
     _write_json(mag_path, mag)
     return mag
 
-def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None):
-    """Tworzy zlecenie w statusie "nowe". Opcjonalnie zapisuje numer zlecenia wewnętrznego.
-    Nie rezerwuje materiałów na starcie.
+def create_zlecenie(
+    kod_produktu,
+    ilosc,
+    uwagi: str = "",
+    autor: str = "system",
+    zlec_wew=None,
+    reserve: bool = True,
+):
+    """Tworzy zlecenie w statusie "nowe".
+
+    Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
     """
     _ensure_dirs()
     bom = read_bom(kod_produktu)
     braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
+    if reserve:
+        reserve_materials(bom, ilosc)
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,
@@ -121,11 +131,13 @@ def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system",
         "status": "nowe",
         "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "uwagi": uwagi,
-        "historia": [{
-            "kiedy": datetime.now().isoformat(timespec="seconds"),
-            "kto": autor,
-            "co": "utworzenie"
-        }]
+        "historia": [
+            {
+                "kiedy": datetime.now().isoformat(timespec="seconds"),
+                "kto": autor,
+                "co": "utworzenie",
+            }
+        ],
     }
     if zlec_wew not in (None, ""):
         zlec["zlec_wew"] = zlec_wew
