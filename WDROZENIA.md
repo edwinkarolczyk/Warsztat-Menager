@@ -1,8 +1,8 @@
 ## Wdrożone
-- 2024-06-02 – Grupowanie ustawień, wersje BOM produktów, automatyczne przeniesienie narzędzi i zwroty materiałów
+- 2024-06-02 – Grupowanie ustawień, wybór wersji BOM produktów i zapamiętywanie jej w zleceniach, automatyczne przeniesienie narzędzi i zwroty materiałów
 
 ## Planowane
-- Pogrupowanie ustawień i krótkie opisy
+- Krótkie opisy w ustawieniach
 - Wersjonowanie BOM (prototyp/seria, rewizje, daty)
 - Automatyczne przenoszenie narzędzi NOWE→SN
 - Zwrot materiału przy cofnięciu zadania
