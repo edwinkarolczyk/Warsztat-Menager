@@ -130,19 +130,19 @@ def panel_maszyny(root, frame, login=None, rola=None):
 
     apply_theme(frame)
 
-    tk.Label(
+    ttk.Label(
         frame,
         text="🛠️ Panel maszyn",
-        font=("Arial", 16),
-        bg="#333",
-        fg="white",
+        style="WM.H1.TLabel",
     ).pack(pady=20, fill="x")
 
     maszyny = load_machines()
     maszyny_map = {str(m.get("nr_ewid")): m for m in maszyny}
 
     columns = ("nr_ewid", "nazwa", "typ", "nastepne_zadanie")
-    tree = ttk.Treeview(frame, columns=columns, show="headings", height=15)
+    tree = ttk.Treeview(
+        frame, columns=columns, show="headings", height=15, style="WM.Treeview"
+    )
     headings = {
         "nr_ewid": "nr_ewid",
         "nazwa": "nazwa",
@@ -178,7 +178,9 @@ def panel_maszyny(root, frame, login=None, rola=None):
         apply_theme(win)
 
         cols = ("data", "typ_zadania", "uwagi")
-        tv = ttk.Treeview(win, columns=cols, show="headings", height=10)
+        tv = ttk.Treeview(
+            win, columns=cols, show="headings", height=10, style="WM.Treeview"
+        )
         for c in cols:
             tv.heading(c, text=c)
             tv.column(c, width=120, anchor="center")
