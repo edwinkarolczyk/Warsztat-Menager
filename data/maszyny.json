@@ -22,9 +22,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 20,
+    "y": 40,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -44,9 +44,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 60,
+    "y": 40,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -66,9 +66,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 100,
+    "y": 40,
+    "status": "SERWIS"
   },
   {
     "nr_hali": "1",
@@ -88,9 +88,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 140,
+    "y": 40,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -110,9 +110,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 180,
+    "y": 40,
+    "status": "AWARIA"
   },
   {
     "nr_hali": "1",
@@ -142,9 +142,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 20,
+    "y": 100,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -164,9 +164,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 60,
+    "y": 100,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -186,9 +186,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 100,
+    "y": 100,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -208,9 +208,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 140,
+    "y": 100,
+    "status": "SERWIS"
   },
   {
     "nr_hali": "1",
@@ -235,9 +235,9 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 180,
+    "y": 100,
+    "status": "OK"
   },
   {
     "nr_hali": "1",
@@ -262,8 +262,8 @@
       }
     ],
     "hala": "1",
-    "x": 0,
-    "y": 0,
-    "status": "aktywny"
+    "x": 220,
+    "y": 100,
+    "status": "OK"
   }
 ]
