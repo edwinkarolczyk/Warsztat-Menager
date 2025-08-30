@@ -55,7 +55,7 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
                 "kod": "PP1",
                 "ilosc_na_szt": 1,
                 "czynnosci": ["ciecie", "spawanie"],
-                "surowiec": {"typ": "pret", "dlugosc": 2},
+                "surowiec": {"typ": "SR1", "dlugosc": 2},
             }
         ],
     }
@@ -67,4 +67,45 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
     res = bom.compute_bom_for_prd("X", 2)
     assert res["PP1"]["ilosc"] == 2
     assert res["PP1"]["czynnosci"] == ["ciecie", "spawanie"]
-    assert res["PP1"]["surowiec"]["typ"] == "pret"
+    assert res["PP1"]["surowiec"]["typ"] == "SR1"
+
+
+def test_compute_bom_for_prd_requires_czynnosci(tmp_path, monkeypatch):
+    product = {
+        "kod": "X",
+        "polprodukty": [
+            {
+                "kod": "PP1",
+                "ilosc_na_szt": 1,
+                "surowiec": {"typ": "SR1", "dlugosc": 1},
+            }
+        ],
+    }
+    produkty = tmp_path / "produkty"
+    produkty.mkdir()
+    with open(produkty / "X.json", "w", encoding="utf-8") as f:
+        json.dump(product, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    with pytest.raises(KeyError, match="czynnosci"):
+        bom.compute_bom_for_prd("X", 1)
+
+
+def test_compute_bom_for_prd_requires_surowiec_fields(tmp_path, monkeypatch):
+    product = {
+        "kod": "X",
+        "polprodukty": [
+            {
+                "kod": "PP1",
+                "ilosc_na_szt": 1,
+                "czynnosci": ["a"],
+                "surowiec": {"typ": "SR1"},
+            }
+        ],
+    }
+    produkty = tmp_path / "produkty"
+    produkty.mkdir()
+    with open(produkty / "X.json", "w", encoding="utf-8") as f:
+        json.dump(product, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    with pytest.raises(KeyError, match="surowiec"):
+        bom.compute_bom_for_prd("X", 1)
