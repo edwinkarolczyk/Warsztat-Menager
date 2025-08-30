@@ -1,5 +1,7 @@
 import json
 import os
+import os
+import json
 import tkinter as tk
 from pathlib import Path
 
@@ -55,7 +57,16 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     assert data == {
         "kod": "PROD1",
         "nazwa": "Produkt 1",
-        "polprodukty": [{"kod": "PP1", "ilosc_na_szt": 2}],
+        "versions": [
+            {
+                "version": "1",
+                "bom_revision": 1,
+                "effective_from": None,
+                "effective_to": None,
+                "is_default": True,
+                "polprodukty": [{"kod": "PP1", "ilosc_na_szt": 2}]
+            }
+        ]
     }
 
     # clear and reload

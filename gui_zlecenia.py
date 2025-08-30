@@ -13,6 +13,7 @@ from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+import bom
 
 try:
     from zlecenia_logika import (
@@ -186,25 +187,33 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
 
     ttk.Label(frm, text="Produkt", style="WM.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
-    try: produkty = list_produkty()
-    except Exception: produkty = []
+    try:
+        produkty = list_produkty()
+    except Exception:
+        produkty = []
     kody = [p.get("kod", "") for p in produkty]
     cb_prod = ttk.Combobox(frm, values=kody, state="readonly", width=30)
-    if kody: cb_prod.current(0)
+    if kody:
+        cb_prod.current(0)
     cb_prod.grid(row=0, column=1, sticky="we", padx=(8, 0), pady=(0, 6))
 
-    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=1, column=0, sticky="w")
-    spn = ttk.Spinbox(frm, from_=1, to=999, width=10); spn.set(1)
-    spn.grid(row=1, column=1, sticky="w", padx=(8, 0))
+    ttk.Label(frm, text="Wersja", style="WM.TLabel").grid(row=1, column=0, sticky="w")
+    cb_ver = ttk.Combobox(frm, state="readonly", width=30)
+    cb_ver.grid(row=1, column=1, sticky="we", padx=(8, 0))
+
+    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=2, column=0, sticky="w")
+    spn = ttk.Spinbox(frm, from_=1, to=999, width=10)
+    spn.set(1)
+    spn.grid(row=2, column=1, sticky="w", padx=(8, 0))
 
     # NOWE: numer wewnętrzny
-    ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+    ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
     ent_ref = ttk.Entry(frm, width=18)
-    ent_ref.grid(row=2, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+    ent_ref.grid(row=3, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
 
-    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=3, column=0, sticky="nw", pady=(8, 0))
+    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=4, column=0, sticky="nw", pady=(8, 0))
     txt = tk.Text(frm, height=8)
-    txt.grid(row=3, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
+    txt.grid(row=4, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
     try:
         txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
                       highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
@@ -212,20 +221,38 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
         pass
 
     frm.columnconfigure(1, weight=1)
-    frm.rowconfigure(3, weight=1)
+    frm.rowconfigure(4, weight=1)
+
+    def _update_versions(*_):
+        kod = cb_prod.get().strip()
+        try:
+            wersje = bom.list_versions(kod)
+        except Exception:
+            wersje = []
+        cb_ver["values"] = wersje
+        if wersje:
+            cb_ver.current(0)
+        else:
+            cb_ver.set("")
+
+    cb_prod.bind("<<ComboboxSelected>>", _update_versions)
+    _update_versions()
 
     def akcept():
         kod = cb_prod.get().strip()
         if not kod:
-            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win); return
+            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win)
+            return
+        wersja = cb_ver.get().strip() or None
         try:
             ilosc = int(spn.get())
         except Exception:
-            messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win); return
+            messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
+            return
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew)
+        zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew, wersja=wersja)
         messagebox.showinfo("Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win)
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
         win.destroy(); on_done()

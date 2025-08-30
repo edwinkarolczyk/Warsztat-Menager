@@ -1,5 +1,6 @@
 import json
 
+import json
 import pytest
 
 import bom
@@ -16,7 +17,20 @@ def test_compute_sr_for_pp_ilosc_positive():
 
 
 def test_compute_bom_for_prd_missing_ilosc_na_szt(tmp_path, monkeypatch):
-    product = {"kod": "X", "polprodukty": [{"kod": "PPX"}]}
+    product = {
+        "kod": "X",
+        "nazwa": "X",
+        "versions": [
+            {
+                "version": "1",
+                "bom_revision": 1,
+                "effective_from": None,
+                "effective_to": None,
+                "is_default": True,
+                "polprodukty": [{"kod": "PPX"}]
+            }
+        ]
+    }
     produkty = tmp_path / "produkty"
     produkty.mkdir()
     with open(produkty / "X.json", "w", encoding="utf-8") as f:

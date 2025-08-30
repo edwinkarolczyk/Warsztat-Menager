@@ -1,17 +1,27 @@
 {
+  "kod": "Ewakuacyjna",
   "nazwa": "Produkt X",
-  "komponenty": [
+  "versions": [
     {
-      "typ": "rurka 30mm",
-      "jednostka": "mm",
-      "na_sztuke": 1500,
-      "ilość_na_produkt": 2
-    },
-    {
-      "typ": "płaskownik 40mm",
-      "jednostka": "mm",
-      "na_sztuke": 600,
-      "ilość_na_produkt": 1
+      "version": "1",
+      "bom_revision": 1,
+      "effective_from": null,
+      "effective_to": null,
+      "is_default": true,
+      "komponenty": [
+        {
+          "typ": "rurka 30mm",
+          "jednostka": "mm",
+          "na_sztuke": 1500,
+          "ilość_na_produkt": 2
+        },
+        {
+          "typ": "płaskownik 40mm",
+          "jednostka": "mm",
+          "na_sztuke": 600,
+          "ilość_na_produkt": 1
+        }
+      ]
     }
   ]
 }

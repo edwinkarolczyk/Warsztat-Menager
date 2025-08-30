@@ -1,16 +1,25 @@
 {
   "kod": "PROD_X",
   "nazwa": "Zestaw X",
-  "sklad": [
+  "versions": [
     {
-      "kod": "RURKA_30",
-      "nazwa": "Rurka 30mm",
-      "ilosc": 2
-    },
-    {
-      "kod": "PLASK_40",
-      "nazwa": "Płaskownik 40mm",
-      "ilosc": 1
+      "version": "1",
+      "bom_revision": 1,
+      "effective_from": null,
+      "effective_to": null,
+      "is_default": true,
+      "sklad": [
+        {
+          "kod": "RURKA_30",
+          "nazwa": "Rurka 30mm",
+          "ilosc": 2
+        },
+        {
+          "kod": "PLASK_40",
+          "nazwa": "Płaskownik 40mm",
+          "ilosc": 1
+        }
+      ]
     }
   ]
 }

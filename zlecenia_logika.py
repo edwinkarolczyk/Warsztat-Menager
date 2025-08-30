@@ -42,11 +42,21 @@ def list_produkty():
             continue
     return out
 
-def read_bom(kod):
+def read_bom(kod, version=None):
     p = BOM_DIR / f"{kod}.json"
     if not p.exists():
         raise FileNotFoundError(f"Brak BOM: {kod}")
-    return _read_json(p)
+    j = _read_json(p)
+    if j.get("versions"):
+        vers = j.get("versions", [])
+        if version is None:
+            ver = next((v for v in vers if v.get("is_default")), vers[0])
+        else:
+            ver = next((v for v in vers if v.get("version") == version), vers[0])
+        out = {k: v for k, v in j.items() if k != "versions"}
+        out.update(ver)
+        return out
+    return j
 
 def read_magazyn():
     p = MAG_DIR / "stany.json"
@@ -107,12 +117,12 @@ def reserve_materials(bom, ilosc=1):
     _write_json(mag_path, mag)
     return mag
 
-def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None):
+def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None, wersja=None):
     """Tworzy zlecenie w statusie "nowe". Opcjonalnie zapisuje numer zlecenia wewnętrznego.
     Nie rezerwuje materiałów na starcie.
     """
     _ensure_dirs()
-    bom = read_bom(kod_produktu)
+    bom = read_bom(kod_produktu, wersja)
     braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
     zlec = {
         "id": _next_id(),
@@ -127,6 +137,8 @@ def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system",
             "co": "utworzenie"
         }]
     }
+    if wersja is not None:
+        zlec["wersja"] = wersja
     if zlec_wew not in (None, ""):
         zlec["zlec_wew"] = zlec_wew
     if braki:
