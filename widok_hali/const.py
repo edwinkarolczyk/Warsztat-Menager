@@ -1,6 +1,6 @@
 """Stałe dla modułu widoku hali."""
 
-# domyślna wielkość kroku siatki (4 px)
+# domyślna wielkość kroku siatki w pikselach
 GRID_STEP = 4
 
 # czy wyświetlać siatkę na kanwie
