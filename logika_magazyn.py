@@ -44,10 +44,14 @@ try:
     _log_info = getattr(logger, "log_akcja", lambda m: print(f"[INFO] {m}"))
     _log_mag = getattr(logger, "log_magazyn", lambda a, d: print(f"[MAGAZYN] {a}: {d}"))
 except Exception:
-    def _log_info(msg): print(f"[INFO] {msg}")
-    def _log_mag(akcja, dane): print(f"[MAGAZYN] {akcja}: {dane}")
+    def _log_info(msg):
+        print(f"[INFO] {msg}")
 
-MAGAZYN_PATH = os.path.join("data", "magazyn", "magazyn.json")
+    def _log_mag(akcja, dane):
+        print(f"[MAGAZYN] {akcja}: {dane}")
+
+
+MAGAZYN_PATH = "data/magazyn/magazyn.json"
 """Ścieżka do głównego pliku magazynu."""
 
 _LOCK = RLock()
