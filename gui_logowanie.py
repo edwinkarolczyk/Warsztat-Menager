@@ -113,14 +113,14 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Label(box, text="Login:", style="WM.H2.TLabel").pack(pady=(8, 6))
     entry_login = ttk.Entry(box, width=22)
     entry_login.pack(ipadx=10, ipady=6)
-    entry_login.bind("<Return>", lambda event: logowanie())
+    entry_login.bind("<Return>", lambda e: logowanie())
     if hasattr(entry_login, "focus_set"):
         entry_login.focus_set()
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
     entry_pin = ttk.Entry(box, show="*", width=22)
     entry_pin.pack(ipadx=10, ipady=6)
-    entry_pin.bind("<Return>", lambda event: logowanie())
+    entry_pin.bind("<Return>", lambda e: logowanie())
     ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
     if cfg.get("auth.pinless_brygadzista", False):
         ttk.Button(
