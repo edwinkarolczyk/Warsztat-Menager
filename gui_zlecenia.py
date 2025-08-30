@@ -1,14 +1,15 @@
 # =============================
 # FILE: gui_zlecenia.py
-# VERSION: 1.1.3
-# Zmiany 1.1.3:
-# - Tabela: nowa kolumna "Tyczy nr" (zlec_wew)
-# - Szukaj: obejmuje też numer wewnętrzny
-# - Kreator: pole "Tyczy się zlecenia nr (wew.)" i przekazanie do create_zlecenie(zlec_wew=...)
-# - Dialog statusu: ciemne okno (highlight off) — jak wcześniej
+# VERSION: 1.1.4
+# Zmiany 1.1.4:
+# - Kreator zlecenia: dialog zamówienia brakujących materiałów
+# - Tabela: kolumna "Tyczy nr" (zlec_wew)
 # =============================
 
+import json
 import tkinter as tk
+from datetime import datetime
+from pathlib import Path
 from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
@@ -39,6 +40,24 @@ def _maybe_theme(widget):
 
 def _fmt(v):
     return "" if v is None else str(v)
+
+
+def _append_pending_order(kod_produktu, braki):
+    zam_path = Path("data") / "zamowienia_oczekujace.json"
+    try:
+        with open(zam_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = []
+    entry = {
+        "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "produkt": kod_produktu,
+        "braki": {b.get("nazwa") or b["kod"]: b["brakuje"] for b in braki},
+        "status": "do_zamowienia",
+    }
+    data.append(entry)
+    with open(zam_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 _STATUS_TO_PCT = {
     "nowe": 0,
@@ -225,8 +244,28 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew)
-        messagebox.showinfo("Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win)
+        zlec, braki = create_zlecenie(
+            kod,
+            ilosc,
+            uwagi=uw,
+            autor="GUI",
+            zlec_wew=zlec_wew,
+        )
+        if braki:
+            msg = ", ".join(
+                f"{b['nazwa']} ({b['brakuje']})" for b in braki
+            )
+            if messagebox.askyesno(
+                "Braki materiałowe",
+                f"Brakuje {msg} – zamówić?",
+                parent=win,
+            ):
+                _append_pending_order(kod, braki)
+        messagebox.showinfo(
+            "Zlecenie utworzone",
+            f"ID: {zlec['id']}, status: {zlec['status']}",
+            parent=win,
+        )
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
         win.destroy(); on_done()
 
