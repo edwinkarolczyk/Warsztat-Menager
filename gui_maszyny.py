@@ -208,10 +208,14 @@ def panel_maszyny(root, frame, login=None, rola=None):
         _refresh_tasks()
 
     ttk.Button(frame, text="Szczegóły", command=_open_details).pack(pady=10)
+
+    hala_frame = ttk.Frame(frame)
+    hala_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
     try:
         from gui_hala import build_hala_view
 
-        build_hala_view(frame)
+        build_hala_view(hala_frame)
     except Exception:  # pragma: no cover - opcjonalne
         pass
 
