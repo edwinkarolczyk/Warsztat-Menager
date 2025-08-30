@@ -10,6 +10,8 @@ import json, os
 from pathlib import Path
 from datetime import datetime
 
+import bom
+
 DATA_DIR = Path("data")
 BOM_DIR = DATA_DIR / "produkty"
 MAG_DIR = DATA_DIR / "magazyn"
@@ -42,11 +44,31 @@ def list_produkty():
             continue
     return out
 
-def read_bom(kod):
+
+def list_produkty_wersje():
+    """Lista produktów z uwzględnieniem wersji."""
+    return bom.list_produkty_wersje()
+
+def read_bom(kod, wersja=None):
     p = BOM_DIR / f"{kod}.json"
     if not p.exists():
         raise FileNotFoundError(f"Brak BOM: {kod}")
-    return _read_json(p)
+    data = _read_json(p)
+    versions = data.get("versions")
+    if versions:
+        if wersja is None:
+            wersja = next(
+                (v.get("version") for v in versions if v.get("is_default")),
+                versions[0].get("version"),
+            )
+        ver = next(
+            (v for v in versions if str(v.get("version")) == str(wersja)),
+            versions[0],
+        )
+        res = {"kod": data.get("kod", kod), "nazwa": data.get("nazwa", kod)}
+        res.update(ver)
+        return res
+    return data
 
 def read_magazyn():
     p = MAG_DIR / "stany.json"
@@ -107,16 +129,17 @@ def reserve_materials(bom, ilosc=1):
     _write_json(mag_path, mag)
     return mag
 
-def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None):
+def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None, wersja=None):
     """Tworzy zlecenie w statusie "nowe". Opcjonalnie zapisuje numer zlecenia wewnętrznego.
     Nie rezerwuje materiałów na starcie.
     """
     _ensure_dirs()
-    bom = read_bom(kod_produktu)
+    bom = read_bom(kod_produktu, wersja)
     braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,
+        "wersja": bom.get("version"),
         "ilosc": ilosc,
         "status": "nowe",
         "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

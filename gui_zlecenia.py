@@ -17,7 +17,7 @@ from utils import error_dialogs
 try:
     from zlecenia_logika import (
         list_zlecenia,
-        list_produkty,
+        list_produkty_wersje,
         create_zlecenie,
         STATUSY,
         update_status,
@@ -186,11 +186,20 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
 
     ttk.Label(frm, text="Produkt", style="WM.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
-    try: produkty = list_produkty()
-    except Exception: produkty = []
-    kody = [p.get("kod", "") for p in produkty]
-    cb_prod = ttk.Combobox(frm, values=kody, state="readonly", width=30)
-    if kody: cb_prod.current(0)
+    try:
+        produkty = list_produkty_wersje()
+    except Exception:
+        produkty = []
+    labels = []
+    for p in produkty:
+        ver = p.get("version")
+        if ver is None:
+            labels.append(p.get("kod", ""))
+        else:
+            labels.append(f"{p.get('kod', '')} (v{ver})")
+    cb_prod = ttk.Combobox(frm, values=labels, state="readonly", width=30)
+    if labels:
+        cb_prod.current(0)
     cb_prod.grid(row=0, column=1, sticky="we", padx=(8, 0), pady=(0, 6))
 
     ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=1, column=0, sticky="w")
@@ -215,9 +224,13 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     frm.rowconfigure(3, weight=1)
 
     def akcept():
-        kod = cb_prod.get().strip()
-        if not kod:
-            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win); return
+        idx = cb_prod.current()
+        if idx < 0:
+            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win)
+            return
+        prod_sel = produkty[idx]
+        kod = prod_sel.get("kod", "").strip()
+        wersja = prod_sel.get("version")
         try:
             ilosc = int(spn.get())
         except Exception:
@@ -225,7 +238,9 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew)
+        zlec, braki = create_zlecenie(
+            kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew, wersja=wersja
+        )
         messagebox.showinfo("Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win)
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
         win.destroy(); on_done()

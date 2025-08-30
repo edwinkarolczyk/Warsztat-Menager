@@ -88,9 +88,31 @@ def make_tab(parent, rola=None):
     right = ttk.Frame(frm, style="WM.Card.TFrame"); right.grid(row=0, column=1, sticky="new", padx=(6,10), pady=(10,0))
     right.columnconfigure(3, weight=1)
     ttk.Label(right, text="Kod produktu:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=6, pady=4)
-    var_kod = tk.StringVar();  ttk.Entry(right, textvariable=var_kod, width=24).grid(row=0, column=1, sticky="w", padx=6, pady=4)
+    var_kod = tk.StringVar()
+    ttk.Entry(right, textvariable=var_kod, width=24).grid(row=0, column=1, sticky="w", padx=6, pady=4)
     ttk.Label(right, text="Nazwa:", style="WM.Card.TLabel").grid(row=0, column=2, sticky="w", padx=6, pady=4)
-    var_nazwa = tk.StringVar(); ttk.Entry(right, textvariable=var_nazwa).grid(row=0, column=3, sticky="ew", padx=6, pady=4)
+    var_nazwa = tk.StringVar()
+    ttk.Entry(right, textvariable=var_nazwa).grid(row=0, column=3, sticky="ew", padx=6, pady=4)
+
+    ttk.Label(right, text="Wersja:", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=6, pady=4)
+    var_ver = tk.StringVar()
+    ver_box = ttk.Frame(right)
+    ver_box.grid(row=1, column=1, sticky="w", padx=6, pady=4)
+    cb_ver = ttk.Combobox(ver_box, textvariable=var_ver, state="readonly", width=10)
+    cb_ver.pack(side="left")
+    btn_ver_new = ttk.Button(ver_box, text="+", width=3, style="WM.Side.TButton")
+    btn_ver_new.pack(side="left", padx=(4, 0))
+    ttk.Label(right, text="Rev BOM:", style="WM.Card.TLabel").grid(row=1, column=2, sticky="w", padx=6, pady=4)
+    var_rev = tk.StringVar()
+    ttk.Entry(right, textvariable=var_rev, width=10).grid(row=1, column=3, sticky="w", padx=6, pady=4)
+    ttk.Label(right, text="Od:", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=6, pady=4)
+    var_from = tk.StringVar()
+    ttk.Entry(right, textvariable=var_from, width=12).grid(row=2, column=1, sticky="w", padx=6, pady=4)
+    ttk.Label(right, text="Do:", style="WM.Card.TLabel").grid(row=2, column=2, sticky="w", padx=6, pady=4)
+    var_to = tk.StringVar()
+    ttk.Entry(right, textvariable=var_to, width=12).grid(row=2, column=3, sticky="w", padx=6, pady=4)
+    var_default = tk.BooleanVar()
+    ttk.Checkbutton(right, text="Domyślna", variable=var_default).grid(row=3, column=0, columnspan=2, sticky="w", padx=6, pady=4)
 
     # BOM tabela
     center = ttk.Frame(frm, style="WM.TFrame"); center.grid(row=1, column=1, sticky="nsew", padx=(6,10), pady=(6,10))
@@ -116,6 +138,7 @@ def make_tab(parent, rola=None):
         tv.column(c, width=w, anchor="w")
 
     frm._polprodukty = _list_polprodukty()
+    frm._versions = []
 
     # funkcje wewnętrzne
     def _refresh():
@@ -128,6 +151,27 @@ def make_tab(parent, rola=None):
         sel = lb.curselection()
         return sel[0] if sel else None
 
+    def _load_ver():
+        for iid in tv.get_children():
+            tv.delete(iid)
+        idxv = cb_ver.current()
+        if idxv < 0 or idxv >= len(frm._versions):
+            var_rev.set("")
+            var_from.set("")
+            var_to.set("")
+            var_default.set(False)
+            return
+        v = frm._versions[idxv]
+        var_ver.set(str(v.get("version", "")))
+        var_rev.set(str(v.get("bom_revision", "")))
+        var_from.set(v.get("effective_from", "") or "")
+        var_to.set(v.get("effective_to", "") or "")
+        var_default.set(bool(v.get("is_default", False)))
+        for poz in v.get("polprodukty", []):
+            mid = poz.get("kod", "")
+            nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
+            tv.insert("", "end", values=(mid, nm, poz.get("ilosc_na_szt", 1)))
+
     def _load():
         idx = _select_idx()
         for iid in tv.get_children():
@@ -135,21 +179,66 @@ def make_tab(parent, rola=None):
         if idx is None:
             var_kod.set("")
             var_nazwa.set("")
+            cb_ver.configure(values=[])
             return
         p = frm._products[idx]
         j = _read_json(p["_path"], {})
         var_kod.set(j.get("kod", p["kod"]))
         var_nazwa.set(j.get("nazwa", p["nazwa"]))
-        for poz in j.get("polprodukty", []):
-            mid = poz.get("kod", "")
-            nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
-            tv.insert("", "end", values=(mid, nm, poz.get("ilosc_na_szt", 1)))
+        frm._versions = j.get("versions", [])
+        if not frm._versions:
+            frm._versions = [
+                {
+                    "version": "1",
+                    "bom_revision": "",
+                    "effective_from": "",
+                    "effective_to": "",
+                    "is_default": True,
+                    "polprodukty": j.get("polprodukty", []),
+                }
+            ]
+        cb_ver.configure(values=[v.get("version") for v in frm._versions])
+        sel = next((i for i, v in enumerate(frm._versions) if v.get("is_default")), 0)
+        cb_ver.current(sel)
+        _load_ver()
 
     def _new():
         k = simpledialog.askstring("Nowy produkt", "Podaj kod:", parent=frm)
-        if not k: return
-        var_kod.set(k.strip()); var_nazwa.set("")
-        for iid in tv.get_children(): tv.delete(iid)
+        if not k:
+            return
+        var_kod.set(k.strip())
+        var_nazwa.set("")
+        frm._versions = [
+            {
+                "version": "1",
+                "bom_revision": "",
+                "effective_from": "",
+                "effective_to": "",
+                "is_default": True,
+                "polprodukty": [],
+            }
+        ]
+        cb_ver.configure(values=["1"])
+        cb_ver.current(0)
+        _load_ver()
+
+    def _new_ver():
+        vnum = simpledialog.askstring("Nowa wersja", "Podaj oznaczenie wersji:", parent=frm)
+        if not vnum:
+            return
+        frm._versions.append(
+            {
+                "version": vnum.strip(),
+                "bom_revision": "",
+                "effective_from": "",
+                "effective_to": "",
+                "is_default": False,
+                "polprodukty": [],
+            }
+        )
+        cb_ver.configure(values=[v.get("version") for v in frm._versions])
+        cb_ver.current(len(frm._versions) - 1)
+        _load_ver()
 
     def _delete():
         idx=_select_idx()
@@ -212,7 +301,11 @@ def make_tab(parent, rola=None):
         if not kod or not naz:
             messagebox.showwarning("Produkty", "Uzupełnij kod i nazwę.")
             return
-        bom = []
+        idxv = cb_ver.current()
+        if idxv < 0:
+            messagebox.showwarning("Produkty", "Dodaj wersję produktu.")
+            return
+        bom_list = []
         for iid in tv.get_children():
             pp, _nm, il = tv.item(iid, "values")
             try:
@@ -224,8 +317,20 @@ def make_tab(parent, rola=None):
                 return
             if il.is_integer():
                 il = int(il)
-            bom.append({"kod": pp, "ilosc_na_szt": il})
-        payload = {"kod": kod, "nazwa": naz, "polprodukty": bom}
+            bom_list.append({"kod": pp, "ilosc_na_szt": il})
+        v = frm._versions[idxv]
+        v["version"] = var_ver.get().strip() or v.get("version")
+        v["bom_revision"] = var_rev.get().strip()
+        v["effective_from"] = var_from.get().strip() or None
+        v["effective_to"] = var_to.get().strip() or None
+        v["is_default"] = var_default.get()
+        v["polprodukty"] = bom_list
+        if v["is_default"]:
+            for i, o in enumerate(frm._versions):
+                if i != idxv:
+                    o["is_default"] = False
+        cb_ver.configure(values=[ver.get("version") for ver in frm._versions])
+        payload = {"kod": kod, "nazwa": naz, "versions": frm._versions}
         _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
         messagebox.showinfo("Produkty", f"Zapisano {kod}.")
         _refresh()
@@ -253,6 +358,10 @@ def make_tab(parent, rola=None):
         "<<ListboxSelect>>",
         lambda e: guard.check_before(lambda: (_load(), guard.reset())),
     )
+    cb_ver.bind(
+        "<<ComboboxSelected>>",
+        lambda e: guard.check_before(lambda: (_load_ver(), guard.reset())),
+    )
     btn_new.configure(
         command=lambda: guard.check_before(lambda: (_new(), guard.reset()))
     )
@@ -260,6 +369,9 @@ def make_tab(parent, rola=None):
         command=lambda: guard.check_before(lambda: (_delete(), guard.reset()))
     )
     btn_save.configure(command=guard.on_save)
+    btn_ver_new.configure(
+        command=lambda: guard.check_before(lambda: (_new_ver(), guard.reset()))
+    )
 
     _refresh()
     return frm
