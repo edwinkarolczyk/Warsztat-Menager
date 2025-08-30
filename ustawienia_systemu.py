@@ -78,8 +78,11 @@ def panel_ustawien(root, frame, login=None, rola=None):
     container = ttk.Frame(frame)
     container.pack(fill="both", expand=True)
 
+    def _refresh_theme(*_):
+        apply_theme(container.winfo_toplevel())
+
     # Zastosuj motyw NA OKNIE nadrzędnym
-    apply_theme(container.winfo_toplevel())
+    _refresh_theme()
 
     # Notebook z grupami
     if _style_exists("WM.TNotebook"):
@@ -112,13 +115,9 @@ def panel_ustawien(root, frame, login=None, rola=None):
 
     lang_var = tk.StringVar(value=cfg.get("ui.language", "pl"))
     theme_var = tk.StringVar(value=cfg.get("ui.theme", "dark"))
-    theme_var.trace_add(
-        "write", lambda *_: apply_theme(container.winfo_toplevel())
-    )
+    theme_var.trace_add("write", _refresh_theme)
     accent_var = tk.StringVar(value=cfg.get("ui.accent", "red"))
-    accent_var.trace_add(
-        "write", lambda *_: apply_theme(container.winfo_toplevel())
-    )
+    accent_var.trace_add("write", _refresh_theme)
     backup_var = tk.StringVar(value=cfg.get("backup.folder", ""))
     auto_var = tk.BooleanVar(value=cfg.get("updates.auto", True))
     remote_var = tk.StringVar(value=cfg.get("updates.remote", "origin"))
