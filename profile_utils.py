@@ -24,7 +24,8 @@ DEFAULT_USER = {
     "sugestie": [],
     "opis": "",
     "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
-    "zadania": []
+    "zadania": [],
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
 }
 
 def read_users():
@@ -71,6 +72,7 @@ def write_users(users):
         u.setdefault("opis", "")
         u.setdefault("preferencje", {"motyw": "dark", "widok_startowy": "panel"})
         u.setdefault("zadania", [])
+        u.setdefault("ostatnia_wizyta", "1970-01-01T00:00:00Z")
         norm.append(u)
     return write_json(USERS_FILE, norm)
 
@@ -125,6 +127,7 @@ def ensure_user_fields(users):
         if "awarie" not in u: u["awarie"] = []; changed = True
         if "sugestie" not in u: u["sugestie"] = []; changed = True
         if "opis" not in u: u["opis"] = ""; changed = True
+        if "ostatnia_wizyta" not in u: u["ostatnia_wizyta"] = "1970-01-01T00:00:00Z"; changed = True
     if changed:
         write_json(USERS_FILE, users)
     return users
