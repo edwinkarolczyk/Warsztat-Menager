@@ -782,10 +782,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     if zuzyte:
                         t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(zuzyte)
                 except Exception as _e:
-                    try:
-                        _dbg("[MAGAZYN] błąd zużycia", _e)
-                    except Exception:
-                        pass
+                    messagebox.showerror("Magazyn", f"Błąd zużycia: {_e}")
+                    t["done"] = False
+                    t["by"], t["ts_done"] = "", ""
             else:
                 t["by"] = ""; t["ts_done"] = ""
             repaint_tasks()
