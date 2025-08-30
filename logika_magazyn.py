@@ -57,6 +57,10 @@ def _ensure_dirs():
     if d and not os.path.exists(d):
         os.makedirs(d, exist_ok=True)
 
+
+def _history_path():
+    return os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
+
 def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -194,6 +198,33 @@ def _history_entry(typ_op, item_id, ilosc, uzytkownik, kontekst=None):
         "kontekst": kontekst or ""
     }
 
+
+def _append_history(entry):
+    _ensure_dirs()
+    hp = _history_path()
+    lock_path = hp + ".lock"
+    lock_f = open(lock_path, "w")
+    try:
+        lock_file(lock_f)
+        if os.path.exists(hp):
+            try:
+                with open(hp, "r", encoding="utf-8") as f:
+                    hist = json.load(f)
+                    if not isinstance(hist, list):
+                        hist = []
+            except Exception:
+                hist = []
+        else:
+            hist = []
+        hist.append(entry)
+        tmp = hp + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(hist, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, hp)
+    finally:
+        unlock_file(lock_f)
+        lock_f.close()
+
 def get_item(item_id):
     with _LOCK:
         m = load_magazyn()
@@ -294,10 +325,10 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
                 f"Niewystarczający stan {item_id}: {it['stan']} < {dok}"
             )
         it["stan"] -= dok
-        it["historia"].append(
-            _history_entry("zuzycie", item_id, dok, uzytkownik, kontekst)
-        )
+        entry = _history_entry("zuzycie", item_id, dok, uzytkownik, kontekst)
+        it["historia"].append(entry)
         save_magazyn(m)
+        _append_history(entry)
         _log_mag(
             "zuzycie",
             {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
@@ -317,10 +348,10 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         it["stan"] += dok
-        it["historia"].append(
-            _history_entry("zwrot", item_id, dok, uzytkownik, kontekst)
-        )
+        entry = _history_entry("zwrot", item_id, dok, uzytkownik, kontekst)
+        it["historia"].append(entry)
         save_magazyn(m)
+        _append_history(entry)
         _log_mag(
             "zwrot",
             {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
@@ -345,10 +376,10 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         if faktyczne <= 0:
             return 0.0
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + faktyczne
-        it["historia"].append(
-            _history_entry("rezerwacja", item_id, faktyczne, uzytkownik, kontekst)
-        )
+        entry = _history_entry("rezerwacja", item_id, faktyczne, uzytkownik, kontekst)
+        it["historia"].append(entry)
         save_magazyn(m)
+        _append_history(entry)
         _log_mag(
             "rezerwacja",
             {"item_id": item_id, "ilosc": faktyczne, "by": uzytkownik, "ctx": kontekst},
@@ -367,8 +398,10 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         if float(it.get("rezerwacje", 0.0)) < dok:
             raise ValueError(f"Nie można zwolnić {dok}, rezerwacje={it.get('rezerwacje',0.0)}")
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) - dok
-        it["historia"].append(_history_entry("zwolnienie_rezerwacji", item_id, dok, uzytkownik, kontekst))
+        entry = _history_entry("zwolnienie_rezerwacji", item_id, dok, uzytkownik, kontekst)
+        it["historia"].append(entry)
         save_magazyn(m)
+        _append_history(entry)
         _log_mag("zwolnienie_rezerwacji", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
         return it
 
