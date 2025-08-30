@@ -87,12 +87,14 @@ def test_zwrot_increments_stock(tmp_path, monkeypatch):
     })
 
     lm.zuzyj('RET-1', 2, uzytkownik='test', kontekst='pytest')
-    lm.zwrot('RET-1', 1, 'test')
+    lm.zwrot('RET-1', 1, uzytkownik='test', kontekst='pytest')
 
     item = lm.get_item('RET-1')
     assert item['stan'] == 4.0
-    assert item['historia'][-1]['operacja'] == 'zwrot'
-    assert item['historia'][-1]['ilosc'] == 1.0
+    last = item['historia'][-1]
+    assert last['operacja'] == 'zwrot'
+    assert last['ilosc'] == 1.0
+    assert last['kontekst'] == 'pytest'
 
 
 def test_zwrot_rejects_invalid(tmp_path, monkeypatch):

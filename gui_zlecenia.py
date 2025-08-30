@@ -171,7 +171,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
             messagebox.showerror("Zwrot", "Nieprawidłowa ilość")
             return
         try:
-            LM.zwrot(iid, il, uzytkownik="system")
+            LM.zwrot(iid, il, uzytkownik="system", kontekst="GUI Zlecenia")
             messagebox.showinfo("Zwrot", f"Zwrócono {il} szt. {iid}")
         except Exception as e:
             error_dialogs.show_error_dialog("Zwrot", str(e))
