@@ -3,6 +3,7 @@
 # Zakładka zarządzania użytkownikami wydzielona z gui_uzytkownicy.py
 
 import json
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -269,6 +270,35 @@ def make_tab(parent, rola):
         btn_new.pack(side="left", padx=2)
         btn_del = ttk.Button(btns, text="Usuń")
         btn_del.pack(side="left", padx=2)
+
+        revert = ttk.Frame(frame)
+        revert.pack(side="bottom", fill="x", pady=5)
+        nr_var = tk.StringVar()
+        ttk.Label(revert, text="Nr narzędzia:").pack(side="left")
+        ttk.Entry(revert, textvariable=nr_var, width=6).pack(side="left", padx=2)
+
+        def revert_tool():
+            numer = (nr_var.get() or "").strip().zfill(3)
+            path = os.path.join("data", "narzedzia", f"{numer}.json")
+            if not os.path.exists(path):
+                messagebox.showerror("Narzędzia", f"Narzędzie {numer} nie istnieje.")
+                return
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                data["is_old"] = False
+                data["kategoria"] = ""
+                for t in data.get("zadania", []):
+                    t["done"] = False
+                    t["by"] = ""
+                    t["ts_done"] = ""
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                messagebox.showinfo("Narzędzia", f"Cofnięto przeniesienie narzędzia {numer}.")
+            except Exception as e:
+                messagebox.showerror("Narzędzia", f"Błąd: {e}")
+
+        ttk.Button(revert, text="Cofnij przeniesienie", command=revert_tool).pack(side="left", padx=2)
 
     notebook = parent.nametowidget(parent.winfo_parent())
     base_title = notebook.tab(parent, "text")

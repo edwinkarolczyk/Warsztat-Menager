@@ -530,6 +530,8 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             "tryb": tool_mode,
             "interwencje": [],
             "historia": [],
+            "kategoria": "",
+            "is_old": False,
         }
 
         nr_auto = start.get("nr")
@@ -589,6 +591,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         last_applied_status = [ (start.get("status") or "").strip() ]
         # status poprzedni (do historii/przyszłych reguł)
         last_status = [ (start.get("status") or "").strip() ]
+        move_to_sn = [False]
 
         r = 2
         def row(lbl, widget):
@@ -680,7 +683,8 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 "tytul": t.get("tytul",""),
                 "done": bool(t.get("done")),
                 "by": t.get("by",""),
-                "ts_done": t.get("ts_done","")
+                "ts_done": t.get("ts_done",""),
+                "komentarz": t.get("komentarz", "")
             })
 
         def _has_title(title: str) -> bool:
@@ -719,6 +723,16 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             phase = _phase_for_status(tool_mode, new_st)
             if phase:
                 _apply_template_for_phase(phase)
+            if new_st.lower() == "odbiór zakończony":
+                if messagebox.askyesno("Przenieść do SN?", "Przenieść do SN?"):
+                    move_to_sn[0] = True
+                    for t in tasks:
+                        if not t.get("done"):
+                            t["done"] = True
+                            t["by"] = login or "system"
+                            t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            t["komentarz"] = "Oznaczono przy przeniesieniu do SN"
+                    repaint_tasks()
             last_status[0] = new_st
             last_applied_status[0] = new_st
 
@@ -891,7 +905,13 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 "tryb": tool_mode_local,
                 "interwencje": data_existing.get("interwencje", []),
                 "historia": historia,
+                "kategoria": data_existing.get("kategoria", start.get("kategoria", "")),
+                "is_old": data_existing.get("is_old", start.get("is_old", False)),
             }
+
+            if move_to_sn[0]:
+                data_obj["is_old"] = True
+                data_obj["kategoria"] = "SN"
 
             _save_tool(data_obj)
             dlg.destroy()
