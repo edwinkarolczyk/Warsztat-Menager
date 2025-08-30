@@ -1,35 +1,39 @@
 {
   "config_version": 1,
   "options": [
-  {
-        "key": "ui.theme",
-        "group": "Motyw",
-        "label": "Motyw",
+    {
+      "key": "ui.theme",
+      "group": "Motyw",
+      "label": "Motyw",
       "type": "enum",
       "enum": [
         "dark",
-        "light"
+        "light",
+        "funky"
       ],
       "default": "dark",
       "widget": "select",
       "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "ui.language",
-        "group": "Ogólne",
-        "label": "Język interfejsu",
-        "type": "enum",
-        "enum": ["pl", "en"],
-        "default": "pl",
-        "widget": "select",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "ui.accent",
-        "group": "Motyw",
-        "label": "Akcent kolorystyczny",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.language",
+      "group": "Ogólne",
+      "label": "Język interfejsu",
+      "type": "enum",
+      "enum": [
+        "pl",
+        "en"
+      ],
+      "default": "pl",
+      "widget": "select",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "ui.accent",
+      "group": "Motyw",
+      "label": "Akcent kolorystyczny",
       "type": "enum",
       "enum": [
         "red",
@@ -49,116 +53,6 @@
       "type": "bool",
       "default": true,
       "widget": "switch",
-        "scope": "global",
-        "requires_restart": false
-      },
-    {
-      "key": "ui.colors.dark_bg",
-      "group": "Motyw",
-      "label": "Tło główne",
-      "type": "string",
-      "default": "#1b1f24",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.dark_bg_2",
-      "group": "Motyw",
-      "label": "Tło pól",
-      "type": "string",
-      "default": "#20262e",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.side_bg",
-      "group": "Motyw",
-      "label": "Tło panelu bocznego",
-      "type": "string",
-      "default": "#14181d",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.card_bg",
-      "group": "Motyw",
-      "label": "Tło kart",
-      "type": "string",
-      "default": "#20262e",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.fg",
-      "group": "Motyw",
-      "label": "Kolor tekstu",
-      "type": "string",
-      "default": "#e6e6e6",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.muted_fg",
-      "group": "Motyw",
-      "label": "Tekst przygaszony",
-      "type": "string",
-      "default": "#9aa0a6",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.btn_bg",
-      "group": "Motyw",
-      "label": "Przyciski – tło",
-      "type": "string",
-      "default": "#2a3139",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.btn_bg_hover",
-      "group": "Motyw",
-      "label": "Przyciski – hover",
-      "type": "string",
-      "default": "#343b45",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.btn_bg_act",
-      "group": "Motyw",
-      "label": "Przyciski – aktywny",
-      "type": "string",
-      "default": "#3b434e",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.banner_fg",
-      "group": "Motyw",
-      "label": "Banner – tekst",
-      "type": "string",
-      "default": "#ff4d4d",
-      "widget": "color",
-      "scope": "global",
-      "requires_restart": false
-    },
-    {
-      "key": "ui.colors.banner_bg",
-      "group": "Motyw",
-      "label": "Banner – tło",
-      "type": "string",
-      "default": "#1b1b1b",
-      "widget": "color",
       "scope": "global",
       "requires_restart": false
     },
@@ -252,101 +146,101 @@
       "scope": "global",
       "requires_restart": false
     },
-        {
-          "key": "backup.folder",
-          "group": "Pliki i ścieżki",
-          "label": "Folder kopii zapasowych",
-        "type": "path",
-        "default": "backup_wersji",
-        "widget": "dir",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.url",
-          "group": "Kopie w chmurze",
-          "label": "Adres serwera WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "string",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.username",
-          "group": "Kopie w chmurze",
-          "label": "Użytkownik WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "string",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.password",
-          "group": "Kopie w chmurze",
-          "label": "Hasło WebDAV",
-          "type": "string",
-          "default": "",
-          "widget": "password",
-          "scope": "secret",
-          "requires_restart": false
-        },
-        {
-          "key": "backup.cloud.folder",
-          "group": "Kopie w chmurze",
-          "label": "Folder w chmurze",
-          "type": "path",
-          "default": "",
-          "widget": "dir",
-          "scope": "global",
-          "requires_restart": false
-        },
-        {
-          "key": "updates.auto",
-          "group": "Aktualizacje",
-          "label": "Automatyczne aktualizacje",
-          "type": "bool",
-        "default": true,
-        "widget": "switch",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.remote",
-        "group": "Aktualizacje",
-        "label": "Zdalne repozytorium",
-        "type": "string",
-        "default": "origin",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.branch",
-        "group": "Aktualizacje",
-        "label": "Gałąź aktualizacji",
-        "type": "string",
-        "default": "proby-rozwoju",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "updates.push_branch",
-        "group": "Aktualizacje",
-        "label": "Gałąź git push",
-        "type": "string",
-        "default": "git-push",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "modules.service.enabled",
-        "group": "Moduły i widoki",
-        "label": "Moduł serwisowy włączony",
-        "type": "bool",
+    {
+      "key": "backup.folder",
+      "group": "Pliki i ścieżki",
+      "label": "Folder kopii zapasowych",
+      "type": "path",
+      "default": "backup_wersji",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "backup.cloud.url",
+      "group": "Kopie w chmurze",
+      "label": "Adres serwera WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "string",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "backup.cloud.username",
+      "group": "Kopie w chmurze",
+      "label": "Użytkownik WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "string",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "backup.cloud.password",
+      "group": "Kopie w chmurze",
+      "label": "Hasło WebDAV",
+      "type": "string",
+      "default": "",
+      "widget": "password",
+      "scope": "secret",
+      "requires_restart": false
+    },
+    {
+      "key": "backup.cloud.folder",
+      "group": "Kopie w chmurze",
+      "label": "Folder w chmurze",
+      "type": "path",
+      "default": "",
+      "widget": "dir",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "updates.auto",
+      "group": "Aktualizacje",
+      "label": "Automatyczne aktualizacje",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "updates.remote",
+      "group": "Aktualizacje",
+      "label": "Zdalne repozytorium",
+      "type": "string",
+      "default": "origin",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "updates.branch",
+      "group": "Aktualizacje",
+      "label": "Gałąź aktualizacji",
+      "type": "string",
+      "default": "proby-rozwoju",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "updates.push_branch",
+      "group": "Aktualizacje",
+      "label": "Gałąź git push",
+      "type": "string",
+      "default": "git-push",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "modules.service.enabled",
+      "group": "Moduły i widoki",
+      "label": "Moduł serwisowy włączony",
+      "type": "bool",
       "default": true,
       "widget": "switch",
       "scope": "global",
@@ -497,53 +391,53 @@
       "widget": "list",
       "scope": "global",
       "requires_restart": false
-      },
-      {
-        "key": "feedback.url",
-        "group": "Ogólne",
-        "label": "Adres wysyłania opinii",
-        "type": "string",
-        "default": "",
-        "widget": "entry",
-        "scope": "global",
-        "requires_restart": false
-      },
-      {
-        "key": "warn_on_unsaved",
-        "group": "Ogólne",
-        "label": "Ostrzegaj przy niezapisanych zmianach",
-        "type": "bool",
-        "default": true,
-        "widget": "switch",
-        "scope": "global"
-      },
-      {
-        "key": "autosave_draft",
-        "group": "Ogólne",
-        "label": "Automatyczny zapis roboczy",
-        "type": "bool",
-        "default": false,
-        "widget": "switch",
-        "scope": "global"
-      },
-      {
-        "key": "autosave_draft_interval_sec",
-        "group": "Ogólne",
-        "label": "Interwał automatycznego zapisu (s)",
-        "type": "int",
-        "min": 1,
-        "max": 3600,
-        "default": 15,
-        "widget": "spinbox",
-        "scope": "global"
-      },
-      {
-        "key": "profiles.tab_enabled",
-        "group": "Profile użytkowników",
-        "label": "Włącz kartę „Profil użytkownika”",
-        "type": "bool",
-        "default": true,
-        "widget": "switch",
+    },
+    {
+      "key": "feedback.url",
+      "group": "Ogólne",
+      "label": "Adres wysyłania opinii",
+      "type": "string",
+      "default": "",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false
+    },
+    {
+      "key": "warn_on_unsaved",
+      "group": "Ogólne",
+      "label": "Ostrzegaj przy niezapisanych zmianach",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
+      "key": "autosave_draft",
+      "group": "Ogólne",
+      "label": "Automatyczny zapis roboczy",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global"
+    },
+    {
+      "key": "autosave_draft_interval_sec",
+      "group": "Ogólne",
+      "label": "Interwał automatycznego zapisu (s)",
+      "type": "int",
+      "min": 1,
+      "max": 3600,
+      "default": 15,
+      "widget": "spinbox",
+      "scope": "global"
+    },
+    {
+      "key": "profiles.tab_enabled",
+      "group": "Profile użytkowników",
+      "label": "Włącz kartę „Profil użytkownika”",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
       "scope": "global"
     },
     {

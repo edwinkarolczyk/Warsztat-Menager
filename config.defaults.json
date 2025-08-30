@@ -2,22 +2,14 @@
   "config_version": 1,
   "ui": {
     "theme": "dark",
+    "themes": [
+      "dark",
+      "light",
+      "funky"
+    ],
     "accent": "red",
     "always_searchbar": true,
-    "language": "pl",
-    "colors": {
-      "dark_bg": "#1b1f24",
-      "dark_bg_2": "#20262e",
-      "side_bg": "#14181d",
-      "card_bg": "#20262e",
-      "fg": "#e6e6e6",
-      "muted_fg": "#9aa0a6",
-      "btn_bg": "#2a3139",
-      "btn_bg_hover": "#343b45",
-      "btn_bg_act": "#3b434e",
-      "banner_fg": "#ff4d4d",
-      "banner_bg": "#1b1b1b"
-    }
+    "language": "pl"
   },
   "app": {
     "start_view": "dashboard"
