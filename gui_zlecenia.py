@@ -3,6 +3,7 @@
 # VERSION: 1.1.4
 # Zmiany 1.1.4:
 # - Kreator: dialog zamówienia brakujących materiałów
+# - Kreator: zamawianie braków przez queue_material_order z logiki
 # - Tabela: nowa kolumna "Tyczy nr" (zlec_wew)
 # - Szukaj: obejmuje też numer wewnętrzny
 # - Kreator: pole "Tyczy się zlecenia nr (wew.)" i przekazanie do create_zlecenie(zlec_wew=...)
@@ -200,7 +201,6 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     spn = ttk.Spinbox(frm, from_=1, to=999, width=10); spn.set(1)
     spn.grid(row=1, column=1, sticky="w", padx=(8, 0))
 
-    # NOWE: numer wewnętrzny
     ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
     ent_ref = ttk.Entry(frm, width=18)
     ent_ref.grid(row=2, column=1, sticky="w", padx=(8, 0), pady=(8, 0))

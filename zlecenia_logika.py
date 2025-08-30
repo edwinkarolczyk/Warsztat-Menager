@@ -2,8 +2,9 @@
 # FILE: zlecenia_logika.py
 # VERSION: 1.1.5
 # Zmiany 1.1.5:
+# - queue_material_order: zapisuje braki materiałowe do kolejki
 # - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
-# - Dalej: create_zlecenie obsługuje opcjonalne `zlec_wew`; start = "nowe"
+# - create_zlecenie obsługuje opcjonalne `zlec_wew`; start = "nowe"
 # =============================
 
 import json
@@ -168,7 +169,12 @@ def list_zlecenia():
 
 
 def queue_material_order(kod_produktu, braki):
-    """Dodaje zamówienie brakujących materiałów do kolejki."""
+    """Dodaje zamówienie brakujących materiałów do kolejki.
+
+    Args:
+        kod_produktu (str): Kod produktu, którego dotyczą braki.
+        braki (list[dict]): Elementy z kluczami "kod" i "brakuje".
+    """
     _ensure_dirs()
     path = DATA_DIR / "zamowienia_oczekujace.json"
     try:
