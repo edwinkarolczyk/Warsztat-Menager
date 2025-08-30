@@ -29,7 +29,8 @@ class HalaRenderer:
 
     # --- background -------------------------------------------------
     def draw_background(self, path: str | None) -> None:
-        """Narysuj tło z pliku lub siatkę szachownicy, gdy plik nie istnieje."""
+        """Narysuj tło z pliku lub siatkę szachownicy, gdy plik nie istnieje
+        lub nie można go odczytać."""
         self.canvas.delete(LAYER_BACKGROUND)
         w = self.canvas.winfo_width()
         h = self.canvas.winfo_height()
