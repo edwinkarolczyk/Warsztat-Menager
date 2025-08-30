@@ -719,6 +719,23 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             phase = _phase_for_status(tool_mode, new_st)
             if phase:
                 _apply_template_for_phase(phase)
+            if tool_mode == "NOWE" and new_st.lower() == "odbiór zakończony".lower():
+                if messagebox.askyesno("Przenieść", "Przenieść do SN?"):
+                    convert_var.set(True)
+                    convert_tasks_var.set("keep")
+                    try:
+                        cb_conv.current(0)
+                    except Exception:
+                        pass
+                    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    for t in tasks:
+                        if not t.get("done"):
+                            t["done"] = True
+                            t["by"] = login or "system"
+                            t["ts_done"] = now_ts
+                    repaint_tasks()
+                    hist_items.append({"ts": now_ts, "by": (login or "system"), "z": "[zadania]", "na": "auto ✔ przy przeniesieniu do SN"})
+                    hist_view.insert("", 0, values=(now_ts, login or "system", "[zadania]", "auto ✔ przy przeniesieniu do SN"))
             last_status[0] = new_st
             last_applied_status[0] = new_st
 
@@ -869,7 +886,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 # keep -> nic nie zmieniamy
 
             data_existing = _read_tool(numer) or {}
-            historia = list(data_existing.get("historia", start.get("historia", [])))
+            historia = list(hist_items)
             st_prev = data_existing.get("status", start.get("status", st_new))
 
             # historia: zmiana statusu
@@ -892,6 +909,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 "interwencje": data_existing.get("interwencje", []),
                 "historia": historia,
             }
+            if tool_mode_local == "STARE":
+                data_obj["is_old"] = True
+                data_obj["kategoria"] = "SN"
 
             _save_tool(data_obj)
             dlg.destroy()
