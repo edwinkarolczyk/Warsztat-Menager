@@ -1,5 +1,9 @@
 # Plik: ustawienia_produkty_bom.py
-# Wersja pliku: 1.0.0
+# Wersja pliku: 1.1.0
+# Zmiany 1.1.0:
+# - Edycja wiersza BOM z polami "Czynności" oraz "Surowiec" (typ i długość)
+# - Zapis/odczyt operacji i surowców w danych produktu
+#
 # Zmiany 1.0.0:
 # - Zakładka "Produkty (BOM)" do Ustawień: lista produktów, edycja BOM, zapis do data/produkty/<KOD>.json
 # - Obsługa materiałów zarówno z plików per-materiał (data/magazyn/*.json) jak i zbiorczego stanu (data/magazyn/magazyn.json)
