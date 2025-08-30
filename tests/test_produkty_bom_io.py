@@ -26,12 +26,19 @@ def _find_widgets(root, cls):
 def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     monkeypatch.setattr(upb, "DATA_DIR", tmp_path / "produkty")
     monkeypatch.setattr(upb, "POL_DIR", tmp_path / "polprodukty")
+    monkeypatch.setattr(upb, "SURO_PATH", tmp_path / "magazyn" / "surowce.json")
     upb._ensure_dirs()
 
     pp_dir = Path(upb.POL_DIR)
     pp_dir.mkdir(parents=True, exist_ok=True)
     (pp_dir / "PP1.json").write_text(
         json.dumps({"kod": "PP1", "nazwa": "Polprodukt A"}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    sr_dir = Path(upb.SURO_PATH).parent
+    sr_dir.mkdir(parents=True, exist_ok=True)
+    Path(upb.SURO_PATH).write_text(
+        json.dumps({"SR1": {"nazwa": "Surowiec 1"}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -45,7 +52,7 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     nazwa_entry.insert(0, "Produkt 1")
 
     tv = _find_widgets(frm, ttk.Treeview)[0]
-    tv.insert("", "end", values=("PP1", "Polprodukt A", "2"))
+    tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1"))
 
     save_btn = [b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"][0]
     save_btn.invoke()
@@ -55,7 +62,14 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     assert data == {
         "kod": "PROD1",
         "nazwa": "Produkt 1",
-        "polprodukty": [{"kod": "PP1", "ilosc_na_szt": 2}],
+        "polprodukty": [
+            {
+                "kod": "PP1",
+                "ilosc_na_szt": 2,
+                "czynnosci": [],
+                "surowiec": {"typ": "SR1", "dlugosc": 1},
+            }
+        ],
     }
 
     # clear and reload
@@ -66,6 +80,6 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     lb.event_generate("<<ListboxSelect>>")
     items = tv.get_children()
     assert len(items) == 1
-    assert tv.item(items[0], "values") == ("PP1", "Polprodukt A", "2")
+    assert tv.item(items[0], "values") == ("PP1", "Polprodukt A", "2", "", "SR1", "1")
 
     root.destroy()

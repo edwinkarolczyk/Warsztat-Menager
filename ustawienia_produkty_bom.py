@@ -18,6 +18,7 @@ from utils.dirty_guard import DirtyGuard
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
+SURO_PATH = os.path.join("data", "magazyn", "surowce.json")
 
 __all__ = ["make_tab"]
 
@@ -65,8 +66,17 @@ def _list_polprodukty():
         j = _read_json(p, {})
         kod = j.get("kod") or os.path.splitext(os.path.basename(p))[0]
         naz = j.get("nazwa", kod)
-        items.append({"kod": kod, "nazwa": naz})
+        cz = j.get("czynnosci", [])
+        items.append({"kod": kod, "nazwa": naz, "czynnosci": cz})
     return sorted(items, key=lambda x: x["kod"])
+
+
+def _list_surowce():
+    j = _read_json(SURO_PATH, {})
+    return [
+        {"kod": k, "nazwa": v.get("nazwa", k)}
+        for k, v in sorted(j.items())
+    ]
 
 # ---------- UI ----------
 def make_tab(parent, rola=None):
@@ -120,7 +130,14 @@ def make_tab(parent, rola=None):
     ttk.Button(bar, text="Usuń wiersz", command=lambda:_del_row(), style="WM.Side.TButton").pack(side="right")
     tv = ttk.Treeview(
         center,
-        columns=("pp", "nazwa", "ilosc_na_szt", "czynnosci", "surowiec"),
+        columns=(
+            "pp",
+            "nazwa",
+            "ilosc_na_szt",
+            "czynnosci",
+            "surowiec",
+            "surowiec_dlugosc",
+        ),
         show="headings",
         style="WM.Treeview",
         height=14,
@@ -131,17 +148,21 @@ def make_tab(parent, rola=None):
         ("nazwa", "Nazwa", 220),
         ("ilosc_na_szt", "Ilość na szt.", 110),
         ("czynnosci", "Czynności", 180),
-        ("surowiec", "Surowiec", 200),
+        ("surowiec", "Surowiec", 140),
+        ("surowiec_dlugosc", "Długość", 80),
     ]:
         tv.heading(c, text=t)
         tv.column(c, width=w, anchor="w")
 
     frm._polprodukty = _list_polprodukty()
+    frm._surowce = _list_surowce()
 
     # funkcje wewnętrzne
     def _refresh():
-        lb.delete(0,"end")
+        lb.delete(0, "end")
         frm._products = _list_produkty()
+        frm._polprodukty = _list_polprodukty()
+        frm._surowce = _list_surowce()
         for p in frm._products:
             label = f"{p['kod']} – {p['nazwa']}"
             if p.get("version"):
@@ -181,11 +202,17 @@ def make_tab(parent, rola=None):
             nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
             cz = ", ".join(poz.get("czynnosci", []))
             sr = poz.get("surowiec", {})
-            sr_str = json.dumps(sr, ensure_ascii=False) if sr else ""
             tv.insert(
                 "",
                 "end",
-                values=(mid, nm, poz.get("ilosc_na_szt", 1), cz, sr_str),
+                values=(
+                    mid,
+                    nm,
+                    poz.get("ilosc_na_szt", 1),
+                    cz,
+                    sr.get("typ", ""),
+                    sr.get("dlugosc", ""),
+                ),
             )
 
     def _new():
@@ -219,6 +246,7 @@ def make_tab(parent, rola=None):
         ttk.Label(f, text="Półprodukt:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
         pp_ids = [m["kod"] for m in frm._polprodukty]
         pp_desc = [f"{m['kod']} – {m['nazwa']}" for m in frm._polprodukty]
+        pp_cz = [m.get("czynnosci", []) for m in frm._polprodukty]
         cb = ttk.Combobox(f, values=pp_desc, state="readonly")
         cb.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
         if pp_desc:
@@ -228,13 +256,26 @@ def make_tab(parent, rola=None):
         ttk.Entry(f, textvariable=var_il, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=4)
         ttk.Label(f, text="Czynności:", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=4)
         var_cz = tk.StringVar()
-        ttk.Entry(f, textvariable=var_cz).grid(row=2, column=1, sticky="ew", padx=4, pady=4)
-        ttk.Label(f, text="Surowiec typ:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
-        var_sr_typ = tk.StringVar()
-        ttk.Entry(f, textvariable=var_sr_typ).grid(row=3, column=1, sticky="ew", padx=4, pady=4)
-        ttk.Label(f, text="Surowiec dł.:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
+        ent_cz = ttk.Entry(f, textvariable=var_cz)
+        ent_cz.grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Surowiec:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        sr_ids = [m["kod"] for m in frm._surowce]
+        sr_desc = [f"{m['kod']} – {m['nazwa']}" for m in frm._surowce]
+        cb_sr = ttk.Combobox(f, values=sr_desc, state="readonly")
+        cb_sr.grid(row=3, column=1, sticky="ew", padx=4, pady=4)
+        if sr_desc:
+            cb_sr.current(0)
+        ttk.Label(f, text="Długość:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
         var_sr_dl = tk.StringVar()
         ttk.Entry(f, textvariable=var_sr_dl).grid(row=4, column=1, sticky="ew", padx=4, pady=4)
+
+        def _on_pp_change(event=None):
+            i = cb.current()
+            if i >= 0:
+                var_cz.set(", ".join(pp_cz[i]))
+
+        cb.bind("<<ComboboxSelected>>", _on_pp_change)
+        _on_pp_change()
 
         def _ok():
             try:
@@ -251,26 +292,31 @@ def make_tab(parent, rola=None):
                 error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
                 return
             try:
-                sr = {}
-                sr_typ = var_sr_typ.get().strip()
+                j = cb_sr.current()
+                if j < 0:
+                    messagebox.showwarning("BOM", "Wybierz surowiec.")
+                    return
+                sr_typ = sr_ids[j]
                 sr_dl = var_sr_dl.get().strip()
-                if sr_typ:
-                    sr["typ"] = sr_typ
-                if sr_dl:
-                    dl = float(sr_dl)
-                    if dl <= 0:
-                        raise ValueError
-                    sr["dlugosc"] = dl if not dl.is_integer() else int(dl)
+                dl = float(sr_dl)
+                if dl <= 0:
+                    raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog("BOM", "Długość musi być dodatnią liczbą")
+                error_dialogs.show_error_dialog(
+                    "BOM", "Długość musi być dodatnią liczbą"
+                )
                 return
+            sr = {
+                "typ": sr_typ,
+                "dlugosc": dl if not dl.is_integer() else int(dl),
+            }
             if il.is_integer():
                 il = int(il)
             cz = [c.strip() for c in var_cz.get().split(",") if c.strip()]
             tv.insert(
                 "",
                 "end",
-                values=(pp_id, nm, il, ", ".join(cz), json.dumps(sr, ensure_ascii=False)),
+                values=(pp_id, nm, il, ", ".join(cz), sr["typ"], sr["dlugosc"]),
             )
             win.destroy()
 
@@ -292,25 +338,42 @@ def make_tab(parent, rola=None):
             return
         bom = []
         for iid in tv.get_children():
-            pp, _nm, il, cz_str, sr_str = tv.item(iid, "values")
+            pp, _nm, il, cz_str, sr_typ, sr_dl = tv.item(iid, "values")
             try:
                 il = float(il)
                 if il <= 0:
                     raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
+                error_dialogs.show_error_dialog(
+                    "BOM", "Ilość musi być dodatnią liczbą"
+                )
                 return
             if il.is_integer():
                 il = int(il)
             cz = [c.strip() for c in (cz_str or "").split(",") if c.strip()]
-            sr = {}
-            if sr_str and str(sr_str).strip():
-                try:
-                    sr = json.loads(sr_str)
-                except Exception:
-                    error_dialogs.show_error_dialog("BOM", "Surowiec musi być poprawnym JSON-em")
-                    return
-            bom.append({"kod": pp, "ilosc_na_szt": il, "czynnosci": cz, "surowiec": sr})
+            if not sr_typ or not sr_dl:
+                error_dialogs.show_error_dialog(
+                    "BOM", "Wybierz surowiec i podaj długość"
+                )
+                return
+            try:
+                dl = float(sr_dl)
+                if dl <= 0:
+                    raise ValueError
+            except Exception:
+                error_dialogs.show_error_dialog(
+                    "BOM", "Długość musi być dodatnią liczbą"
+                )
+                return
+            sr = {"typ": sr_typ, "dlugosc": dl if not dl.is_integer() else int(dl)}
+            bom.append(
+                {
+                    "kod": pp,
+                    "ilosc_na_szt": il,
+                    "czynnosci": cz,
+                    "surowiec": sr,
+                }
+            )
         payload = {
             "kod": kod,
             "nazwa": naz,

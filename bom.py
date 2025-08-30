@@ -56,12 +56,19 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
     bom = {}
     for pp in prd.get("polprodukty", []):
         if "ilosc_na_szt" not in pp:
-            raise KeyError("Brak klucza 'ilosc_na_szt' w polprodukcie")
+            raise KeyError("ilosc_na_szt")
+        if not pp.get("czynnosci"):
+            raise KeyError("czynnosci")
+        if "surowiec" not in pp:
+            raise KeyError("surowiec")
+        sr = pp["surowiec"]
+        if "typ" not in sr or "dlugosc" not in sr:
+            raise KeyError("surowiec")
         qty = pp["ilosc_na_szt"] * ilosc
         bom[pp["kod"]] = {
             "ilosc": qty,
-            "czynnosci": list(pp.get("czynnosci", [])),
-            "surowiec": dict(pp.get("surowiec", {})),
+            "czynnosci": list(pp["czynnosci"]),
+            "surowiec": {"typ": sr["typ"], "dlugosc": sr["dlugosc"]},
         }
     return bom
 
