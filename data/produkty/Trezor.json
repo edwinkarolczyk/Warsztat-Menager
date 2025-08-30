@@ -12,5 +12,10 @@
       "nazwa": "Płaskownik 40mm",
       "ilosc": 1
     }
-  ]
+  ],
+  "version": "1.0",
+  "bom_revision": 1,
+  "effective_from": "2024-01-01",
+  "effective_to": null,
+  "is_default": true
 }

@@ -2,7 +2,18 @@
   "kod": "PRD001",
   "nazwa": "Stojak spawany",
   "polprodukty": [
-    { "kod": "PP001", "ilosc_na_szt": 2.0 },
-    { "kod": "PP002", "ilosc_na_szt": 1.0 }
-  ]
+    {
+      "kod": "PP001",
+      "ilosc_na_szt": 2.0
+    },
+    {
+      "kod": "PP002",
+      "ilosc_na_szt": 1.0
+    }
+  ],
+  "version": "1.0",
+  "bom_revision": 1,
+  "effective_from": "2024-01-01",
+  "effective_to": null,
+  "is_default": true
 }

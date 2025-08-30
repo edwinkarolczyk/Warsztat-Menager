@@ -821,10 +821,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                             )
                         t["zuzyte_materialy"] = []
                 except Exception as _e:
-                    try:
-                        _dbg("[MAGAZYN] błąd zwrotu", _e)
-                    except Exception:
-                        pass
+                    messagebox.showerror("Magazyn", f"Zwrot nieudany: {_e}")
                 t["by"] = ""; t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
@@ -984,6 +981,25 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
         ttk.Button(btns, text="Zapisz", command=save, style="WM.Side.TButton").pack(side="right")
         ttk.Button(btns, text="Anuluj", command=dlg.destroy, style="WM.Side.TButton").pack(side="right", padx=(0,8))
+
+        def _undo_convert():
+            if not (tool and tool.get("is_old")):
+                return
+            if not messagebox.askyesno("Cofnąć", "Cofnąć przeniesienie do SN?", parent=dlg):
+                return
+            data = _read_tool(tool.get("nr")) or {}
+            if not data:
+                return
+            data.pop("is_old", None)
+            data["tryb"] = "NOWE"
+            data["kategoria"] = "NN"
+            _save_tool(data)
+            messagebox.showinfo("Narzędzia", "Przywrócono jako NOWE", parent=dlg)
+            dlg.destroy()
+            refresh_list()
+
+        if editing and (rola or "").lower() == "admin" and tool and tool.get("is_old"):
+            ttk.Button(btns, text="Cofnij do NOWE", command=_undo_convert, style="WM.Side.TButton").pack(side="left", padx=(0,8))
 
     # ===================== BINDY / START =====================
     def on_double(_=None):

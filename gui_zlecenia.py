@@ -25,6 +25,7 @@ try:
         read_bom,
         read_magazyn,
         reserve_materials,
+        check_materials,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -32,6 +33,8 @@ try:
         _delete_zlecenie = None
 except Exception:
     raise
+
+import bom
 
 __all__ = ["panel_zlecenia"]
 
@@ -217,18 +220,39 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     if kody: cb_prod.current(0)
     cb_prod.grid(row=0, column=1, sticky="we", padx=(8, 0), pady=(0, 6))
 
-    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=1, column=0, sticky="w")
+    ttk.Label(frm, text="Wersja", style="WM.TLabel").grid(row=1, column=0, sticky="w")
+    cb_ver = ttk.Combobox(frm, values=[], state="readonly", width=12)
+    cb_ver.grid(row=1, column=1, sticky="w", padx=(8, 0))
+
+    def _update_versions(*_):
+        kod = cb_prod.get().strip()
+        wersje = bom.list_versions(kod) if kod else []
+        vals = [v.get("version") for v in wersje]
+        cb_ver["values"] = vals
+        if vals:
+            try:
+                idx = next(i for i, v in enumerate(wersje) if v.get("is_default"))
+            except StopIteration:
+                idx = 0
+            cb_ver.current(idx)
+        else:
+            cb_ver.set("")
+
+    _update_versions()
+    cb_prod.bind("<<ComboboxSelected>>", _update_versions)
+
+    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=2, column=0, sticky="w")
     spn = ttk.Spinbox(frm, from_=1, to=999, width=10); spn.set(1)
-    spn.grid(row=1, column=1, sticky="w", padx=(8, 0))
+    spn.grid(row=2, column=1, sticky="w", padx=(8, 0))
 
     # NOWE: numer wewnętrzny
-    ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
+    ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
     ent_ref = ttk.Entry(frm, width=18)
-    ent_ref.grid(row=2, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
+    ent_ref.grid(row=3, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
 
-    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=3, column=0, sticky="nw", pady=(8, 0))
+    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=4, column=0, sticky="nw", pady=(8, 0))
     txt = tk.Text(frm, height=8)
-    txt.grid(row=3, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
+    txt.grid(row=4, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
     try:
         txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
                       highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
@@ -236,16 +260,27 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
         pass
 
     frm.columnconfigure(1, weight=1)
-    frm.rowconfigure(3, weight=1)
+    frm.rowconfigure(4, weight=1)
 
     def akcept():
         kod = cb_prod.get().strip()
+        wersja = cb_ver.get().strip()
         if not kod:
             messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win); return
         try:
             ilosc = int(spn.get())
         except Exception:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win); return
+        try:
+            prod = bom.get_produkt(kod, wersja or None)
+            braki_pre = check_materials(prod, ilosc)
+        except Exception as e:
+            messagebox.showerror("BOM", f"Błąd odczytu BOM: {e}", parent=win)
+            return
+        if braki_pre:
+            msg = ", ".join(f"{b['nazwa']} ({b['brakuje']})" for b in braki_pre)
+            if not messagebox.askyesno("Braki materiałowe", f"Brakuje {msg}. Kontynuować?", parent=win):
+                return
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
