@@ -120,16 +120,18 @@ def make_tab(parent, rola=None):
     ttk.Button(bar, text="Usuń wiersz", command=lambda:_del_row(), style="WM.Side.TButton").pack(side="right")
     tv = ttk.Treeview(
         center,
-        columns=("pp", "nazwa", "ilosc_na_szt"),
+        columns=("pp", "nazwa", "ilosc_na_szt", "czynnosci", "surowiec"),
         show="headings",
         style="WM.Treeview",
         height=14,
     )
     tv.grid(row=1, column=0, sticky="nsew", pady=(6,0))
     for c, t, w in [
-        ("pp", "Kod PP", 200),
-        ("nazwa", "Nazwa", 260),
-        ("ilosc_na_szt", "Ilość na szt.", 120),
+        ("pp", "Kod PP", 150),
+        ("nazwa", "Nazwa", 220),
+        ("ilosc_na_szt", "Ilość na szt.", 110),
+        ("czynnosci", "Czynności", 180),
+        ("surowiec", "Surowiec", 200),
     ]:
         tv.heading(c, text=t)
         tv.column(c, width=w, anchor="w")
@@ -177,7 +179,14 @@ def make_tab(parent, rola=None):
         for poz in j.get("polprodukty", []):
             mid = poz.get("kod", "")
             nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
-            tv.insert("", "end", values=(mid, nm, poz.get("ilosc_na_szt", 1)))
+            cz = ", ".join(poz.get("czynnosci", []))
+            sr = poz.get("surowiec", {})
+            sr_str = json.dumps(sr, ensure_ascii=False) if sr else ""
+            tv.insert(
+                "",
+                "end",
+                values=(mid, nm, poz.get("ilosc_na_szt", 1), cz, sr_str),
+            )
 
     def _new():
         k = simpledialog.askstring("Nowy produkt", "Podaj kod:", parent=frm)
@@ -217,6 +226,15 @@ def make_tab(parent, rola=None):
         ttk.Label(f, text="Ilość na szt.", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=4)
         var_il = tk.StringVar(value="1")
         ttk.Entry(f, textvariable=var_il, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=4)
+        ttk.Label(f, text="Czynności:", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        var_cz = tk.StringVar()
+        ttk.Entry(f, textvariable=var_cz).grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Surowiec typ:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        var_sr_typ = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_typ).grid(row=3, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Surowiec dł.:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
+        var_sr_dl = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_dl).grid(row=4, column=1, sticky="ew", padx=4, pady=4)
 
         def _ok():
             try:
@@ -232,12 +250,33 @@ def make_tab(parent, rola=None):
             except Exception:
                 error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
                 return
+            try:
+                sr = {}
+                sr_typ = var_sr_typ.get().strip()
+                sr_dl = var_sr_dl.get().strip()
+                if sr_typ:
+                    sr["typ"] = sr_typ
+                if sr_dl:
+                    dl = float(sr_dl)
+                    if dl <= 0:
+                        raise ValueError
+                    sr["dlugosc"] = dl if not dl.is_integer() else int(dl)
+            except Exception:
+                error_dialogs.show_error_dialog("BOM", "Długość musi być dodatnią liczbą")
+                return
             if il.is_integer():
                 il = int(il)
-            tv.insert("", "end", values=(pp_id, nm, il))
+            cz = [c.strip() for c in var_cz.get().split(",") if c.strip()]
+            tv.insert(
+                "",
+                "end",
+                values=(pp_id, nm, il, ", ".join(cz), json.dumps(sr, ensure_ascii=False)),
+            )
             win.destroy()
 
-        ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(row=2, column=0, columnspan=2, pady=(8, 2))
+        ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(
+            row=5, column=0, columnspan=2, pady=(8, 2)
+        )
 
     def _del_row():
         sel = tv.selection()
@@ -253,7 +292,7 @@ def make_tab(parent, rola=None):
             return
         bom = []
         for iid in tv.get_children():
-            pp, _nm, il = tv.item(iid, "values")
+            pp, _nm, il, cz_str, sr_str = tv.item(iid, "values")
             try:
                 il = float(il)
                 if il <= 0:
@@ -263,7 +302,15 @@ def make_tab(parent, rola=None):
                 return
             if il.is_integer():
                 il = int(il)
-            bom.append({"kod": pp, "ilosc_na_szt": il})
+            cz = [c.strip() for c in (cz_str or "").split(",") if c.strip()]
+            sr = {}
+            if sr_str and str(sr_str).strip():
+                try:
+                    sr = json.loads(sr_str)
+                except Exception:
+                    error_dialogs.show_error_dialog("BOM", "Surowiec musi być poprawnym JSON-em")
+                    return
+            bom.append({"kod": pp, "ilosc_na_szt": il, "czynnosci": cz, "surowiec": sr})
         payload = {
             "kod": kod,
             "nazwa": naz,

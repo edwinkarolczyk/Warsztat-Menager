@@ -44,6 +44,12 @@ def get_polprodukt(kod: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> dict:
+    """Oblicza ilości półproduktów wraz z dodatkowymi danymi.
+
+    Zwracany jest słownik w postaci ``{kod_pp: {...}}`` gdzie dla każdego
+    półproduktu przechowywana jest wynikowa ilość, lista czynności oraz
+    parametry surowca przekazane w definicji produktu.
+    """
     if ilosc <= 0:
         raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
     prd = get_produkt(kod_prd, version=version)
@@ -51,7 +57,12 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
     for pp in prd.get("polprodukty", []):
         if "ilosc_na_szt" not in pp:
             raise KeyError("Brak klucza 'ilosc_na_szt' w polprodukcie")
-        bom[pp["kod"]] = pp["ilosc_na_szt"] * ilosc
+        qty = pp["ilosc_na_szt"] * ilosc
+        bom[pp["kod"]] = {
+            "ilosc": qty,
+            "czynnosci": list(pp.get("czynnosci", [])),
+            "surowiec": dict(pp.get("surowiec", {})),
+        }
     return bom
 
 def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
