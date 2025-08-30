@@ -811,11 +811,15 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     )
             else:
                 try:
-                    zuzyte = t.get("zuzyte_materialy") or []
+                    zuzyte = t.get("zuzyte_materialy")
                     if zuzyte:
                         for poz in zuzyte:
-                            LM.zwrot(poz["id"], float(poz["ilosc"]), uzytkownik=login or "system")
-                        t.pop("zuzyte_materialy", None)
+                            LM.zwrot(
+                                poz["id"],
+                                float(poz["ilosc"]),
+                                uzytkownik=login or "system",
+                            )
+                        t["zuzyte_materialy"] = []
                 except Exception as _e:
                     try:
                         _dbg("[MAGAZYN] błąd zwrotu", _e)
