@@ -231,7 +231,14 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             wersje = []
         cb_ver["values"] = wersje
         if wersje:
-            cb_ver.current(0)
+            try:
+                ver_def = bom.get_produkt(kod).get("version")
+            except Exception:
+                ver_def = None
+            if ver_def in wersje:
+                cb_ver.current(wersje.index(ver_def))
+            else:
+                cb_ver.current(0)
         else:
             cb_ver.set("")
 
