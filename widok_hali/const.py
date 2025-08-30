@@ -6,7 +6,7 @@ GRID_STEP = 4
 # czy wyświetlać siatkę na kanwie
 SHOW_GRID = True
 
-# plik z konfiguracją hal
+# plik z danymi hal
 HALLS_FILE = "hale.json"
 
 # kolory
