@@ -300,11 +300,18 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
         _log_mag("prog_alert", al)
     return res
 
-def zwrot(item_id, ilosc, uzytkownik):
+def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
     """Zwraca wskazaną ilość pozycji na magazyn.
 
     Podnosi stan magazynowy o ``ilosc`` oraz zapisuje informację w historii
-    operacji. Użytkownik wywołujący przekazywany jest w logach i historii.
+    operacji. Użytkownik wywołujący i opcjonalny kontekst przekazywane są w
+    logach i historii.
+
+    Args:
+        item_id (str): Identyfikator pozycji w magazynie.
+        ilosc (float): Ilość zwracanego towaru.
+        uzytkownik (str): Nazwa użytkownika wykonującego zwrot.
+        kontekst (str, optional): Dodatkowy opis sytuacji, np. numer zlecenia.
 
     Returns:
         dict: Zaktualizowany wpis magazynu.
@@ -318,9 +325,14 @@ def zwrot(item_id, ilosc, uzytkownik):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         it["stan"] += dok
-        it["historia"].append(_history_entry("zwrot", item_id, dok, uzytkownik))
+        it["historia"].append(
+            _history_entry("zwrot", item_id, dok, uzytkownik, kontekst)
+        )
         save_magazyn(m)
-        _log_mag("zwrot", {"item_id": item_id, "ilosc": dok, "by": uzytkownik})
+        _log_mag(
+            "zwrot",
+            {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
+        )
         res = it
     for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
         _log_mag("prog_alert", al)
