@@ -5,12 +5,50 @@
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
 # ⏹ KONIEC KODU
 
+import json
 import os
+from datetime import datetime
 
 import logika_magazyn as LM
 from io_utils import read_json
 
 BOM_DIR = os.path.join("data", "produkty")  # zgodnie z ustaleniami
+HISTORY_PATH = os.path.join("data", "zadania_history.json")
+
+
+def _now():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def register_tasks_state(tasks_state, uzytkownik: str = "system"):
+    """Rejestruje bieżący stan zadań w pliku historii."""
+    d = os.path.dirname(HISTORY_PATH)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
+    entry = {"czas": _now(), "uzytkownik": uzytkownik, "zadania": tasks_state}
+    lock_path = HISTORY_PATH + ".lock"
+    lock_f = open(lock_path, "w")
+    try:
+        LM.lock_file(lock_f)
+        if os.path.exists(HISTORY_PATH):
+            try:
+                with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if not isinstance(data, list):
+                        data = []
+            except Exception:
+                data = []
+        else:
+            data = []
+        data.append(entry)
+        tmp = HISTORY_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, HISTORY_PATH)
+    finally:
+        LM.unlock_file(lock_f)
+        lock_f.close()
+    return entry
 
 def _load_bom(product_code):
     path = os.path.join(BOM_DIR, f"{product_code}.json")
