@@ -62,7 +62,9 @@
     }
   },
   "hall": {
-    "grid_size_px": 4
+    "grid_size_px": 4,
+    "drag_snap_px": 20,
+    "triple_confirm_delete": false
   },
   "local": {
     "fullscreen_on_start": false,
