@@ -9,7 +9,7 @@ from typing import List
 from .const import HALL_OUTLINE
 from .models import Hala
 from .renderer import HalaRenderer
-from .storage import load_hale, save_hale
+from .storage import load_hale, save_hale, load_config_hala
 
 
 class HalaController:
@@ -20,7 +20,13 @@ class HalaController:
         self.style = style
         self.edit_mode = edit_mode
         self.hale: List[Hala] = load_hale()
-        self.renderer = HalaRenderer(canvas, style)
+        cfg = load_config_hala()
+        self.renderer = HalaRenderer(
+            canvas,
+            style,
+            grid_step_px=cfg["grid_step_px"],
+            show_grid=cfg["show_grid"],
+        )
         self.start_x: int | None = None
         self.start_y: int | None = None
 
