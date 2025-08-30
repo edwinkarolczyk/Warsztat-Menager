@@ -232,8 +232,10 @@ class PanelMagazyn(ttk.Frame):
             return
         if getattr(self, "_drag_moved", False):
             order = [self.tree.set(ch, "id") for ch in self.tree.get_children("")]
-            self._all.sort(key=lambda x: order.index(x["id"]))
-            LM.set_order(order)
+            order_map = {iid: idx for idx, iid in enumerate(order)}
+            self._all.sort(key=lambda x: order_map.get(x["id"], len(order)))
+            full_order = order + [x["id"] for x in self._all if x["id"] not in order_map]
+            LM.set_order(full_order)
             self._apply_filter()
         self._dragging = None
         self._drag_moved = False
