@@ -127,7 +127,7 @@ def _next_task_str(maszyna: dict) -> str:
 def panel_maszyny(root, frame, login=None, rola=None):
     """Buduje panel maszyn w przekazanym kontenerze ``frame``."""
     clear_frame(frame)
-
+    apply_theme(root)
     apply_theme(frame)
 
     ttk.Label(
@@ -135,9 +135,6 @@ def panel_maszyny(root, frame, login=None, rola=None):
         text="🛠️ Panel maszyn",
         style="WM.H1.TLabel",
     ).pack(pady=20, fill="x")
-
-    maszyny = load_machines()
-    maszyny_map = {str(m.get("nr_ewid")): m for m in maszyny}
 
     columns = ("nr_ewid", "nazwa", "typ", "nastepne_zadanie")
     tree = ttk.Treeview(
@@ -154,14 +151,42 @@ def panel_maszyny(root, frame, login=None, rola=None):
         tree.column(col, width=150, anchor="center")
     tree.pack(fill="both", expand=True, padx=10, pady=10)
 
-    for m in maszyny:
-        iid = str(m.get("nr_ewid"))
-        tree.insert(
-            "",
-            "end",
-            iid=iid,
-            values=(m.get("nr_ewid", ""), m.get("nazwa", ""), m.get("typ", ""), _next_task_str(m)),
-        )
+    halls_frame = ttk.Frame(frame)
+    halls_frame.pack(fill="x", padx=10, pady=(0, 10))
+    ttk.Label(halls_frame, text="Hale:", style="WM.H2.TLabel").pack(anchor="w")
+    halls_var = tk.StringVar()
+    ttk.Label(
+        halls_frame, textvariable=halls_var, style="WM.Muted.TLabel"
+    ).pack(anchor="w")
+
+    maszyny: list[dict] = []
+    maszyny_map: dict[str, dict] = {}
+
+    def _populate_halls() -> None:
+        halls = sorted({str(m.get("hala", "")) for m in maszyny if m.get("hala")})
+        halls_var.set(", ".join(halls) if halls else "—")
+
+    def _refresh() -> None:
+        nonlocal maszyny, maszyny_map
+        maszyny = load_machines()
+        maszyny_map = {str(m.get("nr_ewid")): m for m in maszyny}
+        tree.delete(*tree.get_children())
+        for m in maszyny:
+            iid = str(m.get("nr_ewid"))
+            tree.insert(
+                "",
+                "end",
+                iid=iid,
+                values=(
+                    m.get("nr_ewid", ""),
+                    m.get("nazwa", ""),
+                    m.get("typ", ""),
+                    _next_task_str(m),
+                ),
+            )
+        _populate_halls()
+
+    _refresh()
 
     def _open_details():
         sel = tree.selection()
@@ -201,23 +226,19 @@ def panel_maszyny(root, frame, login=None, rola=None):
                 _save_machines(maszyny)
                 _refresh_tasks()
                 tree.set(key, "nastepne_zadanie", _next_task_str(maszyna))
+                _populate_halls()
 
         btn = ttk.Button(win, text="Oznacz jako wykonane", command=_mark_done)
         btn.pack(pady=(0, 10))
 
         _refresh_tasks()
 
-    ttk.Button(frame, text="Szczegóły", command=_open_details).pack(pady=10)
-
-    hala_frame = ttk.Frame(frame)
-    hala_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
-    try:
-        from gui_hala import build_hala_view
-
-        build_hala_view(hala_frame)
-    except Exception:  # pragma: no cover - opcjonalne
-        pass
+    btn_bar = ttk.Frame(frame)
+    btn_bar.pack(pady=10)
+    ttk.Button(btn_bar, text="Szczegóły", command=_open_details).pack(
+        side="left", padx=5
+    )
+    ttk.Button(btn_bar, text="Odśwież", command=_refresh).pack(side="left", padx=5)
 
 
 # Koniec pliku
