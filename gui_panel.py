@@ -394,6 +394,13 @@ def uruchom_panel(root, login, rola):
             win.destroy()
 
         ttk.Button(win, text="Wyślij", command=_submit).pack(pady=(0, 10))
+
+    def _open_hala():
+        try:
+            from gui_hala import open_hala_window
+            open_hala_window(root)
+        except Exception as e:  # pragma: no cover - prosty fallback
+            messagebox.showerror("Błąd", f"Nie można otworzyć widoku hal:\n{e}")
     
     # przyciski boczne
     ttk.Button(side, text="Zlecenia",  command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),  style="WM.Side.TButton").pack(padx=10, pady=(12,6), fill="x")
@@ -401,6 +408,7 @@ def uruchom_panel(root, login, rola):
     ttk.Button(side, text="Maszyny",   command=lambda: otworz_panel(panel_maszyny, "Maszyny"),    style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
     # Wejście do Magazynu
     ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+    ttk.Button(side, text="Hale",      command=_open_hala,                              style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
 
     ttk.Button(
         side,
