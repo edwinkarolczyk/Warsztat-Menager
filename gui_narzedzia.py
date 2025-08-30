@@ -791,11 +791,11 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         pass
             else:
                 if t.get("zuzyte_materialy"):
+                    kontekst = (
+                        f"narzędzie:{nr_auto}; "
+                        f"zadanie:{t.get('id') or t.get('nazwa')}"
+                    )
                     try:
-                        kontekst = (
-                            f"narzędzie:{nr_auto}; "
-                            f"zadanie:{t.get('id') or t.get('nazwa')}"
-                        )
                         for poz in t["zuzyte_materialy"]:
                             LM.zwrot(
                                 poz["id"],
@@ -808,6 +808,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                             _dbg("[MAGAZYN] błąd zwrotu", _e)
                         except Exception:
                             pass
+                        messagebox.showwarning(
+                            "Magazyn",
+                            "Nie udało się zwrócić materiałów. "
+                            "Zadanie pozostaje oznaczone jako wykonane.",
+                        )
+                        t["done"] = True
+                        repaint_tasks()
+                        return
                     t["zuzyte_materialy"] = []
                 t["by"] = ""
                 t["ts_done"] = ""
