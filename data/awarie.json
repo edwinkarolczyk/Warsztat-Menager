@@ -1,0 +1,12 @@
+[
+  {
+    "id_maszyny": "42",
+    "status": "aktywna",
+    "timestamp": "2025-01-01T10:00:00"
+  },
+  {
+    "id_maszyny": "27",
+    "status": "zamknieta",
+    "timestamp": "2025-01-02T14:30:00"
+  }
+]
