@@ -17,7 +17,7 @@
   "autosave_draft_interval_sec": 15,
   "hala": {
     "show_grid": true,
-    "grid_step_px": 4,
+    "grid_step": 4,
     "backgrounds": [],
     "workshop_start": [0, 0],
     "anim_interval_ms": 16,

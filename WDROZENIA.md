@@ -1,5 +1,5 @@
 ## Wdrożone
-- Dodano widok hali z trasowaniem techników i integracją awarii.
+- Dodano widok hali z trasowaniem serwisantów i integracją awarii.
 
 ## Planowane
 - Pogrupowanie ustawień i krótkie opisy
