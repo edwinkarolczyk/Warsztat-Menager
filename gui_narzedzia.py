@@ -791,37 +791,50 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             tasks.pop(i); repaint_tasks()
         def _toggle_done():
             i = _sel_idx()
-            if i < 0: return
+            if i < 0:
+                return
             t = tasks[i]
+            prev_state = t.copy()
             t["done"] = not t["done"]
             if t["done"]:
                 t["by"] = login or "nieznany"
                 t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                 # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
                 try:
-                    zuzyte = LZ.consume_for_task(tool_id=str(nr_auto), task=t, uzytkownik=login or "system")
-                    if zuzyte:
-                        t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(zuzyte)
-                except Exception as _e:
-                    t["done"] = False
-                    t["by"] = ""
-                    t["ts_done"] = ""
-                    messagebox.showerror(
-                        "Magazyn", f"Błąd zużycia: {_e}"
+                    zuzyte = LZ.consume_for_task(
+                        tool_id=str(nr_auto), task=t, uzytkownik=login or "system"
                     )
+                    if zuzyte:
+                        t["zuzyte_materialy"] = (
+                            t.get("zuzyte_materialy") or []
+                        ) + list(zuzyte)
+                except Exception as _e:
+                    t.clear()
+                    t.update(prev_state)
+                    messagebox.showerror(
+                        "Magazyn", f"Brak materiału: {_e}"
+                    )
+                    repaint_tasks()
+                    return
             else:
                 try:
                     zuzyte = t.get("zuzyte_materialy") or []
                     if zuzyte:
                         for poz in zuzyte:
-                            LM.zwrot(poz["id"], float(poz["ilosc"]), uzytkownik=login or "system")
+                            LM.zwrot(
+                                poz["id"], float(poz["ilosc"]), uzytkownik=login or "system"
+                            )
                         t.pop("zuzyte_materialy", None)
                 except Exception as _e:
-                    try:
-                        _dbg("[MAGAZYN] błąd zwrotu", _e)
-                    except Exception:
-                        pass
-                t["by"] = ""; t["ts_done"] = ""
+                    t.clear()
+                    t.update(prev_state)
+                    messagebox.showerror(
+                        "Magazyn", f"Brak materiału: {_e}"
+                    )
+                    repaint_tasks()
+                    return
+                t["by"] = ""
+                t["ts_done"] = ""
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
                    command=_del_sel).pack(side="left", padx=(6,0))
