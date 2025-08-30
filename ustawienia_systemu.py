@@ -343,6 +343,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
             cfg.save_all()
             top = container.winfo_toplevel()
             apply_theme(top)
+            try:
+                top.event_generate("<<ConfigUpdated>>")
+            except Exception:
+                pass
             if "auth.session_timeout_min" in changed:
                 try:
                     top.event_generate("<<AuthTimeoutChanged>>")
