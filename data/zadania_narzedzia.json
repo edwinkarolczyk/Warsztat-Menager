@@ -3,37 +3,49 @@
     "id": "NARZ-001",
     "login": "dawid",
     "tytul": "Serwis narzędzia #1031",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-15",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1031"
+    "zlecenie": "1031",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-002",
     "login": "ola",
     "tytul": "Serwis narzędzia #1054",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-08-31",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1054"
+    "zlecenie": "1054",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-003",
     "login": "ola",
     "tytul": "Serwis narzędzia #1057",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-09",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1057"
+    "zlecenie": "1057",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-004",
     "login": "edwin",
     "tytul": "Serwis narzędzia #1027",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-10",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1027"
+    "zlecenie": "1027",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-005",
@@ -42,178 +54,238 @@
     "status": "Zrobione",
     "termin": "2025-09-15",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1031"
+    "zlecenie": "1031",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-006",
     "login": "jan",
     "tytul": "Serwis narzędzia #1029",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-14",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1029"
+    "zlecenie": "1029",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-007",
     "login": "marek",
     "tytul": "Serwis narzędzia #1026",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-08-19",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1026"
+    "zlecenie": "1026",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-008",
     "login": "marek",
     "tytul": "Serwis narzędzia #1032",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-10",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1032"
+    "zlecenie": "1032",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-009",
     "login": "ola",
     "tytul": "Serwis narzędzia #1058",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-08-23",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1058"
+    "zlecenie": "1058",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-010",
     "login": "ola",
     "tytul": "Serwis narzędzia #1059",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-08-19",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1059"
+    "zlecenie": "1059",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-011",
     "login": "edwin",
     "tytul": "Serwis narzędzia #1047",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-08-18",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1047"
+    "zlecenie": "1047",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-012",
     "login": "jan",
     "tytul": "Serwis narzędzia #1052",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-07",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1052"
+    "zlecenie": "1052",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-013",
     "login": "ola",
     "tytul": "Serwis narzędzia #1076",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-08-20",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1076"
+    "zlecenie": "1076",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-014",
     "login": "jan",
     "tytul": "Serwis narzędzia #1070",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-14",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1070"
+    "zlecenie": "1070",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-015",
     "login": "marek",
     "tytul": "Serwis narzędzia #1045",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-02",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1045"
+    "zlecenie": "1045",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-016",
     "login": "ola",
     "tytul": "Serwis narzędzia #1054",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-08-24",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1054"
+    "zlecenie": "1054",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-017",
     "login": "jan",
     "tytul": "Serwis narzędzia #1052",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-09-14",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1052"
+    "zlecenie": "1052",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-018",
     "login": "marek",
     "tytul": "Serwis narzędzia #1078",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-08-17",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1078"
+    "zlecenie": "1078",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-019",
     "login": "edwin",
     "tytul": "Serwis narzędzia #1038",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-08-25",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1038"
+    "zlecenie": "1038",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-020",
     "login": "marek",
     "tytul": "Serwis narzędzia #1003",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-07",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1003"
+    "zlecenie": "1003",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-021",
     "login": "marek",
     "tytul": "Serwis narzędzia #1026",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-02",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1026"
+    "zlecenie": "1026",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-022",
     "login": "dawid",
     "tytul": "Serwis narzędzia #1059",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-12",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1059"
+    "zlecenie": "1059",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-023",
     "login": "dawid",
     "tytul": "Serwis narzędzia #1047",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-09-12",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1047"
+    "zlecenie": "1047",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-024",
     "login": "jan",
     "tytul": "Serwis narzędzia #1034",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-02",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1034"
+    "zlecenie": "1034",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-025",
@@ -222,60 +294,81 @@
     "status": "Zrobione",
     "termin": "2025-09-11",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1033"
+    "zlecenie": "1033",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-026",
     "login": "jan",
     "tytul": "Serwis narzędzia #1063",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-08-23",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1063"
+    "zlecenie": "1063",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-027",
     "login": "marek",
     "tytul": "Serwis narzędzia #1012",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-09-09",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1012"
+    "zlecenie": "1012",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-028",
     "login": "jan",
     "tytul": "Serwis narzędzia #1015",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-14",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1015"
+    "zlecenie": "1015",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-029",
     "login": "marek",
     "tytul": "Serwis narzędzia #1080",
-    "status": "Nowe",
+    "status": "Zrobione",
     "termin": "2025-09-22",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1080"
+    "zlecenie": "1080",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-030",
     "login": "dawid",
     "tytul": "Serwis narzędzia #1081",
-    "status": "Pilne",
+    "status": "Zrobione",
     "termin": "2025-09-23",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1081"
+    "zlecenie": "1081",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   },
   {
     "id": "NARZ-031",
     "login": "edwin",
     "tytul": "Serwis narzędzia #1082",
-    "status": "W toku",
+    "status": "Zrobione",
     "termin": "2025-09-24",
     "opis": "Przegląd i kalibracja narzędzia.",
-    "zlecenie": "1082"
+    "zlecenie": "1082",
+    "autor": "system",
+    "ts": "2025-08-30 16:09",
+    "komentarz": "Komplet wykonany"
   }
 ]
