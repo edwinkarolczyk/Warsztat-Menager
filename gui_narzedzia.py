@@ -1,5 +1,8 @@
 # Plik: gui_narzedzia.py
-# Wersja pliku: 1.5.29
+# Wersja pliku: 1.5.30
+# Zmiany 1.5.30:
+# - [MAGAZYN] Błąd zużycia materiałów cofa status zadania i pokazuje komunikat
+#
 # Zmiany 1.5.29:
 # - [MAGAZYN] Integracja z magazynem: przy oznaczeniu zadania jako wykonane zużywamy materiały (consume_for_task)
 # - [MAGAZYN] Dodano import logika_zadan jako LZ
