@@ -1,13 +1,12 @@
 # =============================
 # FILE: gui_zlecenia.py
-# VERSION: 1.1.3
-# Zmiany 1.1.3:
-# - Tabela: nowa kolumna "Tyczy nr" (zlec_wew)
-# - Szukaj: obejmuje też numer wewnętrzny
-# - Kreator: pole "Tyczy się zlecenia nr (wew.)" i przekazanie do create_zlecenie(zlec_wew=...)
-# - Dialog statusu: ciemne okno (highlight off) — jak wcześniej
+# VERSION: 1.1.4
+# Zmiany 1.1.4:
+# - Widok zlecenia: tabela składników z kolumnami "Potrzeba", "Dostępne",
+#   "Dostępne po" oraz możliwość rezerwacji materiałów.
 # =============================
 
+import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -21,6 +20,9 @@ try:
         create_zlecenie,
         STATUSY,
         update_status,
+        read_bom,
+        reserve_materials,
+        MAG_DIR,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -151,8 +153,15 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
         item = tree.selection()
         if not item: return
         zid = tree.set(item[0], "id")
-        if not zid or zid.strip() == "— brak zleceń —": return
-        _edit_status_dialog(frame, zid, tree, lbl_info, root, _odswiez)
+        if not zid or zid.strip() == "— brak zleceń —":
+            return
+        prod = tree.set(item[0], "produkt")
+        ilo  = tree.set(item[0], "ilosc")
+        try:
+            ilo_int = int(ilo)
+        except Exception:
+            ilo_int = 0
+        _edit_status_dialog(frame, zid, prod, ilo_int, tree, lbl_info, root, _odswiez)
 
     tree.bind("<Double-1>", _on_dbl)
 
@@ -235,31 +244,92 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
 
 
-def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
-                        lbl_info: ttk.Label, root, on_done) -> None:
-    win = tk.Toplevel(parent); win.title(f"Status zlecenia {zlec_id}")
+def _edit_status_dialog(parent: tk.Widget, zlec_id: str, produkt: str, ilosc: int,
+                        tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> None:
+    win = tk.Toplevel(parent)
+    win.title(f"Zlecenie {zlec_id}")
     _maybe_theme(win)
     try: win.configure(highlightthickness=0, highlightbackground=_DBG)
     except Exception: pass
     try: win.grab_set()
     except Exception: pass
-    win.geometry("420x180")
+    win.geometry("600x360")
 
-    frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
+    frm = ttk.Frame(win, style="WM.TFrame")
+    frm.pack(fill="both", expand=True, padx=12, pady=12)
     ttk.Label(frm, text="Nowy status", style="WM.TLabel").pack(anchor="w", pady=(0, 4))
-    cb = ttk.Combobox(frm, values=STATUSY, state="readonly"); cb.pack(fill="x")
+    cb = ttk.Combobox(frm, values=STATUSY, state="readonly")
+    cb.pack(fill="x")
     try:
         current = tree.set(tree.selection()[0], "status")
-        if current in STATUSY: cb.set(current)
-        else: cb.current(0)
+        if current in STATUSY:
+            cb.set(current)
+        else:
+            cb.current(0)
     except Exception:
         cb.current(0)
 
-    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
+    ttk.Separator(frm, orient="horizontal").pack(fill="x", pady=8)
+
+    # Tabela składników
+    try:
+        bom = read_bom(produkt)
+    except Exception:
+        bom = {}
+    if "sklad" in bom:
+        items = bom.get("sklad", [])
+        qty_key = "ilosc"
+        mag_path = MAG_DIR / "stany.json"
+    else:
+        items = bom.get("polprodukty", [])
+        qty_key = "ilosc_na_szt"
+        mag_path = MAG_DIR / "polprodukty.json"
+    try:
+        with open(mag_path, "r", encoding="utf-8") as f:
+            mag = json.load(f)
+    except Exception:
+        mag = {}
+
+    cols = ("skladnik", "potrzeba", "dostepne", "dostepne_po")
+    tv = ttk.Treeview(frm, columns=cols, show="headings", height=8, style="WM.Treeview")
+    tv.heading("skladnik", text="Składnik")
+    tv.column("skladnik", width=200, anchor="w")
+    tv.heading("potrzeba", text="Potrzeba")
+    tv.column("potrzeba", width=80, anchor="center")
+    tv.heading("dostepne", text="Dostępne")
+    tv.column("dostepne", width=80, anchor="center")
+    tv.heading("dostepne_po", text="Dostępne po")
+    tv.column("dostepne_po", width=100, anchor="center")
+    tv.pack(fill="both", expand=True)
+
+    for poz in items:
+        kod = poz.get("kod")
+        req = poz.get(qty_key, 0) * ilosc
+        stan = mag.get(kod, {}).get("stan", 0)
+        tv.insert("", "end", iid=kod, values=(kod, req, stan, ""))
+
+    btns = ttk.Frame(win, style="WM.TFrame")
+    btns.pack(fill="x", padx=12, pady=(0, 12))
+
+    def rezerwuj():
+        try:
+            nowe_stany = reserve_materials(bom, ilosc)
+        except Exception as e:
+            messagebox.showerror("Rezerwacja", f"Błąd: {e}", parent=win)
+            return
+        for kod, stan_po in nowe_stany.items():
+            if tv.exists(kod):
+                tv.set(kod, "dostepne_po", str(stan_po))
+
+    ttk.Button(btns, text="Rezerwuj materiały", command=rezerwuj).pack(side="left")
+
     def ok():
-        st = cb.get(); update_status(zlec_id, st, kto="GUI")
+        st = cb.get()
+        update_status(zlec_id, st, kto="GUI")
         lbl_info.config(text=f"Zmieniono status {zlec_id} -> {st}")
-        win.destroy(); on_done()
+        win.destroy()
+        on_done()
+
     ttk.Button(btns, text="Zapisz", command=ok).pack(side="right", padx=6)
     ttk.Button(btns, text="Zamknij", command=win.destroy).pack(side="right")
 
