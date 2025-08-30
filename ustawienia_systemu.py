@@ -232,13 +232,21 @@ def panel_ustawien(root, frame, login=None, rola=None):
         value=cfg.get("profiles.task_default_deadline_days", 7)
     )
 
-    statusy_nowe_text = "\n".join(cfg.get("statusy_narzedzi_nowe", []))
-    statusy_stare_text = "\n".join(cfg.get("statusy_narzedzi_stare", []))
-    szablony_text = "\n".join(cfg.get("szablony_zadan_narzedzia", []))
-    szablony_stare_text = "\n".join(
-        cfg.get("szablony_zadan_narzedzia_stare", [])
+    statusy_nowe_text = "\n".join(
+        cfg.get("statusy_narzedzi_nowe") or []
     )
-    typy_narzedzi_text = "\n".join(cfg.get("typy_narzedzi", []))
+    statusy_stare_text = "\n".join(
+        cfg.get("statusy_narzedzi_stare") or []
+    )
+    szablony_text = "\n".join(
+        cfg.get("szablony_zadan_narzedzia") or []
+    )
+    szablony_stare_text = "\n".join(
+        cfg.get("szablony_zadan_narzedzia_stare") or []
+    )
+    typy_narzedzi_text = "\n".join(
+        cfg.get("typy_narzedzi") or []
+    )
     zlecenia_edit_roles_text = "\n".join(cfg.get("zlecenia.edit_roles", []))
 
     def _lines_from_text(widget: tk.Text) -> list[str]:
@@ -261,6 +269,12 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 self.widget.insert("1.0", "\n".join(value))
             else:
                 self.widget.insert("1.0", str(value))
+
+        def trace_add(self, _mode, callback):
+            def _cb(*_):
+                callback()
+            self.widget.bind("<KeyRelease>", _cb)
+            self.widget.bind("<FocusOut>", _cb)
 
     original_vals = {}
     dirty_keys = {}
@@ -677,6 +691,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
         txt_szablony_stare.insert("1.0", szablony_stare_text)
         txt_typy.delete("1.0", tk.END)
         txt_typy.insert("1.0", typy_narzedzi_text)
+
+    reset_tools_defaults()
 
     ttk.Button(
         frm_tools,
