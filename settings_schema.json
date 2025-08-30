@@ -701,6 +701,43 @@
       "widget": "spinbox",
       "scope": "global",
       "description": "Domyślny termin wykonania zadania (dni)"
+    },
+    {
+      "key": "magazyn_rezerwacje",
+      "group": "Magazyn",
+      "label": "Włącz rezerwacje",
+      "type": "bool",
+      "default": true,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Pozwala rezerwować materiały w magazynie."
+    },
+    {
+      "key": "magazyn_precision_mb",
+      "group": "Magazyn",
+      "label": "Miejsca po przecinku",
+      "type": "int",
+      "min": 0,
+      "max": 6,
+      "default": 3,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Liczba miejsc po przecinku dla stanów magazynowych."
+    },
+    {
+      "key": "progi_alertow_pct",
+      "group": "Magazyn",
+      "label": "Progi alertów (%)",
+      "type": "array",
+      "default": [
+        100
+      ],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Progi alertów jako procent minimalnego poziomu; można nadpisać w materiale."
     }
   ]
 }

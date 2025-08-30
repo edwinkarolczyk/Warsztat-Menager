@@ -74,7 +74,7 @@ def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
     assert alerts[0]['min_poziom'] == 2.0
 
 
-def test_load_magazyn_adds_prog_alert(tmp_path, monkeypatch):
+def test_load_magazyn_adds_progi_alertow(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()
     lm.upsert_item({
@@ -86,8 +86,8 @@ def test_load_magazyn_adds_prog_alert(tmp_path, monkeypatch):
         'min_poziom': 2,
     })
     m = lm.load_magazyn()
-    assert 'prog_alert' in m['items']['X']
-    assert m['items']['X']['prog_alert'] == 2.0
+    assert 'progi_alertow_pct' in m['items']['X']
+    assert m['items']['X']['progi_alertow_pct'] == [100]
 
 
 def test_set_order_persists(tmp_path, monkeypatch):

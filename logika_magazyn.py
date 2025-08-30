@@ -10,6 +10,8 @@ import json
 import os
 from datetime import datetime
 from threading import RLock
+
+from config_manager import ConfigManager
 try:
     import fcntl
 
@@ -49,6 +51,9 @@ except Exception:
 
     def _log_mag(akcja, dane):
         print(f"[MAGAZYN] {akcja}: {dane}")
+
+
+_CFG = ConfigManager()
 
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
@@ -128,11 +133,12 @@ def load_magazyn():
             mj["meta"]["order"] = new_order
             fixed = True
 
-    # per-item prog_alert
+    # per-item progi_alertow_pct
     items = mj.get("items") or {}
+    global_progi = _CFG.get("progi_alertow_pct", [100])
     for it in items.values():
-        if "prog_alert" not in it:
-            it["prog_alert"] = float(it.get("min_poziom", 0))
+        if "progi_alertow_pct" not in it:
+            it["progi_alertow_pct"] = list(global_progi)
             fixed = True
 
     # uaktualnij timestamp meta
@@ -313,6 +319,15 @@ def upsert_item(item):
             "stan": float(item.get("stan", it.get("stan", 0))),
             "min_poziom": float(item.get("min_poziom", it.get("min_poziom", 0))),
             "rezerwacje": float(item.get("rezerwacje", it.get("rezerwacje", 0))),
+            "progi_alertow_pct": list(
+                item.get(
+                    "progi_alertow_pct",
+                    it.get(
+                        "progi_alertow_pct",
+                        _CFG.get("progi_alertow_pct", [100]),
+                    ),
+                )
+            ),
             "historia": it.get("historia", [])
         })
         order = m.setdefault("meta", {}).setdefault("order", list(items.keys()))
@@ -373,6 +388,8 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
     return res
 
 def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
+    if not _CFG.get("magazyn_rezerwacje", True):
+        raise RuntimeError("Rezerwacje są wyłączone w konfiguracji")
     if ilosc <= 0:
         raise ValueError("Ilość rezerwacji musi być > 0")
     with _LOCK:
@@ -398,6 +415,8 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         return faktyczne
 
 def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
+    if not _CFG.get("magazyn_rezerwacje", True):
+        raise RuntimeError("Rezerwacje są wyłączone w konfiguracji")
     if ilosc <= 0:
         raise ValueError("Ilość zwolnienia musi być > 0")
     with _LOCK:
@@ -437,16 +456,27 @@ def lista_items():
         return [items[i] for i in order if i in items]
 
 def sprawdz_progi():
-    """Zwraca listę alertów: {item_id, nazwa, stan, min_poziom} gdzie stan <= min_poziom."""
+    """Zwraca listę alertów dla progów procentowych."""
     al = []
+    global_progi = _CFG.get("progi_alertow_pct", [100])
     with _LOCK:
         m = load_magazyn()
         for it in (m.get("items") or {}).values():
-            if float(it.get("stan", 0)) <= float(it.get("min_poziom", 0)):
-                al.append({
-                    "item_id": it["id"], "nazwa": it["nazwa"],
-                    "stan": float(it.get("stan", 0)), "min_poziom": float(it.get("min_poziom", 0))
-                })
+            stan = float(it.get("stan", 0))
+            min_poziom = float(it.get("min_poziom", 0))
+            progi = it.get("progi_alertow_pct", global_progi)
+            for pct in sorted(set(progi), reverse=True):
+                threshold = min_poziom * pct / 100.0
+                if stan <= threshold:
+                    al.append({
+                        "item_id": it["id"],
+                        "nazwa": it["nazwa"],
+                        "stan": stan,
+                        "min_poziom": min_poziom,
+                        "prog_pct": pct,
+                        "prog_alert": threshold,
+                    })
+                    break
     return al
 
 def historia_item(item_id, limit=100):
