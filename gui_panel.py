@@ -12,7 +12,9 @@ import json
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
+
+from io_utils import read_json, write_json
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
@@ -35,6 +37,31 @@ def _get_app_version() -> str:
 
 
 APP_VERSION = _get_app_version()
+
+
+def _session_file(login: str) -> str:
+    return os.path.join("data", "user", f"{login}.json")
+
+
+def _load_last_session(login: str) -> datetime:
+    data = read_json(_session_file(login)) or {}
+    ts = data.get("last_session")
+    if isinstance(ts, str):
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return datetime.fromtimestamp(0, tz=timezone.utc)
+
+
+def _save_last_session(login: str, dt: datetime) -> None:
+    path = _session_file(login)
+    data = read_json(path) or {}
+    data["last_session"] = dt.astimezone(timezone.utc).isoformat().replace(
+        "+00:00", "Z"
+    )
+    write_json(path, data)
+
 
 try:
     from logger import log_akcja
@@ -159,16 +186,54 @@ def uruchom_panel(root, login, rola):
     )
     clear_frame(root)
 
+    last_session = _load_last_session(login)
+    markers: list[tk.Widget] = []
+    menu_markers: list[tuple[tk.Menu, int, str]] = []
+
+    def _clear_markers() -> None:
+        nonlocal last_session
+        for dot in markers:
+            try:
+                dot.destroy()
+            except Exception:
+                pass
+        markers.clear()
+        for menu, idx, label in menu_markers:
+            try:
+                menu.entryconfig(idx, label=label, foreground="")
+            except Exception:
+                pass
+        menu_markers.clear()
+        last_session = datetime.now(timezone.utc)
+        _save_last_session(login, last_session)
+
+    def _maybe_mark_button(widget: tk.Widget, last_modified: datetime) -> None:
+        if last_modified > last_session:
+            dot = tk.Canvas(widget, width=8, height=8, highlightthickness=0, bd=0)
+            dot.create_oval(0, 0, 8, 8, fill="#e53935", outline="")
+            dot.place(relx=1, x=-4, y=4, anchor="ne")
+            markers.append(dot)
+
+    def _maybe_mark_menu(menu: tk.Menu, index: int, last_modified: datetime) -> None:
+        if last_modified > last_session:
+            label = menu.entrycget(index, "label")
+            menu.entryconfig(index, label=f"{label} \u25CF", foreground="#e53935")
+            menu_markers.append((menu, index, label))
+
     def _show_about():
         messagebox.showinfo(
             "O programie", f"Warsztat Menager\nWersja {APP_VERSION}"
         )
 
     menubar = tk.Menu(root)
+    actions_menu = tk.Menu(menubar, tearoff=False)
+    actions_menu.add_command(label="Usuń znaczniki", command=_clear_markers)
+    menubar.add_cascade(label="Akcje", menu=actions_menu)
     help_menu = tk.Menu(menubar, tearoff=False)
     help_menu.add_command(label="O programie", command=_show_about)
     menubar.add_cascade(label="Pomoc", menu=help_menu)
     root.config(menu=menubar)
+    _maybe_mark_menu(help_menu, 0, datetime(2025, 8, 1, tzinfo=timezone.utc))
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
@@ -403,30 +468,91 @@ def uruchom_panel(root, login, rola):
             messagebox.showerror("Błąd", f"Nie można otworzyć widoku hal:\n{e}")
     
     # przyciski boczne
-    ttk.Button(side, text="Zlecenia",  command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),  style="WM.Side.TButton").pack(padx=10, pady=(12,6), fill="x")
-    ttk.Button(side, text="Narzędzia", command=lambda: otworz_panel(panel_narzedzia, "Narzędzia"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
-    ttk.Button(side, text="Maszyny",   command=lambda: otworz_panel(panel_maszyny, "Maszyny"),    style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
-    # Wejście do Magazynu
-    ttk.Button(side, text="Magazyn",   command=lambda: otworz_panel(panel_magazyn, "Magazyn"),   style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
-    ttk.Button(side, text="Hale",      command=_open_hala,                              style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+    btn_zl = ttk.Button(
+        side,
+        text="Zlecenia",
+        command=lambda: otworz_panel(panel_zlecenia, "Zlecenia"),
+        style="WM.Side.TButton",
+    )
+    btn_zl.pack(padx=10, pady=(12, 6), fill="x")
+    _maybe_mark_button(btn_zl, datetime(2025, 8, 1, tzinfo=timezone.utc))
 
-    ttk.Button(
+    btn_narz = ttk.Button(
+        side,
+        text="Narzędzia",
+        command=lambda: otworz_panel(panel_narzedzia, "Narzędzia"),
+        style="WM.Side.TButton",
+    )
+    btn_narz.pack(padx=10, pady=6, fill="x")
+    _maybe_mark_button(btn_narz, datetime(2025, 7, 1, tzinfo=timezone.utc))
+
+    btn_masz = ttk.Button(
+        side,
+        text="Maszyny",
+        command=lambda: otworz_panel(panel_maszyny, "Maszyny"),
+        style="WM.Side.TButton",
+    )
+    btn_masz.pack(padx=10, pady=6, fill="x")
+    _maybe_mark_button(btn_masz, datetime(2025, 6, 1, tzinfo=timezone.utc))
+
+    btn_mag = ttk.Button(
+        side,
+        text="Magazyn",
+        command=lambda: otworz_panel(panel_magazyn, "Magazyn"),
+        style="WM.Side.TButton",
+    )
+    btn_mag.pack(padx=10, pady=6, fill="x")
+    _maybe_mark_button(btn_mag, datetime(2025, 5, 1, tzinfo=timezone.utc))
+
+    btn_hale = ttk.Button(
+        side,
+        text="Hale",
+        command=_open_hala,
+        style="WM.Side.TButton",
+    )
+    btn_hale.pack(padx=10, pady=6, fill="x")
+    _maybe_mark_button(btn_hale, datetime(2025, 4, 1, tzinfo=timezone.utc))
+
+    btn_feedback = ttk.Button(
         side,
         text="Wyślij opinię",
         command=_open_feedback,
         style="WM.Side.TButton",
-    ).pack(padx=10, pady=6, fill="x")
+    )
+    btn_feedback.pack(padx=10, pady=6, fill="x")
+    _maybe_mark_button(btn_feedback, datetime(2025, 3, 1, tzinfo=timezone.utc))
 
-    admin_roles = {"admin","kierownik","brygadzista","lider"}
+    admin_roles = {"admin", "kierownik", "brygadzista", "lider"}
     if str(rola).strip().lower() in admin_roles:
-        ttk.Button(side, text="Użytkownicy", command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+        btn_users = ttk.Button(
+            side,
+            text="Użytkownicy",
+            command=lambda: otworz_panel(panel_uzytkownicy, "Użytkownicy"),
+            style="WM.Side.TButton",
+        )
+        btn_users.pack(padx=10, pady=6, fill="x")
+        _maybe_mark_button(btn_users, datetime(2025, 2, 1, tzinfo=timezone.utc))
         try:
             from ustawienia_systemu import panel_ustawien as _pust
-            ttk.Button(side, text="Ustawienia",  command=lambda: otworz_panel(_pust, "Ustawienia"), style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+            btn_settings = ttk.Button(
+                side,
+                text="Ustawienia",
+                command=lambda: otworz_panel(_pust, "Ustawienia"),
+                style="WM.Side.TButton",
+            )
+            btn_settings.pack(padx=10, pady=6, fill="x")
+            _maybe_mark_button(btn_settings, datetime(2025, 1, 1, tzinfo=timezone.utc))
         except Exception:
             pass
     else:
-        ttk.Button(side, text="Profil", command=_open_profil, style="WM.Side.TButton").pack(padx=10, pady=6, fill="x")
+        btn_profile = ttk.Button(
+            side,
+            text="Profil",
+            command=_open_profil,
+            style="WM.Side.TButton",
+        )
+        btn_profile.pack(padx=10, pady=6, fill="x")
+        _maybe_mark_button(btn_profile, datetime(2025, 1, 1, tzinfo=timezone.utc))
     root.update_idletasks()
     otworz_panel(panel_zlecenia, "Zlecenia (start)")
     root.update_idletasks()
