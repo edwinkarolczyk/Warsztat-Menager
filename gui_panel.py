@@ -13,8 +13,9 @@
 
 import json
 import os
+import re
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 from datetime import datetime, time, timedelta, timezone
 
 from profile_utils import get_user, save_user
@@ -291,57 +292,93 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 pass
     changelog_win = {"ref": None}
+    btn_changelog = None
 
-    def _toggle_changelog():
+    def _has_unseen_changelog(last_seen: str | None) -> bool:
+        try:
+            seen_dt = datetime.fromisoformat(last_seen) if last_seen else datetime.min
+        except ValueError:
+            seen_dt = datetime.min
+        try:
+            with open("CHANGELOG.md", encoding="utf-8") as fh:
+                for line in fh:
+                    if line.startswith("##"):
+                        m = re.search(r"-\s*(\d{4}-\d{2}-\d{2})", line)
+                        if m:
+                            try:
+                                dt = datetime.fromisoformat(m.group(1))
+                            except ValueError:
+                                dt = None
+                            if dt and dt > seen_dt:
+                                return True
+        except Exception:
+            return False
+        return False
+
+    def _close_changelog(_event=None):
         win = changelog_win.get("ref")
         if win is not None and win.winfo_exists():
-            win.destroy()
-            changelog_win["ref"] = None
+            try:
+                win.destroy()
+            except Exception:
+                pass
+        changelog_win["ref"] = None
+        if btn_changelog and btn_changelog.winfo_exists():
+            btn_changelog.config(text="Pokaż zmiany")
+        _clear_markers()
+        try:
+            CONFIG_MANAGER.set(
+                "changelog.last_viewed",
+                datetime.now().isoformat(timespec="seconds"),
+                who=login,
+            )
+            CONFIG_MANAGER.save_all()
+        except Exception:
+            pass
+
+    def _toggle_changelog(auto: bool = False):
+        win = changelog_win.get("ref")
+        if win is not None and win.winfo_exists():
+            _close_changelog()
             return
         last_seen = None
         try:
             last_seen = CONFIG_MANAGER.get("changelog.last_viewed")
         except Exception:
             last_seen = None
+        if auto and not _has_unseen_changelog(last_seen):
+            return
         try:
             win = gui_changelog.show_changelog(
                 master=root, last_seen=last_seen
             )
             changelog_win["ref"] = win
-            try:
-                CONFIG_MANAGER.set(
-                    "changelog.last_viewed",
-                    datetime.now().isoformat(timespec="seconds"),
-                    who=login,
-                )
-                CONFIG_MANAGER.save_all()
-            except Exception:
-                pass
+            if btn_changelog and btn_changelog.winfo_exists():
+                btn_changelog.config(text="Ukryj zmiany")
+            win.protocol("WM_DELETE_WINDOW", _close_changelog)
+            for child in win.winfo_children():
+                if isinstance(child, tk.Button) and child.cget("text") == "Zamknij":
+                    child.config(command=_close_changelog)
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie można otworzyć changeloga: {e}")
 
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
-    btn_hide = ttk.Button(
-        btns,
-        text="Ukryj zmiany",
-        command=_clear_markers,
-        style="WM.Side.TButton",
-    )
-    btn_hide.last_modified = datetime(2025, 9, 1, tzinfo=timezone.utc)
-    btn_hide.pack(side="right", padx=(6, 0))
-    _maybe_mark_button(btn_hide)
-    ttk.Button(
-        btns,
-        text="Changelog",
-        command=_toggle_changelog,
-        style="WM.Side.TButton",
-    ).pack(side="right", padx=(6, 0))
-    ttk.Button(
-        btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
-    ).pack(side="right", padx=(6, 0))
     ttk.Button(
         btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
     ).pack(side="right")
+    btn_changelog = ttk.Button(
+        btns,
+        text="Pokaż zmiany",
+        command=_toggle_changelog,
+        style="WM.Side.TButton",
+    )
+    btn_changelog.last_modified = datetime(2025, 9, 1, tzinfo=timezone.utc)
+    btn_changelog.pack(side="right", padx=(6, 0))
+    _maybe_mark_button(btn_changelog)
+    root.after(100, lambda: _toggle_changelog(auto=True))
+    ttk.Button(
+        btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
+    ).pack(side="right", padx=(6, 0))
     # --- licznik automatycznego wylogowania ---
     try:
         cm = globals().get("CONFIG_MANAGER")
