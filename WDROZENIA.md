@@ -1,8 +1,9 @@
 ## Wdrożone
-- Dodano widok hali z trasowaniem serwisantów i integracją awarii.
+- 2025-08-30 – Dodano widok hal z trasowaniem serwisantów i integracją awarii.
 - 2025-08-30 – Dodano funkcję zestawienia wydajności magazynu.
 - 2025-08-30 – Wprowadzono wersjonowanie produktów (pola version, bom_revision,
   daty obowiązywania i domyślną wersję) oraz edycję w ustawieniach BOM.
+- 2025-08-30 – Rozszerzono edytor BOM o dodatkowe pola i usprawnienia interfejsu.
 
 ## Planowane
 - Pogrupowanie ustawień i krótkie opisy
