@@ -78,7 +78,7 @@ class HalaRenderer(ttk.Frame):
 
         self.redraw()
 
-    # ------------------ drawing ------------------
+    # ------------------ rysowanie ------------------
     def _on_resize(self, _event):
         self.redraw()
 
@@ -141,7 +141,7 @@ class HalaRenderer(ttk.Frame):
             )
             self.cv.create_line(x1, y1, x2, y2, fill="#888888", width=4)
 
-    # ------------------ editing halls ------------------
+    # ------------------ edycja hal ------------------
     def _on_click(self, event):
         self.start_x = event.x
         self.start_y = event.y
