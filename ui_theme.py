@@ -56,33 +56,69 @@ import tkinter as tk
 from tkinter import ttk
 from config_manager import ConfigManager
 
-# Paleta domyślna
-_DEFAULT_COLORS = {
-    "dark_bg": "#1b1f24",      # tło główne
-    "dark_bg_2": "#20262e",    # tło pól
-    "side_bg": "#14181d",
-    "card_bg": "#20262e",
-    "fg": "#e6e6e6",
-    "muted_fg": "#9aa0a6",
-    "btn_bg": "#2a3139",
-    "btn_bg_hover": "#343b45",
-    "btn_bg_act": "#3b434e",
-    "banner_fg": "#ff4d4d",
-    "banner_bg": "#1b1b1b",
+# Dostępne palety motywów
+_THEMES = {
+    "dark": {
+        "dark_bg": "#1b1f24",
+        "dark_bg_2": "#20262e",
+        "side_bg": "#14181d",
+        "card_bg": "#20262e",
+        "fg": "#e6e6e6",
+        "muted_fg": "#9aa0a6",
+        "btn_bg": "#2a3139",
+        "btn_bg_hover": "#343b45",
+        "btn_bg_act": "#3b434e",
+        "banner_bg": "#1b1b1b",
+    },
+    "light": {
+        "dark_bg": "#f2f2f2",
+        "dark_bg_2": "#ffffff",
+        "side_bg": "#e6e6e6",
+        "card_bg": "#ffffff",
+        "fg": "#000000",
+        "muted_fg": "#555555",
+        "btn_bg": "#dddddd",
+        "btn_bg_hover": "#cccccc",
+        "btn_bg_act": "#bbbbbb",
+        "banner_bg": "#ffffff",
+    },
+    "funky": {
+        "dark_bg": "#2e1b47",
+        "dark_bg_2": "#3b2a5d",
+        "side_bg": "#25163b",
+        "card_bg": "#3b2a5d",
+        "fg": "#f0e130",
+        "muted_fg": "#c0c0c0",
+        "btn_bg": "#ff6f61",
+        "btn_bg_hover": "#ff836e",
+        "btn_bg_act": "#ff9e84",
+        "banner_bg": "#1b1b1b",
+    },
 }
 
+_ACCENTS = {
+    "red": "#ff4d4d",
+    "blue": "#4da6ff",
+    "green": "#4dff4d",
+    "orange": "#ffa64d",
+}
+
+_DEFAULT_THEME = "dark"
+_DEFAULT_ACCENT = "red"
+
 # Bieżące kolory
-DARK_BG = _DEFAULT_COLORS["dark_bg"]
-DARK_BG_2 = _DEFAULT_COLORS["dark_bg_2"]
-SIDE_BG = _DEFAULT_COLORS["side_bg"]
-CARD_BG = _DEFAULT_COLORS["card_bg"]
-FG = _DEFAULT_COLORS["fg"]
-MUTED_FG = _DEFAULT_COLORS["muted_fg"]
-BTN_BG = _DEFAULT_COLORS["btn_bg"]
-BTN_BG_HOVER = _DEFAULT_COLORS["btn_bg_hover"]
-BTN_BG_ACT = _DEFAULT_COLORS["btn_bg_act"]
-BANNER_FG = _DEFAULT_COLORS["banner_fg"]
-BANNER_BG = _DEFAULT_COLORS["banner_bg"]
+_palette = _THEMES[_DEFAULT_THEME]
+DARK_BG = _palette["dark_bg"]
+DARK_BG_2 = _palette["dark_bg_2"]
+SIDE_BG = _palette["side_bg"]
+CARD_BG = _palette["card_bg"]
+FG = _palette["fg"]
+MUTED_FG = _palette["muted_fg"]
+BTN_BG = _palette["btn_bg"]
+BTN_BG_HOVER = _palette["btn_bg_hover"]
+BTN_BG_ACT = _palette["btn_bg_act"]
+BANNER_FG = _ACCENTS[_DEFAULT_ACCENT]
+BANNER_BG = _palette["banner_bg"]
 
 _inited = False
 
@@ -92,17 +128,21 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     if _inited:
         return
     cfg = ConfigManager()
-    DARK_BG = cfg.get("ui.colors.dark_bg", _DEFAULT_COLORS["dark_bg"])
-    DARK_BG_2 = cfg.get("ui.colors.dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
-    SIDE_BG = cfg.get("ui.colors.side_bg", _DEFAULT_COLORS["side_bg"])
-    CARD_BG = cfg.get("ui.colors.card_bg", _DEFAULT_COLORS["card_bg"])
-    FG = cfg.get("ui.colors.fg", _DEFAULT_COLORS["fg"])
-    MUTED_FG = cfg.get("ui.colors.muted_fg", _DEFAULT_COLORS["muted_fg"])
-    BTN_BG = cfg.get("ui.colors.btn_bg", _DEFAULT_COLORS["btn_bg"])
-    BTN_BG_HOVER = cfg.get("ui.colors.btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"])
-    BTN_BG_ACT = cfg.get("ui.colors.btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
-    BANNER_FG = cfg.get("ui.colors.banner_fg", _DEFAULT_COLORS["banner_fg"])
-    BANNER_BG = cfg.get("ui.colors.banner_bg", _DEFAULT_COLORS["banner_bg"])
+    theme_name = cfg.get("ui.theme", _DEFAULT_THEME)
+    palette = _THEMES.get(theme_name, _THEMES[_DEFAULT_THEME])
+    accent_name = cfg.get("ui.accent", _DEFAULT_ACCENT)
+    accent = _ACCENTS.get(accent_name, _ACCENTS[_DEFAULT_ACCENT])
+    DARK_BG = palette["dark_bg"]
+    DARK_BG_2 = palette["dark_bg_2"]
+    SIDE_BG = palette["side_bg"]
+    CARD_BG = palette["card_bg"]
+    FG = palette["fg"]
+    MUTED_FG = palette["muted_fg"]
+    BTN_BG = palette["btn_bg"]
+    BTN_BG_HOVER = palette["btn_bg_hover"]
+    BTN_BG_ACT = palette["btn_bg_act"]
+    BANNER_FG = accent
+    BANNER_BG = palette["banner_bg"]
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
