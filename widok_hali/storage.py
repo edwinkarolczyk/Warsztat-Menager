@@ -8,7 +8,7 @@ from pathlib import Path
 
 import logger
 
-CONFIG_PATH = "config.json"
+CONFIG_PATH = Path("config.json")
 
 DEFAULT_CFG_HALA = {
     "show_grid": True,
@@ -21,11 +21,12 @@ DEFAULT_CFG_HALA = {
 }
 
 
-def load_config_hala(config_path: str = CONFIG_PATH) -> dict:
+def load_config_hala(config_path: Path | str = CONFIG_PATH) -> dict:
     """Wczytaj sekcję "hala" z pliku konfiguracyjnego.
 
-    Zwraca słownik z ustawieniami. Braki wypełnia wartościami domyślnymi
-    i loguje ostrzeżenia do ``logger.log_akcja``.
+    ``config_path`` może być ścieżką w postaci ``Path`` lub ``str``. Zwraca
+    słownik z ustawieniami. Braki wypełnia wartościami domyślnymi i loguje
+    ostrzeżenia do ``logger.log_akcja``.
     """
     cfg = copy.deepcopy(DEFAULT_CFG_HALA)
     path = Path(config_path)

@@ -8,7 +8,7 @@ def test_load_config_hala_missing_file(tmp_path, monkeypatch):
     logs = []
     monkeypatch.setattr(logger, "log_akcja", lambda msg: logs.append(msg))
 
-    cfg = storage.load_config_hala(str(tmp_path / "cfg.json"))
+    cfg = storage.load_config_hala(tmp_path / "cfg.json")
 
     assert cfg == storage.DEFAULT_CFG_HALA
     assert any("Brak pliku" in m for m in logs)
@@ -17,12 +17,14 @@ def test_load_config_hala_missing_file(tmp_path, monkeypatch):
 def test_load_config_hala_partial(tmp_path, monkeypatch):
     data = {"hala": {"show_grid": False, "backgrounds": {"1": "a.jpg"}}}
     cfg_path = tmp_path / "cfg.json"
-    cfg_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    cfg_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     logs = []
     monkeypatch.setattr(logger, "log_akcja", lambda msg: logs.append(msg))
 
-    cfg = storage.load_config_hala(str(cfg_path))
+    cfg = storage.load_config_hala(cfg_path)
 
     assert cfg["show_grid"] is False
     assert cfg["grid_step_px"] == 4  # default
