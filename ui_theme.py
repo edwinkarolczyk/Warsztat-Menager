@@ -103,6 +103,9 @@ _ACCENTS: dict[str, str] = {
     "orange": "#ffa64d",
 }
 
+THEMES: tuple[str, ...] = tuple(_THEMES)
+ACCENTS: tuple[str, ...] = tuple(_ACCENTS)
+
 
 def resolve_theme_colors(theme: str, accent: str) -> dict[str, str]:
     colors = _THEMES.get(theme, _THEMES["dark"]).copy()

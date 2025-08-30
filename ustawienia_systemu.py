@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import subprocess
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import ACCENTS, THEMES, apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
 from gui_settings_shifts import ShiftsSettingsFrame
@@ -270,7 +270,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Combobox(
         frm_theme,
         textvariable=theme_var,
-        values=["dark", "light", "funky"],
+        values=THEMES,
         state="readonly",
     ).grid(row=0, column=1, sticky="ew", padx=5, pady=5)
 
@@ -280,7 +280,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Combobox(
         frm_theme,
         textvariable=accent_var,
-        values=["red", "blue", "green", "orange"],
+        values=ACCENTS,
         state="readonly",
     ).grid(row=1, column=1, sticky="ew", padx=5, pady=5)
 
