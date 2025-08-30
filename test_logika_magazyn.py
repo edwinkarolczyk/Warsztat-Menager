@@ -74,6 +74,27 @@ def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
     assert alerts[0]['min_poziom'] == 2.0
 
 
+def test_zwrot_increments_stock(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
+    lm.load_magazyn()
+    lm.upsert_item({
+        'id': 'RET-1',
+        'nazwa': 'Element',
+        'typ': 'materiał',
+        'jednostka': 'szt',
+        'stan': 5,
+        'min_poziom': 0,
+    })
+
+    lm.zuzyj('RET-1', 2, uzytkownik='test', kontekst='pytest')
+    lm.zwrot('RET-1', 1, 'test')
+
+    item = lm.get_item('RET-1')
+    assert item['stan'] == 4.0
+    assert item['historia'][-1]['operacja'] == 'zwrot'
+    assert item['historia'][-1]['ilosc'] == 1.0
+
+
 def test_set_order_persists(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()

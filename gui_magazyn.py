@@ -259,7 +259,7 @@ class PanelMagazyn(ttk.Frame):
         il = self._ask_float("Zwrot", "Ilość do zwrotu:")
         if il is None: return
         try:
-            LM.zwrot(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
+            LM.zwrot(iid, il, uzytkownik="system")
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))

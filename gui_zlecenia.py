@@ -9,10 +9,11 @@
 # =============================
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+import logika_magazyn as LM
 
 try:
     from zlecenia_logika import (
@@ -74,6 +75,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_nowe = ttk.Button(actions, text="Nowe zlecenie"); btn_nowe.pack(side="left")
     btn_odsw = ttk.Button(actions, text="Odśwież");      btn_odsw.pack(side="left", padx=6)
     btn_usun = ttk.Button(actions, text="Usuń");         btn_usun.pack(side="left", padx=6)
+    btn_zwrot = ttk.Button(actions, text="Zwrot");      btn_zwrot.pack(side="left", padx=6)
 
     right = ttk.Frame(actions, style="WM.TFrame"); right.pack(side="right")
     ttk.Label(right, text="Status:", style="WM.TLabel").pack(side="left", padx=(0, 6))
@@ -156,6 +158,24 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 
     tree.bind("<Double-1>", _on_dbl)
 
+    def _zwrot():
+        iid = simpledialog.askstring("Zwrot", "ID pozycji:", parent=frame)
+        if not iid:
+            return
+        qty = simpledialog.askstring("Zwrot", "Ilość do zwrotu:", parent=frame)
+        if qty is None:
+            return
+        try:
+            il = float(str(qty).replace(",", "."))
+        except Exception:
+            messagebox.showerror("Zwrot", "Nieprawidłowa ilość")
+            return
+        try:
+            LM.zwrot(iid, il, uzytkownik="system")
+            messagebox.showinfo("Zwrot", f"Zwrócono {il} szt. {iid}")
+        except Exception as e:
+            error_dialogs.show_error_dialog("Zwrot", str(e))
+
     # Enter filtr, combo filtr
     ent_search.bind("<Return>",   lambda e: _odswiez())
     ent_search.bind("<KP_Enter>", lambda e: _odswiez())
@@ -165,6 +185,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_nowe.configure(command=lambda: _kreator_zlecenia(frame, lbl_info, root, _odswiez))
     btn_odsw.configure(command=_odswiez)
     btn_usun.configure(command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez))
+    btn_zwrot.configure(command=_zwrot)
 
     _odswiez()
     return frame
