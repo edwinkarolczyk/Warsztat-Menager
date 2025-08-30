@@ -25,10 +25,38 @@ def open_hala_window(parent: tk.Tk | tk.Toplevel | None = None) -> tk.Toplevel:
 
     style = ttk.Style(win)
     bg = style.lookup("WM.Card.TFrame", "background")
+
+    controls = ttk.Frame(frame)
+    controls.pack(fill="x", pady=(0, 8))
+
     canvas = tk.Canvas(frame, bg=bg, bd=0, highlightthickness=0)
     canvas.pack(fill="both", expand=True)
 
-    HalaController(canvas, style)
+    ctrl = HalaController(canvas, style)
+
+    halls = sorted({m.hala for m in ctrl.machines})
+    hala_var = tk.StringVar(value=ctrl.active_hala or (halls[0] if halls else ""))
+    hall_cb = ttk.Combobox(
+        controls, textvariable=hala_var, values=halls, state="readonly", width=10
+    )
+    hall_cb.pack(side="left", padx=(0, 10))
+
+    def _on_hall_change(event: tk.Event | None = None) -> None:
+        ctrl.active_hala = hala_var.get()
+        ctrl.redraw()
+
+    hall_cb.bind("<<ComboboxSelected>>", _on_hall_change)
+
+    mode_var = tk.StringVar(value="view")
+    for mode in ("view", "edit", "delete"):
+        ttk.Radiobutton(
+            controls,
+            text=mode,
+            value=mode,
+            variable=mode_var,
+            command=lambda m=mode: ctrl.set_mode(m),
+        ).pack(side="left")
+
     return win
 
 
