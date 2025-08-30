@@ -413,6 +413,30 @@
       "description": "Siatka hali (px na 20 cm)"
     },
     {
+      "key": "hall.drag_snap_px",
+      "group": "Hala/Widok",
+      "label": "Przyciąganie przy przeciąganiu (px)",
+      "type": "int",
+      "min": 1,
+      "max": 100,
+      "default": 20,
+      "widget": "spinbox",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Wielkość siatki przyciągania podczas przeciągania maszyn."
+    },
+    {
+      "key": "hall.triple_confirm_delete",
+      "group": "Hala/Widok",
+      "label": "Potrójne potwierdzenie usuwania maszyn",
+      "type": "bool",
+      "default": false,
+      "widget": "switch",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Wymaga trzykrotnego potwierdzenia przy usuwaniu maszyny."
+    },
+    {
       "key": "local.fullscreen_on_start",
       "group": "Wygląd",
       "label": "Pełny ekran przy starcie",
