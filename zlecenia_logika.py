@@ -6,7 +6,7 @@
 # - Dalej: create_zlecenie obsługuje opcjonalne `zlec_wew`; start = "nowe"
 # =============================
 
-import json, os
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -165,6 +165,26 @@ def list_zlecenia():
         except Exception:
             continue
     return out
+
+
+def queue_material_order(kod_produktu, braki):
+    """Dodaje zamówienie brakujących materiałów do kolejki."""
+    _ensure_dirs()
+    path = DATA_DIR / "zamowienia_oczekujace.json"
+    try:
+        zam = _read_json(path)
+    except Exception:
+        zam = []
+    zam.append(
+        {
+            "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "produkt": kod_produktu,
+            "braki": {b["kod"]: b["brakuje"] for b in braki},
+            "status": "do_zamowienia",
+        }
+    )
+    _write_json(path, zam)
+
 
 def update_status(zlec_id, new_status, kto="system"):
     assert new_status in STATUSY, "Nieprawidłowy status"

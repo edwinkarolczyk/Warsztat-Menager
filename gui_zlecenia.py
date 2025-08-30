@@ -9,9 +9,6 @@
 # - Dialog statusu: ciemne okno (highlight off) — jak wcześniej
 # =============================
 
-import json
-from datetime import datetime
-from pathlib import Path
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -26,6 +23,7 @@ try:
         create_zlecenie,
         STATUSY,
         update_status,
+        queue_material_order,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -240,22 +238,7 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
                 f"Brakuje {braki_txt} – zamówić?",
                 parent=win,
             ):
-                zam_path = Path("data") / "zamowienia_oczekujace.json"
-                try:
-                    with open(zam_path, "r", encoding="utf-8") as f:
-                        zam = json.load(f)
-                except Exception:
-                    zam = []
-                zam.append(
-                    {
-                        "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "produkt": kod,
-                        "braki": {b["kod"]: b["brakuje"] for b in braki},
-                        "status": "do_zamowienia",
-                    }
-                )
-                with open(zam_path, "w", encoding="utf-8") as f:
-                    json.dump(zam, f, ensure_ascii=False, indent=2)
+                queue_material_order(kod, braki)
         messagebox.showinfo(
             "Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win
         )
