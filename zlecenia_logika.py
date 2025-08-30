@@ -186,6 +186,44 @@ def update_status(zlec_id, new_status, kto="system"):
     _write_json(p, j)
     return j
 
+
+def update_zlecenie(zlec_id, *, ilosc=None, uwagi=None, zlec_wew=None, kto="system"):
+    """Aktualizuje podstawowe dane zlecenia.
+
+    Pozwala zmienić ilość, uwagi oraz numer wewnętrzny. Dodaje wpis do
+    historii dla każdej zmienionej wartości.
+    """
+    p = ZLECENIA_DIR / f"{zlec_id}.json"
+    j = _read_json(p)
+    changed = []
+    if ilosc is not None:
+        try:
+            ilosc = int(ilosc)
+        except Exception:
+            raise ValueError("ilosc musi być liczbą całkowitą")
+        if j.get("ilosc") != ilosc:
+            j["ilosc"] = ilosc
+            changed.append(f"ilosc -> {ilosc}")
+    if uwagi is not None and j.get("uwagi") != uwagi:
+        j["uwagi"] = uwagi
+        changed.append("uwagi")
+    if zlec_wew is not None and j.get("zlec_wew") != zlec_wew:
+        if zlec_wew in ("", None):
+            j.pop("zlec_wew", None)
+        else:
+            j["zlec_wew"] = zlec_wew
+        changed.append(f"zlec_wew -> {zlec_wew}")
+    if changed:
+        j.setdefault("historia", []).append(
+            {
+                "kiedy": datetime.now().isoformat(timespec="seconds"),
+                "kto": kto,
+                "co": "; ".join(changed),
+            }
+        )
+        _write_json(p, j)
+    return j
+
 def delete_zlecenie(zlec_id: str) -> bool:
     _ensure_dirs()
     p = ZLECENIA_DIR / f"{zlec_id}.json"

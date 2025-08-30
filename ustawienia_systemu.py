@@ -239,6 +239,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
         cfg.get("szablony_zadan_narzedzia_stare", [])
     )
     typy_narzedzi_text = "\n".join(cfg.get("typy_narzedzi", []))
+    zlecenia_edit_roles_text = "\n".join(cfg.get("zlecenia.edit_roles", []))
 
     def _lines_from_text(widget: tk.Text) -> list[str]:
         return [
@@ -614,6 +615,20 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ttk.Spinbox(
         frm_display, from_=1, to=20, textvariable=hall_grid_var, width=5
     ).grid(row=row, column=1, sticky="w", padx=5, pady=5)
+
+    # --- Zlecenia ---
+    tab_zlec = group_containers["Zlecenia"]
+    frm_zlec = ttk.Frame(tab_zlec)
+    frm_zlec.pack(fill="both", expand=True, padx=12, pady=12)
+    frm_zlec.columnconfigure(1, weight=1)
+
+    ttk.Label(frm_zlec, text="Role mogące edytować:").grid(row=0, column=0, sticky="nw", padx=5, pady=5)
+    txt_zlec_roles = tk.Text(frm_zlec, height=4)
+    txt_zlec_roles.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
+    txt_zlec_roles.insert("1.0", zlecenia_edit_roles_text)
+
+    zlec_roles_var = _TextWrapper(txt_zlec_roles)
+    track("zlecenia.edit_roles", zlec_roles_var, lambda x: x)
 
     # --- Narzędzia ---
     tab_tools = group_containers["Narzędzia"]
