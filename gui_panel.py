@@ -1,6 +1,9 @@
 # Plik: gui_panel.py
-# Wersja pliku: 1.6.16
-# Zmiany 1.6.16:
+# Wersja pliku: 1.6.17
+# Zmiany 1.6.17:
+# - Dodano przycisk w stopce otwierający changelog.
+# - Zapamiętywanie czasu ostatniego obejrzenia changeloga.
+# Poprzednio (1.6.16):
 # - Dodano przycisk „Magazyn” (wymaga gui_magazyn.open_panel_magazyn)
 # - Pasek nagłówka pokazuje kto jest zalogowany (label po prawej)
 # - Reszta bez zmian względem 1.6.15
@@ -16,7 +19,8 @@ from datetime import datetime, time, timedelta
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
-from start import CONFIG_MANAGER  # noqa: F401
+from start import CONFIG_MANAGER
+import gui_changelog
 
 
 def _get_app_version() -> str:
@@ -206,9 +210,49 @@ def uruchom_panel(root, login, rola):
                 root.destroy()
             except Exception:
                 pass
+    changelog_win = {"ref": None}
+
+    def _toggle_changelog():
+        win = changelog_win.get("ref")
+        if win is not None and win.winfo_exists():
+            win.destroy()
+            changelog_win["ref"] = None
+            return
+        last_seen = None
+        try:
+            last_seen = CONFIG_MANAGER.get("changelog.last_viewed")
+        except Exception:
+            last_seen = None
+        try:
+            win = gui_changelog.show_changelog(
+                master=root, last_seen=last_seen
+            )
+            changelog_win["ref"] = win
+            try:
+                CONFIG_MANAGER.set(
+                    "changelog.last_viewed",
+                    datetime.now().isoformat(timespec="seconds"),
+                    who=login,
+                )
+                CONFIG_MANAGER.save_all()
+            except Exception:
+                pass
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie można otworzyć changeloga: {e}")
+
     btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
-    ttk.Button(btns, text="Wyloguj", command=_logout, style="WM.Side.TButton").pack(side="right", padx=(6,0))
-    ttk.Button(btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton").pack(side="right")
+    ttk.Button(
+        btns,
+        text="Changelog",
+        command=_toggle_changelog,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(6, 0))
+    ttk.Button(
+        btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
+    ).pack(side="right", padx=(6, 0))
+    ttk.Button(
+        btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
+    ).pack(side="right")
     # --- licznik automatycznego wylogowania ---
     try:
         cm = globals().get("CONFIG_MANAGER")
