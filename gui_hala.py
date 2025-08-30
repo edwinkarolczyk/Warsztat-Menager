@@ -14,16 +14,12 @@ except Exception:  # pragma: no cover - fallback
 from widok_hali import HalaController
 
 
-def open_hala_window(parent: tk.Tk | tk.Toplevel | None = None) -> tk.Toplevel:
-    """Utwórz i zwróć pływające okno z wizualizacją hal."""
-    win = tk.Toplevel(parent) if parent is not None else tk.Toplevel()
-    win.title("Hale")
-    apply_theme(win)
-
-    frame = ttk.Frame(win, padding=12, style="WM.Card.TFrame")
+def build_hala_view(parent: tk.Widget) -> HalaController:
+    """Zbuduj widok hali w przekazanym ``parent`` i zwróć kontroler."""
+    frame = ttk.Frame(parent, padding=12, style="WM.Card.TFrame")
     frame.pack(fill="both", expand=True)
 
-    style = ttk.Style(win)
+    style = ttk.Style(parent)
     bg = style.lookup("WM.Card.TFrame", "background")
 
     controls = ttk.Frame(frame)
@@ -57,6 +53,15 @@ def open_hala_window(parent: tk.Tk | tk.Toplevel | None = None) -> tk.Toplevel:
             command=lambda m=mode: ctrl.set_mode(m),
         ).pack(side="left")
 
+    return ctrl
+
+
+def open_hala_window(parent: tk.Tk | tk.Toplevel | None = None) -> tk.Toplevel:
+    """Utwórz i zwróć pływające okno z wizualizacją hal."""
+    win = tk.Toplevel(parent) if parent is not None else tk.Toplevel()
+    win.title("Hale")
+    apply_theme(win)
+    build_hala_view(win)
     return win
 
 
