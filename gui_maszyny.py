@@ -207,6 +207,13 @@ def panel_maszyny(root, frame, login=None, rola=None):
 
     ttk.Button(frame, text="Szczegóły", command=_open_details).pack(pady=10)
 
+    try:
+        from gui_hala import open_hala_window
+
+        ttk.Button(frame, text="Widok hali", command=lambda: open_hala_window(frame.winfo_toplevel())).pack(pady=10)
+    except Exception:  # pragma: no cover - opcjonalne
+        pass
+
 
 # Koniec pliku
 
