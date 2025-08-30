@@ -56,20 +56,61 @@ import tkinter as tk
 from tkinter import ttk
 from config_manager import ConfigManager
 
-# Paleta domyślna
-_DEFAULT_COLORS = {
-    "dark_bg": "#1b1f24",      # tło główne
-    "dark_bg_2": "#20262e",    # tło pól
-    "side_bg": "#14181d",
-    "card_bg": "#20262e",
-    "fg": "#e6e6e6",
-    "muted_fg": "#9aa0a6",
-    "btn_bg": "#2a3139",
-    "btn_bg_hover": "#343b45",
-    "btn_bg_act": "#3b434e",
-    "banner_fg": "#ff4d4d",
-    "banner_bg": "#1b1b1b",
+
+_THEMES: dict[str, dict[str, str]] = {
+    "dark": {
+        "dark_bg": "#1b1f24",
+        "dark_bg_2": "#20262e",
+        "side_bg": "#14181d",
+        "card_bg": "#20262e",
+        "fg": "#e6e6e6",
+        "muted_fg": "#9aa0a6",
+        "btn_bg": "#2a3139",
+        "btn_bg_hover": "#343b45",
+        "btn_bg_act": "#3b434e",
+        "banner_bg": "#1b1b1b",
+    },
+    "light": {
+        "dark_bg": "#f8f9fa",
+        "dark_bg_2": "#ffffff",
+        "side_bg": "#e9ecef",
+        "card_bg": "#ffffff",
+        "fg": "#212529",
+        "muted_fg": "#6c757d",
+        "btn_bg": "#e0e0e0",
+        "btn_bg_hover": "#d5d5d5",
+        "btn_bg_act": "#cccccc",
+        "banner_bg": "#f8f9fa",
+    },
+    "funky": {
+        "dark_bg": "#222222",
+        "dark_bg_2": "#2f2f2f",
+        "side_bg": "#292929",
+        "card_bg": "#2f2f2f",
+        "fg": "#f8f8f2",
+        "muted_fg": "#cfcfcf",
+        "btn_bg": "#44475a",
+        "btn_bg_hover": "#6272a4",
+        "btn_bg_act": "#bd93f9",
+        "banner_bg": "#222222",
+    },
 }
+
+_ACCENTS: dict[str, str] = {
+    "red": "#ff4d4d",
+    "blue": "#4da6ff",
+    "green": "#4dff88",
+    "orange": "#ffa64d",
+}
+
+
+def resolve_theme_colors(theme: str, accent: str) -> dict[str, str]:
+    colors = _THEMES.get(theme, _THEMES["dark"]).copy()
+    colors["banner_fg"] = _ACCENTS.get(accent, _ACCENTS["red"])
+    return colors
+
+
+_DEFAULT_COLORS = resolve_theme_colors("dark", "red")
 
 # Bieżące kolory
 DARK_BG = _DEFAULT_COLORS["dark_bg"]
@@ -85,24 +126,32 @@ BANNER_FG = _DEFAULT_COLORS["banner_fg"]
 BANNER_BG = _DEFAULT_COLORS["banner_bg"]
 
 _inited = False
+_current_theme = None
+_current_accent = None
+
 
 def _init_styles(root: tk.Misc | None = None) -> None:
-    global _inited, DARK_BG, DARK_BG_2, SIDE_BG, CARD_BG, FG, MUTED_FG
+    global _inited, _current_theme, _current_accent
+    global DARK_BG, DARK_BG_2, SIDE_BG, CARD_BG, FG, MUTED_FG
     global BTN_BG, BTN_BG_HOVER, BTN_BG_ACT, BANNER_FG, BANNER_BG
-    if _inited:
-        return
     cfg = ConfigManager()
-    DARK_BG = cfg.get("ui.colors.dark_bg", _DEFAULT_COLORS["dark_bg"])
-    DARK_BG_2 = cfg.get("ui.colors.dark_bg_2", _DEFAULT_COLORS["dark_bg_2"])
-    SIDE_BG = cfg.get("ui.colors.side_bg", _DEFAULT_COLORS["side_bg"])
-    CARD_BG = cfg.get("ui.colors.card_bg", _DEFAULT_COLORS["card_bg"])
-    FG = cfg.get("ui.colors.fg", _DEFAULT_COLORS["fg"])
-    MUTED_FG = cfg.get("ui.colors.muted_fg", _DEFAULT_COLORS["muted_fg"])
-    BTN_BG = cfg.get("ui.colors.btn_bg", _DEFAULT_COLORS["btn_bg"])
-    BTN_BG_HOVER = cfg.get("ui.colors.btn_bg_hover", _DEFAULT_COLORS["btn_bg_hover"])
-    BTN_BG_ACT = cfg.get("ui.colors.btn_bg_act", _DEFAULT_COLORS["btn_bg_act"])
-    BANNER_FG = cfg.get("ui.colors.banner_fg", _DEFAULT_COLORS["banner_fg"])
-    BANNER_BG = cfg.get("ui.colors.banner_bg", _DEFAULT_COLORS["banner_bg"])
+    theme = cfg.get("ui.theme", "dark")
+    accent = cfg.get("ui.accent", "red")
+    if _inited and theme == _current_theme and accent == _current_accent:
+        return
+    _current_theme, _current_accent = theme, accent
+    colors = resolve_theme_colors(theme, accent)
+    DARK_BG = colors["dark_bg"]
+    DARK_BG_2 = colors["dark_bg_2"]
+    SIDE_BG = colors["side_bg"]
+    CARD_BG = colors["card_bg"]
+    FG = colors["fg"]
+    MUTED_FG = colors["muted_fg"]
+    BTN_BG = colors["btn_bg"]
+    BTN_BG_HOVER = colors["btn_bg_hover"]
+    BTN_BG_ACT = colors["btn_bg_act"]
+    BANNER_FG = colors["banner_fg"]
+    BANNER_BG = colors["banner_bg"]
     style = ttk.Style(root)
     try:
         if style.theme_use() != "clam":
