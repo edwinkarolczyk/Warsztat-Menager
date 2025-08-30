@@ -1,4 +1,4 @@
-"""Obsługa zapisu i odczytu danych hal, ścian oraz awarii."""
+"""Obsługa zapisu i odczytu danych hal, segmentów ścian i awarii maszyn."""
 
 from __future__ import annotations
 
