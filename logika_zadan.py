@@ -38,6 +38,8 @@ def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
     for poz in materials:
         iid = poz["id"]
         il = float(poz["ilosc"])
+        item = LM.get_item(iid)
+        wsp = float(item.get("wsp_konwersji", 1.0)) if item else 1.0
         LM.zuzyj(iid, il, uzytkownik=uzytkownik, kontekst=kontekst)
-        zuzyte.append({"id": iid, "ilosc": il})
+        zuzyte.append({"id": iid, "ilosc": il * wsp})
     return zuzyte

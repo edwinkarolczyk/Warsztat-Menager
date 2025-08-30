@@ -113,6 +113,12 @@ def load_magazyn():
             mj["meta"]["order"] = new_order
             fixed = True
 
+    # zapewnij pola jednostka i wsp_konwersji w itemach
+    for it in (mj.get("items") or {}).values():
+        if 'jednostka' not in it:
+            it['jednostka'] = 'szt'; fixed = True
+        if 'wsp_konwersji' not in it:
+            it['wsp_konwersji'] = 1.0; fixed = True
     # uaktualnij timestamp meta
     mj["meta"]["updated"] = _now()
     if fixed:
@@ -251,7 +257,7 @@ def remove_item_type(nazwa: str, uzytkownik: str = "system") -> bool:
         return True
 
 def upsert_item(item):
-    """item: {id, nazwa, typ, jednostka, stan, min_poziom} + opcjonalnie rezerwacje, historia"""
+    """item: {id, nazwa, typ, jednostka, wsp_konwersji, stan, min_poziom} + opcjonalnie rezerwacje, historia"""
     with _LOCK:
         m = load_magazyn()
         items = m.setdefault("items", {})
@@ -261,6 +267,7 @@ def upsert_item(item):
             "nazwa": item.get("nazwa", it.get("nazwa", "")),
             "typ": item.get("typ", it.get("typ", "komponent")),
             "jednostka": item.get("jednostka", it.get("jednostka", "szt")),
+            "wsp_konwersji": float(item.get("wsp_konwersji", it.get("wsp_konwersji", 1.0))),
             "stan": float(item.get("stan", it.get("stan", 0))),
             "min_poziom": float(item.get("min_poziom", it.get("min_poziom", 0))),
             "rezerwacje": float(item.get("rezerwacje", it.get("rezerwacje", 0))),
@@ -281,7 +288,8 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
         it = (m.get("items") or {}).get(item_id)
         if not it:
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
-        dok = float(ilosc)
+        wsp = float(it.get("wsp_konwersji", 1.0))
+        dok = float(ilosc) * wsp
         if it["stan"] < dok:
             raise ValueError(
                 f"Niewystarczający stan {item_id}: {it['stan']} < {dok}"
