@@ -38,7 +38,7 @@ def test_wczytanie_wielu_zlecen_filtracja(tmp_path, monkeypatch):
 
 
 def test_machines_with_next_task(tmp_path, monkeypatch):
-    src = Path('maszyny.json')
+    src = Path('data/maszyny.json')
     dest = tmp_path / 'maszyny.json'
     shutil.copy(src, dest)
     monkeypatch.setattr(ml, 'DATA_FILE', dest)

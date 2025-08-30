@@ -178,7 +178,11 @@ def check_required_paths(root):
         else:
             results.append(("WARN", f"path missing: {rel}"))
     # dodatkowo sprawdz pliki
-    for relf in ["maszyny.json", os.path.join("data", "magazyn", "magazyn.json"), "config.json"]:
+    for relf in [
+        os.path.join("data", "maszyny.json"),
+        os.path.join("data", "magazyn", "magazyn.json"),
+        "config.json",
+    ]:
         p = os.path.join(root, relf)
         if os.path.isfile(p):
             results.append(("OK", f"file OK: {relf}"))

@@ -1,0 +1,269 @@
+[
+  {
+    "nr_hali": "1",
+    "nr_ewid": "42",
+    "nazwa": "Strugarka wzdłużna",
+    "typ": "BLELL",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "27",
+    "nazwa": "Tokarka",
+    "typ": "CJ6250YC",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "71",
+    "nazwa": "Przecinarka taśmowa",
+    "typ": "TOP - 115",
+    "zadania": [
+      {
+        "data": "2025-02-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-08-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "44",
+    "nazwa": "Tokarka",
+    "typ": "TUC-40/50",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "65",
+    "nazwa": "Wycinarka drutowa",
+    "typ": "CTW 400 TB",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "46",
+    "nazwa": "Piec hartowniczy",
+    "typ": "220V",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-04-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-10-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "66",
+    "nazwa": "Wiertarka stołowa",
+    "typ": "",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "47",
+    "nazwa": "Wiertarka słupowa",
+    "typ": "WS 40",
+    "zadania": [
+      {
+        "data": "2025-02-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-08-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "95",
+    "nazwa": "Wiertarka stołowa Einhell",
+    "typ": "BT-BD 701",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "48",
+    "nazwa": "Szlifierka",
+    "typ": "HAVEN SG-2050",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "94",
+    "nazwa": "Przecinarka tarczowa haven",
+    "typ": "LS350",
+    "zadania": [
+      {
+        "data": "2025-03-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-06-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 0,
+    "y": 0,
+    "status": "aktywny"
+  }
+]

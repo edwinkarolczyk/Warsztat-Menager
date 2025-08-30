@@ -184,7 +184,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     path_maszyny_var = tk.StringVar(
-        value=cfg.get("paths.maszyny", "maszyny.json")
+        value=cfg.get("paths.maszyny", "data/maszyny.json")
     )
     path_narzedzia_var = tk.StringVar(
         value=cfg.get("paths.narzedzia", "narzedzia.json")
@@ -529,7 +529,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     frm_paths.pack(fill="x", padx=12, pady=12)
     frm_paths.columnconfigure(1, weight=1)
 
-    ttk.Label(frm_paths, text="maszyny.json:").grid(
+    ttk.Label(frm_paths, text="data/maszyny.json:").grid(
         row=0, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Entry(frm_paths, textvariable=path_maszyny_var).grid(
