@@ -95,6 +95,26 @@ def test_zwrot_increments_stock(tmp_path, monkeypatch):
     assert item['historia'][-1]['ilosc'] == 1.0
 
 
+def test_zwrot_rejects_invalid(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
+    lm.load_magazyn()
+    lm.upsert_item({
+        'id': 'RET-2',
+        'nazwa': 'Element',
+        'typ': 'materiał',
+        'jednostka': 'szt',
+        'stan': 1,
+        'min_poziom': 0,
+    })
+
+    with pytest.raises(ValueError):
+        lm.zwrot('RET-2', 0, 'test')
+    with pytest.raises(ValueError):
+        lm.zwrot('RET-2', -1, 'test')
+    with pytest.raises(KeyError):
+        lm.zwrot('MISSING', 1, 'test')
+
+
 def test_set_order_persists(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()
