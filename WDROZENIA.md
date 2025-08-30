@@ -1,4 +1,7 @@
 ## Wdrożone
+- 2025-08-30 – Dodano widok hal.
+- 2025-08-30 – Rozszerzono BOM.
+- 2025-08-30 – Wprowadzono wskaźniki zmian.
 - 2025-08-30 – Dodano widok hal z trasowaniem serwisantów i integracją awarii.
 - 2025-08-30 – Dodano funkcję zestawienia wydajności magazynu.
 - 2025-08-30 – Wprowadzono wersjonowanie produktów (pola version, bom_revision,
