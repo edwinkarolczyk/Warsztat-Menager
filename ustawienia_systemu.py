@@ -626,35 +626,48 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
     txt_statusy_nowe = tk.Text(frm_tools, height=5)
     txt_statusy_nowe.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-    txt_statusy_nowe.insert("1.0", statusy_nowe_text)
 
     ttk.Label(frm_tools, text="Statusy – STARE:").grid(
         row=1, column=0, sticky="nw", padx=5, pady=5
     )
     txt_statusy_stare = tk.Text(frm_tools, height=5)
     txt_statusy_stare.grid(row=1, column=1, sticky="ew", padx=5, pady=5)
-    txt_statusy_stare.insert("1.0", statusy_stare_text)
 
     ttk.Label(frm_tools, text="Szablony zadań:").grid(
         row=2, column=0, sticky="nw", padx=5, pady=5
     )
     txt_szablony = tk.Text(frm_tools, height=5)
     txt_szablony.grid(row=2, column=1, sticky="ew", padx=5, pady=5)
-    txt_szablony.insert("1.0", szablony_text)
 
     ttk.Label(frm_tools, text="Szablony serwisowe STARE:").grid(
         row=3, column=0, sticky="nw", padx=5, pady=5
     )
     txt_szablony_stare = tk.Text(frm_tools, height=5)
     txt_szablony_stare.grid(row=3, column=1, sticky="ew", padx=5, pady=5)
-    txt_szablony_stare.insert("1.0", szablony_stare_text)
 
     ttk.Label(frm_tools, text="Typy narzędzi:").grid(
         row=4, column=0, sticky="nw", padx=5, pady=5
     )
     txt_typy = tk.Text(frm_tools, height=5)
     txt_typy.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
-    txt_typy.insert("1.0", typy_narzedzi_text)
+
+    def reset_tools_defaults():
+        txt_statusy_nowe.delete("1.0", tk.END)
+        txt_statusy_nowe.insert("1.0", statusy_nowe_text)
+        txt_statusy_stare.delete("1.0", tk.END)
+        txt_statusy_stare.insert("1.0", statusy_stare_text)
+        txt_szablony.delete("1.0", tk.END)
+        txt_szablony.insert("1.0", szablony_text)
+        txt_szablony_stare.delete("1.0", tk.END)
+        txt_szablony_stare.insert("1.0", szablony_stare_text)
+        txt_typy.delete("1.0", tk.END)
+        txt_typy.insert("1.0", typy_narzedzi_text)
+
+    ttk.Button(
+        frm_tools,
+        text="Przywróć domyślne",
+        command=reset_tools_defaults,
+    ).grid(row=5, column=1, sticky="e", padx=5, pady=5)
 
     statusy_nowe_var = _TextWrapper(txt_statusy_nowe)
     track("statusy_narzedzi_nowe", statusy_nowe_var, lambda x: x)
