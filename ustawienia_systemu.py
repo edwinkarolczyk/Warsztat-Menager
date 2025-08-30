@@ -626,6 +626,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     txt_zlec_roles = tk.Text(frm_zlec, height=4)
     txt_zlec_roles.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
     txt_zlec_roles.insert("1.0", zlecenia_edit_roles_text)
+    txt_zlec_roles.configure(state="normal")
 
     zlec_roles_var = _TextWrapper(txt_zlec_roles)
     track("zlecenia.edit_roles", zlec_roles_var, lambda x: x)

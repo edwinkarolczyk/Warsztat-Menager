@@ -90,9 +90,6 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     frame = ttk.Frame(parent, style="WM.TFrame")
 
     cm = ConfigManager()
-    allowed = {str(r).lower() for r in cm.get("zlecenia.edit_roles", [])}
-    user_role = str(getattr(root, "_wm_rola", "")).lower()
-    can_edit = user_role in allowed if allowed else False
 
     # H1
     header = ttk.Frame(frame, style="WM.TFrame"); header.pack(fill="x", padx=12, pady=(10, 6))
@@ -105,12 +102,6 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_edyt = ttk.Button(actions, text="Edytuj");       btn_edyt.pack(side="left", padx=6)
     btn_usun = ttk.Button(actions, text="Usuń");         btn_usun.pack(side="left", padx=6)
     btn_rez  = ttk.Button(actions, text="Rezerwuj");     btn_rez.pack(side="left", padx=6)
-
-    if not can_edit:
-        try:
-            btn_edyt.state(["disabled"])
-        except Exception:
-            pass
 
     right = ttk.Frame(actions, style="WM.TFrame"); right.pack(side="right")
     ttk.Label(right, text="Status:", style="WM.TLabel").pack(side="left", padx=(0, 6))
@@ -138,9 +129,34 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 
     # Menu PPM + Delete
     menu = tk.Menu(tree, tearoff=False)
-    if can_edit:
-        menu.add_command(label="Edytuj zlecenie", command=lambda: _edit_zlecenie(tree, lbl_info, root, _odswiez))
-    menu.add_command(label="Usuń zlecenie", command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez))
+    menu.add_command(
+        label="Edytuj zlecenie",
+        command=lambda: _edit_zlecenie(tree, lbl_info, root, _odswiez),
+    )
+    menu.add_command(
+        label="Usuń zlecenie",
+        command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez),
+    )
+
+    def _refresh_permissions():
+        allowed = {str(r).lower() for r in cm.get("zlecenia.edit_roles", [])}
+        role = str(getattr(root, "_wm_rola", "")).lower()
+        can = role in allowed if allowed else False
+        for btn in (btn_nowe, btn_edyt, btn_usun, btn_rez):
+            try:
+                btn.state(["!disabled"] if can else ["disabled"])
+            except Exception:
+                btn.configure(state="normal" if can else "disabled")
+        try:
+            menu.entryconfig("Edytuj zlecenie", state="normal" if can else "disabled")
+            menu.entryconfig("Usuń zlecenie", state="normal" if can else "disabled")
+        except Exception:
+            pass
+        return can
+
+    _refresh_permissions()
+    if root is not None:
+        root.after(0, _refresh_permissions)
 
     def _popup(e):
         iid = tree.identify_row(e.y)
