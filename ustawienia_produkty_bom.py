@@ -42,12 +42,20 @@ def _write_json(path, data):
 
 def _list_produkty():
     _ensure_dirs()
-    out=[]
+    out = []
     for p in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
         j = _read_json(p, {})
         kod = j.get("kod") or os.path.splitext(os.path.basename(p))[0]
         naz = j.get("nazwa") or kod
-        out.append({"kod": kod, "nazwa": naz, "_path": p})
+        ver = j.get("version")
+        is_def = j.get("is_default", False)
+        out.append({
+            "kod": kod,
+            "nazwa": naz,
+            "version": ver,
+            "is_default": is_def,
+            "_path": p,
+        })
     return out
 
 def _list_polprodukty():
@@ -92,6 +100,17 @@ def make_tab(parent, rola=None):
     ttk.Label(right, text="Nazwa:", style="WM.Card.TLabel").grid(row=0, column=2, sticky="w", padx=6, pady=4)
     var_nazwa = tk.StringVar(); ttk.Entry(right, textvariable=var_nazwa).grid(row=0, column=3, sticky="ew", padx=6, pady=4)
 
+    ttk.Label(right, text="Wersja:", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=6, pady=4)
+    var_ver = tk.StringVar(); ttk.Entry(right, textvariable=var_ver, width=12).grid(row=1, column=1, sticky="w", padx=6, pady=4)
+    ttk.Label(right, text="BOM rev:", style="WM.Card.TLabel").grid(row=1, column=2, sticky="w", padx=6, pady=4)
+    var_bom_rev = tk.IntVar(value=1); ttk.Spinbox(right, from_=1, to=999, textvariable=var_bom_rev, width=8).grid(row=1, column=3, sticky="w", padx=6, pady=4)
+    var_is_default = tk.BooleanVar(value=True); ttk.Checkbutton(right, text="Domyślna", variable=var_is_default).grid(row=1, column=4, sticky="w", padx=6, pady=4)
+
+    ttk.Label(right, text="Obowiązuje od:", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=6, pady=4)
+    var_eff_from = tk.StringVar(); ttk.Entry(right, textvariable=var_eff_from, width=12).grid(row=2, column=1, sticky="w", padx=6, pady=4)
+    ttk.Label(right, text="Obowiązuje do:", style="WM.Card.TLabel").grid(row=2, column=2, sticky="w", padx=6, pady=4)
+    var_eff_to = tk.StringVar(); ttk.Entry(right, textvariable=var_eff_to, width=12).grid(row=2, column=3, sticky="w", padx=6, pady=4)
+
     # BOM tabela
     center = ttk.Frame(frm, style="WM.TFrame"); center.grid(row=1, column=1, sticky="nsew", padx=(6,10), pady=(6,10))
     center.rowconfigure(1, weight=1); center.columnconfigure(0, weight=1)
@@ -122,7 +141,12 @@ def make_tab(parent, rola=None):
         lb.delete(0,"end")
         frm._products = _list_produkty()
         for p in frm._products:
-            lb.insert("end", f"{p['kod']} – {p['nazwa']}")
+            label = f"{p['kod']} – {p['nazwa']}"
+            if p.get("version"):
+                label += f" (v{p['version']})"
+            if p.get("is_default"):
+                label += " *"
+            lb.insert("end", label)
 
     def _select_idx():
         sel = lb.curselection()
@@ -135,11 +159,21 @@ def make_tab(parent, rola=None):
         if idx is None:
             var_kod.set("")
             var_nazwa.set("")
+            var_ver.set("")
+            var_bom_rev.set(1)
+            var_eff_from.set("")
+            var_eff_to.set("")
+            var_is_default.set(True)
             return
         p = frm._products[idx]
         j = _read_json(p["_path"], {})
         var_kod.set(j.get("kod", p["kod"]))
         var_nazwa.set(j.get("nazwa", p["nazwa"]))
+        var_ver.set(str(j.get("version", "")))
+        var_bom_rev.set(j.get("bom_revision", 1))
+        var_eff_from.set(j.get("effective_from", ""))
+        var_eff_to.set(j.get("effective_to", ""))
+        var_is_default.set(j.get("is_default", False))
         for poz in j.get("polprodukty", []):
             mid = poz.get("kod", "")
             nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
@@ -149,6 +183,11 @@ def make_tab(parent, rola=None):
         k = simpledialog.askstring("Nowy produkt", "Podaj kod:", parent=frm)
         if not k: return
         var_kod.set(k.strip()); var_nazwa.set("")
+        var_ver.set("1.0")
+        var_bom_rev.set(1)
+        var_eff_from.set("")
+        var_eff_to.set("")
+        var_is_default.set(True)
         for iid in tv.get_children(): tv.delete(iid)
 
     def _delete():
@@ -225,7 +264,16 @@ def make_tab(parent, rola=None):
             if il.is_integer():
                 il = int(il)
             bom.append({"kod": pp, "ilosc_na_szt": il})
-        payload = {"kod": kod, "nazwa": naz, "polprodukty": bom}
+        payload = {
+            "kod": kod,
+            "nazwa": naz,
+            "version": var_ver.get() or "1.0",
+            "bom_revision": int(var_bom_rev.get() or 1),
+            "effective_from": var_eff_from.get() or None,
+            "effective_to": var_eff_to.get() or None,
+            "is_default": bool(var_is_default.get()),
+            "polprodukty": bom,
+        }
         _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
         messagebox.showinfo("Produkty", f"Zapisano {kod}.")
         _refresh()
