@@ -47,15 +47,13 @@ except Exception:
     def _log_info(msg): print(f"[INFO] {msg}")
     def _log_mag(akcja, dane): print(f"[MAGAZYN] {akcja}: {dane}")
 
-MAGAZYN_PATH = os.path.join("data", "magazyn.json")
+MAGAZYN_PATH = os.path.join("data", "magazyn", "magazyn.json")
 _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
 
 def _ensure_dirs():
-    d = os.path.dirname(MAGAZYN_PATH)
-    if d and not os.path.exists(d):
-        os.makedirs(d, exist_ok=True)
+    os.makedirs(os.path.dirname(MAGAZYN_PATH), exist_ok=True)
 
 
 def _history_path():

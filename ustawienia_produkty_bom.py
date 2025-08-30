@@ -2,7 +2,7 @@
 # Wersja pliku: 1.0.0
 # Zmiany 1.0.0:
 # - Zakładka "Produkty (BOM)" do Ustawień: lista produktów, edycja BOM, zapis do data/produkty/<KOD>.json
-# - Obsługa materiałów zarówno z plików per-materiał (data/magazyn/*.json) jak i zbiorczego stanu (data/magazyn/stany.json)
+# - Obsługa materiałów zarówno z plików per-materiał (data/magazyn/*.json) jak i zbiorczego stanu (data/magazyn/magazyn.json)
 # - Ciemny motyw przez ui_theme.apply_theme
 # ⏹ KONIEC KODU
 
