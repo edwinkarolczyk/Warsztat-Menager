@@ -7,7 +7,7 @@ import os
 from typing import List
 
 from .const import HALLS_FILE
-from .models import Hala
+from .models import Hala, Machine, TechnicianRoute, WallSegment
 
 try:  # pragma: no cover - logger may not exist in tests
     from logger import log_akcja as _log

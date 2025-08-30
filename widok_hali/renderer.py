@@ -7,7 +7,7 @@ from tkinter import ttk
 from typing import Iterable
 
 from .const import GRID_STEP, BG_GRID_COLOR, HALL_OUTLINE
-from .models import Hala
+from .models import Hala, Machine, TechnicianRoute, WallSegment
 
 
 class HalaRenderer:

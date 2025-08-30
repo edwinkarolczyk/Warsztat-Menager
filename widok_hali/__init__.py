@@ -1,7 +1,7 @@
 """Pakiet pomocniczy do wizualizacji hal produkcyjnych."""
 
 from .const import GRID_STEP, HALLS_FILE, BG_GRID_COLOR, HALL_OUTLINE
-from .models import Hala
+from .models import Hala, Machine, TechnicianRoute, WallSegment
 from .storage import load_hale, save_hale
 from .renderer import HalaRenderer
 from .controller import HalaController
@@ -14,6 +14,9 @@ __all__ = [
     "BG_GRID_COLOR",
     "HALL_OUTLINE",
     "Hala",
+    "Machine",
+    "TechnicianRoute",
+    "WallSegment",
     "load_hale",
     "save_hale",
     "HalaRenderer",
