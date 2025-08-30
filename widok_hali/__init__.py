@@ -5,8 +5,8 @@ from .models import Hala, Machine, TechnicianRoute, WallSegment
 from .storage import load_hale, save_hale
 from .renderer import HalaRenderer
 from .controller import HalaController
-from .animator import Animator
-from .a_star import a_star
+from .animator import Animator, RouteAnimator
+from .a_star import a_star, find_path
 
 __all__ = [
     "GRID_STEP",
@@ -22,5 +22,7 @@ __all__ = [
     "HalaRenderer",
     "HalaController",
     "Animator",
+    "RouteAnimator",
     "a_star",
+    "find_path",
 ]

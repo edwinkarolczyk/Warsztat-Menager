@@ -2097,3 +2097,18 @@
 [2025-08-30 16:11:41] Upsert item A (A)
 [2025-08-30 16:11:41] Upsert item B (B)
 [2025-08-30 16:11:41] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_parallel_saves_are_serial0/magazyn.json
+[2025-08-30 19:02:59] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_rezerwuj_partial0/magazyn.json
+[2025-08-30 19:02:59] Upsert item MAT-X (Test)
+[2025-08-30 19:02:59] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-30 19:02:59] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_alert_after_zuzycie_below0/magazyn.json
+[2025-08-30 19:02:59] Upsert item MAT-AL (Aluminium)
+[2025-08-30 19:02:59] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-30 19:02:59] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_load_magazyn_adds_prog_al0/magazyn.json
+[2025-08-30 19:02:59] Upsert item X (X)
+[2025-08-30 19:02:59] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-30 19:02:59] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_set_order_persists0/magazyn.json
+[2025-08-30 19:02:59] Upsert item A (A)
+[2025-08-30 19:02:59] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-30 19:02:59] Upsert item B (B)
+[2025-08-30 19:02:59] Naprawiono strukturę magazyn.json (dopisano brakujące klucze).
+[2025-08-30 19:02:59] Tworzę nowy magazyn: /tmp/pytest-of-root/pytest-0/test_parallel_saves_are_serial0/magazyn.json
