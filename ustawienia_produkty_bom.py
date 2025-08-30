@@ -336,3 +336,5 @@ def make_tab(parent, rola=None):
 
     _refresh()
     return frm
+
+# ⏹ KONIEC KODU
