@@ -77,8 +77,7 @@ def _save_config(cfg: dict):
         logger.log_akcja(f"Błąd zapisu {CONFIG_PATH}: {e}")
         error_dialogs.show_error_dialog("Config", f"Błąd zapisu {CONFIG_PATH}: {e}")
 
-_CFG_CACHE = _load_config()
-DEBUG = bool(os.environ.get("WM_DEBUG") or _CFG_CACHE.get("tryb_testowy"))
+DEBUG = bool(os.environ.get("WM_DEBUG") or _load_config().get("tryb_testowy"))
 
 def _dbg(*args):
     if DEBUG:
@@ -439,6 +438,7 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 def panel_narzedzia(root, frame, login=None, rola=None):
+    _load_config()
     _maybe_seed_config_templates()
     apply_theme(root)
     clear_frame(frame)
@@ -489,6 +489,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             row_data[iid] = t
         if not data:
             _dbg("Lista narzędzi pusta – filtr:", q or "(brak)")
+
+    def _on_cfg_updated(_event=None):
+        _maybe_seed_config_templates()
+        refresh_list()
+
+    root.bind("<<ConfigUpdated>>", _on_cfg_updated)
 
     # ===================== POPUP WYBORU TRYBU =====================
     def choose_mode_and_add():
