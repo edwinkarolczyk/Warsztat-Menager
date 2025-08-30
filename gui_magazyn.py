@@ -28,6 +28,14 @@ from utils import error_dialogs
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
+from config_manager import ConfigManager
+
+_CFG = ConfigManager()
+
+
+def _fmt(num: float) -> str:
+    prec = _CFG.get("magazyn_precision_mb", 3)
+    return f"{float(num):.{prec}f}"
 
 try:  # obsługa opcjonalnego modułu drukarki
     from escpos import printer as escpos_printer
@@ -192,11 +200,11 @@ class PanelMagazyn(ttk.Frame):
             self.tree.insert("", "end", values=(
                 it["id"], it["nazwa"], it.get("typ","komponent"),
                 it.get("jednostka","szt"),
-                f'{float(it.get("stan",0)):.3f}',
-                f'{float(it.get("min_poziom",0)):.3f}',
-                f'{float(it.get("rezerwacje",0)):.3f}',
+                _fmt(it.get("stan", 0)),
+                _fmt(it.get("min_poziom", 0)),
+                _fmt(it.get("rezerwacje", 0)),
                 f'{dl_mm:.0f}' if dl_mm > 0 else "",
-                f'{suma_m:.3f}' if suma_m > 0 else ""
+                _fmt(suma_m) if suma_m > 0 else ""
             ), tags=(col,))
         self.tree.tag_configure("#stock_low", background=COLORS.get("stock_low", "#c0392b"))
         self.tree.tag_configure("#stock_warn", background=COLORS.get("stock_warn", "#d35400"))
@@ -220,11 +228,11 @@ class PanelMagazyn(ttk.Frame):
                     it["nazwa"],
                     it.get("typ", "komponent"),
                     it.get("jednostka", "szt"),
-                    f'{float(it.get("stan", 0)):.3f}',
-                    f'{float(it.get("min_poziom", 0)):.3f}',
-                    f'{float(it.get("rezerwacje", 0)):.3f}',
+                    _fmt(it.get("stan", 0)),
+                    _fmt(it.get("min_poziom", 0)),
+                    _fmt(it.get("rezerwacje", 0)),
                     f"{dl_mm:.0f}" if dl_mm > 0 else "",
-                    f"{suma_m:.3f}" if suma_m > 0 else "",
+                    _fmt(suma_m) if suma_m > 0 else "",
                 ),
                 tags=(col,),
             )
@@ -537,7 +545,7 @@ def panel_ustawien_magazyn(parent, rola=None):
             szt = float((var_st.get() or "0").replace(",", "."))
             mm  = float((var_len.get() or "0").replace(",", "."))
             m   = (szt * mm) / 1000.0 if szt > 0 and mm > 0 else 0.0
-            sum_lbl.configure(text=f"Suma długości: {m:.3f} m")
+            sum_lbl.configure(text=f"Suma długości: {_fmt(m)} m")
         except Exception:
             sum_lbl.configure(text="Suma długości: -")
 

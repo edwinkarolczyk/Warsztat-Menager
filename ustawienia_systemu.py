@@ -125,6 +125,11 @@ def panel_ustawien(root, frame, login=None, rola=None):
     push_branch_var = tk.StringVar(value=cfg.get("updates.push_branch", "git-push"))
     feedback_url_var = tk.StringVar(value=cfg.get("feedback.url", ""))
     connection_status_var = tk.StringVar()
+    magazyn_rez_var = tk.BooleanVar(value=cfg.get("magazyn_rezerwacje", True))
+    magazyn_precision_var = tk.IntVar(value=cfg.get("magazyn_precision_mb", 3))
+    progi_alertow_txt = "\n".join(
+        str(p) for p in cfg.get("progi_alertow_pct", [100])
+    )
     color_vars = {
         "dark_bg": tk.StringVar(
             value=cfg.get("ui.colors.dark_bg", "#1b1f24")
@@ -292,6 +297,8 @@ def panel_ustawien(root, frame, login=None, rola=None):
     track("updates.branch", branch_var, str)
     track("updates.push_branch", push_branch_var, str)
     track("feedback.url", feedback_url_var, str)
+    track("magazyn_rezerwacje", magazyn_rez_var, bool)
+    track("magazyn_precision_mb", magazyn_precision_var, int)
     for color_key, var in color_vars.items():
         track(f"ui.colors.{color_key}", var, str)
 
@@ -774,21 +781,68 @@ def panel_ustawien(root, frame, login=None, rola=None):
     ustawienia_uzytkownicy.make_tab(tab2, rola)
 
     # --- Magazyn ---
-    tab3 = _make_frame(group_containers["Magazyn"], "WM.Card.TFrame")
-    group_containers["Magazyn"].add(tab3, text="Magazyn")
+    tab_opts = _make_frame(group_containers["Magazyn"], "WM.Card.TFrame")
+    group_containers["Magazyn"].add(tab_opts, text="Opcje")
+    frm_opts = ttk.Frame(tab_opts)
+    frm_opts.pack(fill="x", padx=12, pady=12)
+    frm_opts.columnconfigure(1, weight=1)
+    row = 0
+    row = _switch_row(
+        frm_opts,
+        row,
+        "Włącz rezerwacje:",
+        magazyn_rez_var,
+        "magazyn_rezerwacje",
+    )
+    ttk.Label(frm_opts, text="Miejsca po przecinku:").grid(
+        row=row, column=0, sticky="w", padx=5, pady=5
+    )
+    ttk.Spinbox(
+        frm_opts,
+        from_=0,
+        to=6,
+        textvariable=magazyn_precision_var,
+        width=5,
+    ).grid(row=row, column=1, sticky="w", padx=5, pady=5)
+    ttk.Label(
+        frm_opts,
+        text=_SCHEMA_DESC.get("magazyn_precision_mb", ""),
+        font=("", 8),
+    ).grid(row=row + 1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+    row += 2
+    ttk.Label(frm_opts, text="Progi alertów (%):").grid(
+        row=row, column=0, sticky="nw", padx=5, pady=5
+    )
+    txt_progi = tk.Text(frm_opts, height=4)
+    txt_progi.grid(row=row, column=1, sticky="ew", padx=5, pady=5)
+    txt_progi.insert("1.0", progi_alertow_txt)
+    ttk.Label(
+        frm_opts,
+        text=_SCHEMA_DESC.get("progi_alertow_pct", ""),
+        font=("", 8),
+    ).grid(row=row + 1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+    progi_alertow_var = _TextWrapper(txt_progi)
+    track(
+        "progi_alertow_pct",
+        progi_alertow_var,
+        lambda x: [float(p) for p in x if p],
+    )
+
+    tab_mag = _make_frame(group_containers["Magazyn"], "WM.Card.TFrame")
+    group_containers["Magazyn"].add(tab_mag, text="Magazyn")
     try:
-        panel_ustawien_magazyn(tab3)
+        panel_ustawien_magazyn(tab_mag)
     except Exception as e:
-        ttk.Label(tab3, text=f"Panel Magazynu – błąd: {e}").pack(padx=10, pady=10)
+        ttk.Label(tab_mag, text=f"Panel Magazynu – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Produkty (BOM) ---
-    tab4 = _make_frame(group_containers["Magazyn"], "WM.Card.TFrame")
-    group_containers["Magazyn"].add(tab4, text="Produkty (BOM)")
+    tab_prod = _make_frame(group_containers["Magazyn"], "WM.Card.TFrame")
+    group_containers["Magazyn"].add(tab_prod, text="Produkty (BOM)")
     try:
-        frm_prod = panel_ustawien_produkty(tab4, rola)
+        frm_prod = panel_ustawien_produkty(tab_prod, rola)
         frm_prod.pack(fill="both", expand=True)
     except Exception as e:
-        ttk.Label(tab4, text=f"Panel Produktów (BOM) – błąd: {e}").pack(padx=10, pady=10)
+        ttk.Label(tab_prod, text=f"Panel Produktów (BOM) – błąd: {e}").pack(padx=10, pady=10)
 
     # --- Grafiki zmian ---
     tab_sh = _make_frame(group_containers["Hala/Widok"], "WM.Card.TFrame")
