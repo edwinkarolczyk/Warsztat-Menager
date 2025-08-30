@@ -1,5 +1,6 @@
 ## Wdrożone
 - Dodano widok hali z trasowaniem serwisantów i integracją awarii.
+- 2025-08-30 – Dodano funkcję zestawienia wydajności magazynu.
 
 ## Planowane
 - Pogrupowanie ustawień i krótkie opisy

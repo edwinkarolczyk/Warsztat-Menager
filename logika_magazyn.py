@@ -453,3 +453,52 @@ def historia_item(item_id, limit=100):
             return []
         h = it.get("historia", [])
         return h[-limit:]
+
+
+def performance_table(limit=None):
+    """Zwraca zestawienie operacji magazynu.
+
+    Funkcja agreguje wpisy z pliku historii magazynu i zwraca listę
+    słowników zawierających ``item_id``, ``operacja``, sumę ilości oraz
+    liczbę wystąpień. Wyniki są posortowane malejąco po sumarycznej
+    ilości, co ułatwia analizę najbardziej obciążonych pozycji.
+
+    Args:
+        limit: Maksymalna liczba ostatnich wpisów historii do
+            uwzględnienia. ``None`` oznacza analizę całej historii.
+
+    Returns:
+        list[dict]: Każdy słownik ma klucze ``item_id``, ``operacja``,
+        ``ilosc`` i ``liczba``.
+    """
+
+    hp = _history_path()
+    try:
+        with open(hp, "r", encoding="utf-8") as f:
+            hist = json.load(f)
+    except Exception:
+        return []
+
+    if not isinstance(hist, list):
+        return []
+
+    if limit is not None:
+        hist = hist[-limit:]
+
+    stats = {}
+    for rec in hist:
+        item = rec.get("item_id")
+        op = rec.get("operacja")
+        qty = float(rec.get("ilosc", 0) or 0)
+        if not item or not op:
+            continue
+        key = (item, op)
+        if key not in stats:
+            stats[key] = {"item_id": item, "operacja": op, "ilosc": 0.0, "liczba": 0}
+        stats[key]["ilosc"] += qty
+        stats[key]["liczba"] += 1
+
+    return sorted(
+        stats.values(),
+        key=lambda d: (-d["ilosc"], d["item_id"], d["operacja"]),
+    )
