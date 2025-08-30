@@ -22,6 +22,9 @@ try:
         create_zlecenie,
         STATUSY,
         update_status,
+        read_bom,
+        read_magazyn,
+        reserve_materials,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -93,6 +96,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_nowe = ttk.Button(actions, text="Nowe zlecenie"); btn_nowe.pack(side="left")
     btn_odsw = ttk.Button(actions, text="Odśwież");      btn_odsw.pack(side="left", padx=6)
     btn_usun = ttk.Button(actions, text="Usuń");         btn_usun.pack(side="left", padx=6)
+    btn_rez  = ttk.Button(actions, text="Rezerwuj");     btn_rez.pack(side="left", padx=6)
 
     right = ttk.Frame(actions, style="WM.TFrame"); right.pack(side="right")
     ttk.Label(right, text="Status:", style="WM.TLabel").pack(side="left", padx=(0, 6))
@@ -184,6 +188,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_nowe.configure(command=lambda: _kreator_zlecenia(frame, lbl_info, root, _odswiez))
     btn_odsw.configure(command=_odswiez)
     btn_usun.configure(command=lambda: _usun_zlecenie(tree, lbl_info, _odswiez))
+    btn_rez.configure(command=lambda: _rezerwuj_materialy(tree, lbl_info, root))
 
     _odswiez()
     return frame
@@ -322,3 +327,59 @@ def _usun_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, on_done):
             messagebox.showwarning("Usuwanie", f"Nie znaleziono pliku zlecenia {zid}")
     except Exception as e:
         error_dialogs.show_error_dialog("Usuwanie", f"Błąd: {e}")
+
+
+def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
+    item = tree.selection()
+    if not item:
+        messagebox.showinfo("Rezerwacja", "Wybierz zlecenie z listy.")
+        return
+    prod = tree.set(item[0], "produkt")
+    ilosc_raw = tree.set(item[0], "ilosc") or "1"
+    try:
+        ilosc = int(ilosc_raw)
+    except Exception:
+        ilosc = 1
+    try:
+        bom = read_bom(prod)
+    except Exception as e:
+        messagebox.showerror("BOM", f"Błąd: {e}")
+        return
+    if "sklad" not in bom:
+        messagebox.showinfo("Rezerwacja", "Brak składników w BOM.")
+        return
+
+    mag = read_magazyn()
+    win = tk.Toplevel(root); win.title(f"Rezerwacja materiałów {prod}")
+    _maybe_theme(win)
+    win.geometry("560x360")
+
+    frame = ttk.Frame(win, style="WM.TFrame"); frame.pack(fill="both", expand=True, padx=12, pady=12)
+    cols = ("kod", "potrzeba", "dostepne", "dostepne_po")
+    tv = ttk.Treeview(frame, columns=cols, show="headings", height=12, style="WM.Treeview")
+    tv.heading("kod", text="Składnik");      tv.column("kod", width=140, anchor="w")
+    tv.heading("potrzeba", text="Potrzeba"); tv.column("potrzeba", width=80, anchor="center")
+    tv.heading("dostepne", text="Dostępne"); tv.column("dostepne", width=80, anchor="center")
+    tv.heading("dostepne_po", text="Dostępne po"); tv.column("dostepne_po", width=100, anchor="center")
+    tv.pack(fill="both", expand=True)
+
+    for poz in bom.get("sklad", []):
+        kod = poz["kod"]
+        req = poz.get("ilosc", 0) * ilosc
+        stan = mag.get(kod, {}).get("stan", 0)
+        tv.insert("", "end", values=(kod, req, stan, stan))
+
+    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
+
+    def do_reserve():
+        updated = reserve_materials(bom, ilosc)
+        for iid in tv.get_children():
+            kod = tv.set(iid, "kod")
+            if kod in updated:
+                tv.set(iid, "dostepne_po", str(updated[kod]))
+        lbl_info.config(text=f"Zarezerwowano materiały dla {prod}")
+        btn_res.configure(state="disabled")
+
+    btn_res = ttk.Button(btns, text="Rezerwuj", command=do_reserve)
+    btn_res.pack(side="right", padx=6)
+    ttk.Button(btns, text="Zamknij", command=win.destroy).pack(side="right")

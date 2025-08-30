@@ -85,7 +85,12 @@ def check_materials(bom, ilosc=1):
 
 
 def reserve_materials(bom, ilosc=1):
-    """Rezerwuje materiały lub półprodukty na magazynie."""
+    """Rezerwuje materiały lub półprodukty na magazynie i zwraca nowe stany.
+
+    Zwracany jest słownik ``{kod: stan_po_rezerwacji}`` dla każdej pozycji
+    występującej w przekazanym BOM. Informacja ta jest wykorzystywana przez GUI
+    do zasilenia kolumny "dostępne po".
+    """
     if "sklad" in bom:
         mag_path = MAG_DIR / "stany.json"
         items_key = "sklad"
@@ -98,14 +103,16 @@ def reserve_materials(bom, ilosc=1):
         default_item = lambda k: {"stan": 0, "jednostka": "szt"}
 
     mag = _read_json(mag_path) if mag_path.exists() else {}
+    updated = {}
     for poz in bom.get(items_key, []):
         kod = poz["kod"]
         req = poz.get(qty_key, 0) * ilosc
         if kod not in mag:
             mag[kod] = default_item(kod)
         mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
+        updated[kod] = mag[kod]["stan"]
     _write_json(mag_path, mag)
-    return mag
+    return updated
 
 def create_zlecenie(
     kod_produktu,

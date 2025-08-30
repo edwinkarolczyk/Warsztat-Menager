@@ -62,10 +62,12 @@ def test_polprodukty_check_and_reserve(tmp_path, monkeypatch):
     with open(mag_path, encoding='utf-8') as f:
         mag_before = json.load(f)
 
-    zl.reserve_materials(bom, 5)
+    updated = zl.reserve_materials(bom, 5)
 
     with open(mag_path, encoding='utf-8') as f:
         mag_after = json.load(f)
 
     assert mag_after['PP001']['stan'] == mag_before['PP001']['stan'] - 10
     assert mag_after['PP002']['stan'] == mag_before['PP002']['stan'] - 5
+    assert updated['PP001'] == mag_after['PP001']['stan']
+    assert updated['PP002'] == mag_after['PP002']['stan']
