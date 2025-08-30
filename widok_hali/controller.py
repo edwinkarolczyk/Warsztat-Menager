@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import simpledialog, ttk
+from tkinter import messagebox, simpledialog, ttk
 from typing import List, Optional
 
 from .a_star import find_path
@@ -111,6 +111,10 @@ class HalaController:
             m = self._machine_at(event.x, event.y)
             if m is not None:
                 self.delete_machine_with_triple_confirm(m.id)
+        else:  # tryb podglądu
+            m = self._machine_at(event.x, event.y)
+            if m is not None:
+                self.show_details(m)
 
     # ------------------------------------------------------------------
     def on_drag(self, event: tk.Event) -> None:
@@ -174,6 +178,23 @@ class HalaController:
         ]
         path = find_path(self.workshop_start, (machine.x, machine.y), walls)
         self.animator.start(path, machine=machine, overlay=self, step_ms=self.anim_interval_ms)
+
+    # ------------------------------------------------------------------
+    def show_details(self, machine: Machine) -> None:
+        """Wyświetl okno z podstawowymi informacjami o maszynie."""
+
+        try:
+            messagebox.showinfo(
+                "Maszyna",
+                (
+                    f"{machine.nazwa}\n"
+                    f"ID: {machine.id}\n"
+                    f"Status: {machine.status}\n"
+                    f"Położenie: ({machine.x}, {machine.y})"
+                ),
+            )
+        except Exception:  # pragma: no cover - brak GUI w testach
+            pass
 
 
 __all__ = ["HalaController"]
