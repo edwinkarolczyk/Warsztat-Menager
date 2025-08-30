@@ -13,6 +13,7 @@ from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+from bom import compute_sr_for_pp
 
 try:
     from zlecenia_logika import (
@@ -21,6 +22,8 @@ try:
         create_zlecenie,
         STATUSY,
         update_status,
+        read_bom,
+        read_magazyn,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -214,6 +217,38 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     frm.columnconfigure(1, weight=1)
     frm.rowconfigure(3, weight=1)
 
+    try:
+        mag = read_magazyn()
+    except Exception:
+        mag = {}
+
+    def _potwierdz_surowce(sumy: dict) -> bool:
+        win_sr = tk.Toplevel(win); win_sr.title("Potwierdź surowce")
+        _maybe_theme(win_sr)
+        try: win_sr.grab_set()
+        except Exception: pass
+        ttk.Label(win_sr, text="Potrzebne surowce", style="WM.TLabel").pack(
+            anchor="w", padx=12, pady=12
+        )
+        tree = ttk.Treeview(win_sr, columns=("sr", "qty"), show="headings", style="WM.Treeview")
+        tree.heading("sr", text="Surowiec")
+        tree.heading("qty", text="Ilość")
+        for k, v in sumy.items():
+            name = mag.get(k, {}).get("nazwa", k)
+            tree.insert("", "end", values=(f"{name} ({k})", f"{v:.2f}"))
+        tree.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        btns = ttk.Frame(win_sr, style="WM.TFrame"); btns.pack(fill="x", pady=(0, 12))
+        result = {"ok": False}
+
+        def _ok():
+            result["ok"] = True
+            win_sr.destroy()
+
+        ttk.Button(btns, text="Potwierdź", command=_ok).pack(side="right", padx=6)
+        ttk.Button(btns, text="Anuluj", command=win_sr.destroy).pack(side="right")
+        win_sr.wait_window()
+        return result["ok"]
+
     def akcept():
         kod = cb_prod.get().strip()
         if not kod:
@@ -222,11 +257,31 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             ilosc = int(spn.get())
         except Exception:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win); return
+        try:
+            bom_def = read_bom(kod)
+        except Exception as e:
+            messagebox.showwarning("Błąd BOM", f"{e}", parent=win)
+            return
+        sumy = {}
+        for pp in bom_def.get("polprodukty", []):
+            pp_kod = pp.get("kod")
+            qty_pp = pp.get("ilosc_na_szt", 0) * ilosc
+            try:
+                sr = compute_sr_for_pp(pp_kod, qty_pp)
+            except Exception as e:
+                messagebox.showwarning("Błąd BOM", f"{pp_kod}: {e}", parent=win)
+                return
+            for s_kod, s_qty in sr.items():
+                sumy[s_kod] = sumy.get(s_kod, 0) + s_qty
+        if not _potwierdz_surowce(sumy):
+            return
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
         zlec, braki = create_zlecenie(kod, ilosc, uwagi=uw, autor="GUI", zlec_wew=zlec_wew)
-        messagebox.showinfo("Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win)
+        messagebox.showinfo(
+            "Zlecenie utworzone", f"ID: {zlec['id']}, status: {zlec['status']}", parent=win
+        )
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
         win.destroy(); on_done()
 
