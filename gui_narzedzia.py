@@ -728,9 +728,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     move_to_sn[0] = True
                     for t in tasks:
                         if not t.get("done"):
-                            t["done"] = True
-                            t["by"] = login or "system"
-                            t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                            _mark_done(t, "system")
                             t["komentarz"] = "Oznaczono przy przeniesieniu do SN"
                     repaint_tasks()
             last_status[0] = new_st
@@ -782,26 +780,35 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             i = _sel_idx()
             if i < 0: return
             tasks.pop(i); repaint_tasks()
+        def _mark_done(t, by_fallback="nieznany"):
+            t["done"] = True
+            t["by"] = login or by_fallback
+            t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
+            try:
+                zuzyte = LZ.consume_for_task(tool_id=str(nr_auto), task=t, uzytkownik=login or "system")
+                if zuzyte:
+                    t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(zuzyte)
+            except Exception as _e:
+                try:
+                    _dbg("[MAGAZYN] błąd zużycia", _e)
+                except Exception:
+                    pass
+
+        def _unmark_done(t):
+            t["done"] = False
+            t["by"] = ""
+            t["ts_done"] = ""
+
         def _toggle_done():
             i = _sel_idx()
-            if i < 0: return
+            if i < 0:
+                return
             t = tasks[i]
-            t["done"] = not t["done"]
-            if t["done"]:
-                t["by"] = login or "nieznany"
-                t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-                # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
-                try:
-                    zuzyte = LZ.consume_for_task(tool_id=str(nr_auto), task=t, uzytkownik=login or "system")
-                    if zuzyte:
-                        t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(zuzyte)
-                except Exception as _e:
-                    try:
-                        _dbg("[MAGAZYN] błąd zużycia", _e)
-                    except Exception:
-                        pass
+            if t.get("done"):
+                _unmark_done(t)
             else:
-                t["by"] = ""; t["ts_done"] = ""
+                _mark_done(t)
             repaint_tasks()
         ttk.Button(tools_bar, text="Usuń zaznaczone", style="WM.Side.TButton",
                    command=_del_sel).pack(side="left", padx=(6,0))
