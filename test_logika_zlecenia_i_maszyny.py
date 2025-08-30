@@ -4,6 +4,7 @@ from pathlib import Path
 
 import zlecenia_logika as zl
 import maszyny_logika as ml
+import bom
 
 
 def _setup_zlecenia_copy(tmp_path, monkeypatch):
@@ -71,3 +72,30 @@ def test_polprodukty_check_and_reserve(tmp_path, monkeypatch):
     assert mag_after['PP002']['stan'] == mag_before['PP002']['stan'] - 5
     assert updated['PP001'] == mag_after['PP001']['stan']
     assert updated['PP002'] == mag_after['PP002']['stan']
+
+
+def test_create_zlecenie_uses_selected_version(tmp_path, monkeypatch):
+    data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
+    monkeypatch.setattr(bom, 'DATA_DIR', data_copy)
+
+    v2 = {
+        "kod": "PRD001",
+        "nazwa": "Stojak spawany",
+        "polprodukty": [
+            {"kod": "PP001", "ilosc_na_szt": 2.0},
+            {"kod": "PP002", "ilosc_na_szt": 1.0},
+            {"kod": "PP003", "ilosc_na_szt": 1.0},
+        ],
+        "version": "2.0",
+        "bom_revision": 2,
+        "effective_from": "2024-06-01",
+        "effective_to": None,
+        "is_default": False,
+    }
+    prd_path = data_copy / 'produkty' / 'PRD001_v2.json'
+    with open(prd_path, 'w', encoding='utf-8') as f:
+        json.dump(v2, f, ensure_ascii=False, indent=2)
+
+    zlec, braki = zl.create_zlecenie('PRD001', 1, wersja='2.0', reserve=False)
+    assert zlec['wersja'] == '2.0'
+    assert any(b['kod'] == 'PP003' for b in braki)

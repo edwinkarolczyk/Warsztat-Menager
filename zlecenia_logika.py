@@ -1,14 +1,18 @@
 # =============================
 # FILE: zlecenia_logika.py
-# VERSION: 1.1.5
+# VERSION: 1.1.6
+# Zmiany 1.1.6:
+# - create_zlecenie: obsługa wersji produktu
 # Zmiany 1.1.5:
 # - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
 # - create_zlecenie nadal obsługuje `zlec_wew`; start = "nowe"
 # =============================
 
-import json, os
+import json
 from pathlib import Path
 from datetime import datetime
+
+import bom
 
 DATA_DIR = Path("data")
 BOM_DIR = DATA_DIR / "produkty"
@@ -120,6 +124,7 @@ def create_zlecenie(
     uwagi: str = "",
     autor: str = "system",
     zlec_wew=None,
+    wersja: str | None = None,
     reserve: bool = True,
 ):
     """Tworzy zlecenie w statusie "nowe".
@@ -127,13 +132,14 @@ def create_zlecenie(
     Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
     """
     _ensure_dirs()
-    bom = read_bom(kod_produktu)
-    braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
+    prod = bom.get_produkt(kod_produktu, wersja)
+    braki = check_materials(prod, ilosc)  # tylko informacyjnie na start
     if reserve:
-        reserve_materials(bom, ilosc)
+        reserve_materials(prod, ilosc)
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,
+        "wersja": prod.get("version"),
         "ilosc": ilosc,
         "status": "nowe",
         "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

@@ -290,6 +290,7 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             uwagi=uw,
             autor="GUI",
             zlec_wew=zlec_wew,
+            wersja=wersja or None,
         )
         if braki:
             msg = ", ".join(
