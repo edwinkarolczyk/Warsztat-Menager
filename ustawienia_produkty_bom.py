@@ -98,22 +98,26 @@ def make_tab(parent, rola=None):
     bar = ttk.Frame(center, style="WM.TFrame"); bar.grid(row=0, column=0, sticky="ew")
     ttk.Label(bar, text="BOM (półprodukty)", style="WM.Card.TLabel").pack(side="left")
     ttk.Button(bar, text="Dodaj wiersz", command=lambda:_add_row(), style="WM.Side.TButton").pack(side="right", padx=(6,2))
+    ttk.Button(bar, text="Edytuj wiersz", command=lambda:_edit_row(), style="WM.Side.TButton").pack(side="right", padx=(6,2))
     ttk.Button(bar, text="Usuń wiersz", command=lambda:_del_row(), style="WM.Side.TButton").pack(side="right")
     tv = ttk.Treeview(
         center,
-        columns=("pp", "nazwa", "ilosc_na_szt"),
+        columns=("pp", "nazwa", "ilosc_na_szt", "operacje", "surowiec"),
         show="headings",
         style="WM.Treeview",
         height=14,
     )
     tv.grid(row=1, column=0, sticky="nsew", pady=(6,0))
     for c, t, w in [
-        ("pp", "Kod PP", 200),
-        ("nazwa", "Nazwa", 260),
-        ("ilosc_na_szt", "Ilość na szt.", 120),
+        ("pp", "Kod PP", 160),
+        ("nazwa", "Nazwa", 220),
+        ("ilosc_na_szt", "Ilość na szt.", 100),
+        ("operacje", "Czynności", 160),
+        ("surowiec", "Surowiec", 160),
     ]:
         tv.heading(c, text=t)
         tv.column(c, width=w, anchor="w")
+    tv.bind("<Double-1>", lambda e: _edit_row())
 
     frm._polprodukty = _list_polprodukty()
 
@@ -143,7 +147,18 @@ def make_tab(parent, rola=None):
         for poz in j.get("polprodukty", []):
             mid = poz.get("kod", "")
             nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
-            tv.insert("", "end", values=(mid, nm, poz.get("ilosc_na_szt", 1)))
+            ops_txt = ", ".join(poz.get("operacje", []))
+            sr = poz.get("surowiec") or {}
+            sr_txt = ""
+            if sr:
+                t = sr.get("typ", "")
+                d = sr.get("dlugosc")
+                sr_txt = f"{t}:{d}" if d is not None else t
+            tv.insert(
+                "",
+                "end",
+                values=(mid, nm, poz.get("ilosc_na_szt", 1), ops_txt, sr_txt),
+            )
 
     def _new():
         k = simpledialog.askstring("Nowy produkt", "Podaj kod:", parent=frm)
@@ -162,9 +177,9 @@ def make_tab(parent, rola=None):
         _refresh(); var_kod.set(""); var_nazwa.set("")
         for iid in tv.get_children(): tv.delete(iid)
 
-    def _add_row():
+    def _add_row(edit_iid=None):
         win = tk.Toplevel(frm)
-        win.title("Dodaj pozycję BOM")
+        win.title("Pozycja BOM")
         apply_theme(win)
         f = ttk.Frame(win)
         f.pack(padx=10, pady=10, fill="x")
@@ -173,11 +188,38 @@ def make_tab(parent, rola=None):
         pp_desc = [f"{m['kod']} – {m['nazwa']}" for m in frm._polprodukty]
         cb = ttk.Combobox(f, values=pp_desc, state="readonly")
         cb.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
-        if pp_desc:
-            cb.current(0)
         ttk.Label(f, text="Ilość na szt.", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=4)
         var_il = tk.StringVar(value="1")
         ttk.Entry(f, textvariable=var_il, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=4)
+        ttk.Label(f, text="Czynności:", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        var_ops = tk.StringVar()
+        ttk.Entry(f, textvariable=var_ops).grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Surowiec typ:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        var_sr_typ = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_typ).grid(row=3, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Surowiec dł.", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
+        var_sr_dl = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_dl, width=10).grid(row=4, column=1, sticky="w", padx=4, pady=4)
+
+        if pp_desc:
+            cb.current(0)
+        if edit_iid:
+            vals = tv.item(edit_iid, "values")
+            try:
+                idx = pp_ids.index(vals[0])
+                cb.current(idx)
+            except ValueError:
+                cb.set(vals[0])
+            var_il.set(vals[2])
+            var_ops.set(vals[3])
+            sr_typ = sr_dl = ""
+            if vals[4]:
+                parts = str(vals[4]).split(":", 1)
+                sr_typ = parts[0]
+                if len(parts) > 1:
+                    sr_dl = parts[1]
+            var_sr_typ.set(sr_typ)
+            var_sr_dl.set(sr_dl)
 
         def _ok():
             try:
@@ -195,16 +237,32 @@ def make_tab(parent, rola=None):
                 return
             if il.is_integer():
                 il = int(il)
-            tv.insert("", "end", values=(pp_id, nm, il))
+            ops_txt = ", ".join([o.strip() for o in var_ops.get().split(",") if o.strip()])
+            sr_typ = var_sr_typ.get().strip()
+            sr_dl = var_sr_dl.get().strip()
+            sr_txt = f"{sr_typ}:{sr_dl}" if sr_typ and sr_dl else sr_typ
+            values = (pp_id, nm, il, ops_txt, sr_txt)
+            if edit_iid:
+                tv.item(edit_iid, values=values)
+            else:
+                tv.insert("", "end", values=values)
             win.destroy()
 
-        ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(row=2, column=0, columnspan=2, pady=(8, 2))
+        ttk.Button(f, text="OK", command=_ok, style="WM.Side.TButton").grid(row=5, column=0, columnspan=2, pady=(8, 2))
+
+    def _edit_row():
+        sel = tv.selection()
+        if not sel:
+            messagebox.showwarning("BOM","Zaznacz wiersz do edycji.")
+            return
+        _add_row(sel[0])
 
     def _del_row():
         sel = tv.selection()
         if not sel:
             messagebox.showwarning("BOM","Zaznacz wiersz do usunięcia."); return
-        for iid in sel: tv.delete(iid)
+        for iid in sel:
+            tv.delete(iid)
 
     def _save():
         kod = (var_kod.get() or "").strip()
@@ -214,7 +272,7 @@ def make_tab(parent, rola=None):
             return
         bom = []
         for iid in tv.get_children():
-            pp, _nm, il = tv.item(iid, "values")
+            pp, _nm, il, ops_txt, sr_txt = tv.item(iid, "values")
             try:
                 il = float(il)
                 if il <= 0:
@@ -224,7 +282,22 @@ def make_tab(parent, rola=None):
                 return
             if il.is_integer():
                 il = int(il)
-            bom.append({"kod": pp, "ilosc_na_szt": il})
+            poz = {"kod": pp, "ilosc_na_szt": il}
+            ops = [o.strip() for o in str(ops_txt).split(",") if o.strip()]
+            if ops:
+                poz["operacje"] = ops
+            if sr_txt:
+                parts = str(sr_txt).split(":", 1)
+                sr_typ = parts[0].strip()
+                sr_dl = None
+                if len(parts) > 1:
+                    try:
+                        sr_dl = float(parts[1])
+                    except ValueError:
+                        sr_dl = None
+                if sr_typ and sr_dl is not None:
+                    poz["surowiec"] = {"typ": sr_typ, "dlugosc": sr_dl}
+            bom.append(poz)
         payload = {"kod": kod, "nazwa": naz, "polprodukty": bom}
         _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
         messagebox.showinfo("Produkty", f"Zapisano {kod}.")

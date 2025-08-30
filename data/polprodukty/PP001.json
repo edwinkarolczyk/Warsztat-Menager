@@ -2,6 +2,6 @@
   "kod": "PP001",
   "nazwa": "Rurka cięta 200mm",
   "operacje": ["ciecie"],
-  "surowiec": { "kod": "SR001", "ilosc_na_szt": 0.20, "jednostka": "mb" },
+  "surowiec": { "typ": "SR001", "dlugosc": 0.20 },
   "norma_strat_proc": 2.0
 }
