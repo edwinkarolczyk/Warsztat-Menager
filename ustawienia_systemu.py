@@ -377,6 +377,12 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 var.set(original_vals[key])
         dirty_keys.clear()
 
+    # Check for unsaved changes when switching tabs or closing
+    nb_groups.bind("<<NotebookTabChanged>>", on_exit)
+    for cont in group_containers.values():
+        if isinstance(cont, ttk.Notebook):
+            cont.bind("<<NotebookTabChanged>>", on_exit)
+
     container.bind("<Destroy>", on_exit)
 
     # --- Motyw ---
