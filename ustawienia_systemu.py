@@ -279,6 +279,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
             def _cb(*_):
                 callback()
             self.widget.bind("<KeyRelease>", _cb)
+            self.widget.bind("<<Modified>>", _cb)
             self.widget.bind("<FocusOut>", _cb)
 
     original_vals = {}
@@ -287,7 +288,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
 
     def track(key, var, cast):
         original_vals[key] = cast(var.get())
-        tracked_vars[key] = (var, cast)
         def _mark(*_):
             try:
                 val = cast(var.get())
@@ -300,7 +300,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
         if hasattr(var, "trace_add"):
             var.trace_add("write", _mark)
         else:
+            var.widget.bind("<KeyRelease>", _mark)
+            var.widget.bind("<<Modified>>", _mark)
             var.widget.bind("<FocusOut>", _mark)
+        tracked_vars[key] = (var, cast, _mark)
 
     track("ui.language", lang_var, str)
     track("ui.theme", theme_var, str)
@@ -343,12 +346,14 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     def on_exit(_event=None):
+        for var, _cast, mark in tracked_vars.values():
+            mark()
         if not dirty_keys:
             return
         if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?"):
             changed = list(dirty_keys)
             for key in changed:
-                var, cast = tracked_vars[key]
+                var, cast, _ = tracked_vars[key]
                 try:
                     val = cast(var.get())
                 except Exception:
@@ -368,7 +373,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
                     pass
         else:
             for key in list(dirty_keys):
-                var, _ = tracked_vars[key]
+                var, _, _ = tracked_vars[key]
                 var.set(original_vals[key])
         dirty_keys.clear()
 
