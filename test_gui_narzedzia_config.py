@@ -14,6 +14,9 @@ def test_load_config_logs(monkeypatch):
         lambda title, msg, suggestion=None: dialogs.append((title, msg)),
     )
 
+    gui_narzedzia._CFG_CACHE = None
+    gui_narzedzia.CONFIG_MTIME = None
+
     def bad_open(*a, **kw):
         raise OSError("boom")
 
