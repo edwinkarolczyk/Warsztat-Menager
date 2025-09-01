@@ -35,6 +35,9 @@ CONFIG_PATH  = "config.json"
 STATUSY_NOWE_DEFAULT  = ["projekt", "w budowie", "próby narzędzia", "odbiór", "sprawne"]
 STATUSY_STARE_DEFAULT = ["sprawne", "do ostrzenia", "w ostrzeniu", "po ostrzeniu", "w naprawie", "uszkodzone", "wycofane"]
 
+_CFG_CACHE: dict | None = None
+CONFIG_MTIME: float | None = None
+
 TASK_TEMPLATES_DEFAULT = [
     "Przegląd wizualny",
     "Czyszczenie i smarowanie",
@@ -59,20 +62,34 @@ NN_PROD_STATES = {
 
 # ===================== CONFIG / DEBUG =====================
 def _load_config():
+    global _CFG_CACHE, CONFIG_MTIME
     if not os.path.exists(CONFIG_PATH):
+        _CFG_CACHE = {}
+        CONFIG_MTIME = None
         return {}
     try:
+        mtime = os.path.getmtime(CONFIG_PATH)
+        if _CFG_CACHE is not None and CONFIG_MTIME == mtime:
+            return _CFG_CACHE
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            _CFG_CACHE = json.load(f)
+        CONFIG_MTIME = mtime
+        return _CFG_CACHE
     except Exception as e:
         logger.log_akcja(f"Błąd wczytywania {CONFIG_PATH}: {e}")
         error_dialogs.show_error_dialog("Config", f"Błąd wczytywania {CONFIG_PATH}: {e}")
-        return {}
+        return _CFG_CACHE or {}
 
 def _save_config(cfg: dict):
+    global _CFG_CACHE, CONFIG_MTIME
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
+        _CFG_CACHE = cfg
+        try:
+            CONFIG_MTIME = os.path.getmtime(CONFIG_PATH)
+        except OSError:
+            CONFIG_MTIME = None
     except Exception as e:
         logger.log_akcja(f"Błąd zapisu {CONFIG_PATH}: {e}")
         error_dialogs.show_error_dialog("Config", f"Błąd zapisu {CONFIG_PATH}: {e}")
