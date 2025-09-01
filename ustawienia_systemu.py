@@ -359,6 +359,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 except Exception:
                     val = var.get()
                 cfg.set(key, val)
+                original_vals[key] = val
             cfg.save_all()
             top = container.winfo_toplevel()
             apply_theme(top)
