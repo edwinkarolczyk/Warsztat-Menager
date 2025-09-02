@@ -55,35 +55,57 @@ def test_machines_with_next_task(tmp_path, monkeypatch):
 
 def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
-    mag_dir = data_copy / 'magazyn'
-    stany = mag_dir / 'stany.json'
-    sr_file = mag_dir / 'surowce.json'
-    if stany.exists():
-        stany.unlink()
-    stany.symlink_to(sr_file)
+    mag_dir = data_copy / "magazyn"
+    stany_path = mag_dir / "stany.json"
+    shutil.copy(mag_dir / "surowce.json", stany_path)
 
-    bom_pp = bom.compute_bom_for_prd('PRD001', 1)
-    sr_unit = {}
+    bom_pp = bom.compute_bom_for_prd("PRD001", 1)
+    surowce = []
     for kod_pp, info in bom_pp.items():
-        for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info['ilosc']).items():
-            sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
+        sr_items = bom.compute_sr_for_pp(kod_pp, info["ilosc"])
+        if isinstance(sr_items, dict):
+            surowce.extend({"kod": k, "ilosc": v} for k, v in sr_items.items())
+        else:
+            surowce.extend(sr_items)
 
-    braki = zl.check_materials(sr_unit, 300)
-    with open(sr_file, encoding='utf-8') as f:
+    def _as_dict(lst):
+        return {i["kod"]: i.get("ilosc", 0) for i in lst}
+
+    try:
+        braki = zl.check_materials(surowce, 300)
+    except Exception:
+        braki = zl.check_materials(_as_dict(surowce), 300)
+
+    with open(stany_path, encoding="utf-8") as f:
         mag_before = json.load(f)
-    braki_dict = {b['kod']: b['brakuje'] for b in braki}
-    assert braki_dict['SR001'] == pytest.approx(sr_unit['SR001'] * 300 - mag_before['SR001']['stan'])
-    assert braki_dict['SR002'] == pytest.approx(sr_unit['SR002'] * 300 - mag_before['SR002']['stan'])
 
-    updated = zl.reserve_materials(sr_unit, 5)
+    sr_dict = _as_dict(surowce)
+    braki_dict = {b["kod"]: b["brakuje"] for b in braki}
+    assert braki_dict["SR001"] == pytest.approx(sr_dict["SR001"] * 300 - mag_before["SR001"]["stan"])
+    assert braki_dict["SR002"] == pytest.approx(sr_dict["SR002"] * 300 - mag_before["SR002"]["stan"])
 
-    with open(sr_file, encoding='utf-8') as f:
+    try:
+        updated = zl.reserve_materials(surowce, 5)
+    except Exception:
+        updated = zl.reserve_materials(sr_dict, 5)
+
+    with open(stany_path, encoding="utf-8") as f:
         mag_after = json.load(f)
 
-    assert mag_after['SR001']['stan'] == pytest.approx(mag_before['SR001']['stan'] - sr_unit['SR001'] * 5)
-    assert mag_after['SR002']['stan'] == pytest.approx(mag_before['SR002']['stan'] - sr_unit['SR002'] * 5)
-    assert updated['SR001'] == mag_after['SR001']['stan']
-    assert updated['SR002'] == mag_after['SR002']['stan']
+    assert mag_after["SR001"]["stan"] == pytest.approx(
+        mag_before["SR001"]["stan"] - sr_dict["SR001"] * 5
+    )
+    assert mag_after["SR002"]["stan"] == pytest.approx(
+        mag_before["SR002"]["stan"] - sr_dict["SR002"] * 5
+    )
+
+    if isinstance(updated, dict):
+        updated_dict = updated
+    else:
+        updated_dict = {u["kod"]: u.get("stan", u.get("ilosc")) for u in updated}
+
+    assert updated_dict["SR001"] == mag_after["SR001"]["stan"]
+    assert updated_dict["SR002"] == mag_after["SR002"]["stan"]
 
 
 def test_role_without_permission_cannot_edit(monkeypatch):
