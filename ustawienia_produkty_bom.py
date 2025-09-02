@@ -327,8 +327,14 @@ def make_tab(parent, rola=None):
     def _del_row():
         sel = tv.selection()
         if not sel:
-            messagebox.showwarning("BOM","Zaznacz wiersz do usunięcia."); return
-        for iid in sel: tv.delete(iid)
+            messagebox.showwarning("BOM", "Zaznacz wiersz do usunięcia.")
+            return
+        for iid in sel:
+            pp, _nazwa, _il, _cz, sr, _dl = tv.item(iid, "values")
+            if messagebox.askyesno(
+                "BOM", f"Usuń wiersz?\nPółprodukt: {pp}\nSurowiec: {sr}"
+            ):
+                tv.delete(iid)
 
     def _save():
         kod = (var_kod.get() or "").strip()
