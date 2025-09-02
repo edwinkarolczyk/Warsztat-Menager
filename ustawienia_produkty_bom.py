@@ -238,6 +238,42 @@ def make_tab(parent, rola=None):
         for iid in tv.get_children(): tv.delete(iid)
 
     def _add_row():
+        if not frm._polprodukty:
+            if messagebox.askyesno(
+                "BOM",
+                "Brak zdefiniowanych półproduktów. Czy przejść do ustawień, aby je dodać?",
+            ):
+                try:
+                    import ustawienia_systemu as us
+
+                    top = tk.Toplevel(frm)
+                    top.title("Ustawienia")
+                    cont = ttk.Frame(top)
+                    cont.pack(fill="both", expand=True)
+                    us.panel_ustawien(top, cont)
+                except Exception:
+                    error_dialogs.show_error_dialog(
+                        "BOM", "Nie udało się otworzyć modułu ustawień"
+                    )
+            return
+        if not frm._surowce:
+            if messagebox.askyesno(
+                "BOM",
+                "Brak zdefiniowanych surowców. Czy przejść do ustawień, aby je dodać?",
+            ):
+                try:
+                    import ustawienia_systemu as us
+
+                    top = tk.Toplevel(frm)
+                    top.title("Ustawienia")
+                    cont = ttk.Frame(top)
+                    cont.pack(fill="both", expand=True)
+                    us.panel_ustawien(top, cont)
+                except Exception:
+                    error_dialogs.show_error_dialog(
+                        "BOM", "Nie udało się otworzyć modułu ustawień"
+                    )
+            return
         win = tk.Toplevel(frm)
         win.title("Dodaj pozycję BOM")
         apply_theme(win)
@@ -245,12 +281,11 @@ def make_tab(parent, rola=None):
         f.pack(padx=10, pady=10, fill="x")
         ttk.Label(f, text="Półprodukt:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
         pp_ids = [m["kod"] for m in frm._polprodukty]
-        pp_desc = [f"{m['kod']} – {m['nazwa']}" for m in frm._polprodukty]
+        pp_desc = ["Wybierz…"] + [f"{m['kod']} – {m['nazwa']}" for m in frm._polprodukty]
         pp_cz = [m.get("czynnosci", []) for m in frm._polprodukty]
         cb = ttk.Combobox(f, values=pp_desc, state="readonly")
         cb.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
-        if pp_desc:
-            cb.current(0)
+        cb.current(0)
         ttk.Label(f, text="Ilość na szt.", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=4)
         var_il = tk.StringVar(value="1")
         ttk.Entry(f, textvariable=var_il, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=4)
@@ -260,31 +295,22 @@ def make_tab(parent, rola=None):
         ent_cz.grid(row=2, column=1, sticky="ew", padx=4, pady=4)
         ttk.Label(f, text="Surowiec:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
         sr_ids = [m["kod"] for m in frm._surowce]
-        sr_desc = [f"{m['kod']} – {m['nazwa']}" for m in frm._surowce]
+        sr_desc = ["Wybierz…"] + [f"{m['kod']} – {m['nazwa']}" for m in frm._surowce]
         cb_sr = ttk.Combobox(f, values=sr_desc, state="readonly")
         cb_sr.grid(row=3, column=1, sticky="ew", padx=4, pady=4)
-        if sr_desc:
-            cb_sr.current(0)
+        cb_sr.current(0)
         ttk.Label(f, text="Długość:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
         var_sr_dl = tk.StringVar()
         ttk.Entry(f, textvariable=var_sr_dl).grid(row=4, column=1, sticky="ew", padx=4, pady=4)
 
-        def _on_pp_change(event=None):
-            i = cb.current()
-            if i >= 0:
-                var_cz.set(", ".join(pp_cz[i]))
-
-        cb.bind("<<ComboboxSelected>>", _on_pp_change)
-        _on_pp_change()
-
         def _ok():
             try:
                 i = cb.current()
-                if i < 0:
+                if i <= 0:
                     messagebox.showwarning("BOM", "Wybierz półprodukt.")
                     return
-                pp_id = pp_ids[i]
-                nm = frm._polprodukty[i]["nazwa"]
+                pp_id = pp_ids[i - 1]
+                nm = frm._polprodukty[i - 1]["nazwa"]
                 il = float(var_il.get())
                 if il <= 0:
                     raise ValueError
@@ -293,10 +319,10 @@ def make_tab(parent, rola=None):
                 return
             try:
                 j = cb_sr.current()
-                if j < 0:
+                if j <= 0:
                     messagebox.showwarning("BOM", "Wybierz surowiec.")
                     return
-                sr_typ = sr_ids[j]
+                sr_typ = sr_ids[j - 1]
                 sr_dl = var_sr_dl.get().strip()
                 dl = float(sr_dl)
                 if dl <= 0:
@@ -320,9 +346,27 @@ def make_tab(parent, rola=None):
             )
             win.destroy()
 
-        ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(
-            row=5, column=0, columnspan=2, pady=(8, 2)
-        )
+        btn_ok = ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton")
+        btn_ok.grid(row=5, column=0, columnspan=2, pady=(8, 2))
+
+        def _check_ok(event=None):
+            if cb.current() > 0 and cb_sr.current() > 0:
+                btn_ok.state(["!disabled"])
+            else:
+                btn_ok.state(["disabled"])
+
+        def _on_pp_change(event=None):
+            i = cb.current() - 1
+            if i >= 0:
+                var_cz.set(", ".join(pp_cz[i]))
+            else:
+                var_cz.set("")
+            _check_ok()
+
+        cb.bind("<<ComboboxSelected>>", _on_pp_change)
+        cb_sr.bind("<<ComboboxSelected>>", _check_ok)
+        _on_pp_change()
+        _check_ok()
 
     def _del_row():
         sel = tv.selection()
