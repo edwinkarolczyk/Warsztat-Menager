@@ -1,7 +1,7 @@
 # Wersja pliku: 1.0.0
 # Plik: logika_zadan.py
 # Zmiany 1.0.0:
-# - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo BOM
+# - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo z definicji produktu
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
 # ⏹ KONIEC KODU
 
@@ -10,9 +10,7 @@ import os
 from datetime import datetime
 
 import logika_magazyn as LM
-from io_utils import read_json
-
-BOM_DIR = os.path.join("data", "produkty")  # zgodnie z ustaleniami
+import bom
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 
 
@@ -50,32 +48,33 @@ def register_tasks_state(tasks_state, uzytkownik: str = "system"):
         lock_f.close()
     return entry
 
-def _load_bom(product_code):
-    path = os.path.join(BOM_DIR, f"{product_code}.json")
-    return read_json(path)
-
 def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
     """
     task może zawierać:
       - task["materials"] = [{"id":"PR-30MM","ilosc":2.0}, ...]
     lub
-      - task["product_code"] = "NN123" (pobierze BOM z data/produkty/NN123.json)
+      - task["product_code"] = "NN123" (obliczy surowce z definicji produktu)
     """
     kontekst = f"narzędzie:{tool_id}; zadanie:{task.get('id') or task.get('nazwa')}"
+    surowce: dict[str, float] = {}
     materials = task.get("materials")
-    if not materials:
+    if materials:
+        for poz in materials:
+            iid = poz["id"]
+            il = float(poz["ilosc"])
+            surowce[iid] = surowce.get(iid, 0) + il
+    else:
         code = task.get("product_code")
         if code:
-            bom = _load_bom(code)
-            if bom and isinstance(bom.get("skladniki"), list):
-                materials = [{"id":x["id"], "ilosc":float(x["ilosc"])} for x in bom["skladniki"]]
-    if not materials:
+            bom_pp = bom.compute_bom_for_prd(code, 1)
+            for kod_pp, info in bom_pp.items():
+                for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+                    surowce[kod_sr] = surowce.get(kod_sr, 0) + qty
+    if not surowce:
         return []  # brak materiałów do konsumpcji
 
     zuzyte = []
-    for poz in materials:
-        iid = poz["id"]
-        il = float(poz["ilosc"])
+    for iid, il in surowce.items():
         LM.zuzyj(iid, il, uzytkownik=uzytkownik, kontekst=kontekst)
         zuzyte.append({"id": iid, "ilosc": il})
     return zuzyte

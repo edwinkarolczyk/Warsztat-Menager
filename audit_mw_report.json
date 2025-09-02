@@ -4188,13 +4188,13 @@
       "declared_ver": null,
       "syntax_ok": true,
       "defs": [
-        "_load_bom",
         "consume_for_task"
       ],
       "imports": [
         "json",
         "logika_magazyn",
-        "os"
+        "os",
+        "bom"
       ]
     },
     "C:\\Users\\Edwin\\Desktop\\Nowy folder\\migrate_profiles_config.py": {
