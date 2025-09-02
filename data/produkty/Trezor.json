@@ -17,5 +17,18 @@
       "nazwa": "Płaskownik 40mm",
       "ilosc": 1
     }
+  ],
+  "polprodukty": [
+    {
+      "kod": "PP001",
+      "ilosc_na_szt": 2,
+      "czynnosci": [
+        "cięcie"
+      ],
+      "surowiec": {
+        "typ": "SR001",
+        "dlugosc": 1.0
+      }
+    }
   ]
 }
