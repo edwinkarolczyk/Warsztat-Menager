@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import zlecenia_logika as zl
 import maszyny_logika as ml
+import bom
 from config_manager import ConfigManager
 import gui_zlecenia
 
@@ -52,28 +53,38 @@ def test_machines_with_next_task(tmp_path, monkeypatch):
     assert tokarka['next_task']['data'] == '2025-01-01'
 
 
-def test_polprodukty_check_and_reserve(tmp_path, monkeypatch):
+def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
-    bom = zl.read_bom('PRD001')
+    mag_dir = data_copy / 'magazyn'
+    stany = mag_dir / 'stany.json'
+    sr_file = mag_dir / 'surowce.json'
+    if stany.exists():
+        stany.unlink()
+    stany.symlink_to(sr_file)
 
-    braki = zl.check_materials(bom, 30)
-    braki_dict = {b['kod']: b['brakuje'] for b in braki}
-    assert braki_dict['PP001'] == 10
-    assert braki_dict['PP002'] == 18
+    bom_pp = bom.compute_bom_for_prd('PRD001', 1)
+    sr_unit = {}
+    for kod_pp, info in bom_pp.items():
+        for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info['ilosc']).items():
+            sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
+    bom_sr = {'sklad': [{'kod': k, 'ilosc': v} for k, v in sr_unit.items()]}
 
-    mag_path = data_copy / 'magazyn' / 'polprodukty.json'
-    with open(mag_path, encoding='utf-8') as f:
+    braki = zl.check_materials(bom_sr, 300)
+    with open(sr_file, encoding='utf-8') as f:
         mag_before = json.load(f)
+    braki_dict = {b['kod']: b['brakuje'] for b in braki}
+    assert braki_dict['SR001'] == pytest.approx(sr_unit['SR001'] * 300 - mag_before['SR001']['stan'])
+    assert braki_dict['SR002'] == pytest.approx(sr_unit['SR002'] * 300 - mag_before['SR002']['stan'])
 
-    updated = zl.reserve_materials(bom, 5)
+    updated = zl.reserve_materials(bom_sr, 5)
 
-    with open(mag_path, encoding='utf-8') as f:
+    with open(sr_file, encoding='utf-8') as f:
         mag_after = json.load(f)
 
-    assert mag_after['PP001']['stan'] == mag_before['PP001']['stan'] - 10
-    assert mag_after['PP002']['stan'] == mag_before['PP002']['stan'] - 5
-    assert updated['PP001'] == mag_after['PP001']['stan']
-    assert updated['PP002'] == mag_after['PP002']['stan']
+    assert mag_after['SR001']['stan'] == pytest.approx(mag_before['SR001']['stan'] - sr_unit['SR001'] * 5)
+    assert mag_after['SR002']['stan'] == pytest.approx(mag_before['SR002']['stan'] - sr_unit['SR002'] * 5)
+    assert updated['SR001'] == mag_after['SR001']['stan']
+    assert updated['SR002'] == mag_after['SR002']['stan']
 
 
 def test_role_without_permission_cannot_edit(monkeypatch):
