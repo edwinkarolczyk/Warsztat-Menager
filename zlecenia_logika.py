@@ -2,6 +2,8 @@
 # FILE: zlecenia_logika.py
 # VERSION: 1.1.5
 # Zmiany 1.1.5:
+# - check_materials i reserve_materials: obsługa list surowców i pliku
+#   magazynowego "surowce.json"
 # - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
 # - create_zlecenie nadal obsługuje `zlec_wew`; start = "nowe"
 # =============================
