@@ -2,31 +2,66 @@
 # Wersja pliku: 1.0.0
 
 import os
-from io_utils import read_json, write_json
 from datetime import datetime
 
-def przelicz_zapotrzebowanie(plik_produktu, ilosc):
+from bom import compute_sr_for_pp
+from io_utils import read_json, write_json
+
+
+def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
+    """Oblicz zapotrzebowanie na surowce dla produktu.
+
+    Funkcja odczytuje definicję produktu (``polprodukty``) i dla każdego
+    półproduktu wylicza zapotrzebowanie na surowiec na podstawie
+    ``polproduktów`` oraz norm zużycia zdefiniowanych w plikach
+    ``data/polprodukty``. Wynik zwracany jest jako słownik w postaci
+    ``{kod_surowca: ilosc}``.
+    """
+
     data = read_json(plik_produktu) or {}
-    wynik = {}
-    for el in data["komponenty"]:
-        typ = el["typ"]
-        total = ilosc * el["ilość_na_produkt"] * el["na_sztuke"]
-        wynik[typ] = wynik.get(typ, 0) + total
+    wynik: dict = {}
+
+    for pp in data.get("polprodukty", []):
+        kod_pp = pp.get("kod")
+        if not kod_pp:
+            continue
+        qty_pp = ilosc * pp.get("ilosc_na_szt", 0)
+        for kod_sr, qty_sr in compute_sr_for_pp(kod_pp, qty_pp).items():
+            wynik[kod_sr] = wynik.get(kod_sr, 0) + qty_sr
+
     return wynik
 
-def sprawdz_magazyn(plik_magazynu, zapotrzebowanie, prog=0.1):
+
+def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1):
+    """Sprawdź dostępność surowców w magazynie.
+
+    ``zapotrzebowanie`` to słownik ``{kod_surowca: ilosc}``. Funkcja zwraca
+    krotkę ``(ok, alerty, ostrzezenia)`` gdzie ``ok`` jest ``True`` jeśli
+    wszystkie surowce są dostępne w wymaganych ilościach.
+    """
+
     magazyn = read_json(plik_magazynu) or {}
-    alerty = []
-    zuzycie = []
-    for typ, potrzebne in zapotrzebowanie.items():
-        if typ not in magazyn:
-            alerty.append(f"{typ} (brak w magazynie)")
+    alerty: list[str] = []
+    zuzycie: list[str] = []
+
+    for kod, potrzebne in zapotrzebowanie.items():
+        dane = magazyn.get(kod)
+        if not dane:
+            alerty.append(f"{kod} (brak w magazynie)")
             continue
-        dostepne = magazyn[typ]["ilość"] * magazyn[typ]["długość_sztuki"]
+
+        dostepne = dane.get("stan", 0)
         if potrzebne > dostepne:
-            alerty.append(f"{typ} (potrzeba {potrzebne}, dostępne {dostepne})")
-        elif (dostepne - potrzebne) < dostepne * prog:
-            zuzycie.append(f"{typ} – UWAGA: niski stan po zużyciu")
+            alerty.append(
+                f"{kod} (potrzeba {potrzebne}, dostępne {dostepne})"
+            )
+            continue
+
+        pozostalo = dostepne - potrzebne
+        prog_alertu = max(dane.get("prog_alertu", 0), dostepne * prog)
+        if pozostalo < prog_alertu:
+            zuzycie.append(f"{kod} – UWAGA: niski stan po zużyciu")
+
     return (len(alerty) == 0), ", ".join(alerty), ", ".join(zuzycie)
 
 def zapisz_zlecenie(folder, produkt, ilosc):
