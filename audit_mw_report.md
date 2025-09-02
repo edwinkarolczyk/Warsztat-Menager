@@ -698,8 +698,8 @@ Plików .py: 38
 - Nagłówek # Wersja: BRAK
 - Deklarowana nazwa: logika_zadan.py
 - Składnia: OK
-- Importy: json, logika_magazyn, os
-- Definicje: _load_bom, consume_for_task
+- Importy: json, logika_magazyn, os, bom
+- Definicje: consume_for_task
 
 ### migrate_profiles_config.py
 - Nagłówek # Plik: BRAK
