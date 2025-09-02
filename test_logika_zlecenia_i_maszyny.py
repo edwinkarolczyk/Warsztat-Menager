@@ -56,25 +56,20 @@ def test_machines_with_next_task(tmp_path, monkeypatch):
 def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
     mag_dir = data_copy / 'magazyn'
-    stany = mag_dir / 'stany.json'
     sr_file = mag_dir / 'surowce.json'
-    if stany.exists():
-        stany.unlink()
-    stany.symlink_to(sr_file)
 
     bom_pp = bom.compute_bom_for_prd('PRD001', 1)
     sr_unit = {}
     for kod_pp, info in bom_pp.items():
         for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info['ilosc']).items():
             sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
-    bom_sr = {'sklad': [{'kod': k, 'ilosc': v} for k, v in sr_unit.items()]}
+    bom_sr = [{'kod': k, 'ilosc': v} for k, v in sr_unit.items()]
 
     braki = zl.check_materials(bom_sr, 300)
     with open(sr_file, encoding='utf-8') as f:
         mag_before = json.load(f)
-    braki_dict = {b['kod']: b['brakuje'] for b in braki}
-    assert braki_dict['SR001'] == pytest.approx(sr_unit['SR001'] * 300 - mag_before['SR001']['stan'])
-    assert braki_dict['SR002'] == pytest.approx(sr_unit['SR002'] * 300 - mag_before['SR002']['stan'])
+    assert braki['SR001']['brakuje'] == pytest.approx(sr_unit['SR001'] * 300 - mag_before['SR001']['stan'])
+    assert braki['SR002']['brakuje'] == pytest.approx(sr_unit['SR002'] * 300 - mag_before['SR002']['stan'])
 
     updated = zl.reserve_materials(bom_sr, 5)
 

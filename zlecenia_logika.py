@@ -49,39 +49,52 @@ def read_bom(kod):
     return _read_json(p)
 
 def read_magazyn():
-    p = MAG_DIR / "stany.json"
+    p = MAG_DIR / "surowce.json"
     if not p.exists():
         return {}
     return _read_json(p)
 
 def check_materials(bom, ilosc=1):
     """Sprawdza dostępność materiałów lub półproduktów."""
-    if "sklad" in bom:
-        mag_path = MAG_DIR / "stany.json"
-        items_key = "sklad"
+    if isinstance(bom, list) or "sklad" in bom:
+        items = bom if isinstance(bom, list) else bom.get("sklad", [])
+        mag_path = MAG_DIR / "surowce.json"
         qty_key = "ilosc"
-    else:
-        mag_path = MAG_DIR / "polprodukty.json"
-        items_key = "polprodukty"
-        qty_key = "ilosc_na_szt"
-
-    mag = _read_json(mag_path) if mag_path.exists() else {}
-    braki = []
-    for poz in bom.get(items_key, []):
-        kod = poz["kod"]
-        req = poz.get(qty_key, 0) * ilosc
-        stan = mag.get(kod, {}).get("stan", 0)
-        if stan < req:
-            braki.append(
-                {
-                    "kod": kod,
+        mag = _read_json(mag_path) if mag_path.exists() else {}
+        braki = {}
+        for poz in items:
+            kod = poz["kod"]
+            req = poz.get(qty_key, 0) * ilosc
+            stan = mag.get(kod, {}).get("stan", 0)
+            if stan < req:
+                braki[kod] = {
                     "nazwa": mag.get(kod, {}).get("nazwa", kod),
                     "potrzeba": req,
                     "stan": stan,
                     "brakuje": req - stan,
                 }
-            )
-    return braki
+        return braki
+    else:
+        mag_path = MAG_DIR / "polprodukty.json"
+        items_key = "polprodukty"
+        qty_key = "ilosc_na_szt"
+        mag = _read_json(mag_path) if mag_path.exists() else {}
+        braki = []
+        for poz in bom.get(items_key, []):
+            kod = poz["kod"]
+            req = poz.get(qty_key, 0) * ilosc
+            stan = mag.get(kod, {}).get("stan", 0)
+            if stan < req:
+                braki.append(
+                    {
+                        "kod": kod,
+                        "nazwa": mag.get(kod, {}).get("nazwa", kod),
+                        "potrzeba": req,
+                        "stan": stan,
+                        "brakuje": req - stan,
+                    }
+                )
+        return braki
 
 
 def reserve_materials(bom, ilosc=1):
@@ -91,20 +104,20 @@ def reserve_materials(bom, ilosc=1):
     występującej w przekazanym BOM. Informacja ta jest wykorzystywana przez GUI
     do zasilenia kolumny "dostępne po".
     """
-    if "sklad" in bom:
-        mag_path = MAG_DIR / "stany.json"
-        items_key = "sklad"
+    if isinstance(bom, list) or "sklad" in bom:
+        items = bom if isinstance(bom, list) else bom.get("sklad", [])
+        mag_path = MAG_DIR / "surowce.json"
         qty_key = "ilosc"
         default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
     else:
+        items = bom.get("polprodukty", [])
         mag_path = MAG_DIR / "polprodukty.json"
-        items_key = "polprodukty"
         qty_key = "ilosc_na_szt"
         default_item = lambda k: {"stan": 0, "jednostka": "szt"}
 
     mag = _read_json(mag_path) if mag_path.exists() else {}
     updated = {}
-    for poz in bom.get(items_key, []):
+    for poz in items:
         kod = poz["kod"]
         req = poz.get(qty_key, 0) * ilosc
         if kod not in mag:
