@@ -67,16 +67,15 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     for kod_pp, info in bom_pp.items():
         for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info['ilosc']).items():
             sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
-    bom_sr = {'sklad': [{'kod': k, 'ilosc': v} for k, v in sr_unit.items()]}
 
-    braki = zl.check_materials(bom_sr, 300)
+    braki = zl.check_materials(sr_unit, 300)
     with open(sr_file, encoding='utf-8') as f:
         mag_before = json.load(f)
     braki_dict = {b['kod']: b['brakuje'] for b in braki}
     assert braki_dict['SR001'] == pytest.approx(sr_unit['SR001'] * 300 - mag_before['SR001']['stan'])
     assert braki_dict['SR002'] == pytest.approx(sr_unit['SR002'] * 300 - mag_before['SR002']['stan'])
 
-    updated = zl.reserve_materials(bom_sr, 5)
+    updated = zl.reserve_materials(sr_unit, 5)
 
     with open(sr_file, encoding='utf-8') as f:
         mag_after = json.load(f)

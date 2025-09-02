@@ -10,6 +10,8 @@ import json, os
 from pathlib import Path
 from datetime import datetime
 
+import bom
+
 DATA_DIR = Path("data")
 BOM_DIR = DATA_DIR / "produkty"
 MAG_DIR = DATA_DIR / "magazyn"
@@ -55,21 +57,17 @@ def read_magazyn():
     return _read_json(p)
 
 def check_materials(bom, ilosc=1):
-    """Sprawdza dostępność materiałów lub półproduktów."""
-    if "sklad" in bom:
-        mag_path = MAG_DIR / "stany.json"
-        items_key = "sklad"
-        qty_key = "ilosc"
-    else:
-        mag_path = MAG_DIR / "polprodukty.json"
-        items_key = "polprodukty"
-        qty_key = "ilosc_na_szt"
+    """Sprawdza dostępność surowców w magazynie.
 
+    ``bom`` powinien być słownikiem w postaci ``{kod_sr: ilosc_na_szt}``.
+    ``ilosc`` oznacza liczbę sztuk produktu, dla której należy
+    sprawdzić zapotrzebowanie.
+    """
+    mag_path = MAG_DIR / "stany.json"
     mag = _read_json(mag_path) if mag_path.exists() else {}
     braki = []
-    for poz in bom.get(items_key, []):
-        kod = poz["kod"]
-        req = poz.get(qty_key, 0) * ilosc
+    for kod, qty_per_unit in bom.items():
+        req = qty_per_unit * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         if stan < req:
             braki.append(
@@ -85,28 +83,20 @@ def check_materials(bom, ilosc=1):
 
 
 def reserve_materials(bom, ilosc=1):
-    """Rezerwuje materiały lub półprodukty na magazynie i zwraca nowe stany.
+    """Rezerwuje surowce na magazynie i zwraca nowe stany.
 
-    Zwracany jest słownik ``{kod: stan_po_rezerwacji}`` dla każdej pozycji
-    występującej w przekazanym BOM. Informacja ta jest wykorzystywana przez GUI
-    do zasilenia kolumny "dostępne po".
+    ``bom`` powinien być słownikiem w postaci ``{kod_sr: ilosc_na_szt}``.
+    Zwracany jest słownik ``{kod_sr: stan_po_rezerwacji}`` dla każdej pozycji.
+    Informacja ta jest wykorzystywana przez GUI do zasilenia kolumny
+    "dostępne po".
     """
-    if "sklad" in bom:
-        mag_path = MAG_DIR / "stany.json"
-        items_key = "sklad"
-        qty_key = "ilosc"
-        default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
-    else:
-        mag_path = MAG_DIR / "polprodukty.json"
-        items_key = "polprodukty"
-        qty_key = "ilosc_na_szt"
-        default_item = lambda k: {"stan": 0, "jednostka": "szt"}
+    mag_path = MAG_DIR / "stany.json"
+    default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
 
     mag = _read_json(mag_path) if mag_path.exists() else {}
     updated = {}
-    for poz in bom.get(items_key, []):
-        kod = poz["kod"]
-        req = poz.get(qty_key, 0) * ilosc
+    for kod, qty_per_unit in bom.items():
+        req = qty_per_unit * ilosc
         if kod not in mag:
             mag[kod] = default_item(kod)
         mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
@@ -127,10 +117,14 @@ def create_zlecenie(
     Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
     """
     _ensure_dirs()
-    bom = read_bom(kod_produktu)
-    braki = check_materials(bom, ilosc)  # tylko informacyjnie na start
+    bom_pp = bom.compute_bom_for_prd(kod_produktu, 1)
+    bom_sr = {}
+    for kod_pp, info in bom_pp.items():
+        for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+            bom_sr[kod_sr] = bom_sr.get(kod_sr, 0) + qty
+    braki = check_materials(bom_sr, ilosc)  # tylko informacyjnie na start
     if reserve:
-        reserve_materials(bom, ilosc)
+        reserve_materials(bom_sr, ilosc)
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,

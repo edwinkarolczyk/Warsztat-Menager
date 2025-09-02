@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import ttk, messagebox
 
+import bom
+
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
 from config_manager import ConfigManager
@@ -24,7 +26,6 @@ try:
         STATUSY,
         update_status,
         update_zlecenie,
-        read_bom,
         read_magazyn,
         reserve_materials,
     )
@@ -434,12 +435,16 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     except Exception:
         ilosc = 1
     try:
-        bom = read_bom(prod)
+        bom_pp = bom.compute_bom_for_prd(prod, 1)
+        sr_unit = {}
+        for kod_pp, info in bom_pp.items():
+            for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+                sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
     except Exception as e:
         messagebox.showerror("BOM", f"Błąd: {e}")
         return
-    if "sklad" not in bom:
-        messagebox.showinfo("Rezerwacja", "Brak składników w BOM.")
+    if not sr_unit:
+        messagebox.showinfo("Rezerwacja", "Brak surowców w BOM.")
         return
 
     mag = read_magazyn()
@@ -456,16 +461,15 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     tv.heading("dostepne_po", text="Dostępne po"); tv.column("dostepne_po", width=100, anchor="center")
     tv.pack(fill="both", expand=True)
 
-    for poz in bom.get("sklad", []):
-        kod = poz["kod"]
-        req = poz.get("ilosc", 0) * ilosc
+    for kod, qty in sr_unit.items():
+        req = qty * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         tv.insert("", "end", values=(kod, req, stan, stan))
 
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
 
     def do_reserve():
-        updated = reserve_materials(bom, ilosc)
+        updated = reserve_materials(sr_unit, ilosc)
         for iid in tv.get_children():
             kod = tv.set(iid, "kod")
             if kod in updated:
