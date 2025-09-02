@@ -1,22 +1,28 @@
 {
   "nazwa": "Produkt X",
-  "komponenty": [
-    {
-      "typ": "rurka 30mm",
-      "jednostka": "mm",
-      "na_sztuke": 1500,
-      "ilość_na_produkt": 2
-    },
-    {
-      "typ": "płaskownik 40mm",
-      "jednostka": "mm",
-      "na_sztuke": 600,
-      "ilość_na_produkt": 1
-    }
-  ],
   "version": "1.0",
   "bom_revision": 1,
   "effective_from": "2025-01-01",
   "effective_to": null,
-  "is_default": true
+  "is_default": true,
+  "polprodukty": [
+    {
+      "kod": "rurka 30mm",
+      "ilosc_na_szt": 2,
+      "czynnosci": [],
+      "surowiec": {
+        "typ": "rurka 30mm",
+        "dlugosc": 1500
+      }
+    },
+    {
+      "kod": "płaskownik 40mm",
+      "ilosc_na_szt": 1,
+      "czynnosci": [],
+      "surowiec": {
+        "typ": "płaskownik 40mm",
+        "dlugosc": 600
+      }
+    }
+  ]
 }

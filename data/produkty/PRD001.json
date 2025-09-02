@@ -10,14 +10,25 @@
     {
       "kod": "PP001",
       "ilosc_na_szt": 2.0,
-      "czynnosci": ["ciecie"],
-      "surowiec": { "typ": "SR001", "dlugosc": 0.2 }
+      "czynnosci": [
+        "ciecie"
+      ],
+      "surowiec": {
+        "typ": "SR001",
+        "dlugosc": 0.2
+      }
     },
     {
       "kod": "PP002",
       "ilosc_na_szt": 1.0,
-      "czynnosci": ["ciecie", "gięcie"],
-      "surowiec": { "typ": "SR002", "dlugosc": 0.5 }
+      "czynnosci": [
+        "ciecie",
+        "gięcie"
+      ],
+      "surowiec": {
+        "typ": "SR002",
+        "dlugosc": 0.5
+      }
     }
   ]
 }
