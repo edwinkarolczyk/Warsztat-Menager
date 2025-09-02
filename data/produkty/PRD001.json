@@ -7,7 +7,27 @@
   "effective_to": null,
   "is_default": true,
   "polprodukty": [
-    { "kod": "PP001", "ilosc_na_szt": 2.0 },
-    { "kod": "PP002", "ilosc_na_szt": 1.0 }
+    {
+      "kod": "PP001",
+      "ilosc_na_szt": 2,
+      "czynnosci": [
+        "cięcie"
+      ],
+      "surowiec": {
+        "typ": "SR001",
+        "dlugosc": 1.0
+      }
+    },
+    {
+      "kod": "PP002",
+      "ilosc_na_szt": 1,
+      "czynnosci": [
+        "cięcie"
+      ],
+      "surowiec": {
+        "typ": "SR001",
+        "dlugosc": 1.0
+      }
+    }
   ]
 }

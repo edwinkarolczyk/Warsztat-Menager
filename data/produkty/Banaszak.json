@@ -18,5 +18,18 @@
   "bom_revision": 1,
   "effective_from": "2025-01-01",
   "effective_to": null,
-  "is_default": true
+  "is_default": true,
+  "polprodukty": [
+    {
+      "kod": "PP001",
+      "ilosc_na_szt": 2,
+      "czynnosci": [
+        "cięcie"
+      ],
+      "surowiec": {
+        "typ": "SR001",
+        "dlugosc": 1.0
+      }
+    }
+  ]
 }
