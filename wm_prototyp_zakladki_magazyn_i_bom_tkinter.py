@@ -191,12 +191,12 @@ class MagazynBOMWindow(tk.Toplevel):
         # Header
         bar = ttk.Frame(parent, style="Card.TFrame")
         bar.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
-        ttk.Label(bar, text="Surowce (rodzaj, rozmiar, długość, jednostka, ilość, próg alertu)", style="Header.TLabel").pack(side="left")
+        ttk.Label(bar, text="Surowce (rodzaj, rozmiar, długość, jednostka, stan, próg alertu)", style="Header.TLabel").pack(side="left")
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
 
         # Lista
-        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu_procent")
+        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu_procent")
         self.tree_surowce = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_surowce.grid(row=1, column=0, sticky="nsew", padx=8)
         for c in cols:
@@ -210,7 +210,7 @@ class MagazynBOMWindow(tk.Toplevel):
         self.s_vars = {k: tk.StringVar() for k in cols}
         grid = [
             ("kod","Kod"), ("nazwa","Nazwa"), ("rodzaj","Rodzaj"), ("rozmiar","Rozmiar"),
-            ("dlugosc","Długość"), ("jednostka","Jednostka miary"), ("ilosc","Ilość"), ("prog_alertu_procent","Próg alertu [%]")
+            ("dlugosc","Długość"), ("jednostka","Jednostka miary"), ("stan","Stan"), ("prog_alertu_procent","Próg alertu [%]")
         ]
         for i,(key,label) in enumerate(grid):
             ttk.Label(form, text=label).grid(row=i//2*2, column=(i%2)*2, sticky="w", padx=6, pady=2)
@@ -223,7 +223,7 @@ class MagazynBOMWindow(tk.Toplevel):
         if not sel:
             return
         vals = self.tree_surowce.item(sel[0], "values")
-        keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu_procent")
+        keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu_procent")
         for k,v in zip(keys, vals):
             self.s_vars[k].set(v)
 
@@ -234,7 +234,7 @@ class MagazynBOMWindow(tk.Toplevel):
                 if not rec.get(field):
                     messagebox.showerror("Surowce", f"Pole '{field}' jest wymagane.")
                     return
-            for field in ("dlugosc", "ilosc", "prog_alertu_procent"):
+            for field in ("dlugosc", "stan", "prog_alertu_procent"):
                 val = rec.get(field, "")
                 if val == "":
                     num = 0
@@ -273,7 +273,7 @@ class MagazynBOMWindow(tk.Toplevel):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_polprodukt).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(side="right", padx=4)
 
-        cols = ("kod","nazwa","surowiec_kod","surowiec_typ","surowiec_rozmiar","surowiec_dlugosc","czynnosci","norma_strat_procent")
+        cols = ("kod","nazwa","surowiec_kod","surowiec_typ","surowiec_rozmiar","surowiec_dlugosc","czynnosci","norma_strat_proc")
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pp.grid(row=1, column=0, sticky="nsew", padx=8)
         for c in cols:
@@ -291,14 +291,14 @@ class MagazynBOMWindow(tk.Toplevel):
             "surowiec_rozmiar": tk.StringVar(),
             "surowiec_dlugosc": tk.StringVar(),
             "czynnosci": tk.StringVar(),  # wpisywane po przecinku
-            "norma_strat_procent": tk.StringVar(),
+            "norma_strat_proc": tk.StringVar(),
         }
         labels = [
             ("kod","Kod"), ("nazwa","Nazwa"), ("surowiec_kod","Kod surowca źródłowego"),
             ("surowiec_typ","Rodzaj surowca (profil, rura, pręt, blacha)"),
             ("surowiec_rozmiar","Wymiary/rozmiar surowca"), ("surowiec_dlugosc","Długość surowca"),
             ("czynnosci","Lista czynności technologicznych (po przecinku)"),
-            ("norma_strat_procent","Norma strat [%]")
+            ("norma_strat_proc","Norma strat [%]")
         ]
         for i,(key,label) in enumerate(labels):
             ttk.Label(form, text=label).grid(row=i, column=0, sticky="w", padx=6, pady=2)
@@ -310,7 +310,7 @@ class MagazynBOMWindow(tk.Toplevel):
         if not sel:
             return
         vals = self.tree_pp.item(sel[0], "values")
-        keys = ("kod","nazwa","surowiec_kod","surowiec_typ","surowiec_rozmiar","surowiec_dlugosc","czynnosci","norma_strat_procent")
+        keys = ("kod","nazwa","surowiec_kod","surowiec_typ","surowiec_rozmiar","surowiec_dlugosc","czynnosci","norma_strat_proc")
         for k,v in zip(keys, vals):
             self.pp_vars[k].set(v)
 
@@ -341,7 +341,7 @@ class MagazynBOMWindow(tk.Toplevel):
             else:
                 dl = 0
             try:
-                norma = int(self.pp_vars["norma_strat_procent"].get() or 0)
+                norma = int(self.pp_vars["norma_strat_proc"].get() or 0)
             except Exception:
                 messagebox.showerror(
                     "Półprodukty", "Norma strat musi być liczbą."
@@ -365,7 +365,7 @@ class MagazynBOMWindow(tk.Toplevel):
                 "czynnosci": [
                     s.strip() for s in self.pp_vars["czynnosci"].get().split(",") if s.strip()
                 ],
-                "norma_strat_procent": norma,
+                "norma_strat_proc": norma,
             }
             self.model.add_or_update_polprodukt(rec)
             self._load_polprodukty()
@@ -485,7 +485,7 @@ class MagazynBOMWindow(tk.Toplevel):
         for i in self.tree_surowce.get_children():
             self.tree_surowce.delete(i)
         for kod, rec in sorted(self.model.surowce.items()):
-            ilosc = int(rec.get("ilosc", 0) or 0)
+            stan = int(rec.get("stan", 0) or 0)
             prog = int(rec.get("prog_alertu_procent", 0) or 0)
             row = (
                 kod,
@@ -494,10 +494,10 @@ class MagazynBOMWindow(tk.Toplevel):
                 rec.get("rozmiar", ""),
                 rec.get("dlugosc", ""),
                 rec.get("jednostka", ""),
-                ilosc,
+                stan,
                 prog,
             )
-            tags = ("alert",) if ilosc <= prog else ()
+            tags = ("alert",) if stan <= prog else ()
             self.tree_surowce.insert("", "end", values=row, tags=tags)
         self.tree_surowce.tag_configure(
             "alert", background=DARK_THEME.get("accent2", "#F87171")
@@ -516,7 +516,7 @@ class MagazynBOMWindow(tk.Toplevel):
                 su.get("rozmiar",""),
                 su.get("dlugosc",""),
                 ", ".join(rec.get("czynnosci", [])),
-                rec.get("norma_strat_procent",0),
+                rec.get("norma_strat_proc",0),
             )
             self.tree_pp.insert("", "end", values=row)
 
