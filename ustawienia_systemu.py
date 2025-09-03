@@ -75,6 +75,17 @@ def _switch_row(parent, row, label, var, key):
     )
     return row + 2
 
+
+def _lines_from_text(widget: tk.Text) -> list[str]:
+    try:
+        return [
+            ln.strip()
+            for ln in widget.get("1.0", "end").splitlines()
+            if ln.strip()
+        ]
+    except tk.TclError:
+        return []
+
 def panel_ustawien(root, frame, login=None, rola=None):
     cfg = ConfigManager()
 
@@ -259,13 +270,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
         cfg.get("typy_narzedzi") or []
     )
     zlecenia_edit_roles_text = "\n".join(cfg.get("zlecenia.edit_roles", []))
-
-    def _lines_from_text(widget: tk.Text) -> list[str]:
-        return [
-            ln.strip()
-            for ln in widget.get("1.0", "end").splitlines()
-            if ln.strip()
-        ]
 
     class _TextWrapper:
         def __init__(self, widget: tk.Text):
