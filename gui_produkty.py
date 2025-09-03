@@ -1,14 +1,18 @@
 # Plik: gui_produkty.py
 # Wersja pliku: 1.0.0
 # Zmiany 1.0.0:
-# - Nowy edytor produktów i BOM (półprodukty) w osobnym oknie (Toplevel)
+# - Nowy edytor produktów i półproduktów w osobnym oknie (Toplevel)
 # - Zapis/odczyt plików w data/produkty/<kod>.json zgodnie ze strukturą:
 #   {
 #     "kod": "RAMAX",
 #     "nazwa": "Rama X",
-#     "BOM": [
-#       {"kod_materialu": "RURA_FI30", "ilosc": 3, "dlugosc_mm": 1200},
-#       {"kod_materialu": "PROFIL_40x40", "ilosc": 2, "dlugosc_mm": 6000}
+#     "polprodukty": [
+#       {
+#         "kod": "PP1",
+#         "ilosc_na_szt": 2,
+#         "czynnosci": ["ciecie"],
+#         "surowiec": {"typ": "SR1", "dlugosc": 100}
+#       }
 #     ]
 #   }
 # ⏹ KONIEC KODU
@@ -133,17 +137,27 @@ class ProduktyBOM(tk.Toplevel):
         center.columnconfigure(0, weight=1)
 
         bar = ttk.Frame(center); bar.grid(row=0, column=0, sticky="ew")
-        ttk.Label(bar, text="BOM (półprodukty)", style="WM.Card.TLabel").pack(side="left")
+        ttk.Label(bar, text="Polprodukty", style="WM.Card.TLabel").pack(side="left")
         ttk.Button(bar, text="Dodaj wiersz", command=self._add_row, style="WM.Side.TButton").pack(side="right", padx=(6,2))
         ttk.Button(bar, text="Usuń wiersz", command=self._del_row, style="WM.Side.TButton").pack(side="right")
 
-        self.tree = ttk.Treeview(center, columns=("mat","nazwa","ilosc","dl"), show="headings", style="WM.Treeview", height=16)
+        self.tree = ttk.Treeview(
+            center,
+            columns=("kod", "ilosc", "czynnosci", "sr_typ", "sr_dlugosc"),
+            show="headings",
+            style="WM.Treeview",
+            height=16,
+        )
         self.tree.grid(row=1, column=0, sticky="nsew", pady=(6,0))
-        for c, t, w in [("mat","Kod materiału",200), ("nazwa","Nazwa z magazynu",260), ("ilosc","Ilość [szt]",120), ("dl","Długość [mm]",140)]:
-            self.tree.heading(c, text=t); self.tree.column(c, width=w, anchor="w")
-
-        # Lista materiałów do wyboru
-        self._materials = _list_materialy_z_magazynu()
+        for c, t, w in [
+            ("kod", "Kod PP", 140),
+            ("ilosc", "Ilość/szt", 100),
+            ("czynnosci", "Czynności", 200),
+            ("sr_typ", "Surowiec", 140),
+            ("sr_dlugosc", "Długość", 100),
+        ]:
+            self.tree.heading(c, text=t)
+            self.tree.column(c, width=w, anchor="w")
 
         # Stopka zapisu
         foot = ttk.Frame(self); foot.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,10))
@@ -163,25 +177,25 @@ class ProduktyBOM(tk.Toplevel):
 
     def _load_selected(self):
         idx = self._get_sel_index()
-        if idx is None: return
+        if idx is None:
+            return
         p = self._products[idx]
         j = _read_json(p["_path"], {})
         self.var_kod.set(j.get("kod", p["kod"]))
         self.var_nazwa.set(j.get("nazwa", p["nazwa"]))
-        # załaduj BOM
+        # załaduj półprodukty
         for iid in self.tree.get_children():
             self.tree.delete(iid)
-        for poz in j.get("BOM", []):
-            mid = poz.get("kod_materialu","")
-            nm  = self._name_for(mid)
-            il  = poz.get("ilosc", 1)
-            dl  = poz.get("dlugosc_mm", "")
-            self.tree.insert("", "end", values=(mid, nm, il, dl))
-
-    def _name_for(self, mat_id):
-        for it in self._materials:
-            if it["id"] == mat_id: return it["nazwa"]
-        return ""
+        for poz in j.get("polprodukty", []):
+            kod = poz.get("kod", "")
+            il = poz.get("ilosc_na_szt", 1)
+            cz = ", ".join(poz.get("czynnosci", []))
+            sr = poz.get("surowiec", {})
+            self.tree.insert(
+                "",
+                "end",
+                values=(kod, il, cz, sr.get("typ", ""), sr.get("dlugosc", "")),
+            )
 
     def _new_product(self):
         nowy_kod = simpledialog.askstring("Nowy produkt", "Podaj kod (ID) produktu:", parent=self)
@@ -206,42 +220,54 @@ class ProduktyBOM(tk.Toplevel):
         for iid in self.tree.get_children(): self.tree.delete(iid)
 
     def _add_row(self):
-        # okienko wyboru materiału z listy magazynu + ilość + długość
-        win = tk.Toplevel(self); win.title("Dodaj pozycję BOM"); apply_theme(win)
-        frm = ttk.Frame(win); frm.pack(padx=10, pady=10, fill="x")
-        ttk.Label(frm, text="Materiał:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
-        mat_ids  = [it["id"] for it in self._materials]
-        mat_desc = [f"{it['id']} – {it['nazwa']}" for it in self._materials]
-        var_mat  = tk.StringVar(value=mat_ids[0] if mat_ids else "")
-        cb = ttk.Combobox(frm, values=mat_desc, state="readonly")
-        cb.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
-        if mat_desc: cb.current(0)
+        win = tk.Toplevel(self)
+        win.title("Dodaj półprodukt")
+        apply_theme(win)
+        frm = ttk.Frame(win)
+        frm.pack(padx=10, pady=10, fill="x")
 
-        ttk.Label(frm, text="Ilość [szt]:", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=4)
+        ttk.Label(frm, text="Kod PP:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
+        var_kod = tk.StringVar()
+        ttk.Entry(frm, textvariable=var_kod).grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+
+        ttk.Label(frm, text="Ilość na szt:", style="WM.Card.TLabel").grid(row=1, column=0, sticky="w", padx=4, pady=4)
         var_il = tk.StringVar(value="1")
         ttk.Entry(frm, textvariable=var_il, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=4)
 
-        ttk.Label(frm, text="Długość [mm] (opcjonalnie):", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        ttk.Label(frm, text="Czynności (po przecinku):", style="WM.Card.TLabel").grid(row=2, column=0, sticky="w", padx=4, pady=4)
+        var_cz = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=var_cz).grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+
+        ttk.Label(frm, text="Surowiec typ:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        var_sr = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=var_sr).grid(row=3, column=1, sticky="ew", padx=4, pady=4)
+
+        ttk.Label(frm, text="Długość surowca:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
         var_dl = tk.StringVar(value="")
-        ttk.Entry(frm, textvariable=var_dl, width=12).grid(row=2, column=1, sticky="w", padx=4, pady=4)
+        ttk.Entry(frm, textvariable=var_dl, width=12).grid(row=4, column=1, sticky="w", padx=4, pady=4)
 
         def _ok():
             try:
-                idx = cb.current()
-                if idx < 0:
-                    messagebox.showwarning("BOM", "Wybierz materiał."); return
-                mat_id = mat_ids[idx]
-                mat_nm = self._materials[idx]["nazwa"]
-                il = int(var_il.get())
+                il = float(var_il.get())
+                if il <= 0:
+                    raise ValueError
                 dl = var_dl.get().strip()
-                dl = int(dl) if dl else ""
+                dl = float(dl) if dl else ""
             except Exception:
-                error_dialogs.show_error_dialog("BOM", "Podaj poprawną ilość/długość.")
+                error_dialogs.show_error_dialog("BOM", "Podaj poprawne wartości.")
                 return
-            self.tree.insert("", "end", values=(mat_id, mat_nm, il, dl))
+            kod = var_kod.get().strip()
+            sr_typ = var_sr.get().strip()
+            if not kod or not sr_typ:
+                messagebox.showwarning("BOM", "Uzupełnij kod i surowiec.")
+                return
+            cz = [c.strip() for c in var_cz.get().split(",") if c.strip()]
+            self.tree.insert("", "end", values=(kod, il, ", ".join(cz), sr_typ, dl))
             win.destroy()
 
-        ttk.Button(frm, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(row=3, column=0, columnspan=2, pady=(8,2))
+        ttk.Button(frm, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(
+            row=5, column=0, columnspan=2, pady=(8, 2)
+        )
 
     def _del_row(self):
         sel = self.tree.selection()
@@ -258,25 +284,33 @@ class ProduktyBOM(tk.Toplevel):
         if not naz:
             messagebox.showwarning("Produkty", "Uzupełnij nazwę."); return
 
-        bom = []
+        polprodukty = []
         for iid in self.tree.get_children():
-            mat, _nm, il, dl = self.tree.item(iid, "values")
+            kod_pp, il, cz, sr_typ, sr_dl = self.tree.item(iid, "values")
             try:
-                il = int(il)
-                if il <= 0: raise ValueError
+                il = float(il)
+                if il <= 0:
+                    raise ValueError
+                sr_dl_val = float(sr_dl) if str(sr_dl).strip() not in ("", "0") else None
             except Exception:
-                error_dialogs.show_error_dialog("BOM", "Ilość w BOM musi być dodatnią liczbą całkowitą.")
+                error_dialogs.show_error_dialog(
+                    "BOM", "Ilości i długości muszą być liczbami."
+                )
                 return
-            rec = {"kod_materialu": mat, "ilosc": il}
-            if str(dl).strip() not in ("", "0"):
-                try:
-                    rec["dlugosc_mm"] = int(dl)
-                except Exception:
-                    error_dialogs.show_error_dialog("BOM", "Długość musi być liczbą (mm).")
-                    return
-            bom.append(rec)
+            czynnosci = [c.strip() for c in str(cz).split(",") if c.strip()]
+            sr = {"typ": sr_typ}
+            if sr_dl_val is not None:
+                sr["dlugosc"] = sr_dl_val
+            polprodukty.append(
+                {
+                    "kod": kod_pp,
+                    "ilosc_na_szt": il,
+                    "czynnosci": czynnosci,
+                    "surowiec": sr,
+                }
+            )
 
-        payload = {"kod": kod, "nazwa": naz, "BOM": bom}
+        payload = {"kod": kod, "nazwa": naz, "polprodukty": polprodukty}
         _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
         messagebox.showinfo("Produkty", f"Zapisano produkt {kod}.")
         self._reload_lists()
