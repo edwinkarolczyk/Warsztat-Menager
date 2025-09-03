@@ -185,3 +185,50 @@ def test_save_magazyn_uses_lock_windows(tmp_path, monkeypatch):
 
     assert calls == ["lock", "unlock"]
     assert os.path.exists(lm.MAGAZYN_PATH)
+
+
+def test_rezerwuj_materialy_updates_and_saves(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    lm.load_magazyn()
+    lm.upsert_item(
+        {
+            "id": "MAT-A",
+            "nazwa": "A",
+            "typ": "materiał",
+            "jednostka": "szt",
+            "stan": 10,
+            "min_poziom": 0,
+        }
+    )
+    bom = {"MAT-A": {"ilosc": 2}}
+    lm.rezerwuj_materialy(bom, 3)
+    item = lm.get_item("MAT-A")
+    assert item["stan"] == 4.0
+    with open(tmp_path / "stany.json", "r", encoding="utf-8") as f:
+        stany = json.load(f)
+    assert stany["MAT-A"]["stan"] == 4.0
+
+
+def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    logs = []
+    monkeypatch.setattr(lm, "_log_mag", lambda a, d: logs.append((a, d)))
+    monkeypatch.setattr("builtins.input", lambda *a, **k: "n")
+    lm.load_magazyn()
+    lm.upsert_item(
+        {
+            "id": "MAT-B",
+            "nazwa": "B",
+            "typ": "materiał",
+            "jednostka": "szt",
+            "stan": 5,
+            "min_poziom": 0,
+        }
+    )
+    bom = {"MAT-B": {"ilosc": 4}}
+    lm.rezerwuj_materialy(bom, 2)
+    item = lm.get_item("MAT-B")
+    assert item["stan"] == 0.0
+    shortage = [d for a, d in logs if a == "brak_materialu"]
+    assert shortage and shortage[0]["item_id"] == "MAT-B"
+    assert shortage[0]["brakuje"] == 3.0

@@ -242,6 +242,31 @@ def _append_history(entry):
         unlock_file(lock_f)
         lock_f.close()
 
+
+def zapisz_stan_magazynu(mag=None):
+    """Zapisuje uproszczone stany magazynu do pliku ``stany.json``.
+
+    ``mag`` może być już wczytanym słownikiem magazynu. Jeśli jest ``None``,
+    funkcja sama wczyta dane z dysku. Zapis obejmuje identyfikator, nazwę,
+    bieżący stan oraz minimalny poziom (jako ``prog_alert``).
+    """
+
+    _ensure_dirs()
+    if mag is None:
+        mag = load_magazyn()
+    items = (mag.get("items") or {}).values()
+    out = {}
+    for it in items:
+        out[it["id"]] = {
+            "nazwa": it.get("nazwa", it["id"]),
+            "stan": float(it.get("stan", 0)),
+            "prog_alert": float(it.get("min_poziom", 0)),
+        }
+    p = os.path.join(_magazyn_dir(), "stany.json")
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+
+
 def get_item(item_id):
     with _LOCK:
         m = load_magazyn()
@@ -334,6 +359,7 @@ def upsert_item(item):
         if item["id"] not in order:
             order.append(item["id"])
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
         _log_info(f"Upsert item {item['id']} ({it['nazwa']})")
         return it
 
@@ -354,6 +380,7 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
         entry = _history_entry("zuzycie", item_id, dok, uzytkownik, kontekst)
         it["historia"].append(entry)
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
         _append_history(entry)
         _log_mag(
             "zuzycie",
@@ -377,6 +404,7 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
         entry = _history_entry("zwrot", item_id, dok, uzytkownik, kontekst)
         it["historia"].append(entry)
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
         _append_history(entry)
         _log_mag(
             "zwrot",
@@ -407,6 +435,7 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         entry = _history_entry("rezerwacja", item_id, faktyczne, uzytkownik, kontekst)
         it["historia"].append(entry)
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
         _append_history(entry)
         _log_mag(
             "rezerwacja",
@@ -431,9 +460,63 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         entry = _history_entry("zwolnienie_rezerwacji", item_id, dok, uzytkownik, kontekst)
         it["historia"].append(entry)
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
         _append_history(entry)
         _log_mag("zwolnienie_rezerwacji", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
         return it
+
+
+def rezerwuj_materialy(bom, ilosc):
+    """Dekrementuje stany magazynu według BOM i zwraca nowe stany."""
+
+    updated = {}
+    braki = []
+    with _LOCK:
+        m = load_magazyn()
+        items = m.get("items") or {}
+        for kod, info in (bom or {}).items():
+            req = float(info.get("ilosc", 0)) * float(ilosc)
+            it = items.get(kod)
+            if not it:
+                braki.append({"item_id": kod, "nazwa": kod, "brakuje": req})
+                continue
+            stan = float(it.get("stan", 0))
+            if stan < req:
+                braki.append({
+                    "item_id": kod,
+                    "nazwa": it.get("nazwa", kod),
+                    "brakuje": req - stan,
+                })
+                zuzyte = stan
+                it["stan"] = 0.0
+            else:
+                zuzyte = req
+                it["stan"] = stan - req
+            entry = _history_entry("rezerwacja_materialu", kod, zuzyte, "system", "rezerwuj_materialy")
+            it.setdefault("historia", []).append(entry)
+            _append_history(entry)
+            updated[kod] = it["stan"]
+            _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
+        save_magazyn(m)
+        zapisz_stan_magazynu(m)
+
+    for brak in braki:
+        try:
+            ans = input(
+                f"{brak['nazwa']} – brakuje {brak['brakuje']}. Czy zamówić brakujący materiał? (t/n): "
+            )
+            zam = str(ans).strip().lower().startswith("t")
+        except Exception:
+            zam = False
+        _log_mag(
+            "brak_materialu",
+            {
+                "item_id": brak["item_id"],
+                "brakuje": float(brak["brakuje"]),
+                "zamowiono": zam,
+            },
+        )
+    return updated
 
 def set_order(order_ids):
     """Ustawia kolejność elementów magazynu zgodnie z listą identyfikatorów."""
