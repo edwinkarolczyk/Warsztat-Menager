@@ -22,8 +22,19 @@ __all__ = [
 ]
 
 
-def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> Dict[str, dict]:
-    """Oblicza zapotrzebowanie półproduktów dla danego produktu."""
+def compute_bom_for_prd(
+    kod_prd: str, ilosc: float, version: str | None = None
+) -> Dict[str, dict]:
+    """Oblicza zapotrzebowanie półproduktów dla danego produktu.
+
+    Args:
+        kod_prd: Kod produktu.
+        ilosc: Ilość produktu do wyprodukowania.
+        version: Opcjonalna wersja produktu.
+
+    Returns:
+        Słownik półproduktów z wymaganymi ilościami, czynnościami i surowcem.
+    """
 
     if ilosc <= 0:
         raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
@@ -50,7 +61,10 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
 
 
 def compute_sr_for_pp(kod_pp: str, ilosc: float) -> Dict[str, float]:
-    """Oblicza zapotrzebowanie surowca dla danego półproduktu."""
+    """Oblicza zapotrzebowanie surowca dla danego półproduktu.
+
+    Uwzględnia normę strat, jeśli jest zdefiniowana.
+    """
 
     if ilosc <= 0:
         raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
