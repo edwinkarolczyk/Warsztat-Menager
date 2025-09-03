@@ -27,6 +27,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from config_manager import ConfigManager
+from utils.path_utils import cfg_path
 try:
     from PIL import Image, ImageTk, UnidentifiedImageError
 except ImportError:  # Pillow missing
@@ -135,7 +136,7 @@ def _login_list():
 
 def _count_presence(login):
     """Zwraca liczbę wpisów frekwencji dla danego loginu."""
-    data = _load_json("presence.json", {})
+    data = _load_json(cfg_path("presence.json"), {})
     cnt = 0
     for v in data.values():
         if str(v.get("login", "")).lower() == str(login).lower():

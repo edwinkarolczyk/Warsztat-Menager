@@ -14,9 +14,10 @@ from services.profile_service import (
     sync_presence as _service_sync_presence,
     write_users as _write_users,
 )
+from utils.path_utils import cfg_path
 
-_USERS_FILE = "uzytkownicy.json"
-_PRESENCE_FILE = "uzytkownicy_presence.json"
+_USERS_FILE = cfg_path("uzytkownicy.json")
+_PRESENCE_FILE = cfg_path("uzytkownicy_presence.json")
 
 
 def _load_users():

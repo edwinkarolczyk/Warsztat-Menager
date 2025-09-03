@@ -4,6 +4,7 @@
 
 import os
 import re
+from utils.path_utils import cfg_path
 
 # Lista wymaganych plików i oczekiwanych wersji
 wymagane_pliki = {
@@ -13,7 +14,7 @@ wymagane_pliki = {
     "layout_prosty.py": "1.4.7",
     "ustawienia_systemu.py": "1.4.8",
     "uzytkownicy.json": None,
-    "config.json": None
+    cfg_path("config.json"): None,
 }
 
 def sprawdz_wersje(plik, oczekiwana):
