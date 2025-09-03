@@ -84,8 +84,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
     container = ttk.Frame(frame)
     container.pack(fill="both", expand=True)
 
+    top = container.winfo_toplevel()
+
     def _refresh_theme(*_):
-        apply_theme(container.winfo_toplevel())
+        apply_theme(top)
 
     # Zastosuj motyw NA OKNIE nadrzędnym
     _refresh_theme()
@@ -394,7 +396,6 @@ def panel_ustawien(root, frame, login=None, rola=None):
             cfg.set(key, val)
             original_vals[key] = val
         cfg.save_all()
-        top = container.winfo_toplevel()
         apply_theme(top)
         try:
             top.event_generate("<<ConfigUpdated>>")
@@ -407,13 +408,18 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 pass
         dirty_keys.clear()
 
-    # Check for unsaved changes when switching tabs or closing
+    # Check for unsaved changes when switching tabs
     nb_groups.bind("<<NotebookTabChanged>>", on_exit)
     for cont in group_containers.values():
         if isinstance(cont, ttk.Notebook):
             cont.bind("<<NotebookTabChanged>>", on_exit)
 
-    container.bind("<Destroy>", on_exit)
+    def _close():
+        on_exit()
+        if top.winfo_exists():
+            top.destroy()
+
+    top.protocol("WM_DELETE_WINDOW", _close)
 
     # --- Motyw ---
     tab_theme = _make_frame(group_containers["Wygląd"], "WM.Card.TFrame")
