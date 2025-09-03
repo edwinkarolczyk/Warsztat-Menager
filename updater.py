@@ -15,6 +15,7 @@ import subprocess
 import traceback
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -34,11 +35,22 @@ def _ensure_dirs():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
-def _write_log(stamp: str, text: str, kind: str = "update"):
+def _write_log(
+    stamp: str,
+    text: str,
+    kind: str = "update",
+    stderr: Optional[str] = None,
+    tb: Optional[str] = None,
+):
     _ensure_dirs()
     p = LOGS_DIR / f"{kind}_{stamp}.log"
     with p.open("a", encoding="utf-8") as f:
-        f.write(text.rstrip() + "\n")
+        f.write(text.rstrip())
+        if stderr:
+            f.write("\n[STDERR]\n" + stderr.rstrip())
+        if tb:
+            f.write("\n[TRACEBACK]\n" + tb.rstrip())
+        f.write("\n")
 
 
 from updates_utils import load_last_update_info
@@ -60,7 +72,12 @@ def _backup_files(file_list, stamp):
             try:
                 shutil.copy2(src, dest)
             except Exception as e:
-                _write_log(stamp, f"[WARN] Backup fail: {src} :: {e}\n{traceback.format_exc()}", kind="update")
+                _write_log(
+                    stamp,
+                    f"[WARN] Backup fail: {src} :: {e}",
+                    kind="update",
+                    tb=traceback.format_exc(),
+                )
     return dest_root
 
 def _restore_backup(stamp: str):
@@ -154,11 +171,14 @@ def _git_has_updates(cwd: Path) -> bool:
             check=True,
         )
         return bool(proc_rev.stdout.strip())
-    except subprocess.SubprocessError as e:
-        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
-        return False
     except Exception as e:
-        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}\n{traceback.format_exc()}")
+        stderr = getattr(e, "stderr", None)
+        _write_log(
+            _now_stamp(),
+            f"[WARN] git update check failed: {e}",
+            stderr=stderr,
+            tb=traceback.format_exc(),
+        )
         return False
 
 
@@ -174,14 +194,21 @@ def _run_git_pull(cwd: Path, stamp: str):
             text=True,
             check=True,
         )
-        log_text = "[GIT PULL OUTPUT]\n" + result.stdout
-        if result.stderr:
-            log_text += "\n[GIT PULL ERROR]\n" + result.stderr
-        _write_log(stamp, log_text, kind="update")
+        _write_log(
+            stamp,
+            "[GIT PULL OUTPUT]\n" + result.stdout,
+            kind="update",
+            stderr=result.stderr or None,
+        )
         return result.stdout
     except subprocess.CalledProcessError as e:
-        log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "") + "\n[GIT PULL ERROR]\n" + (e.stderr or "")
-        _write_log(stamp, log_text, kind="update")
+        _write_log(
+            stamp,
+            "[GIT PULL OUTPUT]\n" + (e.stdout or ""),
+            kind="update",
+            stderr=e.stderr or "",
+            tb=traceback.format_exc(),
+        )
         err = (e.stderr or "").lower()
         if "would be overwritten" in err:
             raise RuntimeError(
@@ -411,9 +438,14 @@ class UpdatesUI(ttk.Frame):
                 check=True,
             )
             ahead = int(proc_ahead.stdout.strip() or "0")
-        except subprocess.SubprocessError as e:
+        except Exception as e:
             self._append_out(f"[WARN] git status failed: {e}")
-            _write_log(_now_stamp(), f"[WARN] git status failed: {e}")
+            _write_log(
+                _now_stamp(),
+                f"[WARN] git status failed: {e}",
+                stderr=getattr(e, "stderr", None),
+                tb=traceback.format_exc(),
+            )
             behind = 0
             ahead = 0
 
@@ -451,7 +483,13 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Zaktualizowano z Git. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git pull: {e}\n{traceback.format_exc()}", kind="update")
+            _write_log(
+                stamp,
+                f"[ERROR] git pull: {e}",
+                kind="update",
+                stderr=getattr(e, "stderr", None),
+                tb=traceback.format_exc(),
+            )
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git pull:\n{e}")
 
     def _on_git_push(self):
@@ -469,23 +507,36 @@ class UpdatesUI(ttk.Frame):
                 text=True,
                 check=True,
             )
-            log_text = "[GIT PUSH OUTPUT]\n" + result.stdout
-            if result.stderr:
-                log_text += "\n[GIT PUSH ERROR]\n" + result.stderr
-            _write_log(stamp, log_text, kind="update")
+            _write_log(
+                stamp,
+                "[GIT PUSH OUTPUT]\n" + result.stdout,
+                kind="update",
+                stderr=result.stderr or None,
+            )
             self._append_out(result.stdout.strip() or "[INFO] Brak danych wyjściowych.")
             self.check_remote_status()
             messagebox.showinfo(
                 "Aktualizacje", "Wysłano zmiany na zdalne repozytorium."
             )
         except subprocess.CalledProcessError as e:
-            log_text = "[GIT PUSH OUTPUT]\n" + (e.stdout or "") + "\n[GIT PUSH ERROR]\n" + (e.stderr or "")
-            _write_log(stamp, log_text, kind="update")
+            _write_log(
+                stamp,
+                "[GIT PUSH OUTPUT]\n" + (e.stdout or ""),
+                kind="update",
+                stderr=e.stderr or "",
+                tb=traceback.format_exc(),
+            )
             error_dialogs.show_error_dialog(
                 "Aktualizacje", f"Błąd git push:\n{e.stderr.strip() if e.stderr else e}"
             )
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git push: {e}\n{traceback.format_exc()}", kind="update")
+            _write_log(
+                stamp,
+                f"[ERROR] git push: {e}",
+                kind="update",
+                stderr=getattr(e, "stderr", None),
+                tb=traceback.format_exc(),
+            )
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git push:\n{e}")
 
     def _on_zip_update(self):
@@ -509,7 +560,13 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Wgrano paczkę. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] ZIP update: {e}\n{traceback.format_exc()}", kind="update")
+            _write_log(
+                stamp,
+                f"[ERROR] ZIP update: {e}",
+                kind="update",
+                stderr=getattr(e, "stderr", None),
+                tb=traceback.format_exc(),
+            )
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd podczas importu ZIP:\n{e}")
 
     def _on_restore(self):
@@ -578,7 +635,13 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Przywracanie", "Przywrócono poprzednią wersję. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}\n{traceback.format_exc()}", kind="restore")
+            _write_log(
+                chosen_stamp,
+                f"[ERROR] RESTORE: {e}",
+                kind="restore",
+                stderr=getattr(e, "stderr", None),
+                tb=traceback.format_exc(),
+            )
             error_dialogs.show_error_dialog("Przywracanie", f"Błąd przywracania:\n{e}")
 
     # --- versions UI ---
