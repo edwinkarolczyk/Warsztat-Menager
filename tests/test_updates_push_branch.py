@@ -5,6 +5,7 @@ from tkinter import ttk
 import config_manager as cm
 import ustawienia_systemu
 from test_config_manager import make_manager
+import subprocess
 
 
 def test_push_branch_config_value(make_manager):
@@ -63,3 +64,26 @@ def test_push_branch_ui_saves_value(make_manager):
 
     reloaded = cm.ConfigManager()
     assert reloaded.get("updates.push_branch") == "feature-branch"
+
+
+def test_push_branch_missing_remote_branch(monkeypatch, tmp_path, make_manager):
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    (tmp_path / "dummy.txt").write_text("x", encoding="utf-8")
+    subprocess.run(["git", "add", "dummy.txt"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, check=True)
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(remote)], cwd=tmp_path, check=True)
+    schema = {
+        "config_version": 1,
+        "options": [
+            {"key": "updates.push_branch", "type": "string"},
+            {"key": "updates.remote", "type": "string"},
+        ],
+    }
+    defaults = {"updates": {"push_branch": "git-push", "remote": "origin"}}
+    global_cfg = {"updates": {"push_branch": "missing"}}
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(cm.ConfigError) as excinfo:
+        make_manager(defaults=defaults, global_cfg=global_cfg, schema=schema)
+    assert "Brak gałęzi 'missing' na zdalnym 'origin'" in str(excinfo.value)
