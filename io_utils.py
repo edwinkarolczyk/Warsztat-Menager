@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import logging
+import traceback
 from typing import Any
 
 from logger import log_akcja
@@ -23,8 +24,8 @@ def read_json(path: str) -> Any | None:
             return json.load(f)
     except FileNotFoundError:
         return None
-    except Exception as e:  # pragma: no cover - defensive
-        log_akcja(f"[IO] Błąd odczytu {path}: {e}")
+    except (OSError, json.JSONDecodeError) as e:  # pragma: no cover - defensive
+        log_akcja(f"[IO] Błąd odczytu {path}: {e}\n{traceback.format_exc()}")
         return None
 
 
@@ -39,7 +40,7 @@ def write_json(path: str, data: Any) -> bool:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
-    except Exception as e:  # pragma: no cover - defensive
-        log_akcja(f"[IO] Błąd zapisu {path}: {e}")
+    except (OSError, TypeError, ValueError) as e:  # pragma: no cover - defensive
+        log_akcja(f"[IO] Błąd zapisu {path}: {e}\n{traceback.format_exc()}")
         return False
 

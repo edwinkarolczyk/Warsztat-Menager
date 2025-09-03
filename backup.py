@@ -4,8 +4,12 @@ import base64
 import os
 from urllib.parse import urljoin
 import urllib.request
+import urllib.error
+import logging
 
 from config_manager import ConfigManager
+
+logger = logging.getLogger(__name__)
 
 
 def upload_backup(local_path: str) -> bool:
@@ -50,5 +54,6 @@ def upload_backup(local_path: str) -> bool:
     try:
         with urllib.request.urlopen(req) as resp:  # type: ignore[call-arg]
             return 200 <= resp.status < 300
-    except Exception:
+    except (urllib.error.URLError, OSError) as e:
+        logger.error("Backup upload failed: %s", e, exc_info=True)
         return False
