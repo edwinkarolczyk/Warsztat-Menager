@@ -1,5 +1,7 @@
 # Dodawanie surowca, półproduktu i produktu
 
+Plik `data/magazyn/surowce.json` musi zawierać co najmniej jeden surowiec, aby obliczenia BOM działały poprawnie.
+
 ## Surowiec
 1. Otwórz zakładkę **Magazyn**.
 2. Wybierz opcję **Dodaj surowiec**.
