@@ -199,15 +199,25 @@ class MagazynBOM(ttk.Frame):
             side="right", padx=4
         )
 
-        cols = ("kod","nazwa","surowiec","czynnosci","norma_strat")
+        cols = (
+            "kod",
+            "nazwa",
+            "sr_kod",
+            "sr_ilosc",
+            "sr_jednostka",
+            "czynnosci",
+            "norma_strat",
+        )
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
-            ("kod","Kod"),
-            ("nazwa","Nazwa"),
-            ("surowiec","Kod surowca"),
-            ("czynnosci","Lista czynności"),
-            ("norma_strat","Norma strat [%]")
+            ("kod", "Kod"),
+            ("nazwa", "Nazwa"),
+            ("sr_kod", "Kod surowca"),
+            ("sr_ilosc", "Ilość surowca na szt."),
+            ("sr_jednostka", "Jednostka"),
+            ("czynnosci", "Lista czynności"),
+            ("norma_strat", "Norma strat [%]"),
         ]
         for key, lbl in headers:
             self.tree_pp.heading(key, text=lbl)
@@ -238,7 +248,15 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_pp.selection()
         if sel:
             values = self.tree_pp.item(sel[0], "values")
-            keys = ("kod", "nazwa", "surowiec", "czynnosci", "norma_strat")
+            keys = (
+                "kod",
+                "nazwa",
+                "sr_kod",
+                "sr_ilosc",
+                "sr_jednostka",
+                "czynnosci",
+                "norma_strat",
+            )
             for k, v in zip(keys, values):
                 if k == "czynnosci":
                     selected = [s.strip() for s in v.split(",") if s.strip()]
@@ -252,9 +270,20 @@ class MagazynBOM(ttk.Frame):
     def _save_polprodukt(self) -> None:
         kod = self.pp_vars["kod"].get().strip()
         nazwa = self.pp_vars["nazwa"].get().strip()
-        sr = self.pp_vars["surowiec"].get().strip()
-        if not kod or not nazwa or not sr:
-            messagebox.showerror("Półprodukty", "Wymagane pola: kod, nazwa i kod surowca.")
+        sr_kod = self.pp_vars["sr_kod"].get().strip()
+        sr_ilosc = self.pp_vars["sr_ilosc"].get().strip()
+        sr_jedn = self.pp_vars["sr_jednostka"].get().strip()
+        if not (kod and nazwa and sr_kod and sr_ilosc and sr_jedn):
+            messagebox.showerror(
+                "Półprodukty",
+                "Wymagane pola: kod, nazwa, kod surowca, ilość i jednostka.",
+            )
+            return
+        try:
+            sr_ilosc_val = float(sr_ilosc)
+        except ValueError:
+            messagebox.showerror(
+                "Półprodukty", "Ilość surowca musi być liczbą.")
             return
         try:
             norma = int(self.pp_vars["norma_strat"].get() or 0)
@@ -264,7 +293,11 @@ class MagazynBOM(ttk.Frame):
         rec = {
             "kod": kod,
             "nazwa": nazwa,
-            "surowiec": {"kod": sr},
+            "surowiec": {
+                "kod": sr_kod,
+                "ilosc_na_szt": sr_ilosc_val,
+                "jednostka": sr_jedn,
+            },
             "czynnosci": [self.pp_lb.get(i) for i in self.pp_lb.curselection()],
             "norma_strat_procent": norma,
         }
@@ -387,10 +420,12 @@ class MagazynBOM(ttk.Frame):
             surowiec = rec.get("surowiec", {})
             row = (
                 kod,
-                rec.get("nazwa",""),
-                surowiec.get("kod",""),
+                rec.get("nazwa", ""),
+                surowiec.get("kod", ""),
+                surowiec.get("ilosc_na_szt", ""),
+                surowiec.get("jednostka", ""),
                 ", ".join(rec.get("czynnosci", [])),
-                rec.get("norma_strat_procent",0),
+                rec.get("norma_strat_procent", 0),
             )
             self.tree_pp.insert("", "end", values=row)
 
