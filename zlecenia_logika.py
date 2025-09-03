@@ -117,11 +117,10 @@ def create_zlecenie(
     Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
     """
     _ensure_dirs()
-    bom_pp = bom.compute_bom_for_prd(kod_produktu, 1)
-    bom_sr = {}
-    for kod_pp, info in bom_pp.items():
-        for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
-            bom_sr[kod_sr] = bom_sr.get(kod_sr, 0) + qty
+    bom_sr = {
+        kod_sr: info["ilosc"]
+        for kod_sr, info in bom.compute_sr_for_prd(kod_produktu, 1).items()
+    }
     braki = check_materials(bom_sr, ilosc)  # tylko informacyjnie na start
     if reserve:
         reserve_materials(bom_sr, ilosc)

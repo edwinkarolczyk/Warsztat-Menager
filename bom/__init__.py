@@ -23,7 +23,8 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
     """Zwraca definicję produktu w danej wersji.
 
     Jeśli ``version`` jest ``None``, wybierana jest wersja oznaczona
-    ``is_default`` lub pierwsza z listy."""
+    ``is_default`` lub pierwsza z listy.
+    """
     candidates = _produkt_candidates(kod)
     if not candidates:
         raise FileNotFoundError(f"Brak definicji: {kod}")
@@ -37,13 +38,17 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
             return obj
     return candidates[0]
 
+
 def get_polprodukt(kod: str) -> dict:
     path = DATA_DIR / "polprodukty" / f"{kod}.json"
     if not path.exists():
         raise FileNotFoundError(f"Brak definicji: {kod}")
     return json.loads(path.read_text(encoding="utf-8"))
 
-def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> dict:
+
+def compute_bom_for_prd(
+    kod_prd: str, ilosc: float, version: str | None = None
+) -> dict:
     """Oblicza ilości półproduktów wraz z dodatkowymi danymi.
 
     Zwracany jest słownik w postaci ``{kod_pp: {...}}`` gdzie dla każdego
@@ -72,6 +77,7 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
         }
     return bom
 
+
 def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     if ilosc <= 0:
         raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
@@ -83,3 +89,32 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
         raise KeyError("Brak klucza 'ilosc_na_szt' w surowcu")
     qty = sr["ilosc_na_szt"] * ilosc * (1 + pp.get("norma_strat_proc", 0) / 100)
     return {sr["kod"]: qty}
+
+
+def compute_sr_for_prd(
+    kod_prd: str,
+    ilosc: float,
+    version: str | None = None,
+    bom_revision: int | None = None,
+    at_date: str | None = None,
+) -> dict:
+    """Oblicza zapotrzebowanie na surowce dla produktu.
+
+    Zwracany jest słownik ``{kod_sr: {\"ilosc\": qty, \"jednostka\": unit}}``.
+    Parametry ``bom_revision`` i ``at_date`` są zarezerwowane na przyszłość.
+    """
+    if ilosc <= 0:
+        raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
+    bom_pp = compute_bom_for_prd(kod_prd, ilosc, version=version)
+    result: dict[str, dict] = {}
+    for kod_pp, info in bom_pp.items():
+        sr_qty = compute_sr_for_pp(kod_pp, info["ilosc"])
+        pp_def = get_polprodukt(kod_pp)
+        if "surowiec" not in pp_def or "jednostka" not in pp_def["surowiec"]:
+            raise KeyError("jednostka")
+        unit = pp_def["surowiec"]["jednostka"]
+        for kod_sr, qty in sr_qty.items():
+            if kod_sr not in result:
+                result[kod_sr] = {"ilosc": 0, "jednostka": unit}
+            result[kod_sr]["ilosc"] += qty
+    return result

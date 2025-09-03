@@ -4,7 +4,7 @@
 import os
 from datetime import datetime
 
-from bom import compute_sr_for_pp
+import bom
 from io_utils import read_json, write_json
 
 
@@ -19,17 +19,11 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
     """
 
     data = read_json(plik_produktu) or {}
-    wynik: dict = {}
-
-    for pp in data.get("polprodukty", []):
-        kod_pp = pp.get("kod")
-        if not kod_pp:
-            continue
-        qty_pp = ilosc * pp.get("ilosc_na_szt", 0)
-        for kod_sr, qty_sr in compute_sr_for_pp(kod_pp, qty_pp).items():
-            wynik[kod_sr] = wynik.get(kod_sr, 0) + qty_sr
-
-    return wynik
+    kod = data.get("kod")
+    if not kod:
+        return {}
+    wynik = bom.compute_sr_for_prd(kod, ilosc)
+    return {k: v["ilosc"] for k, v in wynik.items()}
 
 
 def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1):
