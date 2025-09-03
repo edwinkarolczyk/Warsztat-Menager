@@ -55,11 +55,13 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
         return defaults[0]
     return sorted(candidates, key=_sort_key)[0]
 
+
 def get_polprodukt(kod: str) -> dict:
     path = DATA_DIR / "polprodukty" / f"{kod}.json"
     if not path.exists():
         raise FileNotFoundError(f"Brak definicji: {kod}")
     return json.loads(path.read_text(encoding="utf-8"))
+
 
 def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> dict:
     """Oblicza ilości półproduktów wraz z dodatkowymi danymi.
@@ -80,15 +82,20 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
         if "surowiec" not in pp:
             raise KeyError("surowiec")
         sr = pp["surowiec"]
-        if "typ" not in sr or "dlugosc" not in sr:
+        if "kod" not in sr or "ilosc_na_szt" not in sr or "jednostka" not in sr:
             raise KeyError("surowiec")
         qty = pp["ilosc_na_szt"] * ilosc
         bom[pp["kod"]] = {
             "ilosc": qty,
             "czynnosci": list(pp["czynnosci"]),
-            "surowiec": {"typ": sr["typ"], "dlugosc": sr["dlugosc"]},
+            "surowiec": {
+                "kod": sr["kod"],
+                "ilosc_na_szt": sr["ilosc_na_szt"],
+                "jednostka": sr["jednostka"],
+            },
         }
     return bom
+
 
 def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     if ilosc <= 0:
@@ -99,9 +106,7 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     sr = pp["surowiec"]
     if "ilosc_na_szt" not in sr:
         raise KeyError("Brak klucza 'ilosc_na_szt' w surowcu")
-    qty = sr["ilosc_na_szt"] * ilosc * (
-        1 + pp.get("norma_strat_proc", 0) / 100
-    )
+    qty = sr["ilosc_na_szt"] * ilosc * (1 + pp.get("norma_strat_proc", 0) / 100)
     surowce_path = DATA_DIR / "magazyn" / "surowce.json"
     jednostka = None
     if surowce_path.exists():
@@ -120,9 +125,7 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     return {sr["kod"]: {"ilosc": qty, "jednostka": jednostka}}
 
 
-def compute_sr_for_prd(
-    kod_prd: str, ilosc: float, version: str | None = None
-) -> dict:
+def compute_sr_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> dict:
     """Oblicza zapotrzebowanie na surowce dla produktu.
 
     Zwracany jest słownik ``{kod_sr: {"ilosc": qty, "jednostka": unit}}``.

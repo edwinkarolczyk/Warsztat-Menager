@@ -11,8 +11,9 @@
       "ilosc_na_szt": 2,
       "czynnosci": [],
       "surowiec": {
-        "typ": "rurka 30mm",
-        "dlugosc": 1500
+        "kod": "rurka 30mm",
+        "ilosc_na_szt": 1500,
+        "jednostka": "szt"
       }
     },
     {
@@ -20,9 +21,11 @@
       "ilosc_na_szt": 1,
       "czynnosci": [],
       "surowiec": {
-        "typ": "płaskownik 40mm",
-        "dlugosc": 600
+        "kod": "płaskownik 40mm",
+        "ilosc_na_szt": 600,
+        "jednostka": "szt"
       }
     }
-  ]
+  ],
+  "kod": "Ewakuacyjna"
 }

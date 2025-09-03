@@ -12,8 +12,9 @@
       "ilosc_na_szt": 2,
       "czynnosci": [],
       "surowiec": {
-        "typ": "Rurka 30mm",
-        "dlugosc": 0
+        "kod": "Rurka 30mm",
+        "ilosc_na_szt": 0,
+        "jednostka": "szt"
       }
     },
     {
@@ -21,8 +22,9 @@
       "ilosc_na_szt": 1,
       "czynnosci": [],
       "surowiec": {
-        "typ": "Płaskownik 40mm",
-        "dlugosc": 0
+        "kod": "Płaskownik 40mm",
+        "ilosc_na_szt": 0,
+        "jednostka": "szt"
       }
     }
   ]

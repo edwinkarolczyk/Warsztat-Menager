@@ -14,8 +14,9 @@
         "ciecie"
       ],
       "surowiec": {
-        "typ": "SR001",
-        "dlugosc": 0.2
+        "kod": "SR001",
+        "ilosc_na_szt": 0.2,
+        "jednostka": "szt"
       }
     },
     {
@@ -26,8 +27,9 @@
         "gięcie"
       ],
       "surowiec": {
-        "typ": "SR002",
-        "dlugosc": 0.5
+        "kod": "SR002",
+        "ilosc_na_szt": 0.5,
+        "jednostka": "szt"
       }
     }
   ]
