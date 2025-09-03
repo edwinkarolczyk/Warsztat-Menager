@@ -7,6 +7,7 @@
 # =============================
 
 import json
+import logging
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ import bom
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
+from utils.dirty_guard import DirtyGuard
 from config_manager import ConfigManager
 
 try:
@@ -37,6 +39,8 @@ except Exception:
     raise
 
 __all__ = ["panel_zlecenia"]
+
+logger = logging.getLogger(__name__)
 
 # Helpers
 
@@ -306,11 +310,23 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             parent=win,
         )
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
+        logger.info("Utworzono zlecenie %s", zlec["id"])
         win.destroy(); on_done()
 
+    guard = DirtyGuard(
+        "Nowe zlecenie",
+        on_save=lambda: (akcept(), guard.reset()),
+        on_reset=lambda: True,
+        on_dirty_change=lambda d: win.title(
+            "Nowe zlecenie produkcyjne" + (" •" if d else "")
+        ),
+    )
+    guard.watch(frm)
+
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", pady=(0, 12))
-    ttk.Button(btns, text="Utwórz", command=akcept).pack(side="right", padx=6)
-    ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
+    ttk.Button(btns, text="Utwórz", command=guard.on_save).pack(side="right", padx=6)
+    ttk.Button(btns, text="Anuluj", command=lambda: guard.check_before(win.destroy)).pack(side="right")
+    win.protocol("WM_DELETE_WINDOW", lambda: guard.check_before(win.destroy))
 
 
 def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> None:
@@ -367,11 +383,23 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
         zw = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
         update_zlecenie(zid, ilosc=ilosc, uwagi=uw, zlec_wew=zw, kto="GUI")
         lbl_info.config(text=f"Zmieniono zlecenie {zid}")
+        logger.info("Zmieniono zlecenie %s", zid)
         win.destroy(); on_done()
 
+    guard = DirtyGuard(
+        f"Edycja zlecenia {zid}",
+        on_save=lambda: (zapisz(), guard.reset()),
+        on_reset=lambda: True,
+        on_dirty_change=lambda d: win.title(
+            f"Edytuj zlecenie {zid}" + (" •" if d else "")
+        ),
+    )
+    guard.watch(frm)
+
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0,12))
-    ttk.Button(btns, text="Zapisz", command=zapisz).pack(side="right", padx=6)
-    ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
+    ttk.Button(btns, text="Zapisz", command=guard.on_save).pack(side="right", padx=6)
+    ttk.Button(btns, text="Anuluj", command=lambda: guard.check_before(win.destroy)).pack(side="right")
+    win.protocol("WM_DELETE_WINDOW", lambda: guard.check_before(win.destroy))
 
 def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
                         lbl_info: ttk.Label, root, on_done) -> None:
@@ -393,13 +421,26 @@ def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
     except Exception:
         cb.current(0)
 
-    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
     def ok():
         st = cb.get(); update_status(zlec_id, st, kto="GUI")
         lbl_info.config(text=f"Zmieniono status {zlec_id} -> {st}")
+        logger.info("Zmieniono status %s -> %s", zlec_id, st)
         win.destroy(); on_done()
-    ttk.Button(btns, text="Zapisz", command=ok).pack(side="right", padx=6)
-    ttk.Button(btns, text="Zamknij", command=win.destroy).pack(side="right")
+
+    guard = DirtyGuard(
+        f"Status zlecenia {zlec_id}",
+        on_save=lambda: (ok(), guard.reset()),
+        on_reset=lambda: True,
+        on_dirty_change=lambda d: win.title(
+            f"Status zlecenia {zlec_id}" + (" •" if d else "")
+        ),
+    )
+    guard.watch(frm)
+
+    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
+    ttk.Button(btns, text="Zapisz", command=guard.on_save).pack(side="right", padx=6)
+    ttk.Button(btns, text="Zamknij", command=lambda: guard.check_before(win.destroy)).pack(side="right")
+    win.protocol("WM_DELETE_WINDOW", lambda: guard.check_before(win.destroy))
 
 
 def _usun_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, on_done):
