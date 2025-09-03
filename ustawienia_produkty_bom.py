@@ -13,7 +13,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme
-from utils import error_dialogs
 from utils.dirty_guard import DirtyGuard
 
 DATA_DIR = os.path.join("data", "produkty")
@@ -229,7 +228,7 @@ def make_tab(parent, rola=None):
     def _delete():
         idx=_select_idx()
         if idx is None:
-            messagebox.showwarning("Produkty","Zaznacz produkt do usunięcia."); return
+            messagebox.showerror("Produkty","Zaznacz produkt do usunięcia."); return
         p = frm._products[idx]
         if not messagebox.askyesno("Produkty", f"Usunąć {p['kod']}?"): return
         try: os.remove(p["_path"])
@@ -252,7 +251,7 @@ def make_tab(parent, rola=None):
                     cont.pack(fill="both", expand=True)
                     us.panel_ustawien(top, cont)
                 except Exception:
-                    error_dialogs.show_error_dialog(
+                    messagebox.showerror(
                         "BOM", "Nie udało się otworzyć modułu ustawień"
                     )
             return
@@ -270,7 +269,7 @@ def make_tab(parent, rola=None):
                     cont.pack(fill="both", expand=True)
                     us.panel_ustawien(top, cont)
                 except Exception:
-                    error_dialogs.show_error_dialog(
+                    messagebox.showerror(
                         "BOM", "Nie udało się otworzyć modułu ustawień"
                     )
             return
@@ -307,7 +306,7 @@ def make_tab(parent, rola=None):
             try:
                 i = cb.current()
                 if i <= 0:
-                    messagebox.showwarning("BOM", "Wybierz półprodukt.")
+                    messagebox.showerror("BOM", "Wybierz półprodukt.")
                     return
                 pp_id = pp_ids[i - 1]
                 nm = frm._polprodukty[i - 1]["nazwa"]
@@ -315,12 +314,12 @@ def make_tab(parent, rola=None):
                 if il <= 0:
                     raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog("BOM", "Ilość musi być dodatnią liczbą")
+                messagebox.showerror("BOM", "Ilość musi być dodatnią liczbą")
                 return
             try:
                 j = cb_sr.current()
                 if j <= 0:
-                    messagebox.showwarning("BOM", "Wybierz surowiec.")
+                    messagebox.showerror("BOM", "Wybierz surowiec.")
                     return
                 sr_typ = sr_ids[j - 1]
                 sr_dl = var_sr_dl.get().strip()
@@ -328,7 +327,7 @@ def make_tab(parent, rola=None):
                 if dl <= 0:
                     raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog(
+                messagebox.showerror(
                     "BOM", "Długość musi być dodatnią liczbą"
                 )
                 return
@@ -371,7 +370,7 @@ def make_tab(parent, rola=None):
     def _del_row():
         sel = tv.selection()
         if not sel:
-            messagebox.showwarning("BOM", "Zaznacz wiersz do usunięcia.")
+            messagebox.showerror("BOM", "Zaznacz wiersz do usunięcia.")
             return
         details = []
         for iid in sel:
@@ -388,7 +387,7 @@ def make_tab(parent, rola=None):
         kod = (var_kod.get() or "").strip()
         naz = (var_nazwa.get() or "").strip()
         if not kod or not naz:
-            messagebox.showwarning("Produkty", "Uzupełnij kod i nazwę.")
+            messagebox.showerror("Produkty", "Uzupełnij kod i nazwę.")
             return
         bom = []
         for iid in tv.get_children():
@@ -398,7 +397,7 @@ def make_tab(parent, rola=None):
                 if il <= 0:
                     raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog(
+                messagebox.showerror(
                     "BOM", "Ilość musi być dodatnią liczbą"
                 )
                 return
@@ -406,7 +405,7 @@ def make_tab(parent, rola=None):
                 il = int(il)
             cz = [c.strip() for c in (cz_str or "").split(",") if c.strip()]
             if not sr_typ or not sr_dl:
-                error_dialogs.show_error_dialog(
+                messagebox.showerror(
                     "BOM", "Wybierz surowiec i podaj długość"
                 )
                 return
@@ -415,7 +414,7 @@ def make_tab(parent, rola=None):
                 if dl <= 0:
                     raise ValueError
             except Exception:
-                error_dialogs.show_error_dialog(
+                messagebox.showerror(
                     "BOM", "Długość musi być dodatnią liczbą"
                 )
                 return
@@ -428,6 +427,9 @@ def make_tab(parent, rola=None):
                     "surowiec": sr,
                 }
             )
+        if not bom:
+            messagebox.showerror("Produkty", "Dodaj przynajmniej jedną pozycję BOM.")
+            return
         payload = {
             "kod": kod,
             "nazwa": naz,
