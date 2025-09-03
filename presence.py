@@ -33,13 +33,13 @@ def _get_cfg():
         if cm and getattr(cm, "config", None):
             return cm.config or {}
     except Exception:
-        pass
+        logger.exception("CONFIG_MANAGER missing or malformed")
     try:
         cfg = globals().get("config", {})
         if isinstance(cfg, dict):
             return cfg
     except Exception:
-        pass
+        logger.exception("global config not accessible")
     return {}
 
 def _cfg_dir():
@@ -48,7 +48,7 @@ def _cfg_dir():
         if cm and getattr(cm, "config_path", None):
             return os.path.dirname(cm.config_path)
     except Exception:
-        pass
+        logger.exception("CONFIG_MANAGER config_path missing")
     return os.getcwd()
 
 def _presence_path():
@@ -63,17 +63,20 @@ def _atomic_write(path, data_dict):
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
         try:
             os.replace(tmp_path, path)
-        except Exception:
+        except OSError as e:
+            logger.exception("os.replace failed for %s: %s", path, e)
             try:
                 if os.path.exists(path):
                     os.remove(path)
                 os.rename(tmp_path, path)
-            except Exception:
-                pass
+            except OSError as e:
+                logger.exception("rename fallback failed for %s: %s", path, e)
     finally:
         if os.path.exists(tmp_path):
-            try: os.remove(tmp_path)
-            except Exception: pass
+            try:
+                os.remove(tmp_path)
+            except OSError as e:
+                logger.exception("cleanup failed for %s: %s", tmp_path, e)
 
 def _read_all():
     path = _presence_path()
@@ -83,8 +86,8 @@ def _read_all():
                 d = json.load(f) or {}
             if isinstance(d, dict):
                 return d
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            logger.exception("reading presence file failed: %s", e)
     return {}
 
 def heartbeat(login, role=None, machine=None, logout=False):
@@ -94,8 +97,11 @@ def heartbeat(login, role=None, machine=None, logout=False):
     data = _read_all()
 
     if not machine:
-        try: machine = platform.node()
-        except Exception: machine = "unknown"
+        try:
+            machine = platform.node()
+        except OSError as e:
+            logger.exception("platform.node failed: %s", e)
+            machine = "unknown"
 
     key = f"{login}@{machine}"
     data[key] = {
@@ -113,7 +119,7 @@ def end_session(login, role=None, machine=None):
     try:
         heartbeat(login, role, machine, logout=True)
     except Exception:
-        pass
+        logger.exception("end_session heartbeat failed")
 
 def start_heartbeat(root, login, role=None, interval_ms=None):
     """Uruchom cykliczne bicie serca.
@@ -170,7 +176,7 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
             try:
                 unreg(_atexit_handler)
             except Exception:
-                pass
+                logger.exception("atexit unregister failed")
         if _atexit_handler is None or unreg:
             atexit.register(_on_exit)
             _atexit_handler = _on_exit
@@ -191,7 +197,7 @@ def read_presence(max_age_sec=None):
     if max_age_sec is None:
         try:
             max_age_sec = int(cfg.get("presence", {}).get("online_window_sec", 120))
-        except Exception:
+        except (TypeError, ValueError):
             max_age_sec = 120
 
     data = _read_all()
@@ -202,7 +208,7 @@ def read_presence(max_age_sec=None):
             ts_iso = rec.get("ts")
             try:
                 ts = datetime.fromisoformat(ts_iso).timestamp() if ts_iso else 0
-            except Exception:
+            except ValueError:
                 ts = 0
             age = now - ts if ts else 999999
             online = (age <= max_age_sec) and (not rec.get("logout"))

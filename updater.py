@@ -12,6 +12,7 @@ import re
 import shutil
 import zipfile
 import subprocess
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -59,7 +60,7 @@ def _backup_files(file_list, stamp):
             try:
                 shutil.copy2(src, dest)
             except Exception as e:
-                _write_log(stamp, f"[WARN] Backup fail: {src} :: {e}", kind="update")
+                _write_log(stamp, f"[WARN] Backup fail: {src} :: {e}\n{traceback.format_exc()}", kind="update")
     return dest_root
 
 def _restore_backup(stamp: str):
@@ -157,7 +158,7 @@ def _git_has_updates(cwd: Path) -> bool:
         _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
         return False
     except Exception as e:
-        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}\n{traceback.format_exc()}")
         return False
 
 
@@ -207,7 +208,7 @@ def _read_head(path: Path, max_chars: int = 4000) -> str:
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             return f.read(max_chars)
-    except Exception:
+    except OSError:
         return ""
 
 def _scan_versions(start_dir: Path = Path(".")):
@@ -220,7 +221,7 @@ def _scan_versions(start_dir: Path = Path(".")):
             ver = m.group(1).strip()
             try:
                 rel = p.relative_to(Path.cwd())
-            except Exception:
+            except ValueError:
                 rel = p
             entries.append((str(rel).replace("\\", "/"), ver))
     # sort: najpierw pliki w katalogu głównym, potem alfabetycznie
@@ -236,7 +237,7 @@ def _style_exists(stylename: str) -> bool:
     try:
         st = ttk.Style()
         return bool(st.layout(stylename))
-    except Exception:
+    except tk.TclError:
         return False
 
 def _theme_colors():
@@ -353,13 +354,13 @@ class UpdatesUI(ttk.Frame):
                 self.configure(style="WM.Card.TFrame")
             else:
                 self.configure(bg=bg)
-        except Exception:
+        except tk.TclError:
             pass
 
         # Text (log)
         try:
             self.out.configure(bg=bg, fg=fg, insertbackground=fg)
-        except Exception:
+        except tk.TclError:
             pass
 
         # Treeview fallback (jeśli brak dedykowanego stylu WM.Treeview)
@@ -388,7 +389,7 @@ class UpdatesUI(ttk.Frame):
             self.out.insert("end", msg + "\n")
             self.out.see("end")
             self.update_idletasks()
-        except Exception:
+        except tk.TclError:
             pass
 
     def check_remote_status(self):
@@ -410,7 +411,9 @@ class UpdatesUI(ttk.Frame):
                 check=True,
             )
             ahead = int(proc_ahead.stdout.strip() or "0")
-        except Exception:
+        except subprocess.SubprocessError as e:
+            self._append_out(f"[WARN] git status failed: {e}")
+            _write_log(_now_stamp(), f"[WARN] git status failed: {e}")
             behind = 0
             ahead = 0
 
@@ -418,14 +421,14 @@ class UpdatesUI(ttk.Frame):
             self.status_var.set(f"Dostępne aktualizacje: {behind}")
             try:
                 self.git_button.state(["!disabled"])
-            except Exception:
+            except tk.TclError:
                 pass
             self._append_out("[INFO] Dostępne są aktualizacje. Użyj 'Pobierz z Git'.")
         else:
             self.status_var.set("Repozytorium aktualne")
             try:
                 self.git_button.state(["disabled"])
-            except Exception:
+            except tk.TclError:
                 pass
 
         try:
@@ -433,7 +436,7 @@ class UpdatesUI(ttk.Frame):
                 self.push_button.state(["!disabled"])
             else:
                 self.push_button.state(["disabled"])
-        except Exception:
+        except tk.TclError:
             pass
 
     # --- actions ---
@@ -448,7 +451,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Zaktualizowano z Git. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git pull: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] git pull: {e}\n{traceback.format_exc()}", kind="update")
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git pull:\n{e}")
 
     def _on_git_push(self):
@@ -482,7 +485,7 @@ class UpdatesUI(ttk.Frame):
                 "Aktualizacje", f"Błąd git push:\n{e.stderr.strip() if e.stderr else e}"
             )
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git push: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] git push: {e}\n{traceback.format_exc()}", kind="update")
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git push:\n{e}")
 
     def _on_zip_update(self):
@@ -506,7 +509,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Wgrano paczkę. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] ZIP update: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] ZIP update: {e}\n{traceback.format_exc()}", kind="update")
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd podczas importu ZIP:\n{e}")
 
     def _on_restore(self):
@@ -521,14 +524,14 @@ class UpdatesUI(ttk.Frame):
         try:
             dlg.transient(self.winfo_toplevel())
             dlg.grab_set()
-        except Exception:
+        except tk.TclError:
             pass
 
         # Lista backupów (dopasowanie do motywu)
         bg, fg, sel, _ = _theme_colors()
         try:
             dlg.configure(bg=bg)
-        except Exception:
+        except tk.TclError:
             pass
 
         ttk.Label(dlg, text="Dostępne backupy:", font=("Segoe UI", 10, "bold")).pack(anchor="w", padx=8, pady=(8,4))
@@ -536,7 +539,7 @@ class UpdatesUI(ttk.Frame):
         lb = tk.Listbox(dlg, height=12, highlightthickness=0, bd=0)
         try:
             lb.configure(bg=bg, fg=fg, selectbackground=sel, selectforeground=fg)
-        except Exception:
+        except tk.TclError:
             pass
         for b in backups:
             lb.insert("end", b)
@@ -575,7 +578,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Przywracanie", "Przywrócono poprzednią wersję. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}", kind="restore")
+            _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}\n{traceback.format_exc()}", kind="restore")
             error_dialogs.show_error_dialog("Przywracanie", f"Błąd przywracania:\n{e}")
 
     # --- versions UI ---
@@ -595,7 +598,7 @@ class UpdatesUI(ttk.Frame):
             self.clipboard_clear()
             self.clipboard_append(text)
             self._append_out("[INFO] Skopiowano listę wersji do schowka.")
-        except Exception:
+        except tk.TclError:
             self._append_out("[INFO] Nie udało się skopiować do schowka. Poniżej lista:")
             self._append_out(text)
 
