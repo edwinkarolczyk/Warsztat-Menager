@@ -41,8 +41,12 @@ class ImageHoverTooltip:
         self._tooltip: tk.Toplevel | None = None
         self._label: tk.Label | None = None
 
-        widget.bind("<Enter>", self.show_tooltip)
-        widget.bind("<Leave>", self.hide_tooltip)
+        try:
+            widget.bind("<Enter>", self.show_tooltip, add="+")
+            widget.bind("<Leave>", self.hide_tooltip, add="+")
+        except TypeError:  # fallback for simplified widgets (tests)
+            widget.bind("<Enter>", self.show_tooltip)
+            widget.bind("<Leave>", self.hide_tooltip)
 
     # ------------------------------------------------------------------
     # Image helpers
@@ -133,8 +137,12 @@ def bind_canvas_item_hover(
     tooltip = ImageHoverTooltip(
         canvas, image_paths, delay=delay, max_size=max_size
     )
-    canvas.tag_bind(item_id, "<Enter>", tooltip.show_tooltip)
-    canvas.tag_bind(item_id, "<Leave>", tooltip.hide_tooltip)
+    try:
+        canvas.tag_bind(item_id, "<Enter>", tooltip.show_tooltip, add="+")
+        canvas.tag_bind(item_id, "<Leave>", tooltip.hide_tooltip, add="+")
+    except TypeError:
+        canvas.tag_bind(item_id, "<Enter>", tooltip.show_tooltip)
+        canvas.tag_bind(item_id, "<Leave>", tooltip.hide_tooltip)
     return tooltip
 
 
@@ -148,6 +156,10 @@ def bind_treeview_row_hover(
     tooltip = ImageHoverTooltip(
         tree, image_paths, delay=delay, max_size=max_size
     )
-    tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip)
-    tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip)
+    try:
+        tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip, add="+")
+        tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip, add="+")
+    except TypeError:
+        tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip)
+        tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip)
     return tooltip
