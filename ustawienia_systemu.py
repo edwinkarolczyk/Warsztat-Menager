@@ -274,7 +274,10 @@ def panel_ustawien(root, frame, login=None, rola=None):
             self.widget = widget
 
         def get(self):
-            return _lines_from_text(self.widget)
+            try:
+                return _lines_from_text(self.widget)
+            except tk.TclError:
+                return []
 
         def set(self, value):
             self.widget.delete("1.0", "end")
@@ -303,9 +306,13 @@ def panel_ustawien(root, frame, login=None, rola=None):
 
         def _mark(*_):
             try:
-                val = cast(var.get())
+                raw_val = var.get()
+            except tk.TclError:
+                return
+            try:
+                val = cast(raw_val)
             except Exception:
-                val = var.get()
+                val = raw_val
             if val != original_vals[key]:
                 dirty_keys[key] = True
             else:
