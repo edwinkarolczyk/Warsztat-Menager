@@ -40,7 +40,7 @@ def make_window(root: tk.Misc) -> ttk.Frame:
     frame.columnconfigure(1, weight=1)
 
     def _save() -> None:
-        sel = [ops[i] for i in lb.curselection()]
+        sel = [ops[int(i)] for i in lb.curselection()]
         rec = {"kod": var_kod.get(), "czynnosci": sel}
         path = os.path.join(DATA_DIR, f"{var_kod.get()}.json")
         _write_json(path, rec)
