@@ -1,6 +1,8 @@
 import json
+import logging
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 DATA_DIR = Path("data")
 
 
@@ -32,10 +34,25 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
             if str(obj.get("version")) == str(version):
                 return obj
         raise FileNotFoundError(f"Brak wersji {version} produktu {kod}")
-    for obj in candidates:
-        if obj.get("is_default"):
-            return obj
-    return candidates[0]
+
+    defaults = [obj for obj in candidates if obj.get("is_default")]
+    if len(defaults) > 1:
+        logger.warning(
+            "Produkt %s ma wiele domyślnych wersji: %s",
+            kod,
+            [obj.get("version") for obj in defaults],
+        )
+        defaults = sorted(
+            defaults,
+            key=lambda o: (str(o.get("version")), str(o.get("_path"))),
+        )
+        return defaults[0]
+    if defaults:
+        return defaults[0]
+    return sorted(
+        candidates,
+        key=lambda o: (str(o.get("version")), str(o.get("_path"))),
+    )[0]
 
 def get_polprodukt(kod: str) -> dict:
     path = DATA_DIR / "polprodukty" / f"{kod}.json"

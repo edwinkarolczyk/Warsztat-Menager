@@ -109,3 +109,19 @@ def test_compute_bom_for_prd_requires_surowiec_fields(tmp_path, monkeypatch):
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
     with pytest.raises(KeyError, match="surowiec"):
         bom.compute_bom_for_prd("X", 1)
+
+
+def test_get_produkt_warns_on_multiple_defaults(tmp_path, monkeypatch, caplog):
+    produkty = tmp_path / "produkty"
+    produkty.mkdir()
+    prod1 = {"kod": "X", "version": "1", "is_default": True}
+    prod2 = {"kod": "X", "version": "2", "is_default": True}
+    with open(produkty / "p1.json", "w", encoding="utf-8") as f:
+        json.dump(prod1, f, ensure_ascii=False, indent=2)
+    with open(produkty / "p2.json", "w", encoding="utf-8") as f:
+        json.dump(prod2, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    with caplog.at_level("WARNING"):
+        res = bom.get_produkt("X")
+    assert res["version"] == "1"
+    assert any("wiele domyślnych" in r.message for r in caplog.records)
