@@ -103,7 +103,7 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
     assert res["PP1"]["surowiec"]["typ"] == "SR1"
 
 
-def test_compute_bom_for_prd_requires_czynnosci(tmp_path, monkeypatch):
+def test_compute_bom_for_prd_missing_czynnosci_logs_warning(tmp_path, monkeypatch, caplog):
     product = {
         "kod": "X",
         "polprodukty": [
@@ -119,8 +119,10 @@ def test_compute_bom_for_prd_requires_czynnosci(tmp_path, monkeypatch):
     with open(produkty / "X.json", "w", encoding="utf-8") as f:
         json.dump(product, f, ensure_ascii=False, indent=2)
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
-    with pytest.raises(KeyError, match="czynnosci"):
-        bom.compute_bom_for_prd("X", 1)
+    with caplog.at_level("WARNING"):
+        res = bom.compute_bom_for_prd("X", 1)
+    assert res["PP1"]["czynnosci"] == []
+    assert any("nie zawiera klucza 'czynnosci'" in r.message for r in caplog.records)
 
 
 def test_compute_bom_for_prd_requires_surowiec_fields(tmp_path, monkeypatch):
