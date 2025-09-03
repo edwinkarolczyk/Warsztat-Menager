@@ -7,7 +7,7 @@ from tkinter import ttk
 
 from config_manager import ConfigManager
 from ui_theme import apply_theme_safe as apply_theme
-from wm_prototyp_zakladki_magazyn_i_bom_tkinter import MagazynBOMWindow
+from gui_magazyn_bom import MagazynBOM
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
@@ -192,8 +192,10 @@ class MagazynSettings(ttk.Frame):
         self.cfg.save_all()
 
     def open_magazyn_bom(self) -> None:
-        win = MagazynBOMWindow(self)
-        apply_theme(win)
+        top = tk.Toplevel(self)
+        top.title("Magazyn i BOM")
+        MagazynBOM(top).pack(fill="both", expand=True)
+        apply_theme(top)
 
 
 if __name__ == "__main__":
