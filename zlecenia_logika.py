@@ -83,6 +83,25 @@ def check_materials(bom, ilosc=1):
     return braki
 
 
+def compute_material_needs(kod_produktu, ilosc=1):
+    """Oblicza zapotrzebowanie i dostępność surowców dla produktu."""
+    bom_sr = bom.compute_sr_for_prd(kod_produktu, 1)
+    mag = read_magazyn()
+    potrzeby = []
+    for kod, data in bom_sr.items():
+        req = data["ilosc"] * ilosc
+        stan = mag.get(kod, {}).get("stan", 0)
+        potrzeby.append(
+            {
+                "kod": kod,
+                "potrzeba": req,
+                "dostepne": stan,
+                "brakuje": max(0, req - stan),
+            }
+        )
+    return potrzeby, bom_sr
+
+
 def reserve_materials(bom, ilosc=1):
     """Rezerwuje surowce na magazynie i zwraca nowe stany.
 
@@ -105,6 +124,11 @@ def reserve_materials(bom, ilosc=1):
         updated[kod] = mag[kod]["stan"]
     _write_json(mag_path, mag)
     return updated
+
+
+def rezerwuj_materialy(bom, ilosc=1):
+    """Polska nazwa pomocnicza dla ``reserve_materials``."""
+    return reserve_materials(bom, ilosc)
 
 def create_zlecenie(
     kod_produktu,

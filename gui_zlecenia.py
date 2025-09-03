@@ -27,7 +27,8 @@ try:
         update_status,
         update_zlecenie,
         read_magazyn,
-        reserve_materials,
+        rezerwuj_materialy,
+        compute_material_needs,
     )
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
@@ -230,86 +231,139 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
 # Dialogi/akcje
 
 def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> None:
-    win = tk.Toplevel(parent); win.title("Nowe zlecenie produkcyjne")
+    win = tk.Toplevel(parent)
+    win.title("Nowe zlecenie produkcyjne")
     apply_theme(win)
     try:
         win.configure(bg=_DBG, highlightthickness=0, highlightbackground=_DBG)
     except Exception:
-        try: win.configure(highlightthickness=0)
-        except Exception: pass
-    try: win.grab_set()
-    except Exception: pass
-    win.geometry("660x380")
-
-    frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
-
-    ttk.Label(frm, text="Produkt", style="WM.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 6))
-    try: produkty = list_produkty()
-    except Exception: produkty = []
-    kody = [p.get("kod", "") for p in produkty]
-    cb_prod = ttk.Combobox(frm, values=kody, state="readonly", width=30)
-    if kody: cb_prod.current(0)
-    cb_prod.grid(row=0, column=1, sticky="we", padx=(8, 0), pady=(0, 6))
-
-    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=1, column=0, sticky="w")
-    spn = ttk.Spinbox(frm, from_=1, to=999, width=10); spn.set(1)
-    spn.grid(row=1, column=1, sticky="w", padx=(8, 0))
-
-    # NOWE: numer wewnętrzny
-    ttk.Label(frm, text="Tyczy się zlecenia nr (wew.)", style="WM.TLabel").grid(row=2, column=0, sticky="w", pady=(8, 0))
-    ent_ref = ttk.Entry(frm, width=18)
-    ent_ref.grid(row=2, column=1, sticky="w", padx=(8, 0), pady=(8, 0))
-
-    ttk.Label(frm, text="Uwagi", style="WM.TLabel").grid(row=3, column=0, sticky="nw", pady=(8, 0))
-    txt = tk.Text(frm, height=8)
-    txt.grid(row=3, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
+        try:
+            win.configure(highlightthickness=0)
+        except Exception:
+            pass
     try:
-        txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
-                      highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
+        win.grab_set()
     except Exception:
         pass
+    win.geometry("620x420")
+
+    frm = ttk.Frame(win, style="WM.TFrame")
+    frm.pack(fill="both", expand=True, padx=12, pady=12)
+
+    ttk.Label(frm, text="Produkt", style="WM.TLabel").grid(
+        row=0, column=0, sticky="w", pady=(0, 6)
+    )
+    try:
+        produkty = list_produkty()
+    except Exception:
+        produkty = []
+    kody = [p.get("kod", "") for p in produkty]
+    cb_prod = ttk.Combobox(frm, values=kody, state="readonly", width=30)
+    if kody:
+        cb_prod.current(0)
+    cb_prod.grid(row=0, column=1, sticky="we", padx=(8, 0), pady=(0, 6))
+
+    ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(
+        row=1, column=0, sticky="w"
+    )
+    spn = ttk.Spinbox(frm, from_=1, to=999, width=10)
+    spn.set(1)
+    spn.grid(row=1, column=1, sticky="w", padx=(8, 0))
+
+    ttk.Label(
+        frm, text="Zapotrzebowanie", style="WM.TLabel"
+    ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+    cols = ("kod", "potrzeba", "dostepne", "brakuje")
+    tv = ttk.Treeview(
+        frm, columns=cols, show="headings", height=8, style="WM.Treeview"
+    )
+    tv.heading("kod", text="Składnik")
+    tv.column("kod", width=140, anchor="w")
+    tv.heading("potrzeba", text="Potrzeba")
+    tv.column("potrzeba", width=80, anchor="center")
+    tv.heading("dostepne", text="Dostępne")
+    tv.column("dostepne", width=80, anchor="center")
+    tv.heading("brakuje", text="Brakuje")
+    tv.column("brakuje", width=80, anchor="center")
+    tv.grid(row=3, column=0, columnspan=2, sticky="nsew")
 
     frm.columnconfigure(1, weight=1)
     frm.rowconfigure(3, weight=1)
 
-    def akcept():
+    def refresh(*_):
+        for i in tv.get_children():
+            tv.delete(i)
         kod = cb_prod.get().strip()
         if not kod:
-            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win); return
+            tv._bom = {}
+            tv._needs = []
+            return
         try:
             ilosc = int(spn.get())
         except Exception:
-            messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win); return
-        uw = txt.get("1.0", "end").strip()
-        ref_raw = (ent_ref.get() or "").strip()
-        zlec_wew = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        zlec, braki = create_zlecenie(
-            kod,
-            ilosc,
-            uwagi=uw,
-            autor="GUI",
-            zlec_wew=zlec_wew,
-        )
-        if braki:
-            msg = ", ".join(
-                f"{b['nazwa']} ({b['brakuje']})" for b in braki
+            ilosc = 1
+        try:
+            potrzeby, bom_sr = compute_material_needs(kod, ilosc)
+        except Exception:
+            potrzeby, bom_sr = [], {}
+        for row in potrzeby:
+            tv.insert(
+                "",
+                "end",
+                values=(
+                    row["kod"],
+                    row["potrzeba"],
+                    row["dostepne"],
+                    row["brakuje"],
+                ),
             )
+        tv._bom = bom_sr
+        tv._needs = potrzeby
+
+    cb_prod.bind("<<ComboboxSelected>>", refresh)
+    spn.bind("<KeyRelease>", refresh)
+    spn.bind("<FocusOut>", refresh)
+    refresh()
+
+    def start_order():
+        kod = cb_prod.get().strip()
+        if not kod:
+            messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win)
+            return
+        try:
+            ilosc = int(spn.get())
+        except Exception:
+            messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
+            return
+        potrzeby = getattr(tv, "_needs", [])
+        bom_sr = getattr(tv, "_bom", {})
+        braki = [r for r in potrzeby if r["brakuje"] > 0]
+        rezerwuj_materialy(bom_sr, ilosc)
+        if braki:
+            msg = ", ".join(f"{b['kod']} ({b['brakuje']})" for b in braki)
             if messagebox.askyesno(
                 "Braki materiałowe",
                 f"Brakuje {msg} – zamówić?",
                 parent=win,
             ):
                 _append_pending_order(kod, braki)
+        zlec, _ = create_zlecenie(kod, ilosc, autor="GUI", reserve=False)
         messagebox.showinfo(
             "Zlecenie utworzone",
             f"ID: {zlec['id']}, status: {zlec['status']}",
             parent=win,
         )
         lbl_info.config(text=f"Utworzono zlecenie {zlec['id']}")
-        win.destroy(); on_done()
+        win.destroy()
+        on_done()
 
-    btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", pady=(0, 12))
-    ttk.Button(btns, text="Utwórz", command=akcept).pack(side="right", padx=6)
+    btns = ttk.Frame(win, style="WM.TFrame")
+    btns.pack(fill="x", pady=(0, 12))
+    ttk.Button(
+        btns,
+        text="Zarezerwuj materiały i rozpocznij",
+        command=start_order,
+    ).pack(side="right", padx=6)
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
 
 
@@ -444,7 +498,8 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
         return
 
     mag = read_magazyn()
-    win = tk.Toplevel(root); win.title(f"Rezerwacja materiałów {prod}")
+    win = tk.Toplevel(root)
+    win.title(f"Rezerwacja materiałów {prod}")
     _maybe_theme(win)
     win.geometry("560x360")
 
@@ -465,7 +520,7 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
 
     def do_reserve():
-        updated = reserve_materials(sr_unit, ilosc)
+        updated = rezerwuj_materialy(sr_unit, ilosc)
         for iid in tv.get_children():
             kod = tv.set(iid, "kod")
             if kod in updated:
