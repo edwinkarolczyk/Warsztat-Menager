@@ -4,6 +4,8 @@
 # Zmiany 1.1.4:
 # - Kreator zlecenia: dialog zamówienia brakujących materiałów
 # - Tabela: kolumna "Tyczy nr" (zlec_wew)
+# - DirtyGuard: okna tworzenia, edycji i zmiany statusu zleceń
+# - Logowanie z użyciem loggera zamiast printów w powyższych oknach
 # =============================
 
 import json
