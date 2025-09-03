@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -176,3 +177,43 @@ def test_get_produkt_prefers_numeric_version(tmp_path, monkeypatch, caplog):
         res = bom.get_produkt("X")
     assert res["version"] == "2"
     assert any("wiele domyślnych" in r.message for r in caplog.records)
+
+
+def test_products_reference_existing_polprodukty_and_surowce():
+    data_dir = Path("data")
+    with open(data_dir / "magazyn" / "surowce.json", encoding="utf-8") as f:
+        surowce_codes = {item["kod"] for item in json.load(f)}
+
+    errors = []
+    for produkt_file in (data_dir / "produkty").glob("*.json"):
+        with open(produkt_file, encoding="utf-8") as pf:
+            produkt = json.load(pf)
+        produkt_kod = produkt.get("kod", produkt_file.stem)
+        for polprodukt in produkt.get("polprodukty", []):
+            pp_kod = polprodukt.get("kod")
+            pp_path = data_dir / "polprodukty" / f"{pp_kod}.json"
+            if not pp_path.exists():
+                errors.append(
+                    f"Product {produkt_kod} references missing semi-product {pp_kod}"
+                )
+                continue
+            with open(pp_path, encoding="utf-8") as pp_file:
+                pp_data = json.load(pp_file)
+            sr = pp_data.get("surowiec")
+            if not isinstance(sr, dict):
+                errors.append(
+                    f"Semi-product {pp_kod} missing 'surowiec' section"
+                )
+                continue
+            missing = [k for k in ("kod", "ilosc_na_szt", "jednostka") if k not in sr]
+            if missing:
+                errors.append(
+                    f"Semi-product {pp_kod} missing surowiec fields: {', '.join(missing)}"
+                )
+                continue
+            if sr["kod"] not in surowce_codes:
+                errors.append(
+                    f"Semi-product {pp_kod} references unknown raw material {sr['kod']}"
+                )
+
+    assert not errors, "Found BOM inconsistencies:\n- " + "\n- ".join(errors)
