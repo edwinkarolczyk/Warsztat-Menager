@@ -26,6 +26,8 @@ _CONFIG_FILE = cfg_path("config.json")
 _USERS_FILE = cfg_path("uzytkownicy.json")
 
 _USER_DEFAULTS: Dict[str, str] = {}
+_LAST_USERS_SRC: Optional[str] = None
+_LAST_USERS_COUNT: Optional[int] = None
 
 
 def _read_json(path: str) -> dict:
@@ -119,34 +121,38 @@ def _shift_times() -> Dict[str, time]:
     }
 
 
+def _log_user_count(src: str, users: List[Dict[str, str]]) -> None:
+    """Log user count only when source or count changes."""
+
+    global _LAST_USERS_SRC, _LAST_USERS_COUNT
+    count = len(users)
+    if src != _LAST_USERS_SRC or count != _LAST_USERS_COUNT:
+        print(f"[WM-DBG][SHIFTS] users via {src}: {count}")
+        _LAST_USERS_SRC, _LAST_USERS_COUNT = src, count
+
+
 def _load_users() -> List[Dict[str, str]]:
     global _USER_DEFAULTS
     defaults_raw = _read_json(_USERS_FILE) or []
-    defaults_map = {}
+    defaults_map: Dict[str, str] = {}
     for u in defaults_raw:
         uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
         defaults_map[uid] = u.get("tryb_zmian", "111")
-    try:
+    try:  # pragma: no cover - profiles module rarely available
         import profiles
 
         raw = profiles.get_all_users()
-        print(f"[WM-DBG][SHIFTS] users via profiles: {len(raw)}")
+        _log_user_count("profiles", raw)
     except Exception:
         profiles_path = os.path.join("data", "profiles.json")
         raw_dict = _read_json(profiles_path)
         if raw_dict:
-            raw = [
-                {"login": login, **info} for login, info in raw_dict.items()
-            ]
-            print(
-                f"[WM-DBG][SHIFTS] users via profiles.json: {len(raw)}"
-            )
+            raw = [{"login": login, **info} for login, info in raw_dict.items()]
+            _log_user_count("profiles.json", raw)
         else:
             path = os.path.join("data", "users", "users.json")
             raw = _read_json(path) or defaults_raw
-            print(
-                f"[WM-DBG][SHIFTS] users via fallback: {len(raw)}"
-            )
+            _log_user_count("fallback", raw)
     users: List[Dict[str, str]] = []
     _USER_DEFAULTS = {}
     for u in raw:
