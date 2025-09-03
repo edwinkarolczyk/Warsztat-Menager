@@ -6,6 +6,8 @@ from pathlib import Path
 from tkinter import ttk
 
 from config_manager import ConfigManager
+from ui_theme import apply_theme_safe as apply_theme
+from wm_prototyp_zakladki_magazyn_i_bom_tkinter import MagazynBOMWindow
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
@@ -100,6 +102,10 @@ class MagazynSettings(ttk.Frame):
             row=6, column=0, columnspan=2, pady=6
         )
 
+        ttk.Button(
+            self, text="Magazyn i BOM", command=self.open_magazyn_bom
+        ).grid(row=7, column=0, columnspan=2, pady=(0, 6))
+
         self.columnconfigure(1, weight=1)
 
     def save(self) -> None:
@@ -112,6 +118,10 @@ class MagazynSettings(ttk.Frame):
         ]
         self.cfg.set("progi_alertow_pct", progi)
         self.cfg.save_all()
+
+    def open_magazyn_bom(self) -> None:
+        win = MagazynBOMWindow(self)
+        apply_theme(win)
 
 
 if __name__ == "__main__":
