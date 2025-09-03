@@ -369,13 +369,13 @@
     {
       "key": "updates.push_branch",
       "group": "Zaawansowane",
-      "label": "Gałąź git push",
+      "label": "Gałąź push",
       "type": "string",
       "default": "git-push",
       "widget": "entry",
       "scope": "global",
       "requires_restart": false,
-      "description": "Gałąź git push"
+      "description": "Gałąź push"
     },
     {
       "key": "modules.service.enabled",
