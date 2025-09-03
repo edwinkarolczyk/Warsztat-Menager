@@ -59,15 +59,16 @@ def read_magazyn():
 def check_materials(bom, ilosc=1):
     """Sprawdza dostępność surowców w magazynie.
 
-    ``bom`` powinien być słownikiem w postaci ``{kod_sr: ilosc_na_szt}``.
+    ``bom`` powinien być słownikiem w postaci
+    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
     ``ilosc`` oznacza liczbę sztuk produktu, dla której należy
     sprawdzić zapotrzebowanie.
     """
     mag_path = MAG_DIR / "stany.json"
     mag = _read_json(mag_path) if mag_path.exists() else {}
     braki = []
-    for kod, qty_per_unit in bom.items():
-        req = qty_per_unit * ilosc
+    for kod, data in bom.items():
+        req = data["ilosc"] * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         if stan < req:
             braki.append(
@@ -85,7 +86,8 @@ def check_materials(bom, ilosc=1):
 def reserve_materials(bom, ilosc=1):
     """Rezerwuje surowce na magazynie i zwraca nowe stany.
 
-    ``bom`` powinien być słownikiem w postaci ``{kod_sr: ilosc_na_szt}``.
+    ``bom`` powinien być słownikiem w postaci
+    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
     Zwracany jest słownik ``{kod_sr: stan_po_rezerwacji}`` dla każdej pozycji.
     Informacja ta jest wykorzystywana przez GUI do zasilenia kolumny
     "dostępne po".
@@ -95,8 +97,8 @@ def reserve_materials(bom, ilosc=1):
 
     mag = _read_json(mag_path) if mag_path.exists() else {}
     updated = {}
-    for kod, qty_per_unit in bom.items():
-        req = qty_per_unit * ilosc
+    for kod, data in bom.items():
+        req = data["ilosc"] * ilosc
         if kod not in mag:
             mag[kod] = default_item(kod)
         mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
@@ -117,11 +119,7 @@ def create_zlecenie(
     Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
     """
     _ensure_dirs()
-    bom_pp = bom.compute_bom_for_prd(kod_produktu, 1)
-    bom_sr = {}
-    for kod_pp, info in bom_pp.items():
-        for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
-            bom_sr[kod_sr] = bom_sr.get(kod_sr, 0) + qty
+    bom_sr = bom.compute_sr_for_prd(kod_produktu, 1)
     braki = check_materials(bom_sr, ilosc)  # tylko informacyjnie na start
     if reserve:
         reserve_materials(bom_sr, ilosc)
