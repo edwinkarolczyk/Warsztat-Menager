@@ -14,7 +14,8 @@ def _produkt_candidates(kod: str):
     out = []
     for p in products_dir.glob("*.json"):
         try:
-            obj = json.loads(p.read_text(encoding="utf-8"))
+            with p.open(encoding="utf-8") as f:
+                obj = json.load(f)
         except Exception:
             continue
         if obj.get("kod") == kod:
@@ -59,7 +60,8 @@ def get_polprodukt(kod: str) -> dict:
     path = DATA_DIR / "polprodukty" / f"{kod}.json"
     if not path.exists():
         raise FileNotFoundError(f"Brak definicji: {kod}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
 
 def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) -> dict:
     """Oblicza ilości półproduktów wraz z dodatkowymi danymi.
@@ -105,7 +107,8 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     surowce_path = DATA_DIR / "magazyn" / "surowce.json"
     jednostka = None
     if surowce_path.exists():
-        surowce = json.loads(surowce_path.read_text(encoding="utf-8"))
+        with surowce_path.open(encoding="utf-8") as f:
+            surowce = json.load(f)
 
         def _get_unit(data, kod):
             if isinstance(data, dict):
