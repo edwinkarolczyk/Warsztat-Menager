@@ -24,6 +24,7 @@ from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from start import CONFIG_MANAGER
 import gui_changelog
+from logger import log_akcja
 
 
 def _get_app_version() -> str:
@@ -480,8 +481,10 @@ def uruchom_panel(root, login, rola):
 
     def _on_shift_destroy(_e=None):
         if shift_job["id"]:
-            try: root.after_cancel(shift_job["id"])
-            except Exception: pass
+            try:
+                root.after_cancel(shift_job["id"])
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd after_cancel: {e}")
             shift_job["id"] = None
 
     draw_shift_bar()
