@@ -17,6 +17,7 @@ import bom
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
 from config_manager import ConfigManager
+from utils.dirty_guard import DirtyGuard
 
 try:
     from zlecenia_logika import (
@@ -381,7 +382,9 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
         messagebox.showerror("Edycja", f"Nie znaleziono zlecenia {zid}.")
         return
 
-    win = tk.Toplevel(root); win.title(f"Edytuj zlecenie {zid}")
+    win = tk.Toplevel(root)
+    base_title = f"Edytuj zlecenie {zid}"
+    win.title(base_title)
     _maybe_theme(win)
     win.geometry("480x300")
 
@@ -410,6 +413,14 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     frm.columnconfigure(1, weight=1)
     frm.rowconfigure(2, weight=1)
 
+    def _load():
+        spn.set(data.get("ilosc", 1))
+        ent_ref.delete(0, tk.END)
+        if data.get("zlec_wew") is not None:
+            ent_ref.insert(0, str(data.get("zlec_wew")))
+        txt.delete("1.0", "end")
+        txt.insert("1.0", data.get("uwagi", ""))
+
     def zapisz():
         try:
             ilosc = int(spn.get())
@@ -423,9 +434,35 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
         lbl_info.config(text=f"Zmieniono zlecenie {zid}")
         win.destroy(); on_done()
 
+    guard = DirtyGuard(
+        base_title,
+        on_save=lambda: (zapisz(), guard.reset()),
+        on_reset=lambda: (_load(), guard.reset()),
+        on_dirty_change=lambda d: win.title(base_title + (" *" if d else "")),
+    )
+    guard.watch(frm)
+    guard.reset()
+
+    def check_dirty():
+        if guard.dirty:
+            return messagebox.askyesno(
+                "Niezapisane zmiany",
+                "Porzucić niezapisane zmiany?",
+                parent=win,
+            )
+        return True
+
+    guard.check_dirty = check_dirty
+
+    def on_close():
+        if guard.check_dirty():
+            win.destroy()
+
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0,12))
-    ttk.Button(btns, text="Zapisz", command=zapisz).pack(side="right", padx=6)
-    ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right")
+    ttk.Button(btns, text="Zapisz", command=guard.on_save).pack(side="right", padx=6)
+    ttk.Button(btns, text="Anuluj", command=on_close).pack(side="right")
+
+    win.protocol("WM_DELETE_WINDOW", on_close)
 
 def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
                         lbl_info: ttk.Label, root, on_done) -> None:

@@ -23,6 +23,8 @@ import os
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
+from utils.dirty_guard import DirtyGuard
+
 from ui_theme import apply_theme_safe as apply_theme
 from utils import error_dialogs
 import logika_magazyn as LM
@@ -96,12 +98,35 @@ def _list_materialy_z_magazynu():
 class ProduktyBOM(tk.Toplevel):
     def __init__(self, root):
         super().__init__(root)
-        self.title("Produkty (BOM)")
+        self._base_title = "Produkty (BOM)"
+        self.title(self._base_title)
         self.geometry("1000x600+140+140")
         apply_theme(self)
         _ensure_dirs()
         self._build_ui()
         self._reload_lists()
+
+        self.guard = DirtyGuard(
+            self._base_title,
+            on_save=lambda: (self._save_current(), self.guard.reset()),
+            on_reset=lambda: (self._load_selected(), self.guard.reset()),
+            on_dirty_change=lambda d: self.title(
+                self._base_title + (" *" if d else "")
+            ),
+        )
+        self.guard.watch(self)
+
+        def _check():
+            if self.guard.dirty:
+                return messagebox.askyesno(
+                    "Niezapisane zmiany",
+                    "Porzucić niezapisane zmiany?",
+                    parent=self,
+                )
+            return True
+
+        self.guard.check_dirty = _check
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
         self.columnconfigure(1, weight=1)
@@ -115,9 +140,24 @@ class ProduktyBOM(tk.Toplevel):
         self.listbox.bind("<<ListboxSelect>>", lambda e: self._load_selected())
 
         btns = ttk.Frame(left); btns.pack(fill="x")
-        ttk.Button(btns, text="Nowy", command=self._new_product, style="WM.Side.TButton").pack(side="left", padx=2)
-        ttk.Button(btns, text="Usuń", command=self._delete_product, style="WM.Side.TButton").pack(side="left", padx=2)
-        ttk.Button(btns, text="Zapisz", command=self._save_current, style="WM.Side.TButton").pack(side="left", padx=2)
+        ttk.Button(
+            btns,
+            text="Nowy",
+            command=lambda: self.guard.check_dirty() and self._new_product(),
+            style="WM.Side.TButton",
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            btns,
+            text="Usuń",
+            command=lambda: self.guard.check_dirty() and self._delete_product(),
+            style="WM.Side.TButton",
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            btns,
+            text="Zapisz",
+            command=self.guard.on_save,
+            style="WM.Side.TButton",
+        ).pack(side="left", padx=2)
 
         # Prawy panel: nagłówek + BOM
         right = ttk.Frame(self); right.grid(row=0, column=1, sticky="new", padx=(6,10), pady=(10,0))
@@ -161,8 +201,18 @@ class ProduktyBOM(tk.Toplevel):
 
         # Stopka zapisu
         foot = ttk.Frame(self); foot.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,10))
-        ttk.Button(foot, text="Zapisz produkt", command=self._save_current, style="WM.Side.TButton").pack(side="left")
-        ttk.Button(foot, text="Zamknij", command=self.destroy, style="WM.Side.TButton").pack(side="right")
+        ttk.Button(
+            foot,
+            text="Zapisz produkt",
+            command=self.guard.on_save,
+            style="WM.Side.TButton",
+        ).pack(side="left")
+        ttk.Button(
+            foot,
+            text="Zamknij",
+            command=self._on_close,
+            style="WM.Side.TButton",
+        ).pack(side="right")
 
     # --- działania ---
     def _reload_lists(self):
@@ -196,13 +246,16 @@ class ProduktyBOM(tk.Toplevel):
                 "end",
                 values=(kod, il, cz, sr.get("typ", ""), sr.get("dlugosc", "")),
             )
+        self.guard.reset()
 
     def _new_product(self):
         nowy_kod = simpledialog.askstring("Nowy produkt", "Podaj kod (ID) produktu:", parent=self)
         if not nowy_kod: return
         self.var_kod.set(nowy_kod.strip())
         self.var_nazwa.set("")
-        for iid in self.tree.get_children(): self.tree.delete(iid)
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        self.guard.reset()
 
     def _delete_product(self):
         idx = self._get_sel_index()
@@ -216,8 +269,11 @@ class ProduktyBOM(tk.Toplevel):
         except Exception:
             pass
         self._reload_lists()
-        self.var_kod.set(""); self.var_nazwa.set("")
-        for iid in self.tree.get_children(): self.tree.delete(iid)
+        self.var_kod.set("")
+        self.var_nazwa.set("")
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        self.guard.reset()
 
     def _add_row(self):
         win = tk.Toplevel(self)
@@ -263,6 +319,7 @@ class ProduktyBOM(tk.Toplevel):
                 return
             cz = [c.strip() for c in var_cz.get().split(",") if c.strip()]
             self.tree.insert("", "end", values=(kod, il, ", ".join(cz), sr_typ, dl))
+            self.guard.set_dirty()
             win.destroy()
 
         ttk.Button(frm, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(
@@ -275,6 +332,7 @@ class ProduktyBOM(tk.Toplevel):
             messagebox.showwarning("BOM", "Zaznacz wiersz BOM do usunięcia."); return
         for iid in sel:
             self.tree.delete(iid)
+        self.guard.set_dirty()
 
     def _save_current(self):
         kod = (self.var_kod.get() or "").strip()
@@ -314,6 +372,11 @@ class ProduktyBOM(tk.Toplevel):
         _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
         messagebox.showinfo("Produkty", f"Zapisano produkt {kod}.")
         self._reload_lists()
+        self.guard.reset()
+
+    def _on_close(self):
+        if self.guard.check_dirty():
+            self.destroy()
 
 def open_panel_produkty(root):
     return ProduktyBOM(root)
