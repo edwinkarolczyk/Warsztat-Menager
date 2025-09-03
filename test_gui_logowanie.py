@@ -152,8 +152,15 @@ def test_label_color_current(monkeypatch, dummy_gui):
     cfg = ConfigManager()
     remote = cfg.get("updates.remote")
     branch = cfg.get("updates.branch")
+    push_branch = cfg.get("updates.push_branch")
 
     def fake_run(cmd, *args, **kwargs):
+        if cmd == ["git", "remote"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{remote}\n")
+        if cmd == ["git", "ls-remote", "--heads", remote, push_branch]:
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=f"hash\trefs/heads/{push_branch}\n"
+            )
         if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
@@ -179,8 +186,15 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
     cfg = ConfigManager()
     remote = cfg.get("updates.remote")
     branch = cfg.get("updates.branch")
+    push_branch = cfg.get("updates.push_branch")
 
     def fake_run(cmd, *args, **kwargs):
+        if cmd == ["git", "remote"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{remote}\n")
+        if cmd == ["git", "ls-remote", "--heads", remote, push_branch]:
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=f"hash\trefs/heads/{push_branch}\n"
+            )
         if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)

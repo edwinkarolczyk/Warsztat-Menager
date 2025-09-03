@@ -11,7 +11,7 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime
+import json, os, shutil, datetime, subprocess
 import logging
 from typing import Any, Dict, List
 
@@ -50,6 +50,7 @@ class ConfigManager:
         self._ensure_dirs()
         self.merged = self._merge_all()
         self._validate_all()
+        self._verify_push_branch()
 
         # Settings for unsaved changes handling
         self.warn_on_unsaved = self.get("warn_on_unsaved", True)
@@ -106,6 +107,40 @@ class ConfigManager:
                 # klucz spoza schematu – dopuszczamy (forward‑compat), ale można by zalogować
                 continue
             self._validate_value(idx[key], value)
+
+    def _verify_push_branch(self):
+        branch = self.get("updates.push_branch")
+        if not branch or not os.path.isdir(".git"):
+            return
+        remote = self.get("updates.remote", "origin")
+        try:
+            remotes = subprocess.run(
+                ["git", "remote"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            ).stdout.split()
+            if remote not in remotes:
+                return
+            result = subprocess.run(
+                ["git", "ls-remote", "--heads", remote, branch],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise ConfigError(
+                f"Nie można zweryfikować gałęzi '{branch}' na zdalnym "
+                f"'{remote}': {e.stderr.strip() if e.stderr else e}"
+            ) from e
+        if not result.stdout.strip():
+            raise ConfigError(
+                f"Brak gałęzi '{branch}' na zdalnym '{remote}'. "
+                f"Utwórz ją poleceniem 'git push {remote} HEAD:{branch}' "
+                "lub zmień 'updates.push_branch'."
+            )
 
     def _validate_value(self, opt: Dict[str, Any], value: Any):
         t = opt.get("type")
