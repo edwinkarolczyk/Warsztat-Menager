@@ -571,7 +571,26 @@ def uruchom_panel(root, login, rola):
             open_hala_window(root)
         except Exception as e:  # pragma: no cover - prosty fallback
             messagebox.showerror("Błąd", f"Nie można otworzyć widoku hal:\n{e}")
-    
+
+    def _load_mag_alerts():
+        """Lista pozycji magazynowych poniżej progu."""
+        try:
+            with open("data/magazyn/surowce.json", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except Exception:
+            return []
+        out = []
+        for kod, rec in data.items():
+            try:
+                stan = float(rec.get("stan", 0))
+                prog = float(rec.get("prog_alertu", 0))
+            except Exception:
+                continue
+            if stan <= prog:
+                nm = rec.get("nazwa", "")
+                out.append(f"{kod} ({nm})")
+        return out
+
     # przyciski boczne
     btn_zl = ttk.Button(
         side,
@@ -667,6 +686,17 @@ def uruchom_panel(root, login, rola):
         btn_profile.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
         btn_profile.pack(padx=10, pady=6, fill="x")
         _maybe_mark_button(btn_profile)
+    alerts = _load_mag_alerts()
+    if alerts:
+        frm_alert = ttk.Frame(side, style="WM.Card.TFrame")
+        frm_alert.pack(padx=10, pady=6, fill="x")
+        ttk.Label(
+            frm_alert, text="Alerty magazynowe", style="WM.Card.TLabel"
+        ).pack(anchor="w", padx=8, pady=(6, 0))
+        for a in alerts:
+            ttk.Label(frm_alert, text=a, style="WM.Muted.TLabel").pack(
+                anchor="w", padx=8
+            )
     root.update_idletasks()
     otworz_panel(panel_zlecenia, "Zlecenia (start)")
     root.update_idletasks()

@@ -485,17 +485,23 @@ class MagazynBOMWindow(tk.Toplevel):
         for i in self.tree_surowce.get_children():
             self.tree_surowce.delete(i)
         for kod, rec in sorted(self.model.surowce.items()):
+            ilosc = int(rec.get("ilosc", 0) or 0)
+            prog = int(rec.get("prog_alertu_procent", 0) or 0)
             row = (
                 kod,
-                rec.get("nazwa",""),
-                rec.get("rodzaj",""),
-                rec.get("rozmiar",""),
-                rec.get("dlugosc",""),
-                rec.get("jednostka",""),
-                rec.get("ilosc",0),
-                rec.get("prog_alertu_procent",0),
+                rec.get("nazwa", ""),
+                rec.get("rodzaj", ""),
+                rec.get("rozmiar", ""),
+                rec.get("dlugosc", ""),
+                rec.get("jednostka", ""),
+                ilosc,
+                prog,
             )
-            self.tree_surowce.insert("", "end", values=row)
+            tags = ("alert",) if ilosc <= prog else ()
+            self.tree_surowce.insert("", "end", values=row, tags=tags)
+        self.tree_surowce.tag_configure(
+            "alert", background=DARK_THEME.get("accent2", "#F87171")
+        )
 
     def _load_polprodukty(self):
         for i in self.tree_pp.get_children():
