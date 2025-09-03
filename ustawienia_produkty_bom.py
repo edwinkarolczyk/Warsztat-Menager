@@ -7,13 +7,13 @@
 # ⏹ KONIEC KODU
 
 import os
-import json
 import glob
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.dirty_guard import DirtyGuard
+from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
@@ -21,24 +21,10 @@ SURO_PATH = os.path.join("data", "magazyn", "surowce.json")
 
 __all__ = ["make_tab"]
 
-# ---------- I/O ----------
 def _ensure_dirs():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    os.makedirs(POL_DIR, exist_ok=True)
+    _ensure_dirs_impl(DATA_DIR, POL_DIR)
 
-def _read_json(path, default=None):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return default if default is not None else {}
-    except Exception:
-        return default if default is not None else {}
-
-def _write_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+# ---------- I/O ----------
 
 def _list_produkty():
     _ensure_dirs()

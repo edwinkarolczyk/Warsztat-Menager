@@ -6,32 +6,21 @@
 # - create_zlecenie nadal obsługuje `zlec_wew`; start = "nowe"
 # =============================
 
-import json, os
 from pathlib import Path
 from datetime import datetime
 
 import bom
+from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
 DATA_DIR = Path("data")
 BOM_DIR = DATA_DIR / "produkty"
 MAG_DIR = DATA_DIR / "magazyn"
 ZLECENIA_DIR = DATA_DIR / "zlecenia"
 
-STATUSY = ["nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
-
 def _ensure_dirs():
-    ZLECENIA_DIR.mkdir(parents=True, exist_ok=True)
-    BOM_DIR.mkdir(parents=True, exist_ok=True)
-    MAG_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_dirs_impl(ZLECENIA_DIR, BOM_DIR, MAG_DIR)
 
-def _read_json(p):
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def _write_json(p, obj):
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=2)
+STATUSY = ["nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
 
 def list_produkty():
     _ensure_dirs()
