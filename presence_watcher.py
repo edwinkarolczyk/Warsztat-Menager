@@ -62,12 +62,14 @@ def _write_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
     try:
         os.replace(tmp, path)
-    except Exception:
+    except Exception as e:
         try:
-            if os.path.exists(path): os.remove(path)
+            if os.path.exists(path):
+                os.remove(path)
             os.rename(tmp, path)
-        except Exception:
-            pass
+        except Exception as e2:
+            log_akcja(f"[JSON] write error for {path}: {e2}")
+            raise
 
 def _shifts_from_cfg(c):
     p = c.get("presence", {})
@@ -155,8 +157,8 @@ def run_check():
         import presence
         recs, _ = presence.read_presence(max_age_sec=None)
         online_logins = {r.get("login") for r in recs if r.get("online")}
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[Presence] run_check read error: {e}")
 
     created = 0
     for lg, meta in users.items():
