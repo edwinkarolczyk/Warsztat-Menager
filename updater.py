@@ -18,11 +18,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from utils import error_dialogs
+from path_utils import abs_path
 
 from config_manager import ConfigManager
 
-LOGS_DIR = Path("logs")
-BACKUP_DIR = Path("backups")
+LOGS_DIR = Path(abs_path("logs"))
+BACKUP_DIR = Path(abs_path("backups"))
 
 # --- utils ---
 

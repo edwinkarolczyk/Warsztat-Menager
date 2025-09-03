@@ -4,6 +4,7 @@
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
 from io_utils import read_json, write_json
+from path_utils import abs_path
 
 USERS_FILE = "uzytkownicy.json"
 
@@ -36,10 +37,10 @@ def read_users():
     Przy braku pliku – tworzy z DEFAULT_USER.
     Po odczycie uzupełnia brakujące pola przez ``ensure_user_fields``.
     """
-    data = read_json(USERS_FILE)
+    data = read_json(abs_path(USERS_FILE))
     if data is None:
         users = [DEFAULT_USER.copy()]
-        write_json(USERS_FILE, users)
+        write_json(abs_path(USERS_FILE), users)
         return ensure_user_fields(users)
     if isinstance(data, list):
         users = data
@@ -74,7 +75,7 @@ def write_users(users):
         u.setdefault("zadania", [])
         u.setdefault("ostatnia_wizyta", "1970-01-01T00:00:00Z")
         norm.append(u)
-    return write_json(USERS_FILE, norm)
+    return write_json(abs_path(USERS_FILE), norm)
 
 def find_user_by_pin(pin):
     users = read_users()
@@ -129,5 +130,5 @@ def ensure_user_fields(users):
         if "opis" not in u: u["opis"] = ""; changed = True
         if "ostatnia_wizyta" not in u: u["ostatnia_wizyta"] = "1970-01-01T00:00:00Z"; changed = True
     if changed:
-        write_json(USERS_FILE, users)
+        write_json(abs_path(USERS_FILE), users)
     return users

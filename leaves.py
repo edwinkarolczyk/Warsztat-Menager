@@ -4,6 +4,7 @@ import os, json
 from datetime import datetime
 
 from start import CONFIG_MANAGER  # noqa: F401
+from path_utils import get_base_dir
 
 def _cfg():
     try:
@@ -23,7 +24,7 @@ def _path(fname):
             base = os.path.dirname(cm.config_path)
     except Exception:
         pass
-    base = base or os.getcwd()
+    base = base or str(get_base_dir())
     return os.path.join(base, fname)
 
 def _read(path, default):

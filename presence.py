@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 # Initialize module logger
 logger = logging.getLogger(__name__)
 from start import CONFIG_MANAGER  # noqa: F401
+from path_utils import get_base_dir
 
 try:
     from tkinter import TclError
@@ -49,7 +50,7 @@ def _cfg_dir():
             return os.path.dirname(cm.config_path)
     except Exception:
         pass
-    return os.getcwd()
+    return str(get_base_dir())
 
 def _presence_path():
     base = _cfg_dir()

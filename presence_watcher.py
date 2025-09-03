@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 # Initialize module logger
 logger = logging.getLogger(__name__)
 from start import CONFIG_MANAGER  # noqa: F401
+from path_utils import get_base_dir
 
 try:
     from tkinter import TclError
@@ -43,7 +44,7 @@ def _path(fname):
             base = os.path.dirname(cm.config_path)
     except Exception:
         pass
-    base = base or os.getcwd()
+    base = base or str(get_base_dir())
     return os.path.join(base, fname)
 
 def _read_json(path, default):
