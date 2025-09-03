@@ -96,17 +96,24 @@ def make_tab(parent, rola=None):
     frm.rowconfigure(1, weight=1)
 
     # lewy panel (lista produktów)
-    left = ttk.Frame(frm, style="WM.Card.TFrame"); left.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(10,6), pady=10)
-    ttk.Label(left, text="Produkty", style="WM.Card.TLabel").pack(anchor="w")
-    lb = tk.Listbox(left, height=22); lb.pack(fill="y", expand=False, pady=(6,6))
+    left = ttk.Frame(frm, style="WM.Card.TFrame")
+    left.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(10, 6), pady=10)
+    left.grid_columnconfigure(0, weight=1)
+    left.grid_rowconfigure(1, weight=1)
+
+    ttk.Label(left, text="Produkty", style="WM.Card.TLabel").grid(
+        row=0, column=0, sticky="w"
+    )
+    lb = tk.Listbox(left, height=22)
+    lb.grid(row=1, column=0, sticky="ns", pady=(6, 6))
     btns = ttk.Frame(left)
-    btns.pack(fill="x")
+    btns.grid(row=2, column=0, sticky="ew")
     btn_new = ttk.Button(btns, text="Nowy", style="WM.Side.TButton")
-    btn_new.pack(side="left", padx=2)
+    btn_new.grid(row=0, column=0, padx=2)
     btn_del = ttk.Button(btns, text="Usuń", style="WM.Side.TButton")
-    btn_del.pack(side="left", padx=2)
+    btn_del.grid(row=0, column=1, padx=2)
     btn_save = ttk.Button(btns, text="Zapisz", style="WM.Side.TButton")
-    btn_save.pack(side="left", padx=2)
+    btn_save.grid(row=0, column=2, padx=2)
 
     # prawy panel (nagłówek + BOM)
     right = ttk.Frame(frm, style="WM.Card.TFrame"); right.grid(row=0, column=1, sticky="new", padx=(6,10), pady=(10,0))
@@ -130,10 +137,24 @@ def make_tab(parent, rola=None):
     # BOM tabela
     center = ttk.Frame(frm, style="WM.TFrame"); center.grid(row=1, column=1, sticky="nsew", padx=(6,10), pady=(6,10))
     center.rowconfigure(1, weight=1); center.columnconfigure(0, weight=1)
-    bar = ttk.Frame(center, style="WM.TFrame"); bar.grid(row=0, column=0, sticky="ew")
-    ttk.Label(bar, text="BOM (półprodukty)", style="WM.Card.TLabel").pack(side="left")
-    ttk.Button(bar, text="Dodaj wiersz", command=lambda:_add_row(), style="WM.Side.TButton").pack(side="right", padx=(6,2))
-    ttk.Button(bar, text="Usuń wiersz", command=lambda:_del_row(), style="WM.Side.TButton").pack(side="right")
+    bar = ttk.Frame(center, style="WM.TFrame")
+    bar.grid(row=0, column=0, sticky="ew")
+    bar.grid_columnconfigure(0, weight=1)
+    ttk.Label(bar, text="BOM (półprodukty)", style="WM.Card.TLabel").grid(
+        row=0, column=0, sticky="w"
+    )
+    ttk.Button(
+        bar,
+        text="Usuń wiersz",
+        command=lambda: _del_row(),
+        style="WM.Side.TButton",
+    ).grid(row=0, column=1)
+    ttk.Button(
+        bar,
+        text="Dodaj wiersz",
+        command=lambda: _add_row(),
+        style="WM.Side.TButton",
+    ).grid(row=0, column=2, padx=(6, 2))
     tv = ttk.Treeview(
         center,
         columns=(
@@ -254,8 +275,10 @@ def make_tab(parent, rola=None):
 
                     top = tk.Toplevel(frm)
                     top.title("Ustawienia")
+                    top.grid_columnconfigure(0, weight=1)
+                    top.grid_rowconfigure(0, weight=1)
                     cont = ttk.Frame(top)
-                    cont.pack(fill="both", expand=True)
+                    cont.grid(row=0, column=0, sticky="nsew")
                     us.panel_ustawien(top, cont)
                 except Exception:
                     messagebox.showerror(
@@ -272,8 +295,10 @@ def make_tab(parent, rola=None):
 
                     top = tk.Toplevel(frm)
                     top.title("Ustawienia")
+                    top.grid_columnconfigure(0, weight=1)
+                    top.grid_rowconfigure(0, weight=1)
                     cont = ttk.Frame(top)
-                    cont.pack(fill="both", expand=True)
+                    cont.grid(row=0, column=0, sticky="nsew")
                     us.panel_ustawien(top, cont)
                 except Exception:
                     messagebox.showerror(
@@ -283,8 +308,9 @@ def make_tab(parent, rola=None):
         win = tk.Toplevel(frm)
         win.title("Dodaj pozycję BOM")
         apply_theme(win)
+        win.grid_columnconfigure(0, weight=1)
         f = ttk.Frame(win)
-        f.pack(padx=10, pady=10, fill="x")
+        f.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         ttk.Label(f, text="Półprodukt:", style="WM.Card.TLabel").grid(row=0, column=0, sticky="w", padx=4, pady=4)
         pp_ids = [m["kod"] for m in frm._polprodukty]
         pp_desc = ["Wybierz…"] + [f"{m['kod']} – {m['nazwa']}" for m in frm._polprodukty]
