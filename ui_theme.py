@@ -176,6 +176,13 @@ def _init_styles(root: tk.Misc | None = None) -> None:
                   fieldbackground=[("readonly", DARK_BG_2), ("focus", DARK_BG_2)],
                   foreground=[("disabled", MUTED_FG)])
 
+    style.configure(
+        "Transparent.TEntry",
+        fieldbackground=DARK_BG,
+        background=DARK_BG,
+        borderwidth=0,
+    )
+
     # Treeview
     style.configure("WM.Treeview",
                     background=DARK_BG,

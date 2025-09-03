@@ -62,7 +62,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
         w.destroy()
-    apply_theme_tree(root)
+    apply_theme(root)
 
     # pełny ekran i tytuł
     root.title("Warsztat Menager")
@@ -112,14 +112,26 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
 
+    style = ttk.Style(root)
+    bg = root["bg"] if "bg" in root.keys() else "#0f1113"
+    try:
+        style.configure(
+            "Transparent.TEntry",
+            fieldbackground=bg,
+            background=bg,
+            borderwidth=0,
+        )
+    except TypeError:
+        pass
+
     ttk.Label(box, text="Login:", style="WM.H2.TLabel").pack(pady=(8, 6))
-    entry_login = ttk.Entry(box, width=22)
+    entry_login = ttk.Entry(box, width=22, style="Transparent.TEntry")
     entry_login.pack(ipadx=10, ipady=6)
     if hasattr(entry_login, "focus_set"):
         entry_login.focus_set()
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
-    entry_pin = ttk.Entry(box, show="*", width=22)
+    entry_pin = ttk.Entry(box, show="*", width=22, style="Transparent.TEntry")
     entry_pin.pack(ipadx=10, ipady=6)
     ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
     root.bind("<Return>", lambda e: logowanie())
