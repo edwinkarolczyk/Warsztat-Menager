@@ -5,7 +5,18 @@ from datetime import datetime, timezone
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
-from start import CONFIG_MANAGER  # noqa: F401
+
+config = {}
+config_path = None
+
+
+def set_config(cfg=None, cfg_path=None):
+    """Configure presence module with plain dict and optional path."""
+    global config, config_path
+    if isinstance(cfg, dict):
+        config = cfg
+    if cfg_path:
+        config_path = cfg_path
 
 try:
     from tkinter import TclError
@@ -28,27 +39,11 @@ def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
 def _get_cfg():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config", None):
-            return cm.config or {}
-    except Exception:
-        logger.exception("CONFIG_MANAGER missing or malformed")
-    try:
-        cfg = globals().get("config", {})
-        if isinstance(cfg, dict):
-            return cfg
-    except Exception:
-        logger.exception("global config not accessible")
-    return {}
+    return config if isinstance(config, dict) else {}
 
 def _cfg_dir():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config_path", None):
-            return os.path.dirname(cm.config_path)
-    except Exception:
-        logger.exception("CONFIG_MANAGER config_path missing")
+    if config_path:
+        return os.path.dirname(config_path)
     return os.getcwd()
 
 def _presence_path():
