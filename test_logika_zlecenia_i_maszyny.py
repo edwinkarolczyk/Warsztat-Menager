@@ -57,7 +57,22 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     data_copy = _setup_zlecenia_copy(tmp_path, monkeypatch)
     mag_dir = data_copy / "magazyn"
     stany_path = mag_dir / "stany.json"
-    shutil.copy(mag_dir / "surowce.json", stany_path)
+    stany = {
+        "SR001": {
+            "nazwa": "Rura stalowa fi40",
+            "jednostka": "mb",
+            "stan": 120.0,
+            "prog_alertu": 10.0,
+        },
+        "SR002": {
+            "nazwa": "Płaskownik 40x5",
+            "jednostka": "mb",
+            "stan": 60.0,
+            "prog_alertu": 5.0,
+        },
+    }
+    with open(stany_path, "w", encoding="utf-8") as f:
+        json.dump(stany, f, indent=2)
 
     bom_pp = bom.compute_bom_for_prd("PRD001", 1)
     surowce = {}
