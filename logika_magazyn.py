@@ -380,6 +380,40 @@ def upsert_item(item):
         _log_info(f"Upsert item {item['id']} ({it['nazwa']})")
         return it
 
+
+def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool:
+    """Usuwa element z magazynu.
+
+    Po usunięciu aktualizuje listę ``meta.order`` oraz zapisuje stan
+    magazynu. Operacja jest logowana i dopisywana do historii globalnej.
+
+    Args:
+        item_id: Identyfikator elementu do usunięcia.
+        uzytkownik: Nazwa użytkownika wykonującego operację.
+        kontekst: Opcjonalny kontekst operacji.
+
+    Returns:
+        ``True`` gdy element usunięto.
+
+    Raises:
+        KeyError: Gdy element o podanym identyfikatorze nie istnieje.
+    """
+
+    with _LOCK:
+        m = load_magazyn()
+        items = m.get("items") or {}
+        if item_id not in items:
+            raise KeyError(f"Brak pozycji {item_id} w magazynie")
+        del items[item_id]
+        order = (m.setdefault("meta", {}).get("order") or [])
+        m["meta"]["order"] = [iid for iid in order if iid != item_id]
+        save_magazyn(m)
+        zapisz_stan_magazynu(m)
+        entry = _history_entry("usun", item_id, 0.0, uzytkownik, kontekst)
+        _append_history(entry)
+        _log_mag("usun", {"item_id": item_id, "by": uzytkownik, "ctx": kontekst})
+        return True
+
 def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:
         raise ValueError("Ilość zużycia musi być > 0")

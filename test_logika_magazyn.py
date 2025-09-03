@@ -131,6 +131,42 @@ def test_set_order_persists(tmp_path, monkeypatch):
     assert ids[:2] == ['B', 'A']
 
 
+def test_delete_item(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
+    logs = []
+    history = []
+    monkeypatch.setattr(lm, '_log_mag', lambda a, d: logs.append((a, d)))
+    monkeypatch.setattr(lm, '_append_history', lambda e: history.append(e))
+
+    lm.load_magazyn()
+    lm.upsert_item({
+        'id': 'A',
+        'nazwa': 'A',
+        'typ': 'komponent',
+        'jednostka': 'szt',
+        'stan': 1,
+        'min_poziom': 0,
+    })
+    lm.upsert_item({
+        'id': 'B',
+        'nazwa': 'B',
+        'typ': 'komponent',
+        'jednostka': 'szt',
+        'stan': 2,
+        'min_poziom': 0,
+    })
+
+    lm.delete_item('A', uzytkownik='tester', kontekst='pytest')
+    m = lm.load_magazyn()
+    assert 'A' not in m['items']
+    assert 'A' not in m['meta']['order']
+    assert history and history[-1]['operacja'] == 'usun'
+    assert any(a == 'usun' and d['item_id'] == 'A' for a, d in logs)
+
+    with pytest.raises(KeyError):
+        lm.delete_item('C')
+
+
 def test_parallel_saves_are_serial(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()
