@@ -1,7 +1,19 @@
 # profiles_settings_injector.py
 # Wersja: 0.3 — szerokie wykrywanie Ustawień, logi, skrót Ctrl+Alt+U
+import logging
 import tkinter as tk
 from tkinter import ttk
+
+DEBUG = False
+
+logger = logging.getLogger(__name__)
+if DEBUG and not logging.getLogger().hasHandlers():
+    logging.basicConfig(level=logging.DEBUG)
+
+
+def _log_debug(msg, *args, **kwargs):
+    if DEBUG:
+        logger.debug(msg, *args, **kwargs)
 
 _started = False
 _SETTINGS_TITLE_KEYS = ("ustaw", "konfig", "settings")
@@ -47,14 +59,14 @@ def _attach_tab(nb):
     try:
         for t in nb.tabs():
             if nb.tab(t, "text") == "Profile użytkowników":
-                print("[PROFILES-DBG] injector: tab already present", flush=True)
+                _log_debug("[PROFILES-DBG] injector: tab already present")
                 return True
     except Exception:
         pass
 
     tab = ttk.Frame(nb, style="WM.Card.TFrame")
     nb.add(tab, text="Profile użytkowników")
-    print("[PROFILES-DBG] injector: tab added", flush=True)
+    _log_debug("[PROFILES-DBG] injector: tab added")
 
     cfg = globals().get("config", {}) if isinstance(globals().get("config", {}), dict) else {}
 
@@ -114,7 +126,16 @@ def _attach_tab(nb):
         editable = [x.strip() for x in var_fields_edit.get().split(",") if x.strip()]
         _cfg_set("profiles.fields_editable_by_user", editable)
         _cfg_set("profiles.allow_pin_change", bool(var_allow_pin.get()))
-        print("[PROFILES-DBG] injector: apply ->", {"tab_enabled": var_tab.get(),"show_name_in_header": var_head.get(),"fields": var_fields.get(),"editable": var_fields_edit.get(),"allow_pin": var_allow_pin.get()}, flush=True)
+        _log_debug(
+            "[PROFILES-DBG] injector: apply -> %s",
+            {
+                "tab_enabled": var_tab.get(),
+                "show_name_in_header": var_head.get(),
+                "fields": var_fields.get(),
+                "editable": var_fields_edit.get(),
+                "allow_pin": var_allow_pin.get(),
+            },
+        )
     ttk.Button(tab, text="Zastosuj", command=_apply).grid(row=row, column=0, sticky="w", padx=12, pady=(16,12))
 
     for c in range(2): tab.grid_columnconfigure(c, weight=0)
@@ -132,20 +153,29 @@ def start(root):
     global _started
     if _started: return
     _started = True
-    print("[PROFILES-DBG] injector: start", flush=True)
+    _log_debug("[PROFILES-DBG] injector: start")
 
     tries = {"n": 0}
     def tick():
         tries["n"] += 1
         cands = _find_candidate_notebooks(root)
-        print(f"[PROFILES-DBG] injector: tick {tries['n']} — found {len(cands)} notebooks", flush=True)
+        _log_debug(
+            "[PROFILES-DBG] injector: tick %s — found %s notebooks",
+            tries["n"],
+            len(cands),
+        )
         best = None; best_score = -1
         for win, nb in cands:
             s = _candidate_score(win, nb)
             t = _get_title(win)
             try: tab_texts = [nb.tab(ti, 'text') for ti in nb.tabs()]
             except Exception: tab_texts = []
-            print(f"[PROFILES-DBG] injector:  cand score={s} title='{t}' tabs={tab_texts}", flush=True)
+            _log_debug(
+                "[PROFILES-DBG] injector:  cand score=%s title='%s' tabs=%s",
+                s,
+                t,
+                tab_texts,
+            )
             if s > best_score:
                 best = (win, nb); best_score = s
         if best and best_score > 0:
@@ -156,7 +186,7 @@ def start(root):
     root.after(500, tick)
 
 def force_attach_to_focused(root):
-    print("[PROFILES-DBG] injector: force attach (focused)", flush=True)
+    _log_debug("[PROFILES-DBG] injector: force attach (focused)")
     try:
         w = root.focus_get()
     except Exception:
