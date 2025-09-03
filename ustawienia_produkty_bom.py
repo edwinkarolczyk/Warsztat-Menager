@@ -447,7 +447,16 @@ def make_tab(parent, rola=None):
             "is_default": bool(var_is_default.get()),
             "polprodukty": bom,
         }
-        _write_json(os.path.join(DATA_DIR, f"{kod}.json"), payload)
+        path = os.path.join(DATA_DIR, f"{kod}.json")
+        if payload["is_default"]:
+            for p in glob.glob(os.path.join(DATA_DIR, "*.json")):
+                if p == path:
+                    continue
+                other = _read_json(p, {})
+                if other.get("kod") == kod and other.get("is_default"):
+                    other["is_default"] = False
+                    _write_json(p, other)
+        _write_json(path, payload)
         messagebox.showinfo("Produkty", f"Zapisano {kod}.")
         _refresh()
         # selekcja na zapisany
