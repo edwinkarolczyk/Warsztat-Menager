@@ -2,6 +2,8 @@ import json
 import logging
 from pathlib import Path
 
+from packaging.version import parse as parse_version
+
 logger = logging.getLogger(__name__)
 DATA_DIR = Path("data")
 
@@ -35,6 +37,11 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
                 return obj
         raise FileNotFoundError(f"Brak wersji {version} produktu {kod}")
 
+    def _sort_key(obj):
+        ver = obj.get("version")
+        ver_key = parse_version(str(ver)) if ver is not None else parse_version("0")
+        return ver_key, str(obj.get("_path"))
+
     defaults = [obj for obj in candidates if obj.get("is_default")]
     if len(defaults) > 1:
         logger.warning(
@@ -42,17 +49,11 @@ def get_produkt(kod: str, version: str | None = None) -> dict:
             kod,
             [obj.get("version") for obj in defaults],
         )
-        defaults = sorted(
-            defaults,
-            key=lambda o: (str(o.get("version")), str(o.get("_path"))),
-        )
+        defaults = sorted(defaults, key=_sort_key)
         return defaults[0]
     if defaults:
         return defaults[0]
-    return sorted(
-        candidates,
-        key=lambda o: (str(o.get("version")), str(o.get("_path"))),
-    )[0]
+    return sorted(candidates, key=_sort_key)[0]
 
 def get_polprodukt(kod: str) -> dict:
     path = DATA_DIR / "polprodukty" / f"{kod}.json"
