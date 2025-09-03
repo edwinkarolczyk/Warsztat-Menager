@@ -52,7 +52,7 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     nazwa_entry.insert(0, "Produkt 1")
 
     tv = _find_widgets(frm, ttk.Treeview)[0]
-    tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1"))
+    tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1", "m"))
 
     save_btn = [b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"][0]
     save_btn.invoke()
@@ -67,7 +67,11 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
                 "kod": "PP1",
                 "ilosc_na_szt": 2,
                 "czynnosci": [],
-                "surowiec": {"typ": "SR1", "dlugosc": 1},
+                "surowiec": {
+                    "kod": "SR1",
+                    "ilosc_na_szt": 1,
+                    "jednostka": "m",
+                },
             }
         ],
     }
@@ -80,6 +84,14 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     lb.event_generate("<<ListboxSelect>>")
     items = tv.get_children()
     assert len(items) == 1
-    assert tv.item(items[0], "values") == ("PP1", "Polprodukt A", "2", "", "SR1", "1")
+    assert tv.item(items[0], "values") == (
+        "PP1",
+        "Polprodukt A",
+        "2",
+        "",
+        "SR1",
+        "1",
+        "m",
+    )
 
     root.destroy()

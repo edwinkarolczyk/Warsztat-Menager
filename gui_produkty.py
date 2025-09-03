@@ -183,18 +183,19 @@ class ProduktyBOM(tk.Toplevel):
 
         self.tree = ttk.Treeview(
             center,
-            columns=("kod", "ilosc", "czynnosci", "sr_typ", "sr_dlugosc"),
+            columns=("kod", "ilosc", "czynnosci", "sr_kod", "sr_ilosc", "sr_jedn"),
             show="headings",
             style="WM.Treeview",
             height=16,
         )
-        self.tree.grid(row=1, column=0, sticky="nsew", pady=(6,0))
+        self.tree.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
         for c, t, w in [
             ("kod", "Kod PP", 140),
             ("ilosc", "Ilość/szt", 100),
             ("czynnosci", "Czynności", 200),
-            ("sr_typ", "Surowiec", 140),
-            ("sr_dlugosc", "Długość", 100),
+            ("sr_kod", "Surowiec", 120),
+            ("sr_ilosc", "Ilość SR", 100),
+            ("sr_jedn", "Jedn.", 60),
         ]:
             self.tree.heading(c, text=t)
             self.tree.column(c, width=w, anchor="w")
@@ -241,10 +242,15 @@ class ProduktyBOM(tk.Toplevel):
             il = poz.get("ilosc_na_szt", 1)
             cz = ", ".join(poz.get("czynnosci", []))
             sr = poz.get("surowiec", {})
+            sr_kod = sr.get("kod") or sr.get("typ", "")
+            sr_qty = sr.get("ilosc_na_szt")
+            if sr_qty is None:
+                sr_qty = sr.get("dlugosc", "")
+            sr_jedn = sr.get("jednostka", "")
             self.tree.insert(
                 "",
                 "end",
-                values=(kod, il, cz, sr.get("typ", ""), sr.get("dlugosc", "")),
+                values=(kod, il, cz, sr_kod, sr_qty, sr_jedn),
             )
         self.guard.reset()
 
@@ -294,36 +300,58 @@ class ProduktyBOM(tk.Toplevel):
         var_cz = tk.StringVar(value="")
         ttk.Entry(frm, textvariable=var_cz).grid(row=2, column=1, sticky="ew", padx=4, pady=4)
 
-        ttk.Label(frm, text="Surowiec typ:", style="WM.Card.TLabel").grid(row=3, column=0, sticky="w", padx=4, pady=4)
+        ttk.Label(frm, text="Surowiec kod:", style="WM.Card.TLabel").grid(
+            row=3, column=0, sticky="w", padx=4, pady=4
+        )
         var_sr = tk.StringVar(value="")
         ttk.Entry(frm, textvariable=var_sr).grid(row=3, column=1, sticky="ew", padx=4, pady=4)
 
-        ttk.Label(frm, text="Długość surowca:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
-        var_dl = tk.StringVar(value="")
-        ttk.Entry(frm, textvariable=var_dl, width=12).grid(row=4, column=1, sticky="w", padx=4, pady=4)
+        ttk.Label(frm, text="Ilość surowca:", style="WM.Card.TLabel").grid(
+            row=4, column=0, sticky="w", padx=4, pady=4
+        )
+        var_sr_qty = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=var_sr_qty, width=12).grid(
+            row=4, column=1, sticky="w", padx=4, pady=4
+        )
+
+        ttk.Label(frm, text="Jednostka:", style="WM.Card.TLabel").grid(
+            row=5, column=0, sticky="w", padx=4, pady=4
+        )
+        var_sr_jedn = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=var_sr_jedn, width=12).grid(
+            row=5, column=1, sticky="w", padx=4, pady=4
+        )
 
         def _ok():
             try:
                 il = float(var_il.get())
                 if il <= 0:
                     raise ValueError
-                dl = var_dl.get().strip()
-                dl = float(dl) if dl else ""
+                qty = float(var_sr_qty.get())
+                if qty <= 0:
+                    raise ValueError
             except Exception:
                 error_dialogs.show_error_dialog("BOM", "Podaj poprawne wartości.")
                 return
             kod = var_kod.get().strip()
-            sr_typ = var_sr.get().strip()
-            if not kod or not sr_typ:
-                messagebox.showwarning("BOM", "Uzupełnij kod i surowiec.")
+            sr_kod = var_sr.get().strip()
+            sr_jedn = var_sr_jedn.get().strip()
+            if not kod or not sr_kod or not sr_jedn:
+                messagebox.showwarning(
+                    "BOM", "Uzupełnij kod, surowiec i jednostkę."
+                )
                 return
             cz = [c.strip() for c in var_cz.get().split(",") if c.strip()]
-            self.tree.insert("", "end", values=(kod, il, ", ".join(cz), sr_typ, dl))
+            self.tree.insert(
+                "",
+                "end",
+                values=(kod, il, ", ".join(cz), sr_kod, qty, sr_jedn),
+            )
             self.guard.set_dirty()
             win.destroy()
 
         ttk.Button(frm, text="Dodaj", command=_ok, style="WM.Side.TButton").grid(
-            row=5, column=0, columnspan=2, pady=(8, 2)
+            row=6, column=0, columnspan=2, pady=(8, 2)
         )
 
     def _del_row(self):
@@ -344,21 +372,28 @@ class ProduktyBOM(tk.Toplevel):
 
         polprodukty = []
         for iid in self.tree.get_children():
-            kod_pp, il, cz, sr_typ, sr_dl = self.tree.item(iid, "values")
+            kod_pp, il, cz, sr_kod, sr_qty, sr_jedn = self.tree.item(iid, "values")
             try:
                 il = float(il)
-                if il <= 0:
+                sr_qty_val = float(sr_qty)
+                if il <= 0 or sr_qty_val <= 0:
                     raise ValueError
-                sr_dl_val = float(sr_dl) if str(sr_dl).strip() not in ("", "0") else None
             except Exception:
                 error_dialogs.show_error_dialog(
-                    "BOM", "Ilości i długości muszą być liczbami."
+                    "BOM", "Ilości muszą być liczbami."
+                )
+                return
+            if not sr_kod or not sr_jedn:
+                error_dialogs.show_error_dialog(
+                    "BOM", "Uzupełnij surowiec i jednostkę."
                 )
                 return
             czynnosci = [c.strip() for c in str(cz).split(",") if c.strip()]
-            sr = {"typ": sr_typ}
-            if sr_dl_val is not None:
-                sr["dlugosc"] = sr_dl_val
+            sr = {
+                "kod": sr_kod,
+                "ilosc_na_szt": sr_qty_val,
+                "jednostka": sr_jedn,
+            }
             polprodukty.append(
                 {
                     "kod": kod_pp,

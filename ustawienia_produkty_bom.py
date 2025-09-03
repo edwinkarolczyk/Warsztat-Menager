@@ -135,20 +135,22 @@ def make_tab(parent, rola=None):
             "ilosc_na_szt",
             "czynnosci",
             "surowiec",
-            "surowiec_dlugosc",
+            "surowiec_ilosc",
+            "surowiec_jednostka",
         ),
         show="headings",
         style="WM.Treeview",
         height=14,
     )
-    tv.grid(row=1, column=0, sticky="nsew", pady=(6,0))
+    tv.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
     for c, t, w in [
         ("pp", "Kod PP", 150),
         ("nazwa", "Nazwa", 220),
         ("ilosc_na_szt", "Ilość na szt.", 110),
         ("czynnosci", "Czynności", 180),
-        ("surowiec", "Surowiec", 140),
-        ("surowiec_dlugosc", "Długość", 80),
+        ("surowiec", "Surowiec", 120),
+        ("surowiec_ilosc", "Ilość SR", 100),
+        ("surowiec_jednostka", "Jedn.", 60),
     ]:
         tv.heading(c, text=t)
         tv.column(c, width=w, anchor="w")
@@ -201,6 +203,11 @@ def make_tab(parent, rola=None):
             nm = next((m["nazwa"] for m in frm._polprodukty if m["kod"] == mid), "")
             cz = ", ".join(poz.get("czynnosci", []))
             sr = poz.get("surowiec", {})
+            sr_kod = sr.get("kod") or sr.get("typ", "")
+            sr_qty = sr.get("ilosc_na_szt")
+            if sr_qty is None:
+                sr_qty = sr.get("dlugosc", "")
+            sr_jedn = sr.get("jednostka", "")
             tv.insert(
                 "",
                 "end",
@@ -209,8 +216,9 @@ def make_tab(parent, rola=None):
                     nm,
                     poz.get("ilosc_na_szt", 1),
                     cz,
-                    sr.get("typ", ""),
-                    sr.get("dlugosc", ""),
+                    sr_kod,
+                    sr_qty,
+                    sr_jedn,
                 ),
             )
 
@@ -298,9 +306,16 @@ def make_tab(parent, rola=None):
         cb_sr = ttk.Combobox(f, values=sr_desc, state="readonly")
         cb_sr.grid(row=3, column=1, sticky="ew", padx=4, pady=4)
         cb_sr.current(0)
-        ttk.Label(f, text="Długość:", style="WM.Card.TLabel").grid(row=4, column=0, sticky="w", padx=4, pady=4)
-        var_sr_dl = tk.StringVar()
-        ttk.Entry(f, textvariable=var_sr_dl).grid(row=4, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Ilość surowca:", style="WM.Card.TLabel").grid(
+            row=4, column=0, sticky="w", padx=4, pady=4
+        )
+        var_sr_qty = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_qty).grid(row=4, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(f, text="Jednostka:", style="WM.Card.TLabel").grid(
+            row=5, column=0, sticky="w", padx=4, pady=4
+        )
+        var_sr_unit = tk.StringVar()
+        ttk.Entry(f, textvariable=var_sr_unit).grid(row=5, column=1, sticky="ew", padx=4, pady=4)
 
         def _ok():
             try:
@@ -321,19 +336,22 @@ def make_tab(parent, rola=None):
                 if j <= 0:
                     messagebox.showerror("BOM", "Wybierz surowiec.")
                     return
-                sr_typ = sr_ids[j - 1]
-                sr_dl = var_sr_dl.get().strip()
-                dl = float(sr_dl)
-                if dl <= 0:
+                sr_kod = sr_ids[j - 1]
+                qty = float(var_sr_qty.get())
+                if qty <= 0:
+                    raise ValueError
+                unit = var_sr_unit.get().strip()
+                if not unit:
                     raise ValueError
             except Exception:
                 messagebox.showerror(
-                    "BOM", "Długość musi być dodatnią liczbą"
+                    "BOM", "Podaj poprawną ilość i jednostkę surowca"
                 )
                 return
             sr = {
-                "typ": sr_typ,
-                "dlugosc": dl if not dl.is_integer() else int(dl),
+                "kod": sr_kod,
+                "ilosc_na_szt": qty if not qty.is_integer() else int(qty),
+                "jednostka": unit,
             }
             if il.is_integer():
                 il = int(il)
@@ -341,12 +359,20 @@ def make_tab(parent, rola=None):
             tv.insert(
                 "",
                 "end",
-                values=(pp_id, nm, il, ", ".join(cz), sr["typ"], sr["dlugosc"]),
+                values=(
+                    pp_id,
+                    nm,
+                    il,
+                    ", ".join(cz),
+                    sr["kod"],
+                    sr["ilosc_na_szt"],
+                    sr["jednostka"],
+                ),
             )
             win.destroy()
 
         btn_ok = ttk.Button(f, text="Dodaj", command=_ok, style="WM.Side.TButton")
-        btn_ok.grid(row=5, column=0, columnspan=2, pady=(8, 2))
+        btn_ok.grid(row=6, column=0, columnspan=2, pady=(8, 2))
 
         def _check_ok(event=None):
             if cb.current() > 0 and cb_sr.current() > 0:
@@ -374,7 +400,7 @@ def make_tab(parent, rola=None):
             return
         details = []
         for iid in sel:
-            pp, _nazwa, _il, _cz, sr, _dl = tv.item(iid, "values")
+            pp, _nazwa, _il, _cz, sr, _sr_il, _sr_j = tv.item(iid, "values")
             details.append(f"Półprodukt: {pp} / Surowiec: {sr}")
         if not messagebox.askyesno(
             "BOM", "Usuń zaznaczone wiersze?\n" + "\n".join(details)
@@ -391,34 +417,32 @@ def make_tab(parent, rola=None):
             return
         bom = []
         for iid in tv.get_children():
-            pp, _nm, il, cz_str, sr_typ, sr_dl = tv.item(iid, "values")
+            pp, _nm, il, cz_str, sr_kod, sr_qty, sr_unit = tv.item(iid, "values")
             try:
                 il = float(il)
-                if il <= 0:
+                sr_qty_val = float(sr_qty)
+                if il <= 0 or sr_qty_val <= 0:
                     raise ValueError
             except Exception:
                 messagebox.showerror(
-                    "BOM", "Ilość musi być dodatnią liczbą"
+                    "BOM", "Ilości muszą być dodatnimi liczbami"
                 )
                 return
             if il.is_integer():
                 il = int(il)
+            if sr_qty_val.is_integer():
+                sr_qty_val = int(sr_qty_val)
             cz = [c.strip() for c in (cz_str or "").split(",") if c.strip()]
-            if not sr_typ or not sr_dl:
+            if not sr_kod or not sr_unit:
                 messagebox.showerror(
-                    "BOM", "Wybierz surowiec i podaj długość"
+                    "BOM", "Wybierz surowiec oraz podaj ilość i jednostkę"
                 )
                 return
-            try:
-                dl = float(sr_dl)
-                if dl <= 0:
-                    raise ValueError
-            except Exception:
-                messagebox.showerror(
-                    "BOM", "Długość musi być dodatnią liczbą"
-                )
-                return
-            sr = {"typ": sr_typ, "dlugosc": dl if not dl.is_integer() else int(dl)}
+            sr = {
+                "kod": sr_kod,
+                "ilosc_na_szt": sr_qty_val,
+                "jednostka": sr_unit,
+            }
             bom.append(
                 {
                     "kod": pp,
