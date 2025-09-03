@@ -3,27 +3,23 @@
 import os, json
 from datetime import datetime
 
-from start import CONFIG_MANAGER  # noqa: F401
+config = {}
+config_path = None
+
+
+def set_config(cfg=None, cfg_path=None):
+    """Configure leaves module with plain dict and optional path."""
+    global config, config_path
+    if isinstance(cfg, dict):
+        config = cfg
+    if cfg_path:
+        config_path = cfg_path
 
 def _cfg():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config", None):
-            return cm.config or {}
-    except Exception:
-        pass
-    cfg = globals().get("config", {})
-    return cfg if isinstance(cfg, dict) else {}
+    return config if isinstance(config, dict) else {}
 
 def _path(fname):
-    base = None
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config_path", None):
-            base = os.path.dirname(cm.config_path)
-    except Exception:
-        pass
-    base = base or os.getcwd()
+    base = os.path.dirname(config_path) if config_path else os.getcwd()
     return os.path.join(base, fname)
 
 def _read(path, default):
