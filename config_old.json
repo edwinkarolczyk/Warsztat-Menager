@@ -7,7 +7,6 @@
     "fullscreen": true,
     "rozmiar_przyciskow": "duzy"
   },
-
   "statusy_narzedzi_nowe": [
     "projekt",
     "w budowie",
@@ -30,14 +29,12 @@
     "Działające",
     "sprawne"
   ],
-
   "typy_narzedzi": [
     "Tłoczące",
     "Wykrawające",
     "Postępowe",
     "Giętarka"
   ],
-
   "szablony_zadan_narzedzia": [
     "ucięcie belek",
     "frezowanie belek",
@@ -49,24 +46,62 @@
     "wymiana tulei",
     "regeneracja"
   ],
-
   "narzedzia": {
     "typy": {
       "Tłoczące": {
-        "produkcja": ["ucięcie belek","frezowanie belek","wiercenie","szlifowanie"],
-        "serwis": ["ostrzenie","wymiana tulei","regeneracja"]
+        "produkcja": [
+          "ucięcie belek",
+          "frezowanie belek",
+          "wiercenie",
+          "szlifowanie"
+        ],
+        "serwis": [
+          "ostrzenie",
+          "wymiana tulei",
+          "regeneracja"
+        ]
       },
       "Wykrawające": {
-        "produkcja": ["wykonanie matrycy","wiercenie prowadzeń","pasowanie","szlifowanie krawędzi"],
-        "serwis": ["ostrzenie stempla","regeneracja matrycy","wymiana sprężyn","czyszczenie"]
+        "produkcja": [
+          "wykonanie matrycy",
+          "wiercenie prowadzeń",
+          "pasowanie",
+          "szlifowanie krawędzi"
+        ],
+        "serwis": [
+          "ostrzenie stempla",
+          "regeneracja matrycy",
+          "wymiana sprężyn",
+          "czyszczenie"
+        ]
       },
       "Postępowe": {
-        "produkcja": ["ustawienie stacji","pasowanie prowadników","kalibracja wybieraków","próby"],
-        "serwis": ["ostrzenie","wymiana rolek/prowadników","regeneracja","kontrola luzów"]
+        "produkcja": [
+          "ustawienie stacji",
+          "pasowanie prowadników",
+          "kalibracja wybieraków",
+          "próby"
+        ],
+        "serwis": [
+          "ostrzenie",
+          "wymiana rolek/prowadników",
+          "regeneracja",
+          "kontrola luzów"
+        ]
       },
       "Giętarka": {
-        "produkcja": ["przygotowanie programu gięcia","ustawienie segmentów","próby","korekta promieni"],
-        "serwis": ["smarowanie","wymiana segmentów","regulacja docisków","kontrola luzów"]
+        "produkcja": [
+          "przygotowanie programu gięcia",
+          "ustawienie segmentów",
+          "próby",
+          "korekta promieni"
+        ],
+        "serwis": [
+          "smarowanie",
+          "wymiana segmentów",
+          "regulacja docisków",
+          "kontrola luzów"
+        ]
       }
     },
     "komentarze": {

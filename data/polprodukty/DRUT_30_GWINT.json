@@ -1,8 +1,18 @@
 {
   "kod": "DRUT_30_GWINT",
   "nazwa": "Drut gwintowany 30mm",
-  "operacje": ["ciecie", "gwintowanie"],
-  "czynnosci": ["ciecie", "gwintowanie"],
-  "surowiec": { "kod": "SR001", "ilosc_na_szt": 0.30, "jednostka": "mb" },
+  "operacje": [
+    "ciecie",
+    "gwintowanie"
+  ],
+  "czynnosci": [
+    "ciecie",
+    "gwintowanie"
+  ],
+  "surowiec": {
+    "kod": "SR001",
+    "ilosc_na_szt": 0.3,
+    "jednostka": "mb"
+  },
   "norma_strat_proc": 1.0
 }

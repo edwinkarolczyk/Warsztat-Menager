@@ -1,8 +1,18 @@
 {
   "kod": "PP002",
   "nazwa": "Płaskownik gięty",
-  "operacje": ["ciecie", "gięcie"],
-  "czynnosci": ["ciecie", "gięcie"],
-  "surowiec": { "kod": "SR002", "ilosc_na_szt": 0.50, "jednostka": "mb" },
+  "operacje": [
+    "ciecie",
+    "gięcie"
+  ],
+  "czynnosci": [
+    "ciecie",
+    "gięcie"
+  ],
+  "surowiec": {
+    "kod": "SR002",
+    "ilosc_na_szt": 0.5,
+    "jednostka": "mb"
+  },
   "norma_strat_proc": 5.0
 }
