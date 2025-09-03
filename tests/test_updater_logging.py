@@ -1,6 +1,7 @@
 import updater
 import pytest
 
+
 def test_run_git_pull_logs_stderr_and_traceback(tmp_path, monkeypatch):
     logs_dir = tmp_path / "logs"
     monkeypatch.setattr(updater, "LOGS_DIR", logs_dir)
