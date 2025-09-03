@@ -129,7 +129,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
 
-        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
         self.tree_sr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_sr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
@@ -139,7 +139,7 @@ class MagazynBOM(ttk.Frame):
             ("rozmiar","Rozmiar"),
             ("dlugosc","Długość"),
             ("jednostka","Jednostka miary"),
-            ("ilosc","Ilość"),
+            ("stan","Stan"),
             ("prog_alertu","Próg alertu [%]")
         ]
         for key, lbl in headers:
@@ -160,7 +160,7 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_sr.selection()
         if sel:
             values = self.tree_sr.item(sel[0], "values")
-            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
             for k,v in zip(keys, values):
                 self.s_vars[k].set(v)
 
@@ -172,7 +172,7 @@ class MagazynBOM(ttk.Frame):
                 return
         try:
             rec["dlugosc"] = float(rec.get("dlugosc") or 0)
-            rec["ilosc"] = int(rec.get("ilosc") or 0)
+            rec["stan"] = int(rec.get("stan") or 0)
             rec["prog_alertu"] = int(rec.get("prog_alertu") or 0)
         except ValueError:
             messagebox.showerror("Surowce", "Pola liczby muszą zawierać wartości numeryczne.")
@@ -193,15 +193,25 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_polprodukt).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(side="right", padx=4)
 
-        cols = ("kod","nazwa","surowiec","czynnosci","norma_strat")
+        cols = (
+            "kod",
+            "nazwa",
+            "surowiec_kod",
+            "surowiec_ilosc",
+            "surowiec_jednostka",
+            "czynnosci",
+            "norma_strat",
+        )
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
-            ("kod","Kod"),
-            ("nazwa","Nazwa"),
-            ("surowiec","Kod surowca"),
-            ("czynnosci","Lista czynności"),
-            ("norma_strat","Norma strat [%]")
+            ("kod", "Kod"),
+            ("nazwa", "Nazwa"),
+            ("surowiec_kod", "Kod surowca"),
+            ("surowiec_ilosc", "Ilość surowca na szt."),
+            ("surowiec_jednostka", "Jednostka surowca"),
+            ("czynnosci", "Lista czynności"),
+            ("norma_strat", "Norma strat [%]"),
         ]
         for key, lbl in headers:
             self.tree_pp.heading(key, text=lbl)
@@ -210,38 +220,71 @@ class MagazynBOM(ttk.Frame):
 
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.pp_vars = {k: tk.StringVar() for k,_ in headers}
-        for i,(key,label) in enumerate(headers):
-            ttk.Label(form, text=label).grid(row=i, column=0, sticky="w", padx=4, pady=2)
-            ttk.Entry(form, textvariable=self.pp_vars[key]).grid(row=i, column=1, sticky="ew", padx=4, pady=2)
+        self.pp_vars = {k: tk.StringVar() for k, _ in headers}
+        for i, (key, label) in enumerate(headers):
+            ttk.Label(form, text=label).grid(
+                row=i, column=0, sticky="w", padx=4, pady=2
+            )
+            ttk.Entry(form, textvariable=self.pp_vars[key]).grid(
+                row=i, column=1, sticky="ew", padx=4, pady=2
+            )
         form.columnconfigure(1, weight=1)
 
     def _on_pp_select(self, _event) -> None:
         sel = self.tree_pp.selection()
         if sel:
             values = self.tree_pp.item(sel[0], "values")
-            keys = ("kod","nazwa","surowiec","czynnosci","norma_strat")
-            for k,v in zip(keys, values):
+            keys = (
+                "kod",
+                "nazwa",
+                "surowiec_kod",
+                "surowiec_ilosc",
+                "surowiec_jednostka",
+                "czynnosci",
+                "norma_strat",
+            )
+            for k, v in zip(keys, values):
                 self.pp_vars[k].set(v)
 
     def _save_polprodukt(self) -> None:
         kod = self.pp_vars["kod"].get().strip()
         nazwa = self.pp_vars["nazwa"].get().strip()
-        sr = self.pp_vars["surowiec"].get().strip()
-        if not kod or not nazwa or not sr:
-            messagebox.showerror("Półprodukty", "Wymagane pola: kod, nazwa i kod surowca.")
+        sr_kod = self.pp_vars["surowiec_kod"].get().strip()
+        sr_qty = self.pp_vars["surowiec_ilosc"].get().strip()
+        sr_jedn = self.pp_vars["surowiec_jednostka"].get().strip()
+        if not kod or not nazwa or not sr_kod:
+            messagebox.showerror(
+                "Półprodukty", "Wymagane pola: kod, nazwa i kod surowca."
+            )
             return
         try:
-            norma = int(self.pp_vars["norma_strat"].get() or 0)
+            sr_qty_val = float(sr_qty or 0)
         except ValueError:
-            messagebox.showerror("Półprodukty", "Norma strat musi być liczbą.")
+            messagebox.showerror(
+                "Półprodukty", "Ilość surowca musi być liczbą."
+            )
+            return
+        try:
+            norma = float(self.pp_vars["norma_strat"].get() or 0)
+        except ValueError:
+            messagebox.showerror(
+                "Półprodukty", "Norma strat musi być liczbą."
+            )
             return
         rec = {
             "kod": kod,
             "nazwa": nazwa,
-            "surowiec": {"kod": sr},
-            "czynnosci": [s.strip() for s in self.pp_vars["czynnosci"].get().split(",") if s.strip()],
-            "norma_strat_procent": norma,
+            "surowiec": {
+                "kod": sr_kod,
+                "ilosc_na_szt": sr_qty_val,
+                "jednostka": sr_jedn or None,
+            },
+            "czynnosci": [
+                s.strip()
+                for s in self.pp_vars["czynnosci"].get().split(",")
+                if s.strip()
+            ],
+            "norma_strat_proc": norma,
         }
         self.model.add_or_update_polprodukt(rec)
         self._load_polprodukty()
@@ -259,38 +302,41 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_produkt).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_produkt).pack(side="right", padx=4)
 
-        cols = ("symbol","nazwa","bom")
+        cols = ("symbol", "nazwa", "polprodukty")
         self.tree_pr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
-            ("symbol","Symbol"),
-            ("nazwa","Nazwa"),
-            ("bom","BOM")
+            ("symbol", "Symbol"),
+            ("nazwa", "Nazwa"),
+            ("polprodukty", "Półprodukty"),
         ]
-        for key,lbl in headers:
+        for key, lbl in headers:
             self.tree_pr.heading(key, text=lbl)
             self.tree_pr.column(key, width=140, anchor="w")
         self.tree_pr.bind("<<TreeviewSelect>>", self._on_pr_select)
 
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.pr_vars = {k: tk.StringVar() for k,_ in headers}
+        self.pr_vars = {k: tk.StringVar() for k, _ in headers}
         ttk.Label(form, text="Symbol").grid(row=0, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.pr_vars["symbol"]).grid(row=0, column=1, sticky="ew", padx=4, pady=2)
         ttk.Label(form, text="Nazwa").grid(row=1, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.pr_vars["nazwa"]).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
         ttk.Label(
             form,
-            text="BOM (pozycje rozdzielone pionową kreską '|',\nnp.: typ=polprodukt;kod=DRUT;ilosc=2)"
+            text=(
+                "Półprodukty (pozycje rozdzielone pionową kreską '|',\n"
+                "np.: kod=PP1;ilosc=2;cz=spawanie;sr_typ=SR1;sr_dl=1)"
+            ),
         ).grid(row=2, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pr_vars["bom"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        ttk.Entry(form, textvariable=self.pr_vars["polprodukty"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
         form.columnconfigure(1, weight=1)
 
     def _on_pr_select(self, _event) -> None:
         sel = self.tree_pr.selection()
         if sel:
             values = self.tree_pr.item(sel[0], "values")
-            keys = ("symbol","nazwa","bom")
+            keys = ("symbol", "nazwa", "polprodukty")
             for k,v in zip(keys, values):
                 self.pr_vars[k].set(v)
 
@@ -300,11 +346,13 @@ class MagazynBOM(ttk.Frame):
         if not symbol or not nazwa:
             messagebox.showerror("Produkty", "Wymagane pola: symbol i nazwa.")
             return
-        bom_list = self._parse_bom(self.pr_vars["bom"].get())
-        if not bom_list:
-            messagebox.showerror("Produkty", "BOM musi mieć co najmniej jedną pozycję.")
+        pol_list = self._parse_polprodukty(self.pr_vars["polprodukty"].get())
+        if not pol_list:
+            messagebox.showerror(
+                "Produkty", "Półprodukty muszą mieć co najmniej jedną pozycję."
+            )
             return
-        rec = {"symbol": symbol, "nazwa": nazwa, "BOM": bom_list}
+        rec = {"symbol": symbol, "nazwa": nazwa, "polprodukty": pol_list}
         self.model.add_or_update_produkt(rec)
         self._load_produkty()
 
@@ -314,7 +362,7 @@ class MagazynBOM(ttk.Frame):
             self.model.delete_produkt(symbol)
             self._load_produkty()
 
-    def _parse_bom(self, text: str) -> list:
+    def _parse_polprodukty(self, text: str) -> list:
         out: list[dict] = []
         for chunk in [c.strip() for c in text.split("|") if c.strip()]:
             item: dict[str, str] = {}
@@ -323,15 +371,34 @@ class MagazynBOM(ttk.Frame):
                     k, v = part.split("=", 1)
                     item[k.strip()] = v.strip()
             if item:
-                if "kod" not in item:
-                    raise ValueError("Każda pozycja BOM musi mieć klucz 'kod'.")
-                qty = item.get("ilosc") or item.get("ilosc_na_sztuke") or "1"
+                kod = item.get("kod")
+                if not kod:
+                    raise ValueError("Każda pozycja musi mieć klucz 'kod'.")
+                qty_txt = item.get("ilosc") or item.get("ilosc_na_szt") or "1"
                 try:
-                    item["ilosc_na_sztuke"] = int(qty)
+                    qty = float(qty_txt)
                 except ValueError:
-                    item["ilosc_na_sztuke"] = 1
-                item["typ"] = item.get("typ", "polprodukt")
-                out.append({k: item[k] for k in ("typ","kod","ilosc_na_sztuke")})
+                    qty = 1.0
+                cz_txt = item.get("czynnosci") or item.get("cz") or ""
+                cz = [c.strip() for c in cz_txt.split(",") if c.strip()]
+                sr: dict[str, object] = {}
+                if item.get("sr_kod"):
+                    sr = {"kod": item["sr_kod"]}
+                elif item.get("sr_typ") and item.get("sr_dl"):
+                    try:
+                        dl = float(item["sr_dl"])
+                        dl = int(dl) if dl.is_integer() else dl
+                    except ValueError:
+                        dl = item["sr_dl"]
+                    sr = {"typ": item["sr_typ"], "dlugosc": dl}
+                out.append(
+                    {
+                        "kod": kod,
+                        "ilosc_na_szt": int(qty) if float(qty).is_integer() else qty,
+                        "czynnosci": cz,
+                        "surowiec": sr,
+                    }
+                )
         return out
 
     def _load_all(self) -> None:
@@ -349,9 +416,9 @@ class MagazynBOM(ttk.Frame):
                 rec.get("rodzaj",""),
                 rec.get("rozmiar",""),
                 rec.get("dlugosc",""),
-                rec.get("jednostka",""),
-                rec.get("ilosc",0),
-                rec.get("prog_alertu",0),
+                rec.get("jednostka", ""),
+                rec.get("stan", 0),
+                rec.get("prog_alertu", 0),
             )
             self.tree_sr.insert("", "end", values=row)
 
@@ -362,10 +429,12 @@ class MagazynBOM(ttk.Frame):
             surowiec = rec.get("surowiec", {})
             row = (
                 kod,
-                rec.get("nazwa",""),
-                surowiec.get("kod",""),
+                rec.get("nazwa", ""),
+                surowiec.get("kod", ""),
+                surowiec.get("ilosc_na_szt", 0),
+                surowiec.get("jednostka", ""),
                 ", ".join(rec.get("czynnosci", [])),
-                rec.get("norma_strat_procent",0),
+                rec.get("norma_strat_proc", 0),
             )
             self.tree_pp.insert("", "end", values=row)
 
@@ -373,11 +442,15 @@ class MagazynBOM(ttk.Frame):
         for i in self.tree_pr.get_children():
             self.tree_pr.delete(i)
         for symbol, rec in sorted(self.model.produkty.items()):
-            bom_txt = " | ".join(
-                f"{i.get('typ','?')}:{i.get('kod','?')} x{i.get('ilosc_na_sztuke',1)}"
-                for i in rec.get("BOM", [])
+            pol_txt = " | ".join(
+                f"{i.get('kod','?')} x{i.get('ilosc_na_szt',1)}"
+                for i in rec.get("polprodukty", [])
             )
-            self.tree_pr.insert("", "end", values=(symbol, rec.get("nazwa",""), bom_txt))
+            self.tree_pr.insert(
+                "",
+                "end",
+                values=(symbol, rec.get("nazwa", ""), pol_txt),
+            )
 
 
 def make_window(root: tk.Misc) -> ttk.Frame:
