@@ -12,6 +12,7 @@ import re
 import shutil
 import zipfile
 import subprocess
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -33,11 +34,16 @@ def _ensure_dirs():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
-def _write_log(stamp: str, text: str, kind: str = "update"):
+def _write_log(stamp: str, text: str, kind: str = "update", exc: Exception | None = None):
     _ensure_dirs()
     p = LOGS_DIR / f"{kind}_{stamp}.log"
     with p.open("a", encoding="utf-8") as f:
         f.write(text.rstrip() + "\n")
+        if exc is not None:
+            stderr = getattr(exc, "stderr", "")
+            if stderr:
+                f.write("[STDERR]\n" + stderr.rstrip() + "\n")
+            f.write("[TRACEBACK]\n" + traceback.format_exc() + "\n")
 
 
 from updates_utils import load_last_update_info
@@ -59,7 +65,12 @@ def _backup_files(file_list, stamp):
             try:
                 shutil.copy2(src, dest)
             except Exception as e:
-                _write_log(stamp, f"[WARN] Backup fail: {src} :: {e}", kind="update")
+                _write_log(
+                    stamp,
+                    f"[WARN] Backup fail: {src} :: {e}",
+                    kind="update",
+                    exc=e,
+                )
     return dest_root
 
 def _restore_backup(stamp: str):
@@ -154,10 +165,10 @@ def _git_has_updates(cwd: Path) -> bool:
         )
         return bool(proc_rev.stdout.strip())
     except subprocess.SubprocessError as e:
-        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}", exc=e)
         return False
     except Exception as e:
-        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}")
+        _write_log(_now_stamp(), f"[WARN] git update check failed: {e}", exc=e)
         return False
 
 
@@ -179,8 +190,8 @@ def _run_git_pull(cwd: Path, stamp: str):
         _write_log(stamp, log_text, kind="update")
         return result.stdout
     except subprocess.CalledProcessError as e:
-        log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "") + "\n[GIT PULL ERROR]\n" + (e.stderr or "")
-        _write_log(stamp, log_text, kind="update")
+        log_text = "[GIT PULL OUTPUT]\n" + (e.stdout or "")
+        _write_log(stamp, log_text, kind="update", exc=e)
         err = (e.stderr or "").lower()
         if "would be overwritten" in err:
             raise RuntimeError(
@@ -448,7 +459,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Zaktualizowano z Git. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git pull: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] git pull: {e}", kind="update", exc=e)
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git pull:\n{e}")
 
     def _on_git_push(self):
@@ -476,13 +487,13 @@ class UpdatesUI(ttk.Frame):
                 "Aktualizacje", "Wysłano zmiany na zdalne repozytorium."
             )
         except subprocess.CalledProcessError as e:
-            log_text = "[GIT PUSH OUTPUT]\n" + (e.stdout or "") + "\n[GIT PUSH ERROR]\n" + (e.stderr or "")
-            _write_log(stamp, log_text, kind="update")
+            log_text = "[GIT PUSH OUTPUT]\n" + (e.stdout or "")
+            _write_log(stamp, log_text, kind="update", exc=e)
             error_dialogs.show_error_dialog(
                 "Aktualizacje", f"Błąd git push:\n{e.stderr.strip() if e.stderr else e}"
             )
         except Exception as e:
-            _write_log(stamp, f"[ERROR] git push: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] git push: {e}", kind="update", exc=e)
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd git push:\n{e}")
 
     def _on_zip_update(self):
@@ -506,7 +517,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Aktualizacje", "Wgrano paczkę. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(stamp, f"[ERROR] ZIP update: {e}", kind="update")
+            _write_log(stamp, f"[ERROR] ZIP update: {e}", kind="update", exc=e)
             error_dialogs.show_error_dialog("Aktualizacje", f"Błąd podczas importu ZIP:\n{e}")
 
     def _on_restore(self):
@@ -575,7 +586,7 @@ class UpdatesUI(ttk.Frame):
             messagebox.showinfo("Przywracanie", "Przywrócono poprzednią wersję. Program uruchomi się ponownie.")
             _restart_app()
         except Exception as e:
-            _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}", kind="restore")
+            _write_log(chosen_stamp, f"[ERROR] RESTORE: {e}", kind="restore", exc=e)
             error_dialogs.show_error_dialog("Przywracanie", f"Błąd przywracania:\n{e}")
 
     # --- versions UI ---
