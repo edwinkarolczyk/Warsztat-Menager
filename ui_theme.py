@@ -55,6 +55,9 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 from config_manager import ConfigManager
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Palety kolorów dla motywów
 THEMES = {
@@ -136,8 +139,8 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     try:
         if style.theme_use() != "clam":
             style.theme_use("clam")
-    except Exception:
-        pass
+    except tk.TclError:
+        logger.exception("Failed to set 'clam' theme")
 
     # Bazowe style dla standardowych klas
     style.configure("TFrame", background=DARK_BG)
@@ -204,8 +207,8 @@ def apply_theme(widget: tk.Misc | None) -> None:
     if isinstance(widget, (tk.Tk, tk.Toplevel)):
         try:
             widget.configure(bg=DARK_BG)
-        except Exception:
-            pass
+        except tk.TclError:
+            logger.exception("Failed to configure widget background")
 
 
 def apply_theme_safe(widget: tk.Misc | None) -> None:
@@ -213,7 +216,7 @@ def apply_theme_safe(widget: tk.Misc | None) -> None:
     try:
         apply_theme(widget)
     except Exception:
-        pass
+        logger.exception("apply_theme failed")
 
 
 def apply_theme_tree(widget: tk.Misc | None) -> None:
