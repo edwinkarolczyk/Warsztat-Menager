@@ -1,13 +1,13 @@
 {
   "rurka 30mm": {
-    "ilość": 20,
     "długość_sztuki": 3000,
-    "jednostka": "mm"
+    "jednostka": "mm",
+    "stan": 20
   },
   "płaskownik 40mm": {
-    "ilość": 10,
     "długość_sztuki": 6000,
-    "jednostka": "mm"
+    "jednostka": "mm",
+    "stan": 10
   },
   "items": {
     "MAT-001": {
