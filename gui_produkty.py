@@ -18,7 +18,6 @@
 # ⏹ KONIEC KODU
 
 import glob
-import json
 import os
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
@@ -28,27 +27,13 @@ from utils.dirty_guard import DirtyGuard
 from ui_theme import apply_theme_safe as apply_theme
 from utils import error_dialogs
 import logika_magazyn as LM
+from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
 DATA_DIR = os.path.join("data", "produkty")
 MAG_DIR  = os.path.dirname(LM.MAGAZYN_PATH)
 
 def _ensure_dirs():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    os.makedirs(MAG_DIR, exist_ok=True)
-
-def _read_json(path, default=None):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return default if default is not None else {}
-    except Exception:
-        return default if default is not None else {}
-
-def _write_json(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    _ensure_dirs_impl(DATA_DIR, MAG_DIR)
 
 def _list_produkty():
     _ensure_dirs()
