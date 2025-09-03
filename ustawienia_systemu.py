@@ -514,7 +514,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     row += 1
-    ttk.Label(frm, text="Gałąź git push:").grid(
+    ttk.Label(frm, text="Gałąź push:").grid(
         row=row, column=0, sticky="w", padx=5, pady=5
     )
     ttk.Entry(frm, textvariable=push_branch_var).grid(

@@ -45,7 +45,7 @@ def test_push_branch_ui_saves_value(make_manager):
 
     label_row = None
     for child in frm.winfo_children():
-        if isinstance(child, ttk.Label) and child.cget("text") == "Gałąź git push:":
+        if isinstance(child, ttk.Label) and child.cget("text") == "Gałąź push:":
             label_row = child.grid_info()["row"]
             break
     assert label_row is not None
