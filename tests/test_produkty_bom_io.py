@@ -32,47 +32,54 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     pp_dir = Path(upb.POL_DIR)
     pp_dir.mkdir(parents=True, exist_ok=True)
     (pp_dir / "PP1.json").write_text(
-        json.dumps({"kod": "PP1", "nazwa": "Polprodukt A"}, ensure_ascii=False, indent=2),
+        json.dumps(
+            {"kod": "PP1", "nazwa": "Polprodukt A"}, ensure_ascii=False, indent=2
+        ),
         encoding="utf-8",
     )
     sr_dir = Path(upb.SURO_PATH).parent
     sr_dir.mkdir(parents=True, exist_ok=True)
     Path(upb.SURO_PATH).write_text(
-        json.dumps([
-            {"kod": "SR1", "nazwa": "Surowiec 1"}
-        ], ensure_ascii=False, indent=2),
+        json.dumps(
+            [{"kod": "SR1", "nazwa": "Surowiec 1"}], ensure_ascii=False, indent=2
+        ),
         encoding="utf-8",
     )
 
     root = tk.Tk()
     root.withdraw()
     frm = upb.make_tab(root)
+    monkeypatch.setattr(upb.messagebox, "showinfo", lambda *a, **k: None)
 
     entries = _find_widgets(frm, ttk.Entry)
-    kod_entry, nazwa_entry = entries[0], entries[1]
+    kod_entry, nazwa_entry, _ver_entry, eff_from_entry, eff_to_entry = entries[:5]
     kod_entry.insert(0, "PROD1")
     nazwa_entry.insert(0, "Produkt 1")
+    eff_from_entry.insert(0, "2023-01-01")
+    eff_to_entry.insert(0, "2023-12-31")
 
     tv = _find_widgets(frm, ttk.Treeview)[0]
     tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1"))
 
-    save_btn = [b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"][0]
+    save_btn = [
+        b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"
+    ][0]
     save_btn.invoke()
 
     prod_file = Path(upb.DATA_DIR) / "PROD1.json"
     data = json.loads(prod_file.read_text(encoding="utf-8"))
-    assert data == {
-        "kod": "PROD1",
-        "nazwa": "Produkt 1",
-        "polprodukty": [
-            {
-                "kod": "PP1",
-                "ilosc_na_szt": 2,
-                "czynnosci": [],
-                "surowiec": {"typ": "SR1", "dlugosc": 1},
-            }
-        ],
-    }
+    assert data["kod"] == "PROD1"
+    assert data["nazwa"] == "Produkt 1"
+    assert data["effective_from"] == "2023-01-01"
+    assert data["effective_to"] == "2023-12-31"
+    assert data["polprodukty"] == [
+        {
+            "kod": "PP1",
+            "ilosc_na_szt": 2,
+            "czynnosci": [],
+            "surowiec": {"typ": "SR1", "dlugosc": 1},
+        }
+    ]
 
     # clear and reload
     for iid in tv.get_children():
@@ -83,5 +90,59 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     items = tv.get_children()
     assert len(items) == 1
     assert tv.item(items[0], "values") == ("PP1", "Polprodukt A", "2", "", "SR1", "1")
+
+    root.destroy()
+
+
+def test_save_with_invalid_date(tmp_path, monkeypatch):
+    monkeypatch.setattr(upb, "DATA_DIR", tmp_path / "produkty")
+    monkeypatch.setattr(upb, "POL_DIR", tmp_path / "polprodukty")
+    monkeypatch.setattr(upb, "SURO_PATH", tmp_path / "magazyn" / "surowce.json")
+    upb._ensure_dirs()
+
+    pp_dir = Path(upb.POL_DIR)
+    pp_dir.mkdir(parents=True, exist_ok=True)
+    (pp_dir / "PP1.json").write_text(
+        json.dumps(
+            {"kod": "PP1", "nazwa": "Polprodukt A"}, ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
+    )
+    sr_dir = Path(upb.SURO_PATH).parent
+    sr_dir.mkdir(parents=True, exist_ok=True)
+    Path(upb.SURO_PATH).write_text(
+        json.dumps(
+            [{"kod": "SR1", "nazwa": "Surowiec 1"}], ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
+    )
+
+    errors = []
+    monkeypatch.setattr(upb.messagebox, "showinfo", lambda *a, **k: None)
+    monkeypatch.setattr(
+        upb.messagebox, "showerror", lambda *a, **k: errors.append(a)
+    )
+
+    root = tk.Tk()
+    root.withdraw()
+    frm = upb.make_tab(root)
+
+    entries = _find_widgets(frm, ttk.Entry)
+    kod_entry, nazwa_entry, _ver_entry, eff_from_entry = entries[:4]
+    kod_entry.insert(0, "PROD1")
+    nazwa_entry.insert(0, "Produkt 1")
+    eff_from_entry.insert(0, "01-01-2023")
+
+    tv = _find_widgets(frm, ttk.Treeview)[0]
+    tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1"))
+
+    save_btn = [
+        b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"
+    ][0]
+    save_btn.invoke()
+
+    prod_file = Path(upb.DATA_DIR) / "PROD1.json"
+    assert errors
+    assert not prod_file.exists()
 
     root.destroy()
