@@ -278,6 +278,14 @@ def _generate_dxf_preview(dxf_path: str) -> str | None:
         png_path = os.path.splitext(dxf_path)[0] + "_dxf.png"
         fig.savefig(png_path)
         plt.close(fig)
+        try:
+            from PIL import Image
+
+            with Image.open(png_path) as img:
+                img.thumbnail((600, 800))
+                img.save(png_path)
+        except Exception:  # pragma: no cover - Pillow best effort
+            pass
         return png_path
     except Exception as e:  # pragma: no cover - best effort
         _dbg("Błąd generowania miniatury DXF:", e)
