@@ -229,10 +229,29 @@ class MagazynBOMWindow(tk.Toplevel):
 
     def _save_surowiec(self):
         try:
-            rec = {k: v.get() for k,v in self.s_vars.items()}
-            # liczby
-            rec["ilosc"] = int(rec.get("ilosc") or 0)
-            rec["prog_alertu_procent"] = int(rec.get("prog_alertu_procent") or 0)
+            rec = {k: (v.get() or "").strip() for k, v in self.s_vars.items()}
+            for field in ("kod", "nazwa", "rodzaj", "jednostka"):
+                if not rec.get(field):
+                    messagebox.showerror("Surowce", f"Pole '{field}' jest wymagane.")
+                    return
+            for field in ("dlugosc", "ilosc", "prog_alertu_procent"):
+                val = rec.get(field, "")
+                if val == "":
+                    num = 0
+                else:
+                    try:
+                        num = float(val) if field == "dlugosc" else int(val)
+                    except Exception:
+                        messagebox.showerror(
+                            "Surowce", f"Pole '{field}' musi być liczbą."
+                        )
+                        return
+                    if num < 0:
+                        messagebox.showerror(
+                            "Surowce", f"Pole '{field}' musi być ≥ 0."
+                        )
+                        return
+                rec[field] = num if field == "dlugosc" else int(num)
             self.model.add_or_update_surowiec(rec)
             self._load_surowce()
         except Exception as e:
@@ -297,18 +316,56 @@ class MagazynBOMWindow(tk.Toplevel):
 
     def _save_polprodukt(self):
         try:
+            kod = self.pp_vars["kod"].get().strip()
+            nazwa = self.pp_vars["nazwa"].get().strip()
+            sr_kod = self.pp_vars["surowiec_kod"].get().strip()
+            if not kod or not nazwa or not sr_kod:
+                messagebox.showerror(
+                    "Półprodukty", "Wymagane pola: kod, nazwa i kod surowca."
+                )
+                return
+            dl_txt = self.pp_vars["surowiec_dlugosc"].get().strip()
+            if dl_txt:
+                try:
+                    dl = float(dl_txt)
+                except Exception:
+                    messagebox.showerror(
+                        "Półprodukty", "Długość surowca musi być liczbą."
+                    )
+                    return
+                if dl < 0:
+                    messagebox.showerror(
+                        "Półprodukty", "Długość surowca musi być ≥ 0."
+                    )
+                    return
+            else:
+                dl = 0
+            try:
+                norma = int(self.pp_vars["norma_strat_procent"].get() or 0)
+            except Exception:
+                messagebox.showerror(
+                    "Półprodukty", "Norma strat musi być liczbą."
+                )
+                return
+            if not 0 <= norma <= 100:
+                messagebox.showerror(
+                    "Półprodukty", "Norma strat musi być w zakresie 0–100."
+                )
+                return
             rec = {
-                "kod": self.pp_vars["kod"].get(),
-                "nazwa": self.pp_vars["nazwa"].get(),
+                "kod": kod,
+                "nazwa": nazwa,
                 "surowiec": {
-                    "kod": self.pp_vars["surowiec_kod"].get(),
-                    "typ": self.pp_vars["surowiec_typ"].get(),
-                    "rozmiar": self.pp_vars["surowiec_rozmiar"].get(),
-                    "dlugosc": self.pp_vars["surowiec_dlugosc"].get(),
-                    "jednostka": "szt"  # można rozbudować o wybór
+                    "kod": sr_kod,
+                    "typ": self.pp_vars["surowiec_typ"].get().strip(),
+                    "rozmiar": self.pp_vars["surowiec_rozmiar"].get().strip(),
+                    "dlugosc": dl,
+                    "jednostka": "szt",
                 },
-                "czynnosci": [s.strip() for s in self.pp_vars["czynnosci"].get().split(",") if s.strip()],
-                "norma_strat_procent": int(self.pp_vars["norma_strat_procent"].get() or 0)
+                "czynnosci": [
+                    s.strip() for s in self.pp_vars["czynnosci"].get().split(",") if s.strip()
+                ],
+                "norma_strat_procent": norma,
             }
             self.model.add_or_update_polprodukt(rec)
             self._load_polprodukty()
@@ -367,13 +424,19 @@ class MagazynBOMWindow(tk.Toplevel):
         try:
             symbol = self.p_vars["symbol"].get().strip()
             nazwa = self.p_vars["nazwa"].get().strip()
+            if not symbol or not nazwa:
+                messagebox.showerror(
+                    "Produkty", "Wymagane pola: symbol i nazwa."
+                )
+                return
             bom_text = self.p_vars["bom_text"].get()
             bom_list = self._parse_bom_text(bom_text)
-            record = {
-                "symbol": symbol,
-                "nazwa": nazwa,
-                "BOM": bom_list,
-            }
+            if not bom_list:
+                messagebox.showerror(
+                    "Produkty", "BOM musi mieć co najmniej jedną pozycję."
+                )
+                return
+            record = {"symbol": symbol, "nazwa": nazwa, "BOM": bom_list}
             self.model.add_or_update_produkt(record)
             self._load_produkty()
         except Exception as e:
