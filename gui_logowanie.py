@@ -17,7 +17,7 @@ from pathlib import Path
 
 from config_manager import ConfigManager
 from grafiki.shifts_schedule import who_is_on_now
-from updates_utils import load_last_update_info
+from updates_utils import load_last_update_info, remote_branch_exists
 from utils import error_dialogs
 
 from services.profile_service import authenticate, find_first_brygadzista
@@ -281,16 +281,23 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     remote = cfg.get("updates.remote", "origin")
     branch = cfg.get("updates.branch", "proby-rozwoju")
     try:
-        subprocess.run(["git", "fetch", remote, branch], check=True)
-        remote_commit = subprocess.check_output(
-            ["git", "rev-parse", f"{remote}/{branch}"], text=True  # remote commit
-        ).strip()
-        local_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True  # local commit
-        ).strip()
-        status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
-        colour = "green" if status == "Aktualna" else "red"
-        lbl_update.configure(text=f"{update_text} – {status}", foreground=colour)
+        if remote_branch_exists(remote, branch):
+            subprocess.run(["git", "fetch", remote, branch], check=True)
+            remote_commit = subprocess.check_output(
+                ["git", "rev-parse", f"{remote}/{branch}"], text=True
+            ).strip()
+            local_commit = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], text=True
+            ).strip()
+            status = "Aktualna" if local_commit == remote_commit else "Nieaktualna"
+            colour = "green" if status == "Aktualna" else "red"
+            lbl_update.configure(
+                text=f"{update_text} – {status}", foreground=colour
+            )
+        else:
+            logging.warning(
+                "Remote branch %s/%s not found; skipping fetch", remote, branch
+            )
     except (subprocess.CalledProcessError, FileNotFoundError):
         lbl_update.configure(text=update_text)
     if update_available:
