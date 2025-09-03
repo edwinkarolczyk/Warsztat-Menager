@@ -11,6 +11,8 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import ttk, messagebox
+import logging
+import traceback
 
 import bom
 
@@ -18,6 +20,8 @@ from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
 from config_manager import ConfigManager
 from utils.dirty_guard import DirtyGuard
+
+logger = logging.getLogger(__name__)
 
 try:
     from zlecenia_logika import (
@@ -33,9 +37,9 @@ try:
     from logika_magazyn import rezerwuj_materialy
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
-    except Exception:
+    except ImportError:
         _delete_zlecenie = None
-except Exception:
+except ImportError:
     raise
 
 __all__ = ["panel_zlecenia"]
@@ -55,7 +59,8 @@ def _append_pending_order(kod_produktu, braki):
     try:
         with open(zam_path, encoding="utf-8") as f:
             data = json.load(f)
-    except Exception:
+    except (OSError, json.JSONDecodeError) as e:
+        logger.exception("Failed to read pending orders: %s", e)
         data = []
     entry = {
         "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -81,7 +86,7 @@ _STATUS_TO_PCT = {
 def _bar10(percent: int) -> str:
     try:
         p = max(0, min(100, int(percent)))
-    except Exception:
+    except (TypeError, ValueError):
         p = 0
     filled = p // 10
     return "■" * filled + "□" * (10 - filled)
@@ -148,12 +153,12 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
         for btn in (btn_nowe, btn_edyt, btn_usun, btn_rez):
             try:
                 btn.state(["!disabled"] if can else ["disabled"])
-            except Exception:
+            except tk.TclError:
                 btn.configure(state="normal" if can else "disabled")
         try:
             menu.entryconfig("Edytuj zlecenie", state="normal" if can else "disabled")
             menu.entryconfig("Usuń zlecenie", state="normal" if can else "disabled")
-        except Exception:
+        except tk.TclError:
             pass
         return can
 
@@ -237,15 +242,15 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     apply_theme(win)
     try:
         win.configure(bg=_DBG, highlightthickness=0, highlightbackground=_DBG)
-    except Exception:
+    except tk.TclError:
         try:
             win.configure(highlightthickness=0)
-        except Exception:
-            pass
+        except tk.TclError:
+            logger.exception("Unable to configure creator window")
     try:
         win.grab_set()
-    except Exception:
-        pass
+    except tk.TclError:
+        logger.exception("grab_set failed for creator window")
     win.geometry("620x420")
 
     frm = ttk.Frame(win, style="WM.TFrame")
@@ -256,7 +261,8 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     )
     try:
         produkty = list_produkty()
-    except Exception:
+    except Exception as e:
+        logger.exception("list_produkty failed: %s", e)
         produkty = []
     kody = [p.get("kod", "") for p in produkty]
     cb_prod = ttk.Combobox(frm, values=kody, state="readonly", width=30)
@@ -301,11 +307,12 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             return
         try:
             ilosc = int(spn.get())
-        except Exception:
+        except ValueError:
             ilosc = 1
         try:
             potrzeby, bom_sr = compute_material_needs(kod, ilosc)
-        except Exception:
+        except Exception as e:
+            logger.exception("compute_material_needs failed for %s: %s", kod, e)
             potrzeby, bom_sr = [], {}
         for row in potrzeby:
             tv.insert(
@@ -333,7 +340,7 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             return
         try:
             ilosc = int(spn.get())
-        except Exception:
+        except ValueError:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
             return
         potrzeby = getattr(tv, "_needs", [])
@@ -406,8 +413,8 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     try:
         txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
                       highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
-    except Exception:
-        pass
+    except tk.TclError:
+        logger.exception("Text widget configure failed")
     txt.insert("1.0", data.get("uwagi", ""))
 
     frm.columnconfigure(1, weight=1)
@@ -424,7 +431,7 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     def zapisz():
         try:
             ilosc = int(spn.get())
-        except Exception:
+        except ValueError:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
             return
         uw = txt.get("1.0", "end").strip()
@@ -468,10 +475,14 @@ def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
                         lbl_info: ttk.Label, root, on_done) -> None:
     win = tk.Toplevel(parent); win.title(f"Status zlecenia {zlec_id}")
     _maybe_theme(win)
-    try: win.configure(highlightthickness=0, highlightbackground=_DBG)
-    except Exception: pass
-    try: win.grab_set()
-    except Exception: pass
+    try:
+        win.configure(highlightthickness=0, highlightbackground=_DBG)
+    except tk.TclError:
+        logger.exception("edit_status_dialog configure failed")
+    try:
+        win.grab_set()
+    except tk.TclError:
+        logger.exception("edit_status_dialog grab_set failed")
     win.geometry("420x180")
 
     frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
@@ -479,9 +490,11 @@ def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
     cb = ttk.Combobox(frm, values=STATUSY, state="readonly"); cb.pack(fill="x")
     try:
         current = tree.set(tree.selection()[0], "status")
-        if current in STATUSY: cb.set(current)
-        else: cb.current(0)
-    except Exception:
+        if current in STATUSY:
+            cb.set(current)
+        else:
+            cb.current(0)
+    except tk.TclError:
         cb.current(0)
 
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
@@ -511,7 +524,8 @@ def _usun_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, on_done):
         else:
             messagebox.showwarning("Usuwanie", f"Nie znaleziono pliku zlecenia {zid}")
     except Exception as e:
-        error_dialogs.show_error_dialog("Usuwanie", f"Błąd: {e}")
+        logger.exception("delete_zlecenie failed: %s", e)
+        error_dialogs.show_error_dialog("Usuwanie", f"Błąd: {e}\n{traceback.format_exc()}")
 
 
 def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
@@ -523,11 +537,12 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     ilosc_raw = tree.set(item[0], "ilosc") or "1"
     try:
         ilosc = int(ilosc_raw)
-    except Exception:
+    except ValueError:
         ilosc = 1
     try:
         sr_unit = bom.compute_sr_for_prd(prod, 1)
     except Exception as e:
+        logger.exception("compute_sr_for_prd failed for %s: %s", prod, e)
         messagebox.showerror("BOM", f"Błąd: {e}")
         return
     if not sr_unit:
