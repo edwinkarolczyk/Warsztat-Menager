@@ -38,7 +38,9 @@ def test_save_and_load_polprodukty(tmp_path, monkeypatch):
     sr_dir = Path(upb.SURO_PATH).parent
     sr_dir.mkdir(parents=True, exist_ok=True)
     Path(upb.SURO_PATH).write_text(
-        json.dumps({"SR1": {"nazwa": "Surowiec 1"}}, ensure_ascii=False, indent=2),
+        json.dumps([
+            {"kod": "SR1", "nazwa": "Surowiec 1"}
+        ], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 

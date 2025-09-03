@@ -72,7 +72,7 @@ def test_compute_sr_for_pp_missing_jednostka(tmp_path, monkeypatch):
         json.dump(pp, f, ensure_ascii=False, indent=2)
     magazyn = tmp_path / "magazyn"
     magazyn.mkdir()
-    surowce = {"SR": {}}
+    surowce = [{"kod": "SR"}]
     with open(magazyn / "surowce.json", "w", encoding="utf-8") as f:
         json.dump(surowce, f, ensure_ascii=False, indent=2)
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)

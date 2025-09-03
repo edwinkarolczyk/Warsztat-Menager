@@ -106,7 +106,17 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     jednostka = None
     if surowce_path.exists():
         surowce = json.loads(surowce_path.read_text(encoding="utf-8"))
-        jednostka = surowce.get(sr["kod"], {}).get("jednostka")
+
+        def _get_unit(data, kod):
+            if isinstance(data, dict):
+                return data.get(kod, {}).get("jednostka")
+            if isinstance(data, list):
+                for rec in data:
+                    if isinstance(rec, dict) and rec.get("kod") == kod:
+                        return rec.get("jednostka")
+            return None
+
+        jednostka = _get_unit(surowce, sr["kod"])
         if jednostka is None:
             jednostka = sr.get("jednostka")
     else:
