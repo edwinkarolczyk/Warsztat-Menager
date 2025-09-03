@@ -7,18 +7,20 @@
 # - Spójny wygląd z motywem (apply_theme), brak pływania elementów
 
 import os
-import json
 import logging
 import subprocess
 import tkinter as tk
-from tkinter import ttk, messagebox
-from utils import error_dialogs
 from datetime import datetime
-from pathlib import Path
 from PIL import Image, ImageTk
+from tkinter import ttk, messagebox
+from pathlib import Path
+
 from config_manager import ConfigManager
-from updates_utils import load_last_update_info
 from grafiki.shifts_schedule import who_is_on_now
+from updates_utils import load_last_update_info
+from utils import error_dialogs
+
+from services.profile_service import authenticate, find_first_brygadzista
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -287,85 +289,51 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(side="bottom", pady=(0, 2))
 
 def _login_pinless():
-    user_file = BASE_DIR / "uzytkownicy.json"
     try:
-        with user_file.open("r", encoding="utf-8") as f:
-            users = json.load(f)
-
-        if isinstance(users, dict):
-            iterator = users.items()
-        elif isinstance(users, list):
-            iterator = (
-                (str(rec.get("login") or idx), rec)
-                for idx, rec in enumerate(users)
-                if isinstance(rec, dict)
-            )
-        else:
-            raise TypeError(
-                "uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)"
-            )
-
-        for login_key, dane in iterator:
-            if str(dane.get("rola", "")).strip().lower() == "brygadzista":
-                if _on_login_cb:
-                    try:
-                        _on_login_cb(login_key, "brygadzista", None)
-                    except Exception as err:
-                        logging.exception("Error in login callback")
-                        error_dialogs.show_error_dialog(
-                            "Błąd", f"Błąd w callbacku logowania: {err}"
-                        )
-                else:
-                    gui_panel.uruchom_panel(root_global, login_key, "brygadzista")
-                return
+        user = find_first_brygadzista()
+        if user:
+            login_key = user.get("login")
+            if _on_login_cb:
+                try:
+                    _on_login_cb(login_key, "brygadzista", None)
+                except Exception as err:
+                    logging.exception("Error in login callback")
+                    error_dialogs.show_error_dialog(
+                        "Błąd", f"Błąd w callbacku logowania: {err}"
+                    )
+            else:
+                gui_panel.uruchom_panel(root_global, login_key, "brygadzista")
+            return
         error_dialogs.show_error_dialog("Błąd", "Nie znaleziono brygadzisty")
     except Exception as e:
         error_dialogs.show_error_dialog("Błąd", f"Błąd podczas logowania: {e}")
 
 
 def logowanie():
-    user_file = BASE_DIR / "uzytkownicy.json"
     login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
-        with user_file.open("r", encoding="utf-8") as f:
-            users = json.load(f)
-
-        # Kompatybilność: dict (stary format) lub list (nowy format)
-        if isinstance(users, dict):
-            iterator = users.items()
-        elif isinstance(users, list):
-            iterator = (
-                (str(rec.get("login") or idx), rec)
-                for idx, rec in enumerate(users)
-                if isinstance(rec, dict)
-            )
-        else:
-            raise TypeError(
-                "uzytkownicy.json: nieobsługiwany format (oczekiwano dict lub list)"
-            )
-
-        for login_key, dane in iterator:
-            if (
-                str(login_key).strip().lower() == login
-                and str(dane.get("pin", "")).strip() == pin
-            ):
-                status = str(dane.get("status", "")).strip().lower()
-                if dane.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
-                    error_dialogs.show_error_dialog("Błąd", "Użytkownik oznaczony jako nieobecny")
-                    return
-                rola = dane.get("rola", "pracownik")
-                if _on_login_cb:
-                    try:
-                        _on_login_cb(login_key, rola, None)
-                    except Exception as err:
-                        logging.exception("Error in login callback")
-                        error_dialogs.show_error_dialog(
-                            "Błąd", f"Błąd w callbacku logowania: {err}"
-                        )
-                else:
-                    gui_panel.uruchom_panel(root_global, login_key, rola)
+        user = authenticate(login, pin)
+        if user:
+            login_key = user.get("login", login)
+            status = str(user.get("status", "")).strip().lower()
+            if user.get("nieobecny") or status in {"nieobecny", "urlop", "l4"}:
+                error_dialogs.show_error_dialog(
+                    "Błąd", "Użytkownik oznaczony jako nieobecny"
+                )
                 return
+            rola = user.get("rola", "pracownik")
+            if _on_login_cb:
+                try:
+                    _on_login_cb(login_key, rola, None)
+                except Exception as err:
+                    logging.exception("Error in login callback")
+                    error_dialogs.show_error_dialog(
+                        "Błąd", f"Błąd w callbacku logowania: {err}"
+                    )
+            else:
+                gui_panel.uruchom_panel(root_global, login_key, rola)
+            return
         error_dialogs.show_error_dialog("Błąd", "Nieprawidłowy login lub PIN")
     except Exception as e:
         error_dialogs.show_error_dialog("Błąd", f"Błąd podczas logowania: {e}")

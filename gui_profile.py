@@ -34,7 +34,7 @@ except ImportError:  # Pillow missing
 
     class UnidentifiedImageError(Exception):
         ...
-from profile_utils import get_user, save_user, DEFAULT_USER
+from services.profile_service import get_user, save_user, DEFAULT_USER
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
 from grafiki.shifts_schedule import (
