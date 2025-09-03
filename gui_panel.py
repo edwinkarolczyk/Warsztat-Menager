@@ -582,11 +582,11 @@ def uruchom_panel(root, login, rola):
         out = []
         for kod, rec in data.items():
             try:
-                il = float(rec.get("ilosc", 0))
-                prog = float(rec.get("prog_alertu_procent", 0))
+                stan = float(rec.get("stan", 0))
+                prog = float(rec.get("prog_alertu", 0))
             except Exception:
                 continue
-            if il <= prog:
+            if stan <= prog:
                 nm = rec.get("nazwa", "")
                 out.append(f"{kod} ({nm})")
         return out
