@@ -146,3 +146,74 @@ def test_save_with_invalid_date(tmp_path, monkeypatch):
     assert not prod_file.exists()
 
     root.destroy()
+
+
+def test_save_new_version_toggles_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(upb, "DATA_DIR", tmp_path / "produkty")
+    monkeypatch.setattr(upb, "POL_DIR", tmp_path / "polprodukty")
+    monkeypatch.setattr(upb, "SURO_PATH", tmp_path / "magazyn" / "surowce.json")
+    upb._ensure_dirs()
+
+    pp_dir = Path(upb.POL_DIR)
+    pp_dir.mkdir(parents=True, exist_ok=True)
+    (pp_dir / "PP1.json").write_text(
+        json.dumps(
+            {"kod": "PP1", "nazwa": "Polprodukt A"}, ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
+    )
+    sr_dir = Path(upb.SURO_PATH).parent
+    sr_dir.mkdir(parents=True, exist_ok=True)
+    Path(upb.SURO_PATH).write_text(
+        json.dumps(
+            [{"kod": "SR1", "nazwa": "Surowiec 1"}], ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
+    )
+
+    # existing default version
+    prd_v1 = Path(upb.DATA_DIR) / "PROD1_v1.json"
+    prd_v1.write_text(
+        json.dumps(
+            {
+                "kod": "PROD1",
+                "nazwa": "Produkt 1",
+                "version": "1",
+                "is_default": True,
+                "polprodukty": [],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    root = tk.Tk()
+    root.withdraw()
+    frm = upb.make_tab(root)
+    monkeypatch.setattr(upb.messagebox, "showinfo", lambda *a, **k: None)
+
+    entries = _find_widgets(frm, ttk.Entry)
+    kod_entry, nazwa_entry, ver_entry, eff_from_entry, eff_to_entry = entries[:5]
+    kod_entry.insert(0, "PROD1")
+    nazwa_entry.insert(0, "Produkt 1")
+    ver_entry.delete(0, "end")
+    ver_entry.insert(0, "2")
+    eff_from_entry.insert(0, "2023-01-01")
+    eff_to_entry.insert(0, "2023-12-31")
+
+    tv = _find_widgets(frm, ttk.Treeview)[0]
+    tv.insert("", "end", values=("PP1", "Polprodukt A", "2", "", "SR1", "1"))
+
+    save_btn = [
+        b for b in _find_widgets(frm, ttk.Button) if b.cget("text") == "Zapisz"
+    ][0]
+    save_btn.invoke()
+
+    prod_new = Path(upb.DATA_DIR) / "PROD1.json"
+    data_new = json.loads(prod_new.read_text(encoding="utf-8"))
+    data_old = json.loads(prd_v1.read_text(encoding="utf-8"))
+    assert data_new["is_default"] is True
+    assert data_old["is_default"] is False
+
+    root.destroy()
