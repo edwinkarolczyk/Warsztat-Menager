@@ -18,12 +18,14 @@
 
 import os
 import json
+import shutil
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
+import ui_hover
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -223,6 +225,28 @@ def _ensure_folder():
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
 
+
+def _generate_dxf_preview(dxf_path: str) -> str | None:
+    """Spróbuj wygenerować miniaturę PNG dla pliku DXF.
+
+    Zwraca ścieżkę do wygenerowanego pliku lub None w przypadku błędu.
+    """
+    try:  # pragma: no cover - zależne od opcjonalnych bibliotek
+        import ezdxf
+        from ezdxf.addons.drawing import matplotlib as ezdxf_matplotlib
+        import matplotlib.pyplot as plt
+
+        doc = ezdxf.readfile(dxf_path)
+        msp = doc.modelspace()
+        fig = ezdxf_matplotlib.draw(msp)
+        png_path = os.path.splitext(dxf_path)[0] + "_dxf.png"
+        fig.savefig(png_path)
+        plt.close(fig)
+        return png_path
+    except Exception as e:  # pragma: no cover - best effort
+        _dbg("Błąd generowania miniatury DXF:", e)
+        return None
+
 # ===================== STATUSY / NORMALIZACJA =====================
 def _statusy_for_mode(mode):
     cfg = _load_config()
@@ -281,7 +305,11 @@ def _read_tool(numer_3):
         return None
     try:
         with open(p, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        data.setdefault("obraz", "")
+        data.setdefault("dxf", "")
+        data.setdefault("dxf_png", "")
+        return data
     except Exception as e:
         _dbg("Błąd odczytu narzędzia", p, e)
         return None
@@ -290,6 +318,9 @@ def _save_tool(data):
     _ensure_folder()
     obj = dict(data)
     obj["numer"] = str(obj.get("numer", "")).zfill(3)
+    obj.setdefault("obraz", "")
+    obj.setdefault("dxf", "")
+    obj.setdefault("dxf_png", "")
     folder = _resolve_tools_dir()
     path = os.path.join(folder, f"{obj['numer']}.json")
     with open(path, "w", encoding="utf-8") as f:
@@ -330,6 +361,9 @@ def _iter_folder_items():
                 "historia": d.get("historia", []),
                 "opis": d.get("opis", ""),
                 "pracownik": d.get("pracownik", ""),
+                "obraz": d.get("obraz", ""),
+                "dxf": d.get("dxf", ""),
+                "dxf_png": d.get("dxf_png", ""),
             })
         except Exception as e:
             _dbg("Błąd wczytania pliku:", path, e)
@@ -398,6 +432,9 @@ def _iter_legacy_json_items():
                 "historia": d.get("historia", []),
                 "opis": d.get("opis", ""),
                 "pracownik": d.get("pracownik", ""),
+                "obraz": d.get("obraz", ""),
+                "dxf": d.get("dxf", ""),
+                "dxf_png": d.get("dxf_png", ""),
             })
         except Exception as e:
             _dbg("Błąd parsowania pozycji legacy:", e)
@@ -505,6 +542,16 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             bar = _bar_text(t["postep"])
             iid = tree.insert("", "end", values=(t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], bar), tags=(tag,))
             row_data[iid] = t
+            paths = []
+            base_dir = _resolve_tools_dir()
+            for key in ("obraz", "dxf_png"):
+                rel = t.get(key)
+                if rel:
+                    p = os.path.join(base_dir, rel) if not os.path.isabs(rel) else rel
+                    if os.path.exists(p):
+                        paths.append(p)
+            if paths:
+                ui_hover.bind_treeview_row_hover(tree, iid, paths)
         if not data:
             _dbg("Lista narzędzi pusta – filtr:", q or "(brak)")
 
@@ -558,6 +605,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             "tryb": tool_mode,
             "interwencje": [],
             "historia": [],
+            "obraz": "",
+            "dxf": "",
+            "dxf_png": "",
         }
 
         nr_auto = start.get("nr")
@@ -612,6 +662,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         var_st = tk.StringVar(value=start.get("status", statusy[0] if statusy else ""))
         var_op = tk.StringVar(value=start.get("opis",""))
         var_pr = tk.StringVar(value=start.get("pracownik", login or ""))
+        var_img = tk.StringVar(value=start.get("obraz", ""))
+        var_dxf = tk.StringVar(value=start.get("dxf", ""))
+        var_dxf_png = tk.StringVar(value=start.get("dxf_png", ""))
 
         # ostatnio obsłużony status (do gardy)
         last_applied_status = [ (start.get("status") or "").strip() ]
@@ -655,6 +708,64 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         row("Status", cb_status)
         row("Opis",   ttk.Entry(frm, textvariable=var_op, style="WM.Search.TEntry"))
         row("Pracownik", ttk.Entry(frm, textvariable=var_pr, style="WM.Search.TEntry"))
+
+        def _media_dir():
+            path = os.path.join(_resolve_tools_dir(), "media")
+            os.makedirs(path, exist_ok=True)
+            return path
+
+        img_frame = ttk.Frame(frm, style="WM.TFrame")
+        btn_img = ttk.Button(img_frame, text="Wybierz...", style="WM.Side.TButton")
+        btn_img.pack(side="left")
+        img_lbl = ttk.Label(img_frame, text=os.path.basename(var_img.get()) if var_img.get() else "—", style="WM.Muted.TLabel")
+        img_lbl.pack(side="left", padx=6)
+
+        def select_img():
+            p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg")])
+            if not p:
+                return
+            numer = (var_nr.get() or "").strip().zfill(3)
+            dest_dir = _media_dir()
+            ext = os.path.splitext(p)[1].lower()
+            dest = os.path.join(dest_dir, f"{numer}_img{ext}")
+            try:
+                shutil.copy2(p, dest)
+                rel = os.path.relpath(dest, _resolve_tools_dir())
+                var_img.set(rel)
+                img_lbl.config(text=os.path.basename(dest))
+            except Exception as e:
+                _dbg("Błąd kopiowania obrazu:", e)
+
+        btn_img.config(command=select_img)
+        row("Obraz", img_frame)
+
+        dxf_frame = ttk.Frame(frm, style="WM.TFrame")
+        btn_dxf = ttk.Button(dxf_frame, text="Wybierz...", style="WM.Side.TButton")
+        btn_dxf.pack(side="left")
+        dxf_lbl = ttk.Label(dxf_frame, text=os.path.basename(var_dxf.get()) if var_dxf.get() else "—", style="WM.Muted.TLabel")
+        dxf_lbl.pack(side="left", padx=6)
+
+        def select_dxf():
+            p = filedialog.askopenfilename(filetypes=[("DXF", "*.dxf")])
+            if not p:
+                return
+            numer = (var_nr.get() or "").strip().zfill(3)
+            dest_dir = _media_dir()
+            dest = os.path.join(dest_dir, f"{numer}.dxf")
+            try:
+                shutil.copy2(p, dest)
+                rel = os.path.relpath(dest, _resolve_tools_dir())
+                var_dxf.set(rel)
+                dxf_lbl.config(text=os.path.basename(dest))
+                png = _generate_dxf_preview(dest)
+                if png:
+                    rel_png = os.path.relpath(png, _resolve_tools_dir())
+                    var_dxf_png.set(rel_png)
+            except Exception as e:
+                _dbg("Błąd kopiowania DXF:", e)
+
+        btn_dxf.config(command=select_dxf)
+        row("Plik DXF", dxf_frame)
 
         # ===== Konwersja NN→SN (tylko dla NOWE) =====
         convert_var = tk.BooleanVar(value=False)
@@ -1000,6 +1111,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 "tryb": tool_mode_local,
                 "interwencje": data_existing.get("interwencje", []),
                 "historia": historia,
+                "obraz": (var_img.get() or "").strip(),
+                "dxf": (var_dxf.get() or "").strip(),
+                "dxf_png": (var_dxf_png.get() or "").strip(),
             }
             if tool_mode_local == "STARE":
                 data_obj["is_old"] = True
