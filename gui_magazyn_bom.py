@@ -12,14 +12,10 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from config_manager import ConfigManager
+
 # Paths
 DATA_DIR = Path("data")
-SRC_FILE = DATA_DIR / "magazyn" / "surowce.json"
-POL_DIR = DATA_DIR / "polprodukty"
-PRD_DIR = DATA_DIR / "produkty"
-
-for p in (SRC_FILE.parent, POL_DIR, PRD_DIR):
-    p.mkdir(parents=True, exist_ok=True)
 
 
 def _load_json(path: Path, default):
@@ -40,9 +36,15 @@ class WarehouseModel:
     """In-memory representation of warehouse, semi-finished and products."""
 
     def __init__(self):
-        self.surowce = _load_json(SRC_FILE, {})
-        self.polprodukty = self._load_dir(POL_DIR)
-        self.produkty = self._load_dir(PRD_DIR)
+        self.data_dir = DATA_DIR
+        self.src_file = self.data_dir / "magazyn" / "surowce.json"
+        self.pol_dir = self.data_dir / "polprodukty"
+        self.prd_dir = self.data_dir / "produkty"
+        for p in (self.src_file.parent, self.pol_dir, self.prd_dir):
+            p.mkdir(parents=True, exist_ok=True)
+        self.surowce = _load_json(self.src_file, {})
+        self.polprodukty = self._load_dir(self.pol_dir)
+        self.produkty = self._load_dir(self.prd_dir)
 
     @staticmethod
     def _load_dir(folder: Path) -> dict:
@@ -60,12 +62,12 @@ class WarehouseModel:
         if not kod:
             raise ValueError("Pole 'kod' surowca jest wymagane.")
         self.surowce[kod] = record
-        _save_json(SRC_FILE, self.surowce)
+        _save_json(self.src_file, self.surowce)
 
     def delete_surowiec(self, kod: str) -> None:
         if kod in self.surowce:
             del self.surowce[kod]
-            _save_json(SRC_FILE, self.surowce)
+            _save_json(self.src_file, self.surowce)
 
     # Półprodukty
     def add_or_update_polprodukt(self, record: dict) -> None:
@@ -73,12 +75,12 @@ class WarehouseModel:
         if not kod:
             raise ValueError("Pole 'kod' półproduktu jest wymagane.")
         self.polprodukty[kod] = record
-        _save_json(POL_DIR / f"{kod}.json", record)
+        _save_json(self.pol_dir / f"{kod}.json", record)
 
     def delete_polprodukt(self, kod: str) -> None:
         if kod in self.polprodukty:
             del self.polprodukty[kod]
-        p = POL_DIR / f"{kod}.json"
+        p = self.pol_dir / f"{kod}.json"
         if p.exists():
             p.unlink()
 
@@ -88,12 +90,12 @@ class WarehouseModel:
         if not symbol:
             raise ValueError("Pole 'symbol' produktu jest wymagane.")
         self.produkty[symbol] = record
-        _save_json(PRD_DIR / f"{symbol}.json", record)
+        _save_json(self.prd_dir / f"{symbol}.json", record)
 
     def delete_produkt(self, symbol: str) -> None:
         if symbol in self.produkty:
             del self.produkty[symbol]
-        p = PRD_DIR / f"{symbol}.json"
+        p = self.prd_dir / f"{symbol}.json"
         if p.exists():
             p.unlink()
 
@@ -190,8 +192,12 @@ class MagazynBOM(ttk.Frame):
     def _build_polprodukty(self, parent: ttk.Frame) -> None:
         bar = ttk.Frame(parent)
         bar.pack(fill="x", padx=6, pady=4)
-        ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_polprodukt).pack(side="right", padx=4)
-        ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(side="right", padx=4)
+        ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_polprodukt).pack(
+            side="right", padx=4
+        )
+        ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(
+            side="right", padx=4
+        )
 
         cols = ("kod","nazwa","surowiec","czynnosci","norma_strat")
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
@@ -210,19 +216,38 @@ class MagazynBOM(ttk.Frame):
 
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.pp_vars = {k: tk.StringVar() for k,_ in headers}
-        for i,(key,label) in enumerate(headers):
+        self.pp_vars = {k: tk.StringVar() for k, _ in headers if k != "czynnosci"}
+        self.pp_ops = ConfigManager().get("czynnosci_technologiczne", [])
+        for i, (key, label) in enumerate(headers):
             ttk.Label(form, text=label).grid(row=i, column=0, sticky="w", padx=4, pady=2)
-            ttk.Entry(form, textvariable=self.pp_vars[key]).grid(row=i, column=1, sticky="ew", padx=4, pady=2)
+            if key == "czynnosci":
+                self.pp_lb = tk.Listbox(form, selectmode="multiple", exportselection=False)
+                for op in self.pp_ops:
+                    self.pp_lb.insert(tk.END, op)
+                self.pp_lb.grid(row=i, column=1, sticky="ew", padx=4, pady=2)
+            else:
+                tk.Entry(form, textvariable=self.pp_vars[key]).grid(
+                    row=i, column=1, sticky="ew", padx=4, pady=2
+                )
+        tk.Button(form, text="Zapisz", command=self._save_polprodukt).grid(
+            row=len(headers), column=1, sticky="e", padx=4, pady=4
+        )
         form.columnconfigure(1, weight=1)
 
     def _on_pp_select(self, _event) -> None:
         sel = self.tree_pp.selection()
         if sel:
             values = self.tree_pp.item(sel[0], "values")
-            keys = ("kod","nazwa","surowiec","czynnosci","norma_strat")
-            for k,v in zip(keys, values):
-                self.pp_vars[k].set(v)
+            keys = ("kod", "nazwa", "surowiec", "czynnosci", "norma_strat")
+            for k, v in zip(keys, values):
+                if k == "czynnosci":
+                    selected = [s.strip() for s in v.split(",") if s.strip()]
+                    self.pp_lb.selection_clear(0, tk.END)
+                    for idx, op in enumerate(self.pp_ops):
+                        if op in selected:
+                            self.pp_lb.selection_set(idx)
+                else:
+                    self.pp_vars[k].set(v)
 
     def _save_polprodukt(self) -> None:
         kod = self.pp_vars["kod"].get().strip()
@@ -240,7 +265,7 @@ class MagazynBOM(ttk.Frame):
             "kod": kod,
             "nazwa": nazwa,
             "surowiec": {"kod": sr},
-            "czynnosci": [s.strip() for s in self.pp_vars["czynnosci"].get().split(",") if s.strip()],
+            "czynnosci": [self.pp_lb.get(i) for i in self.pp_lb.curselection()],
             "norma_strat_procent": norma,
         }
         self.model.add_or_update_polprodukt(rec)
