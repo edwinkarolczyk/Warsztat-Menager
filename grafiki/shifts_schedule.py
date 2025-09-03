@@ -10,6 +10,8 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
+from utils.path_utils import cfg_path
+
 _DEFAULT_PATTERNS = {
     "112": "112",
     "111": "111",
@@ -19,10 +21,9 @@ _DEFAULT_PATTERNS = {
     "1212": "1212",
 }
 
-_DATA_DIR = os.path.join("data", "grafiki")
-_MODES_FILE = os.path.join(_DATA_DIR, "tryby_userow.json")
-_CONFIG_FILE = "config.json"
-_USERS_FILE = "uzytkownicy.json"
+_MODES_FILE = cfg_path(os.path.join("data", "grafiki", "tryby_userow.json"))
+_CONFIG_FILE = cfg_path("config.json")
+_USERS_FILE = cfg_path("uzytkownicy.json")
 
 _USER_DEFAULTS: Dict[str, str] = {}
 

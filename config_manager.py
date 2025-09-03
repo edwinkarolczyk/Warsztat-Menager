@@ -15,14 +15,16 @@ import json, os, shutil, datetime
 import logging
 from typing import Any, Dict, List
 
+from utils.path_utils import cfg_path
+
 # Ścieżki domyślne (katalog główny aplikacji)
-SCHEMA_PATH = "settings_schema.json"
-DEFAULTS_PATH = "config.defaults.json"
-GLOBAL_PATH = "config.json"
-LOCAL_PATH = "config.local.json"
-SECRETS_PATH = "secrets.json"
-AUDIT_DIR = "audit"
-BACKUP_DIR = "backup_wersji"
+SCHEMA_PATH = cfg_path("settings_schema.json")
+DEFAULTS_PATH = cfg_path("config.defaults.json")
+GLOBAL_PATH = cfg_path("config.json")
+LOCAL_PATH = cfg_path("config.local.json")
+SECRETS_PATH = cfg_path("secrets.json")
+AUDIT_DIR = cfg_path("audit")
+BACKUP_DIR = cfg_path("backup_wersji")
 ROLLBACK_KEEP = 10
 
 # Initialize module logger

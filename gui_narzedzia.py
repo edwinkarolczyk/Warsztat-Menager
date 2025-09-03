@@ -23,6 +23,7 @@ from tkinter import ttk, messagebox, simpledialog
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
+from utils.path_utils import cfg_path
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -31,7 +32,7 @@ from utils import error_dialogs
 import logger
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
-CONFIG_PATH  = "config.json"
+CONFIG_PATH = cfg_path("config.json")
 STATUSY_NOWE_DEFAULT  = ["projekt", "w budowie", "próby narzędzia", "odbiór", "sprawne"]
 STATUSY_STARE_DEFAULT = ["sprawne", "do ostrzenia", "w ostrzeniu", "po ostrzeniu", "w naprawie", "uszkodzone", "wycofane"]
 
