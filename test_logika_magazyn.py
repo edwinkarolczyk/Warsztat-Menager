@@ -201,7 +201,9 @@ def test_rezerwuj_materialy_updates_and_saves(tmp_path, monkeypatch):
         }
     )
     bom = {"MAT-A": {"ilosc": 2}}
-    lm.rezerwuj_materialy(bom, 3)
+    ok, braki = lm.rezerwuj_materialy(bom, 3)
+    assert ok is True
+    assert braki == []
     item = lm.get_item("MAT-A")
     assert item["stan"] == 4.0
     with open(tmp_path / "stany.json", "r", encoding="utf-8") as f:
@@ -213,7 +215,11 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
     logs = []
     monkeypatch.setattr(lm, "_log_mag", lambda a, d: logs.append((a, d)))
-    monkeypatch.setattr("builtins.input", lambda *a, **k: "n")
+    class DummyMB:
+        @staticmethod
+        def askyesno(*a, **k):
+            return False
+    monkeypatch.setattr(lm, "messagebox", DummyMB)
     lm.load_magazyn()
     lm.upsert_item(
         {
@@ -226,9 +232,12 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
         }
     )
     bom = {"MAT-B": {"ilosc": 4}}
-    lm.rezerwuj_materialy(bom, 2)
+    ok, braki = lm.rezerwuj_materialy(bom, 2)
+    assert ok is False
+    assert braki and braki[0]["item_id"] == "MAT-B"
     item = lm.get_item("MAT-B")
     assert item["stan"] == 0.0
     shortage = [d for a, d in logs if a == "brak_materialu"]
     assert shortage and shortage[0]["item_id"] == "MAT-B"
     assert shortage[0]["brakuje"] == 3.0
+    assert shortage[0]["zamowiono"] is False

@@ -13,6 +13,10 @@ from threading import RLock
 
 from config_manager import ConfigManager
 try:
+    from tkinter import messagebox
+except Exception:  # pragma: no cover - środowiska bez GUI
+    messagebox = None
+try:
     import fcntl
 
     def lock_file(f):
@@ -467,9 +471,12 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
 
 
 def rezerwuj_materialy(bom, ilosc):
-    """Dekrementuje stany magazynu według BOM i zwraca nowe stany."""
+    """Dekrementuje stany magazynu według BOM.
 
-    updated = {}
+    Zwraca tuple ``(ok, braki)`` gdzie ``ok`` to bool informujący,
+    czy wszystkie materiały były dostępne.
+    """
+
     braki = []
     with _LOCK:
         m = load_magazyn()
@@ -495,19 +502,21 @@ def rezerwuj_materialy(bom, ilosc):
             entry = _history_entry("rezerwacja_materialu", kod, zuzyte, "system", "rezerwuj_materialy")
             it.setdefault("historia", []).append(entry)
             _append_history(entry)
-            updated[kod] = it["stan"]
             _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
         save_magazyn(m)
         zapisz_stan_magazynu(m)
 
     for brak in braki:
-        try:
-            ans = input(
-                f"{brak['nazwa']} – brakuje {brak['brakuje']}. Czy zamówić brakujący materiał? (t/n): "
-            )
-            zam = str(ans).strip().lower().startswith("t")
-        except Exception:
-            zam = False
+        msg = (
+            f"{brak['nazwa']} – brakuje {brak['brakuje']}. "
+            "Czy zamówić brakujący materiał?"
+        )
+        zam = False
+        if messagebox:
+            try:
+                zam = bool(messagebox.askyesno("Brak materiału", msg))
+            except Exception:
+                zam = False
         _log_mag(
             "brak_materialu",
             {
@@ -516,7 +525,8 @@ def rezerwuj_materialy(bom, ilosc):
                 "zamowiono": zam,
             },
         )
-    return updated
+    ok = not braki
+    return ok, braki
 
 def set_order(order_ids):
     """Ustawia kolejność elementów magazynu zgodnie z listą identyfikatorów."""
