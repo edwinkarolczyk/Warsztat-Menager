@@ -62,7 +62,7 @@ def test_settings_single_prompt(make_manager, monkeypatch):
     root.destroy()
 
     assert calls["count"] == 1
-    reloaded = cm.ConfigManager()
+    reloaded = cm.ConfigManager.refresh()
     assert reloaded.get("auth.session_timeout_min") == 99
     assert reloaded.get("auth.pin_length") == 7
 

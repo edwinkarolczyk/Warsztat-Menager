@@ -61,5 +61,5 @@ def test_push_branch_ui_saves_value(make_manager):
     save_btn.invoke()
     root.destroy()
 
-    reloaded = cm.ConfigManager()
+    reloaded = cm.ConfigManager.refresh()
     assert reloaded.get("updates.push_branch") == "feature-branch"

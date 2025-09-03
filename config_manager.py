@@ -36,7 +36,25 @@ class ConfigError(Exception):
 
 
 class ConfigManager:
+    """Caches loaded configuration and allows explicit refresh.
+
+    Regular instantiation (``ConfigManager()``) returns the cached instance
+    to avoid reloading configuration files multiple times during a session.
+    Use ``ConfigManager.refresh()`` to force a reload.
+    """
+
+    _instance: "ConfigManager | None" = None
+    _initialized: bool = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
+        if self.__class__._initialized:
+            return
+
         self.schema = self._load_json_or_raise(
             SCHEMA_PATH, msg_prefix="Brak pliku schematu"
         )
@@ -57,6 +75,16 @@ class ConfigManager:
         self.autosave_draft_interval_sec = self.get(
             "autosave_draft_interval_sec", 15
         )
+
+        logger.info("ConfigManager initialized")
+        self.__class__._initialized = True
+
+    @classmethod
+    def refresh(cls) -> "ConfigManager":
+        """Reset cached instance and reload configuration."""
+        cls._instance = None
+        cls._initialized = False
+        return cls()
 
     # ========== I/O pomocnicze ==========
     def _ensure_dirs(self):
