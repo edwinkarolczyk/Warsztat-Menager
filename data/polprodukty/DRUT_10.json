@@ -1,0 +1,8 @@
+{
+  "kod": "DRUT_10",
+  "nazwa": "Drut 10mm",
+  "operacje": ["ciecie"],
+  "czynnosci": ["ciecie"],
+  "surowiec": { "kod": "SR_DRUT10", "ilosc_na_szt": 2.0, "jednostka": "m" },
+  "norma_strat_proc": 0.0
+}
