@@ -26,7 +26,7 @@ from services.profile_service import authenticate, find_first_brygadzista
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 
 # Motyw
-from ui_theme import apply_theme_tree
+from ui_theme import apply_theme_tree, MUTED_FG
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -85,7 +85,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             logging.warning("Nie można załadować tła logowania: %s", e)
 
     # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
-    top = ttk.Frame(root, style="WM.TFrame")
+    top = ttk.Frame(root, style="WM.Transparent.TFrame")
     top.pack(fill="x", pady=(32, 8))
 
     # logo (jeśli jest) — używamy tk.Label dla image
@@ -103,23 +103,28 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             lbl_logo.pack()
         except Exception:
             # brak PIL lub błąd pliku — po prostu nazwa
-            ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
+            ttk.Label(
+                top,
+                text="Warsztat Menager",
+                style="WM.Transparent.TLabel",
+                font=("Segoe UI", 16, "bold"),
+            ).pack()
 
     # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
-    center = ttk.Frame(root, style="WM.TFrame")
+    center = ttk.Frame(root, style="WM.Transparent.TFrame")
     center.pack(fill="both", expand=True)
 
     box = ttk.Frame(center, style="WM.Card.TFrame", padding=16)
     box.place(relx=0.5, rely=0.45, anchor="center")  # trochę wyżej niż idealne 0.5, by było miejsce na pasek
 
     ttk.Label(box, text="Login:", style="WM.H2.TLabel").pack(pady=(8, 6))
-    entry_login = ttk.Entry(box, width=22)
+    entry_login = ttk.Entry(box, width=22, style="WM.Transparent.TEntry")
     entry_login.pack(ipadx=10, ipady=6)
     if hasattr(entry_login, "focus_set"):
         entry_login.focus_set()
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
-    entry_pin = ttk.Entry(box, show="*", width=22)
+    entry_pin = ttk.Entry(box, show="*", width=22, style="WM.Transparent.TEntry")
     entry_pin.pack(ipadx=10, ipady=6)
     ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
     root.bind("<Return>", lambda e: logowanie())
@@ -132,10 +137,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ).pack(pady=(0, 16))
 
     # --- PASEK POSTĘPU ZMIANY (1/3 szer., wyśrodkowany) ---
-    prefooter = ttk.Frame(root, style="WM.TFrame")
+    prefooter = ttk.Frame(root, style="WM.Transparent.TFrame")
     prefooter.pack(fill="x", pady=(0, 10))
 
-    wrap = ttk.Frame(prefooter, style="WM.Card.TFrame")
+    wrap = ttk.Frame(prefooter, style="WM.Transparent.TFrame")
     wrap.pack()  # centralnie
 
     bottom_banner = ttk.Frame(wrap, style="WM.Card.TFrame", padding=(12, 6))
@@ -146,7 +151,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     )
     shift_label_bottom.pack(fill="x")
 
-    users_box_bottom = ttk.Frame(bottom_banner, style="WM.TFrame")
+    users_box_bottom = ttk.Frame(bottom_banner, style="WM.Transparent.TFrame")
     users_box_bottom.pack(fill="x", pady=(2, 0))
 
     def _update_banner():
@@ -167,8 +172,9 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             ttk.Label(
                 users_box_bottom,
                 text="Brak aktywnych użytkowników",
-                style="WM.Muted.TLabel",
+                style="WM.Transparent.TLabel",
                 anchor="w",
+                foreground=MUTED_FG,
             ).pack(anchor="w")
             return
 
@@ -180,16 +186,23 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         if info["users"]:
             for name in info["users"]:
                 ttk.Label(
-                    users_box_bottom, text=name, style="WM.TLabel", anchor="w"
+                    users_box_bottom,
+                    text=name,
+                    style="WM.Transparent.TLabel",
+                    anchor="w",
                 ).pack(anchor="w")
         else:
             ttk.Label(
-                users_box_bottom, text="—", style="WM.Muted.TLabel", anchor="w"
+                users_box_bottom,
+                text="—",
+                style="WM.Transparent.TLabel",
+                anchor="w",
+                foreground=MUTED_FG,
             ).pack(anchor="w")
 
     _update_banner()
 
-    ttk.Label(wrap, text="Zmiana", style="WM.Card.TLabel").pack(
+    ttk.Label(wrap, text="Zmiana", style="WM.Transparent.TLabel").pack(
         anchor="w", padx=8, pady=(0, 2)
     )
 
@@ -199,7 +212,12 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
                       highlightthickness=0, bd=0, bg="#1b1f24")
     shift.pack(padx=8, pady=6)
 
-    info = ttk.Label(wrap, text="", style="WM.Muted.TLabel")
+    info = ttk.Label(
+        wrap,
+        text="",
+        style="WM.Transparent.TLabel",
+        foreground=MUTED_FG,
+    )
     info.pack(anchor="w", padx=8, pady=(0, 8))
 
     # --- bezpieczny timer paska ---
@@ -256,15 +274,25 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     shift.bind("<Destroy>", _on_destroy)
 
     # --- DÓŁ: przycisk Zamknij + stopka wersji (stale przyklejone) ---
-    bottom = ttk.Frame(root, style="WM.TFrame")
+    bottom = ttk.Frame(root, style="WM.Transparent.TFrame")
     bottom.pack(side="bottom", fill="x", pady=(0, 12))
 
     # przycisk na samym dole — stałe miejsce
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
-    ttk.Label(root, text="Warsztat Menager – Wersja 1.4.12.1", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+    ttk.Label(
+        root,
+        text="Warsztat Menager – Wersja 1.4.12.1",
+        style="WM.Transparent.TLabel",
+        foreground=MUTED_FG,
+    ).pack(side="bottom", pady=(0, 6))
     update_text, _ = load_last_update_info()
-    lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
+    lbl_update = ttk.Label(
+        root,
+        text=update_text,
+        style="WM.Transparent.TLabel",
+        foreground=MUTED_FG,
+    )
     lbl_update.pack(side="bottom", pady=(0, 2))
     remote = cfg.get("updates.remote", "origin")
     branch = cfg.get("updates.branch", "proby-rozwoju")
@@ -285,7 +313,8 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         ttk.Label(
             root,
             text="Dostępna aktualizacja – uruchom 'git pull'",
-            style="WM.Muted.TLabel",
+            style="WM.Transparent.TLabel",
+            foreground=MUTED_FG,
         ).pack(side="bottom", pady=(0, 2))
 
 def _login_pinless():

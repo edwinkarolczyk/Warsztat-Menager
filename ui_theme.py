@@ -151,6 +151,7 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     style.configure("WM.TFrame", background=DARK_BG)
     style.configure("WM.Card.TFrame", background=CARD_BG)
     style.configure("WM.Side.TFrame", background=SIDE_BG)
+    style.configure("WM.Transparent.TFrame", background="")
 
     # Labels
     style.configure("WM.TLabel", background=DARK_BG, foreground=FG)
@@ -159,6 +160,7 @@ def _init_styles(root: tk.Misc | None = None) -> None:
     style.configure("WM.H1.TLabel", background=DARK_BG, foreground=FG, font=("Segoe UI", 16, "bold"))
     style.configure("WM.Banner.TLabel", background=BANNER_BG, foreground=BANNER_FG,
                     font=("Consolas", 11, "bold"))
+    style.configure("WM.Transparent.TLabel", background="")
 
     # Buttons (w tym boczne)
     style.configure("WM.Side.TButton", background=BTN_BG, foreground=FG, padding=6)
@@ -175,6 +177,7 @@ def _init_styles(root: tk.Misc | None = None) -> None:
         style.map(base,
                   fieldbackground=[("readonly", DARK_BG_2), ("focus", DARK_BG_2)],
                   foreground=[("disabled", MUTED_FG)])
+    style.configure("WM.Transparent.TEntry", fieldbackground="", background="", foreground=FG)
 
     # Treeview
     style.configure("WM.Treeview",
