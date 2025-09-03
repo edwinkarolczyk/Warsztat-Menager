@@ -199,7 +199,7 @@ class MagazynBOM(ttk.Frame):
             side="right", padx=4
         )
 
-        cols = ("kod","nazwa","surowiec","czynnosci","norma_strat")
+        cols = ("kod", "nazwa", "surowiec", "czynnosci", "norma_strat_proc")
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
@@ -207,7 +207,7 @@ class MagazynBOM(ttk.Frame):
             ("nazwa","Nazwa"),
             ("surowiec","Kod surowca"),
             ("czynnosci","Lista czynności"),
-            ("norma_strat","Norma strat [%]")
+            ("norma_strat_proc", "Norma strat [%]")
         ]
         for key, lbl in headers:
             self.tree_pp.heading(key, text=lbl)
@@ -238,7 +238,7 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_pp.selection()
         if sel:
             values = self.tree_pp.item(sel[0], "values")
-            keys = ("kod", "nazwa", "surowiec", "czynnosci", "norma_strat")
+            keys = ("kod", "nazwa", "surowiec", "czynnosci", "norma_strat_proc")
             for k, v in zip(keys, values):
                 if k == "czynnosci":
                     selected = [s.strip() for s in v.split(",") if s.strip()]
@@ -257,7 +257,7 @@ class MagazynBOM(ttk.Frame):
             messagebox.showerror("Półprodukty", "Wymagane pola: kod, nazwa i kod surowca.")
             return
         try:
-            norma = int(self.pp_vars["norma_strat"].get() or 0)
+            norma = int(self.pp_vars["norma_strat_proc"].get() or 0)
         except ValueError:
             messagebox.showerror("Półprodukty", "Norma strat musi być liczbą.")
             return
