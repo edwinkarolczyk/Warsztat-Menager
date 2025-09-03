@@ -18,7 +18,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime, time, timedelta, timezone
 
-from profile_utils import get_user, save_user
+from services.profile_service import get_user, save_user
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame

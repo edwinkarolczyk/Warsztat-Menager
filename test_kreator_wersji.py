@@ -26,8 +26,8 @@ def test_gui_logowanie_spelnia_wymagania():
         "entry_pin = ttk.Entry",
         "img = Image.open",
         "root.attributes(\"-fullscreen\", True)",
-        "str(login_key).strip().lower() == login",
-        "str(dane.get(\"pin\", \"\")).strip() == pin",
+        "authenticate(login, pin)",
+        "find_first_brygadzista()",
     ]
     wyniki = sprawdz_wymagania(plik, wymagania)
     brakujace = [linia for linia, ok in wyniki.items() if not ok]
