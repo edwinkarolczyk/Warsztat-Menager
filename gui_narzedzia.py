@@ -61,6 +61,10 @@ NN_PROD_STATES = {
     "projekt","w budowie","1 próba","1 proba","2 próba","2 proba","próby narzędzia","proby narzedzia","odbiór","odbior"
 }
 
+# Obsługa załączników do narzędzi
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".dxf"}
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
 # ===================== CONFIG / DEBUG =====================
 def _load_config():
     global _CFG_CACHE, CONFIG_MTIME
@@ -167,6 +171,38 @@ def _append_type_to_config(new_type: str) -> bool:
     _save_config(cfg)
     _dbg("Dopisano typ do config:", t)
     return True
+
+
+def _is_allowed_file(path: str) -> bool:
+    """Verify selected file extension and size."""
+    ext = os.path.splitext(str(path))[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return False
+    try:
+        return os.path.getsize(path) <= MAX_FILE_SIZE
+    except OSError:
+        return False
+
+
+def _delete_task_files(task: dict) -> None:
+    """Remove media and thumbnail files referenced by *task*."""
+    for key in ("media", "miniatura"):
+        p = task.get(key)
+        if p and os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+
+def _remove_task(tasks: list, index: int) -> None:
+    """Remove task at *index* and delete associated files."""
+    try:
+        task = tasks[index]
+    except IndexError:
+        return
+    _delete_task_files(task)
+    del tasks[index]
 
 # ===== Uprawnienia z config =====
 def _can_convert_nn_to_sn(rola: str | None) -> bool:
@@ -811,8 +847,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             return -1
         def _del_sel():
             i = _sel_idx()
-            if i < 0: return
-            tasks.pop(i); repaint_tasks()
+            if i < 0:
+                return
+            _remove_task(tasks, i)
+            repaint_tasks()
         def _toggle_done():
             i = _sel_idx()
             if i < 0:
