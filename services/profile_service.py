@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 import profile_utils as _pu
 from profile_utils import DEFAULT_USER
+from utils.path_utils import cfg_path
 
 
 @contextmanager
@@ -80,7 +81,7 @@ def find_first_brygadzista(file_path: Optional[str] = None) -> Optional[Dict]:
 
 
 def sync_presence(
-    users: List[Dict], presence_file: str = "uzytkownicy_presence.json"
+    users: List[Dict], presence_file: str = cfg_path("uzytkownicy_presence.json")
 ) -> None:
     """Synchronise auxiliary presence file with ``users`` list."""
     try:

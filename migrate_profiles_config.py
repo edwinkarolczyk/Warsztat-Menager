@@ -1,8 +1,9 @@
 # migrate_profiles_config.py
 # Minimalny migrator config.json -> dodaje profiles.* jeśli brak, bez ruszania reszty
 import json, sys, os
+from utils.path_utils import cfg_path
 
-PATH = sys.argv[1] if len(sys.argv)>1 else "config.json"
+PATH = sys.argv[1] if len(sys.argv) > 1 else cfg_path("config.json")
 with open(PATH, "r", encoding="utf-8") as f:
     cfg = json.load(f)
 

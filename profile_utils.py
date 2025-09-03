@@ -4,8 +4,15 @@
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
 from io_utils import read_json, write_json
+from utils.path_utils import cfg_path
 
-USERS_FILE = "uzytkownicy.json"
+USERS_FILE = None  # domyślnie cfg_path("uzytkownicy.json")
+
+
+def _users_file() -> str:
+    """Return path to the users file, resolving lazily via ``cfg_path``."""
+
+    return USERS_FILE or cfg_path("uzytkownicy.json")
 
 # Domyślny profil użytkownika z rozszerzonymi polami
 DEFAULT_USER = {
@@ -36,10 +43,11 @@ def read_users():
     Przy braku pliku – tworzy z DEFAULT_USER.
     Po odczycie uzupełnia brakujące pola przez ``ensure_user_fields``.
     """
-    data = read_json(USERS_FILE)
+    path = _users_file()
+    data = read_json(path)
     if data is None:
         users = [DEFAULT_USER.copy()]
-        write_json(USERS_FILE, users)
+        write_json(path, users)
         return ensure_user_fields(users)
     if isinstance(data, list):
         users = data
@@ -74,7 +82,7 @@ def write_users(users):
         u.setdefault("zadania", [])
         u.setdefault("ostatnia_wizyta", "1970-01-01T00:00:00Z")
         norm.append(u)
-    return write_json(USERS_FILE, norm)
+    return write_json(_users_file(), norm)
 
 def find_user_by_pin(pin):
     users = read_users()
@@ -129,5 +137,5 @@ def ensure_user_fields(users):
         if "opis" not in u: u["opis"] = ""; changed = True
         if "ostatnia_wizyta" not in u: u["ostatnia_wizyta"] = "1970-01-01T00:00:00Z"; changed = True
     if changed:
-        write_json(USERS_FILE, users)
+        write_json(_users_file(), users)
     return users

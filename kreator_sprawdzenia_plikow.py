@@ -4,6 +4,7 @@
 
 import os
 import hashlib
+from utils.path_utils import cfg_path
 
 # Lista wymaganych plików z sumami kontrolnymi SHA256 (mogą być uzupełniane)
 wymagane_pliki = {
@@ -13,7 +14,7 @@ wymagane_pliki = {
     "layout_prosty.py": None,
     "ustawienia_systemu.py": None,
     "uzytkownicy.json": None,
-    "config.json": None
+    cfg_path("config.json"): None,
 }
 
 def oblicz_sha256(nazwa):
