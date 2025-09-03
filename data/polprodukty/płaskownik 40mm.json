@@ -1,8 +1,18 @@
 {
   "kod": "płaskownik 40mm",
   "nazwa": "Płaskownik 40mm",
-  "operacje": ["ciecie", "gięcie"],
-  "czynnosci": ["ciecie", "gięcie"],
-  "surowiec": { "kod": "SR004", "ilosc_na_szt": 0.40, "jednostka": "mb" },
+  "operacje": [
+    "ciecie",
+    "gięcie"
+  ],
+  "czynnosci": [
+    "ciecie",
+    "gięcie"
+  ],
+  "surowiec": {
+    "kod": "SR004",
+    "ilosc_na_szt": 0.4,
+    "jednostka": "mb"
+  },
   "norma_strat_proc": 4.0
 }

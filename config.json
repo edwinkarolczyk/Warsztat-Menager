@@ -36,7 +36,10 @@
     "show_grid": true,
     "grid_step": 4,
     "backgrounds": [],
-    "workshop_start": [0, 0],
+    "workshop_start": [
+      0,
+      0
+    ],
     "anim_interval_ms": 16,
     "drag_snap_px": 4,
     "triple_confirm_delete": false

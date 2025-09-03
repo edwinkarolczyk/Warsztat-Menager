@@ -1,8 +1,16 @@
 {
   "kod": "rurka 30mm",
   "nazwa": "Rurka 30mm",
-  "operacje": ["ciecie"],
-  "czynnosci": ["ciecie"],
-  "surowiec": { "kod": "SR003", "ilosc_na_szt": 0.30, "jednostka": "mb" },
+  "operacje": [
+    "ciecie"
+  ],
+  "czynnosci": [
+    "ciecie"
+  ],
+  "surowiec": {
+    "kod": "SR003",
+    "ilosc_na_szt": 0.3,
+    "jednostka": "mb"
+  },
   "norma_strat_proc": 3.0
 }

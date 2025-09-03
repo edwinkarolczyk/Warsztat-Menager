@@ -10,14 +10,34 @@
     "imie": "Edwin",
     "nazwisko": "Kowalski",
     "staz": 5,
-    "umiejetnosci": {"spawanie": 4, "tokarka": 3},
-    "kursy": ["BHP", "Spawanie MIG"],
-    "ostrzezenia": ["Brak kasku 2024-05-12"],
-    "nagrody": ["Pracownik miesi\u0105ca 2024-06"],
-    "historia_maszyn": ["TOK-1", "FREZ-3"],
-    "awarie": ["TOK-1 2024-02-11"],
-    "sugestie": ["Zakup nowych r\u0119kawic"],
-    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "umiejetnosci": {
+      "spawanie": 4,
+      "tokarka": 3
+    },
+    "kursy": [
+      "BHP",
+      "Spawanie MIG"
+    ],
+    "ostrzezenia": [
+      "Brak kasku 2024-05-12"
+    ],
+    "nagrody": [
+      "Pracownik miesiąca 2024-06"
+    ],
+    "historia_maszyn": [
+      "TOK-1",
+      "FREZ-3"
+    ],
+    "awarie": [
+      "TOK-1 2024-02-11"
+    ],
+    "sugestie": [
+      "Zakup nowych rękawic"
+    ],
+    "preferencje": {
+      "motyw": "dark",
+      "widok_startowy": "panel"
+    },
     "zadania": [],
     "opis": "",
     "ostatnia_wizyta": "1970-01-01T00:00:00Z"
@@ -40,7 +60,10 @@
     "historia_maszyn": [],
     "awarie": [],
     "sugestie": [],
-    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "preferencje": {
+      "motyw": "dark",
+      "widok_startowy": "panel"
+    },
     "zadania": [],
     "opis": "",
     "ostatnia_wizyta": "1970-01-01T00:00:00Z"
@@ -63,7 +86,10 @@
     "historia_maszyn": [],
     "awarie": [],
     "sugestie": [],
-    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "preferencje": {
+      "motyw": "dark",
+      "widok_startowy": "panel"
+    },
     "zadania": [],
     "opis": "",
     "ostatnia_wizyta": "1970-01-01T00:00:00Z"
@@ -86,7 +112,10 @@
     "historia_maszyn": [],
     "awarie": [],
     "sugestie": [],
-    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "preferencje": {
+      "motyw": "dark",
+      "widok_startowy": "panel"
+    },
     "zadania": [],
     "opis": "",
     "ostatnia_wizyta": "1970-01-01T00:00:00Z"
@@ -109,7 +138,10 @@
     "historia_maszyn": [],
     "awarie": [],
     "sugestie": [],
-    "preferencje": {"motyw": "dark", "widok_startowy": "panel"},
+    "preferencje": {
+      "motyw": "dark",
+      "widok_startowy": "panel"
+    },
     "zadania": [],
     "opis": "",
     "ostatnia_wizyta": "1970-01-01T00:00:00Z"
