@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from config_manager import ConfigManager
+from ui_theme import apply_theme_tree
 
 
 DATA_DIR = os.path.join("data", "polprodukty")
@@ -50,4 +51,15 @@ def make_window(root: tk.Misc) -> ttk.Frame:
         row=2, column=1, sticky="e", padx=6, pady=4
     )
     return frame
+
+
+class MagazynBOMWindow(tk.Toplevel):
+    """Window for managing warehouse and BOM items."""
+
+    def __init__(self, master: tk.Misc | None = None):
+        super().__init__(master)
+        self.title("Ustawienia – Magazyn i BOM")
+        frame = make_window(self)
+        frame.pack(fill="both", expand=True)
+        apply_theme_tree(self)
 
