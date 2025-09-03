@@ -33,8 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
 
-
- # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
+# Informacje o ostatniej aktualizacji dostarcza moduł updates_utils
 
 # --- zmienne globalne dla kontrolki PIN i okna ---
 entry_pin = None
