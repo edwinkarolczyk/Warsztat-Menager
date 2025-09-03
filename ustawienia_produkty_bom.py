@@ -11,6 +11,7 @@ import json
 import glob
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+from datetime import datetime
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.dirty_guard import DirtyGuard
@@ -437,13 +438,24 @@ def make_tab(parent, rola=None):
         if not bom:
             messagebox.showerror("Produkty", "Dodaj przynajmniej jedną pozycję BOM.")
             return
+        eff_from = (var_eff_from.get() or "").strip()
+        eff_to = (var_eff_to.get() or "").strip()
+        for label, val in (("Obowiązuje od", eff_from), ("Obowiązuje do", eff_to)):
+            if val:
+                try:
+                    datetime.strptime(val, "%Y-%m-%d")
+                except ValueError:
+                    messagebox.showerror(
+                        "Produkty", f"Podaj datę w formacie RRRR-MM-DD ({label})."
+                    )
+                    return
         payload = {
             "kod": kod,
             "nazwa": naz,
             "version": var_ver.get() or "1.0",
             "bom_revision": int(var_bom_rev.get() or 1),
-            "effective_from": var_eff_from.get() or None,
-            "effective_to": var_eff_to.get() or None,
+            "effective_from": eff_from or None,
+            "effective_to": eff_to or None,
             "is_default": bool(var_is_default.get()),
             "polprodukty": bom,
         }
