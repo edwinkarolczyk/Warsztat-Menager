@@ -7,6 +7,13 @@
   "progi_alertow_pct": [
     100
   ],
+  "czynnosci_technologiczne": [],
+  "jednostki_miary": {
+    "szt": "sztuka",
+    "kg": "kilogram",
+    "m": "metr"
+  },
+  "progi_alertow_surowce": {},
   "zmiana_rano_start": "06:00",
   "zmiana_rano_end": "14:00",
   "zmiana_pop_start": "14:00",
