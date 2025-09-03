@@ -380,6 +380,23 @@ def upsert_item(item):
         _log_info(f"Upsert item {item['id']} ({it['nazwa']})")
         return it
 
+def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None):
+    """Usuwa pozycję z magazynu."""
+    with _LOCK:
+        m = load_magazyn()
+        items = m.get("items") or {}
+        if item_id not in items:
+            raise KeyError(item_id)
+        item = items.pop(item_id)
+        order = m.setdefault("meta", {}).setdefault("order", [])
+        if item_id in order:
+            order.remove(item_id)
+        save_magazyn(m)
+    entry = _history_entry("usun", item_id, item.get("stan", 0), uzytkownik, kontekst)
+    _append_history(entry)
+    _log_mag("usun", {"item_id": item_id, "by": uzytkownik, "ctx": kontekst})
+    return item
+
 def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
     if ilosc <= 0:
         raise ValueError("Ilość zużycia musi być > 0")

@@ -269,3 +269,21 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
     assert shortage[0]["zamowiono"] is True
     created = [d for a, d in logs if a == "utworzono_zlecenie_zakupow"]
     assert created and created[0]["nr"] == zlec["nr"]
+
+
+def test_delete_item_removes_from_mag(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "mag.json"))
+    lm.load_magazyn()
+    lm.upsert_item({
+        "id": "X", "nazwa": "X", "typ": "komponent", "jednostka": "szt",
+        "stan": 1, "min_poziom": 0
+    })
+    lm.delete_item("X")
+    assert lm.get_item("X") is None
+
+
+def test_delete_item_missing_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "mag.json"))
+    lm.load_magazyn()
+    with pytest.raises(KeyError):
+        lm.delete_item("NOPE")

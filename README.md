@@ -2,6 +2,8 @@
 
 Ciemny, desktopowy system do zarządzania warsztatem (Python/Tkinter).
 Moduły: **Maszyny, Narzędzia, Zlecenia, Magazyn, Serwis, Ustawienia**.
+W ustawieniach w zakładce **Magazyn** znajdują się teraz wbudowane formularze do zarządzania
+surowcami, półproduktami i produktami (BOM).
 
 ## Szybki start (dev)
 ```bash

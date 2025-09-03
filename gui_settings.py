@@ -57,98 +57,54 @@ class MagazynSettings(ttk.Frame):
         super().__init__(master)
         self.cfg = ConfigManager()
 
-        self.rez_var = tk.BooleanVar(
-            value=self.cfg.get("magazyn_rezerwacje", True)
-        )
-        self.prec_var = tk.IntVar(
-            value=self.cfg.get("magazyn_precision_mb", 3)
-        )
+        paned = ttk.PanedWindow(self, orient="vertical")
+        paned.pack(fill="both", expand=True)
+
+        frm = ttk.Frame(paned)
+        paned.add(frm, weight=1)
+        bom = MagazynBOM(paned)
+        paned.add(bom, weight=3)
+        apply_theme(bom)
+
+        self.rez_var = tk.BooleanVar(value=self.cfg.get("magazyn_rezerwacje", True))
+        self.prec_var = tk.IntVar(value=self.cfg.get("magazyn_precision_mb", 3))
         progi = self.cfg.get("progi_alertow_pct", [100])
         progi_surowce = self.cfg.get("progi_alertow_surowce", {})
         czynnosci = self.cfg.get("czynnosci_technologiczne", [])
         jednostki = self.cfg.get("jednostki_miary", {})
 
-        ttk.Checkbutton(
-            self, text="Włącz rezerwacje", variable=self.rez_var
-        ).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
-        ttk.Label(
-            self,
-            text=_SCHEMA_DESC.get("magazyn_rezerwacje", ""),
-            font=("", 8),
-        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        ttk.Checkbutton(frm, text="Włącz rezerwacje", variable=self.rez_var).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
+        ttk.Label(frm, text=_SCHEMA_DESC.get("magazyn_rezerwacje", ""), font=("", 8)).grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Miejsca po przecinku:").grid(
-            row=2, column=0, sticky="w", padx=5, pady=5
-        )
-        ttk.Spinbox(
-            self, from_=0, to=6, textvariable=self.prec_var, width=5
-        ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
-        ttk.Label(
-            self,
-            text=_SCHEMA_DESC.get("magazyn_precision_mb", ""),
-            font=("", 8),
-        ).grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        ttk.Label(frm, text="Miejsca po przecinku:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
+        ttk.Spinbox(frm, from_=0, to=6, textvariable=self.prec_var, width=5).grid(row=2, column=1, sticky="w", padx=5, pady=5)
+        ttk.Label(frm, text=_SCHEMA_DESC.get("magazyn_precision_mb", ""), font=("", 8)).grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Domyślne progi alertów magazynowych (%):").grid(
-            row=4, column=0, sticky="nw", padx=5, pady=5
-        )
-        self.progi_text = tk.Text(self, height=4)
-        self.progi_text.grid(
-            row=4, column=1, sticky="ew", padx=5, pady=5
-        )
+        ttk.Label(frm, text="Domyślne progi alertów magazynowych (%):").grid(row=4, column=0, sticky="nw", padx=5, pady=5)
+        self.progi_text = tk.Text(frm, height=4)
+        self.progi_text.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
         self.progi_text.insert("1.0", "\n".join(str(p) for p in progi))
-        ttk.Label(
-            self,
-            text=_SCHEMA_DESC.get("progi_alertow_pct", ""),
-            font=("", 8),
-        ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        ttk.Label(frm, text=_SCHEMA_DESC.get("progi_alertow_pct", ""), font=("", 8)).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Progi alertów dla surowców (%):").grid(
-            row=6, column=0, sticky="nw", padx=5, pady=5
-        )
-        self.progi_surowce_text = tk.Text(self, height=4)
-        self.progi_surowce_text.grid(
-            row=6, column=1, sticky="ew", padx=5, pady=5
-        )
-        self.progi_surowce_text.insert(
-            "1.0", "\n".join(f"{k} = {v}" for k, v in progi_surowce.items())
-        )
-        ttk.Label(
-            self,
-            text="Każda linia: nazwa surowca = próg",
-            font=("", 8),
-        ).grid(row=7, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+        ttk.Label(frm, text="Progi alertów dla surowców (%):").grid(row=6, column=0, sticky="nw", padx=5, pady=5)
+        self.progi_surowce_text = tk.Text(frm, height=4)
+        self.progi_surowce_text.grid(row=6, column=1, sticky="ew", padx=5, pady=5)
+        self.progi_surowce_text.insert("1.0", "\n".join(f"{k} = {v}" for k, v in progi_surowce.items()))
+        ttk.Label(frm, text="Każda linia: nazwa surowca = próg", font=("", 8)).grid(row=7, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(
-            self, text="Czynności technologiczne (po jednej w linii):"
-        ).grid(row=8, column=0, sticky="nw", padx=5, pady=5)
-        self.czynnosci_text = tk.Text(self, height=4)
-        self.czynnosci_text.grid(
-            row=8, column=1, sticky="ew", padx=5, pady=5
-        )
+        ttk.Label(frm, text="Czynności technologiczne (po jednej w linii):").grid(row=8, column=0, sticky="nw", padx=5, pady=5)
+        self.czynnosci_text = tk.Text(frm, height=4)
+        self.czynnosci_text.grid(row=8, column=1, sticky="ew", padx=5, pady=5)
         self.czynnosci_text.insert("1.0", "\n".join(czynnosci))
 
-        ttk.Label(
-            self,
-            text="Jednostki miary (skrót jednostki = pełna nazwa):",
-        ).grid(row=9, column=0, sticky="nw", padx=5, pady=5)
-        self.jm_text = tk.Text(self, height=4)
-        self.jm_text.grid(
-            row=9, column=1, sticky="ew", padx=5, pady=5
-        )
-        self.jm_text.insert(
-            "1.0", "\n".join(f"{k} = {v}" for k, v in jednostki.items())
-        )
+        ttk.Label(frm, text="Jednostki miary (skrót jednostki = pełna nazwa):").grid(row=9, column=0, sticky="nw", padx=5, pady=5)
+        self.jm_text = tk.Text(frm, height=4)
+        self.jm_text.grid(row=9, column=1, sticky="ew", padx=5, pady=5)
+        self.jm_text.insert("1.0", "\n".join(f"{k} = {v}" for k, v in jednostki.items()))
 
-        ttk.Button(self, text="Zapisz", command=self.save).grid(
-            row=10, column=0, columnspan=2, pady=6
-        )
+        ttk.Button(frm, text="Zapisz", command=self.save).grid(row=10, column=0, columnspan=2, pady=6)
 
-        ttk.Button(
-            self, text="Magazyn i BOM", command=self.open_magazyn_bom
-        ).grid(row=7, column=0, columnspan=2, pady=(0, 6))
-
-        self.columnconfigure(1, weight=1)
+        frm.columnconfigure(1, weight=1)
 
     def save(self) -> None:
         self.cfg.set("magazyn_rezerwacje", bool(self.rez_var.get()))
@@ -190,13 +146,6 @@ class MagazynSettings(ttk.Frame):
         self.cfg.set("jednostki_miary", jednostki)
 
         self.cfg.save_all()
-
-    def open_magazyn_bom(self) -> None:
-        top = tk.Toplevel(self)
-        top.title("Magazyn i BOM")
-        MagazynBOM(top).pack(fill="both", expand=True)
-        apply_theme(top)
-
 
 if __name__ == "__main__":
     root = tk.Tk()

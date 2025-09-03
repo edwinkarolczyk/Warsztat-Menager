@@ -34,6 +34,62 @@ from config_manager import ConfigManager
 _CFG = ConfigManager()
 
 
+class ItemDialog(simpledialog.Dialog):
+    """Prosty dialog do edycji pozycji magazynowej."""
+
+    def __init__(self, master, item=None):
+        self._item = item or {}
+        super().__init__(master, title="Pozycja magazynu")
+        apply_theme(self)
+
+    def body(self, master):
+        fields = [
+            ("id", "ID"),
+            ("nazwa", "Nazwa"),
+            ("typ", "Typ"),
+            ("jednostka", "J.m."),
+            ("stan", "Stan"),
+            ("min_poziom", "Min"),
+            ("dl_jednostkowa_mm", "Dł. jed. [mm]"),
+        ]
+        self.vars = {}
+        for r, (key, label) in enumerate(fields):
+            ttk.Label(master, text=label).grid(row=r, column=0, sticky="e", padx=4, pady=2)
+            var = tk.StringVar(value=str(self._item.get(key, "")))
+            self.vars[key] = var
+            ttk.Entry(master, textvariable=var).grid(row=r, column=1, sticky="w", padx=4, pady=2)
+        return master
+
+    def validate(self):
+        if not self.vars["id"].get().strip():
+            messagebox.showerror("Błąd", "ID nie może być puste.", parent=self)
+            return False
+        for fld in ("stan", "min_poziom", "dl_jednostkowa_mm"):
+            val = self.vars[fld].get().strip() or "0"
+            try:
+                float(val.replace(",", "."))
+            except ValueError:
+                messagebox.showerror("Błąd", f"Pole {fld} musi być liczbą.", parent=self)
+                return False
+        return True
+
+    def apply(self):
+        self.result = {
+            "id": self.vars["id"].get().strip(),
+            "nazwa": self.vars["nazwa"].get().strip(),
+            "typ": self.vars["typ"].get().strip(),
+            "jednostka": self.vars["jednostka"].get().strip(),
+            "stan": float(self.vars["stan"].get().replace(",", ".") or 0),
+            "min_poziom": float(self.vars["min_poziom"].get().replace(",", ".") or 0),
+            "dl_jednostkowa_mm": float(self.vars["dl_jednostkowa_mm"].get().replace(",", ".") or 0),
+        }
+
+    @classmethod
+    def show(cls, master, item=None):
+        dlg = cls(master, item)
+        return getattr(dlg, "result", None)
+
+
 def _fmt(num: float) -> str:
     prec = _CFG.get("magazyn_precision_mb", 3)
     return f"{float(num):.{prec}f}"
@@ -108,7 +164,7 @@ class PanelMagazyn(ttk.Frame):
         # Pasek narzędzi
         bar = ttk.Frame(self, style="WM.TFrame")
         bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8,4))
-        bar.columnconfigure(3, weight=1)
+        bar.columnconfigure(6, weight=1)
 
         ttk.Label(bar, text="Szukaj:", style="WM.Muted.TLabel").grid(row=0, column=0, sticky="w")
         self.var_szukaj = tk.StringVar()
@@ -117,17 +173,20 @@ class PanelMagazyn(ttk.Frame):
         ent.bind("<KeyRelease>", lambda e: self._filter())
 
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
-        ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
-        ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton").grid(row=0, column=5, padx=3)
-        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=6, padx=3)
-        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
-        ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=8, padx=6)
+        ttk.Button(bar, text="Dodaj", command=self._act_add, style="WM.Side.TButton").grid(row=0, column=3, padx=3)
+        ttk.Button(bar, text="Edytuj", command=self._act_edit, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
+        ttk.Button(bar, text="Usuń", command=self._act_delete, style="WM.Side.TButton").grid(row=0, column=5, padx=3)
+        ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
+        ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton").grid(row=0, column=8, padx=3)
+        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=9, padx=3)
+        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=10, padx=3)
+        ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=11, padx=6)
         ttk.Button(
             bar,
             text="Etykieta",
             command=self._act_drukuj_etykiete,
             style="WM.Side.TButton",
-        ).grid(row=0, column=9, padx=6)
+        ).grid(row=0, column=12, padx=6)
 
         # Notebook z widokami tabel
         self.nb = ttk.Notebook(self, style="WM.TNotebook")
@@ -324,6 +383,42 @@ class PanelMagazyn(ttk.Frame):
         except Exception:
             error_dialogs.show_error_dialog("Błąd", "Podaj dodatnią liczbę.")
             return None
+
+    def _act_add(self):
+        data = ItemDialog.show(self)
+        if not data:
+            return
+        try:
+            LM.upsert_item(data)
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Błąd", str(e))
+
+    def _act_edit(self):
+        iid = self._sel_id()
+        if not iid:
+            return
+        item = LM.get_item(iid)
+        data = ItemDialog.show(self, item)
+        if not data:
+            return
+        try:
+            LM.upsert_item(data)
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Błąd", str(e))
+
+    def _act_delete(self):
+        iid = self._sel_id()
+        if not iid:
+            return
+        if not messagebox.askyesno("Magazyn", f"Usunąć {iid}?", parent=self):
+            return
+        try:
+            LM.delete_item(iid, uzytkownik="system", kontekst="GUI Magazyn")
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Błąd", str(e))
 
     def _act_zuzyj(self):
         iid = self._sel_id()
