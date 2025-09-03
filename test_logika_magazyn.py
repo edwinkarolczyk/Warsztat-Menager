@@ -201,9 +201,10 @@ def test_rezerwuj_materialy_updates_and_saves(tmp_path, monkeypatch):
         }
     )
     bom = {"MAT-A": {"ilosc": 2}}
-    ok, braki = lm.rezerwuj_materialy(bom, 3)
+    ok, braki, zlec = lm.rezerwuj_materialy(bom, 3)
     assert ok is True
     assert braki == []
+    assert zlec is None
     item = lm.get_item("MAT-A")
     assert item["stan"] == 4.0
     with open(tmp_path / "stany.json", "r", encoding="utf-8") as f:
@@ -232,12 +233,16 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
         }
     )
     bom = {"MAT-B": {"ilosc": 4}}
-    ok, braki = lm.rezerwuj_materialy(bom, 2)
+    ok, braki, zlec = lm.rezerwuj_materialy(bom, 2)
     assert ok is False
-    assert braki and braki[0]["item_id"] == "MAT-B"
+    assert braki and braki[0]["kod"] == "MAT-B"
+    assert braki[0]["ilosc_potrzebna"] == 3.0
+    assert zlec and zlec["nr"]
     item = lm.get_item("MAT-B")
     assert item["stan"] == 0.0
     shortage = [d for a, d in logs if a == "brak_materialu"]
     assert shortage and shortage[0]["item_id"] == "MAT-B"
     assert shortage[0]["brakuje"] == 3.0
-    assert shortage[0]["zamowiono"] is False
+    assert shortage[0]["zamowiono"] is True
+    created = [d for a, d in logs if a == "utworzono_zlecenie_zakupow"]
+    assert created and created[0]["nr"] == zlec["nr"]

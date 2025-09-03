@@ -473,8 +473,10 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
 def rezerwuj_materialy(bom, ilosc):
     """Dekrementuje stany magazynu według BOM.
 
-    Zwraca tuple ``(ok, braki)`` gdzie ``ok`` to bool informujący,
-    czy wszystkie materiały były dostępne.
+    Zwraca tuple ``(ok, braki, zlecenie)`` gdzie ``ok`` to bool informujący,
+    czy wszystkie materiały były dostępne, ``braki`` to lista słowników
+    ``{kod, nazwa, ilosc_potrzebna}``, a ``zlecenie`` zawiera dane
+    utworzonego zlecenia zakupów (``{nr, sciezka}``) lub ``None``.
     """
 
     braki = []
@@ -485,15 +487,17 @@ def rezerwuj_materialy(bom, ilosc):
             req = float(info.get("ilosc", 0)) * float(ilosc)
             it = items.get(kod)
             if not it:
-                braki.append({"item_id": kod, "nazwa": kod, "brakuje": req})
+                braki.append({"kod": kod, "nazwa": kod, "ilosc_potrzebna": req})
                 continue
             stan = float(it.get("stan", 0))
             if stan < req:
-                braki.append({
-                    "item_id": kod,
-                    "nazwa": it.get("nazwa", kod),
-                    "brakuje": req - stan,
-                })
+                braki.append(
+                    {
+                        "kod": kod,
+                        "nazwa": it.get("nazwa", kod),
+                        "ilosc_potrzebna": req - stan,
+                    }
+                )
                 zuzyte = stan
                 it["stan"] = 0.0
             else:
@@ -506,27 +510,29 @@ def rezerwuj_materialy(bom, ilosc):
         save_magazyn(m)
         zapisz_stan_magazynu(m)
 
+    zlec_info = None
     for brak in braki:
-        msg = (
-            f"{brak['nazwa']} – brakuje {brak['brakuje']}. "
-            "Czy zamówić brakujący materiał?"
-        )
-        zam = False
-        if messagebox:
-            try:
-                zam = bool(messagebox.askyesno("Brak materiału", msg))
-            except Exception:
-                zam = False
         _log_mag(
             "brak_materialu",
             {
-                "item_id": brak["item_id"],
-                "brakuje": float(brak["brakuje"]),
-                "zamowiono": zam,
+                "item_id": brak["kod"],
+                "brakuje": float(brak["ilosc_potrzebna"]),
+                "zamowiono": True,
             },
         )
+
+    if braki:
+        try:
+            from logika_zakupy import utworz_zlecenie_zakupow
+
+            nr, sciezka = utworz_zlecenie_zakupow(braki)
+            _log_mag("utworzono_zlecenie_zakupow", {"nr": nr})
+            zlec_info = {"nr": nr, "sciezka": sciezka}
+        except Exception as e:
+            _log_mag("blad_zlecenia_zakupow", {"err": str(e)})
+
     ok = not braki
-    return ok, braki
+    return ok, braki, zlec_info
 
 def set_order(order_ids):
     """Ustawia kolejność elementów magazynu zgodnie z listą identyfikatorów."""

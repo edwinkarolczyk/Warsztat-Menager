@@ -28,9 +28,9 @@ try:
         update_status,
         update_zlecenie,
         read_magazyn,
-        rezerwuj_materialy,
         compute_material_needs,
     )
+    from logika_magazyn import rezerwuj_materialy
     try:
         from zlecenia_logika import delete_zlecenie as _delete_zlecenie
     except Exception:
@@ -557,12 +557,18 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
 
     def do_reserve():
-        updated = rezerwuj_materialy(sr_unit, ilosc)
+        ok, braki, zlec = rezerwuj_materialy(sr_unit, ilosc)
+        mag_new = read_magazyn()
         for iid in tv.get_children():
             kod = tv.set(iid, "kod")
-            if kod in updated:
-                tv.set(iid, "dostepne_po", str(updated[kod]))
+            if kod in mag_new:
+                tv.set(iid, "dostepne_po", str(mag_new[kod]["stan"]))
         lbl_info.config(text=f"Zarezerwowano materiały dla {prod}")
+        if zlec:
+            messagebox.showinfo(
+                "Zlecenie zakupów",
+                f"Utworzono zlecenie {zlec['nr']}\n{zlec['sciezka']}",
+            )
         btn_res.configure(state="disabled")
 
     btn_res = ttk.Button(btns, text="Rezerwuj", command=do_reserve)
