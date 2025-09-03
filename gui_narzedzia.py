@@ -576,16 +576,26 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 continue
             tag = _band_tag(t["postep"])
             bar = _bar_text(t["postep"])
-            iid = tree.insert("", "end", values=(t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], bar), tags=(tag,))
+            iid = tree.insert(
+                "",
+                "end",
+                values=(t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], bar),
+                tags=(tag,),
+            )
             row_data[iid] = t
-            paths = []
             base_dir = _resolve_tools_dir()
-            for key in ("obraz", "dxf_png"):
-                rel = t.get(key)
+            paths = []
+            rel = t.get("dxf_png")
+            if rel:
+                p = os.path.join(base_dir, rel) if not os.path.isabs(rel) else rel
+                if os.path.exists(p):
+                    paths = [p]
+            if not paths:
+                rel = t.get("obraz")
                 if rel:
                     p = os.path.join(base_dir, rel) if not os.path.isabs(rel) else rel
                     if os.path.exists(p):
-                        paths.append(p)
+                        paths = [p]
             if paths:
                 ui_hover.bind_treeview_row_hover(tree, iid, paths)
         if not data:
