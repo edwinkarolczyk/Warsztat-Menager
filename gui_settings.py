@@ -6,7 +6,6 @@ from pathlib import Path
 from tkinter import ttk
 
 from config_manager import ConfigManager
-from ui_theme import apply_theme_safe as apply_theme
 from gui_magazyn_bom import MagazynBOM
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
@@ -56,7 +55,37 @@ class MagazynSettings(ttk.Frame):
     def __init__(self, master: tk.Misc):
         super().__init__(master)
         self.cfg = ConfigManager()
+        paned = ttk.PanedWindow(self, orient="vertical")
+        paned.pack(fill="both", expand=True)
 
+        opts_frame = ttk.LabelFrame(paned, text="Opcje konfiguracyjne")
+        paned.add(opts_frame, weight=1)
+
+        bom_frame = ttk.LabelFrame(paned, text="Magazyn i BOM")
+        paned.add(bom_frame, weight=3)
+
+        canvas = tk.Canvas(opts_frame)
+        vsb = ttk.Scrollbar(opts_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = ttk.Frame(canvas)
+        inner_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+
+        def _on_inner_config(event: tk.Event) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        inner.bind("<Configure>", _on_inner_config)
+
+        def _on_canvas_config(event: tk.Event) -> None:
+            canvas.itemconfigure(inner_id, width=event.width)
+
+        canvas.bind("<Configure>", _on_canvas_config)
+
+        self._build_options(inner)
+        MagazynBOM(bom_frame).pack(fill="both", expand=True)
+
+    def _build_options(self, parent: ttk.Frame) -> None:
         self.rez_var = tk.BooleanVar(
             value=self.cfg.get("magazyn_rezerwacje", True)
         )
@@ -69,86 +98,74 @@ class MagazynSettings(ttk.Frame):
         jednostki = self.cfg.get("jednostki_miary", {})
 
         ttk.Checkbutton(
-            self, text="Włącz rezerwacje", variable=self.rez_var
+            parent, text="Włącz rezerwacje", variable=self.rez_var
         ).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
         ttk.Label(
-            self,
+            parent,
             text=_SCHEMA_DESC.get("magazyn_rezerwacje", ""),
             font=("", 8),
         ).grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Miejsca po przecinku:").grid(
+        ttk.Label(parent, text="Miejsca po przecinku:").grid(
             row=2, column=0, sticky="w", padx=5, pady=5
         )
         ttk.Spinbox(
-            self, from_=0, to=6, textvariable=self.prec_var, width=5
+            parent, from_=0, to=6, textvariable=self.prec_var, width=5
         ).grid(row=2, column=1, sticky="w", padx=5, pady=5)
         ttk.Label(
-            self,
+            parent,
             text=_SCHEMA_DESC.get("magazyn_precision_mb", ""),
             font=("", 8),
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Domyślne progi alertów magazynowych (%):").grid(
+        ttk.Label(parent, text="Domyślne progi alertów magazynowych (%):").grid(
             row=4, column=0, sticky="nw", padx=5, pady=5
         )
-        self.progi_text = tk.Text(self, height=4)
-        self.progi_text.grid(
-            row=4, column=1, sticky="ew", padx=5, pady=5
-        )
+        self.progi_text = tk.Text(parent, height=4)
+        self.progi_text.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
         self.progi_text.insert("1.0", "\n".join(str(p) for p in progi))
         ttk.Label(
-            self,
+            parent,
             text=_SCHEMA_DESC.get("progi_alertow_pct", ""),
             font=("", 8),
         ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Progi alertów dla surowców (%):").grid(
+        ttk.Label(parent, text="Progi alertów dla surowców (%):").grid(
             row=6, column=0, sticky="nw", padx=5, pady=5
         )
-        self.progi_surowce_text = tk.Text(self, height=4)
-        self.progi_surowce_text.grid(
-            row=6, column=1, sticky="ew", padx=5, pady=5
-        )
+        self.progi_surowce_text = tk.Text(parent, height=4)
+        self.progi_surowce_text.grid(row=6, column=1, sticky="ew", padx=5, pady=5)
         self.progi_surowce_text.insert(
             "1.0", "\n".join(f"{k} = {v}" for k, v in progi_surowce.items())
         )
         ttk.Label(
-            self,
+            parent,
             text="Każda linia: nazwa surowca = próg",
             font=("", 8),
         ).grid(row=7, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
         ttk.Label(
-            self, text="Czynności technologiczne (po jednej w linii):"
+            parent, text="Czynności technologiczne (po jednej w linii):"
         ).grid(row=8, column=0, sticky="nw", padx=5, pady=5)
-        self.czynnosci_text = tk.Text(self, height=4)
-        self.czynnosci_text.grid(
-            row=8, column=1, sticky="ew", padx=5, pady=5
-        )
+        self.czynnosci_text = tk.Text(parent, height=4)
+        self.czynnosci_text.grid(row=8, column=1, sticky="ew", padx=5, pady=5)
         self.czynnosci_text.insert("1.0", "\n".join(czynnosci))
 
         ttk.Label(
-            self,
+            parent,
             text="Jednostki miary (skrót jednostki = pełna nazwa):",
         ).grid(row=9, column=0, sticky="nw", padx=5, pady=5)
-        self.jm_text = tk.Text(self, height=4)
-        self.jm_text.grid(
-            row=9, column=1, sticky="ew", padx=5, pady=5
-        )
+        self.jm_text = tk.Text(parent, height=4)
+        self.jm_text.grid(row=9, column=1, sticky="ew", padx=5, pady=5)
         self.jm_text.insert(
             "1.0", "\n".join(f"{k} = {v}" for k, v in jednostki.items())
         )
 
-        ttk.Button(self, text="Zapisz", command=self.save).grid(
+        ttk.Button(parent, text="Zapisz", command=self.save).grid(
             row=10, column=0, columnspan=2, pady=6
         )
 
-        ttk.Button(
-            self, text="Magazyn i BOM", command=self.open_magazyn_bom
-        ).grid(row=7, column=0, columnspan=2, pady=(0, 6))
-
-        self.columnconfigure(1, weight=1)
+        parent.columnconfigure(1, weight=1)
 
     def save(self) -> None:
         self.cfg.set("magazyn_rezerwacje", bool(self.rez_var.get()))
@@ -191,11 +208,6 @@ class MagazynSettings(ttk.Frame):
 
         self.cfg.save_all()
 
-    def open_magazyn_bom(self) -> None:
-        top = tk.Toplevel(self)
-        top.title("Magazyn i BOM")
-        MagazynBOM(top).pack(fill="both", expand=True)
-        apply_theme(top)
 
 
 if __name__ == "__main__":
