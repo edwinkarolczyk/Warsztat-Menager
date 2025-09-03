@@ -94,6 +94,105 @@ def drukuj_etykiete(item_id: str, host: str = "127.0.0.1", port: int = 9100) -> 
     p.text(f"{it['id']}\n")
     p.cut()
 
+
+class ItemDialog:
+    """Prosty modalny dialog do edycji pozycji magazynu."""
+
+    def __init__(self, master, item=None):
+        self.result = None
+        top = self.top = tk.Toplevel(master)
+        top.title("Pozycja magazynu")
+        apply_theme(top)
+        top.transient(master)
+        top.grab_set()
+        top.columnconfigure(1, weight=1)
+
+        item = item or {}
+        self.var_id = tk.StringVar(value=item.get("id", ""))
+        self.var_nazwa = tk.StringVar(value=item.get("nazwa", ""))
+        self.var_typ = tk.StringVar(value=item.get("typ", "komponent"))
+        self.var_jed = tk.StringVar(value=item.get("jednostka", "szt"))
+        self.var_stan = tk.StringVar(value=str(item.get("stan", 0)))
+        self.var_min = tk.StringVar(value=str(item.get("min_poziom", 0)))
+        self.var_dl = tk.StringVar(value=str(item.get("dl_jednostkowa_mm", 0)))
+
+        ttk.Label(top, text="ID:").grid(row=0, column=0, sticky="e", padx=6, pady=4)
+        ttk.Entry(top, textvariable=self.var_id).grid(
+            row=0, column=1, sticky="ew", padx=6, pady=4
+        )
+        ttk.Label(top, text="Nazwa:").grid(row=1, column=0, sticky="e", padx=6, pady=4)
+        ttk.Entry(top, textvariable=self.var_nazwa).grid(
+            row=1, column=1, sticky="ew", padx=6, pady=4
+        )
+        ttk.Label(top, text="Typ:").grid(row=2, column=0, sticky="e", padx=6, pady=4)
+        ttk.Combobox(
+            top,
+            textvariable=self.var_typ,
+            values=LM.get_item_types() or [],
+            state="readonly",
+        ).grid(row=2, column=1, sticky="ew", padx=6, pady=4)
+        ttk.Label(top, text="J.m.:").grid(row=3, column=0, sticky="e", padx=6, pady=4)
+        ttk.Entry(top, textvariable=self.var_jed).grid(
+            row=3, column=1, sticky="ew", padx=6, pady=4
+        )
+        ttk.Label(top, text="Stan:").grid(row=4, column=0, sticky="e", padx=6, pady=4)
+        ttk.Entry(top, textvariable=self.var_stan).grid(
+            row=4, column=1, sticky="ew", padx=6, pady=4
+        )
+        ttk.Label(top, text="Min. poziom:").grid(row=5, column=0, sticky="e", padx=6, pady=4)
+        ttk.Entry(top, textvariable=self.var_min).grid(
+            row=5, column=1, sticky="ew", padx=6, pady=4
+        )
+        ttk.Label(top, text="Dł. jednostkowa [mm]:").grid(
+            row=6, column=0, sticky="e", padx=6, pady=4
+        )
+        ttk.Entry(top, textvariable=self.var_dl).grid(
+            row=6, column=1, sticky="ew", padx=6, pady=4
+        )
+
+        btns = ttk.Frame(top)
+        btns.grid(row=7, column=0, columnspan=2, pady=(8, 4))
+        ttk.Button(btns, text="Zapisz", command=self._on_ok).pack(
+            side="left", padx=6
+        )
+        ttk.Button(btns, text="Anuluj", command=self._on_cancel).pack(
+            side="left", padx=6
+        )
+
+        top.bind("<Return>", lambda _e: self._on_ok())
+        top.bind("<Escape>", lambda _e: self._on_cancel())
+        top.wait_window()
+
+    def _on_ok(self):
+        iid = (self.var_id.get() or "").strip()
+        nm = (self.var_nazwa.get() or "").strip()
+        if not iid or not nm:
+            messagebox.showwarning("Magazyn", "Podaj ID i nazwę.")
+            return
+        typ = (self.var_typ.get() or "komponent").strip()
+        jed = (self.var_jed.get() or "szt").strip()
+        try:
+            st = float((self.var_stan.get() or "0").replace(",", "."))
+            mn = float((self.var_min.get() or "0").replace(",", "."))
+            dl = float((self.var_dl.get() or "0").replace(",", "."))
+        except Exception:
+            messagebox.showerror("Magazyn", "Wartości liczbowe są niepoprawne.")
+            return
+        self.result = {
+            "id": iid,
+            "nazwa": nm,
+            "typ": typ,
+            "jednostka": jed,
+            "stan": st,
+            "min_poziom": mn,
+        }
+        if dl > 0:
+            self.result["dl_jednostkowa_mm"] = dl
+        self.top.destroy()
+
+    def _on_cancel(self):
+        self.top.destroy()
+
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
@@ -117,17 +216,23 @@ class PanelMagazyn(ttk.Frame):
         ent.bind("<KeyRelease>", lambda e: self._filter())
 
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
-        ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton").grid(row=0, column=4, padx=3)
-        ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton").grid(row=0, column=5, padx=3)
-        ttk.Button(bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton").grid(row=0, column=6, padx=3)
-        ttk.Button(bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton").grid(row=0, column=7, padx=3)
-        ttk.Button(bar, text="Historia", command=self._show_historia, style="WM.Side.TButton").grid(row=0, column=8, padx=6)
-        ttk.Button(
-            bar,
-            text="Etykieta",
-            command=self._act_drukuj_etykiete,
-            style="WM.Side.TButton",
-        ).grid(row=0, column=9, padx=6)
+
+        buttons = [
+            ("Dodaj", self._act_add),
+            ("Edytuj", self._act_edit),
+            ("Usuń", self._act_delete),
+            ("Zużyj", self._act_zuzyj),
+            ("Zwrot", self._act_zwrot),
+            ("Rezerwuj", self._act_rezerwuj),
+            ("Zwolnij rez.", self._act_zwolnij),
+            ("Historia", self._show_historia),
+            ("Etykieta", self._act_drukuj_etykiete),
+        ]
+        for idx, (txt, cmd) in enumerate(buttons, start=4):
+            padx = 6 if txt in {"Historia", "Etykieta"} else 3
+            ttk.Button(
+                bar, text=txt, command=cmd, style="WM.Side.TButton"
+            ).grid(row=0, column=idx, padx=padx)
 
         # Notebook z widokami tabel
         self.nb = ttk.Notebook(self, style="WM.TNotebook")
@@ -378,6 +483,42 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showinfo("Magazyn", "Etykieta wysłana do drukarki.")
         except Exception as e:
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
+
+    def _act_add(self):
+        dlg = ItemDialog(self)
+        if not dlg.result:
+            return
+        try:
+            LM.upsert_item(dlg.result)
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Magazyn", str(e))
+
+    def _act_edit(self):
+        iid = self._sel_id()
+        if not iid:
+            return
+        data = LM.get_item(iid)
+        dlg = ItemDialog(self, data)
+        if not dlg.result:
+            return
+        try:
+            LM.upsert_item(dlg.result)
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Magazyn", str(e))
+
+    def _act_delete(self):
+        iid = self._sel_id()
+        if not iid:
+            return
+        if not messagebox.askyesno("Magazyn", f"Usunąć pozycję {iid}?"):
+            return
+        try:
+            LM.delete_item(iid, uzytkownik="system")
+            self._load()
+        except Exception as e:
+            error_dialogs.show_error_dialog("Magazyn", str(e))
 
     def _show_historia(self):
         iid = self._sel_id()
