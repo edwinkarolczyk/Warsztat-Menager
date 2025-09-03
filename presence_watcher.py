@@ -1,12 +1,30 @@
 # presence_watcher.py
 # Prosty watcher nieobecności: po starcie zmiany + grace, jeśli brak online -> tworzy alert.
-import os, json, time, traceback
+import os
+import json
+import time
+import traceback
 import logging
 from datetime import datetime, timezone, timedelta
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
-from start import CONFIG_MANAGER  # noqa: F401
+
+# Optional config injection
+CONFIG_MANAGER = None
+CONFIG = None
+
+
+def set_config(cfg):
+    """Allow external injection of a raw config dict."""
+    global CONFIG
+    CONFIG = cfg
+
+
+def set_config_manager(cm):
+    """Allow external injection of a ConfigManager instance."""
+    global CONFIG_MANAGER
+    CONFIG_MANAGER = cm
 
 try:
     from tkinter import TclError
@@ -25,24 +43,22 @@ except ImportError:  # pragma: no cover
 def _now():
     return datetime.now(timezone.utc)
 
-def _cfg():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config", None):
-            return cm.config or {}
-    except Exception:
-        pass
-    cfg = globals().get("config", {})
-    return cfg if isinstance(cfg, dict) else {}
+def _cfg(cfg=None):
+    if isinstance(cfg, dict):
+        return cfg
+    if CONFIG is not None:
+        return CONFIG
+    cm = CONFIG_MANAGER
+    if cm and getattr(cm, "config", None):
+        return cm.config or {}
+    return {}
+
 
 def _path(fname):
     base = None
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config_path", None):
-            base = os.path.dirname(cm.config_path)
-    except Exception:
-        pass
+    cm = CONFIG_MANAGER
+    if cm and getattr(cm, "config_path", None):
+        base = os.path.dirname(cm.config_path)
     base = base or os.getcwd()
     return os.path.join(base, fname)
 
@@ -128,9 +144,9 @@ def _ensure_alert(date_str, shift, login):
     _write_json(_path("alerts.json"), alerts)
     return True
 
-def run_check():
+def run_check(config=None):
     """Sprawdź brak obecności po starcie zmiany + grace i twórz alerty."""
-    c = _cfg()
+    c = _cfg(config)
     shifts, grace = _shifts_from_cfg(c)
     now_local = datetime.now()
     active = _active_shift(now_local)
@@ -156,7 +172,7 @@ def run_check():
     online_logins = set()
     try:
         import presence
-        recs, _ = presence.read_presence(max_age_sec=None)
+        recs, _ = presence.read_presence(max_age_sec=None, config=config)
         online_logins = {r.get("login") for r in recs if r.get("online")}
     except Exception:
         pass
@@ -173,13 +189,14 @@ def run_check():
             created += 1
     return created
 
-def schedule_watcher(root):
+def schedule_watcher(root, config=None):
     """Uruchom cykliczny watcher (co 60 s)."""
     if not root:
         return
+
     def _tick():
         try:
-            n = run_check()
+            n = run_check(config) if config is not None else run_check()
             if n:
                 log_akcja(f"[ALERTS] utworzono {n} alert(ów) nieobecności")
         except (OSError, ValueError) as e:

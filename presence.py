@@ -1,11 +1,32 @@
 # presence.py (enhanced)
-import os, json, time, tempfile, platform, atexit, traceback
+import os
+import json
+import time
+import tempfile
+import platform
+import atexit
+import traceback
 import logging
 from datetime import datetime, timezone
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
-from start import CONFIG_MANAGER  # noqa: F401
+
+# Optional config injection
+CONFIG_MANAGER = None
+CONFIG = None
+
+
+def set_config(cfg):
+    """Allow external injection of a raw config dict."""
+    global CONFIG
+    CONFIG = cfg
+
+
+def set_config_manager(cm):
+    """Allow external injection of a ConfigManager instance."""
+    global CONFIG_MANAGER
+    CONFIG_MANAGER = cm
 
 try:
     from tkinter import TclError
@@ -27,28 +48,22 @@ _atexit_handler = None
 def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
-def _get_cfg():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config", None):
-            return cm.config or {}
-    except Exception:
-        pass
-    try:
-        cfg = globals().get("config", {})
-        if isinstance(cfg, dict):
-            return cfg
-    except Exception:
-        pass
+def _get_cfg(cfg=None):
+    """Return config dict from argument, injected CONFIG or CONFIG_MANAGER."""
+    if isinstance(cfg, dict):
+        return cfg
+    if CONFIG is not None:
+        return CONFIG
+    cm = CONFIG_MANAGER
+    if cm and getattr(cm, "config", None):
+        return cm.config or {}
     return {}
 
+
 def _cfg_dir():
-    try:
-        cm = globals().get("CONFIG_MANAGER")
-        if cm and getattr(cm, "config_path", None):
-            return os.path.dirname(cm.config_path)
-    except Exception:
-        pass
+    cm = CONFIG_MANAGER
+    if cm and getattr(cm, "config_path", None):
+        return os.path.dirname(cm.config_path)
     return os.getcwd()
 
 def _presence_path():
@@ -115,7 +130,7 @@ def end_session(login, role=None, machine=None):
     except Exception:
         pass
 
-def start_heartbeat(root, login, role=None, interval_ms=None):
+def start_heartbeat(root, login, role=None, interval_ms=None, config=None):
     """Uruchom cykliczne bicie serca.
 
     interval_ms z configu: presence.heartbeat_sec (domyślnie 30s).
@@ -124,7 +139,7 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
     """
     if not root or not login:
         return
-    cfg = _get_cfg()
+    cfg = _get_cfg(config)
     if interval_ms is None:
         try:
             hb_sec = int(cfg.get("presence", {}).get("heartbeat_sec", 30))
@@ -183,11 +198,11 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
 
     _tick()
 
-def read_presence(max_age_sec=None):
+def read_presence(max_age_sec=None, config=None):
     """Zwróć listę rekordów z presence.json + online/offline.
        Jeśli logout=True => zawsze offline niezależnie od wieku wpisu.
        max_age_sec z configu: presence.online_window_sec (domyślnie 120s)."""
-    cfg = _get_cfg()
+    cfg = _get_cfg(config)
     if max_age_sec is None:
         try:
             max_age_sec = int(cfg.get("presence", {}).get("online_window_sec", 120))
