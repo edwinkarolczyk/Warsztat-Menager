@@ -8,9 +8,13 @@
 import json
 import os
 from datetime import datetime
+import logging
 
 import logika_magazyn as LM
 import bom
+
+logger = logging.getLogger(__name__)
+
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 
 
@@ -34,7 +38,8 @@ def register_tasks_state(tasks_state, uzytkownik: str = "system"):
                     data = json.load(f)
                     if not isinstance(data, list):
                         data = []
-            except Exception:
+            except (OSError, json.JSONDecodeError) as e:
+                logger.warning("Nie można odczytać %s: %s", HISTORY_PATH, e, exc_info=True)
                 data = []
         else:
             data = []

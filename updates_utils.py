@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import json
 import subprocess
+import logging
 from datetime import datetime
 from typing import Optional, Tuple
+
+
+logger = logging.getLogger(__name__)
 
 
 def load_last_update_info() -> Tuple[str, Optional[str]]:
@@ -42,8 +46,8 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
                 version = next(iter(wersje.values()), None)
             if data_str:
                 return f"Ostatnia aktualizacja: {data_str}", version
-    except Exception:
-        pass
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        logger.debug("Unable to read logi_wersji.json: %s", e, exc_info=True)
 
     try:
         with open("CHANGES_PROFILES_UPDATE.txt", "r", encoding="utf-8") as fh:
@@ -52,8 +56,8 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
                     date_str = line.split(":", 1)[1].strip()
                     if date_str:
                         return f"Ostatnia aktualizacja: {date_str}", None
-    except Exception:
-        pass
+    except OSError as e:
+        logger.debug("Unable to read CHANGES_PROFILES_UPDATE.txt: %s", e, exc_info=True)
 
     for cmd in (["git", "log", "-1", "--format=%ci"],
                 ["git", "show", "-s", "--format=%ci", "HEAD"]):
@@ -66,7 +70,8 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
             dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
             formatted = dt.strftime("%Y-%m-%d %H:%M:%S")
             return f"Ostatnia aktualizacja: {formatted}", None
-        except Exception:
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
+            logger.debug("Git command %s failed: %s", cmd, e, exc_info=True)
             continue
 
     return "brak danych o aktualizacjach", None
