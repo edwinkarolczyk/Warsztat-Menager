@@ -1,1 +1,22 @@
-{}
+{
+  "SR001": {
+    "kod": "SR001",
+    "nazwa": "Blacha stalowa 2mm",
+    "rodzaj": "blacha",
+    "rozmiar": "100x200",
+    "dlugosc": 200,
+    "jednostka": "mb",
+    "stan": 100,
+    "prog_alertu": 10
+  },
+  "SR002": {
+    "kod": "SR002",
+    "nazwa": "Pręt aluminiowy Ø10mm",
+    "rodzaj": "pret",
+    "rozmiar": "Ø10mm",
+    "dlugosc": 600,
+    "jednostka": "mb",
+    "stan": 50,
+    "prog_alertu": 5
+  }
+}
