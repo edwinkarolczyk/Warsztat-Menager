@@ -144,11 +144,16 @@ class MagazynSettings(ttk.Frame):
             row=10, column=0, columnspan=2, pady=6
         )
 
-        ttk.Button(
-            self, text="Magazyn i BOM", command=self.open_magazyn_bom
-        ).grid(row=7, column=0, columnspan=2, pady=(0, 6))
+        nb_bom = ttk.Notebook(self)
+        nb_bom.grid(
+            row=11, column=0, columnspan=2, sticky="nsew", padx=5, pady=5
+        )
+        mag_bom = MagazynBOM(nb_bom)
+        nb_bom.add(mag_bom, text="Magazyn")
+        apply_theme(mag_bom)
 
         self.columnconfigure(1, weight=1)
+        self.rowconfigure(11, weight=1)
 
     def save(self) -> None:
         self.cfg.set("magazyn_rezerwacje", bool(self.rez_var.get()))
@@ -190,13 +195,6 @@ class MagazynSettings(ttk.Frame):
         self.cfg.set("jednostki_miary", jednostki)
 
         self.cfg.save_all()
-
-    def open_magazyn_bom(self) -> None:
-        top = tk.Toplevel(self)
-        top.title("Magazyn i BOM")
-        MagazynBOM(top).pack(fill="both", expand=True)
-        apply_theme(top)
-
 
 if __name__ == "__main__":
     root = tk.Tk()
