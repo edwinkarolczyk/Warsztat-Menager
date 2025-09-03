@@ -56,7 +56,7 @@ def make_manager(tmp_path, monkeypatch):
         if rollback_keep is not None:
             monkeypatch.setattr(cm, "ROLLBACK_KEEP", rollback_keep)
 
-        return cm.ConfigManager(), paths
+        return cm.ConfigManager.refresh(), paths
 
     return _make_manager
 
@@ -103,7 +103,7 @@ def test_set_and_save_all_persistence(make_manager):
     with open(paths["global"], encoding="utf-8") as f:
         assert json.load(f)["foo"] == 5
 
-    reloaded = cm.ConfigManager()
+    reloaded = cm.ConfigManager.refresh()
     assert reloaded.get("foo") == 5
 
 
