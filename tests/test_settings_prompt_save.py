@@ -57,9 +57,8 @@ def test_settings_single_prompt(make_manager, monkeypatch):
     root.setvar(var_pin, 7)
     root.update_idletasks()
 
-    frame.destroy()
-    root.update_idletasks()
-    root.destroy()
+    close_cmd = root.tk.call("wm", "protocol", root._w, "WM_DELETE_WINDOW")
+    root.tk.call(close_cmd)
 
     assert calls["count"] == 1
     reloaded = cm.ConfigManager()
