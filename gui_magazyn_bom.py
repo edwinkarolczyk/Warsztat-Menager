@@ -42,7 +42,19 @@ class WarehouseModel:
         self.prd_dir = self.data_dir / "produkty"
         for p in (self.src_file.parent, self.pol_dir, self.prd_dir):
             p.mkdir(parents=True, exist_ok=True)
-        self.surowce = _load_json(self.src_file, {})
+        data = _load_json(self.src_file, [])
+        if isinstance(data, list):
+            self.surowce = {
+                rec.get("kod"): rec
+                for rec in data
+                if isinstance(rec, dict) and rec.get("kod")
+            }
+        elif isinstance(data, dict):
+            self.surowce = {
+                k: v for k, v in data.items() if isinstance(v, dict)
+            }
+        else:
+            self.surowce = {}
         self.polprodukty = self._load_dir(self.pol_dir)
         self.produkty = self._load_dir(self.prd_dir)
 
@@ -62,12 +74,12 @@ class WarehouseModel:
         if not kod:
             raise ValueError("Pole 'kod' surowca jest wymagane.")
         self.surowce[kod] = record
-        _save_json(self.src_file, self.surowce)
+        _save_json(self.src_file, list(self.surowce.values()))
 
     def delete_surowiec(self, kod: str) -> None:
         if kod in self.surowce:
             del self.surowce[kod]
-            _save_json(self.src_file, self.surowce)
+            _save_json(self.src_file, list(self.surowce.values()))
 
     # Półprodukty
     def add_or_update_polprodukt(self, record: dict) -> None:
@@ -131,7 +143,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
 
-        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
         self.tree_sr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_sr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
@@ -141,7 +153,7 @@ class MagazynBOM(ttk.Frame):
             ("rozmiar","Rozmiar"),
             ("dlugosc","Długość"),
             ("jednostka","Jednostka miary"),
-            ("ilosc","Ilość"),
+            ("stan","Stan"),
             ("prog_alertu","Próg alertu [%]")
         ]
         for key, lbl in headers:
@@ -162,7 +174,7 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_sr.selection()
         if sel:
             values = self.tree_sr.item(sel[0], "values")
-            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
             for k,v in zip(keys, values):
                 self.s_vars[k].set(v)
 
@@ -174,7 +186,7 @@ class MagazynBOM(ttk.Frame):
                 return
         try:
             rec["dlugosc"] = float(rec.get("dlugosc") or 0)
-            rec["ilosc"] = int(rec.get("ilosc") or 0)
+            rec["stan"] = int(rec.get("stan") or 0)
             rec["prog_alertu"] = int(rec.get("prog_alertu") or 0)
         except ValueError:
             messagebox.showerror("Surowce", "Pola liczby muszą zawierać wartości numeryczne.")
@@ -370,13 +382,13 @@ class MagazynBOM(ttk.Frame):
         for kod, rec in sorted(self.model.surowce.items()):
             row = (
                 kod,
-                rec.get("nazwa",""),
-                rec.get("rodzaj",""),
-                rec.get("rozmiar",""),
-                rec.get("dlugosc",""),
-                rec.get("jednostka",""),
-                rec.get("ilosc",0),
-                rec.get("prog_alertu",0),
+                rec.get("nazwa", ""),
+                rec.get("rodzaj", ""),
+                rec.get("rozmiar", ""),
+                rec.get("dlugosc", ""),
+                rec.get("jednostka", ""),
+                rec.get("stan", 0),
+                rec.get("prog_alertu", 0),
             )
             self.tree_sr.insert("", "end", values=row)
 

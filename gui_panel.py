@@ -580,7 +580,17 @@ def uruchom_panel(root, login, rola):
         except Exception:
             return []
         out = []
-        for kod, rec in data.items():
+        if isinstance(data, dict):
+            items = ((k, v) for k, v in data.items() if isinstance(v, dict))
+        else:
+            items = (
+                (rec.get("kod"), rec)
+                for rec in data
+                if isinstance(rec, dict)
+            )
+        for kod, rec in items:
+            if not kod:
+                continue
             try:
                 stan = float(rec.get("stan", 0))
                 prog = float(rec.get("prog_alertu", 0))

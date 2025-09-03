@@ -71,11 +71,18 @@ def _list_polprodukty():
 
 
 def _list_surowce():
-    j = _read_json(SURO_PATH, {})
-    return [
-        {"kod": k, "nazwa": v.get("nazwa", k)}
-        for k, v in sorted(j.items())
-    ]
+    j = _read_json(SURO_PATH, [])
+    out = []
+    if isinstance(j, dict):
+        for k, v in sorted(j.items()):
+            if isinstance(v, dict):
+                out.append({"kod": k, "nazwa": v.get("nazwa", k)})
+    elif isinstance(j, list):
+        for rec in sorted(j, key=lambda r: r.get("kod", "")):
+            if isinstance(rec, dict) and rec.get("kod"):
+                kod = rec["kod"]
+                out.append({"kod": kod, "nazwa": rec.get("nazwa", kod)})
+    return out
 
 # ---------- UI ----------
 def make_tab(parent, rola=None):
