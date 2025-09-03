@@ -10,10 +10,14 @@
     {
       "kod": "DRUT_30_GWINT",
       "ilosc_na_szt": 4.0,
-      "czynnosci": ["ciecie", "gwintowanie"],
+      "czynnosci": [
+        "ciecie",
+        "gwintowanie"
+      ],
       "surowiec": {
-        "typ": "SR001",
-        "dlugosc": 0.3
+        "kod": "SR001",
+        "ilosc_na_szt": 0.3,
+        "jednostka": "szt"
       }
     }
   ]

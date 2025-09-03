@@ -47,9 +47,7 @@ def test_compute_sr_for_pp_missing_ilosc_na_szt(tmp_path, monkeypatch):
         bom.compute_sr_for_pp("X", 1)
 
 
-def test_compute_sr_for_pp_missing_surowce_file_uses_pp_unit(
-    tmp_path, monkeypatch
-):
+def test_compute_sr_for_pp_missing_surowce_file_uses_pp_unit(tmp_path, monkeypatch):
     polprodukty = tmp_path / "polprodukty"
     polprodukty.mkdir()
     pp = {
@@ -88,7 +86,11 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
                 "kod": "PP1",
                 "ilosc_na_szt": 1,
                 "czynnosci": ["ciecie", "spawanie"],
-                "surowiec": {"typ": "SR1", "dlugosc": 2},
+                "surowiec": {
+                    "kod": "SR1",
+                    "ilosc_na_szt": 2,
+                    "jednostka": "szt",
+                },
             }
         ],
     }
@@ -100,7 +102,7 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
     res = bom.compute_bom_for_prd("X", 2)
     assert res["PP1"]["ilosc"] == 2
     assert res["PP1"]["czynnosci"] == ["ciecie", "spawanie"]
-    assert res["PP1"]["surowiec"]["typ"] == "SR1"
+    assert res["PP1"]["surowiec"]["kod"] == "SR1"
 
 
 def test_compute_bom_for_prd_requires_czynnosci(tmp_path, monkeypatch):
@@ -110,7 +112,11 @@ def test_compute_bom_for_prd_requires_czynnosci(tmp_path, monkeypatch):
             {
                 "kod": "PP1",
                 "ilosc_na_szt": 1,
-                "surowiec": {"typ": "SR1", "dlugosc": 1},
+                "surowiec": {
+                    "kod": "SR1",
+                    "ilosc_na_szt": 1,
+                    "jednostka": "szt",
+                },
             }
         ],
     }
@@ -131,7 +137,7 @@ def test_compute_bom_for_prd_requires_surowiec_fields(tmp_path, monkeypatch):
                 "kod": "PP1",
                 "ilosc_na_szt": 1,
                 "czynnosci": ["a"],
-                "surowiec": {"typ": "SR1"},
+                "surowiec": {"kod": "SR1"},
             }
         ],
     }
