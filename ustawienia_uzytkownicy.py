@@ -8,81 +8,31 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from utils.dirty_guard import DirtyGuard
+from services.profile_service import (
+    get_all_users as _get_all_users,
+    is_logged_in as _service_is_logged_in,
+    sync_presence as _service_sync_presence,
+    write_users as _write_users,
+)
 
 _USERS_FILE = "uzytkownicy.json"
 _PRESENCE_FILE = "uzytkownicy_presence.json"
 
 
 def _load_users():
-    try:
-        with open(_USERS_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return data
-    except Exception:
-        pass
-    return []
+    return _get_all_users(_USERS_FILE)
 
 
 def _save_users(data):
-    with open(_USERS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _write_users(data, _USERS_FILE)
 
 
 def _sync_presence(users):
-    try:
-        with open(_PRESENCE_FILE, encoding="utf-8") as f:
-            presence_data = json.load(f)
-        if not isinstance(presence_data, list):
-            presence_data = []
-    except Exception:
-        presence_data = []
-
-    presence_map = {p.get("login"): p for p in presence_data if isinstance(p, dict)}
-    current = set()
-    for u in users:
-        login = u.get("login")
-        if not login:
-            continue
-        current.add(login)
-        rec = presence_map.get(login)
-        if rec:
-            rec["rola"] = u.get("rola", "")
-            rec["zmiana_plan"] = u.get("zmiana_plan", "")
-            rec["imie"] = u.get("imie", "")
-            rec["nazwisko"] = u.get("nazwisko", "")
-        else:
-            presence_map[login] = {
-                "login": login,
-                "rola": u.get("rola", ""),
-                "zmiana_plan": u.get("zmiana_plan", ""),
-                "status": "",
-                "imie": u.get("imie", ""),
-                "nazwisko": u.get("nazwisko", ""),
-            }
-    for login in list(presence_map.keys()):
-        if login not in current:
-            presence_map.pop(login, None)
-    try:
-        with open(_PRESENCE_FILE, "w", encoding="utf-8") as f:
-            json.dump(list(presence_map.values()), f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    _service_sync_presence(users, _PRESENCE_FILE)
 
 
 def _is_logged_in(login):
-    if not login:
-        return False
-    try:
-        import presence
-
-        recs, _ = presence.read_presence()
-        for r in recs:
-            if r.get("login") == login and r.get("online"):
-                return True
-    except Exception:
-        pass
-    return False
+    return _service_is_logged_in(login)
 
 
 def make_tab(parent, rola):
