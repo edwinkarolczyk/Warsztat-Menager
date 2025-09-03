@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 import profile_utils as _pu
 from profile_utils import DEFAULT_USER
+from logger import log_akcja
 
 
 @contextmanager
@@ -121,8 +122,9 @@ def sync_presence(
     try:
         with open(presence_file, "w", encoding="utf-8") as f:
             json.dump(list(presence_map.values()), f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[Presence] write error: {e}")
+        raise
 
 
 def is_logged_in(login: str) -> bool:
@@ -136,8 +138,8 @@ def is_logged_in(login: str) -> bool:
         for r in recs:
             if r.get("login") == login and r.get("online"):
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[Presence] read error: {e}")
     return False
 
 
