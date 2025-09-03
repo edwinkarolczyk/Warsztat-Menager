@@ -60,7 +60,7 @@ def check_materials(bom, ilosc=1):
     """Sprawdza dostępność surowców w magazynie.
 
     ``bom`` powinien być słownikiem w postaci
-    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
+    ``{kod_sr: {"stan": ilosc_na_szt, "jednostka": unit}}``.
     ``ilosc`` oznacza liczbę sztuk produktu, dla której należy
     sprawdzić zapotrzebowanie.
     """
@@ -68,7 +68,7 @@ def check_materials(bom, ilosc=1):
     mag = _read_json(mag_path) if mag_path.exists() else {}
     braki = []
     for kod, data in bom.items():
-        req = data["ilosc"] * ilosc
+        req = data["stan"] * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         if stan < req:
             braki.append(
@@ -89,7 +89,7 @@ def compute_material_needs(kod_produktu, ilosc=1):
     mag = read_magazyn()
     potrzeby = []
     for kod, data in bom_sr.items():
-        req = data["ilosc"] * ilosc
+        req = data["stan"] * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         potrzeby.append(
             {
@@ -106,7 +106,7 @@ def reserve_materials(bom, ilosc=1):
     """Rezerwuje surowce na magazynie i zwraca nowe stany.
 
     ``bom`` powinien być słownikiem w postaci
-    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
+    ``{kod_sr: {"stan": ilosc_na_szt, "jednostka": unit}}``.
     Zwracany jest słownik ``{kod_sr: stan_po_rezerwacji}`` dla każdej pozycji.
     Informacja ta jest wykorzystywana przez GUI do zasilenia kolumny
     "dostępne po".
@@ -117,7 +117,7 @@ def reserve_materials(bom, ilosc=1):
     mag = _read_json(mag_path) if mag_path.exists() else {}
     updated = {}
     for kod, data in bom.items():
-        req = data["ilosc"] * ilosc
+        req = data["stan"] * ilosc
         if kod not in mag:
             mag[kod] = default_item(kod)
         mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
@@ -150,7 +150,7 @@ def create_zlecenie(
     zlec = {
         "id": _next_id(),
         "produkt": kod_produktu,
-        "ilosc": ilosc,
+        "stan": ilosc,
         "status": "nowe",
         "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "uwagi": uwagi,
@@ -217,8 +217,8 @@ def update_zlecenie(zlec_id, *, ilosc=None, uwagi=None, zlec_wew=None, kto="syst
             ilosc = int(ilosc)
         except Exception:
             raise ValueError("ilosc musi być liczbą całkowitą")
-        if j.get("ilosc") != ilosc:
-            j["ilosc"] = ilosc
+        if j.get("stan") != ilosc:
+            j["stan"] = ilosc
             changed.append(f"ilosc -> {ilosc}")
     if uwagi is not None and j.get("uwagi") != uwagi:
         j["uwagi"] = uwagi

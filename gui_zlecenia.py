@@ -119,12 +119,12 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     lbl_info.pack(side="left")
 
     # Tabela – dodana kolumna zlec_wew (Tyczy nr)
-    cols = ("id", "zlec_wew", "produkt", "ilosc", "status", "utworzono", "postep")
+    cols = ("id", "zlec_wew", "produkt", "stan", "status", "utworzono", "postep")
     tree = ttk.Treeview(frame, columns=cols, show="headings", height=18, style="WM.Treeview")
     tree.heading("id", text="ID");                 tree.column("id", width=110, anchor="center")
     tree.heading("zlec_wew", text="Tyczy nr");      tree.column("zlec_wew", width=110, anchor="center")
     tree.heading("produkt", text="Produkt");       tree.column("produkt", width=240, anchor="w")
-    tree.heading("ilosc", text="Ilość");           tree.column("ilosc", width=80, anchor="center")
+    tree.heading("stan", text="Ilość");           tree.column("stan", width=80, anchor="center")
     tree.heading("status", text="Status");         tree.column("status", width=170, anchor="center")
     tree.heading("utworzono", text="Utworzono");    tree.column("utworzono", width=180, anchor="center")
     tree.heading("postep", text="Postęp (10 kratek)"); tree.column("postep", width=180, anchor="center")
@@ -199,7 +199,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
             return
 
         for z in rows:
-            pid = _fmt(z.get("id")); zw = _fmt(z.get("zlec_wew")); prod = _fmt(z.get("produkt")); ilo = _fmt(z.get("ilosc"))
+            pid = _fmt(z.get("id")); zw = _fmt(z.get("zlec_wew")); prod = _fmt(z.get("produkt")); ilo = _fmt(z.get("stan"))
             stat = _fmt(z.get("status")); utw = _fmt(z.get("utworzono"))
             pct  = z.get("postep") if isinstance(z.get("postep"), int) else _STATUS_TO_PCT.get(stat, 0)
             tree.insert("", "end", values=(pid, zw, prod, ilo, stat, utw, _bar10(pct)))
@@ -300,11 +300,11 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             tv._needs = []
             return
         try:
-            ilosc = int(spn.get())
+            stan = int(spn.get())
         except Exception:
-            ilosc = 1
+            stan = 1
         try:
-            potrzeby, bom_sr = compute_material_needs(kod, ilosc)
+            potrzeby, bom_sr = compute_material_needs(kod, stan)
         except Exception:
             potrzeby, bom_sr = [], {}
         for row in potrzeby:
@@ -332,14 +332,14 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
             messagebox.showwarning("Brak produktu", "Wybierz produkt z listy.", parent=win)
             return
         try:
-            ilosc = int(spn.get())
+            stan = int(spn.get())
         except Exception:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
             return
         potrzeby = getattr(tv, "_needs", [])
         bom_sr = getattr(tv, "_bom", {})
         braki = [r for r in potrzeby if r["brakuje"] > 0]
-        rezerwuj_materialy(bom_sr, ilosc)
+        rezerwuj_materialy(bom_sr, stan)
         if braki:
             msg = ", ".join(f"{b['kod']} ({b['brakuje']})" for b in braki)
             if messagebox.askyesno(
@@ -348,7 +348,7 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
                 parent=win,
             ):
                 _append_pending_order(kod, braki)
-        zlec, _ = create_zlecenie(kod, ilosc, autor="GUI", reserve=False)
+        zlec, _ = create_zlecenie(kod, stan, autor="GUI", reserve=False)
         messagebox.showinfo(
             "Zlecenie utworzone",
             f"ID: {zlec['id']}, status: {zlec['status']}",
@@ -391,7 +391,7 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)
     ttk.Label(frm, text="Ilość", style="WM.TLabel").grid(row=0, column=0, sticky="w")
     spn = ttk.Spinbox(frm, from_=1, to=999, width=10)
-    spn.set(data.get("ilosc", 1))
+    spn.set(data.get("stan", 1))
     spn.grid(row=0, column=1, sticky="w", padx=(8, 0))
 
     ttk.Label(frm, text="Tyczy nr", style="WM.TLabel").grid(row=1, column=0, sticky="w", pady=(8,0))
@@ -414,7 +414,7 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     frm.rowconfigure(2, weight=1)
 
     def _load():
-        spn.set(data.get("ilosc", 1))
+        spn.set(data.get("stan", 1))
         ent_ref.delete(0, tk.END)
         if data.get("zlec_wew") is not None:
             ent_ref.insert(0, str(data.get("zlec_wew")))
@@ -423,14 +423,14 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
 
     def zapisz():
         try:
-            ilosc = int(spn.get())
+            stan = int(spn.get())
         except Exception:
             messagebox.showwarning("Błędna ilość", "Podaj prawidłową liczbę.", parent=win)
             return
         uw = txt.get("1.0", "end").strip()
         ref_raw = (ent_ref.get() or "").strip()
         zw = int(ref_raw) if ref_raw.isdigit() else (ref_raw if ref_raw else None)
-        update_zlecenie(zid, ilosc=ilosc, uwagi=uw, zlec_wew=zw, kto="GUI")
+        update_zlecenie(zid, ilosc=stan, uwagi=uw, zlec_wew=zw, kto="GUI")
         lbl_info.config(text=f"Zmieniono zlecenie {zid}")
         win.destroy(); on_done()
 
@@ -520,11 +520,11 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
         messagebox.showinfo("Rezerwacja", "Wybierz zlecenie z listy.")
         return
     prod = tree.set(item[0], "produkt")
-    ilosc_raw = tree.set(item[0], "ilosc") or "1"
+    stan_raw = tree.set(item[0], "stan") or "1"
     try:
-        ilosc = int(ilosc_raw)
+        stan = int(stan_raw)
     except Exception:
-        ilosc = 1
+        stan = 1
     try:
         sr_unit = bom.compute_sr_for_prd(prod, 1)
     except Exception as e:
@@ -550,14 +550,14 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     tv.pack(fill="both", expand=True)
 
     for kod, info in sr_unit.items():
-        req = info["ilosc"] * ilosc
+        req = info["stan"] * stan
         stan = mag.get(kod, {}).get("stan", 0)
         tv.insert("", "end", values=(kod, req, stan, stan))
 
     btns = ttk.Frame(win, style="WM.TFrame"); btns.pack(fill="x", padx=12, pady=(0, 12))
 
     def do_reserve():
-        updated = rezerwuj_materialy(sr_unit, ilosc)
+        updated = rezerwuj_materialy(sr_unit, stan)
         for iid in tv.get_children():
             kod = tv.set(iid, "kod")
             if kod in updated:

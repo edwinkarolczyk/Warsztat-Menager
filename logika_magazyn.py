@@ -214,7 +214,7 @@ def _history_entry(typ_op, item_id, ilosc, uzytkownik, kontekst=None):
         "czas": _now(),
         "operacja": typ_op,
         "item_id": item_id,
-        "ilosc": float(ilosc),
+        "stan": float(ilosc),
         "uzytkownik": uzytkownik or "system",
         "kontekst": kontekst or ""
     }
@@ -388,7 +388,7 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
         _append_history(entry)
         _log_mag(
             "zuzycie",
-            {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
+            {"item_id": item_id, "stan": dok, "by": uzytkownik, "ctx": kontekst},
         )
         res = it
     for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
@@ -412,7 +412,7 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
         _append_history(entry)
         _log_mag(
             "zwrot",
-            {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst},
+            {"item_id": item_id, "stan": dok, "by": uzytkownik, "ctx": kontekst},
         )
         res = it
     for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
@@ -443,7 +443,7 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         _append_history(entry)
         _log_mag(
             "rezerwacja",
-            {"item_id": item_id, "ilosc": faktyczne, "by": uzytkownik, "ctx": kontekst},
+            {"item_id": item_id, "stan": faktyczne, "by": uzytkownik, "ctx": kontekst},
         )
         return faktyczne
 
@@ -466,7 +466,7 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _append_history(entry)
-        _log_mag("zwolnienie_rezerwacji", {"item_id": item_id, "ilosc": dok, "by": uzytkownik, "ctx": kontekst})
+        _log_mag("zwolnienie_rezerwacji", {"item_id": item_id, "stan": dok, "by": uzytkownik, "ctx": kontekst})
         return it
 
 
@@ -482,7 +482,7 @@ def rezerwuj_materialy(bom, ilosc):
         m = load_magazyn()
         items = m.get("items") or {}
         for kod, info in (bom or {}).items():
-            req = float(info.get("ilosc", 0)) * float(ilosc)
+            req = float(info.get("stan", 0)) * float(ilosc)
             it = items.get(kod)
             if not it:
                 braki.append({"item_id": kod, "nazwa": kod, "brakuje": req})
@@ -502,7 +502,7 @@ def rezerwuj_materialy(bom, ilosc):
             entry = _history_entry("rezerwacja_materialu", kod, zuzyte, "system", "rezerwuj_materialy")
             it.setdefault("historia", []).append(entry)
             _append_history(entry)
-            _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
+            _log_mag("rezerwacja_materialu", {"item_id": kod, "stan": zuzyte})
         save_magazyn(m)
         zapisz_stan_magazynu(m)
 
@@ -596,7 +596,7 @@ def performance_table(limit=None):
 
     Returns:
         list[dict]: Każdy słownik ma klucze ``item_id``, ``operacja``,
-        ``ilosc`` i ``liczba``.
+        ``stan`` i ``liczba``.
     """
 
     hp = _history_path()
@@ -616,16 +616,16 @@ def performance_table(limit=None):
     for rec in hist:
         item = rec.get("item_id")
         op = rec.get("operacja")
-        qty = float(rec.get("ilosc", 0) or 0)
+        qty = float(rec.get("stan", 0) or 0)
         if not item or not op:
             continue
         key = (item, op)
         if key not in stats:
-            stats[key] = {"item_id": item, "operacja": op, "ilosc": 0.0, "liczba": 0}
-        stats[key]["ilosc"] += qty
+            stats[key] = {"item_id": item, "operacja": op, "stan": 0.0, "liczba": 0}
+        stats[key]["stan"] += qty
         stats[key]["liczba"] += 1
 
     return sorted(
         stats.values(),
-        key=lambda d: (-d["ilosc"], d["item_id"], d["operacja"]),
+        key=lambda d: (-d["stan"], d["item_id"], d["operacja"]),
     )

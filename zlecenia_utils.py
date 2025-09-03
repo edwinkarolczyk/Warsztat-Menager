@@ -15,7 +15,7 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
     półproduktu wylicza zapotrzebowanie na surowiec na podstawie
     ``polproduktów`` oraz norm zużycia zdefiniowanych w plikach
     ``data/polprodukty``. Wynik zwracany jest jako słownik w postaci
-    ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
+    ``{kod_surowca: {"stan": qty, "jednostka": unit}}``.
     """
 
     data = read_json(plik_produktu) or {}
@@ -29,9 +29,9 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
         for kod_sr, sr_info in compute_sr_for_pp(kod_pp, qty_pp).items():
             entry = wynik.setdefault(
                 kod_sr,
-                {"ilosc": 0, "jednostka": sr_info["jednostka"]},
+                {"stan": 0, "jednostka": sr_info["jednostka"]},
             )
-            entry["ilosc"] += sr_info["ilosc"]
+            entry["stan"] += sr_info["stan"]
 
     return wynik
 
@@ -39,7 +39,7 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
 def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1):
     """Sprawdź dostępność surowców w magazynie.
 
-    ``zapotrzebowanie`` to słownik ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
+    ``zapotrzebowanie`` to słownik ``{kod_surowca: {"stan": qty, "jednostka": unit}}``.
     Funkcja zwraca krotkę ``(ok, alerty, ostrzezenia)`` gdzie ``ok`` jest
     ``True`` jeśli wszystkie surowce są dostępne w wymaganych ilościach.
     """
@@ -49,7 +49,7 @@ def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1
     zuzycie: list[str] = []
 
     for kod, info in zapotrzebowanie.items():
-        potrzebne = info.get("ilosc", 0)
+        potrzebne = info.get("stan", 0)
         dane = magazyn.get(kod)
         if not dane:
             alerty.append(f"{kod} (brak w magazynie)")
@@ -76,7 +76,7 @@ def zapisz_zlecenie(folder, produkt, ilosc):
         "numer": numer,
         "typ": "produkcja",
         "produkt": produkt,
-        "ilość": ilosc,
+        "stan": ilosc,
         "status": "oczekujące",
         "data_start": datetime.now().strftime("%Y-%m-%d"),
         "data_koniec": "",

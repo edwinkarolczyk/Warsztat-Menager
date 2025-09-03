@@ -23,7 +23,7 @@ def log_magazyn(akcja: str, dane: dict) -> None:
     """
     Zapis operacji magazynowych do logi_magazyn.txt w formacie JSON Lines.
     Przykład rekordu:
-    {"ts":"2025-08-18 12:34:56","akcja":"zuzycie","dane":{"item_id":"PR-30MM","ilosc":2,"by":"jan","ctx":"zadanie:..."}}
+    {"ts":"2025-08-18 12:34:56","akcja":"zuzycie","dane":{"item_id":"PR-30MM","stan":2,"by":"jan","ctx":"zadanie:..."}}
     """
     try:
         line = {

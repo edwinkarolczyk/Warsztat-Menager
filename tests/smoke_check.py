@@ -19,5 +19,5 @@ def test_smoke_check():
 
     result = compute_sr_for_pp("PP001", 1)
     expected_qty = 0.2 * 1 * (1 + 0.02)
-    assert result["SR001"]["ilosc"] == pytest.approx(expected_qty)
+    assert result["SR001"]["stan"] == pytest.approx(expected_qty)
     assert result["SR001"]["jednostka"] == "mb"

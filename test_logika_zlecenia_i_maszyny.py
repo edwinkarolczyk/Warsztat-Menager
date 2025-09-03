@@ -77,11 +77,11 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     bom_pp = bom.compute_bom_for_prd("PRD001", 1)
     surowce = {}
     for kod_pp, info in bom_pp.items():
-        for kod_sr, sr_info in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+        for kod_sr, sr_info in bom.compute_sr_for_pp(kod_pp, info["stan"]).items():
             entry = surowce.setdefault(
-                kod_sr, {"ilosc": 0, "jednostka": sr_info["jednostka"]}
+                kod_sr, {"stan": 0, "jednostka": sr_info["jednostka"]}
             )
-            entry["ilosc"] += sr_info["ilosc"]
+            entry["stan"] += sr_info["stan"]
 
     braki = zl.check_materials(surowce, 300)
 
@@ -90,10 +90,10 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
 
     braki_dict = {b["kod"]: b["brakuje"] for b in braki}
     assert braki_dict["SR001"] == pytest.approx(
-        surowce["SR001"]["ilosc"] * 300 - mag_before["SR001"]["stan"]
+        surowce["SR001"]["stan"] * 300 - mag_before["SR001"]["stan"]
     )
     assert braki_dict["SR002"] == pytest.approx(
-        surowce["SR002"]["ilosc"] * 300 - mag_before["SR002"]["stan"]
+        surowce["SR002"]["stan"] * 300 - mag_before["SR002"]["stan"]
     )
 
     updated = zl.reserve_materials(surowce, 5)
@@ -102,10 +102,10 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
         mag_after = json.load(f)
 
     assert mag_after["SR001"]["stan"] == pytest.approx(
-        mag_before["SR001"]["stan"] - surowce["SR001"]["ilosc"] * 5
+        mag_before["SR001"]["stan"] - surowce["SR001"]["stan"] * 5
     )
     assert mag_after["SR002"]["stan"] == pytest.approx(
-        mag_before["SR002"]["stan"] - surowce["SR002"]["ilosc"] * 5
+        mag_before["SR002"]["stan"] - surowce["SR002"]["stan"] * 5
     )
 
     assert updated["SR001"] == mag_after["SR001"]["stan"]

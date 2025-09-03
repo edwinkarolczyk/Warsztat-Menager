@@ -47,7 +47,7 @@ def test_rezerwuj_partial(tmp_path, monkeypatch):
     item = lm.get_item('MAT-X')
     assert item['rezerwacje'] == 8.0
     assert item['historia'][-1]['operacja'] == 'rezerwacja'
-    assert item['historia'][-1]['ilosc'] == 5.0
+    assert item['historia'][-1]['stan'] == 5.0
 
 
 def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
@@ -200,7 +200,7 @@ def test_rezerwuj_materialy_updates_and_saves(tmp_path, monkeypatch):
             "min_poziom": 0,
         }
     )
-    bom = {"MAT-A": {"ilosc": 2}}
+    bom = {"MAT-A": {"stan": 2}}
     ok, braki = lm.rezerwuj_materialy(bom, 3)
     assert ok is True
     assert braki == []
@@ -231,7 +231,7 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
             "min_poziom": 0,
         }
     )
-    bom = {"MAT-B": {"ilosc": 4}}
+    bom = {"MAT-B": {"stan": 4}}
     ok, braki = lm.rezerwuj_materialy(bom, 2)
     assert ok is False
     assert braki and braki[0]["item_id"] == "MAT-B"

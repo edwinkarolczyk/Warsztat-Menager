@@ -390,7 +390,7 @@ class PanelMagazyn(ttk.Frame):
         for c, t, w in [("czas","Czas",150),("op","Operacja",120),("ile","Ilość",80),("kto","Użytkownik",140),("ctx","Kontekst",300)]:
             tv.heading(c, text=t); tv.column(c, width=w, anchor="w")
         for h in hist:
-            tv.insert("", "end", values=(h["czas"], h["operacja"], h["ilosc"], h["uzytkownik"], h.get("kontekst","")))
+            tv.insert("", "end", values=(h["czas"], h["operacja"], h["stan"], h["uzytkownik"], h.get("kontekst","")))
         ttk.Button(win, text="Zamknij", command=win.destroy).pack(pady=(0,8))
 
     def _update_alerts(self):

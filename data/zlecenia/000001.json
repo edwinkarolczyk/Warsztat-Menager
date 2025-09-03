@@ -1,7 +1,6 @@
 {
   "id": "000001",
   "produkt": "Banaszak",
-  "ilosc": 20,
   "status": "w przygotowaniu",
   "utworzono": "2025-08-19 13:40:38",
   "uwagi": "Uwazac",
@@ -17,5 +16,6 @@
       "co": "status -> w przygotowaniu"
     }
   ],
-  "zlec_wew": 433
+  "zlec_wew": 433,
+  "stan": 20
 }

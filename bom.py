@@ -84,7 +84,7 @@ def compute_bom_for_prd(kod_prd: str, ilosc: float, version: str | None = None) 
             raise KeyError("surowiec")
         qty = pp["ilosc_na_szt"] * ilosc
         bom[pp["kod"]] = {
-            "ilosc": qty,
+            "stan": qty,
             "czynnosci": list(pp["czynnosci"]),
             "surowiec": {"typ": sr["typ"], "dlugosc": sr["dlugosc"]},
         }
@@ -117,7 +117,7 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
             )
     if jednostka is None:
         raise KeyError(f"Brak klucza 'jednostka' dla surowca {sr['kod']}")
-    return {sr["kod"]: {"ilosc": qty, "jednostka": jednostka}}
+    return {sr["kod"]: {"stan": qty, "jednostka": jednostka}}
 
 
 def compute_sr_for_prd(
@@ -125,17 +125,17 @@ def compute_sr_for_prd(
 ) -> dict:
     """Oblicza zapotrzebowanie na surowce dla produktu.
 
-    Zwracany jest słownik ``{kod_sr: {"ilosc": qty, "jednostka": unit}}``.
+    Zwracany jest słownik ``{kod_sr: {"stan": qty, "jednostka": unit}}``.
     """
     if ilosc <= 0:
         raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
     bom_pp = compute_bom_for_prd(kod_prd, ilosc, version=version)
     wynik: dict[str, dict] = {}
     for kod_pp, info in bom_pp.items():
-        for kod_sr, sr_info in compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+        for kod_sr, sr_info in compute_sr_for_pp(kod_pp, info["stan"]).items():
             entry = wynik.setdefault(
                 kod_sr,
-                {"ilosc": 0, "jednostka": sr_info["jednostka"]},
+                {"stan": 0, "jednostka": sr_info["jednostka"]},
             )
-            entry["ilosc"] += sr_info["ilosc"]
+            entry["stan"] += sr_info["stan"]
     return wynik

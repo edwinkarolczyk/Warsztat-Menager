@@ -60,7 +60,7 @@ def test_compute_sr_for_pp_missing_surowce_file_uses_pp_unit(
         json.dump(pp, f, ensure_ascii=False, indent=2)
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
     res = bom.compute_sr_for_pp("X", 3)
-    assert res["SR"]["ilosc"] == 6
+    assert res["SR"]["stan"] == 6
     assert res["SR"]["jednostka"] == "kg"
 
 
@@ -98,7 +98,7 @@ def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
         json.dump(product, f, ensure_ascii=False, indent=2)
     monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
     res = bom.compute_bom_for_prd("X", 2)
-    assert res["PP1"]["ilosc"] == 2
+    assert res["PP1"]["stan"] == 2
     assert res["PP1"]["czynnosci"] == ["ciecie", "spawanie"]
     assert res["PP1"]["surowiec"]["typ"] == "SR1"
 

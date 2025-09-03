@@ -1,7 +1,6 @@
 {
   "id": "000004",
   "produkt": "WNU10",
-  "ilosc": 7,
   "status": "archiwum",
   "utworzono": "2025-08-25 10:25:51",
   "uwagi": "Auto",
@@ -12,5 +11,6 @@
       "co": "utworzenie"
     }
   ],
-  "zlec_wew": 1082
+  "zlec_wew": 1082,
+  "stan": 7
 }

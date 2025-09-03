@@ -1,7 +1,6 @@
 {
   "id": "000002",
   "produkt": "Ewakuacyjna",
-  "ilosc": 5,
   "status": "archiwum",
   "utworzono": "2025-08-25 10:25:51",
   "uwagi": "Auto",
@@ -12,5 +11,6 @@
       "co": "utworzenie"
     }
   ],
-  "zlec_wew": 1080
+  "zlec_wew": 1080,
+  "stan": 5
 }

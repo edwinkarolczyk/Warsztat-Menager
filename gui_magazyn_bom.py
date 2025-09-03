@@ -131,7 +131,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
 
-        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
         self.tree_sr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_sr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
@@ -141,7 +141,7 @@ class MagazynBOM(ttk.Frame):
             ("rozmiar","Rozmiar"),
             ("dlugosc","Długość"),
             ("jednostka","Jednostka miary"),
-            ("ilosc","Ilość"),
+            ("stan","Stan"),
             ("prog_alertu","Próg alertu [%]")
         ]
         for key, lbl in headers:
@@ -162,7 +162,7 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_sr.selection()
         if sel:
             values = self.tree_sr.item(sel[0], "values")
-            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","ilosc","prog_alertu")
+            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
             for k,v in zip(keys, values):
                 self.s_vars[k].set(v)
 
@@ -174,7 +174,7 @@ class MagazynBOM(ttk.Frame):
                 return
         try:
             rec["dlugosc"] = float(rec.get("dlugosc") or 0)
-            rec["ilosc"] = int(rec.get("ilosc") or 0)
+            rec["stan"] = int(rec.get("stan") or 0)
             rec["prog_alertu"] = int(rec.get("prog_alertu") or 0)
         except ValueError:
             messagebox.showerror("Surowce", "Pola liczby muszą zawierać wartości numeryczne.")
@@ -266,7 +266,7 @@ class MagazynBOM(ttk.Frame):
             "nazwa": nazwa,
             "surowiec": {"kod": sr},
             "czynnosci": [self.pp_lb.get(i) for i in self.pp_lb.curselection()],
-            "norma_strat_procent": norma,
+            "norma_strat_proc": norma,
         }
         self.model.add_or_update_polprodukt(rec)
         self._load_polprodukty()
@@ -306,7 +306,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Entry(form, textvariable=self.pr_vars["nazwa"]).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
         ttk.Label(
             form,
-            text="BOM (pozycje rozdzielone pionową kreską '|',\nnp.: typ=polprodukt;kod=DRUT;ilosc=2)"
+            text="BOM (pozycje rozdzielone pionową kreską '|',\nnp.: typ=polprodukt;kod=DRUT;stan=2)"
         ).grid(row=2, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.pr_vars["bom"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
         form.columnconfigure(1, weight=1)
@@ -350,7 +350,7 @@ class MagazynBOM(ttk.Frame):
             if item:
                 if "kod" not in item:
                     raise ValueError("Każda pozycja BOM musi mieć klucz 'kod'.")
-                qty = item.get("ilosc") or item.get("ilosc_na_sztuke") or "1"
+                qty = item.get("stan") or item.get("ilosc_na_sztuke") or "1"
                 try:
                     item["ilosc_na_sztuke"] = int(qty)
                 except ValueError:
@@ -375,7 +375,7 @@ class MagazynBOM(ttk.Frame):
                 rec.get("rozmiar",""),
                 rec.get("dlugosc",""),
                 rec.get("jednostka",""),
-                rec.get("ilosc",0),
+                rec.get("stan",0),
                 rec.get("prog_alertu",0),
             )
             self.tree_sr.insert("", "end", values=row)
@@ -390,7 +390,7 @@ class MagazynBOM(ttk.Frame):
                 rec.get("nazwa",""),
                 surowiec.get("kod",""),
                 ", ".join(rec.get("czynnosci", [])),
-                rec.get("norma_strat_procent",0),
+                rec.get("norma_strat_proc",0),
             )
             self.tree_pp.insert("", "end", values=row)
 
