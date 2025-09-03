@@ -51,7 +51,7 @@ class BackupCloudSettings(ttk.Frame):
 
 
 class MagazynSettings(ttk.Frame):
-    """Frame with controls for warehouse-related options."""
+    """Frame with controls for warehouse and BOM options."""
 
     def __init__(self, master: tk.Misc):
         super().__init__(master)
@@ -64,6 +64,9 @@ class MagazynSettings(ttk.Frame):
             value=self.cfg.get("magazyn_precision_mb", 3)
         )
         progi = self.cfg.get("progi_alertow_pct", [100])
+        progi_surowce = self.cfg.get("progi_alertow_surowce", {})
+        czynnosci = self.cfg.get("czynnosci_technologiczne", [])
+        jednostki = self.cfg.get("jednostki_miary", {})
 
         ttk.Checkbutton(
             self, text="Włącz rezerwacje", variable=self.rez_var
@@ -86,11 +89,13 @@ class MagazynSettings(ttk.Frame):
             font=("", 8),
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Progi alertów (%):").grid(
+        ttk.Label(self, text="Domyślne progi alertów magazynowych (%):").grid(
             row=4, column=0, sticky="nw", padx=5, pady=5
         )
         self.progi_text = tk.Text(self, height=4)
-        self.progi_text.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
+        self.progi_text.grid(
+            row=4, column=1, sticky="ew", padx=5, pady=5
+        )
         self.progi_text.insert("1.0", "\n".join(str(p) for p in progi))
         ttk.Label(
             self,
@@ -98,8 +103,45 @@ class MagazynSettings(ttk.Frame):
             font=("", 8),
         ).grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
+        ttk.Label(self, text="Progi alertów dla surowców (%):").grid(
+            row=6, column=0, sticky="nw", padx=5, pady=5
+        )
+        self.progi_surowce_text = tk.Text(self, height=4)
+        self.progi_surowce_text.grid(
+            row=6, column=1, sticky="ew", padx=5, pady=5
+        )
+        self.progi_surowce_text.insert(
+            "1.0", "\n".join(f"{k} = {v}" for k, v in progi_surowce.items())
+        )
+        ttk.Label(
+            self,
+            text="Każda linia: nazwa surowca = próg",
+            font=("", 8),
+        ).grid(row=7, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+
+        ttk.Label(
+            self, text="Czynności technologiczne (po jednej w linii):"
+        ).grid(row=8, column=0, sticky="nw", padx=5, pady=5)
+        self.czynnosci_text = tk.Text(self, height=4)
+        self.czynnosci_text.grid(
+            row=8, column=1, sticky="ew", padx=5, pady=5
+        )
+        self.czynnosci_text.insert("1.0", "\n".join(czynnosci))
+
+        ttk.Label(
+            self,
+            text="Jednostki miary (skrót jednostki = pełna nazwa):",
+        ).grid(row=9, column=0, sticky="nw", padx=5, pady=5)
+        self.jm_text = tk.Text(self, height=4)
+        self.jm_text.grid(
+            row=9, column=1, sticky="ew", padx=5, pady=5
+        )
+        self.jm_text.insert(
+            "1.0", "\n".join(f"{k} = {v}" for k, v in jednostki.items())
+        )
+
         ttk.Button(self, text="Zapisz", command=self.save).grid(
-            row=6, column=0, columnspan=2, pady=6
+            row=10, column=0, columnspan=2, pady=6
         )
 
         ttk.Button(
@@ -117,6 +159,36 @@ class MagazynSettings(ttk.Frame):
             if p.strip()
         ]
         self.cfg.set("progi_alertow_pct", progi)
+
+        progi_surowce: dict[str, float] = {}
+        for line in self.progi_surowce_text.get("1.0", "end").splitlines():
+            if "=" not in line:
+                continue
+            mat, val = line.split("=", 1)
+            try:
+                progi_surowce[mat.strip()] = float(val.strip())
+            except ValueError:
+                continue
+        self.cfg.set("progi_alertow_surowce", progi_surowce)
+
+        czynnosci = [
+            c.strip()
+            for c in self.czynnosci_text.get("1.0", "end").splitlines()
+            if c.strip()
+        ]
+        self.cfg.set("czynnosci_technologiczne", czynnosci)
+
+        jednostki: dict[str, str] = {}
+        for line in self.jm_text.get("1.0", "end").splitlines():
+            if "=" not in line:
+                continue
+            skr, nazwa = line.split("=", 1)
+            skr = skr.strip()
+            nazwa = nazwa.strip()
+            if skr and nazwa:
+                jednostki[skr] = nazwa
+        self.cfg.set("jednostki_miary", jednostki)
+
         self.cfg.save_all()
 
     def open_magazyn_bom(self) -> None:
@@ -130,5 +202,5 @@ if __name__ == "__main__":
     nb = ttk.Notebook(root)
     nb.pack(fill="both", expand=True, padx=10, pady=10)
     nb.add(BackupCloudSettings(nb), text="Kopia w chmurze")
-    nb.add(MagazynSettings(nb), text="Magazyn")
+    nb.add(MagazynSettings(nb), text="Magazyn i BOM")
     root.mainloop()
