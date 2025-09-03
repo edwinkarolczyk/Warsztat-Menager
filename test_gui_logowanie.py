@@ -154,6 +154,8 @@ def test_label_color_current(monkeypatch, dummy_gui):
     branch = cfg.get("updates.branch")
 
     def fake_run(cmd, *args, **kwargs):
+        if cmd == ["git", "ls-remote", "--heads", remote, branch]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="ok\n")
         if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)
@@ -181,6 +183,8 @@ def test_label_color_outdated(monkeypatch, dummy_gui):
     branch = cfg.get("updates.branch")
 
     def fake_run(cmd, *args, **kwargs):
+        if cmd == ["git", "ls-remote", "--heads", remote, branch]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="ok\n")
         if cmd == ["git", "fetch", remote, branch]:
             return subprocess.CompletedProcess(cmd, 0)
         raise AssertionError(cmd)

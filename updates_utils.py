@@ -12,10 +12,41 @@ import json
 import subprocess
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
 
 
 logger = logging.getLogger(__name__)
+
+
+def remote_branch_exists(remote: str, branch: str, cwd: Path | None = None) -> bool:
+    """Check if ``branch`` exists on ``remote``.
+
+    Parameters
+    ----------
+    remote:
+        Nazwa zdalnego repozytorium, np. ``origin``.
+    branch:
+        Nazwa gałęzi do sprawdzenia.
+    cwd:
+        Katalog roboczy dla polecenia ``git``.
+
+    Returns
+    -------
+    bool
+        ``True`` jeśli gałąź istnieje na zdalnym repozytorium,
+        ``False`` w przeciwnym razie.
+    """
+
+    result = subprocess.run(
+        ["git", "ls-remote", "--heads", remote, branch],
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    return bool(result.stdout.strip())
 
 
 def load_last_update_info() -> Tuple[str, Optional[str]]:

@@ -53,7 +53,7 @@ def _write_log(
         f.write("\n")
 
 
-from updates_utils import load_last_update_info
+from updates_utils import load_last_update_info, remote_branch_exists
 
 def _restart_app():
     python = sys.executable
@@ -140,16 +140,6 @@ def _git_has_updates(cwd: Path) -> bool:
     zapisuje informację do logu.
     """
     try:
-        # aktualizacja odniesień zdalnych
-        subprocess.run(
-            ["git", "fetch"],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True,
-        )
-
         # ustalenie bieżącej gałęzi
         proc_branch = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -160,6 +150,23 @@ def _git_has_updates(cwd: Path) -> bool:
             check=True,
         )
         branch = proc_branch.stdout.strip()
+
+        if not remote_branch_exists("origin", branch, cwd):
+            _write_log(
+                _now_stamp(),
+                f"[WARN] remote branch origin/{branch} not found; skipping update check",
+            )
+            return False
+
+        # aktualizacja odniesień zdalnych
+        subprocess.run(
+            ["git", "fetch"],
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
 
         # sprawdzenie różnic między HEAD a origin/<branch>
         proc_rev = subprocess.run(

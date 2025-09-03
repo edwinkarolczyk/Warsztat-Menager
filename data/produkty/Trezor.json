@@ -8,7 +8,7 @@
   "is_default": true,
   "polprodukty": [
     {
-      "kod": "RURKA_30",
+      "kod": "rurka 30mm",
       "ilosc_na_szt": 2,
       "czynnosci": [],
       "surowiec": {
@@ -17,7 +17,7 @@
       }
     },
     {
-      "kod": "PLASK_40",
+      "kod": "płaskownik 40mm",
       "ilosc_na_szt": 1,
       "czynnosci": [],
       "surowiec": {
