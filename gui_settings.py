@@ -55,17 +55,18 @@ class MagazynSettings(ttk.Frame):
     def __init__(self, master: tk.Misc):
         super().__init__(master)
         self.cfg = ConfigManager()
-        paned = ttk.PanedWindow(self, orient="vertical")
-        paned.pack(fill="both", expand=True)
+        self.paned = ttk.PanedWindow(self, orient="vertical")
+        self.paned.pack(fill="both", expand=True)
 
-        opts_frame = ttk.LabelFrame(paned, text="Opcje konfiguracyjne")
-        paned.add(opts_frame, weight=1)
+        self.opts_frame = ttk.LabelFrame(self.paned, text="Opcje konfiguracyjne")
+        self.paned.add(self.opts_frame, weight=1)
 
-        bom_frame = ttk.LabelFrame(paned, text="Magazyn i BOM")
-        paned.add(bom_frame, weight=3)
+        self.bom_frame = ttk.LabelFrame(self.paned, text="Magazyn i BOM")
+        self.paned.add(self.bom_frame, weight=3)
 
-        canvas = tk.Canvas(opts_frame)
-        vsb = ttk.Scrollbar(opts_frame, orient="vertical", command=canvas.yview)
+        # Use a canvas to provide scrolling for the options section on small screens.
+        canvas = tk.Canvas(self.opts_frame)
+        vsb = ttk.Scrollbar(self.opts_frame, orient="vertical", command=canvas.yview)
         canvas.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
@@ -83,9 +84,10 @@ class MagazynSettings(ttk.Frame):
         canvas.bind("<Configure>", _on_canvas_config)
 
         self._build_options(inner)
-        MagazynBOM(bom_frame).pack(fill="both", expand=True)
+        MagazynBOM(self.bom_frame).pack(fill="both", expand=True)
 
     def _build_options(self, parent: ttk.Frame) -> None:
+        """Populate configuration controls inside the scrollable frame."""
         self.rez_var = tk.BooleanVar(
             value=self.cfg.get("magazyn_rezerwacje", True)
         )
