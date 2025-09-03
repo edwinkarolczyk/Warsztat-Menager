@@ -15,7 +15,7 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
     półproduktu wylicza zapotrzebowanie na surowiec na podstawie
     ``polproduktów`` oraz norm zużycia zdefiniowanych w plikach
     ``data/polprodukty``. Wynik zwracany jest jako słownik w postaci
-    ``{kod_surowca: ilosc}``.
+    ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
     """
 
     data = read_json(plik_produktu) or {}
@@ -26,8 +26,12 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
         if not kod_pp:
             continue
         qty_pp = ilosc * pp.get("ilosc_na_szt", 0)
-        for kod_sr, qty_sr in compute_sr_for_pp(kod_pp, qty_pp).items():
-            wynik[kod_sr] = wynik.get(kod_sr, 0) + qty_sr
+        for kod_sr, sr_info in compute_sr_for_pp(kod_pp, qty_pp).items():
+            entry = wynik.setdefault(
+                kod_sr,
+                {"ilosc": 0, "jednostka": sr_info["jednostka"]},
+            )
+            entry["ilosc"] += sr_info["ilosc"]
 
     return wynik
 
@@ -35,16 +39,17 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
 def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1):
     """Sprawdź dostępność surowców w magazynie.
 
-    ``zapotrzebowanie`` to słownik ``{kod_surowca: ilosc}``. Funkcja zwraca
-    krotkę ``(ok, alerty, ostrzezenia)`` gdzie ``ok`` jest ``True`` jeśli
-    wszystkie surowce są dostępne w wymaganych ilościach.
+    ``zapotrzebowanie`` to słownik ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
+    Funkcja zwraca krotkę ``(ok, alerty, ostrzezenia)`` gdzie ``ok`` jest
+    ``True`` jeśli wszystkie surowce są dostępne w wymaganych ilościach.
     """
 
     magazyn = read_json(plik_magazynu) or {}
     alerty: list[str] = []
     zuzycie: list[str] = []
 
-    for kod, potrzebne in zapotrzebowanie.items():
+    for kod, info in zapotrzebowanie.items():
+        potrzebne = info.get("ilosc", 0)
         dane = magazyn.get(kod)
         if not dane:
             alerty.append(f"{kod} (brak w magazynie)")
@@ -53,7 +58,7 @@ def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1
         dostepne = dane.get("stan", 0)
         if potrzebne > dostepne:
             alerty.append(
-                f"{kod} (potrzeba {potrzebne}, dostępne {dostepne})"
+                f"{kod} (potrzeba {potrzebne}, dostępne {dostepne})",
             )
             continue
 
@@ -63,6 +68,7 @@ def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1
             zuzycie.append(f"{kod} – UWAGA: niski stan po zużyciu")
 
     return (len(alerty) == 0), ", ".join(alerty), ", ".join(zuzycie)
+
 
 def zapisz_zlecenie(folder, produkt, ilosc):
     numer = f"ZL-{datetime.now().strftime('%Y%m%d%H%M%S')}"

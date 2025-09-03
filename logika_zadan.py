@@ -68,8 +68,10 @@ def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
         if code:
             bom_pp = bom.compute_bom_for_prd(code, 1)
             for kod_pp, info in bom_pp.items():
-                for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
-                    surowce[kod_sr] = surowce.get(kod_sr, 0) + qty
+                for kod_sr, sr_info in bom.compute_sr_for_pp(
+                    kod_pp, info["ilosc"]
+                ).items():
+                    surowce[kod_sr] = surowce.get(kod_sr, 0) + sr_info["ilosc"]
     if not surowce:
         return []  # brak materiałów do konsumpcji
 

@@ -435,11 +435,7 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     except Exception:
         ilosc = 1
     try:
-        bom_pp = bom.compute_bom_for_prd(prod, 1)
-        sr_unit = {}
-        for kod_pp, info in bom_pp.items():
-            for kod_sr, qty in bom.compute_sr_for_pp(kod_pp, info["ilosc"]).items():
-                sr_unit[kod_sr] = sr_unit.get(kod_sr, 0) + qty
+        sr_unit = bom.compute_sr_for_prd(prod, 1)
     except Exception as e:
         messagebox.showerror("BOM", f"Błąd: {e}")
         return
@@ -461,8 +457,8 @@ def _rezerwuj_materialy(tree: ttk.Treeview, lbl_info: ttk.Label, root) -> None:
     tv.heading("dostepne_po", text="Dostępne po"); tv.column("dostepne_po", width=100, anchor="center")
     tv.pack(fill="both", expand=True)
 
-    for kod, qty in sr_unit.items():
-        req = qty * ilosc
+    for kod, info in sr_unit.items():
+        req = info["ilosc"] * ilosc
         stan = mag.get(kod, {}).get("stan", 0)
         tv.insert("", "end", values=(kod, req, stan, stan))
 

@@ -98,5 +98,33 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
     sr = pp["surowiec"]
     if "ilosc_na_szt" not in sr:
         raise KeyError("Brak klucza 'ilosc_na_szt' w surowcu")
-    qty = sr["ilosc_na_szt"] * ilosc * (1 + pp.get("norma_strat_proc", 0) / 100)
-    return {sr["kod"]: qty}
+    qty = sr["ilosc_na_szt"] * ilosc * (
+        1 + pp.get("norma_strat_proc", 0) / 100
+    )
+    surowce_path = DATA_DIR / "magazyn" / "surowce.json"
+    surowce = json.loads(surowce_path.read_text(encoding="utf-8"))
+    jednostka = surowce.get(sr["kod"], {}).get("jednostka")
+    if jednostka is None:
+        raise KeyError("Brak klucza 'jednostka' w definicji surowca")
+    return {sr["kod"]: {"ilosc": qty, "jednostka": jednostka}}
+
+
+def compute_sr_for_prd(
+    kod_prd: str, ilosc: float, version: str | None = None
+) -> dict:
+    """Oblicza zapotrzebowanie na surowce dla produktu.
+
+    Zwracany jest słownik ``{kod_sr: {"ilosc": qty, "jednostka": unit}}``.
+    """
+    if ilosc <= 0:
+        raise ValueError("Parametr 'ilosc' musi byc wiekszy od zera")
+    bom_pp = compute_bom_for_prd(kod_prd, ilosc, version=version)
+    wynik: dict[str, dict] = {}
+    for kod_pp, info in bom_pp.items():
+        for kod_sr, sr_info in compute_sr_for_pp(kod_pp, info["ilosc"]).items():
+            entry = wynik.setdefault(
+                kod_sr,
+                {"ilosc": 0, "jednostka": sr_info["jednostka"]},
+            )
+            entry["ilosc"] += sr_info["ilosc"]
+    return wynik
