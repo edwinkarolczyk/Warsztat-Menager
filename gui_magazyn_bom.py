@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 
 from config_manager import ConfigManager
 
 # Paths
 DATA_DIR = Path("data")
+LOG_FILE = Path("logi_magazyn.txt")
 
 
 def _load_json(path: Path, default):
@@ -81,6 +83,27 @@ class WarehouseModel:
             del self.surowce[kod]
             _save_json(self.src_file, list(self.surowce.values()))
 
+    def register_delivery(
+        self, kod: str, ilosc: float, rodzaj: str | None = None, dlugosc: float | None = None
+    ) -> None:
+        rec = self.surowce.get(kod)
+        if not rec:
+            raise ValueError(f"Surowiec '{kod}' nie istnieje.")
+        rec["stan"] = int(rec.get("stan", 0)) + int(ilosc)
+        if rodzaj:
+            rec["rodzaj"] = rodzaj
+        if dlugosc is not None:
+            try:
+                rec["dlugosc"] = float(dlugosc)
+            except ValueError:
+                pass
+        self.add_or_update_surowiec(rec)
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(LOG_FILE, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"{datetime.now().isoformat()}|{kod}|{ilosc}|{rodzaj or ''}|{dlugosc or ''}\n"
+            )
+
     # Półprodukty
     def add_or_update_polprodukt(self, record: dict) -> None:
         kod = record.get("kod")
@@ -138,35 +161,59 @@ class MagazynBOM(ttk.Frame):
 
     # --- Surowce ---
     def _build_surowce(self, parent: ttk.Frame) -> None:
-        bar = ttk.Frame(parent)
-        bar.pack(fill="x", padx=6, pady=4)
-        ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
-        ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
-
-        cols = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
+        cols = (
+            "kod",
+            "nazwa",
+            "rodzaj",
+            "rozmiar",
+            "dlugosc",
+            "jednostka",
+            "stan",
+        )
         self.tree_sr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_sr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
-            ("kod","Kod"),
-            ("nazwa","Nazwa"),
-            ("rodzaj","Rodzaj"),
-            ("rozmiar","Rozmiar"),
-            ("dlugosc","Długość"),
-            ("jednostka","Jednostka miary"),
-            ("stan","Stan"),
-            ("prog_alertu","Próg alertu [%]")
+            ("kod", "Kod"),
+            ("nazwa", "Nazwa"),
+            ("rodzaj", "Rodzaj"),
+            ("rozmiar", "Rozmiar"),
+            ("dlugosc", "Długość"),
+            ("jednostka", "Jednostka"),
+            ("stan", "Stan"),
         ]
         for key, lbl in headers:
             self.tree_sr.heading(key, text=lbl)
             self.tree_sr.column(key, width=100, anchor="w")
         self.tree_sr.bind("<<TreeviewSelect>>", self._on_sr_select)
 
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Dodaj", command=self._start_add_surowiec).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Edytuj", command=self._start_edit_surowiec).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Przyjmij dostawę", command=self._przyjmij_dostawe).pack(
+            side="left", padx=4
+        )
+
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.s_vars = {k: tk.StringVar() for k,_ in headers}
-        for i,(key,label) in enumerate(headers):
-            ttk.Label(form, text=label).grid(row=i//2, column=(i%2)*2, sticky="w", padx=4, pady=2)
-            ttk.Entry(form, textvariable=self.s_vars[key]).grid(row=i//2, column=(i%2)*2+1, sticky="ew", padx=4, pady=2)
+        self.s_vars = {k: tk.StringVar() for k, _ in headers}
+        for i, (key, label) in enumerate(headers[:-1]):
+            ttk.Label(form, text=label).grid(
+                row=i // 2, column=(i % 2) * 2, sticky="w", padx=4, pady=2
+            )
+            ttk.Entry(form, textvariable=self.s_vars[key]).grid(
+                row=i // 2, column=(i % 2) * 2 + 1, sticky="ew", padx=4, pady=2
+            )
+        ttk.Button(form, text="Zapisz", command=self._save_surowiec).grid(
+            row=3, column=3, sticky="e", padx=4, pady=4
+        )
         for c in range(4):
             form.columnconfigure(c, weight=1)
 
@@ -174,61 +221,98 @@ class MagazynBOM(ttk.Frame):
         sel = self.tree_sr.selection()
         if sel:
             values = self.tree_sr.item(sel[0], "values")
-            keys = ("kod","nazwa","rodzaj","rozmiar","dlugosc","jednostka","stan","prog_alertu")
-            for k,v in zip(keys, values):
+            keys = (
+                "kod",
+                "nazwa",
+                "rodzaj",
+                "rozmiar",
+                "dlugosc",
+                "jednostka",
+                "stan",
+            )
+            for k, v in zip(keys, values):
                 self.s_vars[k].set(v)
+
+    def _start_add_surowiec(self) -> None:
+        for var in self.s_vars.values():
+            var.set("")
+        self.s_vars["stan"].set("0")
+
+    def _start_edit_surowiec(self) -> None:
+        sel = self.tree_sr.selection()
+        if not sel:
+            messagebox.showerror("Surowce", "Wybierz pozycję do edycji.")
+            return
+        values = self.tree_sr.item(sel[0], "values")
+        keys = (
+            "kod",
+            "nazwa",
+            "rodzaj",
+            "rozmiar",
+            "dlugosc",
+            "jednostka",
+            "stan",
+        )
+        for k, v in zip(keys, values):
+            self.s_vars[k].set(v)
+
+    def _przyjmij_dostawe(self) -> None:
+        sel = self.tree_sr.selection()
+        if not sel:
+            messagebox.showerror("Surowce", "Wybierz surowiec.")
+            return
+        kod = self.tree_sr.item(sel[0], "values")[0]
+        try:
+            ilosc = simpledialog.askstring("Dostawa", "Ilość", parent=self)
+            if ilosc is None:
+                return
+            ilosc_val = float(ilosc)
+            rodzaj = simpledialog.askstring("Dostawa", "Typ/Rodzaj", parent=self)
+            dl = simpledialog.askstring("Dostawa", "Długość", parent=self)
+            dl_val = float(dl) if dl else None
+        except ValueError:
+            messagebox.showerror("Surowce", "Nieprawidłowe dane dostawy.")
+            return
+        self.model.register_delivery(kod, ilosc_val, rodzaj, dl_val)
+        self._load_surowce()
 
     def _save_surowiec(self) -> None:
         rec = {k: (v.get() or "").strip() for k, v in self.s_vars.items()}
-        for field in ("kod","nazwa","rodzaj","jednostka"):
+        for field in ("kod", "nazwa", "rodzaj", "jednostka"):
             if not rec.get(field):
                 messagebox.showerror("Surowce", f"Pole '{field}' jest wymagane.")
                 return
         try:
             rec["dlugosc"] = float(rec.get("dlugosc") or 0)
             rec["stan"] = int(rec.get("stan") or 0)
-            rec["prog_alertu"] = int(rec.get("prog_alertu") or 0)
         except ValueError:
-            messagebox.showerror("Surowce", "Pola liczby muszą zawierać wartości numeryczne.")
+            messagebox.showerror(
+                "Surowce", "Pola liczby muszą zawierać wartości numeryczne."
+            )
             return
         self.model.add_or_update_surowiec(rec)
         self._load_surowce()
 
     def _delete_surowiec(self) -> None:
-        kod = self.s_vars["kod"].get()
+        sel = self.tree_sr.selection()
+        if sel:
+            kod = self.tree_sr.item(sel[0], "values")[0]
+        else:
+            kod = self.s_vars["kod"].get()
         if kod and messagebox.askyesno("Potwierdź", f"Usunąć surowiec '{kod}'?"):
             self.model.delete_surowiec(kod)
             self._load_surowce()
 
     # --- Półprodukty ---
     def _build_polprodukty(self, parent: ttk.Frame) -> None:
-        bar = ttk.Frame(parent)
-        bar.pack(fill="x", padx=6, pady=4)
-        ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_polprodukt).pack(
-            side="right", padx=4
-        )
-        ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(
-            side="right", padx=4
-        )
-
-        cols = (
-            "kod",
-            "nazwa",
-            "sr_kod",
-            "sr_ilosc",
-            "sr_jednostka",
-            "czynnosci",
-            "norma_strat",
-        )
+        cols = ("kod", "nazwa", "sr_kod", "czynnosci", "norma_strat")
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
             ("kod", "Kod"),
             ("nazwa", "Nazwa"),
             ("sr_kod", "Kod surowca"),
-            ("sr_ilosc", "Ilość surowca na szt."),
-            ("sr_jednostka", "Jednostka"),
-            ("czynnosci", "Lista czynności"),
+            ("czynnosci", "Czynności"),
             ("norma_strat", "Norma strat [%]"),
         ]
         for key, lbl in headers:
@@ -236,48 +320,78 @@ class MagazynBOM(ttk.Frame):
             self.tree_pp.column(key, width=120, anchor="w")
         self.tree_pp.bind("<<TreeviewSelect>>", self._on_pp_select)
 
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Dodaj", command=self._start_add_polprodukt).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Edytuj", command=self._start_edit_polprodukt).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(
+            side="left", padx=4
+        )
+
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.pp_vars = {k: tk.StringVar() for k, _ in headers if k != "czynnosci"}
+        form_fields = [
+            ("kod", "Kod"),
+            ("nazwa", "Nazwa"),
+            ("sr_kod", "Kod surowca"),
+            ("sr_ilosc", "Ilość surowca na szt."),
+            ("sr_jednostka", "Jednostka"),
+            ("norma_strat", "Norma strat [%]"),
+        ]
+        self.pp_vars = {k: tk.StringVar() for k, _ in form_fields}
         self.pp_ops = ConfigManager().get("czynnosci_technologiczne", [])
-        for i, (key, label) in enumerate(headers):
-            ttk.Label(form, text=label).grid(row=i, column=0, sticky="w", padx=4, pady=2)
-            if key == "czynnosci":
-                self.pp_lb = tk.Listbox(form, selectmode="multiple", exportselection=False)
-                for op in self.pp_ops:
-                    self.pp_lb.insert(tk.END, op)
-                self.pp_lb.grid(row=i, column=1, sticky="ew", padx=4, pady=2)
-            else:
-                tk.Entry(form, textvariable=self.pp_vars[key]).grid(
-                    row=i, column=1, sticky="ew", padx=4, pady=2
-                )
+        for i, (key, label) in enumerate(form_fields):
+            ttk.Label(form, text=label).grid(
+                row=i, column=0, sticky="w", padx=4, pady=2
+            )
+            tk.Entry(form, textvariable=self.pp_vars[key]).grid(
+                row=i, column=1, sticky="ew", padx=4, pady=2
+            )
+        ttk.Label(form, text="Czynności").grid(
+            row=len(form_fields), column=0, sticky="w", padx=4, pady=2
+        )
+        self.pp_lb = tk.Listbox(form, selectmode="multiple", exportselection=False)
+        for op in self.pp_ops:
+            self.pp_lb.insert(tk.END, op)
+        self.pp_lb.grid(row=len(form_fields), column=1, sticky="ew", padx=4, pady=2)
         tk.Button(form, text="Zapisz", command=self._save_polprodukt).grid(
-            row=len(headers), column=1, sticky="e", padx=4, pady=4
+            row=len(form_fields) + 1, column=1, sticky="e", padx=4, pady=4
         )
         form.columnconfigure(1, weight=1)
 
     def _on_pp_select(self, _event) -> None:
         sel = self.tree_pp.selection()
-        if sel:
-            values = self.tree_pp.item(sel[0], "values")
-            keys = (
-                "kod",
-                "nazwa",
-                "sr_kod",
-                "sr_ilosc",
-                "sr_jednostka",
-                "czynnosci",
-                "norma_strat",
-            )
-            for k, v in zip(keys, values):
-                if k == "czynnosci":
-                    selected = [s.strip() for s in v.split(",") if s.strip()]
-                    self.pp_lb.selection_clear(0, tk.END)
-                    for idx, op in enumerate(self.pp_ops):
-                        if op in selected:
-                            self.pp_lb.selection_set(idx)
-                else:
-                    self.pp_vars[k].set(v)
+        if not sel:
+            return
+        kod = self.tree_pp.item(sel[0], "values")[0]
+        rec = self.model.polprodukty.get(kod, {})
+        self.pp_vars["kod"].set(rec.get("kod", ""))
+        self.pp_vars["nazwa"].set(rec.get("nazwa", ""))
+        surowiec = rec.get("surowiec", {})
+        self.pp_vars["sr_kod"].set(surowiec.get("kod", ""))
+        self.pp_vars["sr_ilosc"].set(str(surowiec.get("ilosc_na_szt", "")))
+        self.pp_vars["sr_jednostka"].set(surowiec.get("jednostka", ""))
+        self.pp_vars["norma_strat"].set(str(rec.get("norma_strat_procent", 0)))
+        self.pp_lb.selection_clear(0, tk.END)
+        for idx, op in enumerate(self.pp_ops):
+            if op in rec.get("czynnosci", []):
+                self.pp_lb.selection_set(idx)
+
+    def _start_add_polprodukt(self) -> None:
+        for var in self.pp_vars.values():
+            var.set("")
+        self.pp_lb.selection_clear(0, tk.END)
+
+    def _start_edit_polprodukt(self) -> None:
+        sel = self.tree_pp.selection()
+        if not sel:
+            messagebox.showerror("Półprodukty", "Wybierz pozycję do edycji.")
+            return
+        self._on_pp_select(None)
 
     def _save_polprodukt(self) -> None:
         kod = self.pp_vars["kod"].get().strip()
@@ -317,52 +431,92 @@ class MagazynBOM(ttk.Frame):
         self._load_polprodukty()
 
     def _delete_polprodukt(self) -> None:
-        kod = self.pp_vars["kod"].get()
+        sel = self.tree_pp.selection()
+        kod = self.tree_pp.item(sel[0], "values")[0] if sel else ""
         if kod and messagebox.askyesno("Potwierdź", f"Usunąć półprodukt '{kod}'?"):
             self.model.delete_polprodukt(kod)
             self._load_polprodukty()
 
     # --- Produkty ---
     def _build_produkty(self, parent: ttk.Frame) -> None:
-        bar = ttk.Frame(parent)
-        bar.pack(fill="x", padx=6, pady=4)
-        ttk.Button(bar, text="Dodaj / Zapisz", command=self._save_produkt).pack(side="right", padx=4)
-        ttk.Button(bar, text="Usuń", command=self._delete_produkt).pack(side="right", padx=4)
-
-        cols = ("symbol","nazwa","bom")
+        cols = ("symbol", "nazwa", "bom")
         self.tree_pr = ttk.Treeview(parent, columns=cols, show="headings")
         self.tree_pr.pack(fill="both", expand=True, padx=6, pady=4)
         headers = [
-            ("symbol","Symbol"),
-            ("nazwa","Nazwa"),
-            ("bom","BOM")
+            ("symbol", "Symbol"),
+            ("nazwa", "Nazwa"),
+            ("bom", "BOM"),
         ]
-        for key,lbl in headers:
+        for key, lbl in headers:
             self.tree_pr.heading(key, text=lbl)
             self.tree_pr.column(key, width=140, anchor="w")
         self.tree_pr.bind("<<TreeviewSelect>>", self._on_pr_select)
 
+        bar = ttk.Frame(parent)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Dodaj", command=self._start_add_produkt).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Edytuj", command=self._start_edit_produkt).pack(
+            side="left", padx=4
+        )
+        ttk.Button(bar, text="Usuń", command=self._delete_produkt).pack(
+            side="left", padx=4
+        )
+
         form = ttk.Frame(parent)
         form.pack(fill="x", padx=6, pady=4)
-        self.pr_vars = {k: tk.StringVar() for k,_ in headers}
-        ttk.Label(form, text="Symbol").grid(row=0, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pr_vars["symbol"]).grid(row=0, column=1, sticky="ew", padx=4, pady=2)
-        ttk.Label(form, text="Nazwa").grid(row=1, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pr_vars["nazwa"]).grid(row=1, column=1, sticky="ew", padx=4, pady=2)
+        self.pr_vars = {k: tk.StringVar() for k, _ in headers}
+        ttk.Label(form, text="Symbol").grid(
+            row=0, column=0, sticky="w", padx=4, pady=2
+        )
+        ttk.Entry(form, textvariable=self.pr_vars["symbol"]).grid(
+            row=0, column=1, sticky="ew", padx=4, pady=2
+        )
+        ttk.Label(form, text="Nazwa").grid(
+            row=1, column=0, sticky="w", padx=4, pady=2
+        )
+        ttk.Entry(form, textvariable=self.pr_vars["nazwa"]).grid(
+            row=1, column=1, sticky="ew", padx=4, pady=2
+        )
         ttk.Label(
             form,
             text="BOM (pozycje rozdzielone pionową kreską '|',\nnp.: typ=polprodukt;kod=DRUT;ilosc=2)"
         ).grid(row=2, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pr_vars["bom"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        ttk.Entry(form, textvariable=self.pr_vars["bom"]).grid(
+            row=2, column=1, sticky="ew", padx=4, pady=2
+        )
+        ttk.Button(form, text="Zapisz", command=self._save_produkt).grid(
+            row=3, column=1, sticky="e", padx=4, pady=4
+        )
         form.columnconfigure(1, weight=1)
 
     def _on_pr_select(self, _event) -> None:
         sel = self.tree_pr.selection()
-        if sel:
-            values = self.tree_pr.item(sel[0], "values")
-            keys = ("symbol","nazwa","bom")
-            for k,v in zip(keys, values):
-                self.pr_vars[k].set(v)
+        if not sel:
+            return
+        symbol = self.tree_pr.item(sel[0], "values")[0]
+        rec = self.model.produkty.get(symbol, {})
+        self.pr_vars["symbol"].set(rec.get("symbol", ""))
+        self.pr_vars["nazwa"].set(rec.get("nazwa", ""))
+        bom_txt = " | ".join(
+            ";".join(
+                f"{k}={i.get(k)}" for k in ("typ", "kod", "ilosc_na_sztuke")
+            )
+            for i in rec.get("BOM", [])
+        )
+        self.pr_vars["bom"].set(bom_txt)
+
+    def _start_add_produkt(self) -> None:
+        for var in self.pr_vars.values():
+            var.set("")
+
+    def _start_edit_produkt(self) -> None:
+        sel = self.tree_pr.selection()
+        if not sel:
+            messagebox.showerror("Produkty", "Wybierz pozycję do edycji.")
+            return
+        self._on_pr_select(None)
 
     def _save_produkt(self) -> None:
         symbol = self.pr_vars["symbol"].get().strip()
@@ -379,7 +533,8 @@ class MagazynBOM(ttk.Frame):
         self._load_produkty()
 
     def _delete_produkt(self) -> None:
-        symbol = self.pr_vars["symbol"].get()
+        sel = self.tree_pr.selection()
+        symbol = self.tree_pr.item(sel[0], "values")[0] if sel else ""
         if symbol and messagebox.askyesno("Potwierdź", f"Usunąć produkt '{symbol}'?"):
             self.model.delete_produkt(symbol)
             self._load_produkty()
@@ -421,7 +576,6 @@ class MagazynBOM(ttk.Frame):
                 rec.get("dlugosc", ""),
                 rec.get("jednostka", ""),
                 rec.get("stan", 0),
-                rec.get("prog_alertu", 0),
             )
             self.tree_sr.insert("", "end", values=row)
 
@@ -434,8 +588,6 @@ class MagazynBOM(ttk.Frame):
                 kod,
                 rec.get("nazwa", ""),
                 surowiec.get("kod", ""),
-                surowiec.get("ilosc_na_szt", ""),
-                surowiec.get("jednostka", ""),
                 ", ".join(rec.get("czynnosci", [])),
                 rec.get("norma_strat_procent", 0),
             )
@@ -445,11 +597,10 @@ class MagazynBOM(ttk.Frame):
         for i in self.tree_pr.get_children():
             self.tree_pr.delete(i)
         for symbol, rec in sorted(self.model.produkty.items()):
-            bom_txt = " | ".join(
-                f"{i.get('typ','?')}:{i.get('kod','?')} x{i.get('ilosc_na_sztuke',1)}"
-                for i in rec.get("BOM", [])
+            bom_count = len(rec.get("BOM", []))
+            self.tree_pr.insert(
+                "", "end", values=(symbol, rec.get("nazwa", ""), bom_count)
             )
-            self.tree_pr.insert("", "end", values=(symbol, rec.get("nazwa",""), bom_txt))
 
 
 def make_window(root: tk.Misc) -> ttk.Frame:
