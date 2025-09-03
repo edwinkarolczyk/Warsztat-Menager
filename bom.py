@@ -102,10 +102,20 @@ def compute_sr_for_pp(kod_pp: str, ilosc: float) -> dict:
         1 + pp.get("norma_strat_proc", 0) / 100
     )
     surowce_path = DATA_DIR / "magazyn" / "surowce.json"
-    surowce = json.loads(surowce_path.read_text(encoding="utf-8"))
-    jednostka = surowce.get(sr["kod"], {}).get("jednostka")
+    jednostka = None
+    if surowce_path.exists():
+        surowce = json.loads(surowce_path.read_text(encoding="utf-8"))
+        jednostka = surowce.get(sr["kod"], {}).get("jednostka")
+        if jednostka is None:
+            jednostka = sr.get("jednostka")
+    else:
+        jednostka = sr.get("jednostka")
+        if jednostka is None:
+            raise FileNotFoundError(
+                f"Brak pliku {surowce_path} oraz jednostki dla surowca {sr['kod']}"
+            )
     if jednostka is None:
-        raise KeyError("Brak klucza 'jednostka' w definicji surowca")
+        raise KeyError(f"Brak klucza 'jednostka' dla surowca {sr['kod']}")
     return {sr["kod"]: {"ilosc": qty, "jednostka": jednostka}}
 
 

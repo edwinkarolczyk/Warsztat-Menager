@@ -47,6 +47,39 @@ def test_compute_sr_for_pp_missing_ilosc_na_szt(tmp_path, monkeypatch):
         bom.compute_sr_for_pp("X", 1)
 
 
+def test_compute_sr_for_pp_missing_surowce_file_uses_pp_unit(
+    tmp_path, monkeypatch
+):
+    polprodukty = tmp_path / "polprodukty"
+    polprodukty.mkdir()
+    pp = {
+        "kod": "X",
+        "surowiec": {"kod": "SR", "ilosc_na_szt": 2, "jednostka": "kg"},
+    }
+    with open(polprodukty / "X.json", "w", encoding="utf-8") as f:
+        json.dump(pp, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    res = bom.compute_sr_for_pp("X", 3)
+    assert res["SR"]["ilosc"] == 6
+    assert res["SR"]["jednostka"] == "kg"
+
+
+def test_compute_sr_for_pp_missing_jednostka(tmp_path, monkeypatch):
+    polprodukty = tmp_path / "polprodukty"
+    polprodukty.mkdir()
+    pp = {"kod": "X", "surowiec": {"kod": "SR", "ilosc_na_szt": 1}}
+    with open(polprodukty / "X.json", "w", encoding="utf-8") as f:
+        json.dump(pp, f, ensure_ascii=False, indent=2)
+    magazyn = tmp_path / "magazyn"
+    magazyn.mkdir()
+    surowce = {"SR": {}}
+    with open(magazyn / "surowce.json", "w", encoding="utf-8") as f:
+        json.dump(surowce, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    with pytest.raises(KeyError, match="SR"):
+        bom.compute_sr_for_pp("X", 1)
+
+
 def test_compute_bom_for_prd_returns_extra_fields(tmp_path, monkeypatch):
     product = {
         "kod": "X",
