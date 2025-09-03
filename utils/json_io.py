@@ -14,16 +14,25 @@ def _ensure_dirs(*dirs: Iterable[str]) -> None:
 def _read_json(path: str, default: Any | None = None) -> Any:
     """Read JSON file and return its content.
 
-    Returns ``default`` (or ``{}`` if default is ``None``) when the file
-    does not exist or reading fails.
+    Returns ``default`` (or ``{}`` if ``default`` is ``None``) when the
+    file does not exist. Other read errors are logged and ``default`` is
+    returned; if ``default`` is ``None`` such errors are re-raised.
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         return default if default is not None else {}
-    except Exception:
-        return default if default is not None else {}
+    except Exception as e:  # pragma: no cover - defensive
+        msg = f"[JSON] read error for {path}: {e}"
+        try:
+            import logger
+            logger.log_akcja(msg)
+        except Exception:
+            print(msg)
+        if default is None:
+            raise
+        return default
 
 
 def _write_json(path: str, data: Any) -> None:
