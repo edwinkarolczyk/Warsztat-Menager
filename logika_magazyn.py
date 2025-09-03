@@ -392,6 +392,7 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None):
         if item_id in order:
             order.remove(item_id)
         save_magazyn(m)
+        zapisz_stan_magazynu(m)
     entry = _history_entry("usun", item_id, item.get("stan", 0), uzytkownik, kontekst)
     _append_history(entry)
     _log_mag("usun", {"item_id": item_id, "by": uzytkownik, "ctx": kontekst})
