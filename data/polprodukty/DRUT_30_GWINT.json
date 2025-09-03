@@ -1,0 +1,8 @@
+{
+  "kod": "DRUT_30_GWINT",
+  "nazwa": "Drut 30mm gwintowany",
+  "operacje": ["ciecie", "gwintowanie"],
+  "czynnosci": ["ciecie", "gwintowanie"],
+  "surowiec": { "kod": "SR_DRUT30", "ilosc_na_szt": 1.5, "jednostka": "m" },
+  "norma_strat_proc": 0.0
+}

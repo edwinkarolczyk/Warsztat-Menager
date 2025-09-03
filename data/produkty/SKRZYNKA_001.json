@@ -1,0 +1,23 @@
+{
+  "kod": "SKRZYNKA_001",
+  "nazwa": "Skrzynka testowa",
+  "version": "1.0",
+  "bom_revision": 1,
+  "effective_from": "2024-01-01",
+  "effective_to": null,
+  "is_default": true,
+  "polprodukty": [
+    {
+      "kod": "DRUT_10",
+      "ilosc_na_szt": 1.0,
+      "czynnosci": ["montaz"],
+      "surowiec": { "typ": "SR_DRUT10", "dlugosc": 2.0 }
+    },
+    {
+      "kod": "DRUT_30_GWINT",
+      "ilosc_na_szt": 2.0,
+      "czynnosci": ["montaz"],
+      "surowiec": { "typ": "SR_DRUT30", "dlugosc": 1.5 }
+    }
+  ]
+}
