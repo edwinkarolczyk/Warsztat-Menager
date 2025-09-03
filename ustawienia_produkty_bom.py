@@ -14,6 +14,7 @@ from tkinter import ttk, messagebox, simpledialog
 from ui_theme import apply_theme_safe as apply_theme
 from utils.dirty_guard import DirtyGuard
 from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
+from logger import log_akcja
 
 DATA_DIR = os.path.join("data", "produkty")
 POL_DIR = os.path.join("data", "polprodukty")
@@ -245,8 +246,11 @@ def make_tab(parent, rola=None):
             messagebox.showerror("Produkty","Zaznacz produkt do usunięcia."); return
         p = frm._products[idx]
         if not messagebox.askyesno("Produkty", f"Usunąć {p['kod']}?"): return
-        try: os.remove(p["_path"])
-        except Exception: pass
+        try:
+            os.remove(p["_path"])
+        except Exception as e:
+            log_akcja(f"[BOM] Nie można usunąć pliku {p['_path']}: {e}")
+            messagebox.showerror("Produkty", f"Błąd usuwania pliku: {e}")
         _refresh(); var_kod.set(""); var_nazwa.set("")
         for iid in tv.get_children(): tv.delete(iid)
 
@@ -266,7 +270,8 @@ def make_tab(parent, rola=None):
                     cont = ttk.Frame(top)
                     cont.grid(row=0, column=0, sticky="nsew")
                     us.panel_ustawien(top, cont)
-                except Exception:
+                except Exception as e:
+                    log_akcja(f"[BOM] Nie udało się otworzyć modułu ustawień: {e}")
                     messagebox.showerror(
                         "BOM", "Nie udało się otworzyć modułu ustawień"
                     )
@@ -286,7 +291,8 @@ def make_tab(parent, rola=None):
                     cont = ttk.Frame(top)
                     cont.grid(row=0, column=0, sticky="nsew")
                     us.panel_ustawien(top, cont)
-                except Exception:
+                except Exception as e:
+                    log_akcja(f"[BOM] Nie udało się otworzyć modułu ustawień: {e}")
                     messagebox.showerror(
                         "BOM", "Nie udało się otworzyć modułu ustawień"
                     )
@@ -332,7 +338,7 @@ def make_tab(parent, rola=None):
                 il = float(var_il.get())
                 if il <= 0:
                     raise ValueError
-            except Exception:
+            except (ValueError, TypeError):
                 messagebox.showerror("BOM", "Ilość musi być dodatnią liczbą")
                 return
             try:
@@ -345,7 +351,7 @@ def make_tab(parent, rola=None):
                 dl = float(sr_dl)
                 if dl <= 0:
                     raise ValueError
-            except Exception:
+            except (ValueError, TypeError):
                 messagebox.showerror(
                     "BOM", "Długość musi być dodatnią liczbą"
                 )
@@ -415,7 +421,7 @@ def make_tab(parent, rola=None):
                 il = float(il)
                 if il <= 0:
                     raise ValueError
-            except Exception:
+            except (ValueError, TypeError):
                 messagebox.showerror(
                     "BOM", "Ilość musi być dodatnią liczbą"
                 )
@@ -432,7 +438,7 @@ def make_tab(parent, rola=None):
                 dl = float(sr_dl)
                 if dl <= 0:
                     raise ValueError
-            except Exception:
+            except (ValueError, TypeError):
                 messagebox.showerror(
                     "BOM", "Długość musi być dodatnią liczbą"
                 )

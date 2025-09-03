@@ -25,6 +25,7 @@ import re
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
+from logger import log_akcja
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -590,8 +591,10 @@ def panel_ustawien_magazyn(parent, rola=None):
     btn.grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(4,8))
 
     if not is_priv:
-        try: btn.state(["disabled"])
-        except Exception: pass
+        try:
+            btn.state(["disabled"])
+        except Exception as e:
+            log_akcja(f"[MAGAZYN] Nie można zablokować przycisku dodawania: {e}")
         info_lbl.configure(text="Dodawanie dostępne tylko dla uprawnionych (brygadzista/admin/kierownik).")
 
     # ===== Typy magazynowe =====

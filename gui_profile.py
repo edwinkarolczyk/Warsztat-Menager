@@ -55,17 +55,20 @@ DEFAULT_TASK_DEADLINE = "9999-12-31"
 
 # ====== Override utils ======
 _OVR_DIR = os.path.join("data","profil_overrides")
-def _ensure_dir(): 
-    try: os.makedirs(_OVR_DIR, exist_ok=True)
-    except Exception: pass
+def _ensure_dir():
+    try:
+        os.makedirs(_OVR_DIR, exist_ok=True)
+    except Exception as e:
+        log_akcja(f"[PROFILE] Nie można utworzyć katalogu override: {e}")
+        raise
 
 def _load_json(path, default):
     try:
         if os.path.exists(path):
             with open(path,"r",encoding="utf-8") as f:
                 return json.load(f)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd wczytania {path}: {e}")
     return default
 
 def _save_json(path, data):
@@ -118,7 +121,8 @@ def _login_list():
                         s.add(it)
                     elif isinstance(it, dict) and _valid_login(it.get("login", "")):
                         s.add(it["login"])
-        except Exception: pass
+        except Exception as e:
+            log_akcja(f"[PROFILE] Błąd wczytywania {ufile}: {e}")
     if os.path.isdir("avatars"):
         for p in glob.glob("avatars/*.png"):
             nm=os.path.splitext(os.path.basename(p))[0]
@@ -161,8 +165,8 @@ def _load_avatar(parent, login):
             return ttk.Label(parent, text=str(login or ""), style="WM.TLabel")
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Nie można przeskalować avatara {login}: {e}")
     photo = ImageTk.PhotoImage(img)
     lbl = tk.Label(parent, image=photo)
     lbl.image = photo
@@ -177,8 +181,10 @@ def _map_status_generic(raw):
     return raw or "Nowe"
 
 def _parse_date(s):
-    try: return _dt.strptime(s,"%Y-%m-%d").date()
-    except Exception: return None
+    try:
+        return _dt.strptime(s, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
 
 def _is_overdue(task):
     if str(task.get("status","")).lower()=="zrobione": return False
@@ -473,7 +479,7 @@ def _stars(rating):
     """Zwraca graficzną reprezentację gwiazdek dla oceny 0-5."""
     try:
         r = int(rating)
-    except Exception:
+    except (ValueError, TypeError):
         r = 0
     r = max(0, min(5, r))
     return "★" * r + "☆" * (5 - r)
@@ -518,7 +524,7 @@ def _build_basic_tab(parent, user):
             if isinstance(user.get(field), int):
                 try:
                     user[field] = int(val)
-                except Exception:
+                except (ValueError, TypeError):
                     user[field] = 0
             else:
                 user[field] = val
@@ -625,8 +631,8 @@ def uruchom_panel(root, frame, login=None, rola=None):
     apply_theme(root.winfo_toplevel())
     try:
         frame.configure(style="WM.TFrame")
-    except Exception:
-        pass
+    except tk.TclError as e:
+        log_akcja(f"[PROFILE] Błąd konfiguracji ramki: {e}")
 
     # wyczyść
     clear_frame(frame)
@@ -666,14 +672,14 @@ def uruchom_panel(root, frame, login=None, rola=None):
                     shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
                     on_shift = times["P_START"] <= now.time() < times["P_END"]
                 shift_style = "WM.TLabel"
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd ustalania zmiany: {e}")
     lbl_shift = ttk.Label(info, text=shift_text, style=shift_style)
     if shift_style == "WM.TLabel" and not on_shift:
         try:
             lbl_shift.configure(foreground="red")
-        except Exception:
-            pass
+        except tk.TclError as e:
+            log_akcja(f"[PROFILE] Błąd konfiguracji etykiety zmiany: {e}")
     lbl_shift.pack(anchor="w")
 
     # Dane
