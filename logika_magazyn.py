@@ -37,13 +37,26 @@ except ImportError:  # pragma: no cover - Windows path
             except OSError:
                 pass
     except ImportError:
-        import portalocker
+        try:
+            import portalocker
 
-        def lock_file(f):
-            portalocker.lock(f, portalocker.LOCK_EX)
+            def lock_file(f):
+                portalocker.lock(f, portalocker.LOCK_EX)
 
-        def unlock_file(f):
-            portalocker.unlock(f)
+            def unlock_file(f):
+                portalocker.unlock(f)
+        except ImportError:
+            import logging
+
+            logging.warning(
+                "Brak bibliotek blokowania plików; operacje mogą być niezabezpieczone"
+            )
+
+            def lock_file(_):  # pragma: no cover - brak blokady
+                return None
+
+            def unlock_file(_):  # pragma: no cover - brak blokady
+                return None
 
 try:
     import logger
