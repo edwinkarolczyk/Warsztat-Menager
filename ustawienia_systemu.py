@@ -55,9 +55,15 @@ def _make_frame(parent, style_name: str | None = None) -> ttk.Frame:
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
+    data = json.load(f)
     _SCHEMA_DESC = {
         opt["key"]: opt.get("description", "")
-        for opt in json.load(f)["options"]
+        for opt in data["options"]
+    }
+    _SCHEMA_LIMITS = {
+        opt["key"]: (opt.get("min"), opt.get("max"))
+        for opt in data["options"]
+        if opt.get("type") in ("int", "float")
     }
 
 
@@ -287,7 +293,12 @@ def panel_ustawien(root, frame, login=None, rola=None):
     tracked_vars = {}
 
     def track(key, var, cast):
-        original_vals[key] = cast(var.get())
+        min_val, max_val = _SCHEMA_LIMITS.get(key, (None, None))
+        try:
+            original_vals[key] = cast(var.get())
+        except Exception:
+            original_vals[key] = var.get()
+
         def _mark(*_):
             try:
                 val = cast(var.get())
@@ -297,13 +308,14 @@ def panel_ustawien(root, frame, login=None, rola=None):
                 dirty_keys[key] = True
             else:
                 dirty_keys.pop(key, None)
+
         if hasattr(var, "trace_add"):
             var.trace_add("write", _mark)
         else:
             var.widget.bind("<KeyRelease>", _mark)
             var.widget.bind("<<Modified>>", _mark)
             var.widget.bind("<FocusOut>", _mark)
-        tracked_vars[key] = (var, cast, _mark)
+        tracked_vars[key] = (var, cast, _mark, min_val, max_val)
 
     track("ui.language", lang_var, str)
     track("ui.theme", theme_var, str)
@@ -346,36 +358,53 @@ def panel_ustawien(root, frame, login=None, rola=None):
     )
 
     def on_exit(_event=None):
-        for var, _cast, mark in tracked_vars.values():
+        for var, _cast, mark, _min, _max in tracked_vars.values():
             mark()
         if not dirty_keys:
             return
-        if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?"):
-            changed = list(dirty_keys)
-            for key in changed:
-                var, cast, _ = tracked_vars[key]
-                try:
-                    val = cast(var.get())
-                except Exception:
-                    val = var.get()
-                cfg.set(key, val)
-                original_vals[key] = val
-            cfg.save_all()
-            top = container.winfo_toplevel()
-            apply_theme(top)
+        if not messagebox.askyesno("Zapisz", "Czy zapisać zmiany?"):
+            for key in list(dirty_keys):
+                var, _c, _m, _mn, _mx = tracked_vars[key]
+                var.set(original_vals[key])
+            dirty_keys.clear()
+            return
+
+        changed = list(dirty_keys)
+        new_vals = {}
+        for key in changed:
+            var, cast, _m, min_val, max_val = tracked_vars[key]
             try:
-                top.event_generate("<<ConfigUpdated>>")
+                val = cast(var.get())
+            except Exception:
+                messagebox.showerror("Błąd", f"Nieprawidłowa wartość dla {key}")
+                return
+            if min_val is not None and val < min_val:
+                messagebox.showerror(
+                    "Błąd", f"Wartość dla {key} musi być ≥ {min_val}"
+                )
+                return
+            if max_val is not None and val > max_val:
+                messagebox.showerror(
+                    "Błąd", f"Wartość dla {key} musi być ≤ {max_val}"
+                )
+                return
+            new_vals[key] = val
+
+        for key, val in new_vals.items():
+            cfg.set(key, val)
+            original_vals[key] = val
+        cfg.save_all()
+        top = container.winfo_toplevel()
+        apply_theme(top)
+        try:
+            top.event_generate("<<ConfigUpdated>>")
+        except Exception:
+            pass
+        if "auth.session_timeout_min" in new_vals:
+            try:
+                top.event_generate("<<AuthTimeoutChanged>>")
             except Exception:
                 pass
-            if "auth.session_timeout_min" in changed:
-                try:
-                    top.event_generate("<<AuthTimeoutChanged>>")
-                except Exception:
-                    pass
-        else:
-            for key in list(dirty_keys):
-                var, _, _ = tracked_vars[key]
-                var.set(original_vals[key])
         dirty_keys.clear()
 
     # Check for unsaved changes when switching tabs or closing
