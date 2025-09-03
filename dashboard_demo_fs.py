@@ -2,14 +2,17 @@
 # Version: 1.2.1
 # Fullscreen dashboard Warsztat Menager z obsługą hal i awarii, integracja motywu ui_theme.py
 
-import sys, os, json
+import sys, os, json, logging
 import tkinter as tk
 from tkinter import ttk, simpledialog
 from math import ceil
 
+logger = logging.getLogger(__name__)
+
 try:
     from ui_theme import apply_theme
-except Exception:
+except ImportError:
+    logger.exception("ui_theme import failed")
     apply_theme = lambda _: None
 
 APP_TITLE = "Warsztat Menager - Dashboard (TEST)"
@@ -25,7 +28,8 @@ def load_awarie():
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return sum(1 for a in data if str(a.get("status", "")).lower() == "aktywna")
-    except Exception:
+    except (OSError, json.JSONDecodeError):
+        logger.exception("Failed to load awarie data")
         return 0
 
 def load_hale():
@@ -37,7 +41,8 @@ def load_hale():
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except (OSError, json.JSONDecodeError):
+        logger.exception("Failed to load hale data")
         return []
 
 def save_hale(hale_list):
@@ -45,8 +50,8 @@ def save_hale(hale_list):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(hale_list, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print("Błąd zapisu hale.json:", e)
+    except (OSError, TypeError):
+        logger.exception("Błąd zapisu hale.json")
 
 # Demo orders
 def sample_orders():
@@ -189,7 +194,8 @@ class WMDashboard(tk.Tk):
 
         try:
             self.state("zoomed")
-        except:
+        except tk.TclError:
+            logger.exception("Zoomed state not supported")
             self.attributes("-fullscreen", True)
 
         self.edit_mode = False
@@ -275,8 +281,8 @@ class WMDashboard(tk.Tk):
             try:
                 import ctypes
                 ctypes.windll.shcore.SetProcessDpiAwareness(1)
-            except Exception:
-                pass
+            except (AttributeError, OSError):
+                logger.exception("DPI awareness setting failed")
 
 if __name__ == "__main__":
     WMDashboard().mainloop()
