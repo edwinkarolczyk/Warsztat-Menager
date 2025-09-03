@@ -18,6 +18,7 @@ from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
 from config_manager import ConfigManager
 from utils.dirty_guard import DirtyGuard
+from logger import log_akcja
 
 try:
     from zlecenia_logika import (
@@ -145,17 +146,17 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
         allowed = {str(r).lower() for r in cm.get("zlecenia.edit_roles", [])}
         role = str(getattr(root, "_wm_rola", "")).lower()
         can = role in allowed if allowed else False
-        for btn in (btn_nowe, btn_edyt, btn_usun, btn_rez):
-            try:
-                btn.state(["!disabled"] if can else ["disabled"])
-            except Exception:
-                btn.configure(state="normal" if can else "disabled")
+    for btn in (btn_nowe, btn_edyt, btn_usun, btn_rez):
         try:
-            menu.entryconfig("Edytuj zlecenie", state="normal" if can else "disabled")
-            menu.entryconfig("Usuń zlecenie", state="normal" if can else "disabled")
+            btn.state(["!disabled"] if can else ["disabled"])
         except Exception:
-            pass
-        return can
+            btn.configure(state="normal" if can else "disabled")
+    try:
+        menu.entryconfig("Edytuj zlecenie", state="normal" if can else "disabled")
+        menu.entryconfig("Usuń zlecenie", state="normal" if can else "disabled")
+    except Exception as e:
+        log_akcja(f"[ZLECENIA] Błąd konfiguracji menu zleceń: {e}")
+    return can
 
     _refresh_permissions()
     if root is not None:
@@ -237,15 +238,15 @@ def _kreator_zlecenia(parent: tk.Widget, lbl_info: ttk.Label, root, on_done) -> 
     apply_theme(win)
     try:
         win.configure(bg=_DBG, highlightthickness=0, highlightbackground=_DBG)
-    except Exception:
+    except Exception as e:
         try:
             win.configure(highlightthickness=0)
-        except Exception:
-            pass
+        except Exception as inner:
+            log_akcja(f"[ZLECENIA] Błąd konfiguracji okna kreatora: {e}; dodatkowo {inner}")
     try:
         win.grab_set()
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[ZLECENIA] Błąd grab_set kreatora zlecenia: {e}")
     win.geometry("620x420")
 
     frm = ttk.Frame(win, style="WM.TFrame")
@@ -406,8 +407,8 @@ def _edit_zlecenie(tree: ttk.Treeview, lbl_info: ttk.Label, root, on_done) -> No
     try:
         txt.configure(bg=_DBG, fg=_FG, insertbackground=_FG,
                       highlightthickness=1, highlightbackground=_DBG, highlightcolor=_DBG)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[ZLECENIA] Błąd konfiguracji pola uwagi: {e}")
     txt.insert("1.0", data.get("uwagi", ""))
 
     frm.columnconfigure(1, weight=1)
@@ -468,10 +469,14 @@ def _edit_status_dialog(parent: tk.Widget, zlec_id: str, tree: ttk.Treeview,
                         lbl_info: ttk.Label, root, on_done) -> None:
     win = tk.Toplevel(parent); win.title(f"Status zlecenia {zlec_id}")
     _maybe_theme(win)
-    try: win.configure(highlightthickness=0, highlightbackground=_DBG)
-    except Exception: pass
-    try: win.grab_set()
-    except Exception: pass
+    try:
+        win.configure(highlightthickness=0, highlightbackground=_DBG)
+    except Exception as e:
+        log_akcja(f"[ZLECENIA] Błąd konfiguracji okna statusu: {e}")
+    try:
+        win.grab_set()
+    except Exception as e:
+        log_akcja(f"[ZLECENIA] Błąd grab_set okna statusu: {e}")
     win.geometry("420x180")
 
     frm = ttk.Frame(win, style="WM.TFrame"); frm.pack(fill="both", expand=True, padx=12, pady=12)

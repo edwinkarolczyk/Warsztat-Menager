@@ -55,17 +55,20 @@ DEFAULT_TASK_DEADLINE = "9999-12-31"
 
 # ====== Override utils ======
 _OVR_DIR = os.path.join("data","profil_overrides")
-def _ensure_dir(): 
-    try: os.makedirs(_OVR_DIR, exist_ok=True)
-    except Exception: pass
+def _ensure_dir():
+    try:
+        os.makedirs(_OVR_DIR, exist_ok=True)
+    except Exception as e:
+        log_akcja(f"[PROFILE] Nie można utworzyć katalogu override: {e}")
+        raise
 
 def _load_json(path, default):
     try:
         if os.path.exists(path):
-            with open(path,"r",encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd odczytu {path}: {e}")
     return default
 
 def _save_json(path, data):
@@ -118,7 +121,8 @@ def _login_list():
                         s.add(it)
                     elif isinstance(it, dict) and _valid_login(it.get("login", "")):
                         s.add(it["login"])
-        except Exception: pass
+        except Exception as e:
+            log_akcja(f"[PROFILE] Błąd odczytu {ufile}: {e}")
     if os.path.isdir("avatars"):
         for p in glob.glob("avatars/*.png"):
             nm=os.path.splitext(os.path.basename(p))[0]
@@ -161,8 +165,8 @@ def _load_avatar(parent, login):
             return ttk.Label(parent, text=str(login or ""), style="WM.TLabel")
     try:
         img.thumbnail(_MAX_AVATAR_SIZE)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd tworzenia miniatury avatara: {e}")
     photo = ImageTk.PhotoImage(img)
     lbl = tk.Label(parent, image=photo)
     lbl.image = photo
@@ -625,8 +629,8 @@ def uruchom_panel(root, frame, login=None, rola=None):
     apply_theme(root.winfo_toplevel())
     try:
         frame.configure(style="WM.TFrame")
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd konfiguracji ramki profilu: {e}")
 
     # wyczyść
     clear_frame(frame)
@@ -666,14 +670,14 @@ def uruchom_panel(root, frame, login=None, rola=None):
                     shift_text = f"Dzisiejsza zmiana: Popołudniowa {start}–{end}"
                     on_shift = times["P_START"] <= now.time() < times["P_END"]
                 shift_style = "WM.TLabel"
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PROFILE] Błąd ustalania zmiany: {e}")
     lbl_shift = ttk.Label(info, text=shift_text, style=shift_style)
     if shift_style == "WM.TLabel" and not on_shift:
         try:
             lbl_shift.configure(foreground="red")
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PROFILE] Błąd ustawiania koloru etykiety zmiany: {e}")
     lbl_shift.pack(anchor="w")
 
     # Dane

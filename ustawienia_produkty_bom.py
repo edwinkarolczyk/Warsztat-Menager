@@ -245,8 +245,11 @@ def make_tab(parent, rola=None):
             messagebox.showerror("Produkty","Zaznacz produkt do usunięcia."); return
         p = frm._products[idx]
         if not messagebox.askyesno("Produkty", f"Usunąć {p['kod']}?"): return
-        try: os.remove(p["_path"])
-        except Exception: pass
+        try:
+            os.remove(p["_path"])
+        except Exception as e:
+            messagebox.showerror("Produkty", f"Błąd usuwania pliku: {e}")
+            raise
         _refresh(); var_kod.set(""); var_nazwa.set("")
         for iid in tv.get_children(): tv.delete(iid)
 

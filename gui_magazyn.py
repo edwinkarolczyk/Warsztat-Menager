@@ -25,6 +25,7 @@ import re
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
+from logger import log_akcja
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
@@ -66,8 +67,8 @@ def _resolve_role(parent, rola_hint=None):
         r = getattr(top, "rola", None)
         if isinstance(r, str) and r.strip():
             return r.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[MAGAZYN] Nie można odczytać roli z atrybutów okna: {e}")
     # 3) z tytułu okna: "... (ROLA)"
     try:
         top = parent.winfo_toplevel()
@@ -75,8 +76,8 @@ def _resolve_role(parent, rola_hint=None):
         m = re.search(r"\(([^)]+)\)\s*$", t)
         if m:
             return m.group(1).strip()
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[MAGAZYN] Nie można odczytać roli z tytułu okna: {e}")
     return None
 
 
@@ -532,8 +533,8 @@ def panel_ustawien_magazyn(parent, rola=None):
         types = LM.get_item_types()
         try:
             cb_typ.config(values=types)
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[MAGAZYN] Błąd odświeżania listy typów: {e}")
         types_tree.delete(*types_tree.get_children())
         for t in types:
             types_tree.insert('', 'end', values=(t,))
@@ -590,9 +591,13 @@ def panel_ustawien_magazyn(parent, rola=None):
     btn.grid(row=5, column=0, columnspan=6, sticky="w", padx=8, pady=(4,8))
 
     if not is_priv:
-        try: btn.state(["disabled"])
-        except Exception: pass
-        info_lbl.configure(text="Dodawanie dostępne tylko dla uprawnionych (brygadzista/admin/kierownik).")
+        try:
+            btn.state(["disabled"])
+        except Exception as e:
+            log_akcja(f"[MAGAZYN] Nie można zablokować przycisku dodawania: {e}")
+        info_lbl.configure(
+            text="Dodawanie dostępne tylko dla uprawnionych (brygadzista/admin/kierownik)."
+        )
 
     # ===== Typy magazynowe =====
     types_box = ttk.LabelFrame(frm, text="Typy magazynowe", style="WM.Card.TFrame")
@@ -659,8 +664,8 @@ def panel_ustawien_magazyn(parent, rola=None):
         for b in (btn_add_type, btn_del_type, ent_new_type):
             try:
                 b.state(["disabled"]) if hasattr(b, "state") else b.configure(state="disabled")
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[MAGAZYN] Błąd blokowania przycisku typu: {e}")
         ttk.Label(types_box, text="Zarządzanie typami dostępne tylko dla uprawnionych (brygadzista/admin/kierownik).",
                   style="WM.Muted.TLabel").grid(row=3, column=0, columnspan=4, sticky="w", padx=8, pady=(0,8))
 

@@ -51,8 +51,8 @@ def _load_last_visit(login: str) -> datetime:
     if isinstance(ts, str):
         try:
             return datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        except ValueError:
-            pass
+        except ValueError as e:
+            log_akcja(f"[PANEL] Błąd parsowania daty ostatniej wizyty: {e}")
     return datetime.fromtimestamp(0, tz=timezone.utc)
 
 
@@ -85,8 +85,8 @@ try:
         try:
             setattr(root, "_wm_login", login)
             setattr(root, "_wm_rola", rola)
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PANEL] Błąd ustawiania atrybutów root: {e}")
         try:
             tab = _panel_zl_src(frame, root, None, None)
         except TypeError:
@@ -96,8 +96,8 @@ try:
         if isinstance(tab, (tk.Widget, ttk.Frame)):
             try:
                 tab.pack(fill="both", expand=True)
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd pakowania panelu zleceń: {e}")
         else:
             # awaryjnie pokaż etykietę, żeby nie było pusto
             ttk.Label(frame, text="Panel Zleceń – załadowano").pack(pady=12)
@@ -202,14 +202,14 @@ def uruchom_panel(root, login, rola):
         for dot in markers:
             try:
                 dot.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd usuwania markera: {e}")
         markers.clear()
         for menu, idx, label in menu_markers:
             try:
                 menu.entryconfig(idx, label=label, foreground="")
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd przywracania wpisu menu: {e}")
         menu_markers.clear()
         last_visit = datetime.now(timezone.utc)
         _save_last_visit(login, last_visit)
@@ -281,16 +281,16 @@ def uruchom_panel(root, login, rola):
         try:
             from presence import heartbeat
             heartbeat(login, rola, logout=True)
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PANEL] Błąd heartbeat podczas wylogowania: {e}")
         try:
             import gui_logowanie
             gui_logowanie.ekran_logowania(root)
         except Exception:
             try:
                 root.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd niszczenia okna przy wylogowaniu: {e}")
     changelog_win = {"ref": None}
     btn_changelog = None
 
@@ -320,8 +320,8 @@ def uruchom_panel(root, login, rola):
         if win is not None and win.winfo_exists():
             try:
                 win.destroy()
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd zamykania okna changelog: {e}")
         changelog_win["ref"] = None
         if btn_changelog and btn_changelog.winfo_exists():
             btn_changelog.config(text="Pokaż zmiany")
@@ -333,8 +333,8 @@ def uruchom_panel(root, login, rola):
                 who=login,
             )
             CONFIG_MANAGER.save_all()
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PANEL] Błąd zapisu ostatniego obejrzenia changeloga: {e}")
 
     def _toggle_changelog(auto: bool = False):
         win = changelog_win.get("ref")
@@ -413,8 +413,8 @@ def uruchom_panel(root, login, rola):
         if logout_job["id"]:
             try:
                 root.after_cancel(logout_job["id"])
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd anulowania timera wylogowania: {e}")
             logout_job["id"] = None
 
     def _restart_logout_timer(_event=None):
@@ -429,15 +429,15 @@ def uruchom_panel(root, login, rola):
         if logout_job["id"]:
             try:
                 root.after_cancel(logout_job["id"])
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd anulowania poprzedniego timera wylogowania: {e}")
             logout_job["id"] = None
         _logout_tick()
         try:
             from start import restart_user_activity_monitor
             restart_user_activity_monitor(total)
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PANEL] Błąd restartu monitora aktywności: {e}")
 
     _logout_tick()
     logout_label.bind("<Destroy>", _on_logout_destroy)
@@ -480,8 +480,11 @@ def uruchom_panel(root, login, rola):
 
     def _on_shift_destroy(_e=None):
         if shift_job["id"]:
-            try: root.after_cancel(shift_job["id"])
-            except Exception: pass
+            try:
+                root.after_cancel(shift_job["id"])
+            except Exception as e:
+                log_akcja(f"[PANEL] Błąd anulowania zadania zmiany: {e}")
+                raise
             shift_job["id"] = None
 
     draw_shift_bar()
@@ -684,8 +687,8 @@ def uruchom_panel(root, login, rola):
             btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
             btn_settings.pack(padx=10, pady=6, fill="x")
             _maybe_mark_button(btn_settings)
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PANEL] Błąd tworzenia przycisku Ustawienia: {e}")
     else:
         btn_profile = ttk.Button(
             side,

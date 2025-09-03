@@ -32,14 +32,14 @@ def _get_cfg():
         cm = globals().get("CONFIG_MANAGER")
         if cm and getattr(cm, "config", None):
             return cm.config or {}
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PRESENCE] Błąd pobierania CONFIG_MANAGER: {e}")
     try:
         cfg = globals().get("config", {})
         if isinstance(cfg, dict):
             return cfg
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PRESENCE] Błąd pobierania config: {e}")
     return {}
 
 def _cfg_dir():
@@ -47,8 +47,8 @@ def _cfg_dir():
         cm = globals().get("CONFIG_MANAGER")
         if cm and getattr(cm, "config_path", None):
             return os.path.dirname(cm.config_path)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PRESENCE] Błąd ustalania katalogu konfigu: {e}")
     return os.getcwd()
 
 def _presence_path():
@@ -63,17 +63,24 @@ def _atomic_write(path, data_dict):
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
         try:
             os.replace(tmp_path, path)
-        except Exception:
+        except Exception as e:
             try:
                 if os.path.exists(path):
                     os.remove(path)
                 os.rename(tmp_path, path)
-            except Exception:
-                pass
+            except Exception as inner:
+                log_akcja(
+                    f"[PRESENCE] Błąd podmiany pliku: {e}; dodatkowo {inner}"
+                )
+                raise
     finally:
         if os.path.exists(tmp_path):
-            try: os.remove(tmp_path)
-            except Exception: pass
+            try:
+                os.remove(tmp_path)
+            except Exception as e:
+                log_akcja(
+                    f"[PRESENCE] Nie udało się usunąć pliku tymczasowego {tmp_path}: {e}"
+                )
 
 def _read_all():
     path = _presence_path()
@@ -83,8 +90,8 @@ def _read_all():
                 d = json.load(f) or {}
             if isinstance(d, dict):
                 return d
-        except Exception:
-            pass
+        except Exception as e:
+            log_akcja(f"[PRESENCE] Błąd odczytu {path}: {e}")
     return {}
 
 def heartbeat(login, role=None, machine=None, logout=False):
@@ -112,8 +119,8 @@ def end_session(login, role=None, machine=None):
     """Oznacz użytkownika jako wylogowanego (natychmiast offline)."""
     try:
         heartbeat(login, role, machine, logout=True)
-    except Exception:
-        pass
+    except Exception as e:
+        log_akcja(f"[PRESENCE] Błąd end_session: {e}")
 
 def start_heartbeat(root, login, role=None, interval_ms=None):
     """Uruchom cykliczne bicie serca.
@@ -169,8 +176,8 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
         if _atexit_handler and unreg:
             try:
                 unreg(_atexit_handler)
-            except Exception:
-                pass
+            except Exception as e:
+                log_akcja(f"[PRESENCE] Błąd wyrejestrowania atexit: {e}")
         if _atexit_handler is None or unreg:
             atexit.register(_on_exit)
             _atexit_handler = _on_exit
