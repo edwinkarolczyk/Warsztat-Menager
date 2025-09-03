@@ -28,6 +28,29 @@ def _save_worker(idx, path, start_q, finish_q, ready_evt):
     finish_q.put(time.time())
 
 
+def test_module_loads_without_lock_lib(monkeypatch, tmp_path):
+    import builtins
+    import importlib
+
+    global lm
+    orig_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name in ("fcntl", "msvcrt", "portalocker"):
+            raise ImportError
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    lm = importlib.reload(lm)
+
+    with open(tmp_path / "x.txt", "w", encoding="utf-8") as f:
+        lm.lock_file(f)
+        lm.unlock_file(f)
+
+    monkeypatch.setattr(builtins, "__import__", orig_import)
+    lm = importlib.reload(lm)
+
+
 def test_rezerwuj_partial(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     lm.load_magazyn()
