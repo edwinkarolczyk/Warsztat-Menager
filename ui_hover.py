@@ -28,10 +28,12 @@ class ImageHoverTooltip:
         widget: tk.Misc,
         image_paths: Iterable[str] | None,
         delay: int = 500,
+        max_size: tuple[int, int] = (600, 800),
     ) -> None:
         self.widget = widget
         self.image_paths: List[str] = list(image_paths or [])
         self.delay = delay
+        self.max_size = max_size
         self._images: List[tk.PhotoImage] = []
         self._image_cycle = itertools.cycle([])  # reset later
         self._index = 0
@@ -56,7 +58,7 @@ class ImageHoverTooltip:
         if _PIL_AVAILABLE and Image is not None:
             try:  # pragma: no cover - Pillow branch
                 img = Image.open(path)
-                img.thumbnail((200, 200))
+                img.thumbnail(self.max_size)
                 return ImageTk.PhotoImage(img)
             except Exception:
                 return self._placeholder_image()
@@ -121,17 +123,31 @@ class ImageHoverTooltip:
 # ----------------------------------------------------------------------
 # Helper bindings
 
-def bind_canvas_item_hover(canvas: tk.Canvas, item_id: int, image_paths,
-                           **kwargs) -> ImageHoverTooltip:
-    tooltip = ImageHoverTooltip(canvas, image_paths, **kwargs)
+def bind_canvas_item_hover(
+    canvas: tk.Canvas,
+    item_id: int,
+    image_paths,
+    delay: int = 500,
+    max_size: tuple[int, int] = (600, 800),
+) -> ImageHoverTooltip:
+    tooltip = ImageHoverTooltip(
+        canvas, image_paths, delay=delay, max_size=max_size
+    )
     canvas.tag_bind(item_id, "<Enter>", tooltip.show_tooltip)
     canvas.tag_bind(item_id, "<Leave>", tooltip.hide_tooltip)
     return tooltip
 
 
-def bind_treeview_row_hover(tree: tk.Treeview, row_id: str, image_paths,
-                            **kwargs) -> ImageHoverTooltip:
-    tooltip = ImageHoverTooltip(tree, image_paths, **kwargs)
+def bind_treeview_row_hover(
+    tree: tk.Treeview,
+    row_id: str,
+    image_paths,
+    delay: int = 500,
+    max_size: tuple[int, int] = (600, 800),
+) -> ImageHoverTooltip:
+    tooltip = ImageHoverTooltip(
+        tree, image_paths, delay=delay, max_size=max_size
+    )
     tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip)
     tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip)
     return tooltip

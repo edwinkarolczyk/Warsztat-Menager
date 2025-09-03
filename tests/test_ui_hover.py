@@ -133,3 +133,47 @@ def test_bind_helpers(monkeypatch):
     assert tip_tree._tooltip is not None
     tree.trigger("row", "<Leave>")
     assert tip_tree._tooltip is None
+
+
+def test_load_image_respects_max_size(monkeypatch):
+    opened = []
+
+    class DummyPILImage:
+        def __init__(self, size):
+            self.size = size
+            self.thumb_called_with = None
+
+        def thumbnail(self, size):
+            self.thumb_called_with = size
+            self.size = (
+                min(self.size[0], size[0]),
+                min(self.size[1], size[1]),
+            )
+
+    def fake_open(_path):
+        img = DummyPILImage((1000, 2000))
+        opened.append(img)
+        return img
+
+    class DummyPhoto:
+        def __init__(self, image):
+            self.width, self.height = image.size
+
+    monkeypatch.setattr(ui_hover, "_PIL_AVAILABLE", True)
+    monkeypatch.setattr(
+        ui_hover,
+        "Image",
+        types.SimpleNamespace(open=fake_open),
+    )
+    monkeypatch.setattr(
+        ui_hover,
+        "ImageTk",
+        types.SimpleNamespace(PhotoImage=DummyPhoto),
+    )
+    widget = types.SimpleNamespace(bind=lambda *_a, **_k: None)
+    tooltip = ui_hover.ImageHoverTooltip(widget, None, max_size=(600, 800))
+    result = tooltip._load_image("dummy")
+    pil_img = opened[0]
+    assert pil_img.thumb_called_with == (600, 800)
+    assert result.width <= 600
+    assert result.height <= 800
