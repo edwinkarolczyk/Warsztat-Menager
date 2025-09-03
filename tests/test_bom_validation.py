@@ -125,3 +125,19 @@ def test_get_produkt_warns_on_multiple_defaults(tmp_path, monkeypatch, caplog):
         res = bom.get_produkt("X")
     assert res["version"] == "1"
     assert any("wiele domyślnych" in r.message for r in caplog.records)
+
+
+def test_get_produkt_prefers_numeric_version(tmp_path, monkeypatch, caplog):
+    produkty = tmp_path / "produkty"
+    produkty.mkdir()
+    prod_old = {"kod": "X", "version": "10", "is_default": True}
+    prod_new = {"kod": "X", "version": "2", "is_default": True}
+    with open(produkty / "p10.json", "w", encoding="utf-8") as f:
+        json.dump(prod_old, f, ensure_ascii=False, indent=2)
+    with open(produkty / "p2.json", "w", encoding="utf-8") as f:
+        json.dump(prod_new, f, ensure_ascii=False, indent=2)
+    monkeypatch.setattr(bom, "DATA_DIR", tmp_path)
+    with caplog.at_level("WARNING"):
+        res = bom.get_produkt("X")
+    assert res["version"] == "2"
+    assert any("wiele domyślnych" in r.message for r in caplog.records)
