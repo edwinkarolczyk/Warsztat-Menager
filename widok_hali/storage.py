@@ -6,13 +6,15 @@ import json
 import os
 from typing import Iterable, List
 
-from .const import HALLS_FILE
+from utils.path_utils import cfg_path
+from .const import HALLS_FILE as HALLS_NAME
 from .models import Hala, Machine, WallSegment
 
-MACHINES_FILE = os.path.join("data", "maszyny.json")
-WALLS_FILE = os.path.join("data", "sciany.json")
-AWARIE_FILE = os.path.join("data", "awarie.json")
-CONFIG_FILE = "config.json"
+HALLS_FILE = cfg_path(os.path.join("data", HALLS_NAME))
+MACHINES_FILE = cfg_path(os.path.join("data", "maszyny.json"))
+WALLS_FILE = cfg_path(os.path.join("data", "sciany.json"))
+AWARIE_FILE = cfg_path(os.path.join("data", "awarie.json"))
+CONFIG_FILE = cfg_path("config.json")
 
 try:  # pragma: no cover - logger may not exist in tests
     from logger import log_akcja as _log

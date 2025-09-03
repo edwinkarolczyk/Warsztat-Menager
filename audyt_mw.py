@@ -18,6 +18,8 @@ from collections import defaultdict, Counter, deque
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Set, Tuple, Optional
 
+from utils.path_utils import cfg_path
+
 HEADER_FILE_RE = re.compile(r"^#\s*Plik:\s*(?P<name>.+)$", re.IGNORECASE)
 HEADER_VER_RE  = re.compile(r"^#\s*Wersja:\s*(?P<ver>.+)$", re.IGNORECASE)
 
@@ -176,9 +178,9 @@ class AudytMW:
                 self._issue(path, 'INFO', 'TODO', 'Znacznik TODO/FIXME/HACK – rozważ zaplanowanie zadania', line)
 
         # JSON sanity
-        self._check_json_file('config.json', required_keys=['theme', 'start_view', 'pin_required'])
-        self._check_json_file('data/maszyny.json', required_keys=['id', 'nazwa', 'hala'])
-        self._check_json_file('uzytkownicy.json', required_keys=['login', 'pin', 'rola'])
+        self._check_json_file(cfg_path("config.json"), required_keys=['theme', 'start_view', 'pin_required'])
+        self._check_json_file(cfg_path(os.path.join('data', 'maszyny.json')), required_keys=['id', 'nazwa', 'hala'])
+        self._check_json_file(cfg_path('uzytkownicy.json'), required_keys=['login', 'pin', 'rola'])
 
     # ---------- REPORT ----------
     def build_suggestions(self) -> List[str]:
