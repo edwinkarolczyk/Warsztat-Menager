@@ -6,6 +6,7 @@ modify user profile data without touching files directly.
 from __future__ import annotations
 
 import json
+import os
 from contextlib import contextmanager
 from typing import Dict, List, Optional
 
@@ -141,6 +142,89 @@ def is_logged_in(login: str) -> bool:
     return False
 
 
+OVERRIDE_DIR = os.path.join("data", "profil_overrides")
+
+
+def _load_json(path: str, default):
+    try:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default
+
+
+def _save_json(path: str, data) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_status_overrides(login: str) -> Dict[str, str]:
+    """Return mapping of task ID to status overrides for ``login``."""
+    path = os.path.join(OVERRIDE_DIR, f"status_{login}.json")
+    return _load_json(path, {})
+
+
+def save_status_override(login: str, task_id: str, status: str) -> None:
+    """Persist status override for ``task_id`` and ``login``."""
+    data = load_status_overrides(login)
+    data[str(task_id)] = status
+    path = os.path.join(OVERRIDE_DIR, f"status_{login}.json")
+    _save_json(path, data)
+
+
+def load_assign_orders() -> Dict[str, str]:
+    """Return mapping of order number to login."""
+    path = os.path.join(OVERRIDE_DIR, "assign_orders.json")
+    return _load_json(path, {})
+
+
+def save_assign_order(order_no: str, login: Optional[str]) -> None:
+    """Assign ``order_no`` to ``login`` (``None`` removes assignment)."""
+    data = load_assign_orders()
+    key = str(order_no)
+    if login:
+        data[key] = str(login)
+    else:
+        data.pop(key, None)
+    path = os.path.join(OVERRIDE_DIR, "assign_orders.json")
+    _save_json(path, data)
+
+
+def load_assign_tools() -> Dict[str, str]:
+    """Return mapping of tool task ID to login."""
+    path = os.path.join(OVERRIDE_DIR, "assign_tools.json")
+    return _load_json(path, {})
+
+
+def save_assign_tool(task_id: str, login: Optional[str]) -> None:
+    """Assign tool task ``task_id`` to ``login`` (``None`` removes assignment)."""
+    data = load_assign_tools()
+    key = str(task_id)
+    if login:
+        data[key] = str(login)
+    else:
+        data.pop(key, None)
+    path = os.path.join(OVERRIDE_DIR, "assign_tools.json")
+    _save_json(path, data)
+
+
+def count_presence(login: str, presence_file: str = "presence.json") -> int:
+    """Return number of presence records for ``login``."""
+    try:
+        with open(presence_file, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return 0
+    cnt = 0
+    for rec in data.values():
+        if str(rec.get("login", "")).lower() == str(login).lower():
+            cnt += 1
+    return cnt
+
+
 __all__ = [
     "get_user",
     "save_user",
@@ -150,5 +234,12 @@ __all__ = [
     "find_first_brygadzista",
     "sync_presence",
     "is_logged_in",
+    "load_status_overrides",
+    "save_status_override",
+    "load_assign_orders",
+    "save_assign_order",
+    "load_assign_tools",
+    "save_assign_tool",
+    "count_presence",
     "DEFAULT_USER",
 ]

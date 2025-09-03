@@ -22,7 +22,10 @@ Danych źródłowych w ``data/*`` nie modyfikujemy.
 # Plik: gui_profile.py
 # Wersja: 1.6.4 (H2c FULL)
 
-import os, json, glob, re
+import os
+import json
+import glob
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
@@ -34,7 +37,19 @@ except ImportError:  # Pillow missing
 
     class UnidentifiedImageError(Exception):
         ...
-from services.profile_service import get_user, save_user, DEFAULT_USER
+from services.profile_service import (
+    DEFAULT_USER,
+    count_presence,
+    get_all_users,
+    get_user,
+    load_assign_orders,
+    load_assign_tools,
+    load_status_overrides,
+    save_assign_order,
+    save_assign_tool,
+    save_status_override,
+    save_user,
+)
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
 from grafiki.shifts_schedule import (
@@ -53,94 +68,63 @@ from ui_theme import apply_theme_safe as apply_theme
 # umieszczało je na końcu listy.
 DEFAULT_TASK_DEADLINE = "9999-12-31"
 
-# ====== Override utils ======
-_OVR_DIR = os.path.join("data","profil_overrides")
-def _ensure_dir():
-    try:
-        os.makedirs(_OVR_DIR, exist_ok=True)
-    except Exception as e:
-        log_akcja(f"[PROFILE] Nie można utworzyć katalogu override: {e}")
-        raise
-
+# ====== Helpers ======
 def _load_json(path, default):
     try:
         if os.path.exists(path):
-            with open(path,"r",encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
     except Exception as e:
         log_akcja(f"[PROFILE] Błąd wczytania {path}: {e}")
     return default
 
-def _save_json(path, data):
-    _ensure_dir()
-    with open(path,"w",encoding="utf-8") as f:
-        json.dump(data,f,indent=2,ensure_ascii=False)
 
-def _status_path(login):      return os.path.join(_OVR_DIR,f"status_{login}.json")
-def _assign_orders_path():    return os.path.join(_OVR_DIR,"assign_orders.json")
-def _assign_tools_path():     return os.path.join(_OVR_DIR,"assign_tools.json")
+def _valid_login(s):
+    return bool(re.match(r"^[A-Za-z0-9_.-]{2,32}$", str(s)))
 
-def _load_status_overrides(login): return _load_json(_status_path(login), {})
+
+# ====== Override wrappers (dla kompatybilności testów) ======
+def _load_status_overrides(login):
+    return load_status_overrides(login)
+
+
 def _save_status_override(login, task_id, status):
-    data = _load_status_overrides(login)
-    data[str(task_id)] = status
-    _save_json(_status_path(login), data)
+    save_status_override(login, task_id, status)
 
-def _load_assign_orders(): return _load_json(_assign_orders_path(), {})
+
+def _load_assign_orders():
+    return load_assign_orders()
+
+
 def _save_assign_order(order_no, login):
-    data = _load_assign_orders()
-    if login:
-        data[str(order_no)] = str(login)
-    else:
-        data.pop(str(order_no), None)
-    _save_json(_assign_orders_path(), data)
+    save_assign_order(order_no, login)
 
-def _load_assign_tools(): return _load_json(_assign_tools_path(), {})
+
+def _load_assign_tools():
+    return load_assign_tools()
+
+
 def _save_assign_tool(task_id, login):
-    data = _load_assign_tools()
-    if login:
-        data[str(task_id)] = str(login)
-    else:
-        data.pop(str(task_id), None)
-    _save_json(_assign_tools_path(), data)
-
-# ====== Helpers ======
-def _valid_login(s): return bool(re.match(r'^[A-Za-z0-9_.-]{2,32}$', str(s)))
+    save_assign_tool(task_id, login)
 
 def _login_list():
-    """Zbiera loginy: users.json > avatars > *_<login>.json; filtruje śmieci."""
-    s=set()
-    ufile=os.path.join("data","users.json")
-    if os.path.exists(ufile):
-        try:
-            with open(ufile, encoding="utf-8") as f:
-                data = json.load(f)
-            if isinstance(data, list):
-                for it in data:
-                    if isinstance(it, str) and _valid_login(it):
-                        s.add(it)
-                    elif isinstance(it, dict) and _valid_login(it.get("login", "")):
-                        s.add(it["login"])
-        except Exception as e:
-            log_akcja(f"[PROFILE] Błąd wczytywania {ufile}: {e}")
+    """Zbiera loginy z profili, avatarów i plików zadań."""
+    s = set()
+    for it in get_all_users():
+        login = it if isinstance(it, str) else it.get("login", "")
+        if _valid_login(login):
+            s.add(login)
     if os.path.isdir("avatars"):
         for p in glob.glob("avatars/*.png"):
-            nm=os.path.splitext(os.path.basename(p))[0]
-            if _valid_login(nm): s.add(nm)
-    for pat in ("data/zadania_*.json","data/zlecenia_*.json"):
+            nm = os.path.splitext(os.path.basename(p))[0]
+            if _valid_login(nm):
+                s.add(nm)
+    for pat in ("data/zadania_*.json", "data/zlecenia_*.json"):
         for p in glob.glob(pat):
-            nm=os.path.basename(p).split("_",1)[-1].replace(".json","")
-            if _valid_login(nm): s.add(nm)
+            nm = os.path.basename(p).split("_", 1)[-1].replace(".json", "")
+            if _valid_login(nm):
+                s.add(nm)
     return sorted(s)
-
-def _count_presence(login):
-    """Zwraca liczbę wpisów frekwencji dla danego loginu."""
-    data = _load_json("presence.json", {})
-    cnt = 0
-    for v in data.values():
-        if str(v.get("login", "")).lower() == str(login).lower():
-            cnt += 1
-    return cnt
 
 def _load_avatar(parent, login):
     """Wczytuje avatar użytkownika.
@@ -236,14 +220,16 @@ def _order_visible_for(order, login, rola):
         if isinstance(val,list) and str(login).lower() in [str(v).lower() for v in val]: return True
     # override
     oid = order.get("nr") or order.get("id")
-    if oid and str(_load_assign_orders().get(str(oid),"")).lower()==str(login).lower(): return True
+    if oid and str(load_assign_orders().get(str(oid), "")).lower() == str(login).lower():
+        return True
     return False
 
 def _tool_visible_for(tool_task, login, rola):
     role = str(rola or "").lower()
     if role=="brygadzista": return True
     if str(tool_task.get("login","")).lower()==str(login).lower(): return True
-    if str(_load_assign_tools().get(tool_task["id"],"")).lower()==str(login).lower(): return True
+    if str(load_assign_tools().get(tool_task["id"], "")).lower() == str(login).lower():
+        return True
     return False
 
 # ====== Czytanie zadań ======
@@ -303,7 +289,7 @@ def _read_tasks(login, rola=None):
             log_akcja(f"Nie udało się wczytać {path}: {e}")
 
     # i) status overrides
-    ovr = _load_status_overrides(login)
+    ovr = load_status_overrides(login)
     for t in tasks:
         ov = ovr.get(str(t.get("id")))
         if ov: t["status"]=ov
@@ -355,25 +341,25 @@ def _show_task_details(root, frame, login, rola, task, after_save=None):
             if not task.get("zlecenie"):
                 tid=str(task.get("id",""))
                 if tid.startswith("ZLEC-"): task["zlecenie"]=tid[5:]
-            cur = task.get("login") or _load_assign_orders().get(str(task.get("zlecenie")),"")
+            cur = task.get("login") or load_assign_orders().get(str(task.get("zlecenie")), "")
             assign_var.set(cur)
         if is_tool:
-            cur = _load_assign_tools().get(task.get("id"),"")
+            cur = load_assign_tools().get(task.get("id"), "")
             assign_var.set(cur)
 
     def _save():
         # status override
         new_status = status_var.get()
-        _save_status_override(login, task.get("id",""), new_status)
+        save_status_override(login, task.get("id", ""), new_status)
         task["status"] = new_status
 
         # przypisania
         if role=="brygadzista":
             who = assign_var.get().strip() or None
             if is_order:
-                _save_assign_order(task.get("zlecenie"), who)
+                save_assign_order(task.get("zlecenie"), who)
             if is_tool:
-                _save_assign_tool(task.get("id"), who)
+                save_assign_tool(task.get("id"), who)
 
         if callable(after_save): after_save()
         win.destroy()
@@ -424,14 +410,16 @@ def _build_table(frame, root, login, rola, tasks):
 
     def _assigned_to_login(t):
         """Zwraca login do którego zadanie jest przypisane (z danych lub override)."""
-        is_order = t.get("_kind")=="order" or str(t.get("id","")).startswith("ZLEC-")
-        is_tool  = t.get("_kind")=="tooltask" or str(t.get("id","")).startswith("NARZ-")
+        is_order = t.get("_kind") == "order" or str(t.get("id", "")).startswith("ZLEC-")
+        is_tool = t.get("_kind") == "tooltask" or str(t.get("id", "")).startswith("NARZ-")
         if is_order:
-            if t.get("login"): return t.get("login")
-            return _load_assign_orders().get(str(t.get("zlecenie")))
+            if t.get("login"):
+                return t.get("login")
+            return load_assign_orders().get(str(t.get("zlecenie")))
         if is_tool:
-            if t.get("login"): return t.get("login")
-            return _load_assign_tools().get(t.get("id"))
+            if t.get("login"):
+                return t.get("login")
+            return load_assign_tools().get(t.get("id"))
         return t.get("login")
 
     def filtered():
@@ -554,7 +542,7 @@ def _build_tasks_tab(parent, root, login, rola, tasks):
     _build_table(parent, root, login, rola, tasks)
 
 def _build_stats_tab(parent, tasks, login):
-    presence = _count_presence(login)
+    presence = count_presence(login)
     total = len(tasks)
     open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
     urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
