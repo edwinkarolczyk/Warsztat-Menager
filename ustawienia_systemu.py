@@ -103,6 +103,12 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # Zastosuj motyw NA OKNIE nadrzędnym
     _refresh_theme()
 
+    ttk.Button(
+        container,
+        text="Reload",
+        command=lambda: refresh_panel(root, frame, login, rola),
+    ).pack(anchor="e", padx=5, pady=(5, 0))
+
     # Notebook z grupami
     if _style_exists("WM.TNotebook"):
         nb_groups = ttk.Notebook(container, style="WM.TNotebook")
@@ -931,5 +937,28 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # --- Aktualizacje ---
     tab5 = UpdatesUI(group_containers["Zaawansowane"])
     group_containers["Zaawansowane"].add(tab5, text="Aktualizacje")
+
+# --- API ---
+
+def refresh_panel(root, frame, login=None, rola=None):
+    """Reload settings schema and rebuild the settings panel.
+
+    Clears current widgets, refreshes :class:`ConfigManager` and regenerates
+    tabs based on the updated ``settings_schema.json``.
+    """
+
+    global _SCHEMA_DESC, _SCHEMA_LIMITS
+    ConfigManager.refresh()
+    with SCHEMA_PATH.open(encoding="utf-8") as f:
+        data = json.load(f)
+    _SCHEMA_DESC = {
+        opt["key"]: opt.get("description", "") for opt in data["options"]
+    }
+    _SCHEMA_LIMITS = {
+        opt["key"]: (opt.get("min"), opt.get("max"))
+        for opt in data["options"]
+        if opt.get("type") in ("int", "float")
+    }
+    panel_ustawien(root, frame, login, rola)
 
 # ⏹ KONIEC KODU
