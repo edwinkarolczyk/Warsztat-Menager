@@ -8,7 +8,7 @@ from config_manager import ConfigManager
 
 
 class SettingsUI(ttk.Frame):
-    """Dynamic settings editor generated from settings schema."""
+    """Dynamic settings editor generated from ``settings_schema.json``."""
 
     def __init__(self, master: tk.Misc):
         super().__init__(master)
@@ -16,7 +16,8 @@ class SettingsUI(ttk.Frame):
         self._opts: dict[str, dict] = {}
         self._vars: dict[str, tk.Variable] = {}
 
-        schema = self.cfg.schema  # full schema loaded via ConfigManager
+        # Load full settings schema via ConfigManager
+        schema = self.cfg.schema
         groups: dict[str, list[dict]] = defaultdict(list)
         for opt in schema.get("options", []):
             groups[opt.get("group", "Inne")].append(opt)
