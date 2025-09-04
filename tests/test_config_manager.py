@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -139,3 +140,39 @@ def test_audit_and_prune_rollbacks(make_manager):
     assert len(subdirs) == 2
     assert "2020-01-01_00-00-00" not in subdirs
     assert "2020-01-02_00-00-00" not in subdirs
+
+
+def test_validate_dict_value_type(make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [
+            {
+                "key": "progi_alertow_surowce",
+                "type": "dict",
+                "value_type": "float",
+            },
+            {
+                "key": "jednostki_miary",
+                "type": "dict",
+                "value_type": "string",
+            },
+        ],
+    }
+    defaults = {
+        "progi_alertow_surowce": {"stal": 10.0},
+        "jednostki_miary": {"szt": "sztuka"},
+    }
+
+    mgr, paths = make_manager(defaults=defaults, schema=schema)
+    assert mgr.get("progi_alertow_surowce") == {"stal": 10.0}
+    assert mgr.get("jednostki_miary") == {"szt": "sztuka"}
+
+    for bad_defaults in [
+        {"progi_alertow_surowce": 1},
+        {"progi_alertow_surowce": {"stal": "dużo"}},
+        {"jednostki_miary": {"szt": 1}},
+    ]:
+        shutil.rmtree(paths["audit"], ignore_errors=True)
+        shutil.rmtree(paths["backup"], ignore_errors=True)
+        with pytest.raises(cm.ConfigError):
+            make_manager(defaults=bad_defaults, schema=schema)

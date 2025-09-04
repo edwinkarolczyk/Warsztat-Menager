@@ -129,11 +129,11 @@ class ConfigManager:
     # ========== walidacja ==========
     def _validate_all(self):
         idx = self._schema_idx
-        for key, value in flatten(self.merged).items():
-            if key not in idx:
-                # klucz spoza schematu – dopuszczamy (forward‑compat), ale można by zalogować
+        for key, opt in idx.items():
+            value = get_by_key(self.merged, key, None)
+            if value is None:
                 continue
-            self._validate_value(idx[key], value)
+            self._validate_value(opt, value)
 
     def _validate_value(self, opt: Dict[str, Any], value: Any):
         t = opt.get("type")
@@ -159,6 +159,30 @@ class ConfigManager:
                 raise ConfigError(
                     f"{opt['key']}: oczekiwano listy, dostano {type(value).__name__}"
                 )
+        elif t in ("dict", "object"):
+            if not isinstance(value, dict):
+                raise ConfigError(
+                    f"{opt['key']}: oczekiwano dict, dostano {type(value).__name__}"
+                )
+            vtype = opt.get("value_type")
+            if vtype:
+                for k, v in value.items():
+                    if vtype == "string" and not isinstance(v, str):
+                        raise ConfigError(
+                            f"{opt['key']}.{k}: oczekiwano string, dostano {type(v).__name__}"
+                        )
+                    elif vtype == "int" and not isinstance(v, int):
+                        raise ConfigError(
+                            f"{opt['key']}.{k}: oczekiwano int, dostano {type(v).__name__}"
+                        )
+                    elif vtype == "float" and not isinstance(v, (int, float)):
+                        raise ConfigError(
+                            f"{opt['key']}.{k}: oczekiwano float, dostano {type(v).__name__}"
+                        )
+                    elif vtype == "bool" and not isinstance(v, bool):
+                        raise ConfigError(
+                            f"{opt['key']}.{k}: oczekiwano bool, dostano {type(v).__name__}"
+                        )
         elif t in ("string", "path"):
             if not isinstance(value, str):
                 raise ConfigError(f"{opt['key']}: oczekiwano string")
