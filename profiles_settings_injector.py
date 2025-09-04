@@ -17,7 +17,17 @@ def _log_debug(msg, *args, **kwargs):
 
 _started = False
 _SETTINGS_TITLE_KEYS = ("ustaw", "konfig", "settings")
-_SETTINGS_TAB_KEYS = ("Ogólne","Motyw","Aktualizacje","Magazyn","Użytkownicy","Sieć","Baza","Backup","Logi")
+_SETTINGS_TAB_KEYS = (
+    "Ogólne",
+    "Motyw",
+    "Aktualizacje",
+    "Magazyn",
+    "Użytkownicy",
+    "Sieć",
+    "Baza",
+    "Backup",
+    "Logi",
+)
 
 def _get_title(win):
     try: return (win.title() or "").lower()
@@ -55,7 +65,8 @@ def _nb_has_settings_like_tabs(nb):
         pass
     return False
 
-def _attach_tab(nb):
+def _attach_tab(nb, cfg=None):
+    """Attach the profiles settings tab to ``nb`` using ``cfg`` for storage."""
     try:
         for t in nb.tabs():
             if nb.tab(t, "text") == "Profile użytkowników":
@@ -68,11 +79,13 @@ def _attach_tab(nb):
     nb.add(tab, text="Profile użytkowników")
     _log_debug("[PROFILES-DBG] injector: tab added")
 
-    cfg = globals().get("config", {}) if isinstance(globals().get("config", {}), dict) else {}
+    cfg = cfg if isinstance(cfg, dict) else {}
 
     def _cfg_get(key, default=None):
-        if not isinstance(cfg, dict): return default
-        if key in cfg: return cfg.get(key, default)
+        if not isinstance(cfg, dict):
+            return default
+        if key in cfg:
+            return cfg.get(key, default)
         if "." in key:
             first, rest = key.split(".", 1)
             if isinstance(cfg.get(first), dict):
@@ -80,7 +93,8 @@ def _attach_tab(nb):
         return default
 
     def _cfg_set(key, val):
-        if not isinstance(cfg, dict): return
+        if not isinstance(cfg, dict):
+            return
         if "." in key:
             first, rest = key.split(".", 1)
             if first not in cfg or not isinstance(cfg.get(first), dict):
@@ -149,13 +163,24 @@ def _candidate_score(win, nb):
     if isinstance(win, tk.Toplevel): score += 1
     return score
 
-def start(root):
+def start(root, cfg=None):
+    """Begin searching for settings notebooks and attach the profiles tab.
+
+    Parameters
+    ----------
+    root: tk.Misc
+        Root window used for the search.
+    cfg: dict, optional
+        Configuration dictionary to read and update profile settings.
+    """
     global _started
-    if _started: return
+    if _started:
+        return
     _started = True
     _log_debug("[PROFILES-DBG] injector: start")
 
     tries = {"n": 0}
+
     def tick():
         tries["n"] += 1
         cands = _find_candidate_notebooks(root)
@@ -164,12 +189,15 @@ def start(root):
             tries["n"],
             len(cands),
         )
-        best = None; best_score = -1
+        best = None
+        best_score = -1
         for win, nb in cands:
             s = _candidate_score(win, nb)
             t = _get_title(win)
-            try: tab_texts = [nb.tab(ti, 'text') for ti in nb.tabs()]
-            except Exception: tab_texts = []
+            try:
+                tab_texts = [nb.tab(ti, "text") for ti in nb.tabs()]
+            except Exception:
+                tab_texts = []
             _log_debug(
                 "[PROFILES-DBG] injector:  cand score=%s title='%s' tabs=%s",
                 s,
@@ -177,27 +205,35 @@ def start(root):
                 tab_texts,
             )
             if s > best_score:
-                best = (win, nb); best_score = s
+                best = (win, nb)
+                best_score = s
         if best and best_score > 0:
-            _attach_tab(best[1])
+            _attach_tab(best[1], cfg)
 
         if tries["n"] < 600:  # 5 min
             root.after(500, tick)
+
     root.after(500, tick)
 
-def force_attach_to_focused(root):
+
+def force_attach_to_focused(root, cfg=None):
+    """Attach the profiles tab to the focused notebook, if any."""
     _log_debug("[PROFILES-DBG] injector: force attach (focused)")
     try:
         w = root.focus_get()
     except Exception:
         w = None
-    if not w: return
+    if not w:
+        return
     while True:
-        try: parent_name = w.winfo_parent()
-        except Exception: break
-        if not parent_name: break
+        try:
+            parent_name = w.winfo_parent()
+        except Exception:
+            break
+        if not parent_name:
+            break
         parent = w._nametowidget(parent_name)
         if isinstance(parent, ttk.Notebook):
-            _attach_tab(parent)
+            _attach_tab(parent, cfg)
             return
         w = parent
