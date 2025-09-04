@@ -33,6 +33,7 @@ logs/
 backup_wersji/
 backup/
 bkp/
+backups/
 
 # ---- WM data (keep samples only) ----
 data/**/tmp/
