@@ -738,6 +738,41 @@
       "scope": "global",
       "requires_restart": false,
       "description": "Progi alertów jako procent minimalnego poziomu; można nadpisać w materiale."
+    },
+    {
+      "key": "progi_alertow_surowce",
+      "group": "Magazyn",
+      "label": "Progi alertów dla surowców (%)",
+      "type": "dict",
+      "value_type": "float",
+      "default": {},
+      "widget": "text",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Każda linia: nazwa surowca = próg"
+    },
+    {
+      "key": "czynnosci_technologiczne",
+      "group": "Magazyn",
+      "label": "Czynności technologiczne",
+      "type": "array",
+      "default": [],
+      "widget": "list",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Po jednej czynności w linii"
+    },
+    {
+      "key": "jednostki_miary",
+      "group": "Magazyn",
+      "label": "Jednostki miary",
+      "type": "dict",
+      "value_type": "string",
+      "default": {},
+      "widget": "text",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "skrót jednostki = pełna nazwa"
     }
   ]
 }
