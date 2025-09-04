@@ -12,16 +12,20 @@ from gui_magazyn_bom import MagazynBOM
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
-    _SCHEMA_DESC = {
-        opt["key"]: opt.get("description", "")
-        for opt in json.load(f)["options"]
-    }
+    _SCHEMA_OPTS = json.load(f)["options"]
+    _SCHEMA_DESC = {opt["key"]: opt.get("description", "") for opt in _SCHEMA_OPTS}
+    _SCHEMA_LABEL = {opt["key"]: opt.get("label", "") for opt in _SCHEMA_OPTS}
 
 
 def _create_widget(
     option: dict[str, Any], parent: tk.Widget
-) -> tuple[tk.Widget, tk.Variable]:
-    """Return widget and variable for given schema option."""
+) -> tuple[ttk.Frame, tk.Variable]:
+    """Return a frame containing label, widget and description for the option."""
+
+    frame = ttk.Frame(parent)
+    ttk.Label(frame, text=option.get("label", "")).grid(
+        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
+    )
 
     opt_type = option.get("type")
     widget_type = option.get("widget")
@@ -29,7 +33,7 @@ def _create_widget(
 
     if opt_type == "bool":
         var = tk.BooleanVar(value=default)
-        widget = ttk.Checkbutton(parent, variable=var)
+        widget = ttk.Checkbutton(frame, variable=var)
     elif opt_type in {"int", "float"}:
         if opt_type == "int":
             var: tk.Variable = tk.IntVar(value=default)
@@ -40,19 +44,19 @@ def _create_widget(
             spin_args["from_"] = option["min"]
         if "max" in option:
             spin_args["to"] = option["max"]
-        widget = ttk.Spinbox(parent, textvariable=var, **spin_args)
+        widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
         widget = ttk.Combobox(
-            parent,
+            frame,
             textvariable=var,
             values=option.get("enum", []),
             state="readonly",
         )
     elif opt_type == "path":
         var = tk.StringVar(value=default or "")
-        frame = ttk.Frame(parent)
-        entry = ttk.Entry(frame, textvariable=var)
+        sub = ttk.Frame(frame)
+        entry = ttk.Entry(sub, textvariable=var)
         entry.pack(side="left", fill="x", expand=True)
 
         def browse() -> None:
@@ -60,13 +64,13 @@ def _create_widget(
             if path:
                 var.set(path)
 
-        ttk.Button(frame, text="Przeglądaj", command=browse).pack(
+        ttk.Button(sub, text="Przeglądaj", command=browse).pack(
             side="left", padx=2
         )
-        widget = frame
+        widget = sub
     elif opt_type == "array":
         var = tk.StringVar(value="\n".join(option.get("default", [])))
-        text = tk.Text(parent, height=4)
+        text = tk.Text(frame, height=4)
         text.insert("1.0", var.get())
 
         def update_var(*_args: Any) -> None:
@@ -76,8 +80,8 @@ def _create_widget(
         widget = text
     elif opt_type == "string" and widget_type == "color":
         var = tk.StringVar(value=default or "")
-        frame = ttk.Frame(parent)
-        entry = ttk.Entry(frame, textvariable=var, width=10)
+        sub = ttk.Frame(frame)
+        entry = ttk.Entry(sub, textvariable=var, width=10)
         entry.pack(side="left", fill="x", expand=True)
 
         def pick_color() -> None:
@@ -85,14 +89,24 @@ def _create_widget(
             if color:
                 var.set(color)
 
-        ttk.Button(frame, text="Kolor", command=pick_color).pack(
+        ttk.Button(sub, text="Kolor", command=pick_color).pack(
             side="left", padx=2
         )
-        widget = frame
+        widget = sub
     else:
         var = tk.StringVar(value=default or "")
-        widget = ttk.Entry(parent, textvariable=var)
-    return widget, var
+        widget = ttk.Entry(frame, textvariable=var)
+
+    widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
+
+    desc = option.get("description")
+    if desc:
+        ttk.Label(frame, text=desc, font=("", 8)).grid(
+            row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
+        )
+
+    frame.columnconfigure(1, weight=1)
+    return frame, var
 
 
 class FloatListVar(tk.StringVar):
@@ -185,31 +199,37 @@ class BackupCloudSettings(ttk.Frame):
             ),
         }
 
-        ttk.Label(self, text="WebDAV URL:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.vars["backup.cloud.url"], width=40).grid(
-            row=0, column=1, pady=2, sticky="ew"
-        )
+        rows = [
+            "backup.cloud.url",
+            "backup.cloud.username",
+            "backup.cloud.password",
+            "backup.cloud.folder",
+        ]
 
-        ttk.Label(self, text="Użytkownik:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.vars["backup.cloud.username"], width=40).grid(
-            row=1, column=1, pady=2, sticky="ew"
-        )
-
-        ttk.Label(self, text="Hasło:").grid(row=2, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(
-            self,
-            textvariable=self.vars["backup.cloud.password"],
-            show="*",
-            width=40,
-        ).grid(row=2, column=1, pady=2, sticky="ew")
-
-        ttk.Label(self, text="Folder docelowy:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
-        ttk.Entry(self, textvariable=self.vars["backup.cloud.folder"], width=40).grid(
-            row=3, column=1, pady=2, sticky="ew"
-        )
+        for idx, key in enumerate(rows):
+            row = idx * 2
+            ttk.Label(self, text=_SCHEMA_LABEL.get(key, key)).grid(
+                row=row, column=0, sticky="w", padx=5, pady=(5 if row == 0 else 2, 0)
+            )
+            if key == "backup.cloud.password":
+                ttk.Entry(
+                    self,
+                    textvariable=self.vars[key],
+                    show="*",
+                    width=40,
+                ).grid(row=row, column=1, sticky="ew", padx=5, pady=(5 if row == 0 else 2, 0))
+            else:
+                ttk.Entry(self, textvariable=self.vars[key], width=40).grid(
+                    row=row, column=1, sticky="ew", padx=5, pady=(5 if row == 0 else 2, 0)
+                )
+            ttk.Label(
+                self,
+                text=_SCHEMA_DESC.get(key, ""),
+                font=("", 8),
+            ).grid(row=row + 1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
         ttk.Button(self, text="Zapisz", command=self.save).grid(
-            row=4, column=0, columnspan=2, pady=6
+            row=len(rows) * 2, column=0, columnspan=2, pady=6
         )
 
         self.columnconfigure(1, weight=1)
@@ -250,20 +270,23 @@ class MagazynSettings(ttk.Frame):
             "jednostki_miary": StrDictVar(value=jm_str),
         }
 
+        ttk.Label(
+            self,
+            text=_SCHEMA_LABEL.get("magazyn_rezerwacje", ""),
+        ).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
         ttk.Checkbutton(
             self,
-            text="Włącz rezerwacje",
             variable=self.vars["magazyn_rezerwacje"],
-        ).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
+        ).grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
         ttk.Label(
             self,
             text=_SCHEMA_DESC.get("magazyn_rezerwacje", ""),
             font=("", 8),
         ).grid(row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Miejsca po przecinku:").grid(
-            row=2, column=0, sticky="w", padx=5, pady=5
-        )
+        ttk.Label(
+            self, text=_SCHEMA_LABEL.get("magazyn_precision_mb", "Miejsca po przecinku")
+        ).grid(row=2, column=0, sticky="w", padx=5, pady=5)
         ttk.Spinbox(
             self,
             from_=0,
@@ -277,9 +300,9 @@ class MagazynSettings(ttk.Frame):
             font=("", 8),
         ).grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
-        ttk.Label(self, text="Domyślne progi alertów magazynowych (%):").grid(
-            row=4, column=0, sticky="nw", padx=5, pady=5
-        )
+        ttk.Label(
+            self, text=_SCHEMA_LABEL.get("progi_alertow_pct", "Progi alertów (%)")
+        ).grid(row=4, column=0, sticky="nw", padx=5, pady=5)
         self.progi_text = tk.Text(self, height=4)
         self.progi_text.grid(row=4, column=1, sticky="ew", padx=5, pady=5)
         self.progi_text.insert("1.0", progi_str)
