@@ -10,6 +10,13 @@ import json
 import os
 from datetime import datetime
 from threading import RLock
+import logging
+
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.DEBUG if os.getenv("WM_DEBUG") else logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
 
 from config_manager import ConfigManager
 try:
@@ -60,14 +67,16 @@ except ImportError:  # pragma: no cover - Windows path
 
 try:
     import logger
-    _log_info = getattr(logger, "log_akcja", lambda m: print(f"[INFO] {m}"))
-    _log_mag = getattr(logger, "log_magazyn", lambda a, d: print(f"[MAGAZYN] {a}: {d}"))
+    _log_info = getattr(logger, "log_akcja", lambda m: logging.info(m))
+    _log_mag = getattr(
+        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+    )
 except Exception:
     def _log_info(msg):
-        print(f"[INFO] {msg}")
+        logging.info(msg)
 
     def _log_mag(akcja, dane):
-        print(f"[MAGAZYN] {akcja}: {dane}")
+        logging.info(f"[MAGAZYN] {akcja}: {dane}")
 
 
 _CFG = ConfigManager()
