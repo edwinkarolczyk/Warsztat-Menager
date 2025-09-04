@@ -1,47 +1,22 @@
 {
-  "auto_update_on_start": false,
-  "repo_branch": "main",
-  "remote_name": "origin",
-  "magazyn_rezerwacje": true,
-  "magazyn_precision_mb": 3,
-  "czynnosci_technologiczne": [
-    "Cięcie",
-    "Gwintowanie",
-    "Wiercenie",
-    "Gięcie",
-    "Spawanie",
-    "Malowanie"
+  "szablony_zadan_narzedzia": [
+    "Przegląd wizualny",
+    "Czyszczenie i smarowanie",
+    "Pomiar luzów",
+    "Wymiana elementu roboczego",
+    "Test na prasie"
   ],
-  "progi_alertow_pct": [
-    100
+  "szablony_zadan_narzedzia_stare": [
+    "Przegląd wizualny",
+    "Czyszczenie i smarowanie",
+    "Pomiar luzów",
+    "Wymiana elementu roboczego",
+    "Test na prasie"
   ],
-  "jednostki_miary": {
-    "szt": "sztuka",
-    "kg": "kilogram",
-    "m": "metr"
-  },
-  "progi_alertow_surowce": {},
-  "zmiana_rano_start": "06:00",
-  "zmiana_rano_end": "14:00",
-  "zmiana_pop_start": "14:00",
-  "zmiana_pop_end": "22:00",
-  "rotacja_anchor_monday": "2025-01-06",
-  "updates": {
-    "push_branch": "git-push"
-  },
-  "warn_on_unsaved": true,
-  "autosave_draft": false,
-  "autosave_draft_interval_sec": 15,
-  "hala": {
-    "show_grid": true,
-    "grid_step": 4,
-    "backgrounds": [],
-    "workshop_start": [
-      0,
-      0
-    ],
-    "anim_interval_ms": 16,
-    "drag_snap_px": 4,
-    "triple_confirm_delete": false
-  }
+  "typy_narzedzi": [
+    "Tłoczące",
+    "Wykrawające",
+    "Postępowe",
+    "Giętarka"
+  ]
 }
