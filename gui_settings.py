@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+from typing import Any
+from tkinter import colorchooser, filedialog, ttk
 
 from config_manager import ConfigManager
 from ui_theme import apply_theme_safe as apply_theme
@@ -11,7 +12,87 @@ from gui_magazyn_bom import MagazynBOM
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
-    _SCHEMA_DESC = {opt["key"]: opt.get("description", "") for opt in json.load(f)["options"]}
+    _SCHEMA_DESC = {
+        opt["key"]: opt.get("description", "")
+        for opt in json.load(f)["options"]
+    }
+
+
+def _create_widget(
+    option: dict[str, Any], parent: tk.Widget
+) -> tuple[tk.Widget, tk.Variable]:
+    """Return widget and variable for given schema option."""
+
+    opt_type = option.get("type")
+    widget_type = option.get("widget")
+    default = option.get("default")
+
+    if opt_type == "bool":
+        var = tk.BooleanVar(value=default)
+        widget = ttk.Checkbutton(parent, variable=var)
+    elif opt_type in {"int", "float"}:
+        if opt_type == "int":
+            var: tk.Variable = tk.IntVar(value=default)
+        else:
+            var = tk.DoubleVar(value=default)
+        spin_args: dict[str, Any] = {}
+        if "min" in option:
+            spin_args["from_"] = option["min"]
+        if "max" in option:
+            spin_args["to"] = option["max"]
+        widget = ttk.Spinbox(parent, textvariable=var, **spin_args)
+    elif opt_type == "enum":
+        var = tk.StringVar(value=default)
+        widget = ttk.Combobox(
+            parent,
+            textvariable=var,
+            values=option.get("enum", []),
+            state="readonly",
+        )
+    elif opt_type == "path":
+        var = tk.StringVar(value=default or "")
+        frame = ttk.Frame(parent)
+        entry = ttk.Entry(frame, textvariable=var)
+        entry.pack(side="left", fill="x", expand=True)
+
+        def browse() -> None:
+            path = filedialog.askopenfilename()
+            if path:
+                var.set(path)
+
+        ttk.Button(frame, text="Przeglądaj", command=browse).pack(
+            side="left", padx=2
+        )
+        widget = frame
+    elif opt_type == "array":
+        var = tk.StringVar(value="\n".join(option.get("default", [])))
+        text = tk.Text(parent, height=4)
+        text.insert("1.0", var.get())
+
+        def update_var(*_args: Any) -> None:
+            var.set(text.get("1.0", "end").strip())
+
+        text.bind("<KeyRelease>", update_var)
+        widget = text
+    elif opt_type == "string" and widget_type == "color":
+        var = tk.StringVar(value=default or "")
+        frame = ttk.Frame(parent)
+        entry = ttk.Entry(frame, textvariable=var, width=10)
+        entry.pack(side="left", fill="x", expand=True)
+
+        def pick_color() -> None:
+            color = colorchooser.askcolor(var.get())[1]
+            if color:
+                var.set(color)
+
+        ttk.Button(frame, text="Kolor", command=pick_color).pack(
+            side="left", padx=2
+        )
+        widget = frame
+    else:
+        var = tk.StringVar(value=default or "")
+        widget = ttk.Entry(parent, textvariable=var)
+    return widget, var
 
 
 class BackupCloudSettings(ttk.Frame):
