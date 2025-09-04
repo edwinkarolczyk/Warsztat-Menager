@@ -20,8 +20,11 @@ _SETTINGS_TITLE_KEYS = ("ustaw", "konfig", "settings")
 _SETTINGS_TAB_KEYS = ("Ogólne","Motyw","Aktualizacje","Magazyn","Użytkownicy","Sieć","Baza","Backup","Logi")
 
 def _get_title(win):
-    try: return (win.title() or "").lower()
-    except Exception: return ""
+    try:
+        return (win.title() or "").lower()
+    except tk.TclError:
+        logger.exception("Unable to get window title")
+        return ""
 
 def _iter_all_windows(root):
     yield root
@@ -51,8 +54,8 @@ def _nb_has_settings_like_tabs(nb):
         for k in _SETTINGS_TAB_KEYS:
             if any(isinstance(s, str) and k.lower() in s.lower() for s in labels):
                 return True
-    except Exception:
-        pass
+    except tk.TclError:
+        logger.exception("Failed to inspect notebook tabs")
     return False
 
 def _attach_tab(nb):
@@ -61,8 +64,8 @@ def _attach_tab(nb):
             if nb.tab(t, "text") == "Profile użytkowników":
                 _log_debug("[PROFILES-DBG] injector: tab already present")
                 return True
-    except Exception:
-        pass
+    except tk.TclError:
+        logger.exception("Failed to check existing tabs")
 
     tab = ttk.Frame(nb, style="WM.Card.TFrame")
     nb.add(tab, text="Profile użytkowników")
@@ -168,8 +171,11 @@ def start(root):
         for win, nb in cands:
             s = _candidate_score(win, nb)
             t = _get_title(win)
-            try: tab_texts = [nb.tab(ti, 'text') for ti in nb.tabs()]
-            except Exception: tab_texts = []
+            try:
+                tab_texts = [nb.tab(ti, "text") for ti in nb.tabs()]
+            except tk.TclError:
+                logger.exception("Failed to read notebook tabs")
+                tab_texts = []
             _log_debug(
                 "[PROFILES-DBG] injector:  cand score=%s title='%s' tabs=%s",
                 s,
@@ -189,13 +195,19 @@ def force_attach_to_focused(root):
     _log_debug("[PROFILES-DBG] injector: force attach (focused)")
     try:
         w = root.focus_get()
-    except Exception:
+    except tk.TclError:
+        logger.exception("Failed to get focused widget")
         w = None
-    if not w: return
+    if not w:
+        return
     while True:
-        try: parent_name = w.winfo_parent()
-        except Exception: break
-        if not parent_name: break
+        try:
+            parent_name = w.winfo_parent()
+        except tk.TclError:
+            logger.exception("Failed to get parent widget")
+            break
+        if not parent_name:
+            break
         parent = w._nametowidget(parent_name)
         if isinstance(parent, ttk.Notebook):
             _attach_tab(parent)
