@@ -34,6 +34,9 @@ from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 import logger
+import logging
+
+LOG = logging.getLogger(__name__)
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH = cfg_path("config.json")
@@ -84,12 +87,12 @@ def _load_config():
             _CFG_CACHE = json.load(f)
         CONFIG_MTIME = mtime
         return _CFG_CACHE
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         logger.log_akcja(f"Błąd wczytywania {CONFIG_PATH}: {e}")
         error_dialogs.show_error_dialog("Config", f"Błąd wczytywania {CONFIG_PATH}: {e}")
         return _CFG_CACHE or {}
 
-def _save_config(cfg: dict):
+def _save_config(cfg: dict) -> bool:
     global _CFG_CACHE, CONFIG_MTIME
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -97,35 +100,37 @@ def _save_config(cfg: dict):
         _CFG_CACHE = cfg
         try:
             CONFIG_MTIME = os.path.getmtime(CONFIG_PATH)
-        except OSError:
+        except (OSError, AttributeError):
             CONFIG_MTIME = None
-    except Exception as e:
+        return True
+    except (OSError, TypeError, ValueError) as e:
         logger.log_akcja(f"Błąd zapisu {CONFIG_PATH}: {e}")
         error_dialogs.show_error_dialog("Config", f"Błąd zapisu {CONFIG_PATH}: {e}")
+        return False
 
 DEBUG = bool(os.environ.get("WM_DEBUG") or _load_config().get("tryb_testowy"))
 
 def _dbg(*args):
     if DEBUG:
-        try:
-            print("[narzedzia]", *args, flush=True)
-        except Exception:
-            pass
+        LOG.debug("[narzedzia] %s", " ".join(str(a) for a in args))
 
 def _maybe_seed_config_templates():
     try:
         cfg = _load_config()
         changed = False
         if "szablony_zadan_narzedzia" not in cfg:
-            cfg["szablony_zadan_narzedzia"] = TASK_TEMPLATES_DEFAULT[:]; changed = True
+            cfg["szablony_zadan_narzedzia"] = TASK_TEMPLATES_DEFAULT[:]
+            changed = True
         if "szablony_zadan_narzedzia_stare" not in cfg:
-            cfg["szablony_zadan_narzedzia_stare"] = STARE_CONVERT_TEMPLATES_DEFAULT[:]; changed = True
+            cfg["szablony_zadan_narzedzia_stare"] = STARE_CONVERT_TEMPLATES_DEFAULT[:]
+            changed = True
         if "typy_narzedzi" not in cfg:
-            cfg["typy_narzedzi"] = TYPY_NARZEDZI_DEFAULT[:]; changed = True
+            cfg["typy_narzedzi"] = TYPY_NARZEDZI_DEFAULT[:]
+            changed = True
         if changed:
             _save_config(cfg)
             _dbg("Dosiano brakujące klucze (szablony/typy) w config.json")
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, TypeError) as e:
         _dbg("Błąd seedowania config:", e)
 
 def _clean_list(lst):
@@ -143,7 +148,7 @@ def _task_templates_from_config():
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
         return lst or TASK_TEMPLATES_DEFAULT
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError):
         return TASK_TEMPLATES_DEFAULT
 
 def _stare_convert_templates_from_config():
@@ -151,7 +156,7 @@ def _stare_convert_templates_from_config():
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
         return lst or STARE_CONVERT_TEMPLATES_DEFAULT
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError):
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
 def _types_from_config():
@@ -159,7 +164,7 @@ def _types_from_config():
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
         return lst or TYPY_NARZEDZI_DEFAULT
-    except Exception:
+    except (OSError, json.JSONDecodeError, TypeError):
         return TYPY_NARZEDZI_DEFAULT
 
 def _append_type_to_config(new_type: str) -> bool:
@@ -236,12 +241,13 @@ def _tasks_for_type(typ: str, phase: str):
         if not entry:
             for k in typy.keys():
                 if str(k).strip().lower() == str(typ).strip().lower():
-                    entry = typy[k]; break
+                    entry = typy[k]
+                    break
         if entry:
             out = _clean_list(entry.get(phase))
             if out:
                 return out
-    except Exception as e:
+    except (AttributeError, KeyError, TypeError) as e:
         _dbg("Błąd odczytu narzedzia.typy:", e)
 
     if phase == "produkcja":
@@ -286,10 +292,10 @@ def _generate_dxf_preview(dxf_path: str) -> str | None:
             with Image.open(png_path) as img:
                 img.thumbnail((600, 800))
                 img.save(png_path)
-        except Exception:  # pragma: no cover - Pillow best effort
+        except OSError:  # pragma: no cover - Pillow best effort
             pass
         return png_path
-    except Exception as e:  # pragma: no cover - best effort
+    except (OSError, ImportError, ValueError, RuntimeError) as e:  # pragma: no cover - best effort
         _dbg("Błąd generowania miniatury DXF:", e)
         return None
 
@@ -356,7 +362,7 @@ def _read_tool(numer_3):
         data.setdefault("dxf", "")
         data.setdefault("dxf_png", "")
         return data
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         _dbg("Błąd odczytu narzędzia", p, e)
         return None
 
@@ -411,7 +417,7 @@ def _iter_folder_items():
                 "dxf": d.get("dxf", ""),
                 "dxf_png": d.get("dxf_png", ""),
             })
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, TypeError) as e:
             _dbg("Błąd wczytania pliku:", path, e)
     return items
 
@@ -438,7 +444,7 @@ def _iter_legacy_json_items():
     try:
         with open(picked, "r", encoding="utf-8") as f:
             data = json.load(f)
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         _dbg("Błąd odczytu legacy:", picked, e)
         return items
 
@@ -482,7 +488,7 @@ def _iter_legacy_json_items():
                 "dxf": d.get("dxf", ""),
                 "dxf_png": d.get("dxf_png", ""),
             })
-        except Exception as e:
+        except (KeyError, TypeError) as e:
             _dbg("Błąd parsowania pozycji legacy:", e)
     return items
 
@@ -510,7 +516,7 @@ def _load_all_tools():
 def _bar_text(percent):
     try:
         p = int(percent)
-    except Exception:
+    except (TypeError, ValueError):
         p = 0
     p = max(0, min(100, p))
     filled = p // 10
@@ -520,7 +526,7 @@ def _bar_text(percent):
 def _band_tag(percent):
     try:
         p = int(percent)
-    except Exception:
+    except (TypeError, ValueError):
         p = 0
     p = max(0, min(100, p))
     if p == 0: return "p0"
@@ -645,7 +651,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         if editing:
             try:
                 tool_mode = tool.get("tryb") or ("NOWE" if int(str(tool.get("nr","000"))) < 500 else "STARE")
-            except Exception:
+            except (TypeError, ValueError):
                 tool_mode = "NOWE"
         else:
             tool_mode = mode or "NOWE"
@@ -764,7 +770,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     cb_ty.config(values=_types_from_config())
                 else:
                     messagebox.showinfo("Typ", f"'{val}' już jest na liście.")
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 messagebox.showwarning("Typ", f"Nie udało się dopisać typu: {e}")
         ttk.Button(typ_frame, text="➕ do listy", style="WM.Side.TButton", command=_add_type).pack(side="left", padx=6)
         row("Typ", typ_frame)
@@ -814,7 +820,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 rel = os.path.relpath(dest, _resolve_tools_dir())
                 var_img.set(rel)
                 img_lbl.config(text=os.path.basename(dest))
-            except Exception as e:
+            except (OSError, shutil.Error) as e:
                 _dbg("Błąd kopiowania obrazu:", e)
 
         def select_dxf():
@@ -833,7 +839,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 if png:
                     rel_png = os.path.relpath(png, _resolve_tools_dir())
                     var_dxf_png.set(rel_png)
-            except Exception as e:
+            except (OSError, shutil.Error) as e:
                 _dbg("Błąd kopiowania DXF:", e)
 
         def preview_media():
@@ -852,7 +858,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                                 subprocess.run(["open", full], check=False)
                             else:
                                 subprocess.run(["xdg-open", full], check=False)
-                        except Exception as e:
+                        except (OSError, subprocess.SubprocessError) as e:
                             messagebox.showwarning("Podgląd", f"Nie udało się otworzyć pliku: {e}")
                         return
             messagebox.showinfo("Podgląd", "Brak pliku do podglądu.")
@@ -893,7 +899,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 try:
                     chk.state(["disabled"])
                     cb_conv.state(["disabled"])
-                except Exception:
+                except tk.TclError:
                     pass
                 ttk.Label(conv_frame, text=" (wymaga roli brygadzisty)", style="WM.Muted.TLabel").pack(side="left", padx=(6,0))
             row("Konwersja NN→SN", conv_frame)
@@ -962,7 +968,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     convert_tasks_var.set("keep")
                     try:
                         cb_conv.current(0)
-                    except Exception:
+                    except tk.TclError:
                         pass
                     now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
                     for t in tasks:
@@ -1042,7 +1048,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(
                             zuzyte
                         )
-                except Exception as _e:
+                except (KeyError, ValueError, RuntimeError) as _e:
                     t["done"] = False
                     t["by"] = ""
                     t["ts_done"] = ""
@@ -1058,7 +1064,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                                 uzytkownik=login or "system",
                             )
                         t["zuzyte_materialy"] = []
-                except Exception as _e:
+                except (KeyError, ValueError, RuntimeError) as _e:
                     t["done"] = True
                     messagebox.showerror("Magazyn", f"Błąd zwrotu: {_e}")
                     return
@@ -1075,7 +1081,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-            except Exception:
+            except (OSError, json.JSONDecodeError):
                 data = []
             changed = False
             for item in data:
