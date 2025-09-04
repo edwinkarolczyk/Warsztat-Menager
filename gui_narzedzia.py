@@ -19,6 +19,8 @@
 import os
 import json
 import shutil
+import subprocess
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
@@ -780,8 +782,24 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         img_frame = ttk.Frame(frm, style="WM.TFrame")
         btn_img = ttk.Button(img_frame, text="Wybierz...", style="WM.Side.TButton")
         btn_img.pack(side="left")
-        img_lbl = ttk.Label(img_frame, text=os.path.basename(var_img.get()) if var_img.get() else "—", style="WM.Muted.TLabel")
+        preview_btn = ttk.Button(img_frame, text="Podgląd", style="WM.Side.TButton")
+        preview_btn.pack(side="left", padx=(6, 0))
+        img_lbl = ttk.Label(
+            img_frame,
+            text=os.path.basename(var_img.get()) if var_img.get() else "—",
+            style="WM.Muted.TLabel",
+        )
         img_lbl.pack(side="left", padx=6)
+
+        dxf_frame = ttk.Frame(frm, style="WM.TFrame")
+        btn_dxf = ttk.Button(dxf_frame, text="Wybierz...", style="WM.Side.TButton")
+        btn_dxf.pack(side="left")
+        dxf_lbl = ttk.Label(
+            dxf_frame,
+            text=os.path.basename(var_dxf.get()) if var_dxf.get() else "—",
+            style="WM.Muted.TLabel",
+        )
+        dxf_lbl.pack(side="left", padx=6)
 
         def select_img():
             p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg")])
@@ -798,15 +816,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 img_lbl.config(text=os.path.basename(dest))
             except Exception as e:
                 _dbg("Błąd kopiowania obrazu:", e)
-
-        btn_img.config(command=select_img)
-        row("Obraz", img_frame)
-
-        dxf_frame = ttk.Frame(frm, style="WM.TFrame")
-        btn_dxf = ttk.Button(dxf_frame, text="Wybierz...", style="WM.Side.TButton")
-        btn_dxf.pack(side="left")
-        dxf_lbl = ttk.Label(dxf_frame, text=os.path.basename(var_dxf.get()) if var_dxf.get() else "—", style="WM.Muted.TLabel")
-        dxf_lbl.pack(side="left", padx=6)
 
         def select_dxf():
             p = filedialog.askopenfilename(filetypes=[("DXF", "*.dxf")])
@@ -827,7 +836,33 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             except Exception as e:
                 _dbg("Błąd kopiowania DXF:", e)
 
+        def preview_media():
+            path = (var_img.get() or "").strip()
+            dxf_png = (var_dxf_png.get() or "").strip()
+            dxf = (var_dxf.get() or "").strip()
+            base = _resolve_tools_dir()
+            for rel in (path, dxf_png, dxf):
+                if rel:
+                    full = os.path.join(base, rel)
+                    if os.path.exists(full):
+                        try:
+                            if os.name == "nt":
+                                os.startfile(full)  # type: ignore[attr-defined]
+                            elif sys.platform == "darwin":
+                                subprocess.run(["open", full], check=False)
+                            else:
+                                subprocess.run(["xdg-open", full], check=False)
+                        except Exception as e:
+                            messagebox.showwarning("Podgląd", f"Nie udało się otworzyć pliku: {e}")
+                        return
+            messagebox.showinfo("Podgląd", "Brak pliku do podglądu.")
+
+        btn_img.config(command=select_img)
         btn_dxf.config(command=select_dxf)
+        preview_btn.config(command=preview_media)
+        preview_btn.bind("<Return>", lambda e: preview_media())
+
+        row("Obraz", img_frame)
         row("Plik DXF", dxf_frame)
 
         # ===== Konwersja NN→SN (tylko dla NOWE) =====
