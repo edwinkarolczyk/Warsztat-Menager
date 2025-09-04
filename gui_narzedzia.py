@@ -1191,6 +1191,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     _dbg("Init panel_narzedzia – start listy")
     btn_add.configure(command=choose_mode_and_add)
     tree.bind("<Double-1>", on_double)
+    tree.bind("<Return>", on_double)
     search_var.trace_add("write", refresh_list)
     refresh_list()
 
