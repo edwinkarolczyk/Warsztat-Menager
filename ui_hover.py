@@ -156,10 +156,14 @@ def bind_treeview_row_hover(
     tooltip = ImageHoverTooltip(
         tree, image_paths, delay=delay, max_size=max_size
     )
+    def _on_motion(event: tk.Event) -> None:
+        if tree.identify_row(event.y) == row_id:
+            tooltip.show_tooltip()
+        else:
+            tooltip.hide_tooltip()
+
     try:
-        tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip, add="+")
-        tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip, add="+")
+        tree.bind("<Motion>", _on_motion, add="+")
     except TypeError:
-        tree.tag_bind(row_id, "<Enter>", tooltip.show_tooltip)
-        tree.tag_bind(row_id, "<Leave>", tooltip.hide_tooltip)
+        tree.bind("<Motion>", _on_motion)
     return tooltip

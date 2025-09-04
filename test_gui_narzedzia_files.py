@@ -59,6 +59,9 @@ def test_panel_handles_return(monkeypatch):
         def bind(self, seq, func):
             self.bindings[seq] = func
 
+        def identify_row(self, _y):
+            return ""
+
     class DummyVar:
         def __init__(self, value=""):
             self.value = value
