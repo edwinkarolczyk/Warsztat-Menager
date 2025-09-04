@@ -768,7 +768,11 @@
       "label": "Jednostki miary",
       "type": "dict",
       "value_type": "string",
-      "default": {},
+      "default": {
+        "szt": "sztuka",
+        "kg": "kilogram",
+        "m": "metr"
+      },
       "widget": "text",
       "scope": "global",
       "requires_restart": false,
