@@ -81,11 +81,19 @@ class DummyCanvas(DummyWidget):
 
 
 class DummyTree(DummyWidget):
-    def tag_bind(self, item, seq, func):
-        self.bindings[(item, seq)] = func
+    def __init__(self):
+        super().__init__()
+        self._last_y = 0
 
-    def trigger(self, item, seq):
-        self.bindings[(item, seq)](None)
+    def bind(self, seq, func):
+        self.bindings[seq] = func
+
+    def identify_row(self, y):
+        return "row" if y == 1 else ""
+
+    def trigger_motion(self, y):
+        event = types.SimpleNamespace(y=y)
+        self.bindings["<Motion>"](event)
 
 
 def setup_dummy(monkeypatch):
@@ -129,9 +137,9 @@ def test_bind_helpers(monkeypatch):
 
     tree = DummyTree()
     tip_tree = ui_hover.bind_treeview_row_hover(tree, "row", [])
-    tree.trigger("row", "<Enter>")
+    tree.trigger_motion(1)
     assert tip_tree._tooltip is not None
-    tree.trigger("row", "<Leave>")
+    tree.trigger_motion(2)
     assert tip_tree._tooltip is None
 
 
