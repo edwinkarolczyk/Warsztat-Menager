@@ -1,5 +1,6 @@
 # profiles_settings_injector.py
-# Wersja: 0.3 — szerokie wykrywanie Ustawień, logi, skrót Ctrl+Alt+U
+# Injects the "Profile użytkownika" tab into settings windows and
+# logs TclError exceptions during discovery and attachment.
 import logging
 import tkinter as tk
 from tkinter import ttk
