@@ -28,19 +28,22 @@ try:
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
-# ====== LOGGING (lekka wersja zgodna z poprzednimi logami) ======
-def _ts():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# ====== LOGGING ======
 
 def _ensure_log_dir():
     os.makedirs("logi", exist_ok=True)
 
-def _log_path():
-    return os.path.join("logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log")
 
+def _log_path():
+    return os.path.join(
+        "logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log"
+    )
+
+
+DEBUG_MODE = bool(os.getenv("WM_DEBUG"))
 _ensure_log_dir()
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.FileHandler(_log_path(), encoding="utf-8"),
@@ -48,20 +51,17 @@ logging.basicConfig(
     ],
 )
 
-def _log(line):
-    _ensure_log_dir()
-    with open(_log_path(), "a", encoding="utf-8") as f:
-        f.write(line + "\n")
-    print(line, flush=True)
 
 def _info(msg):
-    _log(f"[INFO] {_ts()} {msg}")
+    logging.info(msg)
+
 
 def _error(msg):
-    _log(f"[ERROR] {_ts()} {msg}")
+    logging.error(msg)
+
 
 def _dbg(msg):
-    _log(f"[WM-DBG] {msg}")
+    logging.debug(msg)
 
 SESSION_ID = None
 
@@ -358,9 +358,9 @@ def main():
     SESSION_ID = f"{datetime.now().strftime('%H%M%S')}"
     _info(f"Uzywam Pythona: {sys.executable or sys.version}")
     _info(f"Katalog roboczy: \"{os.getcwd()}\"")
-    _info(f"{_ts()} Start programu Warsztat Menager (start.py 1.1.2)")
-    _info(f"{_ts()} Log file: {_log_path()}")
-    _info(f"{_ts()} === START SESJI: {datetime.now()} | ID={SESSION_ID} ===")
+    _info("Start programu Warsztat Menager (start.py 1.1.2)")
+    _info(f"Log file: {_log_path()}")
+    _info(f"=== START SESJI: {datetime.now()} | ID={SESSION_ID} ===")
 
     updated = auto_update_on_start()
 

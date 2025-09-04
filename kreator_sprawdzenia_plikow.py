@@ -4,6 +4,13 @@
 
 import os
 import hashlib
+import logging
+
+DEBUG_MODE = bool(os.getenv("WM_DEBUG"))
+logging.basicConfig(
+    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
 # Lista wymaganych plików z sumami kontrolnymi SHA256 (mogą być uzupełniane)
 wymagane_pliki = {
@@ -24,21 +31,24 @@ def oblicz_sha256(nazwa):
         return None
 
 def sprawdz():
-    print("\n🛠 Sprawdzanie plików Warsztat Menager...")
+    logging.info("🛠 Sprawdzanie plików Warsztat Menager...")
     brakujace = []
     for plik in wymagane_pliki:
         if not os.path.exists(plik):
-            print(f"❌ Brakuje: {plik}")
+            logging.error("Brakuje: %s", plik)
             brakujace.append(plik)
         else:
-            print(f"✅ Jest: {plik}")
+            logging.info("Jest: %s", plik)
 
     if not brakujace:
-        print("\n✅ Wszystkie wymagane pliki są obecne.")
+        logging.info("Wszystkie wymagane pliki są obecne.")
     else:
-        print("\n⚠️ Uzupełnij brakujące pliki przed uruchomieniem programu.")
+        logging.warning(
+            "Uzupełnij brakujące pliki przed uruchomieniem programu.")
 
-    print("\n(Jeśli chcesz dodać sprawdzanie sum kontrolnych, uzupełnij słownik 'wymagane_pliki')")
+    logging.info(
+        "(Jeśli chcesz dodać sprawdzanie sum kontrolnych, uzupełnij słownik 'wymagane_pliki')"
+    )
 
 if __name__ == "__main__":
     sprawdz()
