@@ -617,17 +617,25 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
     # ===================== POPUP WYBORU TRYBU =====================
     def choose_mode_and_add():
-        dlg = tk.Toplevel(root); dlg.title("Dodaj narzędzie – wybierz tryb")
+        dlg = tk.Toplevel(root)
+        dlg.title("Dodaj narzędzie – wybierz tryb")
         apply_theme(dlg)
-        dlg.bind("<Return>", lambda e: None)
-        frm = ttk.Frame(dlg, padding=10, style="WM.Card.TFrame"); frm.pack(fill="both", expand=True)
+        frm = ttk.Frame(dlg, padding=10, style="WM.Card.TFrame")
+        frm.pack(fill="both", expand=True)
         ttk.Label(frm, text="Jakie narzędzie chcesz dodać?", style="WM.Card.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,6))
         var = tk.StringVar(value="NOWE")
         ttk.Radiobutton(frm, text="Nowe (001–499)", variable=var, value="NOWE").grid(row=1, column=0, sticky="w")
         ttk.Radiobutton(frm, text="Stare/produkcyjne (500–1000)", variable=var, value="STARE").grid(row=2, column=0, sticky="w")
-        btns = ttk.Frame(frm, style="WM.TFrame"); btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8,0))
+        btns = ttk.Frame(frm, style="WM.TFrame")
+        btns.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8,0))
+
+        def _next(_event=None):
+            dlg.destroy()
+            open_tool_dialog(None, var.get())
+
         ttk.Button(btns, text="Anuluj", command=dlg.destroy, style="WM.Side.TButton").pack(side="right", padx=(0,8))
-        ttk.Button(btns, text="Dalej", command=lambda: (dlg.destroy(), open_tool_dialog(None, var.get())), style="WM.Side.TButton").pack(side="right")
+        ttk.Button(btns, text="Dalej", command=_next, style="WM.Side.TButton").pack(side="right")
+        dlg.bind("<Return>", _next)
 
     # ===================== DIALOG DODAWANIA / EDYCJI =====================
     def open_tool_dialog(tool, mode=None):
@@ -672,10 +680,11 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         if not nr_auto:
             nr_auto = ""
 
-        dlg = tk.Toplevel(root); dlg.title(("Edytuj" if editing else "Dodaj") + " – " + tool_mode)
+        dlg = tk.Toplevel(root)
+        dlg.title(("Edytuj" if editing else "Dodaj") + " – " + tool_mode)
         apply_theme(dlg)
-        dlg.bind("<Return>", lambda e: None)
-        nb = ttk.Notebook(dlg, style="TNotebook"); nb.pack(fill="both", expand=True)
+        nb = ttk.Notebook(dlg, style="TNotebook")
+        nb.pack(fill="both", expand=True)
 
         # --- OGÓLNE ---
         frm = ttk.Frame(nb, padding=10, style="WM.Card.TFrame"); nb.add(frm, text="Ogólne")
@@ -1080,7 +1089,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 nxt = _next_free_in_range(max(500, n+1), 1000)
             return nxt or "—"
 
-        def save():
+        def save(_event=None):
             raw = (var_nr.get() or "").strip()
             numer = (f"{int(raw):03d}") if raw.isdigit() else raw.zfill(3)
             if (not numer.isdigit()) or len(numer) != 3:
@@ -1181,6 +1190,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
         ttk.Button(btns, text="Zapisz", command=save, style="WM.Side.TButton").pack(side="right")
         ttk.Button(btns, text="Anuluj", command=dlg.destroy, style="WM.Side.TButton").pack(side="right", padx=(0,8))
+        dlg.bind("<Return>", save)
 
     # ===================== BINDY / START =====================
     def on_double(_=None):
