@@ -4,7 +4,7 @@ import json
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
-from tkinter import colorchooser, filedialog, ttk
+from tkinter import colorchooser, filedialog, messagebox, ttk
 
 from config_manager import ConfigManager
 
@@ -212,6 +212,9 @@ class SettingsPanel(ttk.Frame):
         super().__init__(master)
         self.cfg = ConfigManager()
         self.vars: Dict[str, tk.Variable] = {}
+        self._initial: Dict[str, Any] = {}
+        self._defaults: Dict[str, Any] = {}
+        self._options: Dict[str, dict[str, Any]] = {}
 
         groups: Dict[str, list[dict[str, Any]]] = {}
         for opt in _SCHEMA_OPTS:
@@ -225,14 +228,55 @@ class SettingsPanel(ttk.Frame):
             nb.add(frame, text=group)
             for row, option in enumerate(opts):
                 key = option["key"]
+                self._options[key] = option
+                current = self.cfg.get(key, option.get("default"))
                 opt_copy = dict(option)
-                opt_copy["default"] = self.cfg.get(key, option.get("default"))
+                opt_copy["default"] = current
                 field, var = _create_widget(opt_copy, frame)
                 field.grid(row=row, column=0, sticky="ew")
                 frame.columnconfigure(0, weight=1)
                 self.vars[key] = var
+                self._initial[key] = current
+                self._defaults[key] = option.get("default")
 
-        ttk.Button(self, text="Zapisz", command=self.save).pack(pady=5)
+        btns = ttk.Frame(self)
+        btns.pack(pady=5)
+        ttk.Button(btns, text="Zapisz", command=self.save).pack(side="left", padx=5)
+        ttk.Button(
+            btns,
+            text="Przywróć domyślne",
+            command=self.restore_defaults,
+        ).pack(side="left", padx=5)
+
+        self.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def restore_defaults(self) -> None:
+        for key, var in self.vars.items():
+            opt = self._options[key]
+            default = self._defaults.get(key)
+            opt_type = opt.get("type")
+            widget_type = opt.get("widget")
+            if opt_type == "array":
+                default_list = default or []
+                lines = "\n".join(str(x) for x in default_list)
+                var.set(lines)
+            elif opt_type in {"dict", "object"}:
+                default_dict: Dict[str, Any] = default or {}
+                lines = "\n".join(f"{k} = {v}" for k, v in default_dict.items())
+                var.set(lines)
+            elif opt_type == "string" and widget_type == "color":
+                var.set(default or "")
+            elif opt_type == "path":
+                var.set(default or "")
+            else:
+                var.set(default)
+
+    def on_close(self) -> None:
+        changed = any(var.get() != self._initial[key] for key, var in self.vars.items())
+        if changed:
+            if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?", parent=self):
+                self.save()
+        self.winfo_toplevel().destroy()
 
     def save(self) -> None:
         save_all(self.vars, self.cfg)
