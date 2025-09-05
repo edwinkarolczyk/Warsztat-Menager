@@ -14,8 +14,17 @@ from pathlib import Path
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager, ConfigError
 import ustawienia_uzytkownicy
-from gui_settings_shifts import ShiftsSettingsFrame
 from utils.gui_helpers import clear_frame
+
+try:
+    from gui_settings import ShiftsModesTab
+except Exception:
+    class ShiftsModesTab(ttk.Frame):
+        def __init__(self, parent):
+            super().__init__(parent)
+            ttk.Label(self, text="Panel grafiku – błąd importu").pack(
+                padx=10, pady=10
+            )
 
 # --- import panelu magazynowego ---
 try:
@@ -932,7 +941,7 @@ def panel_ustawien(root, frame, login=None, rola=None):
     # --- Grafiki zmian ---
     tab_sh = _make_frame(group_containers["Hala/Widok"], "WM.Card.TFrame")
     group_containers["Hala/Widok"].add(tab_sh, text="Grafiki zmian")
-    ShiftsSettingsFrame(tab_sh).pack(fill="both", expand=True)
+    ShiftsModesTab(tab_sh).pack(fill="both", expand=True)
 
     # --- Aktualizacje ---
     tab5 = UpdatesUI(group_containers["Zaawansowane"])

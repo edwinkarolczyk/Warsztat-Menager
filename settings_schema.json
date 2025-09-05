@@ -777,6 +777,27 @@
       "scope": "global",
       "requires_restart": false,
       "description": "skrót jednostki = pełna nazwa"
+    },
+    {
+      "key": "rotacja_anchor_monday",
+      "group": "Grafik",
+      "label": "Kotwica poniedziałek (YYYY-MM-DD)",
+      "type": "string",
+      "default": "2025-01-06",
+      "widget": "entry",
+      "scope": "global",
+      "description": "Początek rotacji zmian"
+    },
+    {
+      "key": "shifts.user_modes",
+      "group": "Grafik",
+      "label": "Tryby użytkowników",
+      "type": "dict",
+      "value_type": "string",
+      "default": {},
+      "widget": "hidden",
+      "scope": "global",
+      "description": "ID użytkownika = tryb"
     }
   ]
 }

@@ -1,16 +1,34 @@
 from __future__ import annotations
 
 import json
+import os
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog, ttk
 
 from config_manager import ConfigManager
+from grafiki.shifts_schedule import (
+    TRYBY,
+    _load_users,
+    set_anchor_monday,
+    set_user_mode,
+)
+from utils import error_dialogs
 
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 with SCHEMA_PATH.open(encoding="utf-8") as f:
     _SCHEMA_OPTS = json.load(f)["options"]
+
+MODES_FILE = os.path.join("data", "grafiki", "tryby_userow.json")
+
+
+def _load_modes() -> dict:
+    try:
+        with open(MODES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"anchor_monday": "2025-01-06", "modes": {}}
 
 
 def _create_widget(
@@ -203,12 +221,69 @@ def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) 
     cfg.save_all()
 
 
+class ShiftsModesTab(ttk.Frame):
+    """Table of users with configurable shift modes."""
+
+    def __init__(self, parent: tk.Widget):
+        super().__init__(parent)
+        cols = ("id", "name", "mode")
+        self.tree = ttk.Treeview(
+            self, columns=cols, show="headings", selectmode="browse"
+        )
+        self.tree.heading("id", text="ID")
+        self.tree.heading("name", text="Użytkownik")
+        self.tree.heading("mode", text="Tryb")
+        self.tree.column("id", width=100)
+        self.tree.column("name", width=200)
+        self.tree.column("mode", width=80, anchor="center")
+        self.tree.pack(fill="both", expand=True, padx=8, pady=8)
+
+        btns = ttk.Frame(self)
+        btns.pack(fill="x", pady=5)
+        ttk.Button(btns, text="Odśwież", command=self._populate).pack(
+            side="left", padx=5
+        )
+
+        self.tree.bind("<Double-1>", self._edit_mode)
+        self._populate()
+
+    def _populate(self) -> None:
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        modes = _load_modes().get("modes", {})
+        for u in _load_users():
+            if not u.get("active"):
+                continue
+            mode = modes.get(u["id"], "B")
+            self.tree.insert("", "end", iid=u["id"], values=(u["id"], u["name"], mode))
+
+    def _edit_mode(self, event: tk.Event) -> None:
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return
+        x, y, width, height = self.tree.bbox(item, column="mode")
+        value = self.tree.set(item, "mode")
+        cb = ttk.Combobox(self.tree, values=TRYBY, state="readonly")
+        cb.set(value)
+        cb.place(x=x, y=y, width=width, height=height)
+        cb.focus()
+
+        def _on_select(_: tk.Event) -> None:
+            new_mode = cb.get()
+            set_user_mode(item, new_mode)
+            cb.destroy()
+            self._populate()
+
+        cb.bind("<<ComboboxSelected>>", _on_select)
+        cb.bind("<FocusOut>", lambda _e: cb.destroy())
+
+
 
 
 class SettingsPanel(ttk.Frame):
     """Dynamic panel generated from settings schema."""
 
-    def __init__(self, master: tk.Misc):
+    def __init__(self, master: tk.Misc, initial_tab: str | None = None):
         super().__init__(master)
         self.cfg = ConfigManager()
         self.vars: Dict[str, tk.Variable] = {}
@@ -217,24 +292,46 @@ class SettingsPanel(ttk.Frame):
         for opt in _SCHEMA_OPTS:
             groups.setdefault(opt.get("group", "Inne"), []).append(opt)
 
-        nb = ttk.Notebook(self)
-        nb.pack(fill="both", expand=True)
+        self.nb = ttk.Notebook(self)
+        self.nb.pack(fill="both", expand=True)
+        self._tab_frames: Dict[str, ttk.Frame] = {}
 
         for group, opts in groups.items():
-            frame = ttk.Frame(nb)
-            nb.add(frame, text=group)
-            for row, option in enumerate(opts):
+            frame = ttk.Frame(self.nb)
+            self.nb.add(frame, text=group)
+            self._tab_frames[group] = frame
+            row = 0
+            for option in opts:
+                if option.get("widget") == "hidden":
+                    continue
                 key = option["key"]
                 opt_copy = dict(option)
                 opt_copy["default"] = self.cfg.get(key, option.get("default"))
                 field, var = _create_widget(opt_copy, frame)
                 field.grid(row=row, column=0, sticky="ew")
-                frame.columnconfigure(0, weight=1)
                 self.vars[key] = var
+                row += 1
+            if group == "Grafik":
+                tab = ShiftsModesTab(frame)
+                tab.grid(row=row, column=0, sticky="nsew")
+                frame.rowconfigure(row, weight=1)
+            frame.columnconfigure(0, weight=1)
+
+        if initial_tab:
+            tab = self._tab_frames.get(initial_tab)
+            if tab is not None:
+                self.nb.select(tab)
 
         ttk.Button(self, text="Zapisz", command=self.save).pack(pady=5)
 
     def save(self) -> None:
+        anchor_var = self.vars.get("rotacja_anchor_monday")
+        if anchor_var:
+            try:
+                set_anchor_monday(anchor_var.get())
+            except ValueError as exc:
+                error_dialogs.show_error_dialog("Błąd", str(exc))
+                return
         save_all(self.vars, self.cfg)
 
 
