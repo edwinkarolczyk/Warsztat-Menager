@@ -68,12 +68,14 @@ def _create_widget(
         )
         widget = sub
     elif opt_type == "array":
-        default_list = option.get("default", [])
-        if default_list and all(isinstance(x, (int, float)) for x in default_list):
-            lines = "\n".join(str(x) for x in default_list)
-            var = FloatListVar(value=lines)
+        default_list = option.get("default", []) or []
+        lines = "\n".join(str(x) for x in default_list)
+        item_type = option.get("value_type")
+        if item_type in {"float", "int"} or (
+            default_list and all(isinstance(x, (int, float)) for x in default_list)
+        ):
+            var: tk.StringVar = FloatListVar(value=lines)
         else:
-            lines = "\n".join(str(x) for x in default_list)
             var = StrListVar(value=lines)
         text = tk.Text(frame, height=4)
         text.insert("1.0", lines)
@@ -83,7 +85,7 @@ def _create_widget(
 
         text.bind("<KeyRelease>", update_var)
         widget = text
-    elif opt_type == "dict":
+    elif opt_type in {"dict", "object"}:
         default_dict: Dict[str, Any] = option.get("default", {}) or {}
         lines = "\n".join(f"{k} = {v}" for k, v in default_dict.items())
         if option.get("value_type") == "float":
@@ -196,7 +198,8 @@ def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) 
 
     cfg = cfg or ConfigManager()
     for key, var in options.items():
-        cfg.set(key, var.get())
+        value = var.get()
+        cfg.set(key, value)
     cfg.save_all()
 
 
