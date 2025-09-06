@@ -7,7 +7,7 @@ Funkcje:
 - Walidacja wg settings_schema.json
 - Zapis z backupem i audytem zmian
 - Import/eksport (eksport bez sekretów)
-- Rollback przez katalogi w backup_wersji (utrzymujemy ostatnie 10)
+- Rollback przez pliki config_*.json w backup_wersji (utrzymujemy ostatnie 10)
 """
 
 from __future__ import annotations
