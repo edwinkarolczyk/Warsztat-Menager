@@ -10,7 +10,7 @@ from math import ceil
 logger = logging.getLogger(__name__)
 
 try:
-    from ui_theme import apply_theme
+    from ui_theme import apply_theme_safe as apply_theme
 except ImportError:
     logger.exception("ui_theme import failed")
     apply_theme = lambda _: None
