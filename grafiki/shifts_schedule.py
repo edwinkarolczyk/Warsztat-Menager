@@ -10,6 +10,7 @@ import os
 from datetime import datetime, date, time, timedelta
 from typing import Dict, List, Optional
 
+from config_manager import ConfigManager
 from utils.path_utils import cfg_path
 
 _DEFAULT_PATTERNS = {
@@ -21,8 +22,6 @@ _DEFAULT_PATTERNS = {
     "1212": "1212",
 }
 
-_MODES_FILE = cfg_path(os.path.join("data", "grafiki", "tryby_userow.json"))
-_CONFIG_FILE = cfg_path("config.json")
 _USERS_FILE = cfg_path("uzytkownicy.json")
 
 _USER_DEFAULTS: Dict[str, str] = {}
@@ -41,29 +40,14 @@ def _read_json(path: str) -> dict:
         return {}
 
 
-def _save_json(path: str, data: dict) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-
-def _load_cfg() -> dict:
-    cfg = _read_json(_CONFIG_FILE)
-    print(f"[WM-DBG][SHIFTS] config loaded: {cfg}")
-    return cfg
-
-
 def _load_modes() -> dict:
-    data = _read_json(_MODES_FILE)
-    if not data:
-        data = {
-            "version": "1.0.0",
-            "anchor_monday": "2025-01-06",
-            "patterns": _DEFAULT_PATTERNS.copy(),
-            "modes": {},
-        }
-        _save_json(_MODES_FILE, data)
-    if not data.get("patterns"):
+    cfg = ConfigManager()
+    data = {
+        "anchor_monday": cfg.get("shifts.anchor_monday", "2025-01-06"),
+        "patterns": cfg.get("shifts.patterns", _DEFAULT_PATTERNS.copy()),
+        "modes": cfg.get("shifts.modes", {}),
+    }
+    if not data["patterns"]:
         data["patterns"] = _DEFAULT_PATTERNS.copy()
     return data
 
@@ -81,9 +65,9 @@ TRYBY = list(_available_patterns().keys())
 
 
 def _last_update_date() -> str:
-    """Return the last modification date of the modes file."""
+    """Return the last modification date of the configuration file."""
     try:
-        ts = os.path.getmtime(_MODES_FILE)
+        ts = os.path.getmtime(cfg_path("config.json"))
     except OSError:
         return "-"
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
@@ -93,7 +77,7 @@ def _anchor_monday() -> date:
     modes = _load_modes()
     anchor = modes.get("anchor_monday")
     if not anchor:
-        cfg = _load_cfg()
+        cfg = ConfigManager()
         anchor = cfg.get("rotacja_anchor_monday", "2025-01-06")
     try:
         d = datetime.strptime(anchor, "%Y-%m-%d").date()
@@ -108,7 +92,7 @@ def _parse_time(txt: str) -> time:
 
 
 def _shift_times() -> Dict[str, time]:
-    cfg = _load_cfg()
+    cfg = ConfigManager()
     r_s = cfg.get("zmiana_rano_start", "06:00")
     r_e = cfg.get("zmiana_rano_end", "14:00")
     p_s = cfg.get("zmiana_pop_start", "14:00")
@@ -330,8 +314,11 @@ def set_user_mode(user_id: str, mode: str) -> None:
     if mode not in patterns:
         allowed = ", ".join(sorted(patterns))
         raise ValueError(f"mode must be one of: {allowed}")
-    data.setdefault("modes", {})[user_id] = mode
-    _save_json(_MODES_FILE, data)
+    modes = data.get("modes", {})
+    modes[user_id] = mode
+    cfg = ConfigManager()
+    cfg.set("shifts.modes", modes)
+    cfg.save_all()
     print(f"[WM-DBG][SHIFTS] mode saved: {user_id} -> {mode}")
 
 
@@ -357,9 +344,9 @@ def set_anchor_monday(iso_date: str) -> None:
     if monday > today + timedelta(days=365):
         raise ValueError("anchor date is too far in the future")
 
-    data = _load_modes()
-    data["anchor_monday"] = monday.isoformat()
-    _save_json(_MODES_FILE, data)
+    cfg = ConfigManager()
+    cfg.set("shifts.anchor_monday", monday.isoformat())
+    cfg.save_all()
     print(f"[WM-DBG][SHIFTS] anchor saved: {monday.isoformat()}")
 
 

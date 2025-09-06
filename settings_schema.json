@@ -777,6 +777,48 @@
       "scope": "global",
       "requires_restart": false,
       "description": "skrót jednostki = pełna nazwa"
+    },
+    {
+      "key": "shifts.anchor_monday",
+      "group": "Grafik",
+      "label": "Kotwica poniedziałek (YYYY-MM-DD)",
+      "type": "string",
+      "default": "2025-01-06",
+      "widget": "entry",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Poniedziałek rozpoczynający cykl zmian"
+    },
+    {
+      "key": "shifts.patterns",
+      "group": "Grafik",
+      "label": "Wzorce trybów",
+      "type": "dict",
+      "value_type": "string",
+      "default": {
+        "111": "111",
+        "112": "112",
+        "12": "12",
+        "121": "121",
+        "211": "211",
+        "1212": "1212"
+      },
+      "widget": "text",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "Każda linia: tryb = wzorzec"
+    },
+    {
+      "key": "shifts.modes",
+      "group": "Grafik",
+      "label": "Tryby użytkowników",
+      "type": "dict",
+      "value_type": "string",
+      "default": {},
+      "widget": "text",
+      "scope": "global",
+      "requires_restart": false,
+      "description": "ID użytkownika = tryb"
     }
   ]
 }

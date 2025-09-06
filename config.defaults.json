@@ -73,6 +73,18 @@
   "profiles": {
     "task_default_deadline_days": 7
   },
+  "shifts": {
+    "anchor_monday": "2025-01-06",
+    "patterns": {
+      "111": "111",
+      "112": "112",
+      "12": "12",
+      "121": "121",
+      "211": "211",
+      "1212": "1212"
+    },
+    "modes": {}
+  },
   "magazyn_rezerwacje": true,
   "magazyn_precision_mb": 3,
   "progi_alertow_pct": [
