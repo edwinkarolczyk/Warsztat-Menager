@@ -25,7 +25,7 @@ class SettingsWindow(tk.Toplevel):
 
     # ------------------------------------------------------------------
     def _load_files(self) -> None:
-        """Load configuration schema and current values."""
+        """Load configuration schema."""
 
         print("[WM-DBG][SETTINGS] loading files")
         self.schema = self.cfg.schema
@@ -79,8 +79,9 @@ class SettingsWindow(tk.Toplevel):
 
     # ------------------------------------------------------------------
     def on_restore(self) -> None:
-        """Reload values from configuration and refresh widgets."""
+        """Reload configuration from disk and refresh widget values."""
 
         print("[WM-DBG][SETTINGS] restoring")
+        self.cfg = ConfigManager.refresh()
         for key, var in self.vars.items():
             var.set(self.cfg.get(key, ""))
