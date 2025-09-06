@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-"""Thin wrapper exposing :class:`SettingsPanel` from :mod:`gui_settings`.
+"""Thin wrapper exposing :class:`SettingsPanel` from :mod:`gui_settings_legacy`.
 
 The original module provided a large handcrafted settings UI.  In the
 refactored version the interface is generated dynamically from
-``settings_schema.json`` using :class:`gui_settings.SettingsPanel`.  This
+``settings_schema.json`` using :class:`gui_settings_legacy.SettingsPanel`.  This
 module keeps backward compatible entry points used across the codebase and
 in tests.
 """
@@ -14,7 +14,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from config_manager import ConfigManager
-from gui_settings import SettingsPanel, messagebox
+from gui_settings_legacy import SettingsPanel, messagebox
 from utils.gui_helpers import clear_frame
 
 # Path kept for tests that monkeypatch ``SCHEMA_PATH``.

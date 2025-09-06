@@ -3,7 +3,7 @@ import tkinter as tk
 import pytest
 
 import config_manager as cm
-import gui_settings
+import gui_settings_legacy as gui_settings
 from test_config_manager import make_manager
 
 
