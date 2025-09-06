@@ -114,7 +114,7 @@ class ProduktyBOM(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self):
-        print("[WM-DBG] _build_ui")
+        print(f"[WM-DBG] {self.__class__.__name__}._build_ui")
         self.columnconfigure(1, weight=1)
         self.rowconfigure(1, weight=1)
 
