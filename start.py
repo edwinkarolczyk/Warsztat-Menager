@@ -1,5 +1,8 @@
+# Wersja pliku: 1.5.0
+# Moduł: start
+# ⏹ KONIEC WSTĘPU
+
 # start.py
-# Wersja: 1.1.2
 # Zmiany względem 1.1.1:
 #  - [NOWE] Ładowanie motywu zaraz po utworzeniu root (apply_theme(root))
 #  - [NOWE] Tworzenie pliku data/user/<login>.json po udanym logowaniu (idempotentnie)
@@ -430,3 +433,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ⏹ KONIEC KODU

@@ -1,3 +1,7 @@
+# Wersja pliku: 1.0.0
+# Moduł: ui_theme
+# ⏹ KONIEC WSTĘPU
+
 # =====================================================================
 # ui_theme.py — DOKUMENTACJA (bez zmian logiki)
 # ---------------------------------------------------------------------
@@ -240,3 +244,5 @@ COLORS = {
     "stock_warn": "#d35400",
     "stock_low":  "#c0392b",
 }
+
+# ⏹ KONIEC KODU

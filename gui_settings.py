@@ -1,3 +1,7 @@
+# Wersja pliku: 1.5.0
+# Moduł: gui_settings
+# ⏹ KONIEC WSTĘPU
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -322,3 +326,5 @@ if __name__ == "__main__":
     root.title("Ustawienia")
     SettingsPanel(root)
     root.mainloop()
+
+# ⏹ KONIEC KODU
