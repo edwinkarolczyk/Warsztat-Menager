@@ -305,6 +305,20 @@ class SettingsPanel:
         self._build_ui()
 
 
+class SettingsWindow:
+    """Proste okno ustawień opakowujące :class:`SettingsPanel`."""
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        config_path: str | None = None,
+        schema_path: str | None = None,
+    ) -> None:
+        self.master = master
+        # config_path i schema_path pozostawione dla zgodności API
+        SettingsPanel(master)
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Ustawienia")
