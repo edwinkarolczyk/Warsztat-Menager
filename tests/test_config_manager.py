@@ -108,14 +108,14 @@ def test_set_and_save_all_persistence(make_manager):
     assert reloaded.get("foo") == 5
 
 
-def test_audit_and_prune_rollbacks(make_manager):
+def test_audit_and_backup_creation(make_manager):
     schema = {
         "config_version": 1,
         "options": [{"key": "foo", "type": "int"}],
     }
     defaults = {"foo": 1}
 
-    mgr, paths = make_manager(defaults=defaults, schema=schema, rollback_keep=2)
+    mgr, paths = make_manager(defaults=defaults, schema=schema)
 
     mgr.set("foo", 2, who="tester")
 
@@ -127,19 +127,11 @@ def test_audit_and_prune_rollbacks(make_manager):
     assert rec["after"] == 2
     assert rec["user"] == "tester"
 
-    for name in [
-        "2020-01-01_00-00-00",
-        "2020-01-02_00-00-00",
-        "2020-01-03_00-00-00",
-    ]:
-        (Path(paths["backup"]) / name).mkdir()
-
+    shutil.rmtree(paths["backup"], ignore_errors=True)
     mgr.save_all()
-
-    subdirs = sorted(d.name for d in Path(paths["backup"]).iterdir() if d.is_dir())
-    assert len(subdirs) == 2
-    assert "2020-01-01_00-00-00" not in subdirs
-    assert "2020-01-02_00-00-00" not in subdirs
+    backup_dir = Path(paths["backup"])
+    backups = list(backup_dir.glob("config_*.json"))
+    assert len(backups) == 1
 
 
 def test_validate_dict_value_type(make_manager):

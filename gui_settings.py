@@ -191,18 +191,6 @@ class StrDictVar(tk.StringVar):
         return result
 
 
-def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) -> None:
-    """Persist all options from mapping using ConfigManager."""
-
-    cfg = cfg or ConfigManager()
-    for key, var in options.items():
-        value = var.get()
-        cfg.set(key, value)
-    cfg.save_all()
-
-
-
-
 class SettingsPanel:
     """Dynamic panel generated from :class:`ConfigManager` schema."""
 
@@ -294,7 +282,8 @@ class SettingsPanel:
         self.master.winfo_toplevel().destroy()
 
     def save(self) -> None:
-        save_all(self.vars, self.cfg)
+        for key, var in self.vars.items():
+            self.cfg.set(key, var.get())
         for key, var in self.vars.items():
             self._initial[key] = var.get()
 
@@ -319,6 +308,11 @@ class SettingsWindow(SettingsPanel):
         schema_path: str = "settings_schema.json",
     ) -> None:
         super().__init__(master)
+
+    def save(self) -> None:  # noqa: D401
+        """Zapisuje konfigurację i persystuje ją na dysku."""
+        super().save()
+        self.cfg.save_all()
 
 
 if __name__ == "__main__":

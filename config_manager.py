@@ -11,7 +11,7 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime
+import json, os, datetime
 import logging
 from typing import Any, Dict, List
 
@@ -217,21 +217,14 @@ class ConfigManager:
         self._audit_change(key, before_val=before_val, after_val=value, who=who)
 
     def save_all(self):
-        # backup aktualnych warstw z timestampem
-        stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        bdir = os.path.join(BACKUP_DIR, stamp)
-        os.makedirs(bdir, exist_ok=True)
-        for path in (GLOBAL_PATH, LOCAL_PATH, SECRETS_PATH):
-            if os.path.exists(path):
-                shutil.copy2(path, os.path.join(bdir, os.path.basename(path)))
-        self._prune_rollbacks()
-        # zapis
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(BACKUP_DIR, f"config_{stamp}.json")
         if self.global_cfg is not None:
+            self._save_json(backup_path, self.global_cfg)
             self._save_json(GLOBAL_PATH, self.global_cfg)
-        if self.local_cfg is not None:
-            self._save_json(LOCAL_PATH, self.local_cfg)
-        if self.secrets is not None:
-            self._save_json(SECRETS_PATH, self.secrets)
+        self._prune_rollbacks()
+        print(f"[WM-DBG] {backup_path} {GLOBAL_PATH}")
 
     def export_public(self, path: str):
         """Eksport bez sekretnych kluczy (scope=secret)."""
@@ -275,16 +268,16 @@ class ConfigManager:
 
     def _prune_rollbacks(self):
         try:
-            subdirs = sorted(
+            files = sorted(
                 [
-                    d
-                    for d in os.listdir(BACKUP_DIR)
-                    if os.path.isdir(os.path.join(BACKUP_DIR, d))
+                    f
+                    for f in os.listdir(BACKUP_DIR)
+                    if f.startswith("config_") and f.endswith(".json")
                 ]
             )
-            if len(subdirs) > ROLLBACK_KEEP:
-                for d in subdirs[:-ROLLBACK_KEEP]:
-                    shutil.rmtree(os.path.join(BACKUP_DIR, d), ignore_errors=True)
+            if len(files) > ROLLBACK_KEEP:
+                for f in files[:-ROLLBACK_KEEP]:
+                    os.remove(os.path.join(BACKUP_DIR, f))
         except FileNotFoundError:
             pass
 
