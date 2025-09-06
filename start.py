@@ -14,10 +14,11 @@ import traceback
 from datetime import datetime, timedelta
 import logging
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme
+from gui_settings import SettingsWindow
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
 import updater
@@ -313,6 +314,19 @@ def _open_main_panel(root, ctx):
     except Exception:
         traceback.print_exc()
         _error("Błąd uruchamiania panelu.")
+
+
+def open_settings_window(root):
+    print("[WM-DBG] open_settings_window()")
+    win = Toplevel(root)
+    win.title("Ustawienia – Warsztat Menager")
+    win.geometry("1000x680")
+    apply_theme(win)
+    SettingsWindow(
+        win,
+        config_path="config.json",
+        schema_path="settings_schema.json",
+    )
 
 # ====== TUTORIAL ======
 def _show_tutorial_if_first_run(root):

@@ -305,6 +305,18 @@ class SettingsPanel:
         self._build_ui()
 
 
+class SettingsWindow(SettingsPanel):
+    """Okno ustawień oparte na :class:`SettingsPanel`."""
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        config_path: str = "config.json",
+        schema_path: str = "settings_schema.json",
+    ) -> None:
+        super().__init__(master)
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Ustawienia")
