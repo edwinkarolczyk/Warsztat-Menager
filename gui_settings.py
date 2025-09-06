@@ -1,312 +1,226 @@
+"""Okno ustawień aplikacji."""
+
+# Wersja pliku: 1.5.0
+# Zmiany: Dodano klasę SettingsWindow – ekran ustawień
+# ⏹ KONIEC WSTĘPU
+
 from __future__ import annotations
 
+import json
+from datetime import datetime
+from pathlib import Path
 import tkinter as tk
-from typing import Any, Dict
-from tkinter import colorchooser, filedialog, messagebox, ttk
-
-from config_manager import ConfigManager
+from tkinter import filedialog, messagebox, ttk
 
 
-def _create_widget(
-    option: dict[str, Any], parent: tk.Widget
-) -> tuple[ttk.Frame, tk.Variable]:
-    """Return a frame containing label, widget and description for the option."""
+class SettingsWindow(ttk.Frame):
+    """Proste okno z ustawieniami aplikacji."""
 
-    frame = ttk.Frame(parent)
-    ttk.Label(frame, text=option.get("label", "")).grid(
-        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
-    )
-
-    opt_type = option.get("type")
-    widget_type = option.get("widget")
-    default = option.get("default")
-
-    if opt_type == "bool":
-        var = tk.BooleanVar(value=default)
-        widget = ttk.Checkbutton(frame, variable=var)
-    elif opt_type in {"int", "float"}:
-        if opt_type == "int":
-            var = tk.IntVar(value=default)
-        else:
-            var = tk.DoubleVar(value=default)
-        spin_args: dict[str, Any] = {}
-        if "min" in option:
-            spin_args["from_"] = option["min"]
-        if "max" in option:
-            spin_args["to"] = option["max"]
-        widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
-    elif opt_type == "enum":
-        var = tk.StringVar(value=default)
-        widget = ttk.Combobox(
-            frame,
-            textvariable=var,
-            values=option.get("enum", []),
-            state="readonly",
-        )
-    elif opt_type == "path":
-        var = tk.StringVar(value=default or "")
-        sub = ttk.Frame(frame)
-        entry = ttk.Entry(sub, textvariable=var)
-        entry.pack(side="left", fill="x", expand=True)
-
-        def browse() -> None:
-            if widget_type == "dir":
-                path = filedialog.askdirectory()
-            else:
-                path = filedialog.askopenfilename()
-            if path:
-                var.set(path)
-
-        ttk.Button(sub, text="Przeglądaj", command=browse).pack(
-            side="left", padx=2
-        )
-        widget = sub
-    elif opt_type == "array":
-        default_list = option.get("default", []) or []
-        lines = "\n".join(str(x) for x in default_list)
-        item_type = option.get("value_type")
-        if item_type in {"float", "int"} or (
-            default_list and all(isinstance(x, (int, float)) for x in default_list)
-        ):
-            var: tk.StringVar = FloatListVar(value=lines)
-        else:
-            var = StrListVar(value=lines)
-        text = tk.Text(frame, height=4)
-        text.insert("1.0", lines)
-
-        def update_var(*_args: Any) -> None:
-            var.set(text.get("1.0", "end").strip())
-
-        text.bind("<KeyRelease>", update_var)
-        widget = text
-    elif opt_type in {"dict", "object"}:
-        default_dict: Dict[str, Any] = option.get("default", {}) or {}
-        lines = "\n".join(f"{k} = {v}" for k, v in default_dict.items())
-        if option.get("value_type") == "float":
-            var = FloatDictVar(value=lines)
-        else:
-            var = StrDictVar(value=lines)
-        text = tk.Text(frame, height=4)
-        text.insert("1.0", lines)
-
-        def update_dict(*_args: Any) -> None:
-            var.set(text.get("1.0", "end").strip())
-
-        text.bind("<KeyRelease>", update_dict)
-        widget = text
-    elif opt_type == "string" and widget_type == "color":
-        var = tk.StringVar(value=default or "")
-        sub = ttk.Frame(frame)
-        entry = ttk.Entry(sub, textvariable=var, width=10)
-        entry.pack(side="left", fill="x", expand=True)
-
-        def pick_color() -> None:
-            color = colorchooser.askcolor(var.get())[1]
-            if color:
-                var.set(color)
-
-        ttk.Button(sub, text="Kolor", command=pick_color).pack(
-            side="left", padx=2
-        )
-        widget = sub
-    elif opt_type == "string" and widget_type == "password":
-        var = tk.StringVar(value=default or "")
-        widget = ttk.Entry(frame, textvariable=var, show="*")
-    else:
-        var = tk.StringVar(value=default or "")
-        widget = ttk.Entry(frame, textvariable=var)
-
-    widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
-
-    desc = option.get("description")
-    if desc:
-        ttk.Label(frame, text=desc, font=("", 8)).grid(
-            row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
-        )
-
-    frame.columnconfigure(1, weight=1)
-    return frame, var
-
-
-class FloatListVar(tk.StringVar):
-    """StringVar that parses lines into a list of floats."""
-
-    def get(self) -> list[float]:  # type: ignore[override]
-        vals: list[float] = []
-        for line in super().get().splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                vals.append(float(line))
-            except ValueError:
-                continue
-        return vals
-
-
-class FloatDictVar(tk.StringVar):
-    """StringVar that parses "key = value" lines into a float dictionary."""
-
-    def get(self) -> Dict[str, float]:  # type: ignore[override]
-        result: Dict[str, float] = {}
-        for line in super().get().splitlines():
-            if "=" not in line:
-                continue
-            key, val = line.split("=", 1)
-            key = key.strip()
-            val = val.strip()
-            if not key:
-                continue
-            try:
-                result[key] = float(val)
-            except ValueError:
-                continue
-        return result
-
-
-class StrListVar(tk.StringVar):
-    """StringVar that returns non-empty lines as a list of strings."""
-
-    def get(self) -> list[str]:  # type: ignore[override]
-        return [ln.strip() for ln in super().get().splitlines() if ln.strip()]
-
-
-class StrDictVar(tk.StringVar):
-    """StringVar that parses "key = value" lines into a string dictionary."""
-
-    def get(self) -> Dict[str, str]:  # type: ignore[override]
-        result: Dict[str, str] = {}
-        for line in super().get().splitlines():
-            if "=" not in line:
-                continue
-            key, val = line.split("=", 1)
-            key = key.strip()
-            val = val.strip()
-            if key and val:
-                result[key] = val
-        return result
-
-
-def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) -> None:
-    """Persist all options from mapping using ConfigManager."""
-
-    cfg = cfg or ConfigManager()
-    for key, var in options.items():
-        value = var.get()
-        cfg.set(key, value)
-    cfg.save_all()
-
-
-
-
-class SettingsPanel:
-    """Dynamic panel generated from :class:`ConfigManager` schema."""
-
-    def __init__(self, master: tk.Misc):
-        self.master = master
-        self.cfg = ConfigManager()
-        self.vars: Dict[str, tk.Variable] = {}
-        self._initial: Dict[str, Any] = {}
-        self._defaults: Dict[str, Any] = {}
-        self._options: Dict[str, dict[str, Any]] = {}
+    def __init__(
+        self,
+        parent: tk.Widget,
+        config_path: str = "config.json",
+        schema_path: str = "settings_schema.json",
+    ) -> None:
+        super().__init__(parent)
+        self.parent = parent
+        self.config_path = Path(config_path)
+        self.schema_path = Path(schema_path)
+        self.backup_dir = Path("backup_dir")
+        self._unsaved = False
+        self.warn_on_unsaved = True
+        self._load_files()
         self._build_ui()
+        self._notebook.bind(
+            "<<NotebookTabChanged>>", lambda _e: self._maybe_warn_unsaved()
+        )
+        self.winfo_toplevel().protocol(
+            "WM_DELETE_WINDOW", self._on_close
+        )
+
+    # ------------------------------------------------------------------
+    def _load_files(self) -> None:
+        """Read configuration and schema files."""
+
+        print("[WM-DBG] [SETTINGS] _load_files")
+        with self.config_path.open(encoding="utf-8") as fh:
+            self.config = json.load(fh)
+        with self.schema_path.open(encoding="utf-8") as fh:
+            self.schema = json.load(fh)
 
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
-        """Create notebook tabs and widgets based on current schema."""
+        """Build notebook with configuration widgets."""
 
-        for child in self.master.winfo_children():
+        for child in self.winfo_children():
             child.destroy()
+        self._vars: dict[str, tk.Variable] = {}
 
-        opts = self.cfg.schema.get("options", [])
-        groups: Dict[str, list[dict[str, Any]]] = {}
-        order: list[str] = []
-        for opt in opts:
-            grp = opt.get("group", "Inne")
-            if grp not in groups:
-                groups[grp] = []
-                order.append(grp)
-            groups[grp].append(opt)
+        nb = ttk.Notebook(self)
+        nb.pack(fill="both", expand=True)
+        self._notebook = nb
+        tabs = []
+        for i in range(7):
+            frame = ttk.Frame(nb)
+            nb.add(frame, text=f"Tab {i + 1}")
+            tabs.append(frame)
 
-        self.nb = ttk.Notebook(self.master)
-        self.nb.pack(fill="both", expand=True)
+        groups: dict[str, ttk.LabelFrame] = {}
+        tab_index = 0
+        for opt in self.schema.get("options", []):
+            group = opt.get("group", "Inne")
+            if group not in groups:
+                parent = tabs[tab_index % len(tabs)]
+                lf = ttk.LabelFrame(parent, text=group)
+                lf.pack(fill="x", padx=5, pady=5)
+                groups[group] = lf
+                tab_index += 1
+            self._add_option(groups[group], opt)
 
-        for grp in order:
-            frame = ttk.Frame(self.nb)
-            self.nb.add(frame, text=grp)
-            for row, option in enumerate(groups[grp]):
-                key = option["key"]
-                self._options[key] = option
-                current = self.cfg.get(key, option.get("default"))
-                opt_copy = dict(option)
-                opt_copy["default"] = current
-                field, var = _create_widget(opt_copy, frame)
-                field.grid(row=row, column=0, sticky="ew")
-                frame.columnconfigure(0, weight=1)
-                self.vars[key] = var
-                self._initial[key] = current
-                self._defaults[key] = option.get("default")
+    # ------------------------------------------------------------------
+    def _add_option(self, parent: ttk.LabelFrame, opt: dict) -> None:
+        key = opt.get("key")
+        opt_type = opt.get("type")
+        desc = opt.get("description", "")
 
-        self.btns = ttk.Frame(self.master)
-        self.btns.pack(pady=5)
-        ttk.Button(self.btns, text="Zapisz", command=self.save).pack(
-            side="left", padx=5
+        frame = ttk.Frame(parent)
+        frame.pack(fill="x", padx=5, pady=2)
+        ttk.Label(frame, text=opt.get("label", key)).pack(side="left")
+
+        value = self._get_conf_value(key, opt.get("default"))
+        if opt_type == "bool":
+            var = tk.BooleanVar(value=bool(value))
+            widget = ttk.Checkbutton(
+                frame,
+                variable=var,
+                command=lambda k=key, v=var: self._set_conf_value(k, v.get()),
+            )
+        elif opt_type == "int":
+            var = tk.StringVar(value=str(value))
+            widget = ttk.Entry(frame, textvariable=var)
+
+            def on_int(event, k=key, v=var) -> None:
+                try:
+                    self._set_conf_value(k, int(v.get()))
+                except ValueError:
+                    pass
+
+            widget.bind("<FocusOut>", on_int)
+        elif opt_type == "string" or opt_type == "str":
+            var = tk.StringVar(value=str(value))
+            widget = ttk.Entry(frame, textvariable=var)
+            widget.bind(
+                "<FocusOut>",
+                lambda _e, k=key, v=var: self._set_conf_value(k, v.get()),
+            )
+        elif opt_type in {"list_int", "list_str"}:
+            var = tk.StringVar(value=json.dumps(value))
+            widget = ttk.Entry(frame, textvariable=var)
+
+            def on_list(event, k=key, v=var, t=opt_type) -> None:
+                try:
+                    data = json.loads(v.get() or "[]")
+                    if t == "list_int":
+                        data = [int(x) for x in data]
+                    else:
+                        data = [str(x) for x in data]
+                    self._set_conf_value(k, data)
+                except Exception:
+                    pass
+
+            widget.bind("<FocusOut>", on_list)
+        else:
+            var = tk.StringVar(value=str(value))
+            widget = ttk.Entry(frame, textvariable=var)
+            widget.bind(
+                "<FocusOut>",
+                lambda _e, k=key, v=var: self._set_conf_value(k, v.get()),
+            )
+
+        widget.pack(side="right", fill="x", expand=True)
+        self._vars[key] = var
+        if desc:
+            self._add_tooltip(widget, desc)
+
+    # ------------------------------------------------------------------
+    def _add_tooltip(self, widget: tk.Widget, text: str) -> None:
+        tip: tk.Toplevel | None = None
+
+        def show(_e: tk.Event) -> None:
+            nonlocal tip
+            tip = tk.Toplevel(widget)
+            tip.wm_overrideredirect(True)
+            tip.geometry(
+                f"+{widget.winfo_rootx() + 20}+{widget.winfo_rooty() + 20}"
+            )
+            ttk.Label(tip, text=text, relief="solid", borderwidth=1).pack()
+
+        def hide(_e: tk.Event) -> None:
+            nonlocal tip
+            if tip is not None:
+                tip.destroy()
+                tip = None
+
+        widget.bind("<Enter>", show)
+        widget.bind("<Leave>", hide)
+
+    # ------------------------------------------------------------------
+    def _get_conf_value(self, dotted_key: str, default: object) -> object:
+        cfg = self.config
+        for part in dotted_key.split(".")[:-1]:
+            cfg = cfg.setdefault(part, {})  # type: ignore[assignment]
+        return cfg.get(dotted_key.split(".")[-1], default)
+
+    def _set_conf_value(self, dotted_key: str, value: object) -> None:
+        cfg = self.config
+        parts = dotted_key.split(".")
+        for part in parts[:-1]:
+            cfg = cfg.setdefault(part, {})  # type: ignore[assignment]
+        cfg[parts[-1]] = value  # type: ignore[index]
+        self._unsaved = True
+        print(f"[WM-DBG] [SETTINGS] set {dotted_key}={value}")
+
+    # ------------------------------------------------------------------
+    def _maybe_warn_unsaved(self) -> None:
+        if self.warn_on_unsaved and self._unsaved:
+            if messagebox.askyesno(
+                "Zmiany", "Masz niezapisane zmiany. Zapisać?"
+            ):
+                self.on_save()
+
+    def _on_close(self) -> None:
+        self._maybe_warn_unsaved()
+        self.winfo_toplevel().destroy()
+
+    # ------------------------------------------------------------------
+    def on_save(self) -> None:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        backup_file = self.backup_dir / f"config_{ts}.json"
+        with backup_file.open("w", encoding="utf-8") as fh:
+            json.dump(self.config, fh, indent=2, ensure_ascii=False)
+        with self.config_path.open("w", encoding="utf-8") as fh:
+            json.dump(self.config, fh, indent=2, ensure_ascii=False)
+        self._unsaved = False
+
+    # ------------------------------------------------------------------
+    def on_restore(self) -> None:
+        path = filedialog.askopenfilename(
+            initialdir=self.backup_dir, filetypes=[("JSON", "*.json")]
         )
-        ttk.Button(
-            self.btns, text="Przywróć domyślne", command=self.restore_defaults
-        ).pack(side="left", padx=5)
-        ttk.Button(self.btns, text="Odśwież", command=self.refresh_panel).pack(
-            side="left", padx=5
-        )
-
-        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
-
-    def restore_defaults(self) -> None:
-        for key, var in self.vars.items():
-            opt = self._options[key]
-            default = self._defaults.get(key)
-            opt_type = opt.get("type")
-            widget_type = opt.get("widget")
-            if opt_type == "array":
-                default_list = default or []
-                lines = "\n".join(str(x) for x in default_list)
-                var.set(lines)
-            elif opt_type in {"dict", "object"}:
-                default_dict: Dict[str, Any] = default or {}
-                lines = "\n".join(f"{k} = {v}" for k, v in default_dict.items())
-                var.set(lines)
-            elif opt_type == "string" and widget_type == "color":
-                var.set(default or "")
-            elif opt_type == "path":
-                var.set(default or "")
-            else:
-                var.set(default)
-
-    def on_close(self) -> None:
-        changed = any(var.get() != self._initial[key] for key, var in self.vars.items())
-        if changed:
-            if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?", parent=self.master):
-                self.save()
-        self.master.winfo_toplevel().destroy()
-
-    def save(self) -> None:
-        save_all(self.vars, self.cfg)
-        for key, var in self.vars.items():
-            self._initial[key] = var.get()
-
-    def refresh_panel(self) -> None:
-        """Reload configuration and rebuild widgets."""
-
-        self.cfg = ConfigManager.refresh()
-        self.vars.clear()
-        self._initial.clear()
-        self._defaults.clear()
-        self._options.clear()
+        if not path:
+            return
+        with open(path, encoding="utf-8") as fh:
+            self.config = json.load(fh)
         self._build_ui()
+        messagebox.showinfo(
+            "Przywrócono", "Aby zmiany zadziałały, wymagany jest restart."
+        )
 
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Ustawienia")
-    SettingsPanel(root)
-    root.mainloop()
+# Backwards compatibility alias
+SettingsPanel = SettingsWindow
+
+
+# ⏹ KONIEC KODU
+
