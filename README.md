@@ -34,6 +34,11 @@ Plik `requirements.txt` zawiera minimalny zestaw bibliotek potrzebnych do urucho
 
 > Uwaga: `config.json` nie trafia do repo (jest w `.gitignore`). Komitujemy `config.sample.json` z bezpiecznymi wartościami.
 
+## Ustawienia
+- Okno ustawień otworzysz z menu wybierając **Ustawienia...**.
+- Schemat opcji znajduje się w pliku `settings_schema.json`.
+- Kopie zapasowe `config.json` zapisywane są w katalogu `backup_konf/`.
+
 ## Konfiguracja zmian
 Plik `config.json` obsługuje pola:
 - `zmiana_rano_start` / `zmiana_rano_end`
