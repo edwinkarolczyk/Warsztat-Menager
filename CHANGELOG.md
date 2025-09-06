@@ -8,3 +8,9 @@
 ## 1.1.4 - 2025-08-20
 - [NARZĘDZIA] Dodano obsługę obrazów oraz plików DXF z generowaną
   miniaturą i podglądem na liście.
+
+## 1.5.0
+- Dodano moduł Ustawienia (7 zakładek: System, Użytkownicy, Hala, Narzędzia, Magazyn, Zlecenia, Aktualizacje & Kopie).
+- Opisy i tooltipy w UI; zapisywanie `config.json` z kopią w `backup_konf/`.
+- Ostrzeganie o niezapisanych zmianach; ciemny motyw.
+- Dodane klucze: NN/SN, QR, rezerwacje, BOM, siatka 4 px, punkt startowy, ściany i omijanie.
