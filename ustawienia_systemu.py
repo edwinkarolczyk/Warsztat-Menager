@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-"""Legacy wrapper for the old settings panel.
+"""Compatibility wrapper for the legacy settings panel.
 
-The original module provided a large handcrafted settings UI. In the
-refactored version the interface is generated dynamically from
-``settings_schema.json`` and exposed via :class:`gui_settings.SettingsWindow`.
-This module remains only for backward compatibility with existing imports
-and tests.
+Historic versions exposed a handcrafted settings UI through this module.
+The current implementation builds the interface from
+``settings_schema.json`` and makes it available via
+:class:`gui_settings.SettingsWindow`.
+Import and instantiate ``SettingsWindow`` directly; the helpers in this
+module exist solely for backward compatibility with old imports and
+tests.
 """
 
 from pathlib import Path
