@@ -4,7 +4,7 @@ Wersja: 1.0.1
 
 Funkcje:
 - Ładowanie i scalanie warstw configu
-- Walidacja wg settings_schema.json
+- Walidacja wg settings_schema_legacy.json
 - Zapis z backupem i audytem zmian
 - Import/eksport (eksport bez sekretów)
 - Rollback przez katalogi w backup_wersji (utrzymujemy ostatnie 10)
@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 from utils.path_utils import cfg_path
 
 # Ścieżki domyślne (katalog główny aplikacji)
-SCHEMA_PATH = cfg_path("settings_schema.json")
+SCHEMA_PATH = cfg_path("settings_schema_legacy.json")
 DEFAULTS_PATH = cfg_path("config.defaults.json")
 GLOBAL_PATH = cfg_path("config.json")
 LOCAL_PATH = cfg_path("config.local.json")
