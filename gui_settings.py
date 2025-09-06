@@ -7,6 +7,8 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 from config_manager import ConfigManager
 
 
+__all__ = ["SettingsPanel", "SettingsWindow", "messagebox"]
+
 def _create_widget(
     option: dict[str, Any], parent: tk.Widget
 ) -> tuple[ttk.Frame, tk.Variable]:
@@ -303,6 +305,15 @@ class SettingsPanel:
         self._defaults.clear()
         self._options.clear()
         self._build_ui()
+
+
+class SettingsWindow(tk.Toplevel):
+    """Window exposing :class:`SettingsPanel` as a standalone dialog."""
+
+    def __init__(self, master: tk.Misc | None = None):
+        super().__init__(master)
+        self.title("Ustawienia")
+        SettingsPanel(self)
 
 
 if __name__ == "__main__":
