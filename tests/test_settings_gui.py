@@ -15,8 +15,7 @@ def cfg_env(tmp_path, monkeypatch, make_manager):  # noqa: F811
     with open("config.defaults.json", encoding="utf-8") as f:
         defaults = json.load(f)
     make_manager(defaults=defaults, schema=schema)
-    backup_dir = tmp_path / "backup_konf"
-    backup_dir.mkdir()
+    backup_dir = tmp_path / "backup_wersji"
     monkeypatch.setattr(cm, "BACKUP_DIR", str(backup_dir))
     cm.ConfigManager.refresh()
     return backup_dir
