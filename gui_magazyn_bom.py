@@ -1,8 +1,8 @@
-"""Simple GUI for managing warehouse and BOM data.
+"""Simple GUI for managing warehouse and BOM (Bill of Materials) data.
 
-This module provides three sections (raw materials, semi-finished,
-and products) each displayed in a Treeview with forms for editing.
-Data is persisted in data/magazyn, data/polprodukty, data/produkty.
+This module provides three sections (raw materials, semi-finished and
+products) each displayed in a Treeview with forms for editing. Data is
+persisted in ``data/magazyn/``, ``data/polprodukty/`` and ``data/produkty/``.
 """
 from __future__ import annotations
 
