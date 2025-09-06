@@ -23,6 +23,7 @@ SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
 
 def apply_theme(*_args, **_kwargs) -> None:  # pragma: no cover - stub
     """Compatibility stub for the old theming helper."""
+    print("[WM-DBG] apply_theme")
     pass
 
 
