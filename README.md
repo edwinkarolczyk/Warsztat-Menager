@@ -37,7 +37,7 @@ Plik `requirements.txt` zawiera minimalny zestaw bibliotek potrzebnych do urucho
 ## Ustawienia
 - Okno ustawień otworzysz z menu wybierając **Ustawienia...**.
 - Schemat opcji znajduje się w pliku `settings_schema.json`.
-- Kopie zapasowe `config.json` zapisywane są w katalogu `backup_konf/`.
+- Kopie zapasowe `config.json` zapisywane są w katalogu `backup_wersji/`.
 
 ## Konfiguracja zmian
 Plik `config.json` obsługuje pola:
