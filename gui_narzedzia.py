@@ -84,7 +84,10 @@ def _load_config():
         if _CFG_CACHE is not None and CONFIG_MTIME == mtime:
             return _CFG_CACHE
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            _CFG_CACHE = json.load(f)
+            content = "\n".join(
+                line for line in f if not line.lstrip().startswith("#")
+            )
+            _CFG_CACHE = json.loads(content) if content.strip() else {}
         CONFIG_MTIME = mtime
         return _CFG_CACHE
     except (OSError, json.JSONDecodeError) as e:

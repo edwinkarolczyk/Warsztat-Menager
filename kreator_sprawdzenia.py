@@ -199,7 +199,10 @@ def check_config_min_keys(root):
 
     try:
         with open(p, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+            content = "\n".join(
+                line for line in f if not line.lstrip().startswith("#")
+            )
+            cfg = json.loads(content) if content.strip() else {}
     except Exception as e:
         return [("ERR", "config.json cannot be parsed as JSON"),]
 

@@ -194,7 +194,10 @@ def load_config_hala() -> dict:
 
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
+            content = "\n".join(
+                line for line in fh if not line.lstrip().startswith("#")
+            )
+            data = json.loads(content) if content.strip() else {}
     except Exception as e:  # pragma: no cover - defensive
         _log(f"[HALA][IO] Błąd odczytu {CONFIG_FILE}: {e}")
         return {}
