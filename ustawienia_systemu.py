@@ -1,9 +1,4 @@
-# Plik: ustawienia_systemu.py
-# Wersja pliku: 1.7.0
-# Zmiany 1.7.0:
-# - Grupowanie zakładek ustawień
-# - Opisy pod przełącznikami
-# ⏹ KONIEC KODU
+"""System settings panel and helpers."""
 
 import tkinter as tk
 from tkinter import ttk, messagebox, colorchooser
