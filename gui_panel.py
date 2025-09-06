@@ -15,7 +15,7 @@ import json
 import os
 import re
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import Toplevel, messagebox, ttk
 from datetime import datetime, time, timedelta, timezone
 
 from services.profile_service import get_user, save_user
@@ -23,6 +23,7 @@ from services.profile_service import get_user, save_user
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from start import CONFIG_MANAGER
+from gui_settings import SettingsWindow
 import gui_changelog
 from logger import log_akcja
 
@@ -71,6 +72,17 @@ try:
 except Exception:
     def log_akcja(msg: str):
         print(f"[LOG] {msg}")
+
+
+def open_settings_window(root):
+    print("[WM-DBG] open_settings_window()")
+    win = Toplevel(root)
+    win.title("Ustawienia – Warsztat Menager")
+    win.geometry("1000x680")
+    apply_theme(win)
+    SettingsWindow(
+        win, config_path="config.json", schema_path="settings_schema.json"
+    )
 
 # --- IMPORT ZLECEŃ Z ADAPTEREM ZGODNOŚCI ---
 try:
@@ -677,11 +689,11 @@ def uruchom_panel(root, login, rola):
         btn_users.pack(padx=10, pady=6, fill="x")
         _maybe_mark_button(btn_users)
         try:
-            from ustawienia_systemu import panel_ustawien as _pust
+            from ustawienia_systemu import panel_ustawien as _pust  # noqa: F401
             btn_settings = ttk.Button(
                 side,
                 text="Ustawienia",
-                command=lambda: otworz_panel(_pust, "Ustawienia"),
+                command=lambda: open_settings_window(root),
                 style="WM.Side.TButton",
             )
             btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
