@@ -162,8 +162,13 @@ def bind_treeview_row_hover(
         else:
             tooltip.hide_tooltip()
 
+    def _on_leave(_event: tk.Event | None = None) -> None:
+        tooltip.hide_tooltip()
+
     try:
         tree.bind("<Motion>", _on_motion, add="+")
+        tree.bind("<Leave>", _on_leave, add="+")
     except TypeError:
         tree.bind("<Motion>", _on_motion)
+        tree.bind("<Leave>", _on_leave)
     return tooltip

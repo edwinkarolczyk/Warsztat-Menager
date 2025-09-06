@@ -95,6 +95,9 @@ class DummyTree(DummyWidget):
         event = types.SimpleNamespace(y=y)
         self.bindings["<Motion>"](event)
 
+    def trigger_leave(self):
+        self.bindings["<Leave>"](None)
+
 
 def setup_dummy(monkeypatch):
     dummy_tk = types.SimpleNamespace(
@@ -140,6 +143,10 @@ def test_bind_helpers(monkeypatch):
     tree.trigger_motion(1)
     assert tip_tree._tooltip is not None
     tree.trigger_motion(2)
+    assert tip_tree._tooltip is None
+    tree.trigger_motion(1)
+    assert tip_tree._tooltip is not None
+    tree.trigger_leave()
     assert tip_tree._tooltip is None
 
 
