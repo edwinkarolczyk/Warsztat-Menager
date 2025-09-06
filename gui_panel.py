@@ -22,7 +22,7 @@ from services.profile_service import get_user, save_user
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
-from start import CONFIG_MANAGER
+from start import CONFIG_MANAGER, open_settings_window
 import gui_changelog
 from logger import log_akcja
 
@@ -143,18 +143,6 @@ try:
 except Exception:
     gui_profile = None
 
-try:
-    from ustawienia_systemu import panel_ustawien
-except Exception as e:
-    log_akcja(f"Błąd importu ustawień: {e}")
-
-    def panel_ustawien(root, frame, login=None, rola=None):
-        clear_frame(frame)
-        ttk.Label(
-            frame,
-            text=f"Ustawienia systemu – błąd importu: {e}"
-        ).pack(pady=20)
-
 # --- IMPORT MAGAZYNU ---
 from gui_magazyn import panel_magazyn
 
@@ -249,6 +237,12 @@ def uruchom_panel(root, login, rola):
     actions_menu = tk.Menu(menubar, tearoff=False)
     actions_menu.add_command(label="Usuń znaczniki", command=_clear_markers)
     menubar.add_cascade(label="Akcje", menu=actions_menu)
+    settings_menu = tk.Menu(menubar, tearoff=False)
+    settings_menu.add_command(
+        label="Ustawienia…",
+        command=lambda: open_settings_window(root),
+    )
+    menubar.add_cascade(label="Ustawienia", menu=settings_menu)
     help_menu = tk.Menu(menubar, tearoff=False)
     help_menu.add_command(label="O programie", command=_show_about)
     help_menu.last_modified = {0: datetime(2025, 8, 1, tzinfo=timezone.utc)}
@@ -676,19 +670,15 @@ def uruchom_panel(root, login, rola):
         btn_users.last_modified = datetime(2025, 2, 1, tzinfo=timezone.utc)
         btn_users.pack(padx=10, pady=6, fill="x")
         _maybe_mark_button(btn_users)
-        try:
-            from ustawienia_systemu import panel_ustawien as _pust
-            btn_settings = ttk.Button(
-                side,
-                text="Ustawienia",
-                command=lambda: otworz_panel(_pust, "Ustawienia"),
-                style="WM.Side.TButton",
-            )
-            btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
-            btn_settings.pack(padx=10, pady=6, fill="x")
-            _maybe_mark_button(btn_settings)
-        except Exception:
-            pass
+        btn_settings = ttk.Button(
+            side,
+            text="Ustawienia",
+            command=lambda: open_settings_window(root),
+            style="WM.Side.TButton",
+        )
+        btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        btn_settings.pack(padx=10, pady=6, fill="x")
+        _maybe_mark_button(btn_settings)
     else:
         btn_profile = ttk.Button(
             side,
