@@ -18,5 +18,141 @@
     "Wykrawające",
     "Postępowe",
     "Giętarka"
-  ]
+  ],
+  "ui": {
+    "theme": "dark",
+    "language": "pl",
+    "accent": "red",
+    "always_searchbar": true,
+    "colors": {
+      "dark_bg": "#1b1f24",
+      "dark_bg_2": "#20262e",
+      "side_bg": "#14181d",
+      "card_bg": "#20262e",
+      "fg": "#e6e6e6",
+      "muted_fg": "#9aa0a6",
+      "btn_bg": "#2a3139",
+      "btn_bg_hover": "#343b45",
+      "btn_bg_act": "#3b434e",
+      "banner_fg": "#ff4d4d",
+      "banner_bg": "#1b1b1b"
+    }
+  },
+  "app": {
+    "start_view": "dashboard"
+  },
+  "auth": {
+    "required": true,
+    "session_timeout_min": 30,
+    "pin_length": 4,
+    "pinless_brygadzista": false
+  },
+  "paths": {
+    "maszyny": "data/maszyny.json",
+    "narzedzia": "narzedzia.json",
+    "zlecenia": "zlecenia.json"
+  },
+  "backup": {
+    "folder": "backup_wersji",
+    "cloud": {
+      "url": "",
+      "username": "",
+      "password": "",
+      "folder": ""
+    }
+  },
+  "updates": {
+    "auto": true,
+    "remote": "origin",
+    "branch": "proby-rozwoju",
+    "push_branch": "git-push"
+  },
+  "modules": {
+    "service": {
+      "enabled": true
+    }
+  },
+  "dashboard": {
+    "mini_hall": {
+      "enabled": true
+    }
+  },
+  "hall": {
+    "grid_size_px": 4,
+    "drag_snap_px": 20,
+    "triple_confirm_delete": false
+  },
+  "local": {
+    "fullscreen_on_start": false,
+    "ui_scale": 100
+  },
+  "secrets": {
+    "admin_pin": ""
+  },
+  "sciezka_danych": "data/",
+  "statusy_narzedzi_nowe": [
+    "projekt",
+    "w budowie",
+    "próby narzędzia",
+    "odbiór",
+    "sprawne"
+  ],
+  "statusy_narzedzi_stare": [
+    "sprawne",
+    "do ostrzenia",
+    "w ostrzeniu",
+    "po ostrzeniu",
+    "w naprawie",
+    "uszkodzone",
+    "wycofane"
+  ],
+  "feedback": {
+    "url": ""
+  },
+  "warn_on_unsaved": true,
+  "autosave_draft": false,
+  "autosave_draft_interval_sec": 15,
+  "profiles": {
+    "tab_enabled": true,
+    "show_name_in_header": true,
+    "avatar_dir": "",
+    "fields_visible": [
+      "login",
+      "rola",
+      "zmiana"
+    ],
+    "fields_editable_by_user": [
+      "telefon",
+      "email"
+    ],
+    "allow_pin_change": false,
+    "task_default_deadline_days": 7
+  },
+  "zlecenia": {
+    "edit_roles": []
+  },
+  "magazyn_rezerwacje": true,
+  "magazyn_precision_mb": 3,
+  "progi_alertow_pct": [
+    100
+  ],
+  "progi_alertow_surowce": {},
+  "czynnosci_technologiczne": [],
+  "jednostki_miary": {
+    "szt": "sztuka",
+    "kg": "kilogram",
+    "m": "metr"
+  },
+  "shifts": {
+    "anchor_monday": "2025-01-06",
+    "patterns": {
+      "111": "111",
+      "112": "112",
+      "12": "12",
+      "121": "121",
+      "211": "211",
+      "1212": "1212"
+    },
+    "modes": {}
+  }
 }
