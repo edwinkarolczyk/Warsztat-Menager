@@ -4,7 +4,7 @@ Wersja: 1.0.1
 
 Funkcje:
 - Ładowanie i scalanie warstw configu
-- Walidacja wg settings_schema_legacy.json
+- Walidacja wg pliku SCHEMA_PATH
 - Zapis z backupem i audytem zmian
 - Import/eksport (eksport bez sekretów)
 - Rollback przez katalogi w backup_wersji (utrzymujemy ostatnie 10)
