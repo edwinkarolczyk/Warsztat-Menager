@@ -17,7 +17,7 @@ from config_manager import ConfigManager
 from gui_settings import SettingsPanel, messagebox
 from utils.gui_helpers import clear_frame
 
-# Path kept for tests that monkeypatch ``SCHEMA_PATH``.
+# Ścieżka do legacy schema; testy mogą monkeypatchować ``SCHEMA_PATH``.
 SCHEMA_PATH = Path(__file__).with_name("settings_schema_legacy.json")
 
 
