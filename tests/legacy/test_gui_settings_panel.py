@@ -3,7 +3,11 @@ import tkinter as tk
 import pytest
 
 import config_manager as cm
-import gui_settings
+import gui_settings_legacy as gui_settings
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from test_config_manager import make_manager
 
 

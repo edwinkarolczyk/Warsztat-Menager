@@ -6,6 +6,10 @@ import pytest
 
 import ustawienia_systemu as us
 import config_manager
+import gui_settings_legacy
+
+us.SettingsPanel = gui_settings_legacy.SettingsPanel
+us.messagebox = gui_settings_legacy.messagebox
 
 
 def _desc(cfg, key):

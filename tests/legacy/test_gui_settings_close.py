@@ -4,6 +4,10 @@ from tkinter import ttk
 import pytest
 
 import ustawienia_systemu
+import gui_settings_legacy
+
+ustawienia_systemu.SettingsPanel = gui_settings_legacy.SettingsPanel
+ustawienia_systemu.messagebox = gui_settings_legacy.messagebox
 
 
 def test_settings_window_closes_cleanly(monkeypatch):
