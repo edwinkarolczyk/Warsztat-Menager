@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+
+from config_manager import ConfigManager
 
 
 class SettingsWindow(ttk.Frame):
@@ -43,10 +46,9 @@ class SettingsWindow(ttk.Frame):
         """Read configuration and schema files."""
 
         print("[WM-DBG] [SETTINGS] _load_files")
-        with self.config_path.open(encoding="utf-8") as fh:
-            self.config = json.load(fh)
-        with self.schema_path.open(encoding="utf-8") as fh:
-            self.schema = json.load(fh)
+        cfg = ConfigManager()
+        self.config = copy.deepcopy(cfg.global_cfg or {})
+        self.schema = cfg.schema
 
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
@@ -76,6 +78,7 @@ class SettingsWindow(ttk.Frame):
                 groups[group] = lf
                 tab_index += 1
             self._add_option(groups[group], opt)
+        self.vars = self._vars
 
     # ------------------------------------------------------------------
     def _add_option(self, parent: ttk.LabelFrame, opt: dict) -> None:
@@ -199,9 +202,31 @@ class SettingsWindow(ttk.Frame):
         backup_file = self.backup_dir / f"config_{ts}.json"
         with backup_file.open("w", encoding="utf-8") as fh:
             json.dump(self.config, fh, indent=2, ensure_ascii=False)
-        with self.config_path.open("w", encoding="utf-8") as fh:
-            json.dump(self.config, fh, indent=2, ensure_ascii=False)
+
+        cfg = ConfigManager()
+        cfg.global_cfg = copy.deepcopy(self.config)
+        cfg.merged = cfg._merge_all()
+        cfg._validate_all()
+        cfg.save_all()
         self._unsaved = False
+
+    # ------------------------------------------------------------------
+    def restore_defaults(self) -> None:
+        for opt in self.schema.get("options", []):
+            key = opt.get("key")
+            if not key:
+                continue
+            default = opt.get("default")
+            if key in self._vars:
+                self._vars[key].set(default)
+                self._set_conf_value(key, default)
+
+    def save(self) -> None:
+        self.on_save()
+
+    def refresh_panel(self) -> None:
+        self._load_files()
+        self._build_ui()
 
     # ------------------------------------------------------------------
     def on_restore(self) -> None:
