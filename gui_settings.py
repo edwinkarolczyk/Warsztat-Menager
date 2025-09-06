@@ -122,6 +122,9 @@ def _create_widget(
 
     widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
 
+    if (tip := option.get("tooltip")):
+        _bind_tooltip(widget, tip)
+
     desc = option.get("description")
     if desc:
         ttk.Label(frame, text=desc, font=("", 8)).grid(
@@ -189,6 +192,40 @@ class StrDictVar(tk.StringVar):
             if key and val:
                 result[key] = val
         return result
+
+
+def _bind_tooltip(widget, text: str):
+    import tkinter as tk
+
+    tip = {"w": None}
+
+    def _show(_=None):
+        if tip["w"] or not text:
+            return
+        x = widget.winfo_rootx() + 16
+        y = widget.winfo_rooty() + 20
+        tw = tk.Toplevel(widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        lbl = tk.Label(
+            tw,
+            text=text,
+            bg="#2A2F37",
+            fg="#E8E8E8",
+            bd=1,
+            relief="solid",
+            justify="left",
+        )
+        lbl.pack(ipadx=8, ipady=6)
+        tip["w"] = tw
+
+    def _hide(_=None):
+        if tip["w"]:
+            tip["w"].destroy()
+            tip["w"] = None
+
+    widget.bind("<Enter>", _show, add="+")
+    widget.bind("<Leave>", _hide, add="+")
 
 
 def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) -> None:
