@@ -306,7 +306,11 @@ class SettingsPanel:
 
 
 class SettingsWindow:
-    """Proste okno ustawień opakowujące :class:`SettingsPanel`."""
+    """Proste okno ustawień opakowujące :class:`SettingsPanel`.
+
+    Parametry ``config_path`` i ``schema_path`` są zachowane dla
+    kompatybilności API i obecnie ignorowane.
+    """
 
     def __init__(
         self,
@@ -315,7 +319,6 @@ class SettingsWindow:
         schema_path: str | None = None,
     ) -> None:
         self.master = master
-        # config_path i schema_path pozostawione dla zgodności API
         SettingsPanel(master)
 
 
