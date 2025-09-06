@@ -78,7 +78,7 @@ def test_save_creates_backup(make_manager, tmp_path, monkeypatch):
         {"key": "a", "type": "int", "default": 1, "group": "Tab"}
     ]
     _setup_schema(make_manager, monkeypatch, options)
-    backup_dir = tmp_path / "backup_konf"
+    backup_dir = tmp_path / "backup_wersji"
     monkeypatch.setattr(cm, "BACKUP_DIR", str(backup_dir))
     cm.ConfigManager.refresh()
 
