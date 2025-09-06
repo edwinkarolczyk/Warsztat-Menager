@@ -4,9 +4,9 @@ from __future__ import annotations
 
 The original module provided a large handcrafted settings UI.  In the
 refactored version the interface is generated dynamically from
-``settings_schema.json`` using :class:`gui_settings.SettingsPanel`.  This
-module keeps backward compatible entry points used across the codebase and
-in tests.
+``settings_schema_legacy.json`` using :class:`gui_settings.SettingsPanel`.
+This module keeps backward compatible entry points used across the
+codebase and in tests.
 """
 
 from pathlib import Path
@@ -18,7 +18,7 @@ from gui_settings import SettingsPanel, messagebox
 from utils.gui_helpers import clear_frame
 
 # Path kept for tests that monkeypatch ``SCHEMA_PATH``.
-SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
+SCHEMA_PATH = Path(__file__).with_name("settings_schema_legacy.json")
 
 
 def apply_theme(*_args, **_kwargs) -> None:  # pragma: no cover - stub
