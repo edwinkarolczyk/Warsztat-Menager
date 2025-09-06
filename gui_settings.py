@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import tkinter as tk
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog, messagebox, ttk
@@ -318,6 +320,17 @@ class SettingsWindow(SettingsPanel):
         config_path: str = "config.json",
         schema_path: str = "settings_schema.json",
     ) -> None:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(base_dir, config_path)
+        if not os.path.isabs(schema_path):
+            schema_path = os.path.join(base_dir, schema_path)
+        self.config_path, self.schema_path = config_path, schema_path
+        print(f"[WM-DBG] config_path={self.config_path}")
+        print(f"[WM-DBG] schema_path={self.schema_path}")
+        with open(self.schema_path, "r", encoding="utf-8") as f:
+            self.schema = json.load(f)
+        print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
         super().__init__(master)
 
 
