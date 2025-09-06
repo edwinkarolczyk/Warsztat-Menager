@@ -9,48 +9,30 @@
           "label": "Wygląd",
           "fields": [
             {
-              "key": "theme",
+              "key": "ui.theme",
               "type": "enum",
               "label": "Motyw",
               "help": "Wybierz motyw aplikacji",
-              "tooltip": "light lub dark"
+              "tooltip": "light lub dark",
+              "values": ["light", "dark"]
             },
             {
-              "key": "language",
+              "key": "ui.language",
               "type": "enum",
               "label": "Język interfejsu",
               "help": "Wybierz język interfejsu",
-              "tooltip": "np. pl lub en"
+              "tooltip": "np. pl lub en",
+              "values": ["pl", "en"]
             }
           ]
         }
       ]
     },
-    {
-      "key": "magazyn",
-      "label": "Magazyn",
-      "groups": [
-        {
-          "key": "inventory",
-          "label": "Stany magazynowe",
-          "fields": [
-            {
-              "key": "magazyn_rezerwacje",
-              "type": "bool",
-              "label": "Włącz rezerwacje",
-              "help": "Pozwala rezerwować materiały w magazynie",
-              "tooltip": "Przełącz, aby włączyć rezerwacje"
-            },
-            {
-              "key": "magazyn_precision_mb",
-              "type": "int",
-              "label": "Miejsca po przecinku",
-              "help": "Liczba miejsc po przecinku dla stanów magazynowych",
-              "tooltip": "0–6"
-            }
-          ]
-        }
-      ]
-    }
+    {"id": "uzytkownicy", "title": "Użytkownicy", "groups": []},
+    {"id": "hala", "title": "Hala", "groups": []},
+    {"id": "narzedzia", "title": "Narzędzia", "groups": []},
+    {"id": "magazyn", "title": "Magazyn", "groups": []},
+    {"id": "zlecenia", "title": "Zlecenia", "groups": []},
+    {"id": "aktualizacje_kopie", "title": "Aktualizacje & Kopie", "groups": []}
   ]
 }
