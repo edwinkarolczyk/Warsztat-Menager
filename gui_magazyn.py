@@ -102,7 +102,7 @@ class PanelMagazyn(ttk.Frame):
         self._load()
 
     def _build_ui(self):
-        print("[WM-DBG] _build_ui")
+        print(f"[WM-DBG] {self.__class__.__name__}._build_ui")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
