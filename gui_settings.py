@@ -376,7 +376,7 @@ class SettingsWindow(SettingsPanel):
 
         self.warn_on_unsaved = True
 
-        cm.ConfigManager.refresh()
+        # Use existing ConfigManager instance to avoid breaking cached references
         super().__init__(master)
 
         self.schema = self.cfg.schema

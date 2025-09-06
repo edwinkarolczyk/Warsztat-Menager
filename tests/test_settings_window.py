@@ -94,3 +94,20 @@ def test_save_creates_backup(make_manager, tmp_path, monkeypatch):
     assert subdirs and (subdirs[0] / "config.json").exists()
     root.destroy()
 
+
+def test_settings_window_uses_existing_manager(make_manager, monkeypatch):
+    options = [
+        {"key": "a", "type": "int", "default": 1, "group": "Tab"}
+    ]
+    _setup_schema(make_manager, monkeypatch, options)
+    cfg = cm.ConfigManager()
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+    root.withdraw()
+    gui_settings.SettingsWindow(root)
+    assert cm.ConfigManager() is cfg
+    root.destroy()
+
