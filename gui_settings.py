@@ -1,10 +1,43 @@
+"""GUI helpers for dynamic settings panels."""
+
+# Wersja pliku: 1.0.0
+
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
+import config_manager as cm
 from config_manager import ConfigManager
+
+
+def _bind_tooltip(widget: tk.Widget, text: str) -> None:
+    """Attach a simple tooltip to ``widget`` displaying ``text``."""
+
+    tip: dict[str, tk.Toplevel | None] = {"win": None}
+
+    def show(_event: tk.Event) -> None:
+        if tip["win"] or not text:
+            return
+        win = tk.Toplevel(widget)
+        win.wm_overrideredirect(True)
+        x = widget.winfo_rootx() + 20
+        y = widget.winfo_rooty() + 20
+        win.wm_geometry(f"+{x}+{y}")
+        ttk.Label(win, text=text, relief="solid", borderwidth=1, background="#ffffe0").pack(
+            ipadx=1
+        )
+        tip["win"] = win
+
+    def hide(_event: tk.Event) -> None:
+        if tip["win"] is not None:
+            tip["win"].destroy()
+            tip["win"] = None
+
+    widget.bind("<Enter>", show)
+    widget.bind("<Leave>", hide)
 
 
 def _create_widget(
@@ -209,6 +242,7 @@ class SettingsPanel:
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
+        self._unsaved = False
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -217,6 +251,8 @@ class SettingsPanel:
 
         for child in self.master.winfo_children():
             child.destroy()
+
+        self._unsaved = False
 
         opts = self.cfg.schema.get("options", [])
         groups: Dict[str, list[dict[str, Any]]] = {}
@@ -230,6 +266,7 @@ class SettingsPanel:
 
         self.nb = ttk.Notebook(self.master)
         self.nb.pack(fill="both", expand=True)
+        self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
         for grp in order:
             frame = ttk.Frame(self.nb)
@@ -243,9 +280,13 @@ class SettingsPanel:
                 field, var = _create_widget(opt_copy, frame)
                 field.grid(row=row, column=0, sticky="ew")
                 frame.columnconfigure(0, weight=1)
+                tooltip = option.get("tooltip")
+                if tooltip:
+                    _bind_tooltip(field, tooltip)
                 self.vars[key] = var
                 self._initial[key] = current
                 self._defaults[key] = option.get("default")
+                var.trace_add("write", lambda *_a, self=self: setattr(self, "_unsaved", True))
 
         self.btns = ttk.Frame(self.master)
         self.btns.pack(pady=5)
@@ -293,6 +334,7 @@ class SettingsPanel:
         save_all(self.vars, self.cfg)
         for key, var in self.vars.items():
             self._initial[key] = var.get()
+        self._unsaved = False
 
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
@@ -304,6 +346,10 @@ class SettingsPanel:
         self._options.clear()
         self._build_ui()
 
+    def _on_tab_change(self, *_args: Any) -> None:  # pragma: no cover - stub
+        """Handle tab change event (overridden in subclasses)."""
+        return
+
 
 class SettingsWindow(SettingsPanel):
     """Okno ustawień oparte na :class:`SettingsPanel`."""
@@ -314,7 +360,39 @@ class SettingsWindow(SettingsPanel):
         config_path: str = "config.json",
         schema_path: str = "settings_schema.json",
     ) -> None:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        if not os.path.isabs(config_path):
+            config_path = os.path.join(base_dir, config_path)
+        if not os.path.isabs(schema_path):
+            schema_path = os.path.join(base_dir, schema_path)
+
+        self.config_path = config_path
+        self.schema_path = schema_path
+        print(f"[WM-DBG] config_path={self.config_path}")
+        print(f"[WM-DBG] schema_path={self.schema_path}")
+
+        cm.GLOBAL_PATH = self.config_path
+        cm.SCHEMA_PATH = self.schema_path
+
+        self.warn_on_unsaved = True
+
+        cm.ConfigManager.refresh()
         super().__init__(master)
+
+        self.schema = self.cfg.schema
+        print(
+            f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}"
+        )
+
+    def on_save(self) -> None:
+        self.save()
+
+    def _on_tab_change(self, *_args: Any) -> None:
+        if getattr(self, "warn_on_unsaved", False) and self._unsaved:
+            if messagebox.askyesno(
+                "Zapisz", "Czy zapisać zmiany?", parent=self.master
+            ):
+                self.on_save()
 
 
 if __name__ == "__main__":
