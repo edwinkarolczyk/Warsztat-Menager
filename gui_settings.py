@@ -7,9 +7,11 @@ from __future__ import annotations
 import json
 import os
 import tkinter as tk
+from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
+import config_manager as cm
 from config_manager import ConfigManager
 
 
@@ -252,12 +254,14 @@ class SettingsPanel:
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
+        self._unsaved = False
         self._build_ui()
 
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
         """Create notebook tabs and widgets based on current schema."""
 
+        self._unsaved = False
         for child in self.master.winfo_children():
             child.destroy()
 
@@ -273,6 +277,7 @@ class SettingsPanel:
 
         self.nb = ttk.Notebook(self.master)
         self.nb.pack(fill="both", expand=True)
+        self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
         for grp in order:
             frame = ttk.Frame(self.nb)
@@ -289,6 +294,7 @@ class SettingsPanel:
                 self.vars[key] = var
                 self._initial[key] = current
                 self._defaults[key] = option.get("default")
+                var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
 
         self.btns = ttk.Frame(self.master)
         self.btns.pack(pady=5)
@@ -303,6 +309,16 @@ class SettingsPanel:
         )
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _on_tab_change(self, _=None):
+        if self.cfg.warn_on_unsaved and self._unsaved:
+            from tkinter import messagebox
+            if messagebox.askyesno(
+                "Niezapisane zmiany",
+                "Masz niezapisane zmiany. Zapisać teraz?",
+            ):
+                self.save()
+            self._unsaved = False
 
     def restore_defaults(self) -> None:
         for key, var in self.vars.items():
@@ -333,9 +349,21 @@ class SettingsPanel:
         self.master.winfo_toplevel().destroy()
 
     def save(self) -> None:
-        save_all(self.vars, self.cfg)
         for key, var in self.vars.items():
-            self._initial[key] = var.get()
+            value = var.get()
+            self.cfg.set(key, value)
+            self._initial[key] = value
+        self.cfg.save_all()
+        backup_root = Path(cm.BACKUP_DIR)
+        subdirs = sorted(backup_root.iterdir()) if backup_root.exists() else []
+        if subdirs:
+            backup_file = subdirs[-1] / Path(cm.GLOBAL_PATH).name
+            print(
+                f"[WM-DBG] backup: {backup_file} current: {cm.GLOBAL_PATH}"
+            )
+        else:
+            print(f"[WM-DBG] backup: none current: {cm.GLOBAL_PATH}")
+        self._unsaved = False
 
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
