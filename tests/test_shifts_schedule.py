@@ -2,6 +2,7 @@ import importlib
 from datetime import date, time, timedelta
 
 import grafiki.shifts_schedule as shifts_schedule
+from test_config_manager import make_manager
 
 
 # Helper to avoid reading actual files
@@ -54,21 +55,20 @@ def test_week_matrix_with_saturday(monkeypatch):
     assert saturday["dow"] == "Sat"
 
 
-def test_set_anchor_monday(monkeypatch):
-    modes = {"anchor_monday": "2025-01-06", "patterns": {}, "modes": {}}
-    saved = {}
-
-    def fake_save(path, data):
-        saved.update(data)
-
-    monkeypatch.setattr(shifts_schedule, "_load_modes", lambda: modes)
-    monkeypatch.setattr(shifts_schedule, "_save_json", fake_save)
+def test_set_anchor_monday(monkeypatch, make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [{"key": "shifts.anchor_monday", "type": "string"}],
+    }
+    defaults = {"shifts": {"anchor_monday": "2025-01-06"}}
+    mgr, _ = make_manager(defaults=defaults, schema=schema)
+    monkeypatch.setattr(shifts_schedule, "ConfigManager", lambda: mgr)
 
     assert shifts_schedule._anchor_monday() == date(2025, 1, 6)
     future = date.today() + timedelta(days=14)
     shifts_schedule.set_anchor_monday(future.isoformat())
     expected = future - timedelta(days=future.weekday())
-    assert saved["anchor_monday"] == expected.isoformat()
+    assert mgr.get("shifts.anchor_monday") == expected.isoformat()
     assert shifts_schedule._anchor_monday() == expected
 
 

@@ -1,17 +1,25 @@
-import json
 from grafiki import shifts_schedule
+from test_config_manager import make_manager
 
 
-def test_set_user_mode_overrides_default(tmp_path, monkeypatch):
-    modes_file = tmp_path / "tryby_userow.json"
-    data = {
-        "version": "1.0.0",
-        "anchor_monday": "2025-09-01",
-        "patterns": ["111", "112", "121"],
-        "modes": {},
+def test_set_user_mode_overrides_default(make_manager, monkeypatch):
+    schema = {
+        "config_version": 1,
+        "options": [
+            {"key": "shifts.modes", "type": "dict", "value_type": "string"},
+            {"key": "shifts.patterns", "type": "dict", "value_type": "string"},
+            {"key": "shifts.anchor_monday", "type": "string"},
+        ],
     }
-    modes_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    monkeypatch.setattr(shifts_schedule, "_MODES_FILE", str(modes_file))
+    defaults = {
+        "shifts": {
+            "anchor_monday": "2025-09-01",
+            "patterns": {"111": "111", "112": "112", "121": "121"},
+            "modes": {},
+        }
+    }
+    mgr, _ = make_manager(defaults=defaults, schema=schema)
+    monkeypatch.setattr(shifts_schedule, "ConfigManager", lambda: mgr)
 
     shifts_schedule._USER_DEFAULTS.clear()
     shifts_schedule._load_users()
@@ -19,8 +27,5 @@ def test_set_user_mode_overrides_default(tmp_path, monkeypatch):
 
     shifts_schedule.set_user_mode("dawid", "112")
     assert shifts_schedule._user_mode("dawid") == "112"
-
-    with open(modes_file, encoding="utf-8") as f:
-        saved = json.load(f)
-    assert saved["modes"]["dawid"] == "112"
+    assert mgr.get("shifts.modes")["dawid"] == "112"
 

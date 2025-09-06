@@ -3,13 +3,19 @@ from datetime import date, timedelta
 import pytest
 
 from grafiki import shifts_schedule as ss
+from test_config_manager import make_manager
 
 
 @pytest.fixture(autouse=True)
-def temp_modes_file(monkeypatch, tmp_path):
-    monkeypatch.setattr(ss, "_MODES_FILE", tmp_path / "modes.json")
+def cfg_env(monkeypatch, make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [{"key": "shifts.anchor_monday", "type": "string"}],
+    }
+    defaults = {"shifts": {"anchor_monday": "2025-01-06"}}
+    mgr, _ = make_manager(defaults=defaults, schema=schema)
+    monkeypatch.setattr(ss, "ConfigManager", lambda: mgr)
     yield
-    # nothing
 
 
 def test_set_anchor_monday_invalid_format():
