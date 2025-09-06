@@ -18,5 +18,12 @@
     "Wykrawające",
     "Postępowe",
     "Giętarka"
-  ]
+  ],
+  "warn_on_unsaved": true,
+  "narzedzia": {
+    "qr_actions": []
+  },
+  "hala": {
+    "show_grid": true
+  }
 }
