@@ -210,6 +210,7 @@ def _init_styles(root: tk.Misc | None = None) -> None:
 
 def apply_theme(widget: tk.Misc | None) -> None:
     """Idempotentny motyw ciemny. Ustawia bg TYLKO na Tk/Toplevel."""
+    print("[WM-DBG] apply_theme")
     _init_styles(widget)
     if isinstance(widget, (tk.Tk, tk.Toplevel)):
         try:

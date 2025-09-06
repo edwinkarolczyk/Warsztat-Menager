@@ -214,6 +214,7 @@ class SettingsPanel:
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
         """Create notebook tabs and widgets based on current schema."""
+        print("[WM-DBG] _build_ui")
 
         for child in self.master.winfo_children():
             child.destroy()

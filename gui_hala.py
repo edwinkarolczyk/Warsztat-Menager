@@ -9,6 +9,7 @@ try:
     from ui_theme import apply_theme_safe as apply_theme
 except Exception:  # pragma: no cover - fallback
     def apply_theme(widget):  # type: ignore
+        print("[WM-DBG] apply_theme")
         return None
 
 from widok_hali import HalaController
