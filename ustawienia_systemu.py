@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-# Legacy module replaced by ``SettingsWindow``; kept for backward compatibility.
+# Legacy module replaced by ``SettingsWindow``; kept for backward
+# compatibility.
 
 """Thin wrapper exposing :class:`SettingsPanel` from :mod:`gui_settings`.
 
