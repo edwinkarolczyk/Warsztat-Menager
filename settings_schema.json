@@ -14,7 +14,10 @@
               "label": "Motyw",
               "help": "Wybierz motyw aplikacji",
               "tooltip": "light lub dark",
-              "values": ["light", "dark"]
+              "values": [
+                "light",
+                "dark"
+              ]
             },
             {
               "key": "ui.language",
@@ -22,17 +25,44 @@
               "label": "Język interfejsu",
               "help": "Wybierz język interfejsu",
               "tooltip": "np. pl lub en",
-              "values": ["pl", "en"]
+              "values": [
+                "pl",
+                "en"
+              ]
             }
           ]
         }
       ]
     },
-    {"id": "uzytkownicy", "title": "Użytkownicy", "groups": []},
-    {"id": "hala", "title": "Hala", "groups": []},
-    {"id": "narzedzia", "title": "Narzędzia", "groups": []},
-    {"id": "magazyn", "title": "Magazyn", "groups": []},
-    {"id": "zlecenia", "title": "Zlecenia", "groups": []},
-    {"id": "aktualizacje_kopie", "title": "Aktualizacje & Kopie", "groups": []}
+    {
+      "id": "uzytkownicy",
+      "title": "Użytkownicy",
+      "groups": []
+    },
+    {
+      "id": "hala",
+      "title": "Hala",
+      "groups": []
+    },
+    {
+      "id": "narzedzia",
+      "title": "Narzędzia",
+      "groups": []
+    },
+    {
+      "id": "magazyn",
+      "title": "Magazyn",
+      "groups": []
+    },
+    {
+      "id": "zlecenia",
+      "title": "Zlecenia",
+      "groups": []
+    },
+    {
+      "id": "update",
+      "title": "Aktualizacje & Kopie",
+      "groups": []
+    }
   ]
 }
