@@ -1,3 +1,4 @@
+# Konfiguracja domyślna Warsztat Menager
 {
   "config_version": 1,
   "ui": {
@@ -103,5 +104,19 @@
   "tutorial_completed": false,
   "secrets": {
     "admin_pin": ""
-  }
+  },
+  "szablony_zadan_narzedzia": [
+    "Przegląd wizualny",
+    "Czyszczenie i smarowanie",
+    "Pomiar luzów",
+    "Wymiana elementu roboczego",
+    "Test na prasie"
+  ],
+  "typy_narzedzi": [
+    "Tłoczące",
+    "Wykrawające",
+    "Postępowe",
+    "Giętarka"
+  ]
 }
+# ⏹ KONIEC KODU

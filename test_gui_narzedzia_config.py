@@ -48,8 +48,7 @@ def test_save_config_logs(monkeypatch):
 
 def test_panel_refreshes_after_config_change(monkeypatch, tmp_path):
     cfg_path = tmp_path / "config.json"
-    with open(gui_narzedzia.CONFIG_PATH, encoding="utf-8") as fh:
-        cfg = json.load(fh)
+    cfg = gui_narzedzia._load_config()
     cfg["typy_narzedzi"] = ["Specjalny"]
     cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
     monkeypatch.setattr(gui_narzedzia, "CONFIG_PATH", str(cfg_path))

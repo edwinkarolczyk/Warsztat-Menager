@@ -96,7 +96,10 @@ class ConfigManager:
             if not os.path.exists(path):
                 return None
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                content = "\n".join(
+                    line for line in f if not line.lstrip().startswith("#")
+                )
+            return json.loads(content) if content.strip() else None
         except Exception as e:
             logger.warning("Problem z wczytaniem %s: %s", path, e)
             return None
