@@ -677,16 +677,31 @@ def uruchom_panel(root, login, rola):
         btn_users.pack(padx=10, pady=6, fill="x")
         _maybe_mark_button(btn_users)
         try:
-            from ustawienia_systemu import panel_ustawien as _pust
+            from gui_settings import SettingsWindow
+
             btn_settings = ttk.Button(
                 side,
                 text="Ustawienia",
-                command=lambda: otworz_panel(_pust, "Ustawienia"),
+                command=lambda: SettingsWindow(root),
                 style="WM.Side.TButton",
             )
             btn_settings.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
             btn_settings.pack(padx=10, pady=6, fill="x")
             _maybe_mark_button(btn_settings)
+        except Exception:
+            pass
+        try:
+            from ustawienia_systemu import panel_ustawien as _pust
+
+            btn_settings_old = ttk.Button(
+                side,
+                text="Ustawienia (legacy)",
+                command=lambda: otworz_panel(_pust, "Ustawienia (legacy)"),
+                style="WM.Side.TButton",
+            )
+            btn_settings_old.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
+            btn_settings_old.pack(padx=10, pady=6, fill="x")
+            _maybe_mark_button(btn_settings_old)
         except Exception:
             pass
     else:
