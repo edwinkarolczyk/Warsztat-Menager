@@ -5,8 +5,15 @@ import pytest
 
 import config_manager as cm
 import ustawienia_systemu
+import gui_settings_legacy
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from test_config_manager import make_manager
 
+ustawienia_systemu.SettingsPanel = gui_settings_legacy.SettingsPanel
+ustawienia_systemu.messagebox = gui_settings_legacy.messagebox
 
 def test_settings_single_prompt(make_manager, monkeypatch):
     schema = {
