@@ -18,6 +18,8 @@ from typing import Any, Dict, List
 from utils.path_utils import cfg_path
 
 # Ścieżki domyślne (katalog główny aplikacji)
+# Tymczasowo korzystamy z legacy schema; docelowo zastąpi go
+# ``settings_schema.json`` gdy interfejs będzie gotowy.
 SCHEMA_PATH = cfg_path("settings_schema_legacy.json")
 DEFAULTS_PATH = cfg_path("config.defaults.json")
 GLOBAL_PATH = cfg_path("config.json")
