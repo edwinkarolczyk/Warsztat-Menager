@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import json
 import tkinter as tk
-from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
 from config_manager import ConfigManager
-
-SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
-with SCHEMA_PATH.open(encoding="utf-8") as f:
-    _SCHEMA_OPTS = json.load(f)["options"]
 
 
 def _create_widget(
@@ -205,28 +199,42 @@ def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) 
 
 
 
-class SettingsPanel(ttk.Frame):
-    """Dynamic panel generated from settings schema."""
+class SettingsPanel:
+    """Dynamic panel generated from :class:`ConfigManager` schema."""
 
     def __init__(self, master: tk.Misc):
-        super().__init__(master)
+        self.master = master
         self.cfg = ConfigManager()
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
+        self._build_ui()
 
+    # ------------------------------------------------------------------
+    def _build_ui(self) -> None:
+        """Create notebook tabs and widgets based on current schema."""
+
+        for child in self.master.winfo_children():
+            child.destroy()
+
+        opts = self.cfg.schema.get("options", [])
         groups: Dict[str, list[dict[str, Any]]] = {}
-        for opt in _SCHEMA_OPTS:
-            groups.setdefault(opt.get("group", "Inne"), []).append(opt)
+        order: list[str] = []
+        for opt in opts:
+            grp = opt.get("group", "Inne")
+            if grp not in groups:
+                groups[grp] = []
+                order.append(grp)
+            groups[grp].append(opt)
 
-        nb = ttk.Notebook(self)
-        nb.pack(fill="both", expand=True)
+        self.nb = ttk.Notebook(self.master)
+        self.nb.pack(fill="both", expand=True)
 
-        for group, opts in groups.items():
-            frame = ttk.Frame(nb)
-            nb.add(frame, text=group)
-            for row, option in enumerate(opts):
+        for grp in order:
+            frame = ttk.Frame(self.nb)
+            self.nb.add(frame, text=grp)
+            for row, option in enumerate(groups[grp]):
                 key = option["key"]
                 self._options[key] = option
                 current = self.cfg.get(key, option.get("default"))
@@ -239,16 +247,19 @@ class SettingsPanel(ttk.Frame):
                 self._initial[key] = current
                 self._defaults[key] = option.get("default")
 
-        btns = ttk.Frame(self)
-        btns.pack(pady=5)
-        ttk.Button(btns, text="Zapisz", command=self.save).pack(side="left", padx=5)
+        self.btns = ttk.Frame(self.master)
+        self.btns.pack(pady=5)
+        ttk.Button(self.btns, text="Zapisz", command=self.save).pack(
+            side="left", padx=5
+        )
         ttk.Button(
-            btns,
-            text="Przywróć domyślne",
-            command=self.restore_defaults,
+            self.btns, text="Przywróć domyślne", command=self.restore_defaults
         ).pack(side="left", padx=5)
+        ttk.Button(self.btns, text="Odśwież", command=self.refresh_panel).pack(
+            side="left", padx=5
+        )
 
-        self.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
 
     def restore_defaults(self) -> None:
         for key, var in self.vars.items():
@@ -274,17 +285,28 @@ class SettingsPanel(ttk.Frame):
     def on_close(self) -> None:
         changed = any(var.get() != self._initial[key] for key, var in self.vars.items())
         if changed:
-            if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?", parent=self):
+            if messagebox.askyesno("Zapisz", "Czy zapisać zmiany?", parent=self.master):
                 self.save()
-        self.winfo_toplevel().destroy()
+        self.master.winfo_toplevel().destroy()
 
     def save(self) -> None:
         save_all(self.vars, self.cfg)
+        for key, var in self.vars.items():
+            self._initial[key] = var.get()
+
+    def refresh_panel(self) -> None:
+        """Reload configuration and rebuild widgets."""
+
+        self.cfg = ConfigManager.refresh()
+        self.vars.clear()
+        self._initial.clear()
+        self._defaults.clear()
+        self._options.clear()
+        self._build_ui()
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Ustawienia")
-    panel = SettingsPanel(root)
-    panel.pack(fill="both", expand=True, padx=10, pady=10)
+    SettingsPanel(root)
     root.mainloop()
