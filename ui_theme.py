@@ -1,4 +1,4 @@
-# Wersja pliku: 1.0.0
+# Wersja pliku: 1.5.0
 # Moduł: ui_theme
 # ⏹ KONIEC WSTĘPU
 
