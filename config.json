@@ -54,6 +54,7 @@
   },
   "backup": {
     "folder": "backup_wersji",
+    "keep_last": 10,
     "cloud": {
       "url": "",
       "username": "",
