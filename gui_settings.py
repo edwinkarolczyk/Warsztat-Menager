@@ -287,13 +287,18 @@ class SettingsPanel:
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
+            grp_count = 0
+            fld_count = 0
+
             for group in tab.get("groups", []):
+                grp_count += 1
                 grp_frame = ttk.LabelFrame(
                     frame, text=group.get("label", "")
                 )
                 grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
                 for field_def in group.get("fields", []):
+                    fld_count += 1
                     key = field_def["key"]
                     self._options[key] = field_def
                     current = self.cfg.get(key, field_def.get("default"))
@@ -305,6 +310,10 @@ class SettingsPanel:
                     self._initial[key] = current
                     self._defaults[key] = field_def.get("default")
                     var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+
+            print(
+                f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+            )
 
         print("[WM-DBG] [SETTINGS] notebook packed")
 
