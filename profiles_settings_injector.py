@@ -105,6 +105,8 @@ def _attach_tab(nb, cfg=None):
 
     var_tab  = tk.BooleanVar(value=bool(_cfg_get("profiles.tab_enabled", True)))
     var_head = tk.BooleanVar(value=bool(_cfg_get("profiles.show_name_in_header", True)))
+    var_avatar = tk.StringVar(value=str(_cfg_get("profiles.avatar_dir", "")))
+    var_deadline = tk.IntVar(value=int(_cfg_get("profiles.task_default_deadline_days", 7)))
     _fields_default = ["login","nazwa","rola","zmiana"]
     cur_fields = _cfg_get("profiles.fields_visible", _fields_default)
     if isinstance(cur_fields, str):
@@ -121,9 +123,13 @@ def _attach_tab(nb, cfg=None):
     var_allow_pin = tk.BooleanVar(value=bool(_cfg_get("profiles.allow_pin_change", False)))
 
     row=0
-    ttk.Label(tab, text="Widoczność", style="WM.H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(12,6)); row+=1
+    ttk.Label(tab, text="Ogólne", style="WM.H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(12,6)); row+=1
     ttk.Checkbutton(tab, text="Włącz kartę „Profil użytkownika”", variable=var_tab).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=4); row+=1
     ttk.Checkbutton(tab, text="Pokaż zalogowanego w nagłówku", variable=var_head).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=4); row+=1
+    ttk.Label(tab, text="Folder awatarów:").grid(row=row, column=0, sticky="w", padx=12, pady=4)
+    ttk.Entry(tab, textvariable=var_avatar, width=42).grid(row=row, column=1, sticky="w", padx=(0,6), pady=4); row+=1
+    ttk.Label(tab, text="Domyślny termin zadania (dni):").grid(row=row, column=0, sticky="w", padx=12, pady=4)
+    ttk.Spinbox(tab, from_=0, to=365, textvariable=var_deadline, width=5).grid(row=row, column=1, sticky="w", padx=(0,6), pady=4); row+=1
 
     ttk.Label(tab, text="Pola w profilu", style="WM.H2.TLabel").grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16,6)); row+=1
     ttk.Label(tab, text="Lista (po przecinku):").grid(row=row, column=0, sticky="w", padx=12, pady=4)
@@ -140,6 +146,8 @@ def _attach_tab(nb, cfg=None):
         editable = [x.strip() for x in var_fields_edit.get().split(",") if x.strip()]
         _cfg_set("profiles.fields_editable_by_user", editable)
         _cfg_set("profiles.allow_pin_change", bool(var_allow_pin.get()))
+        _cfg_set("profiles.avatar_dir", var_avatar.get())
+        _cfg_set("profiles.task_default_deadline_days", int(var_deadline.get()))
         _log_debug(
             "[PROFILES-DBG] injector: apply -> %s",
             {
@@ -148,6 +156,8 @@ def _attach_tab(nb, cfg=None):
                 "fields": var_fields.get(),
                 "editable": var_fields_edit.get(),
                 "allow_pin": var_allow_pin.get(),
+                "avatar_dir": var_avatar.get(),
+                "deadline": var_deadline.get(),
             },
         )
     ttk.Button(tab, text="Zastosuj", command=_apply).grid(row=row, column=0, sticky="w", padx=12, pady=(16,12))

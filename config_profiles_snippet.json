@@ -21,6 +21,7 @@
       "telefon",
       "email"
     ],
-    "allow_pin_change": false
+    "allow_pin_change": false,
+    "task_default_deadline_days": 7
   }
 }
