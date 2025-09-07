@@ -1,8 +1,8 @@
 {
   "tabs": [
     {
-      "key": "ui",
-      "label": "Interfejs",
+      "id": "ui",
+      "title": "Interfejs",
       "groups": [
         {
           "key": "appearance",
@@ -35,33 +35,33 @@
       ]
     },
     {
-      "key": "uzytkownicy",
-      "label": "Użytkownicy",
+      "id": "uzytkownicy",
+      "title": "Użytkownicy",
       "groups": []
     },
     {
-      "key": "hala",
-      "label": "Hala",
+      "id": "hala",
+      "title": "Hala",
       "groups": []
     },
     {
-      "key": "narzedzia",
-      "label": "Narzędzia",
+      "id": "narzedzia",
+      "title": "Narzędzia",
       "groups": []
     },
     {
-      "key": "magazyn",
-      "label": "Magazyn",
+      "id": "magazyn",
+      "title": "Magazyn",
       "groups": []
     },
     {
-      "key": "zlecenia",
-      "label": "Zlecenia",
+      "id": "zlecenia",
+      "title": "Zlecenia",
       "groups": []
     },
     {
-      "key": "update",
-      "label": "Aktualizacje & Kopie",
+      "id": "update",
+      "title": "Aktualizacje & Kopie",
       "groups": []
     }
   ]
