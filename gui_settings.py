@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.1
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -44,10 +44,12 @@ def _create_widget(
         widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
+        enum_vals = option.get("enum") or option.get("values") or []
+        print(f"[WM-DBG] enum values: {len(enum_vals)}")
         widget = ttk.Combobox(
             frame,
             textvariable=var,
-            values=option.get("enum", []),
+            values=enum_vals,
             state="readonly",
         )
     elif opt_type == "path":
