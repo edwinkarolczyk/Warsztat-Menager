@@ -45,7 +45,7 @@ def _create_widget(
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
         enum_vals = option.get("enum") or option.get("values") or []
-        print(f"[WM-DBG] enum values: {len(enum_vals)}")
+        print(f"[WM-DBG] [SETTINGS] enum values: {len(enum_vals)}")
         widget = ttk.Combobox(
             frame,
             textvariable=var,
