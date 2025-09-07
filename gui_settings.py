@@ -410,20 +410,20 @@ class SettingsWindow(SettingsPanel):
         )
         print(
             "[WM-DBG] [SETTINGS] schema exists?",
-            Path(schema_path).exists(),
+            Path(self.schema_path).exists(),
         )
-        with open(self.schema_path, "r", encoding="utf-8") as f:
-            self.schema = json.load(f)
-        print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
+        super().__init__(master)
+        print(
+            f"[WM-DBG] tabs loaded: {len(self.cfg.schema.get('tabs', []))}"
+        )
         print(
             "[WM-DBG] [SETTINGS] has ui.theme?",
-            "ui.theme" in json.dumps(self.schema),
+            "ui.theme" in json.dumps(self.cfg.schema),
         )
         print(
             "[WM-DBG] [SETTINGS] has ui.language?",
-            "ui.language" in json.dumps(self.schema),
+            "ui.language" in json.dumps(self.cfg.schema),
         )
-        super().__init__(master)
 
 
 if __name__ == "__main__":
