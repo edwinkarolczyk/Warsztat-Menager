@@ -195,3 +195,50 @@ def test_refresh_with_custom_paths(tmp_path):
         assert mgr.get("a") == 5
     finally:
         cm.ConfigManager.refresh()
+
+
+def test_backup_cloud_persistence(make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [
+            {"key": "backup.cloud.url", "type": "string"},
+            {"key": "backup.cloud.username", "type": "string"},
+            {"key": "backup.cloud.password", "type": "string"},
+            {"key": "backup.cloud.folder", "type": "string"},
+        ],
+    }
+    defaults = {
+        "backup": {
+            "cloud": {
+                "url": "",
+                "username": "",
+                "password": "",
+                "folder": "",
+            }
+        }
+    }
+
+    mgr, paths = make_manager(defaults=defaults, schema=schema)
+    assert mgr.get("backup.cloud.url") == ""
+    assert mgr.get("backup.cloud.username") == ""
+    assert mgr.get("backup.cloud.password") == ""
+    assert mgr.get("backup.cloud.folder") == ""
+
+    mgr.set("backup.cloud.url", "https://example.com")
+    mgr.set("backup.cloud.username", "alice")
+    mgr.set("backup.cloud.password", "secret")
+    mgr.set("backup.cloud.folder", "/remote")
+    mgr.save_all()
+
+    with open(paths["global"], encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["backup"]["cloud"]["url"] == "https://example.com"
+    assert data["backup"]["cloud"]["username"] == "alice"
+    assert data["backup"]["cloud"]["password"] == "secret"
+    assert data["backup"]["cloud"]["folder"] == "/remote"
+
+    reloaded = cm.ConfigManager.refresh()
+    assert reloaded.get("backup.cloud.url") == "https://example.com"
+    assert reloaded.get("backup.cloud.username") == "alice"
+    assert reloaded.get("backup.cloud.password") == "secret"
+    assert reloaded.get("backup.cloud.folder") == "/remote"

@@ -207,6 +207,27 @@
               "label": "Ilość kopii",
               "min": 1,
               "max": 50
+            },
+            {
+              "key": "backup.cloud.url",
+              "type": "string",
+              "label": "Adres chmury"
+            },
+            {
+              "key": "backup.cloud.username",
+              "type": "string",
+              "label": "Użytkownik"
+            },
+            {
+              "key": "backup.cloud.password",
+              "type": "string",
+              "widget": "password",
+              "label": "Hasło"
+            },
+            {
+              "key": "backup.cloud.folder",
+              "type": "string",
+              "label": "Folder w chmurze"
             }
           ]
         }
