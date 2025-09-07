@@ -62,7 +62,10 @@ def test_unsaved_changes_warning(make_manager, monkeypatch):
     ustawienia_systemu.panel_ustawien(root, frame)
     nb = frame.winfo_children()[0]
     tab = root.nametowidget(nb.tabs()[0])
-    field = tab.winfo_children()[0]
+    canvas = next(child for child in tab.winfo_children() if isinstance(child, tk.Canvas))
+    inner = canvas.winfo_children()[0]
+    group = inner.winfo_children()[0]
+    field = group.winfo_children()[0]
     widget = field.winfo_children()[1]
     var_name = widget.cget("textvariable")
     root.setvar(var_name, 2)
