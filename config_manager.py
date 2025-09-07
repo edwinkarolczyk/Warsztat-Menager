@@ -59,9 +59,17 @@ class ConfigManager:
         self.schema = self._load_json_or_raise(
             SCHEMA_PATH, msg_prefix="Brak pliku schematu"
         )
-        self._schema_idx: Dict[str, Dict[str, Any]] = {
-            opt["key"]: opt for opt in self.schema.get("options", [])
-        }
+        self._schema_idx: Dict[str, Dict[str, Any]] = {}
+        for tab in self.schema.get("tabs", []):
+            for group in tab.get("groups", []):
+                for field in group.get("fields", []):
+                    key = field.get("key")
+                    if key:
+                        self._schema_idx[key] = field
+        for opt in self.schema.get("options", []):
+            key = opt.get("key")
+            if key and key not in self._schema_idx:
+                self._schema_idx[key] = opt
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(GLOBAL_PATH) or {}
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
@@ -156,8 +164,9 @@ class ConfigManager:
             if "max" in opt and value > opt["max"]:
                 raise ConfigError(f"{opt['key']}: > max {opt['max']}")
         elif t == "enum":
-            if value not in opt.get("enum", []):
-                raise ConfigError(f"{opt['key']}: {value} nie w {opt.get('enum')}")
+            allowed = opt.get("enum") or opt.get("values") or []
+            if value not in allowed:
+                raise ConfigError(f"{opt['key']}: {value} nie w {allowed}")
         elif t == "array":
             if not isinstance(value, list):
                 raise ConfigError(
