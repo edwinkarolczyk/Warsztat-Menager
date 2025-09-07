@@ -273,13 +273,18 @@ class SettingsPanel:
         """Return configuration schema from various sources."""
 
         schema = getattr(self.cfg, "schema", None)
+        source = "cfg"
         if schema is None:
             schema = getattr(self.master, "schema", None)
+            source = "master"
         if schema is None:
             parent = getattr(self.master, "master", None)
             if parent is not None:
                 schema = getattr(parent, "schema", None)
-        print(f"[WM-DBG] using schema via _get_schema(): {schema is not None}")
+                source = "parent"
+        if schema is None:
+            source = "none"
+        print(f"[WM-DBG] using schema via _get_schema(): {source}")
         return schema
 
     # ------------------------------------------------------------------
