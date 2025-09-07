@@ -264,38 +264,35 @@ class SettingsPanel:
         for child in self.master.winfo_children():
             child.destroy()
 
-        opts = self.cfg.schema.get("options", [])
-        groups: Dict[str, list[dict[str, Any]]] = {}
-        order: list[str] = []
-        for opt in opts:
-            grp = opt.get("group", "Inne")
-            if grp not in groups:
-                groups[grp] = []
-                order.append(grp)
-            groups[grp].append(opt)
-
         self.nb = ttk.Notebook(self.master)
         print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
-        for grp in order:
-            print("[WM-DBG] [SETTINGS] add tab:", grp)
+        for tab in self.cfg.schema.get("tabs", []):
+            title = tab.get("title", tab.get("id", ""))
+            print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
-            self.nb.add(frame, text=grp)
-            for row, option in enumerate(groups[grp]):
-                key = option["key"]
-                self._options[key] = option
-                current = self.cfg.get(key, option.get("default"))
-                opt_copy = dict(option)
-                opt_copy["default"] = current
-                field, var = _create_widget(opt_copy, frame)
-                field.grid(row=row, column=0, sticky="ew")
-                frame.columnconfigure(0, weight=1)
-                self.vars[key] = var
-                self._initial[key] = current
-                self._defaults[key] = option.get("default")
-                var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+            self.nb.add(frame, text=title)
+
+            for group in tab.get("groups", []):
+                grp_frame = ttk.LabelFrame(
+                    frame, text=group.get("label", "")
+                )
+                grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+                for field_def in group.get("fields", []):
+                    key = field_def["key"]
+                    self._options[key] = field_def
+                    current = self.cfg.get(key, field_def.get("default"))
+                    opt_copy = dict(field_def)
+                    opt_copy["default"] = current
+                    field, var = _create_widget(opt_copy, grp_frame)
+                    field.pack(fill="x", padx=5, pady=2)
+                    self.vars[key] = var
+                    self._initial[key] = current
+                    self._defaults[key] = field_def.get("default")
+                    var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
 
         print("[WM-DBG] [SETTINGS] notebook packed")
 
