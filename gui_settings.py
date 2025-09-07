@@ -299,7 +299,7 @@ class SettingsPanel:
                 "<Configure>",
                 lambda _e, c=canvas: c.configure(scrollregion=c.bbox("all")),
             )
-            print(f"[WM-DBG] scroller enabled for tab: {title}")
+            print(f"[WM-DBG] [SETTINGS] scrollbar enabled for tab: {title}")
 
             for group in tab.get("groups", []):
                 grp_frame = ttk.LabelFrame(
