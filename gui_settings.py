@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.5
+# Wersja pliku: 1.5.7
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -44,10 +44,12 @@ def _create_widget(
         widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
+        enum_vals = option.get("enum") or option.get("values") or []
+        print(f"[WM-DBG] enum values: {len(enum_vals)}")
         widget = ttk.Combobox(
             frame,
             textvariable=var,
-            values=option.get("enum", []),
+            values=enum_vals,
             state="readonly",
         )
     elif opt_type == "path":
@@ -128,7 +130,7 @@ def _create_widget(
     if tip := option.get("tooltip"):
         _bind_tooltip(widget, tip)
 
-    desc = option.get("description")
+    desc = option.get("description") or option.get("help")
     if desc:
         ttk.Label(frame, text=desc, font=("", 8)).grid(
             row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
@@ -246,6 +248,18 @@ def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) 
 class SettingsPanel:
     """Dynamic panel generated from :class:`ConfigManager` schema."""
 
+    # >>> WM PATCH START: SettingsPanel schema getter
+    def _get_schema(self):
+        if hasattr(self, "cfg") and getattr(self.cfg, "schema", None):
+            return self.cfg.schema
+        if hasattr(self.master, "schema"):
+            return self.master.schema
+        parent = getattr(self.master, "master", None)
+        if parent is not None and hasattr(parent, "schema"):
+            return parent.schema
+        return None
+    # >>> WM PATCH END
+
     def __init__(
         self,
         master: tk.Misc,
@@ -276,12 +290,16 @@ class SettingsPanel:
         for child in self.master.winfo_children():
             child.destroy()
 
+        schema = self._get_schema()
+        print(f"[WM-DBG] using schema via _get_schema(): {schema is not None}")
+        schema = schema or {}
+
         self.nb = ttk.Notebook(self.master)
         print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
-        for tab in self.cfg.schema.get("tabs", []):
+        for tab in schema.get("tabs", []):
             title = tab.get("title", tab.get("id", ""))
             print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
