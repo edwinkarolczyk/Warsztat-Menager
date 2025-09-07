@@ -12,7 +12,7 @@
               "key": "ui.theme",
               "type": "enum",
               "label": "Motyw",
-              "help": "Wybierz motyw aplikacji",
+              "description": "Wybierz motyw aplikacji",
               "tooltip": "light lub dark",
               "values": [
                 "light",
@@ -23,7 +23,7 @@
               "key": "ui.language",
               "type": "enum",
               "label": "Język interfejsu",
-              "help": "Wybierz język interfejsu",
+              "description": "Wybierz język interfejsu",
               "tooltip": "np. pl lub en",
               "values": [
                 "pl",

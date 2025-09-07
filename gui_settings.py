@@ -128,7 +128,7 @@ def _create_widget(
     if tip := option.get("tooltip"):
         _bind_tooltip(widget, tip)
 
-    desc = option.get("description")
+    desc = option.get("description") or option.get("help")
     if desc:
         ttk.Label(frame, text=desc, font=("", 8)).grid(
             row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
