@@ -10,7 +10,7 @@
   miniaturą i podglądem na liście.
 
 ## 1.5.0
-- Dodano moduł Ustawienia (7 zakładek: System, Użytkownicy, Hala, Narzędzia, Magazyn, Zlecenia, Aktualizacje & Kopie).
-- Opisy i tooltipy w UI; zapisywanie `config.json` z kopią w `backup_wersji/`.
-- Ostrzeganie o niezapisanych zmianach; ciemny motyw.
+- Moduł Ustawień obsługuje 7 zakładek, tooltipy i ostrzega o niezapisanych zmianach.
+- Kopie zapasowe pliku `config.json` trafiają do katalogu `backup_wersji/`.
+- Ciemny motyw interfejsu.
 - Dodane klucze: NN/SN, QR, rezerwacje, BOM, siatka 4 px, punkt startowy, ściany i omijanie.
