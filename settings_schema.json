@@ -31,6 +31,32 @@
               ]
             }
           ]
+        },
+        {
+          "key": "general",
+          "label": "Ogólne",
+          "fields": [
+            {
+              "key": "warn_on_unsaved",
+              "type": "bool",
+              "label": "Ostrzegaj przy niezapisanych zmianach",
+              "default": true
+            },
+            {
+              "key": "autosave_draft",
+              "type": "bool",
+              "label": "Automatyczny zapis szkicu",
+              "default": false
+            },
+            {
+              "key": "autosave_draft_interval_sec",
+              "type": "int",
+              "label": "Interwał autozapisu (s)",
+              "min": 5,
+              "max": 3600,
+              "default": 15
+            }
+          ]
         }
       ]
     },

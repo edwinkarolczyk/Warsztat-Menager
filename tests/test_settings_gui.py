@@ -72,3 +72,37 @@ def test_save_creates_backup(cfg_env, capsys):
     out = capsys.readouterr().out
     assert "[WM-DBG]" in out
     root.destroy()
+
+
+def test_general_settings_persist_and_restore(cfg_env):
+    root = _make_root()
+    panel = gui_settings.SettingsPanel(root)
+
+    # Ensure fields exist
+    assert "warn_on_unsaved" in panel.vars
+    assert "autosave_draft" in panel.vars
+    assert "autosave_draft_interval_sec" in panel.vars
+
+    # Change values and save
+    panel.vars["warn_on_unsaved"].set(False)
+    panel.vars["autosave_draft"].set(True)
+    panel.vars["autosave_draft_interval_sec"].set(30)
+    panel.save()
+
+    cfg = cm.ConfigManager.refresh()
+    assert cfg.get("warn_on_unsaved") is False
+    assert cfg.get("autosave_draft") is True
+    assert cfg.get("autosave_draft_interval_sec") == 30
+
+    # Use refreshed manager for further actions
+    panel.cfg = cfg
+
+    # Restore defaults and save again
+    panel.restore_defaults()
+    panel.save()
+    cfg = cm.ConfigManager.refresh()
+    assert cfg.get("warn_on_unsaved") is True
+    assert cfg.get("autosave_draft") is False
+    assert cfg.get("autosave_draft_interval_sec") == 15
+
+    root.destroy()
