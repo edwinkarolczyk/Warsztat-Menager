@@ -52,12 +52,19 @@ class ConfigManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(
+        self,
+        config_path: str | None = None,
+        schema_path: str | None = None,
+    ):
         if self.__class__._initialized:
             return
 
+        self.schema_path = schema_path or SCHEMA_PATH
+        self.config_path = config_path or GLOBAL_PATH
+
         self.schema = self._load_json_or_raise(
-            SCHEMA_PATH, msg_prefix="Brak pliku schematu"
+            self.schema_path, msg_prefix="Brak pliku schematu"
         )
         self._schema_idx: Dict[str, Dict[str, Any]] = {}
         for tab in self.schema.get("tabs", []):
@@ -71,7 +78,7 @@ class ConfigManager:
             if key and key not in self._schema_idx:
                 self._schema_idx[key] = opt
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
-        self.global_cfg = self._load_json(GLOBAL_PATH) or {}
+        self.global_cfg = self._load_json(self.config_path) or {}
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
         self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
@@ -89,11 +96,15 @@ class ConfigManager:
         self.__class__._initialized = True
 
     @classmethod
-    def refresh(cls) -> "ConfigManager":
+    def refresh(
+        cls,
+        config_path: str | None = None,
+        schema_path: str | None = None,
+    ) -> "ConfigManager":
         """Reset cached instance and reload configuration."""
         cls._instance = None
         cls._initialized = False
-        return cls()
+        return cls(config_path=config_path, schema_path=schema_path)
 
     # ========== I/O pomocnicze ==========
     def _ensure_dirs(self):
@@ -231,7 +242,7 @@ class ConfigManager:
         backup_dir = Path(BACKUP_DIR)
         backup_dir.mkdir(parents=True, exist_ok=True)
         backup_path = backup_dir / f"config_{stamp}.json"
-        config_path = Path(GLOBAL_PATH)
+        config_path = Path(self.config_path)
         print(f"[WM-DBG] backup_dir={backup_dir}")
         if config_path.exists():
             shutil.copy2(config_path, backup_path)

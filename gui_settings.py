@@ -246,9 +246,21 @@ def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) 
 class SettingsPanel:
     """Dynamic panel generated from :class:`ConfigManager` schema."""
 
-    def __init__(self, master: tk.Misc):
+    def __init__(
+        self,
+        master: tk.Misc,
+        config_path: str | None = None,
+        schema_path: str | None = None,
+    ):
         self.master = master
-        self.cfg = ConfigManager()
+        self.config_path = config_path
+        self.schema_path = schema_path
+        if config_path is not None or schema_path is not None:
+            self.cfg = ConfigManager.refresh(
+                config_path=config_path, schema_path=schema_path
+            )
+        else:
+            self.cfg = ConfigManager()
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
@@ -358,7 +370,9 @@ class SettingsPanel:
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
 
-        self.cfg = ConfigManager.refresh()
+        self.cfg = ConfigManager.refresh(
+            config_path=self.config_path, schema_path=self.schema_path
+        )
         self.vars.clear()
         self._initial.clear()
         self._defaults.clear()
@@ -387,7 +401,7 @@ class SettingsWindow(SettingsPanel):
         print(f"[WM-DBG] config_path={self.config_path}")
         print(f"[WM-DBG] schema_path={self.schema_path}")
 
-        super().__init__(master)
+        super().__init__(master, config_path=config_path, schema_path=schema_path)
         self.schema = self.cfg.schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
