@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.3
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -269,6 +269,20 @@ class SettingsPanel:
         self._build_ui()
 
     # ------------------------------------------------------------------
+    def _get_schema(self) -> dict[str, Any] | None:
+        """Return configuration schema from various sources."""
+
+        schema = getattr(self.cfg, "schema", None)
+        if schema is None:
+            schema = getattr(self.master, "schema", None)
+        if schema is None:
+            parent = getattr(self.master, "master", None)
+            if parent is not None:
+                schema = getattr(parent, "schema", None)
+        print(f"[WM-DBG] using schema via _get_schema(): {schema is not None}")
+        return schema
+
+    # ------------------------------------------------------------------
     def _build_ui(self) -> None:
         """Create notebook tabs and widgets based on current schema."""
 
@@ -281,7 +295,8 @@ class SettingsPanel:
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
-        for tab in self.cfg.schema.get("tabs", []):
+        schema = self._get_schema() or {}
+        for tab in schema.get("tabs", []):
             title = tab.get("title", tab.get("id", ""))
             print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
@@ -402,7 +417,8 @@ class SettingsWindow(SettingsPanel):
         print(f"[WM-DBG] schema_path={self.schema_path}")
 
         super().__init__(master, config_path=config_path, schema_path=schema_path)
-        self.schema = self.cfg.schema
+        schema = self._get_schema() or {}
+        self.schema = schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
 
