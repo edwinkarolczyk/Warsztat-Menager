@@ -195,3 +195,151 @@ def test_refresh_with_custom_paths(tmp_path):
         assert mgr.get("a") == 5
     finally:
         cm.ConfigManager.refresh()
+
+
+def test_new_fields_persist(make_manager):
+    schema = {
+        "tabs": [
+            {
+                "id": "ui",
+                "title": "System",
+                "groups": [
+                    {
+                        "key": "appearance",
+                        "label": "Wygląd",
+                        "fields": [
+                            {
+                                "key": "ui.accent",
+                                "type": "enum",
+                                "values": ["red", "blue"],
+                                "default": "red",
+                            },
+                            {
+                                "key": "ui.always_searchbar",
+                                "type": "bool",
+                                "default": True,
+                            },
+                        ],
+                    }
+                ],
+            },
+            {
+                "id": "app",
+                "title": "Aplikacja",
+                "groups": [
+                    {
+                        "key": "app",
+                        "label": "Aplikacja",
+                        "fields": [
+                            {
+                                "key": "app.start_view",
+                                "type": "enum",
+                                "values": ["dashboard", "magazyn"],
+                                "default": "dashboard",
+                            }
+                        ],
+                    },
+                    {
+                        "key": "local",
+                        "label": "Lokalne",
+                        "fields": [
+                            {
+                                "key": "local.fullscreen_on_start",
+                                "type": "bool",
+                                "default": False,
+                            },
+                            {
+                                "key": "local.ui_scale",
+                                "type": "int",
+                                "default": 100,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                "id": "paths",
+                "title": "Ścieżki",
+                "groups": [
+                    {
+                        "key": "paths",
+                        "label": "Pliki",
+                        "fields": [
+                            {
+                                "key": "paths.maszyny",
+                                "type": "path",
+                                "widget": "file",
+                                "default": "data/maszyny.json",
+                            },
+                            {
+                                "key": "paths.narzedzia",
+                                "type": "path",
+                                "widget": "file",
+                                "default": "narzedzia.json",
+                            },
+                            {
+                                "key": "paths.zlecenia",
+                                "type": "path",
+                                "widget": "file",
+                                "default": "zlecenia.json",
+                            },
+                        ],
+                    }
+                ],
+            },
+            {
+                "id": "modules",
+                "title": "Moduły",
+                "groups": [
+                    {
+                        "key": "modules",
+                        "label": "Moduły",
+                        "fields": [
+                            {
+                                "key": "modules.service.enabled",
+                                "type": "bool",
+                                "default": True,
+                            }
+                        ],
+                    },
+                    {
+                        "key": "dashboard",
+                        "label": "Dashboard",
+                        "fields": [
+                            {
+                                "key": "dashboard.mini_hall.enabled",
+                                "type": "bool",
+                                "default": True,
+                            }
+                        ],
+                    },
+                ],
+            },
+        ]
+    }
+
+    defaults = {
+        "ui": {"accent": "red", "always_searchbar": True},
+        "app": {"start_view": "dashboard"},
+        "local": {"fullscreen_on_start": False, "ui_scale": 100},
+        "paths": {
+            "maszyny": "data/maszyny.json",
+            "narzedzia": "narzedzia.json",
+            "zlecenia": "zlecenia.json",
+        },
+        "modules": {"service": {"enabled": True}},
+        "dashboard": {"mini_hall": {"enabled": True}},
+    }
+
+    mgr, _ = make_manager(defaults=defaults, schema=schema)
+    assert mgr.get("ui.accent") == "red"
+    assert mgr.get("local.ui_scale") == 100
+
+    mgr.set("ui.accent", "blue")
+    mgr.set("local.ui_scale", 150)
+    mgr.save_all()
+
+    reloaded = cm.ConfigManager.refresh()
+    assert reloaded.get("ui.accent") == "blue"
+    assert reloaded.get("local.ui_scale") == 150
+

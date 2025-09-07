@@ -29,6 +29,68 @@
                 "pl",
                 "en"
               ]
+            },
+            {
+              "key": "ui.accent",
+              "type": "enum",
+              "label": "Kolor akcentu",
+              "values": [
+                "red",
+                "green",
+                "blue",
+                "orange"
+              ],
+              "default": "red"
+            },
+            {
+              "key": "ui.always_searchbar",
+              "type": "bool",
+              "label": "Zawsze pokazuj wyszukiwarkę",
+              "default": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "title": "Aplikacja",
+      "groups": [
+        {
+          "key": "app",
+          "label": "Aplikacja",
+          "fields": [
+            {
+              "key": "app.start_view",
+              "type": "enum",
+              "label": "Widok startowy",
+              "values": [
+                "dashboard",
+                "magazyn",
+                "narzedzia",
+                "zlecenia"
+              ],
+              "default": "dashboard"
+            }
+          ]
+        },
+        {
+          "key": "local",
+          "label": "Lokalne",
+          "fields": [
+            {
+              "key": "local.fullscreen_on_start",
+              "type": "bool",
+              "label": "Pełny ekran przy starcie",
+              "default": false
+            },
+            {
+              "key": "local.ui_scale",
+              "type": "int",
+              "label": "Skala UI (%)",
+              "min": 50,
+              "max": 200,
+              "default": 100
             }
           ]
         }
@@ -207,6 +269,69 @@
               "label": "Ilość kopii",
               "min": 1,
               "max": 50
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paths",
+      "title": "Ścieżki",
+      "groups": [
+        {
+          "key": "paths",
+          "label": "Pliki",
+          "fields": [
+            {
+              "key": "paths.maszyny",
+              "type": "path",
+              "widget": "file",
+              "label": "Maszyny",
+              "default": "data/maszyny.json"
+            },
+            {
+              "key": "paths.narzedzia",
+              "type": "path",
+              "widget": "file",
+              "label": "Narzędzia",
+              "default": "narzedzia.json"
+            },
+            {
+              "key": "paths.zlecenia",
+              "type": "path",
+              "widget": "file",
+              "label": "Zlecenia",
+              "default": "zlecenia.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modules",
+      "title": "Moduły",
+      "groups": [
+        {
+          "key": "modules",
+          "label": "Moduły",
+          "fields": [
+            {
+              "key": "modules.service.enabled",
+              "type": "bool",
+              "label": "Serwis",
+              "default": true
+            }
+          ]
+        },
+        {
+          "key": "dashboard",
+          "label": "Dashboard",
+          "fields": [
+            {
+              "key": "dashboard.mini_hall.enabled",
+              "type": "bool",
+              "label": "Mini hala",
+              "default": true
             }
           ]
         }
