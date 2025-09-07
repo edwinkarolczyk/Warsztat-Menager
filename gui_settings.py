@@ -125,7 +125,7 @@ def _create_widget(
 
     widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
 
-    if (tip := option.get("tooltip")):
+    if tip := option.get("tooltip"):
         _bind_tooltip(widget, tip)
 
     desc = option.get("description")
