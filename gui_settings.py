@@ -315,10 +315,10 @@ class SettingsPanel:
 
     def _on_tab_change(self, _=None):
         if self.cfg.warn_on_unsaved and self._unsaved:
-            from tkinter import messagebox
             if messagebox.askyesno(
                 "Niezapisane zmiany",
                 "Masz niezapisane zmiany. Zapisać teraz?",
+                parent=self.master,
             ):
                 self.save()
             self._unsaved = False
@@ -357,15 +357,6 @@ class SettingsPanel:
             self.cfg.set(key, value)
             self._initial[key] = value
         self.cfg.save_all()
-        backup_root = Path(cm.BACKUP_DIR)
-        subdirs = sorted(backup_root.iterdir()) if backup_root.exists() else []
-        if subdirs:
-            backup_file = subdirs[-1] / Path(cm.GLOBAL_PATH).name
-            print(
-                f"[WM-DBG] backup: {backup_file} current: {cm.GLOBAL_PATH}"
-            )
-        else:
-            print(f"[WM-DBG] backup: none current: {cm.GLOBAL_PATH}")
         self._unsaved = False
 
     def refresh_panel(self) -> None:
