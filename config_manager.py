@@ -156,9 +156,10 @@ class ConfigManager:
             if "max" in opt and value > opt["max"]:
                 raise ConfigError(f"{opt['key']}: > max {opt['max']}")
         elif t == "enum":
-            if value not in opt.get("values", []):
+            choices = opt.get("values") or opt.get("enum", [])  # legacy 'enum' fallback
+            if value not in choices:
                 raise ConfigError(
-                    f"{opt['key']}: {value} nie w {opt.get('values')}"
+                    f"{opt['key']}: {value} nie w {choices}"
                 )
         elif t == "array":
             if not isinstance(value, list):
