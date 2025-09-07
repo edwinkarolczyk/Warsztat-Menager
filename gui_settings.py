@@ -386,35 +386,14 @@ class SettingsWindow(SettingsPanel):
             config_path = os.path.join(base_dir, config_path)
         if not os.path.isabs(schema_path):
             schema_path = os.path.join(base_dir, schema_path)
-        self.config_path, self.schema_path = config_path, schema_path
+        self.config_path = config_path
+        self.schema_path = schema_path
         print(f"[WM-DBG] config_path={self.config_path}")
         print(f"[WM-DBG] schema_path={self.schema_path}")
-        print("[WM-DBG] [SETTINGS] open SettingsWindow")
-        from pathlib import Path
 
-        print("[WM-DBG] [SETTINGS] cwd =", Path().resolve())
-        base_dir = Path(__file__).resolve().parent
-        print("[WM-DBG] [SETTINGS] __file__ dir =", base_dir)
-        print(
-            "[WM-DBG] [SETTINGS] config.json exists?",
-            (base_dir / "config.json").exists(),
-        )
-        print(
-            "[WM-DBG] [SETTINGS] schema exists?",
-            Path(self.schema_path).exists(),
-        )
         super().__init__(master)
-        print(
-            f"[WM-DBG] tabs loaded: {len(self.cfg.schema.get('tabs', []))}"
-        )
-        print(
-            "[WM-DBG] [SETTINGS] has ui.theme?",
-            "ui.theme" in json.dumps(self.cfg.schema),
-        )
-        print(
-            "[WM-DBG] [SETTINGS] has ui.language?",
-            "ui.language" in json.dumps(self.cfg.schema),
-        )
+        self.schema = self.cfg.schema
+        print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
 
 if __name__ == "__main__":
