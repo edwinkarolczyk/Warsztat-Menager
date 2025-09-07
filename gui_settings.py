@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.4
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -231,6 +231,21 @@ def _bind_tooltip(widget, text: str):
     widget.bind("<Leave>", _hide, add="+")
 
 
+def _focus_first_field(tab_frame: tk.Widget) -> None:
+    """Focus the first input widget found within the given tab frame."""
+
+    def _search(widget: tk.Widget) -> bool:
+        if isinstance(widget, (ttk.Entry, ttk.Combobox, tk.Text)):
+            widget.focus_set()
+            return True
+        for child in widget.winfo_children():
+            if _search(child):
+                return True
+        return False
+
+    _search(tab_frame)
+
+
 def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) -> None:
     """Persist all options from mapping using ConfigManager."""
 
@@ -330,6 +345,8 @@ class SettingsPanel:
                 parent=self.master,
             ):
                 self.save()
+        tab = self.nb.nametowidget(self.nb.select())
+        _focus_first_field(tab)
 
     def restore_defaults(self) -> None:
         for key, var in self.vars.items():
