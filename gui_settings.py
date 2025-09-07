@@ -305,34 +305,7 @@ class SettingsPanel:
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
-            grp_count = 0
-            fld_count = 0
-
-            for group in tab.get("groups", []):
-                grp_count += 1
-                grp_frame = ttk.LabelFrame(
-                    frame, text=group.get("label", "")
-                )
-                grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
-                if tip := group.get("tooltip"):
-                    _bind_tooltip(grp_frame, tip)
-                inner = ttk.Frame(grp_frame)
-                inner.pack(fill="both", expand=True, padx=8, pady=6)
-
-                for field_def in group.get("fields", []):
-                    fld_count += 1
-                    key = field_def["key"]
-                    self._options[key] = field_def
-                    current = self.cfg.get(key, field_def.get("default"))
-                    opt_copy = dict(field_def)
-                    opt_copy["default"] = current
-                    field, var = _create_widget(opt_copy, inner)
-                    field.pack(fill="x", padx=5, pady=2)
-                    self.vars[key] = var
-                    self._initial[key] = current
-                    self._defaults[key] = field_def.get("default")
-                    var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
-
+            grp_count, fld_count = self._populate_tab(frame, tab)
             print(
                 f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
             )
@@ -352,6 +325,48 @@ class SettingsPanel:
         )
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _populate_tab(self, parent: tk.Widget, tab: dict[str, Any]) -> tuple[int, int]:
+        """Populate a single tab or subtab frame and return counts."""
+
+        grp_count = 0
+        fld_count = 0
+
+        for group in tab.get("groups", []):
+            grp_count += 1
+            grp_frame = ttk.LabelFrame(parent, text=group.get("label", ""))
+            grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
+            if tip := group.get("tooltip"):
+                _bind_tooltip(grp_frame, tip)
+            inner = ttk.Frame(grp_frame)
+            inner.pack(fill="both", expand=True, padx=8, pady=6)
+
+            for field_def in group.get("fields", []):
+                fld_count += 1
+                key = field_def["key"]
+                self._options[key] = field_def
+                current = self.cfg.get(key, field_def.get("default"))
+                opt_copy = dict(field_def)
+                opt_copy["default"] = current
+                field, var = _create_widget(opt_copy, inner)
+                field.pack(fill="x", padx=5, pady=2)
+                self.vars[key] = var
+                self._initial[key] = current
+                self._defaults[key] = field_def.get("default")
+                var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+
+        if subtabs := tab.get("subtabs"):
+            nb = ttk.Notebook(parent)
+            nb.pack(fill="both", expand=True)
+            for sub in subtabs:
+                title = sub.get("title", sub.get("id", ""))
+                sub_frame = ttk.Frame(nb)
+                nb.add(sub_frame, text=title)
+                g, f = self._populate_tab(sub_frame, sub)
+                grp_count += g
+                fld_count += f
+
+        return grp_count, fld_count
 
     def _on_tab_change(self, _=None):
         if self.cfg.warn_on_unsaved and self._unsaved:
