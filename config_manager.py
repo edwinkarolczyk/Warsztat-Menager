@@ -14,7 +14,7 @@ from __future__ import annotations
 import json, os, shutil, datetime
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from utils.path_utils import cfg_path
 
@@ -49,8 +49,23 @@ class ConfigManager:
 
     # >>> WM PATCH START: ensure defaults from schema
     @staticmethod
+    def _iter_schema_fields(schema: Dict[str, Any]) -> "Iterable[Dict[str, Any]]":
+        """Yield all field definitions from ``schema`` including nested subtabs."""
+
+        def from_tabs(tabs: list[Dict[str, Any]]):
+            for tab in tabs:
+                for group in tab.get("groups", []):
+                    for field in group.get("fields", []):
+                        yield field
+                yield from from_tabs(tab.get("subtabs", []))
+
+        yield from from_tabs(schema.get("tabs", []))
+        for opt in schema.get("options", []):
+            yield opt
+
+    @classmethod
     def _ensure_defaults_from_schema(
-        cfg: Dict[str, Any], schema: Dict[str, Any]
+        cls, cfg: Dict[str, Any], schema: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Uzupełnia brakujące klucze domyślnymi wartościami ze schematu."""
 
@@ -59,12 +74,8 @@ class ConfigManager:
                 print(f"[WM-DBG] [SETTINGS] default injected: {key}={default}")
                 cfg[key] = default
 
-        for tab in schema.get("tabs", []):
-            for group in tab.get("groups", []):
-                for field in group.get("fields", []):
-                    apply_default(field.get("key"), field.get("default"))
-        for opt in schema.get("options", []):
-            apply_default(opt.get("key"), opt.get("default"))
+        for field in cls._iter_schema_fields(schema):
+            apply_default(field.get("key"), field.get("default"))
         return cfg
     # >>> WM PATCH END
 
@@ -88,16 +99,10 @@ class ConfigManager:
             self.schema_path, msg_prefix="Brak pliku schematu"
         )
         self._schema_idx: Dict[str, Dict[str, Any]] = {}
-        for tab in self.schema.get("tabs", []):
-            for group in tab.get("groups", []):
-                for field in group.get("fields", []):
-                    key = field.get("key")
-                    if key:
-                        self._schema_idx[key] = field
-        for opt in self.schema.get("options", []):
-            key = opt.get("key")
+        for field in self._iter_schema_fields(self.schema):
+            key = field.get("key")
             if key and key not in self._schema_idx:
-                self._schema_idx[key] = opt
+                self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
         self.global_cfg = self._ensure_defaults_from_schema(

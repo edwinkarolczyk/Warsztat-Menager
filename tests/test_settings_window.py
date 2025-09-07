@@ -9,19 +9,44 @@ import config_manager as cm
 from test_config_manager import make_manager
 
 
-def _setup_schema(make_manager, monkeypatch, options):
-    schema = {"config_version": 1, "options": options}
-    defaults = {opt["key"]: opt.get("default") for opt in options}
+def _setup_schema(make_manager, monkeypatch, options=None, tabs=None):
+    if tabs is not None:
+        schema = {"config_version": 1, "tabs": tabs}
+
+        def collect_defaults(tab_list):
+            for tab in tab_list:
+                for group in tab.get("groups", []):
+                    for field in group.get("fields", []):
+                        defaults[field["key"]] = field.get("default")
+                collect_defaults(tab.get("subtabs", []))
+
+        defaults: dict[str, object] = {}
+        collect_defaults(tabs)
+    else:
+        assert options is not None
+        schema = {"config_version": 1, "options": options}
+        defaults = {opt["key"]: opt.get("default") for opt in options}
     _, paths = make_manager(defaults=defaults, schema=schema)
     monkeypatch.setattr(ustawienia_systemu, "SCHEMA_PATH", paths["schema"])
 
 
 def test_open_and_switch_tabs(make_manager, monkeypatch):
-    options = [
-        {"key": f"k{i}", "type": "int", "default": i, "group": f"Tab{i}"}
+    tabs = [
+        {
+            "id": f"t{i}",
+            "title": f"Tab{i}",
+            "groups": [
+                {
+                    "label": "G",
+                    "fields": [
+                        {"key": f"k{i}", "type": "int", "default": i}
+                    ],
+                }
+            ],
+        }
         for i in range(7)
     ]
-    _setup_schema(make_manager, monkeypatch, options)
+    _setup_schema(make_manager, monkeypatch, tabs=tabs)
     try:
         root = tk.Tk()
     except tk.TclError:
@@ -40,10 +65,16 @@ def test_open_and_switch_tabs(make_manager, monkeypatch):
 
 
 def test_unsaved_changes_warning(make_manager, monkeypatch):
-    options = [
-        {"key": "a", "type": "int", "default": 1, "group": "Tab"}
+    tabs = [
+        {
+            "id": "t",
+            "title": "Tab",
+            "groups": [
+                {"label": "G", "fields": [{"key": "a", "type": "int", "default": 1}]}
+            ],
+        }
     ]
-    _setup_schema(make_manager, monkeypatch, options)
+    _setup_schema(make_manager, monkeypatch, tabs=tabs)
     calls = {"asked": 0}
 
     def fake_askyesno(*_args, **_kwargs):
@@ -74,10 +105,16 @@ def test_unsaved_changes_warning(make_manager, monkeypatch):
 
 
 def test_save_creates_backup(make_manager, tmp_path, monkeypatch):
-    options = [
-        {"key": "a", "type": "int", "default": 1, "group": "Tab"}
+    tabs = [
+        {
+            "id": "t",
+            "title": "Tab",
+            "groups": [
+                {"label": "G", "fields": [{"key": "a", "type": "int", "default": 1}]}
+            ],
+        }
     ]
-    _setup_schema(make_manager, monkeypatch, options)
+    _setup_schema(make_manager, monkeypatch, tabs=tabs)
     backup_dir = tmp_path / "backup_wersji"
     monkeypatch.setattr(cm, "BACKUP_DIR", str(backup_dir))
     cm.ConfigManager.refresh()
@@ -92,5 +129,56 @@ def test_save_creates_backup(make_manager, tmp_path, monkeypatch):
     panel.save()
     files = list(backup_dir.glob("config_*.json"))
     assert files
+    root.destroy()
+
+
+def test_open_and_switch_subtabs(make_manager, monkeypatch):
+    tabs = [
+        {
+            "id": "t0",
+            "title": "Main",
+            "subtabs": [
+                {
+                    "id": "s0",
+                    "title": "S0",
+                    "groups": [
+                        {
+                            "label": "G1",
+                            "fields": [{"key": "a", "type": "int", "default": 1}],
+                        }
+                    ],
+                },
+                {
+                    "id": "s1",
+                    "title": "S1",
+                    "groups": [
+                        {
+                            "label": "G2",
+                            "fields": [{"key": "b", "type": "int", "default": 2}],
+                        }
+                    ],
+                },
+            ],
+        }
+    ]
+    _setup_schema(make_manager, monkeypatch, tabs=tabs)
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+    root.withdraw()
+    frame = ttk.Frame(root)
+    frame.pack()
+    ustawienia_systemu.panel_ustawien(root, frame)
+    nb_outer = frame.winfo_children()[0]
+    outer_tabs = nb_outer.tabs()
+    assert len(outer_tabs) == 1
+    outer_frame = root.nametowidget(outer_tabs[0])
+    inner_nb = [child for child in outer_frame.winfo_children() if isinstance(child, ttk.Notebook)][0]
+    inner_tabs = inner_nb.tabs()
+    assert len(inner_tabs) == 2
+    for t in inner_tabs:
+        inner_nb.select(t)
+        root.update_idletasks()
     root.destroy()
 
