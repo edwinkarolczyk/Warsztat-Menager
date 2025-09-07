@@ -128,18 +128,18 @@ def test_audit_and_prune_rollbacks(make_manager):
     assert rec["user"] == "tester"
 
     for name in [
-        "2020-01-01_00-00-00",
-        "2020-01-02_00-00-00",
-        "2020-01-03_00-00-00",
+        "config_20200101_000000.json",
+        "config_20200102_000000.json",
+        "config_20200103_000000.json",
     ]:
-        (Path(paths["backup"]) / name).mkdir()
+        (Path(paths["backup"]) / name).touch()
 
     mgr.save_all()
 
-    subdirs = sorted(d.name for d in Path(paths["backup"]).iterdir() if d.is_dir())
-    assert len(subdirs) == 2
-    assert "2020-01-01_00-00-00" not in subdirs
-    assert "2020-01-02_00-00-00" not in subdirs
+    files = sorted(f.name for f in Path(paths["backup"]).iterdir() if f.is_file())
+    assert len(files) == 2
+    assert "config_20200101_000000.json" not in files
+    assert "config_20200102_000000.json" not in files
 
 
 def test_validate_dict_value_type(make_manager):

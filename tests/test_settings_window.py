@@ -90,7 +90,7 @@ def test_save_creates_backup(make_manager, tmp_path, monkeypatch):
     panel = gui_settings.SettingsPanel(root)
     panel.vars["a"].set(2)
     panel.save()
-    subdirs = list(backup_dir.iterdir())
-    assert subdirs and (subdirs[0] / "config.json").exists()
+    files = list(backup_dir.glob("config_*.json"))
+    assert files
     root.destroy()
 
