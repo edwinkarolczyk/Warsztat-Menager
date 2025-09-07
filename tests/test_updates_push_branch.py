@@ -38,25 +38,23 @@ def test_push_branch_ui_saves_value(make_manager):
     frame.pack()
 
     ustawienia_systemu.panel_ustawien(root, frame)
-    nb = frame.winfo_children()[0]
-    tab1 = nb.winfo_children()[1]
-    frm = tab1.winfo_children()[0]
+    def _find_widget(widget, cls, text):
+        for child in widget.winfo_children():
+            if isinstance(child, cls) and child.cget("text") == text:
+                return child
+            result = _find_widget(child, cls, text)
+            if result is not None:
+                return result
+        return None
 
-    label_row = None
-    for child in frm.winfo_children():
-        if isinstance(child, ttk.Label) and child.cget("text") == "Gałąź git push:":
-            label_row = child.grid_info()["row"]
-            break
-    assert label_row is not None
-    push_entry = frm.grid_slaves(row=label_row, column=1)[0]
+    label = _find_widget(frame, ttk.Label, "Gałąź do wysyłki")
+    assert label is not None
+    row = label.grid_info()["row"]
+    push_entry = label.master.grid_slaves(row=row, column=1)[0]
     push_entry.delete(0, "end")
     push_entry.insert(0, "feature-branch")
 
-    save_btn = None
-    for child in frm.winfo_children():
-        if isinstance(child, ttk.Button) and child.cget("text") == "Zapisz":
-            save_btn = child
-            break
+    save_btn = _find_widget(frame, ttk.Button, "Zapisz")
     assert save_btn is not None
     save_btn.invoke()
     root.destroy()

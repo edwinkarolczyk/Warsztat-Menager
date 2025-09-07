@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.2
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -287,9 +287,23 @@ class SettingsPanel:
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
+            canvas = tk.Canvas(frame)
+            scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=scrollbar.set)
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+            inner = ttk.Frame(canvas)
+            canvas.create_window((0, 0), window=inner, anchor="nw")
+            inner.bind(
+                "<Configure>",
+                lambda _e, c=canvas: c.configure(scrollregion=c.bbox("all")),
+            )
+            print(f"[WM-DBG] scroller enabled for tab: {title}")
+
             for group in tab.get("groups", []):
                 grp_frame = ttk.LabelFrame(
-                    frame, text=group.get("label", "")
+                    inner, text=group.get("label", "")
                 )
                 grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
