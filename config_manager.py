@@ -310,6 +310,8 @@ class ConfigManager:
 
     # ========== audyt i porządkowanie backupów ==========
     def _audit_change(self, key: str, before_val: Any, after_val: Any, who: str):
+        if key.startswith("secrets."):
+            before_val = after_val = "***"
         rec = {
             "time": datetime.datetime.now().isoformat(timespec="seconds"),
             "user": who,

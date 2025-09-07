@@ -178,6 +178,31 @@ def test_validate_dict_value_type(make_manager):
             make_manager(defaults=bad_defaults, schema=schema)
 
 
+def test_secret_admin_pin_masked(make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [{"key": "secrets.admin_pin", "type": "string"}],
+    }
+    defaults = {"secrets": {"admin_pin": ""}}
+
+    mgr, paths = make_manager(defaults=defaults, schema=schema)
+    mgr.set("secrets.admin_pin", "1234", who="tester")
+    mgr.save_all()
+
+    with open(paths["global"], encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["secrets"]["admin_pin"] == "1234"
+
+    reloaded = cm.ConfigManager.refresh()
+    assert reloaded.get("secrets.admin_pin") == "1234"
+
+    audit_file = Path(paths["audit"]) / "config_changes.jsonl"
+    with open(audit_file, encoding="utf-8") as f:
+        rec = json.loads(f.readline())
+    assert rec["before"] == "***"
+    assert rec["after"] == "***"
+
+
 def test_refresh_with_custom_paths(tmp_path):
     schema = {"config_version": 1, "options": [{"key": "a", "type": "int"}]}
     cfg_data = {"a": 5}

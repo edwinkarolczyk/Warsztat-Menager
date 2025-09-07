@@ -72,3 +72,14 @@ def test_save_creates_backup(cfg_env, capsys):
     out = capsys.readouterr().out
     assert "[WM-DBG]" in out
     root.destroy()
+
+
+def test_save_admin_pin(cfg_env):
+    root = _make_root()
+    panel = gui_settings.SettingsPanel(root)
+    panel.vars["secrets.admin_pin"].set("4321")
+    panel.save()
+    with open(cm.GLOBAL_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["secrets"]["admin_pin"] == "4321"
+    root.destroy()
