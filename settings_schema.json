@@ -55,6 +55,18 @@
               "max": 240
             }
           ]
+        },
+        {
+          "key": "security",
+          "label": "Bezpieczeństwo",
+          "fields": [
+            {
+              "key": "secrets.admin_pin",
+              "type": "string",
+              "widget": "password",
+              "label": "PIN administratora"
+            }
+          ]
         }
       ]
     },
