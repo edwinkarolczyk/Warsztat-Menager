@@ -47,7 +47,7 @@ def _create_widget(
         widget = ttk.Combobox(
             frame,
             textvariable=var,
-            values=option.get("enum", []),
+            values=option.get("values", []),
             state="readonly",
         )
     elif opt_type == "path":
