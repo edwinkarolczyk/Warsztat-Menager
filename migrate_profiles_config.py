@@ -11,7 +11,16 @@ defaults = {
     "tab_enabled": True,
     "show_name_in_header": True,
     "avatar_dir": "",
-    "fields_visible": ["login","nazwa","rola","zmiana"]
+    "fields_visible": ["login","nazwa","rola","zmiana"],
+    "fields_editable_by_user": [
+        "imie",
+        "nazwisko",
+        "staz",
+        "telefon",
+        "email"
+    ],
+    "allow_pin_change": False,
+    "task_default_deadline_days": 7,
 }
 changed=False
 for k,v in defaults.items():
@@ -25,6 +34,9 @@ flat = {
     "profiles.show_name_in_header": profiles["show_name_in_header"],
     "profiles.avatar_dir": profiles["avatar_dir"],
     "profiles.fields_visible": profiles["fields_visible"],
+    "profiles.fields_editable_by_user": profiles["fields_editable_by_user"],
+    "profiles.allow_pin_change": profiles["allow_pin_change"],
+    "profiles.task_default_deadline_days": profiles["task_default_deadline_days"],
 }
 for k,v in flat.items():
     if k not in cfg:

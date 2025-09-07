@@ -16,7 +16,8 @@
       "telefon",
       "email"
     ],
-    "allow_pin_change": false
+    "allow_pin_change": false,
+    "task_default_deadline_days": 7
   },
   "profiles.tab_enabled": true,
   "profiles.show_name_in_header": true,
@@ -34,5 +35,6 @@
     "telefon",
     "email"
   ],
-  "profiles.allow_pin_change": false
+  "profiles.allow_pin_change": false,
+  "profiles.task_default_deadline_days": 7
 }

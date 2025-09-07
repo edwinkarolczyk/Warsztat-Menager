@@ -244,6 +244,62 @@
           ]
         }
       ]
+    },
+    {
+      "id": "profile",
+      "title": "Profile",
+      "groups": [
+        {
+          "key": "profiles_general",
+          "label": "Ogólne",
+          "fields": [
+            {
+              "key": "profiles.tab_enabled",
+              "type": "bool",
+              "label": "Włącz kartę profilu"
+            },
+            {
+              "key": "profiles.show_name_in_header",
+              "type": "bool",
+              "label": "Pokaż zalogowanego w nagłówku"
+            },
+            {
+              "key": "profiles.avatar_dir",
+              "type": "path",
+              "widget": "dir",
+              "label": "Folder awatarów"
+            },
+            {
+              "key": "profiles.allow_pin_change",
+              "type": "bool",
+              "label": "Pozwól na zmianę PIN"
+            },
+            {
+              "key": "profiles.task_default_deadline_days",
+              "type": "int",
+              "label": "Domyślny termin zadania (dni)"
+            }
+          ]
+        },
+        {
+          "key": "profiles_fields",
+          "label": "Widoczność pól",
+          "fields": [
+            {
+              "key": "profiles.fields_visible",
+              "type": "array",
+              "label": "Pola w profilu",
+              "value_type": "string"
+            },
+            {
+              "key": "profiles.fields_editable_by_user",
+              "type": "array",
+              "label": "Pola edytowalne przez użytkownika",
+              "value_type": "string"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

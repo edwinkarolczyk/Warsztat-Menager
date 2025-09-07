@@ -72,6 +72,23 @@
     "ui_scale": 100
   },
   "profiles": {
+    "tab_enabled": true,
+    "show_name_in_header": true,
+    "avatar_dir": "",
+    "fields_visible": [
+      "login",
+      "nazwa",
+      "rola",
+      "zmiana"
+    ],
+    "fields_editable_by_user": [
+      "imie",
+      "nazwisko",
+      "staz",
+      "telefon",
+      "email"
+    ],
+    "allow_pin_change": false,
     "task_default_deadline_days": 7
   },
   "shifts": {
