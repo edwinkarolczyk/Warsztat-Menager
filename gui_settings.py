@@ -321,7 +321,6 @@ class SettingsPanel:
                 parent=self.master,
             ):
                 self.save()
-            self._unsaved = False
 
     def restore_defaults(self) -> None:
         for key, var in self.vars.items():
