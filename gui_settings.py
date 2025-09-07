@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import json
-import os
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -385,6 +384,8 @@ class SettingsWindow(SettingsPanel):
         config_path: str = "config.json",
         schema_path: str = "settings_schema.json",
     ) -> None:
+        import os
+
         base_dir = os.path.dirname(os.path.abspath(__file__))
         if not os.path.isabs(config_path):
             config_path = os.path.join(base_dir, config_path)
