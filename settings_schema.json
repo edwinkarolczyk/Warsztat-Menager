@@ -37,32 +37,180 @@
     {
       "id": "uzytkownicy",
       "title": "Użytkownicy",
-      "groups": []
+      "groups": [
+        {
+          "key": "auth",
+          "label": "Logowanie",
+          "fields": [
+            {
+              "key": "auth.required",
+              "type": "bool",
+              "label": "Wymagaj logowania"
+            },
+            {
+              "key": "auth.session_timeout_min",
+              "type": "int",
+              "label": "Limit czasu sesji (min)",
+              "min": 1,
+              "max": 240
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "hala",
       "title": "Hala",
-      "groups": []
+      "groups": [
+        {
+          "key": "hall",
+          "label": "Ustawienia hali",
+          "fields": [
+            {
+              "key": "hall.grid_size_px",
+              "type": "int",
+              "label": "Rozmiar siatki (px)",
+              "min": 1,
+              "max": 100
+            },
+            {
+              "key": "hall.drag_snap_px",
+              "type": "int",
+              "label": "Przyciąganie (px)",
+              "min": 1,
+              "max": 100
+            },
+            {
+              "key": "hall.triple_confirm_delete",
+              "type": "bool",
+              "label": "Potrójne potwierdzanie usuwania"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "narzedzia",
       "title": "Narzędzia",
-      "groups": []
+      "groups": [
+        {
+          "key": "narzedzia",
+          "label": "Narzędzia",
+          "fields": [
+            {
+              "key": "szablony_zadan_narzedzia",
+              "type": "array",
+              "label": "Szablony zadań",
+              "value_type": "string"
+            },
+            {
+              "key": "typy_narzedzi",
+              "type": "array",
+              "label": "Typy narzędzi",
+              "value_type": "string"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "magazyn",
       "title": "Magazyn",
-      "groups": []
+      "groups": [
+        {
+          "key": "magazyn",
+          "label": "Magazyn",
+          "fields": [
+            {
+              "key": "magazyn_rezerwacje",
+              "type": "bool",
+              "label": "Rezerwacje"
+            },
+            {
+              "key": "magazyn_precision_mb",
+              "type": "int",
+              "label": "Precyzja (MB)",
+              "min": 0,
+              "max": 6
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "zlecenia",
       "title": "Zlecenia",
-      "groups": []
+      "groups": [
+        {
+          "key": "zlecenia",
+          "label": "Zlecenia",
+          "fields": [
+            {
+              "key": "progi_alertow_pct",
+              "type": "array",
+              "label": "Progi alertów (%)",
+              "value_type": "int"
+            },
+            {
+              "key": "czynnosci_technologiczne",
+              "type": "array",
+              "label": "Czynności technologiczne",
+              "value_type": "string"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "update",
       "title": "Aktualizacje & Kopie",
-      "groups": []
+      "groups": [
+        {
+          "key": "updates",
+          "label": "Aktualizacje",
+          "fields": [
+            {
+              "key": "updates.auto",
+              "type": "bool",
+              "label": "Automatyczne aktualizacje"
+            },
+            {
+              "key": "updates.remote",
+              "type": "string",
+              "label": "Zdalne repozytorium"
+            },
+            {
+              "key": "updates.branch",
+              "type": "string",
+              "label": "Gałąź aktualizacji"
+            },
+            {
+              "key": "updates.push_branch",
+              "type": "string",
+              "label": "Gałąź do wysyłki"
+            }
+          ]
+        },
+        {
+          "key": "backup",
+          "label": "Kopie zapasowe",
+          "fields": [
+            {
+              "key": "backup.folder",
+              "type": "path",
+              "widget": "dir",
+              "label": "Folder kopii"
+            },
+            {
+              "key": "backup.keep_last",
+              "type": "int",
+              "label": "Ilość kopii",
+              "min": 1,
+              "max": 50
+            }
+          ]
+        }
+      ]
     }
   ]
 }
