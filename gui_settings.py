@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.5
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -296,6 +296,10 @@ class SettingsPanel:
                     frame, text=group.get("label", "")
                 )
                 grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                if tip := group.get("tooltip"):
+                    _bind_tooltip(grp_frame, tip)
+                inner = ttk.Frame(grp_frame)
+                inner.pack(fill="both", expand=True, padx=8, pady=6)
 
                 for field_def in group.get("fields", []):
                     fld_count += 1
@@ -304,7 +308,7 @@ class SettingsPanel:
                     current = self.cfg.get(key, field_def.get("default"))
                     opt_copy = dict(field_def)
                     opt_copy["default"] = current
-                    field, var = _create_widget(opt_copy, grp_frame)
+                    field, var = _create_widget(opt_copy, inner)
                     field.pack(fill="x", padx=5, pady=2)
                     self.vars[key] = var
                     self._initial[key] = current
