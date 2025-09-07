@@ -44,10 +44,11 @@ def _create_widget(
         widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
+        enum_vals = option.get("enum") or option.get("values") or []
         widget = ttk.Combobox(
             frame,
             textvariable=var,
-            values=option.get("enum", []),
+            values=enum_vals,
             state="readonly",
         )
     elif opt_type == "path":
