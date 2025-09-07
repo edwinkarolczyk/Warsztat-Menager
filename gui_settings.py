@@ -275,10 +275,12 @@ class SettingsPanel:
             groups[grp].append(opt)
 
         self.nb = ttk.Notebook(self.master)
+        print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
         for grp in order:
+            print("[WM-DBG] [SETTINGS] add tab:", grp)
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=grp)
             for row, option in enumerate(groups[grp]):
@@ -294,6 +296,8 @@ class SettingsPanel:
                 self._initial[key] = current
                 self._defaults[key] = option.get("default")
                 var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+
+        print("[WM-DBG] [SETTINGS] notebook packed")
 
         self.btns = ttk.Frame(self.master)
         self.btns.pack(pady=5)
@@ -394,9 +398,31 @@ class SettingsWindow(SettingsPanel):
         self.config_path, self.schema_path = config_path, schema_path
         print(f"[WM-DBG] config_path={self.config_path}")
         print(f"[WM-DBG] schema_path={self.schema_path}")
+        print("[WM-DBG] [SETTINGS] open SettingsWindow")
+        from pathlib import Path
+
+        print("[WM-DBG] [SETTINGS] cwd =", Path().resolve())
+        base_dir = Path(__file__).resolve().parent
+        print("[WM-DBG] [SETTINGS] __file__ dir =", base_dir)
+        print(
+            "[WM-DBG] [SETTINGS] config.json exists?",
+            (base_dir / "config.json").exists(),
+        )
+        print(
+            "[WM-DBG] [SETTINGS] schema exists?",
+            Path(schema_path).exists(),
+        )
         with open(self.schema_path, "r", encoding="utf-8") as f:
             self.schema = json.load(f)
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
+        print(
+            "[WM-DBG] [SETTINGS] has ui.theme?",
+            "ui.theme" in json.dumps(self.schema),
+        )
+        print(
+            "[WM-DBG] [SETTINGS] has ui.language?",
+            "ui.language" in json.dumps(self.schema),
+        )
         super().__init__(master)
 
 
