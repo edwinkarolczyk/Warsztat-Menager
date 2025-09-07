@@ -1,6 +1,6 @@
 """
 Config Manager – warstwy: defaults → global → local → secrets
-Wersja: 1.0.1
+Wersja: 1.0.2
 
 Funkcje:
 - Ładowanie i scalanie warstw configu
@@ -47,6 +47,27 @@ class ConfigManager:
     _instance: "ConfigManager | None" = None
     _initialized: bool = False
 
+    # >>> WM PATCH START: ensure defaults from schema
+    @staticmethod
+    def _ensure_defaults_from_schema(
+        cfg: Dict[str, Any], schema: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Uzupełnia brakujące klucze domyślnymi wartościami ze schematu."""
+
+        def apply_default(key: str | None, default: Any) -> None:
+            if key and default is not None and key not in cfg:
+                print(f"[WM-DBG] [SETTINGS] default injected: {key}={default}")
+                cfg[key] = default
+
+        for tab in schema.get("tabs", []):
+            for group in tab.get("groups", []):
+                for field in group.get("fields", []):
+                    apply_default(field.get("key"), field.get("default"))
+        for opt in schema.get("options", []):
+            apply_default(opt.get("key"), opt.get("default"))
+        return cfg
+    # >>> WM PATCH END
+
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -79,6 +100,9 @@ class ConfigManager:
                 self._schema_idx[key] = opt
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
+        self.global_cfg = self._ensure_defaults_from_schema(
+            self.global_cfg, self.schema
+        )
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
         self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
