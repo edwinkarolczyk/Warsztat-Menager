@@ -42,7 +42,14 @@ def _lines_from_text(widget: tk.Text) -> list[str]:
         return []
 
 
-def panel_ustawien(root: tk.Misc, frame: tk.Widget, login=None, rola=None):
+def panel_ustawien(
+    root: tk.Misc,
+    frame: tk.Widget,
+    login=None,
+    rola=None,
+    config_path: str | None = None,
+    schema_path: str | None = None,
+):
     """Create settings panel inside ``frame``.
 
     Parameters match the signature of the legacy implementation so that
@@ -50,12 +57,26 @@ def panel_ustawien(root: tk.Misc, frame: tk.Widget, login=None, rola=None):
     """
 
     clear_frame(frame)
-    SettingsPanel(frame)
+    SettingsPanel(frame, config_path=config_path, schema_path=schema_path)
     return frame
 
 
-def refresh_panel(root: tk.Misc, frame: tk.Widget, login=None, rola=None):
+def refresh_panel(
+    root: tk.Misc,
+    frame: tk.Widget,
+    login=None,
+    rola=None,
+    config_path: str | None = None,
+    schema_path: str | None = None,
+):
     """Reload configuration and rebuild the settings panel."""
 
-    ConfigManager.refresh()
-    panel_ustawien(root, frame, login, rola)
+    ConfigManager.refresh(config_path=config_path, schema_path=schema_path)
+    panel_ustawien(
+        root,
+        frame,
+        login,
+        rola,
+        config_path=config_path,
+        schema_path=schema_path,
+    )

@@ -176,3 +176,22 @@ def test_validate_dict_value_type(make_manager):
         shutil.rmtree(paths["backup"], ignore_errors=True)
         with pytest.raises(cm.ConfigError):
             make_manager(defaults=bad_defaults, schema=schema)
+
+
+def test_refresh_with_custom_paths(tmp_path):
+    schema = {"config_version": 1, "options": [{"key": "a", "type": "int"}]}
+    cfg_data = {"a": 5}
+    schema_path = tmp_path / "schema.json"
+    cfg_path = tmp_path / "custom.json"
+    with open(schema_path, "w", encoding="utf-8") as f:
+        json.dump(schema, f, ensure_ascii=False, indent=2)
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        json.dump(cfg_data, f, ensure_ascii=False, indent=2)
+
+    mgr = cm.ConfigManager.refresh(
+        config_path=str(cfg_path), schema_path=str(schema_path)
+    )
+    try:
+        assert mgr.get("a") == 5
+    finally:
+        cm.ConfigManager.refresh()
