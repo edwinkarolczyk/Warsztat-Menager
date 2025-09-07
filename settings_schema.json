@@ -35,33 +35,33 @@
       ]
     },
     {
-      "id": "uzytkownicy",
-      "title": "Użytkownicy",
+      "key": "uzytkownicy",
+      "label": "Użytkownicy",
       "groups": []
     },
     {
-      "id": "hala",
-      "title": "Hala",
+      "key": "hala",
+      "label": "Hala",
       "groups": []
     },
     {
-      "id": "narzedzia",
-      "title": "Narzędzia",
+      "key": "narzedzia",
+      "label": "Narzędzia",
       "groups": []
     },
     {
-      "id": "magazyn",
-      "title": "Magazyn",
+      "key": "magazyn",
+      "label": "Magazyn",
       "groups": []
     },
     {
-      "id": "zlecenia",
-      "title": "Zlecenia",
+      "key": "zlecenia",
+      "label": "Zlecenia",
       "groups": []
     },
     {
-      "id": "update",
-      "title": "Aktualizacje & Kopie",
+      "key": "update",
+      "label": "Aktualizacje & Kopie",
       "groups": []
     }
   ]
