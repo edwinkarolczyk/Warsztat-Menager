@@ -13,6 +13,7 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 import config_manager as cm
 from config_manager import ConfigManager
 import ustawienia_produkty_bom
+from gui_products import ProductsMaterialsTab
 
 
 def _create_widget(
@@ -320,6 +321,10 @@ class SettingsPanel:
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
                 )
 
+        base_dir = Path(__file__).resolve().parent
+        self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
+        self.nb.add(self.products_tab, text="Produkty i materiały")
+        print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
         print("[WM-DBG] [SETTINGS] notebook packed")
 
         self.btns = ttk.Frame(self.master)
