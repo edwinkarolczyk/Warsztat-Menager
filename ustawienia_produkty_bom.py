@@ -72,10 +72,18 @@ def _list_surowce():
     return out
 
 # ---------- UI ----------
-def make_tab(parent, rola=None, notebook=None):
-    """Zwraca ``Frame`` do wpięcia jako zakładka w Ustawieniach.
+def make_tab(parent, rola=None, notebook: ttk.Notebook | None = None):
+    """Return a ``Frame`` for the "Produkty (BOM)" settings tab.
 
-    Jeśli ``notebook`` nie zostanie podany, używany jest ``parent.master``.
+    Parameters
+    ----------
+    parent:
+        Parent widget that will contain the created frame.
+    rola:
+        Currently unused but kept for backwards compatibility.
+    notebook:
+        Optional ``ttk.Notebook`` owning the tab.  If not provided, the
+        function falls back to ``parent.master``.
     """
 
     frm = ttk.Frame(parent)
@@ -489,7 +497,7 @@ def make_tab(parent, rola=None, notebook=None):
                 lb.activate(i)
                 break
 
-    nb = notebook or parent.master
+    nb = notebook if notebook is not None else getattr(parent, "master", None)
     base_title = ""
     if isinstance(nb, ttk.Notebook):
         base_title = nb.tab(parent, "text")
