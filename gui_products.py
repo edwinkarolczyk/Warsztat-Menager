@@ -167,6 +167,14 @@ class ProductsMaterialsTab(ttk.Frame):
             )
 
     def _read_json_list(self, path: str) -> list[dict[str, Any]]:
+        """Read JSON file expecting a list of dictionaries.
+
+        The helper accepts legacy files where the top-level object is a
+        dictionary containing an ``items`` field with the actual list.
+        Any other structure results in returning an empty list with a
+        debug warning printed to the console.
+        """
+
         if not os.path.exists(path):
             return []
         try:
