@@ -28,8 +28,7 @@ def _setup_schema(make_manager, monkeypatch, options=None, tabs=None):
         defaults = {opt["key"]: opt.get("default") for opt in options}
     _, paths = make_manager(defaults=defaults, schema=schema)
     monkeypatch.setattr(ustawienia_systemu, "SCHEMA_PATH", paths["schema"])
-
-
+    return paths
 def test_open_and_switch_tabs(make_manager, monkeypatch):
     tabs = [
         {
@@ -180,5 +179,41 @@ def test_open_and_switch_subtabs(make_manager, monkeypatch):
     for t in inner_tabs:
         inner_nb.select(t)
         root.update_idletasks()
+    root.destroy()
+
+
+def test_magazyn_tab_has_subtabs(make_manager, monkeypatch):
+    tabs = [
+        {
+            "id": "magazyn",
+            "title": "Magazyn",
+            "groups": [
+                {
+                    "label": "G",
+                    "fields": [{"key": "a", "type": "int", "default": 1}],
+                }
+            ],
+        }
+    ]
+    paths = _setup_schema(make_manager, monkeypatch, tabs=tabs)
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+    root.withdraw()
+    panel = gui_settings.SettingsPanel(
+        root, config_path=paths["config"], schema_path=paths["schema"]
+    )
+    nb = panel.nb
+    tab_id = nb.tabs()[0]
+    nb.select(tab_id)
+    nb.event_generate("<<NotebookTabChanged>>")
+    root.update_idletasks()
+    mag_frame = root.nametowidget(tab_id)
+    inner_nb = [
+        child for child in mag_frame.winfo_children() if isinstance(child, ttk.Notebook)
+    ][0]
+    titles = [inner_nb.tab(t, "text") for t in inner_nb.tabs()]
+    assert titles == ["Ustawienia magazynu", "Produkty (BOM)"]
     root.destroy()
 

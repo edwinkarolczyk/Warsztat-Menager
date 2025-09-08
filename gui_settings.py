@@ -12,6 +12,7 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 import config_manager as cm
 from config_manager import ConfigManager
+import ustawienia_produkty_bom
 
 
 def _create_widget(
@@ -299,16 +300,25 @@ class SettingsPanel:
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
+        # state for lazy creation of magazyn subtabs
+        self._magazyn_frame: ttk.Frame | None = None
+        self._magazyn_schema: dict[str, Any] | None = None
+        self._magazyn_initialized = False
+
         for tab in schema.get("tabs", []):
             title = tab.get("title", tab.get("id", ""))
             print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
-            grp_count, fld_count = self._populate_tab(frame, tab)
-            print(
-                f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
-            )
+            if tab.get("id") == "magazyn":
+                self._magazyn_frame = frame
+                self._magazyn_schema = tab
+            else:
+                grp_count, fld_count = self._populate_tab(frame, tab)
+                print(
+                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+                )
 
         print("[WM-DBG] [SETTINGS] notebook packed")
 
@@ -368,7 +378,27 @@ class SettingsPanel:
 
         return grp_count, fld_count
 
+    def _init_magazyn_tab(self) -> None:
+        """Create subtabs for the 'magazyn' section on first use."""
+        if self._magazyn_frame is None or self._magazyn_schema is None:
+            return
+        nb = ttk.Notebook(self._magazyn_frame)
+        nb.pack(fill="both", expand=True)
+
+        ustawienia_frame = ttk.Frame(nb)
+        nb.add(ustawienia_frame, text="Ustawienia magazynu")
+        self._populate_tab(ustawienia_frame, self._magazyn_schema)
+
+        bom_frame = ustawienia_produkty_bom.make_tab(nb)
+        nb.add(bom_frame, text="Produkty (BOM)")
+
+        self._magazyn_initialized = True
+
     def _on_tab_change(self, _=None):
+        if self._magazyn_frame is not None and not self._magazyn_initialized:
+            if self.nb.select() == str(self._magazyn_frame):
+                self._init_magazyn_tab()
+
         if self.cfg.warn_on_unsaved and self._unsaved:
             if messagebox.askyesno(
                 "Niezapisane zmiany",
