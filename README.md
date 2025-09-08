@@ -5,6 +5,9 @@ Moduły: **Maszyny, Narzędzia, Zlecenia, Magazyn, Serwis, Ustawienia**.
 Narzędzia mogą mieć przypisane zdjęcie oraz plik DXF z automatycznie
 generowaną miniaturą.
 
+Profile użytkowników mogą zawierać listę `disabled_modules`, która
+pozwala ukryć wybrane moduły panelu dla danego loginu.
+
 Formularze zarządzania surowcami, półproduktami i produktami znajdują się
 bezpośrednio w zakładce **Ustawienia → Magazyn i BOM**, bez potrzeby
 otwierania dodatkowego okna.
