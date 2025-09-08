@@ -107,8 +107,9 @@ class ProductsMaterialsTab(ttk.Frame):
             "jednostka": "Jednostka",
             "stan": "Stan",
         }
-        mcols = tuple(headers)
-        self.mat_tree = ttk.Treeview(mat_frame, columns=mcols, show="headings")
+        self.mat_tree = ttk.Treeview(
+            mat_frame, columns=tuple(headers.keys()), show="headings"
+        )
         for col, hdr in headers.items():
             self.mat_tree.heading(col, text=hdr)
         self.mat_tree.pack(fill="both", expand=True, padx=5, pady=5)
