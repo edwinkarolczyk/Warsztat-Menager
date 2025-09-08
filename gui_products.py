@@ -171,7 +171,21 @@ class ProductsMaterialsTab(ttk.Frame):
             return []
         try:
             with open(path, encoding="utf-8") as f:
-                return json.load(f) or []
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                items = data.get("items")
+                if isinstance(items, list):
+                    return items
+                print(
+                    f"[WM-DBG] [WARN] 'items' not a list in {path}; returning empty"
+                )
+                return []
+            print(
+                f"[WM-DBG] [WARN] expected list in {path}, got {type(data).__name__}"
+            )
+            return []
         except Exception:
             print(f"[WM-DBG] [ERROR] read list {path}")
             return []
@@ -185,7 +199,9 @@ class ProductsMaterialsTab(ttk.Frame):
     def _refresh_polprodukty(self) -> None:
         for iid in self.pol_tree.get_children():
             self.pol_tree.delete(iid)
-        self.polprodukty = self._read_json_list(self.paths["polprodukty"])
+        self.polprodukty: list[dict[str, Any]] = self._read_json_list(
+            self.paths["polprodukty"]
+        )
         for pp in self.polprodukty:
             pid = pp.get("id")
             name = pp.get("nazwa", pid)
@@ -201,7 +217,9 @@ class ProductsMaterialsTab(ttk.Frame):
 
     def _refresh_surowce(self) -> None:
         self.mat_tree.delete(*self.mat_tree.get_children())
-        self.surowce = self._read_json_list(self.paths["magazyn"])
+        self.surowce: list[dict[str, Any]] = self._read_json_list(
+            self.paths["magazyn"]
+        )
         for it in self.surowce:
             self.mat_tree.insert(
                 "",
