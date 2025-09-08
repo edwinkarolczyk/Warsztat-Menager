@@ -394,8 +394,9 @@ class SettingsPanel:
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
 
-        bom_frame = ustawienia_produkty_bom.make_tab(nb)
+        bom_frame = ttk.Frame(nb)
         nb.add(bom_frame, text="Produkty (BOM)")
+        ustawienia_produkty_bom.make_tab(bom_frame)
 
         self._magazyn_initialized = True
 
