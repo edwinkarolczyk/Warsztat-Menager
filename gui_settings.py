@@ -396,7 +396,7 @@ class SettingsPanel:
 
         bom_frame = ttk.Frame(nb)
         nb.add(bom_frame, text="Produkty (BOM)")
-        ustawienia_produkty_bom.make_tab(bom_frame)
+        ustawienia_produkty_bom.make_tab(bom_frame, notebook=nb)
 
         self._magazyn_initialized = True
 

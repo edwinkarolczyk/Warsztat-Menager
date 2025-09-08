@@ -72,8 +72,12 @@ def _list_surowce():
     return out
 
 # ---------- UI ----------
-def make_tab(parent, rola=None):
-    """Zwraca Frame do wpięcia jako zakładka w Ustawieniach."""
+def make_tab(parent, rola=None, notebook=None):
+    """Zwraca ``Frame`` do wpięcia jako zakładka w Ustawieniach.
+
+    Jeśli ``notebook`` nie zostanie podany, używany jest ``parent.master``.
+    """
+
     frm = ttk.Frame(parent)
     apply_theme(frm)
     _ensure_dirs()
@@ -485,15 +489,19 @@ def make_tab(parent, rola=None):
                 lb.activate(i)
                 break
 
-    notebook = parent.nametowidget(parent.winfo_parent())
-    base_title = notebook.tab(parent, "text")
+    nb = notebook or parent.master
+    base_title = ""
+    if isinstance(nb, ttk.Notebook):
+        base_title = nb.tab(parent, "text")
+        on_dirty = lambda d: nb.tab(parent, text=base_title + (" •" if d else ""))
+    else:
+        on_dirty = None
+
     guard = DirtyGuard(
         "Produkty (BOM)",
         on_save=lambda: (_save(), guard.reset()),
         on_reset=lambda: (_load(), guard.reset()),
-        on_dirty_change=lambda d: notebook.tab(
-            parent, text=base_title + (" •" if d else "")
-        ),
+        on_dirty_change=on_dirty,
     )
     guard.watch(frm)
 
