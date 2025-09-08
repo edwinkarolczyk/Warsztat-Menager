@@ -40,7 +40,8 @@
     },
     "zadania": [],
     "opis": "",
-    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z",
+    "disabled_modules": []
   },
   {
     "login": "dawid",
@@ -66,7 +67,8 @@
     },
     "zadania": [],
     "opis": "",
-    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z",
+    "disabled_modules": []
   },
   {
     "login": "marek",
@@ -92,7 +94,8 @@
     },
     "zadania": [],
     "opis": "",
-    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z",
+    "disabled_modules": []
   },
   {
     "login": "sebastian",
@@ -118,7 +121,8 @@
     },
     "zadania": [],
     "opis": "",
-    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z",
+    "disabled_modules": []
   },
   {
     "login": "jacek",
@@ -144,6 +148,7 @@
     },
     "zadania": [],
     "opis": "",
-    "ostatnia_wizyta": "1970-01-01T00:00:00Z"
+    "ostatnia_wizyta": "1970-01-01T00:00:00Z",
+    "disabled_modules": []
   }
 ]

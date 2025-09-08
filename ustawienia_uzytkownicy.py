@@ -66,6 +66,7 @@ def make_tab(parent, rola):
         "imie",
         "nazwisko",
         "staz",
+        "disabled_modules",
     ]
     text_fields = [
         "umiejetnosci",
@@ -114,7 +115,10 @@ def make_tab(parent, rola):
         user = users[idx]
         login_var.set(user.get("login", ""))
         for f in fields_entry:
-            vars[f].set(user.get(f, ""))
+            val = user.get(f, "")
+            if f == "disabled_modules" and isinstance(val, list):
+                val = ", ".join(val)
+            vars[f].set(val)
         for f in text_fields:
             w = text_widgets[f]
             w.delete("1.0", "end")
@@ -148,7 +152,11 @@ def make_tab(parent, rola):
             lb.selection_clear(0, tk.END)
             lb.selection_set(lb.size() - 1)
         for f in fields_entry:
-            user[f] = vars[f].get()
+            if f == "disabled_modules":
+                modules = [m.strip() for m in vars[f].get().split(",") if m.strip()]
+                user[f] = modules
+            else:
+                user[f] = vars[f].get()
         defaults = {
             "umiejetnosci": {},
             "kursy": [],
