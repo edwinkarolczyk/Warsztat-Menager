@@ -105,6 +105,12 @@
   },
   "magazyn_rezerwacje": true,
   "magazyn_precision_mb": 3,
+  "produkty_dir": "data/produkty/",
+  "produkty_auto_sync": false,
+  "polprodukty_dir": "data/polprodukty/",
+  "polprodukty_auto_sync": false,
+  "surowce_file": "data/magazyn/surowce.json",
+  "progi_alertow_surowce": {},
   "progi_alertow_pct": [
     100
   ],
@@ -114,7 +120,6 @@
     "kg": "kilogram",
     "m": "metr"
   },
-  "progi_alertow_surowce": {},
   "warn_on_unsaved": true,
   "autosave_draft": false,
   "autosave_draft_interval_sec": 15,
