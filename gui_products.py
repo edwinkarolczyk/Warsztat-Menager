@@ -99,12 +99,18 @@ class ProductsMaterialsTab(ttk.Frame):
         # Surowce -------------------------------------------------------
         mat_frame = ttk.Frame(nb)
         nb.add(mat_frame, text="Surowce")
-        mcols = ("id", "typ", "rozmiar", "dlugosc", "jednostka", "stan")
+        headers = {
+            "id": "ID",
+            "typ": "Typ",
+            "rozmiar": "Rozmiar",
+            "dlugosc": "Długość",
+            "jednostka": "Jednostka",
+            "stan": "Stan",
+        }
+        mcols = tuple(headers)
         self.mat_tree = ttk.Treeview(mat_frame, columns=mcols, show="headings")
-        for col, header in zip(
-            mcols, ("ID", "Typ", "Rozmiar", "Długość", "Jednostka", "Stan")
-        ):
-            self.mat_tree.heading(col, text=header)
+        for col, hdr in headers.items():
+            self.mat_tree.heading(col, text=hdr)
         self.mat_tree.pack(fill="both", expand=True, padx=5, pady=5)
         mat_btns = ttk.Frame(mat_frame)
         mat_btns.pack(fill="x", padx=5, pady=5)
