@@ -146,6 +146,59 @@
               "max": 6
             }
           ]
+        },
+        {
+          "key": "produkty",
+          "label": "Produkty",
+          "fields": [
+            {
+              "key": "produkty_dir",
+              "type": "path",
+              "widget": "dir",
+              "label": "Folder produktów"
+            },
+            {
+              "key": "produkty_auto_sync",
+              "type": "bool",
+              "label": "Auto synchronizacja"
+            }
+          ]
+        },
+        {
+          "key": "polprodukty",
+          "label": "Półprodukty",
+          "fields": [
+            {
+              "key": "polprodukty_dir",
+              "type": "path",
+              "widget": "dir",
+              "label": "Folder półproduktów"
+            },
+            {
+              "key": "polprodukty_auto_sync",
+              "type": "bool",
+              "label": "Auto synchronizacja"
+            }
+          ]
+        },
+        {
+          "key": "surowce",
+          "label": "Surowce",
+          "fields": [
+            {
+              "key": "surowce_file",
+              "type": "path",
+              "widget": "file",
+              "label": "Plik surowców"
+            },
+            {
+              "key": "progi_alertow_surowce",
+              "type": "dict",
+              "label": "Progi alertów surowców",
+              "key_type": "string",
+              "value_type": "int"
+            }
+          ]
         }
       ]
     },
