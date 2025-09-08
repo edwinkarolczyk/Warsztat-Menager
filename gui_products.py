@@ -199,8 +199,7 @@ class ProductsMaterialsTab(ttk.Frame):
             )
 
     def _refresh_surowce(self) -> None:
-        for iid in self.mat_tree.get_children():
-            self.mat_tree.delete(iid)
+        self.mat_tree.delete(*self.mat_tree.get_children())
         self.surowce = self._read_json_list(self.paths["magazyn"])
         for it in self.surowce:
             self.mat_tree.insert(
