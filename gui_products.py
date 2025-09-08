@@ -13,6 +13,8 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
 
+import logika_magazyn as LM
+
 from ui_theme import apply_theme_safe as apply_theme
 
 _VALID_ID_RE = re.compile(r"^[A-Z0-9_-]+$")
@@ -27,7 +29,9 @@ class ProductsMaterialsTab(ttk.Frame):
         self.paths = {
             "produkty_dir": os.path.join(self.base_dir, "data", "produkty"),
             "polprodukty": os.path.join(self.base_dir, "data", "polprodukty.json"),
-            "magazyn": os.path.join(self.base_dir, "data", "magazyn.json"),
+            "magazyn": os.path.join(
+                self.base_dir, "data", "magazyn", "magazyn.json"
+            ),
             "backup": os.path.join(self.base_dir, "backup"),
         }
         print("[WM-DBG] [SETTINGS] init ProductsMaterialsTab")
@@ -201,14 +205,35 @@ class ProductsMaterialsTab(ttk.Frame):
 
     def _refresh_surowce(self) -> None:
         self.mat_tree.delete(*self.mat_tree.get_children())
-        self.surowce = self._read_json_list(self.paths["magazyn"])
-        for it in self.surowce:
+        items: dict[str, dict[str, Any]] = {}
+        try:
+            data = LM.load_magazyn()
+            items = data.get("items", {})
+        except Exception:
+            try:
+                with open(self.paths["magazyn"], encoding="utf-8") as f:
+                    data = json.load(f) or {}
+                    items = data.get("items", {})
+            except Exception:
+                print("[WM-DBG] [ERROR] nie można wczytać magazynu")
+                messagebox.showwarning(
+                    "Magazyn", "Nie można wczytać danych magazynu", parent=self
+                )
+                return
+        if not isinstance(items, dict) or not items:
+            print("[WM-DBG] [WARN] magazyn brak danych lub nieprawidłowy")
+            messagebox.showinfo(
+                "Magazyn", "Plik magazynu nie zawiera danych", parent=self
+            )
+            return
+        for it in items.values():
+            iid = it.get("id")
             self.mat_tree.insert(
                 "",
                 "end",
-                iid=it.get("id"),
+                iid=iid,
                 values=(
-                    it.get("id"),
+                    iid,
                     it.get("typ"),
                     it.get("rozmiar"),
                     it.get("dlugosc"),
