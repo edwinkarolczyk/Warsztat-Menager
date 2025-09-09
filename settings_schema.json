@@ -120,6 +120,40 @@
               "type": "array",
               "label": "Typy narzędzi",
               "value_type": "string"
+            },
+            {
+              "key": "tools.collections_enabled",
+              "type": "array",
+              "label": "Włączone kolekcje",
+              "value_type": "string",
+              "default": [
+                "NN",
+                "ST"
+              ]
+            },
+            {
+              "key": "tools.default_collection",
+              "type": "string",
+              "label": "Domyślna kolekcja",
+              "default": "NN"
+            },
+            {
+              "key": "tools.auto_check_on_status_global",
+              "type": "array",
+              "label": "Automatyczne sprawdzanie dla statusów globalnych",
+              "value_type": "string",
+              "default": [
+                "sprawne",
+                "zakończone"
+              ]
+            },
+            {
+              "key": "tools.collections_paths",
+              "type": "dict",
+              "label": "Ścieżki kolekcji",
+              "key_type": "string",
+              "value_type": "string",
+              "default": {}
             }
           ]
         }

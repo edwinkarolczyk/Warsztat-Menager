@@ -127,6 +127,18 @@
   "secrets": {
     "admin_pin": ""
   },
+  "tools": {
+    "collections_enabled": [
+      "NN",
+      "ST"
+    ],
+    "default_collection": "NN",
+    "auto_check_on_status_global": [
+      "sprawne",
+      "zakończone"
+    ],
+    "collections_paths": {}
+  },
   "szablony_zadan_narzedzia": [
     "Przegląd wizualny",
     "Czyszczenie i smarowanie",
