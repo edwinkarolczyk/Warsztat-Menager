@@ -22,7 +22,17 @@ def apply_patch(path: str, dry_run: bool) -> subprocess.CompletedProcess:
         cmd.append("--check")
     cmd.append(path)
     res = subprocess.run(cmd, capture_output=True, text=True)
-    _audit("apply_patch", {"path": path, "dry_run": dry_run, "returncode": res.returncode})
+    _audit(
+        "apply_patch",
+        {
+            "path": path,
+            "dry_run": dry_run,
+            "returncode": res.returncode,
+        },
+    )
+    if res.returncode != 0:
+        print(res.stderr)
+        raise RuntimeError(res.stderr.strip() or "git apply failed")
     return res
 
 
@@ -32,7 +42,14 @@ def get_commits(limit: int = 20, branch: str = "Rozwiniecie") -> List[str]:
         capture_output=True,
         text=True,
     )
-    commits = res.stdout.strip().splitlines() if res.returncode == 0 else []
+    if res.returncode != 0:
+        print(res.stderr)
+        _audit(
+            "get_commits",
+            {"error": res.stderr.strip(), "returncode": res.returncode},
+        )
+        raise RuntimeError(res.stderr.strip() or "git rev-list failed")
+    commits = res.stdout.strip().splitlines()
     _audit("get_commits", {"count": len(commits)})
     return commits
 
@@ -44,4 +61,7 @@ def rollback_to(commit_hash: str, hard: bool = True) -> subprocess.CompletedProc
         "rollback_to",
         {"commit": commit_hash, "hard": hard, "returncode": res.returncode},
     )
+    if res.returncode != 0:
+        print(res.stderr)
+        raise RuntimeError(res.stderr.strip() or "git reset failed")
     return res
