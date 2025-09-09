@@ -10,9 +10,10 @@ import json
 import os
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
 from config_manager import ConfigManager
+from ui_utils import _msg_error
 
 # Paths
 DATA_DIR = Path("data")
@@ -182,21 +183,27 @@ class MagazynBOM(ttk.Frame):
         rec = {k: (v.get() or "").strip() for k, v in self.s_vars.items()}
         for field in ("kod","nazwa","rodzaj","jednostka"):
             if not rec.get(field):
-                messagebox.showerror("Surowce", f"Pole '{field}' jest wymagane.")
+                _msg_error(self, "Surowce", f"Pole '{field}' jest wymagane.")
                 return
         try:
             rec["dlugosc"] = float(rec.get("dlugosc") or 0)
             rec["stan"] = int(rec.get("stan") or 0)
             rec["prog_alertu"] = int(rec.get("prog_alertu") or 0)
         except ValueError:
-            messagebox.showerror("Surowce", "Pola liczby muszą zawierać wartości numeryczne.")
+            _msg_error(
+                self,
+                "Surowce",
+                "Pola liczby muszą zawierać wartości numeryczne.",
+            )
             return
         self.model.add_or_update_surowiec(rec)
         self._load_surowce()
 
     def _delete_surowiec(self) -> None:
         kod = self.s_vars["kod"].get()
-        if kod and messagebox.askyesno("Potwierdź", f"Usunąć surowiec '{kod}'?"):
+        if kod and messagebox.askyesno(
+            "Potwierdź", f"Usunąć surowiec '{kod}'?", parent=self
+        ):
             self.model.delete_surowiec(kod)
             self._load_surowce()
 
@@ -286,7 +293,8 @@ class MagazynBOM(ttk.Frame):
         sr_ilosc = self.pp_vars["sr_ilosc"].get().strip()
         sr_jedn = self.pp_vars["sr_jednostka"].get().strip()
         if not (kod and nazwa and sr_kod and sr_ilosc and sr_jedn):
-            messagebox.showerror(
+            _msg_error(
+                self,
                 "Półprodukty",
                 "Wymagane pola: kod, nazwa, kod surowca, ilość i jednostka.",
             )
@@ -294,13 +302,12 @@ class MagazynBOM(ttk.Frame):
         try:
             sr_ilosc_val = float(sr_ilosc)
         except ValueError:
-            messagebox.showerror(
-                "Półprodukty", "Ilość surowca musi być liczbą.")
+            _msg_error(self, "Półprodukty", "Ilość surowca musi być liczbą.")
             return
         try:
             norma = int(self.pp_vars["norma_strat"].get() or 0)
         except ValueError:
-            messagebox.showerror("Półprodukty", "Norma strat musi być liczbą.")
+            _msg_error(self, "Półprodukty", "Norma strat musi być liczbą.")
             return
         rec = {
             "kod": kod,
@@ -318,7 +325,9 @@ class MagazynBOM(ttk.Frame):
 
     def _delete_polprodukt(self) -> None:
         kod = self.pp_vars["kod"].get()
-        if kod and messagebox.askyesno("Potwierdź", f"Usunąć półprodukt '{kod}'?"):
+        if kod and messagebox.askyesno(
+            "Potwierdź", f"Usunąć półprodukt '{kod}'?", parent=self
+        ):
             self.model.delete_polprodukt(kod)
             self._load_polprodukty()
 
@@ -368,11 +377,11 @@ class MagazynBOM(ttk.Frame):
         symbol = self.pr_vars["symbol"].get().strip()
         nazwa = self.pr_vars["nazwa"].get().strip()
         if not symbol or not nazwa:
-            messagebox.showerror("Produkty", "Wymagane pola: symbol i nazwa.")
+            _msg_error(self, "Produkty", "Wymagane pola: symbol i nazwa.")
             return
         bom_list = self._parse_bom(self.pr_vars["bom"].get())
         if not bom_list:
-            messagebox.showerror("Produkty", "BOM musi mieć co najmniej jedną pozycję.")
+            _msg_error(self, "Produkty", "BOM musi mieć co najmniej jedną pozycję.")
             return
         rec = {"symbol": symbol, "nazwa": nazwa, "BOM": bom_list}
         self.model.add_or_update_produkt(rec)
@@ -380,7 +389,9 @@ class MagazynBOM(ttk.Frame):
 
     def _delete_produkt(self) -> None:
         symbol = self.pr_vars["symbol"].get()
-        if symbol and messagebox.askyesno("Potwierdź", f"Usunąć produkt '{symbol}'?"):
+        if symbol and messagebox.askyesno(
+            "Potwierdź", f"Usunąć produkt '{symbol}'?", parent=self
+        ):
             self.model.delete_produkt(symbol)
             self._load_produkty()
 
