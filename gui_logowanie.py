@@ -73,6 +73,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
     # tło z pliku grafiki/login_bg.png
     bg_path = os.path.join("grafiki", "login_bg.png")
+    fallback = False
     if os.path.exists(bg_path):
         try:
             img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
@@ -83,26 +84,37 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             bg_label.lower()
         except Exception as e:  # pragma: no cover - tylko logowanie
             logging.warning("Nie można załadować tła logowania: %s", e)
+            fallback = True
+    else:
+        fallback = True
 
-    # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
-    top = ttk.Frame(root, style="WM.TFrame")
-    top.pack(fill="x", pady=(32, 8))
+    if fallback:
+        root.configure(bg="#0f1113")
+        ttk.Label(root, text="Warsztat Menager", style="WM.H1.TLabel").pack(
+            pady=(32, 8)
+        )
+    else:
+        # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
+        top = ttk.Frame(root, style="WM.TFrame")
+        top.pack(fill="x", pady=(32, 8))
 
-    # logo (jeśli jest) — używamy tk.Label dla image
-    logo_path = "logo.png"
-    if os.path.exists(logo_path):
-        try:
-            img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
-            logo_img = ImageTk.PhotoImage(img)
-            lbl_logo = tk.Label(
-                top,
-                image=logo_img,
-                bg=root["bg"] if "bg" in root.keys() else "#0f1113",
-            )
-            lbl_logo.image = logo_img  # pin referencji
-            lbl_logo.pack()
-        except Exception:
-            # brak PIL lub błąd pliku — po prostu nazwa
+        # logo (jeśli jest) — używamy tk.Label dla image
+        logo_path = "logo.png"
+        if os.path.exists(logo_path):
+            try:
+                img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
+                logo_img = ImageTk.PhotoImage(img)
+                lbl_logo = tk.Label(
+                    top,
+                    image=logo_img,
+                    bg=root["bg"] if "bg" in root.keys() else "#0f1113",
+                )
+                lbl_logo.image = logo_img  # pin referencji
+                lbl_logo.pack()
+            except Exception:
+                # brak PIL lub błąd pliku — po prostu nazwa
+                ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
+        else:
             ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
 
     # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
