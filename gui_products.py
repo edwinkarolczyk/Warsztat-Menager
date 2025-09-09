@@ -16,6 +16,7 @@ from typing import Any
 import logika_magazyn as LM
 
 from ui_theme import apply_theme_safe as apply_theme
+from ui_utils import _ensure_topmost, _msg_error, _msg_info, _msg_warning
 
 _VALID_ID_RE = re.compile(r"^[A-Z0-9_-]+$")
 
@@ -152,8 +153,10 @@ class ProductsMaterialsTab(ttk.Frame):
         try:
             os.startfile(path)  # type: ignore[attr-defined]
         except Exception:
-            messagebox.showwarning(
-                "Otwórz folder produktów", f"Nie udało się otworzyć {path}"
+            _msg_warning(
+                self,
+                "Otwórz folder produktów",
+                f"Nie udało się otworzyć {path}",
             )
 
     # ------------------------------------------------------------------
@@ -166,7 +169,7 @@ class ProductsMaterialsTab(ttk.Frame):
         count = len(files)
         print(f"[WM-DBG] preview count: {count}")
         preview = "\n".join(files[:20]) or "(brak plików)"
-        messagebox.showinfo("Podgląd listy produktów", preview)
+        _msg_info(self, "Podgląd listy produktów", preview)
 
     # ------------------------------------------------------------------
     def refresh_all(self) -> None:
@@ -252,15 +255,15 @@ class ProductsMaterialsTab(ttk.Frame):
                     items = data.get("items", {})
             except Exception:
                 print("[WM-DBG] [ERROR] nie można wczytać magazynu")
-                messagebox.showwarning(
-                    "Magazyn", "Nie można wczytać danych magazynu", parent=self
+                _msg_warning(
+                    self,
+                    "Magazyn",
+                    "Nie można wczytać danych magazynu",
                 )
                 return
         if not isinstance(items, dict) or not items:
             print("[WM-DBG] [WARN] magazyn brak danych lub nieprawidłowy")
-            messagebox.showinfo(
-                "Magazyn", "Plik magazynu nie zawiera danych", parent=self
-            )
+            _msg_info(self, "Magazyn", "Plik magazynu nie zawiera danych")
             return
         for it in items.values():
             iid = it.get("id")
@@ -344,6 +347,7 @@ class ProductsMaterialsTab(ttk.Frame):
         win = tk.Toplevel(self)
         win.title("Produkt")
         apply_theme(win)
+        _ensure_topmost(win, self)
         win.grab_set()
 
         tk.Label(win, text="Symbol:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
@@ -404,17 +408,17 @@ class ProductsMaterialsTab(ttk.Frame):
             symbol = sym_var.get().strip().upper()
             name = name_var.get().strip()
             if not symbol or not name:
-                messagebox.showerror("Błąd", "Wymagany symbol i nazwa", parent=win)
+                _msg_error(win, "Błąd", "Wymagany symbol i nazwa")
                 print("[WM-DBG] [ERROR] brak symbolu/nazwy")
                 return
             if not _VALID_ID_RE.match(symbol):
-                messagebox.showerror("Błąd", "Nieprawidłowy symbol", parent=win)
+                _msg_error(win, "Błąd", "Nieprawidłowy symbol")
                 print("[WM-DBG] [ERROR] invalid symbol")
                 return
             if (not product or product.get("symbol") != symbol) and not self._is_symbol_unique(
                 symbol
             ):
-                messagebox.showerror("Błąd", "Duplikat symbolu", parent=win)
+                _msg_error(win, "Błąd", "Duplikat symbolu")
                 print("[WM-DBG] [ERROR] duplicate symbol")
                 return
             selected_pol = [pol_ids[i] for i in list_pol.curselection()]
@@ -463,8 +467,10 @@ class ProductsMaterialsTab(ttk.Frame):
             return
         pid = sel[0]
         if self._is_polprodukt_used(pid):
-            messagebox.showerror(
-                "Błąd", "Półprodukt użyty w produkcie – usuń najpierw produkt", parent=self
+            _msg_error(
+                self,
+                "Błąd",
+                "Półprodukt użyty w produkcie – usuń najpierw produkt",
             )
             print(f"[WM-DBG] [POL] blokada usunięcia: {pid}")
             return
@@ -483,6 +489,7 @@ class ProductsMaterialsTab(ttk.Frame):
         win = tk.Toplevel(self)
         win.title("Półprodukt")
         apply_theme(win)
+        _ensure_topmost(win, self)
         win.grab_set()
 
         tk.Label(win, text="ID:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
@@ -554,17 +561,17 @@ class ProductsMaterialsTab(ttk.Frame):
             name = name_var.get().strip()
             rodz = rodz_var.get().strip()
             if not pid or not name or not rodz:
-                messagebox.showerror("Błąd", "Wszystkie pola wymagane", parent=win)
+                _msg_error(win, "Błąd", "Wszystkie pola wymagane")
                 print("[WM-DBG] [ERROR] brak danych półproduktu")
                 return
             if not _VALID_ID_RE.match(pid):
-                messagebox.showerror("Błąd", "Nieprawidłowy ID", parent=win)
+                _msg_error(win, "Błąd", "Nieprawidłowy ID")
                 print("[WM-DBG] [ERROR] invalid id")
                 return
             if (not item or item.get("id") != pid) and not self._is_id_unique(
                 self.polprodukty, pid
             ):
-                messagebox.showerror("Błąd", "Duplikat ID", parent=win)
+                _msg_error(win, "Błąd", "Duplikat ID")
                 print("[WM-DBG] [ERROR] duplicate id")
                 return
             selected_mat = [mat_ids[i] for i in list_mat.curselection()]
@@ -619,9 +626,7 @@ class ProductsMaterialsTab(ttk.Frame):
             return
         sid = sel[0]
         if self._is_surowiec_used(sid):
-            messagebox.showerror(
-                "Błąd", "Surowiec użyty w półprodukcie", parent=self
-            )
+            _msg_error(self, "Błąd", "Surowiec użyty w półprodukcie")
             print(f"[WM-DBG] [MAT] blokada usunięcia: {sid}")
             return
         if not messagebox.askyesno("Potwierdź", f"Czy na pewno usunąć {sid}?", parent=self):
@@ -639,6 +644,7 @@ class ProductsMaterialsTab(ttk.Frame):
         win = tk.Toplevel(self)
         win.title("Surowiec")
         apply_theme(win)
+        _ensure_topmost(win, self)
         win.grab_set()
 
         tk.Label(win, text="ID:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
@@ -686,24 +692,24 @@ class ProductsMaterialsTab(ttk.Frame):
         def save() -> None:
             sid = id_var.get().strip().upper()
             if not sid:
-                messagebox.showerror("Błąd", "ID wymagane", parent=win)
+                _msg_error(win, "Błąd", "ID wymagane")
                 print("[WM-DBG] [ERROR] brak ID surowca")
                 return
             if not _VALID_ID_RE.match(sid):
-                messagebox.showerror("Błąd", "Nieprawidłowy ID", parent=win)
+                _msg_error(win, "Błąd", "Nieprawidłowy ID")
                 print("[WM-DBG] [ERROR] invalid ID surowca")
                 return
             if (not item or item.get("id") != sid) and not self._is_id_unique(
                 self.surowce, sid
             ):
-                messagebox.showerror("Błąd", "Duplikat ID", parent=win)
+                _msg_error(win, "Błąd", "Duplikat ID")
                 print("[WM-DBG] [ERROR] duplicate ID surowca")
                 return
             try:
                 dl_val = float(dl_var.get())
                 stan_val = float(stan_var.get())
             except ValueError:
-                messagebox.showerror("Błąd", "Długość i stan muszą być liczbą", parent=win)
+                _msg_error(win, "Błąd", "Długość i stan muszą być liczbą")
                 print("[WM-DBG] [ERROR] liczby surowca")
                 return
             data = {

@@ -16,6 +16,7 @@ import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
 import ustawienia_produkty_bom
+from ui_utils import _ensure_topmost
 
 
 def _create_widget(
@@ -224,6 +225,7 @@ def _bind_tooltip(widget, text: str):
         x = widget.winfo_rootx() + 16
         y = widget.winfo_rooty() + 20
         tw = tk.Toplevel(widget)
+        _ensure_topmost(tw, widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
         lbl = tk.Label(
