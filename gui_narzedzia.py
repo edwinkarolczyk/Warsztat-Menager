@@ -373,18 +373,18 @@ def _normalize_status(s: str) -> str:
     return (s or "").strip()
 
 
-def should_autocheck(collection_id: str, status_id: str, settings: dict) -> bool:
-    """Decide if tasks should be auto-marked as done.
+def should_autocheck(tool_id: str, status_id: str, settings: dict) -> bool:
+    """Return ``True`` if tasks for the given tool should be auto-completed.
 
-    The decision is based on *settings* which may contain mapping of
-    collections to statuses requiring auto completion. The structure is
-    intentionally flexible; if the mapping is missing, the function returns
-    ``False``.
+    *settings* may define an ``autocheck`` mapping which lists statuses
+    that trigger automatic completion for specific tool numbers or a
+    ``default`` key. If no relevant mapping is found, ``False`` is
+    returned.
     """
 
     autocheck = (settings or {}).get("autocheck") or {}
     if isinstance(autocheck, dict):
-        statuses = autocheck.get(str(collection_id)) or autocheck.get("default")
+        statuses = autocheck.get(str(tool_id)) or autocheck.get("default")
         if statuses:
             return status_id in statuses
     return False
