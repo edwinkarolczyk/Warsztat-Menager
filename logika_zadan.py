@@ -24,15 +24,18 @@ class ToolTasksError(RuntimeError):
     """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
 
 
-def _load_tool_tasks() -> list[dict]:
+def _load_tool_tasks(force: bool = False) -> list[dict]:
     """Ładuje definicje zadań narzędzi z pliku JSON.
 
     Plik może zawierać maksymalnie 8 typów oraz po 8 statusów na typ.
     Przekroczenie limitu zgłasza :class:`ToolTasksError`.
+
+    Args:
+        force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
     """
 
     global _TOOL_TASKS_CACHE
-    if _TOOL_TASKS_CACHE is not None:
+    if _TOOL_TASKS_CACHE is not None and not force:
         return _TOOL_TASKS_CACHE
     try:
         with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
@@ -68,26 +71,34 @@ def _load_tool_tasks() -> list[dict]:
     return types
 
 
-def get_tool_types_list() -> list[dict]:
-    """Zwraca listę dostępnych typów narzędzi."""
+def get_tool_types_list(force: bool = False) -> list[dict]:
+    """Zwraca listę dostępnych typów narzędzi.
+
+    Args:
+        force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
+    """
 
     return [
         {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in _load_tool_tasks()
+        for t in _load_tool_tasks(force=force)
     ]
 
 
-def _find_type(type_id: str) -> dict | None:
-    for t in _load_tool_tasks():
+def _find_type(type_id: str, force: bool = False) -> dict | None:
+    for t in _load_tool_tasks(force=force):
         if t.get("id") == type_id:
             return t
     return None
 
 
-def get_statuses_for_type(type_id: str) -> list[dict]:
-    """Zwraca listę statusów dostępnych dla danego typu."""
+def get_statuses_for_type(type_id: str, force: bool = False) -> list[dict]:
+    """Zwraca listę statusów dostępnych dla danego typu.
 
-    typ = _find_type(type_id)
+    Args:
+        force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
+    """
+
+    typ = _find_type(type_id, force=force)
     if not typ:
         return []
     return [
@@ -96,10 +107,14 @@ def get_statuses_for_type(type_id: str) -> list[dict]:
     ]
 
 
-def get_tasks_for(type_id: str, status_id: str) -> list[str]:
-    """Zwraca listę zadań dla kombinacji typu i statusu."""
+def get_tasks_for(type_id: str, status_id: str, force: bool = False) -> list[str]:
+    """Zwraca listę zadań dla kombinacji typu i statusu.
 
-    typ = _find_type(type_id)
+    Args:
+        force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
+    """
+
+    typ = _find_type(type_id, force=force)
     if not typ:
         return []
     for st in typ.get("statuses") or []:
