@@ -24,6 +24,7 @@ from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from start import CONFIG_MANAGER, open_settings_window
 import gui_changelog
+import gui_tools_config
 from logger import log_akcja
 
 
@@ -245,6 +246,10 @@ def uruchom_panel(root, login, rola):
     settings_menu.add_command(
         label="Ustawienia…",
         command=lambda: open_settings_window(root),
+    )
+    settings_menu.add_command(
+        label="Narzędzia",
+        command=lambda: gui_tools_config.open_tools_config(root),
     )
     menubar.add_cascade(label="Ustawienia", menu=settings_menu)
     help_menu = tk.Menu(menubar, tearoff=False)
