@@ -3,7 +3,7 @@
 # Zmiany 1.2.0 (2025-08-25):
 # - Brygadzista edytuje pola innych (bez loginu/hasła/avataru).
 # - Admin może dodatkowo dodawać i usuwać konta.
-# ⏹ KONIEC KODU
+
 
 import tkinter as tk
 from tkinter import ttk
