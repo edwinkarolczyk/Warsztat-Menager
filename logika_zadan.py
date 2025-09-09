@@ -92,6 +92,43 @@ def get_tasks_for(type_id: str, status_id: str) -> list[str]:
     return []
 
 
+# --- Nowe API z obsługą kolekcji -----------------------------------------
+
+
+def get_tool_types(collection: str, settings=None) -> list[dict]:
+    """Zwróć listę typów narzędzi dla danej kolekcji.
+
+    Obecna implementacja ignoruje kolekcję i ustawienia i zwraca globalną
+    listę typów, zachowując kompatybilność z dotychczasowym formatem.
+    """
+
+    return get_tool_types_list()
+
+
+def get_statuses(collection: str, type_id: str, settings=None) -> list[dict]:
+    """Zwróć listę statusów dla typu w kolekcji.
+
+    Parametry ``collection`` i ``settings`` są obecnie ignorowane.
+    """
+
+    return get_statuses_for_type(type_id)
+
+
+def get_tasks(collection: str, type_id: str, status_id: str, settings=None) -> list[str]:
+    """Zwróć listę zadań dla danego statusu typu w kolekcji.
+
+    Parametry dodatkowe nie są jeszcze wykorzystywane.
+    """
+
+    return get_tasks_for(type_id, status_id)
+
+
+def should_autocheck(collection: str, type_id: str, status_id: str, settings=None) -> bool:
+    """Czy zadania dla kombinacji powinny być autozamykane."""
+
+    return False
+
+
 def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

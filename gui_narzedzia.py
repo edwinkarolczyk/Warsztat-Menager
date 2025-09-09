@@ -26,6 +26,7 @@ from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
+import tools
 from utils.path_utils import cfg_path
 import ui_hover
 
@@ -260,28 +261,44 @@ def _tasks_for_type(typ: str, phase: str):
 
 # ===== Szablony z pliku zadania_narzedzia.json =====
 def build_task_template(parent):
-    """Tworzy prosty zestaw comboboxów Typ/Status i listę zadań.
+    """Tworzy zestaw comboboxów Kolekcja/Typ/Status i listę zadań.
 
-    Funkcja korzysta z :mod:`logika_zadan` w celu pobrania danych. Po zmianie
-    statusu wypełnia listę szablonem ``"[ ] <zadanie>"``. Zwraca słownik z
-    referencjami do utworzonych widgetów i funkcji obsługi zdarzeń – ułatwia to
-    testowanie bez środowiska graficznego.
+    Dane pobierane są z :mod:`logika_zadan`. Po zmianie statusu lista jest
+    wypełniana wpisami ``"[ ] <zadanie>"``. Zwraca słownik z referencjami do
+    utworzonych widgetów i funkcji obsługi zdarzeń – ułatwia to testowanie
+    bez środowiska graficznego.
     """
 
+    coll_var = tk.StringVar(value=tools.default_collection)
     typ_var = tk.StringVar()
     status_var = tk.StringVar()
     lst = tk.Listbox(parent, height=8)
 
-    types = LZ.get_tool_types_list()
-    type_map = {t["name"]: t["id"] for t in types}
-    cb_type = ttk.Combobox(parent, values=list(type_map.keys()), textvariable=typ_var, state="readonly")
+    cb_collection = ttk.Combobox(
+        parent,
+        values=list(tools.collections_enabled),
+        textvariable=coll_var,
+        state="readonly",
+    )
+    cb_type = ttk.Combobox(parent, values=[], textvariable=typ_var, state="readonly")
     cb_status = ttk.Combobox(parent, values=[], textvariable=status_var, state="readonly")
 
+    type_map: dict[str, str] = {}
     status_map: dict[str, str] = {}
+
+    def _on_collection_change(_=None):
+        types = LZ.get_tool_types(coll_var.get(), None)
+        type_map.clear()
+        type_map.update({t["name"]: t["id"] for t in types})
+        cb_type.config(values=list(type_map.keys()))
+        typ_var.set("")
+        status_var.set("")
+        cb_status.config(values=[])
+        lst.delete(0, tk.END)
 
     def _on_type_change(_=None):
         tid = type_map.get(typ_var.get())
-        statuses = LZ.get_statuses_for_type(tid)
+        statuses = LZ.get_statuses(coll_var.get(), tid, None)
         status_map.clear()
         status_map.update({s["name"]: s["id"] for s in statuses})
         cb_status.config(values=list(status_map.keys()))
@@ -292,19 +309,30 @@ def build_task_template(parent):
         tid = type_map.get(typ_var.get())
         sid = status_map.get(status_var.get())
         lst.delete(0, tk.END)
-        for t in LZ.get_tasks_for(tid, sid):
-            lst.insert(tk.END, f"[ ] {t}")
+        tasks = LZ.get_tasks(coll_var.get(), tid, sid, None)
+        auto = LZ.should_autocheck(coll_var.get(), tid, sid, None)
+        user = os.getenv("USER", "system")
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        for t in tasks:
+            if auto:
+                lst.insert(tk.END, f"[x] {t} ({now} {user})")
+            else:
+                lst.insert(tk.END, f"[ ] {t}")
 
+    cb_collection.bind("<<ComboboxSelected>>", _on_collection_change)
     cb_type.bind("<<ComboboxSelected>>", _on_type_change)
     cb_status.bind("<<ComboboxSelected>>", _on_status_change)
 
+    cb_collection.pack()
     cb_type.pack()
     cb_status.pack()
     lst.pack(fill="both", expand=True)
     return {
+        "cb_collection": cb_collection,
         "cb_type": cb_type,
         "cb_status": cb_status,
         "listbox": lst,
+        "on_collection_change": _on_collection_change,
         "on_type_change": _on_type_change,
         "on_status_change": _on_status_change,
     }
