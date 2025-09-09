@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime
 import tkinter as tk
 from tkinter import ttk
 
+from narzedzia_history import append_tool_history
 from ui_utils import _ensure_topmost, _msg_error, _msg_info
 from utils.path_utils import cfg_path
 
@@ -75,28 +75,24 @@ def handle_action(tool_id: str, mode: str, login: str, parent: tk.Misc) -> bool:
         _error(parent, f"Brak narzędzia {tool_id}")
         return False
 
-    now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = {"ts": now_ts, "by": login}
-
     if mode == "issue":
         data["pracownik"] = login
-        entry["akcja"] = "qr_issue"
+        action = "qr_issue"
         print(f"[WM-DBG][QR] issue {tool_id} -> {login}")
     elif mode == "return":
         data["pracownik"] = ""
-        entry["akcja"] = "qr_return"
+        action = "qr_return"
         print(f"[WM-DBG][QR] return {tool_id}")
     elif mode == "fault":
         data["status"] = "awaria"
-        entry["akcja"] = "qr_fault"
+        action = "qr_fault"
         print(f"[WM-DBG][QR] fault {tool_id}")
     else:
         _error(parent, f"Nieznany tryb: {mode}")
         return False
 
-    history = list(data.get("historia") or [])
-    history.append(entry)
-    data["historia"] = history
+    append_tool_history(tool_id, login, action)
+    data.pop("historia", None)
     _save_tool(data)
     _info(parent, f"Zapisano {tool_id}")
     return True
