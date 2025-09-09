@@ -1191,12 +1191,17 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                    command=_toggle_done).pack(side="left", padx=(6,0))
 
         def _update_global_tasks(comment, ts):
+            self_ref = locals().get("self")
+            if self_ref is not None and getattr(self_ref, "global_tasks", None) is None:
+                self_ref.global_tasks = []
             path = os.path.join("data", "zadania_narzedzia.json")
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
             except (OSError, json.JSONDecodeError):
                 data = []
+            if self_ref is not None:
+                self_ref.global_tasks = data
             changed = False
             for item in data:
                 if item.get("status") != "Zrobione":
@@ -1211,6 +1216,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     json.dump(data, f, indent=2, ensure_ascii=False)
 
         def _mark_all_done():
+            self_ref = locals().get("self")
+            if self_ref is not None and getattr(self_ref, "global_tasks", None) is None:
+                self_ref.global_tasks = []
             comment = simpledialog.askstring(
                 "Komentarz",
                 "Komentarz do wykonania wszystkich zadań:",
@@ -1224,8 +1232,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     t["ts_done"] = ts
                     if comment:
                         t["komentarz"] = comment
+            if self_ref is None or not hasattr(self_ref, "tasks_listbox"):
+                print("[WM-DBG][TASKS] listbox missing, skip refresh")
+                return
             repaint_tasks()
             _update_global_tasks(comment, ts)
+            print("[WM-DBG][TASKS] marked all done")
 
         ttk.Button(
             tools_bar,
