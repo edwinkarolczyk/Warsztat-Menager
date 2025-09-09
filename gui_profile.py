@@ -74,7 +74,7 @@ def _load_json(path, default):
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
-    except Exception as e:
+    except OSError as e:
         log_akcja(f"[PROFILE] Błąd wczytania {path}: {e}")
     return default
 
@@ -241,7 +241,11 @@ def _read_tasks(login, rola=None):
         res = []
         if os.path.isdir(dir_path):
             for path in glob.glob(os.path.join(dir_path, "*.json")):
-                z = _load_json(path, {})
+                try:
+                    z = _load_json(path, {})
+                except json.JSONDecodeError as e:
+                    log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
+                    continue
                 if isinstance(z, dict) and _order_visible_for(z, login, role):
                     res.append(_convert_order_to_task(z))
         return res
@@ -250,10 +254,14 @@ def _read_tasks(login, rola=None):
         res = []
         if os.path.isdir(dir_path):
             for path in glob.glob(os.path.join(dir_path, "*.json")):
-                tool = _load_json(path, {})
+                try:
+                    tool = _load_json(path, {})
+                except json.JSONDecodeError as e:
+                    log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
+                    continue
                 if not isinstance(tool, dict):
                     continue
-                num  = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
+                num = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
                 name = tool.get("nazwa", "narzędzie")
                 worker = tool.get("pracownik", "")
                 items = tool.get("zadania", [])
@@ -285,8 +293,10 @@ def _read_tasks(login, rola=None):
     for path, loader in sources:
         try:
             tasks.extend(loader(path))
+        except json.JSONDecodeError as e:
+            log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
         except Exception as e:
-            log_akcja(f"Nie udało się wczytać {path}: {e}")
+            log_akcja(f"[WM-DBG][TASKS] Nie udało się wczytać {path}: {e}")
 
     # i) status overrides
     ovr = load_status_overrides(login)

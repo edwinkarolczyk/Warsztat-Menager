@@ -99,3 +99,26 @@ def test_widok_startowy_persistence(tmp_path, monkeypatch):
     saved = json.loads(users_file.read_text(encoding="utf-8"))
     assert saved[0]["preferencje"]["widok_startowy"] == "dashboard"
 
+
+def test_read_tasks_invalid_json(monkeypatch, tmp_path):
+    mod = importlib.import_module("gui_profile")
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    bad_path = data_dir / "zadania.json"
+    bad_path.write_text("{bad json", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    logs: list[str] = []
+    monkeypatch.setattr(mod, "log_akcja", lambda m: logs.append(m))
+    monkeypatch.setattr(mod, "_load_status_overrides", lambda login: {})
+    monkeypatch.setattr(mod, "_load_assign_orders", lambda: {})
+    monkeypatch.setattr(mod, "_load_assign_tools", lambda: {})
+    monkeypatch.setattr(mod.glob, "glob", lambda pattern: [])
+
+    tasks = mod._read_tasks("user")
+    assert tasks == []
+    assert any(
+        "[WM-DBG][TASKS]" in m and "data/zadania.json" in m for m in logs
+    )
+
