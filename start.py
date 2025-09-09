@@ -16,6 +16,8 @@ import json
 import traceback
 from datetime import datetime, timedelta
 import logging
+import subprocess
+import shutil
 import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
@@ -369,6 +371,112 @@ def _on_login(root, login, rola, extra=None):
         traceback.print_exc()
         _error("Błąd w _on_login.")
 
+
+def _wm_git_check_on_start(preferred_branch: str = "Rozwiniecie", bat_path: str = "git_check_and_sync.bat"):
+    """Lekki check Gita wywoływany przy starcie WM."""
+    try:
+        if not shutil.which("git"):
+            print("[WM-DBG][GIT] git.exe nie znaleziony w PATH — pomijam check.")
+            return
+
+        subprocess.run([
+            "git",
+            "rev-parse",
+            "--is-inside-work-tree",
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["git", "fetch", "origin", preferred_branch],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        dirty = subprocess.run([
+            "git",
+            "diff-index",
+            "--quiet",
+            "HEAD",
+            "--",
+        ]).returncode != 0
+        cp = subprocess.run(
+            [
+                "git",
+                "rev-list",
+                "--left-right",
+                "--count",
+                f"HEAD...origin/{preferred_branch}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        ahead, behind = (0, 0)
+        if cp.returncode == 0 and cp.stdout.strip():
+            parts = cp.stdout.strip().split()
+            if len(parts) >= 2:
+                ahead = int(parts[0])
+                behind = int(parts[1])
+
+        print(f"[WM-DBG][GIT] dirty={dirty} ahead={ahead} behind={behind}")
+
+        import tkinter.messagebox as mbox
+
+        if dirty:
+            if mbox.askyesno(
+                "WM – Git: zmiany lokalne",
+                "Wykryto niezapisane zmiany lokalne.\n\nCzy zrobić auto-commit + push?",
+            ):
+                subprocess.run(["git", "add", "-A"], check=False)
+                subprocess.run(
+                    ["git", "commit", "-m", "zmiany lokalnie"], check=False
+                )
+                subprocess.run(
+                    ["git", "push", "origin", preferred_branch], check=False
+                )
+
+        if behind > 0:
+            if mbox.askyesno(
+                "WM – Git: zmiany na zdalnym",
+                "Na gałęzi origin/Rozwiniecie są nowe commity.\n\nCzy pobrać (pull --rebase)?",
+            ):
+                had_dirty = subprocess.run([
+                    "git",
+                    "diff-index",
+                    "--quiet",
+                    "HEAD",
+                    "--",
+                ]).returncode != 0
+                if had_dirty:
+                    subprocess.run([
+                        "git",
+                        "stash",
+                        "push",
+                        "-u",
+                        "-m",
+                        "auto-stash [WM]",
+                    ], check=False)
+                pr = subprocess.run([
+                    "git",
+                    "pull",
+                    "--rebase",
+                    "origin",
+                    preferred_branch,
+                ])
+                if had_dirty:
+                    subprocess.run(["git", "stash", "pop"], check=False)
+
+        if ahead > 0:
+            if mbox.askyesno(
+                "WM – Git: lokalne commity",
+                "Masz lokalne commity do wysłania.\n\nCzy wykonać git push?",
+            ):
+                subprocess.run(
+                    ["git", "push", "origin", preferred_branch], check=False
+                )
+
+    except Exception as e:
+        print(f"[WM-DBG][GIT] Wyjątek w _wm_git_check_on_start: {e}")
+
+
 # ====== MAIN ======
 def main():
     global SESSION_ID
@@ -432,6 +540,7 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    _wm_git_check_on_start()
     main()
 
 # ⏹ KONIEC KODU
