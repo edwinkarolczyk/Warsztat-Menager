@@ -21,3 +21,5 @@
 {"ts": "2025-09-06 07:04:52", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
 {"ts": "2025-09-06 14:18:00", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
 {"ts": "2025-09-06 14:18:01", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
+{"ts": "2025-09-09 13:20:52", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
+{"ts": "2025-09-09 13:20:53", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
