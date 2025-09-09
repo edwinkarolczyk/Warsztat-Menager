@@ -85,6 +85,9 @@ _CFG = ConfigManager()
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
 """Ścieżka do głównego pliku magazynu."""
 
+POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
+"""Ścieżka do pliku półproduktów magazynu."""
+
 _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
@@ -267,6 +270,46 @@ def _append_history(entry):
     finally:
         unlock_file(lock_f)
         lock_f.close()
+
+
+def save_polprodukt(record: dict) -> bool:
+    """Zapisuje nowy półprodukt do pliku ``POLPRODUKTY_PATH``.
+
+    Tworzy plik, jeśli nie istnieje. Zwraca ``True`` po udanym zapisie,
+    ``False`` gdy w pliku znajduje się już rekord o tym samym kodzie/ID.
+    Zapis wykonywany jest atomowo przez plik tymczasowy i ``os.replace``.
+    """
+
+    kod = str(record.get("kod") or record.get("id") or "").strip()
+    if not kod:
+        raise ValueError("Record must contain 'kod' or 'id'.")
+
+    data_rec = record.copy()
+    data_rec.pop("kod", None)
+    data_rec.pop("id", None)
+    if "stan" in data_rec:
+        data_rec["stan"] = float(data_rec["stan"])
+
+    with _LOCK:
+        os.makedirs(os.path.dirname(POLPRODUKTY_PATH), exist_ok=True)
+        try:
+            with open(POLPRODUKTY_PATH, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+                if not isinstance(data, dict):
+                    data = {}
+        except FileNotFoundError:
+            data = {}
+        except Exception:
+            data = {}
+        if kod in data:
+            return False
+        data[kod] = data_rec
+        tmp = POLPRODUKTY_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, POLPRODUKTY_PATH)
+        _log_mag("polprodukt_zapisany", {"kod": kod})
+        return True
 
 
 def zapisz_stan_magazynu(mag=None):
