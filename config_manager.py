@@ -56,11 +56,15 @@ class ConfigManager:
             for tab in tabs:
                 for group in tab.get("groups", []):
                     for field in group.get("fields", []):
+                        if field.get("deprecated"):
+                            continue
                         yield field
                 yield from from_tabs(tab.get("subtabs", []))
 
         yield from from_tabs(schema.get("tabs", []))
         for opt in schema.get("options", []):
+            if opt.get("deprecated"):
+                continue
             yield opt
 
     @classmethod
