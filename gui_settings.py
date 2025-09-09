@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -455,6 +456,18 @@ class SettingsPanel:
             if path:
                 patcher.apply_patch(path, dry_run=dry_run)
 
+        def run_wm_patcher() -> None:
+            base_dir = Path(__file__).resolve().parent
+            script = Path(base_dir) / "tools" / "wm_patcher.py"
+            try:
+                subprocess.run([sys.executable, str(script)], check=False)
+            except FileNotFoundError:
+                messagebox.showerror(
+                    "Brak wm_patcher.py",
+                    "Nie znaleziono narzędzia wm_patcher.py w katalogu tools.\n"
+                    "Uruchom aktualizację lub upewnij się, że plik istnieje.",
+                )
+
         ttk.Button(
             inner,
             text="Sprawdź patch (dry-run)",
@@ -464,6 +477,11 @@ class SettingsPanel:
             inner,
             text="Zastosuj patch",
             command=lambda: choose_patch(False),
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            inner,
+            text="Otwórz patcher",
+            command=run_wm_patcher,
         ).pack(side="left", padx=2)
 
         commits = patcher.get_commits()
