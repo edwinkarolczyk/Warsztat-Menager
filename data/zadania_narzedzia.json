@@ -1,48 +1,11 @@
-{
-  "types": [
-    {
-      "id": "press",
-      "name": "Prasa",
-      "statuses": [
-        {
-          "id": "prod",
-          "name": "Produkcja",
-          "tasks": [
-            "Kontrola poziomu oleju",
-            "Test na sucho"
-          ]
-        },
-        {
-          "id": "serwis",
-          "name": "Serwis",
-          "tasks": [
-            "Czyszczenie",
-            "Przegląd elementów"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "cutter",
-      "name": "Wykrawarka",
-      "statuses": [
-        {
-          "id": "prod",
-          "name": "Produkcja",
-          "tasks": [
-            "Kontrola matrycy"
-          ]
-        },
-        {
-          "id": "serwis",
-          "name": "Serwis",
-          "tasks": [
-            "Wymiana noży",
-            "Smarowanie"
-          ]
-        }
-      ]
-    }
-  ]
-}
-
+[
+  {
+    "id": "1",
+    "login": "demo",
+    "tytul": "Przykładowe zadanie",
+    "status": "Nowe",
+    "termin": "",
+    "opis": "",
+    "zlecenie": ""
+  }
+]

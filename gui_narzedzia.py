@@ -372,6 +372,38 @@ def _normalize_status(s: str) -> str:
         return "sprawne"
     return (s or "").strip()
 
+
+def should_autocheck(collection_id: str, status_id: str, settings: dict) -> bool:
+    """Decide if tasks should be auto-marked as done.
+
+    The decision is based on *settings* which may contain mapping of
+    collections to statuses requiring auto completion. The structure is
+    intentionally flexible; if the mapping is missing, the function returns
+    ``False``.
+    """
+
+    autocheck = (settings or {}).get("autocheck") or {}
+    if isinstance(autocheck, dict):
+        statuses = autocheck.get(str(collection_id)) or autocheck.get("default")
+        if statuses:
+            return status_id in statuses
+    return False
+
+
+def append_tool_history(hist_list: list, entry: dict, hist_view=None) -> None:
+    """Append *entry* to tool history and optionally update ``hist_view``."""
+
+    hist_list.append(entry)
+    if hist_view is not None:
+        hist_view.insert(
+            "", 0, values=(
+                entry.get("ts", ""),
+                entry.get("by", ""),
+                entry.get("z", ""),
+                entry.get("na", ""),
+            )
+        )
+
 # ===================== I/O narzędzi =====================
 def _existing_numbers():
     folder = _resolve_tools_dir()
@@ -1228,6 +1260,26 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             if (st_new.lower() not in [x.lower() for x in allowed]) and (raw_status.lower() not in [x.lower() for x in allowed]):
                 error_dialogs.show_error_dialog("Błąd", f"Status '{raw_status}' nie jest dozwolony.")
                 return
+
+            settings = _load_config()
+            if should_autocheck(numer, st_new, settings):
+                ts_auto = datetime.now().strftime("%Y-%m-%d %H:%M")
+                for t in tasks:
+                    if not t.get("done"):
+                        t["done"] = True
+                        t["by"] = login or "system"
+                        t["ts_done"] = ts_auto
+                repaint_tasks()
+                append_tool_history(
+                    hist_items,
+                    {
+                        "ts": ts_auto,
+                        "by": login or "system",
+                        "z": "[zadania]",
+                        "na": "auto ✔ przy zmianie statusu",
+                    },
+                    hist_view,
+                )
 
             # KONWERSJA: tylko jeśli NN, checkbox zaznaczony i rola pozwala
             tool_mode_local = tool_mode
