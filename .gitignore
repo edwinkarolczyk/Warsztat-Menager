@@ -60,3 +60,8 @@ config.json
 *.jpg
 *.jpeg
 *.xlsm
+secrets.json
+config.local.json
+*.lock
+raw_links.txt
+audit/*.jsonl

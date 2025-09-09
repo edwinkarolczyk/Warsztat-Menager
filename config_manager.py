@@ -108,6 +108,18 @@ class ConfigManager:
         self.global_cfg = self._ensure_defaults_from_schema(
             self.global_cfg, self.schema
         )
+        healed = False
+        for key, val in [
+            ("ui.theme", "dark"),
+            ("ui.language", "pl"),
+            ("backup.keep_last", 10),
+        ]:
+            if key in self._schema_idx and get_by_key(self.global_cfg, key, None) is None:
+                set_by_key(self.global_cfg, key, val)
+                healed = True
+        if healed:
+            print("[WM-DBG][CFG] Auto-heal config.json")
+            self._save_json(self.config_path, self.global_cfg)
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
         self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
