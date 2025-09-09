@@ -46,8 +46,13 @@ def _create_widget(
         widget = ttk.Spinbox(frame, textvariable=var, **spin_args)
     elif opt_type == "enum":
         var = tk.StringVar(value=default)
-        enum_vals = option.get("enum") or option.get("values") or []
-        print(f"[WM-DBG] enum values: {len(enum_vals)}")
+        enum_list = option.get("enum")
+        values_list = option.get("values")
+        if enum_list is not None:
+            print(f"[WM-DBG] enum values: {len(enum_list)}")
+        if values_list is not None:
+            print(f"[WM-DBG] values: {len(values_list)}")
+        enum_vals = enum_list or values_list or []
         widget = ttk.Combobox(
             frame,
             textvariable=var,
@@ -129,7 +134,12 @@ def _create_widget(
 
     widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
 
-    if tip := option.get("tooltip"):
+    tip = (
+        option.get("tooltip")
+        or option.get("help")
+        or option.get("description")
+    )
+    if tip:
         _bind_tooltip(widget, tip)
 
     desc = option.get("description") or option.get("help")
