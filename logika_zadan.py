@@ -16,6 +16,80 @@ import bom
 logger = logging.getLogger(__name__)
 
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
+TOOL_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
+_TOOL_TASKS_CACHE: list[dict] | None = None
+
+
+class ToolTasksError(RuntimeError):
+    """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
+
+
+def _load_tool_tasks() -> list[dict]:
+    """Ładuje definicje zadań narzędzi z pliku JSON.
+
+    Plik może zawierać maksymalnie 8 typów oraz po 8 statusów na typ.
+    Przekroczenie limitu zgłasza :class:`ToolTasksError`.
+    """
+
+    global _TOOL_TASKS_CACHE
+    if _TOOL_TASKS_CACHE is not None:
+        return _TOOL_TASKS_CACHE
+    try:
+        with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        data = {"types": []}
+    types = data.get("types") or []
+    if len(types) > 8:
+        raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
+    for typ in types:
+        statuses = typ.get("statuses") or []
+        if len(statuses) > 8:
+            raise ToolTasksError(
+                f"Przekroczono maksymalną liczbę statusów dla typu {typ.get('id')}"
+            )
+    _TOOL_TASKS_CACHE = types
+    return types
+
+
+def get_tool_types_list() -> list[dict]:
+    """Zwraca listę dostępnych typów narzędzi."""
+
+    return [
+        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
+        for t in _load_tool_tasks()
+    ]
+
+
+def _find_type(type_id: str) -> dict | None:
+    for t in _load_tool_tasks():
+        if t.get("id") == type_id:
+            return t
+    return None
+
+
+def get_statuses_for_type(type_id: str) -> list[dict]:
+    """Zwraca listę statusów dostępnych dla danego typu."""
+
+    typ = _find_type(type_id)
+    if not typ:
+        return []
+    return [
+        {"id": s.get("id"), "name": s.get("name", s.get("id"))}
+        for s in (typ.get("statuses") or [])
+    ]
+
+
+def get_tasks_for(type_id: str, status_id: str) -> list[str]:
+    """Zwraca listę zadań dla kombinacji typu i statusu."""
+
+    typ = _find_type(type_id)
+    if not typ:
+        return []
+    for st in typ.get("statuses") or []:
+        if st.get("id") == status_id:
+            return list(st.get("tasks") or [])
+    return []
 
 
 def _now():
