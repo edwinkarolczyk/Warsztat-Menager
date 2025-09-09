@@ -42,12 +42,28 @@ def _load_tool_tasks() -> list[dict]:
     types = data.get("types") or []
     if len(types) > 8:
         raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
+
+    type_ids: set[str] = set()
     for typ in types:
+        type_id = typ.get("id")
+        if type_id in type_ids:
+            raise ToolTasksError(f"Powtarzające się id typu: {type_id}")
+        type_ids.add(type_id)
+
         statuses = typ.get("statuses") or []
         if len(statuses) > 8:
             raise ToolTasksError(
-                f"Przekroczono maksymalną liczbę statusów dla typu {typ.get('id')}"
+                f"Przekroczono maksymalną liczbę statusów dla typu {type_id}"
             )
+
+        status_ids: set[str] = set()
+        for status in statuses:
+            status_id = status.get("id")
+            if status_id in status_ids:
+                raise ToolTasksError(
+                    f"Powtarzające się id statusu {status_id} w typie {type_id}"
+                )
+            status_ids.add(status_id)
     _TOOL_TASKS_CACHE = types
     return types
 
