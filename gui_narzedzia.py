@@ -261,6 +261,8 @@ def _tasks_for_type(typ: str, phase: str):
 # ===================== ŚCIEŻKI DANYCH =====================
 def _resolve_tools_dir():
     cfg = _load_config()
+    if (cfg.get("paths") or {}).get("narzedzia"):
+        LOG.debug("[WM-DBG][TOOLS] paths.narzedzia deprecated")
     base = (cfg.get("sciezka_danych") or "").strip()
     if base and not os.path.isabs(base):
         base = os.path.normpath(base)
@@ -426,11 +428,13 @@ def _iter_folder_items():
 
 def _iter_legacy_json_items():
     cfg = _load_config()
-    cands = []
-    p_cfg_flat = cfg.get("paths.narzedzia")
+    p_cfg_flat = (cfg.get("paths") or {}).get("narzedzia")
+    if p_cfg_flat:
+        LOG.debug("[WM-DBG][TOOLS] paths.narzedzia deprecated")
     base = (cfg.get("sciezka_danych") or "").strip()
     p_in_base = os.path.join(base, "narzedzia.json") if base else None
     p_cwd = "narzedzia.json"
+    cands = []
 
     for p in [p_cfg_flat, p_in_base, p_cwd]:
         if p and os.path.isfile(p):

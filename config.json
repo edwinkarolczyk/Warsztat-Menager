@@ -49,7 +49,6 @@
   },
   "paths": {
     "maszyny": "data/maszyny.json",
-    "narzedzia": "narzedzia.json",
     "zlecenia": "zlecenia.json"
   },
   "backup": {
