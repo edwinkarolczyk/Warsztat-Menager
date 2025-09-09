@@ -1169,12 +1169,16 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             path = os.path.join("data", "zadania_narzedzia.json")
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    self.global_tasks = json.load(f)
+                    data = json.load(f)
             except (OSError, json.JSONDecodeError):
+                data = []
+            # If the file contains nested definitions (dict), skip rewriting
+            if not isinstance(data, list):
                 self.global_tasks = []
-            self.global_tasks = [_task_from_any(x) for x in (self.global_tasks or [])]
+                print("[WM-DBG][TASKS] skip updating global definitions")
+                return
+            self.global_tasks = [_task_from_any(x) for x in data]
             print(f"[WM-DBG][TASKS] normalized {len(self.global_tasks)} items")
-            # [WM-DBG][PATCH] bezpieczna aktualizacja dla dict/string
             for i, raw in enumerate(self.global_tasks):
                 task = _task_from_any(raw)
                 if task.get("status") != "Zrobione":
