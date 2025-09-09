@@ -72,10 +72,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     szer, wys = root.winfo_screenwidth(), root.winfo_screenheight()
 
     # tło z pliku grafiki/login_bg.png
-    bg_path = os.path.join("grafiki", "login_bg.png")
+    bg_path = BASE_DIR / "grafiki" / "login_bg.png"
     bg_failed = False
     try:
-        if os.path.exists(bg_path):
+        if bg_path.exists():
             img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
             bg_image = ImageTk.PhotoImage(img)
             bg_label = tk.Label(root, image=bg_image)
@@ -94,10 +94,10 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     top.pack(fill="x", pady=(32, 8))
 
     # logo (jeśli jest) — używamy tk.Label dla image lub fallback
-    logo_path = "logo.png"
+    logo_path = BASE_DIR / "logo.png"
     if bg_failed:
         ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
-    elif os.path.exists(logo_path):
+    elif logo_path.exists():
         try:
             img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
             logo_img = ImageTk.PhotoImage(img)
