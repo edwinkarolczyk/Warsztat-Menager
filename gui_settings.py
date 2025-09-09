@@ -374,6 +374,11 @@ class SettingsPanel:
             title += " [LOCK]"
             print("[WM-DBG][SETTINGS][PIM] LOCK wykryty")
         self.nb.add(self.products_tab, text=title)
+        # [WM-DBG] dodaj zakładkę "Patche"
+        try:
+            self._add_patch_manager_tab(base_dir)
+        except Exception as _e:  # pragma: no cover - debug output
+            print("[WM-DBG] [PATCH] pominieto zakladke Patche:", _e)
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
         print("[WM-DBG] [SETTINGS] notebook packed")
 
@@ -486,6 +491,229 @@ class SettingsPanel:
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
 
         self._magazyn_initialized = True
+
+    def _add_patch_manager_tab(self, base_dir: Path) -> None:
+        """Zakładka 'Patche' - skanowanie/zastosowanie patchy i przywracanie kopii."""
+        import tkinter as tk
+        from tkinter import ttk, messagebox, scrolledtext
+        import os
+        import sys
+        import subprocess
+        import shutil
+
+        tab = ttk.Frame(self.nb)
+        self.nb.add(tab, text="Patche")
+
+        ttk.Label(
+            tab, text="Folder patchy (*.wmpatch):"
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
+        patches_var = tk.StringVar(value=os.path.join(base_dir, "patches"))
+        entry = ttk.Entry(tab, textvariable=patches_var, width=60)
+        entry.grid(row=0, column=1, sticky="ew", padx=8, pady=(8, 2))
+
+        def _open_dir() -> None:
+            path = patches_var.get()
+            if os.name == "nt":
+                os.startfile(path)  # type: ignore[arg-type]
+            else:
+                subprocess.Popen(["xdg-open", path])
+
+        ttk.Button(tab, text="Otwórz folder", command=_open_dir).grid(
+            row=0, column=2, padx=8, pady=(8, 2)
+        )
+
+        out = scrolledtext.ScrolledText(
+            tab, height=18, width=100, state="disabled"
+        )
+        out.grid(row=1, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
+
+        btns = ttk.Frame(tab)
+        btns.grid(row=2, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 8))
+        run_btn = ttk.Button(btns, text="Skanuj (Dry-run)")
+        apply_btn = ttk.Button(btns, text="Zastosuj (Apply)")
+        run_btn.pack(side="left", padx=(0, 8))
+        apply_btn.pack(side="left")
+
+        tab.columnconfigure(1, weight=1)
+        tab.rowconfigure(1, weight=1)
+        tab.rowconfigure(5, weight=1)
+
+        def _append(text: str) -> None:
+            out.configure(state="normal")
+            out.insert("end", text + "\n")
+            out.see("end")
+            out.configure(state="disabled")
+
+        def _run_patcher(do_apply: bool) -> None:
+            patch_dir = patches_var.get().strip()
+            if not os.path.isdir(patch_dir):
+                _append(f"[WM-DBG] [PATCH] brak katalogu: {patch_dir}")
+                messagebox.showwarning(
+                    "Brak katalogu", f"Nie znaleziono: {patch_dir}", parent=tab
+                )
+                return
+            _append(f"[WM-DBG] [PATCH] base={base_dir}")
+            _append(f"[WM-DBG] [PATCH] patches={patch_dir}")
+            _append(
+                f"[WM-DBG] [PATCH] mode={'APPLY' if do_apply else 'DRY-RUN'}"
+            )
+            try:
+                try:
+                    from tools import patcher as _patcher  # type: ignore
+                except Exception:
+                    _patcher = None
+                if _patcher is not None:
+                    results: list[dict[str, Any]] = []
+                    for name in sorted(os.listdir(patch_dir)):
+                        if not name.lower().endswith((".wmpatch", ".patch")):
+                            continue
+                        full = os.path.join(patch_dir, name)
+                        res = _patcher.apply_patch(full, dry_run=not do_apply)
+                        details = res.stdout.strip().splitlines()
+                        results.append(
+                            {
+                                "file": name,
+                                "changed": res.returncode == 0 and do_apply,
+                                "details": details,
+                            }
+                        )
+                    changed = [r for r in results if r["changed"]]
+                    for r in results:
+                        status = "CHANGED" if r["changed"] else "OK"
+                        _append(f"- {r['file']}: {status}")
+                        for d in r["details"]:
+                            _append(f"    • {d}")
+                    messagebox.showinfo(
+                        "Patche",
+                        f"Zastosowano {len(results)} plików, zmian: {len(changed)}",
+                        parent=tab,
+                    )
+                else:
+                    exe = sys.executable
+                    cmd = [
+                        exe,
+                        os.path.join(base_dir, "wm_patcher.py"),
+                        "--base",
+                        base_dir,
+                        "--patches",
+                        patch_dir,
+                    ]
+                    if do_apply:
+                        cmd.append("--apply")
+                    _append("[WM-DBG] uruchamiam: " + " ".join(cmd))
+                    proc = subprocess.run(
+                        cmd, capture_output=True, text=True, cwd=base_dir
+                    )
+                    if proc.stdout:
+                        for line in proc.stdout.splitlines():
+                            _append(line)
+                    if proc.stderr:
+                        _append("[STDERR] " + proc.stderr.strip())
+                    messagebox.showinfo(
+                        "Patche",
+                        f"Zakończono (rc={proc.returncode}). Szczegóły powyżej.",
+                        parent=tab,
+                    )
+            except Exception as e:  # pragma: no cover - debug output
+                _append(f"[WM-DBG] [ERROR] {e}")
+                messagebox.showerror("Błąd patchera", str(e), parent=tab)
+
+        run_btn.configure(command=lambda: _run_patcher(False))
+        apply_btn.configure(command=lambda: _run_patcher(True))
+
+        ttk.Separator(tab).grid(
+            row=3, column=0, columnspan=3, sticky="ew", padx=8, pady=4
+        )
+        ttk.Label(
+            tab, text="Kopie patchy (backup/patches):"
+        ).grid(row=4, column=0, sticky="w", padx=8)
+
+        backups = ttk.Treeview(tab, columns=("files",), show="tree")
+        backups.grid(row=5, column=0, columnspan=3, sticky="nsew", padx=8, pady=(2, 8))
+
+        def _refresh_backups() -> None:
+            root_dir = os.path.join(base_dir, "backup", "patches")
+            for item in backups.get_children():
+                backups.delete(item)
+            if not os.path.isdir(root_dir):
+                _append(f"[WM-DBG] brak folderu kopii: {root_dir}")
+                return
+            for name in sorted(os.listdir(root_dir)):
+                d = os.path.join(root_dir, name)
+                if not os.path.isdir(d):
+                    continue
+                files = [
+                    f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))
+                ]
+                node = backups.insert(
+                    "", "end", iid=name, text=name, values=(len(files),)
+                )
+                for f in sorted(files):
+                    backups.insert(node, "end", text=f)
+
+        def _restore_selected() -> None:
+            sel = backups.selection()
+            if not sel:
+                messagebox.showinfo(
+                    "Przywracanie",
+                    "Wybierz katalog kopii (timestamp).",
+                    parent=tab,
+                )
+                return
+            ts = sel[0]
+            root_dir = os.path.join(base_dir, "backup", "patches", ts)
+            if not os.path.isdir(root_dir):
+                messagebox.showerror(
+                    "Błąd", f"Brak katalogu: {root_dir}", parent=tab
+                )
+                return
+            if not messagebox.askyesno(
+                "Potwierdź", f"Przywrócić kopię: {ts}?", parent=tab
+            ):
+                return
+            restored = 0
+            skipped = 0
+            for fname in os.listdir(root_dir):
+                src = os.path.join(root_dir, fname)
+                if not os.path.isfile(src):
+                    continue
+                dst = os.path.join(base_dir, fname)
+                if not os.path.exists(dst):
+                    hit = None
+                    for dirpath, _, filenames in os.walk(base_dir):
+                        if fname in filenames:
+                            cand = os.path.join(dirpath, fname)
+                            if hit is None:
+                                hit = cand
+                            else:
+                                hit = None
+                                break
+                    if hit:
+                        dst = hit
+                try:
+                    shutil.copy2(src, dst)
+                    restored += 1
+                    _append(f"[WM-DBG] [RESTORE] {fname} -> {dst}")
+                except Exception as ex:  # pragma: no cover - debug output
+                    skipped += 1
+                    _append(f"[WM-DBG] [RESTORE] SKIP {fname}: {ex}")
+            messagebox.showinfo(
+                "Przywracanie",
+                f"Przywrócono: {restored}, pominięto: {skipped}",
+                parent=tab,
+            )
+
+        ctrl = ttk.Frame(tab)
+        ctrl.grid(row=6, column=0, columnspan=3, sticky="w", padx=8, pady=(0, 8))
+        ttk.Button(
+            ctrl, text="Odśwież kopie", command=_refresh_backups
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            ctrl, text="Przywróć zaznaczoną kopię", command=_restore_selected
+        ).pack(side="left")
+
+        _refresh_backups()
+        _append("[WM-DBG] [SETTINGS] zakładka Patche: OK")
 
     def _on_tab_change(self, _=None):
         if self._magazyn_frame is not None and not self._magazyn_initialized:
