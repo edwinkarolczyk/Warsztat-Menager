@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1 - 2025-09-09
+- [USTAWIENIA] Zapis plików bez znaku BOM.
+- [NARZĘDZIA] Limit typów i statusów do 8 × 8.
+- [UI] Helper `TopMost` wymusza okno na wierzchu.
+- [PATCHER] Obsługa paczek ZIP.
+
 ## 1.1.3 - 2025-08-19
 - [NOWE] Okno z listą zmian wyświetlane po aktualizacji.
 - [NOWE] Obsługa pliku CHANGELOG.md w aplikacji.
