@@ -291,7 +291,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
     remote = cfg.get("updates.remote", "origin")
-    branch = cfg.get("updates.branch", "proby-rozwoju")
+    branch = cfg.get("updates.branch", "Rozwiniecie")
     try:
         if remote_branch_exists(remote, branch):
             subprocess.run(["git", "fetch", remote, branch], check=True)

@@ -502,7 +502,7 @@ class UpdatesUI(ttk.Frame):
     def _on_git_push(self):
         cfg = ConfigManager()
         remote = cfg.get("updates.remote", "origin")
-        branch = cfg.get("updates.push_branch", "git-push")
+        branch = cfg.get("updates.push_branch", "Rozwiniecie")
         stamp = _now_stamp()
         try:
             self._append_out("[INFO] Rozpoczynam git push…")

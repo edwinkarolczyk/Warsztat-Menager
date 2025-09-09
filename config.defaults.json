@@ -46,8 +46,8 @@
   "updates": {
     "auto": true,
     "remote": "origin",
-    "branch": "proby-rozwoju",
-    "push_branch": "git-push"
+    "branch": "Rozwiniecie",
+    "push_branch": "Rozwiniecie"
   },
   "feedback": {
     "url": ""
