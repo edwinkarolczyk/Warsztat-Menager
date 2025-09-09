@@ -9,7 +9,10 @@
       "stan": 50,
       "min_poziom": 10,
       "rezerwacje": 0,
-      "historia": []
+      "historia": [],
+      "progi_alertow_pct": [
+        100.0
+      ]
     },
     "PL-40": {
       "id": "PL-40",
@@ -19,7 +22,10 @@
       "stan": 120,
       "min_poziom": 20,
       "rezerwacje": 0,
-      "historia": []
+      "historia": [],
+      "progi_alertow_pct": [
+        100.0
+      ]
     },
     "NN-KORPUS": {
       "id": "NN-KORPUS",
@@ -29,15 +35,23 @@
       "stan": 5,
       "min_poziom": 2,
       "rezerwacje": 0,
-      "historia": []
+      "historia": [],
+      "progi_alertow_pct": [
+        100.0
+      ]
     }
   },
   "meta": {
-    "updated": "2025-08-18 00:00:00",
+    "updated": "2025-09-08 12:22:17",
     "order": [
       "PR-30MM",
       "PL-40",
       "NN-KORPUS"
+    ],
+    "item_types": [
+      "komponent",
+      "półprodukt",
+      "materiał"
     ]
   }
 }

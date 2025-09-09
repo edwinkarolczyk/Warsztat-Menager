@@ -1,0 +1,14 @@
+{
+  "patch_id": "RA-2025-09-09-502",
+  "description": "gui_settings: wywoaj _add_patch_manager_tab po dodaniu karty 'Produkty i materiay'",
+  "file": "gui_settings.py",
+  "ops": [
+    { "op": "guard_present", "must_match": "self\\s*\\.nb\\s*\\.add\\(\\s*self\\.products_tab\\s*,\\s*text\\s*=\\s*\\\"Produkty i materiay\\\"\\s*\\)" },
+    {
+      "op": "insert_after",
+      "anchor": "self\\s*\\.nb\\s*\\.add\\(\\s*self\\.products_tab\\s*,\\s*text\\s*=\\s*\\\"Produkty i materiay\\\"\\s*\\)",
+      "text": "\n        # [WM-DBG] dodaj zakadk \\\"Patche\\\" (RA-502)\n        try:\n            self._add_patch_manager_tab(base_dir)\n        except Exception as _e:\n            print(\\\"[WM-DBG] [PATCH] pominieto zakladke Patche:\\\", _e)\n",
+      "if_missing_only": true
+    }
+  ]
+}

@@ -65,7 +65,7 @@
   "updates": {
     "auto": true,
     "remote": "origin",
-    "branch": "proby-rozwoju",
+    "branch": "Rozwiniecie",
     "push_branch": "git-push"
   },
   "modules": {
@@ -135,7 +135,7 @@
   "magazyn_rezerwacje": true,
   "magazyn_precision_mb": 3,
   "progi_alertow_pct": [
-    100
+    100.0
   ],
   "progi_alertow_surowce": {},
   "czynnosci_technologiczne": [],
@@ -155,5 +155,14 @@
       "1212": "1212"
     },
     "modes": {}
-  }
+  },
+  "tutorial_completed": true,
+  "changelog": {
+    "last_viewed": "2025-09-08T12:22:16"
+  },
+  "produkty_dir": "data/produkty/",
+  "produkty_auto_sync": false,
+  "polprodukty_dir": "data/polprodukty/",
+  "polprodukty_auto_sync": false,
+  "surowce_file": "data/magazyn/surowce.json"
 }

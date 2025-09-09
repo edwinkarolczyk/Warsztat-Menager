@@ -24,7 +24,8 @@
     "hala": "1",
     "x": 20,
     "y": 40,
-    "status": "OK"
+    "status": "OK",
+    "id": "42"
   },
   {
     "nr_hali": "1",
@@ -46,7 +47,8 @@
     "hala": "1",
     "x": 60,
     "y": 40,
-    "status": "OK"
+    "status": "OK",
+    "id": "27"
   },
   {
     "nr_hali": "1",
@@ -68,7 +70,8 @@
     "hala": "1",
     "x": 100,
     "y": 40,
-    "status": "SERWIS"
+    "status": "SERWIS",
+    "id": "71"
   },
   {
     "nr_hali": "1",
@@ -90,7 +93,8 @@
     "hala": "1",
     "x": 140,
     "y": 40,
-    "status": "OK"
+    "status": "OK",
+    "id": "44"
   },
   {
     "nr_hali": "1",
@@ -112,7 +116,8 @@
     "hala": "1",
     "x": 180,
     "y": 40,
-    "status": "AWARIA"
+    "status": "SERWIS",
+    "id": "65"
   },
   {
     "nr_hali": "1",
@@ -144,7 +149,8 @@
     "hala": "1",
     "x": 20,
     "y": 100,
-    "status": "OK"
+    "status": "OK",
+    "id": "46"
   },
   {
     "nr_hali": "1",
@@ -166,7 +172,8 @@
     "hala": "1",
     "x": 60,
     "y": 100,
-    "status": "OK"
+    "status": "OK",
+    "id": "66"
   },
   {
     "nr_hali": "1",
@@ -188,7 +195,8 @@
     "hala": "1",
     "x": 100,
     "y": 100,
-    "status": "OK"
+    "status": "OK",
+    "id": "47"
   },
   {
     "nr_hali": "1",
@@ -210,7 +218,8 @@
     "hala": "1",
     "x": 140,
     "y": 100,
-    "status": "SERWIS"
+    "status": "SERWIS",
+    "id": "95"
   },
   {
     "nr_hali": "1",
@@ -237,7 +246,8 @@
     "hala": "1",
     "x": 180,
     "y": 100,
-    "status": "OK"
+    "status": "OK",
+    "id": "48"
   },
   {
     "nr_hali": "1",
@@ -264,6 +274,7 @@
     "hala": "1",
     "x": 220,
     "y": 100,
-    "status": "OK"
+    "status": "OK",
+    "id": "94"
   }
 ]

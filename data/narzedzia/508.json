@@ -1,7 +1,56 @@
 {
-  "nazwa": "Wycinanie polek aectt",
-  "status": "dzialajace",
   "numer": "508",
-  "symbol": "",
-  "opis": "Wycinanie polek aectt"
+  "nazwa": "Wycinanie polek aectt",
+  "typ": "Wykrawające",
+  "status": "sprawne",
+  "opis": "Wycinanie polek aectt",
+  "pracownik": "",
+  "zadania": [
+    {
+      "tytul": "Przegląd wizualny",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "Czyszczenie i smarowanie",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "Pomiar luzów",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "Wymiana elementu roboczego",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    },
+    {
+      "tytul": "Test na prasie",
+      "done": false,
+      "by": "",
+      "ts_done": ""
+    }
+  ],
+  "data_dodania": "2025-09-08 11:40",
+  "tryb": "STARE",
+  "interwencje": [],
+  "historia": [
+    {
+      "ts": "2025-09-08 11:40",
+      "by": "edwin",
+      "z": "dzialajace",
+      "na": "sprawne"
+    }
+  ],
+  "obraz": "media\\508_img.jpg",
+  "dxf": "media\\508.dxf",
+  "dxf_png": "",
+  "is_old": true,
+  "kategoria": "SN"
 }

@@ -1,0 +1,77 @@
+{"time": "2025-09-08T11:39:15", "user": "system", "key": "tutorial_completed", "before": false, "after": true}
+{"time": "2025-09-08T11:39:26", "user": "edwin", "key": "changelog.last_viewed", "before": null, "after": "2025-09-08T11:39:26"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "ui.theme", "before": "dark", "after": "dark"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "ui.language", "before": "pl", "after": "pl"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "auth.required", "before": true, "after": true}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "auth.session_timeout_min", "before": 30, "after": 30}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "secrets.admin_pin", "before": "***", "after": "***"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "hall.grid_size_px", "before": 4, "after": 4}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "hall.drag_snap_px", "before": 20, "after": 20}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "hall.triple_confirm_delete", "before": false, "after": false}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "szablony_zadan_narzedzia", "before": ["Przegląd wizualny", "Czyszczenie i smarowanie", "Pomiar luzów", "Wymiana elementu roboczego", "Test na prasie"], "after": ["Przegląd wizualny", "Czyszczenie i smarowanie", "Pomiar luzów", "Wymiana elementu roboczego", "Test na prasie"]}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "typy_narzedzi", "before": ["Tłoczące", "Wykrawające", "Postępowe", "Giętarka"], "after": ["Tłoczące", "Wykrawające", "Postępowe", "Giętarka"]}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "magazyn_rezerwacje", "before": true, "after": true}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "magazyn_precision_mb", "before": 3, "after": 3}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "produkty_dir", "before": "data/produkty/", "after": "data/produkty/"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "produkty_auto_sync", "before": false, "after": false}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "polprodukty_dir", "before": "data/polprodukty/", "after": "data/polprodukty/"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "polprodukty_auto_sync", "before": false, "after": false}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "surowce_file", "before": "data/magazyn/surowce.json", "after": "data/magazyn/surowce.json"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "progi_alertow_surowce", "before": {}, "after": {}}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "progi_alertow_pct", "before": [100], "after": [100.0]}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "czynnosci_technologiczne", "before": [], "after": []}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "updates.auto", "before": true, "after": true}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "updates.remote", "before": "origin", "after": "origin"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "updates.branch", "before": "proby-rozwoju", "after": "Rozwiniecie"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "updates.push_branch", "before": "git-push", "after": "git-push"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.folder", "before": "backup_wersji", "after": "backup_wersji"}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.keep_last", "before": 10, "after": 10}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.cloud.url", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.cloud.username", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.cloud.password", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "backup.cloud.folder", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.tab_enabled", "before": true, "after": true}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.show_name_in_header", "before": true, "after": true}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.avatar_dir", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.allow_pin_change", "before": false, "after": false}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.task_default_deadline_days", "before": 7, "after": 7}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.fields_visible", "before": ["login", "rola", "zmiana"], "after": ["login", "rola", "zmiana"]}
+{"time": "2025-09-08T11:50:06", "user": "system", "key": "profiles.fields_editable_by_user", "before": ["telefon", "email"], "after": ["telefon", "email"]}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "ui.theme", "before": "dark", "after": "dark"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "ui.language", "before": "pl", "after": "pl"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "auth.required", "before": true, "after": true}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "auth.session_timeout_min", "before": 30, "after": 30}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "secrets.admin_pin", "before": "***", "after": "***"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "hall.grid_size_px", "before": 4, "after": 4}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "hall.drag_snap_px", "before": 20, "after": 20}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "hall.triple_confirm_delete", "before": false, "after": false}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "szablony_zadan_narzedzia", "before": ["Przegląd wizualny", "Czyszczenie i smarowanie", "Pomiar luzów", "Wymiana elementu roboczego", "Test na prasie"], "after": ["Przegląd wizualny", "Czyszczenie i smarowanie", "Pomiar luzów", "Wymiana elementu roboczego", "Test na prasie"]}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "typy_narzedzi", "before": ["Tłoczące", "Wykrawające", "Postępowe", "Giętarka"], "after": ["Tłoczące", "Wykrawające", "Postępowe", "Giętarka"]}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "magazyn_rezerwacje", "before": true, "after": true}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "magazyn_precision_mb", "before": 3, "after": 3}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "produkty_dir", "before": "data/produkty/", "after": "data/produkty/"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "produkty_auto_sync", "before": false, "after": false}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "polprodukty_dir", "before": "data/polprodukty/", "after": "data/polprodukty/"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "polprodukty_auto_sync", "before": false, "after": false}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "surowce_file", "before": "data/magazyn/surowce.json", "after": "data/magazyn/surowce.json"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "progi_alertow_surowce", "before": {}, "after": {}}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "progi_alertow_pct", "before": [100.0], "after": [100.0]}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "czynnosci_technologiczne", "before": [], "after": []}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "updates.auto", "before": true, "after": true}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "updates.remote", "before": "origin", "after": "origin"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "updates.branch", "before": "Rozwiniecie", "after": "Rozwiniecie"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "updates.push_branch", "before": "git-push", "after": "git-push"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.folder", "before": "backup_wersji", "after": "backup_wersji"}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.keep_last", "before": 10, "after": 10}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.cloud.url", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.cloud.username", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.cloud.password", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "backup.cloud.folder", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.tab_enabled", "before": true, "after": true}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.show_name_in_header", "before": true, "after": true}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.avatar_dir", "before": "", "after": ""}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.allow_pin_change", "before": false, "after": false}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.task_default_deadline_days", "before": 7, "after": 7}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.fields_visible", "before": ["login", "rola", "zmiana"], "after": ["login", "rola", "zmiana"]}
+{"time": "2025-09-08T11:50:25", "user": "system", "key": "profiles.fields_editable_by_user", "before": ["telefon", "email"], "after": ["telefon", "email"]}
+{"time": "2025-09-08T12:22:16", "user": "edwin", "key": "changelog.last_viewed", "before": "2025-09-08T11:39:26", "after": "2025-09-08T12:22:16"}
