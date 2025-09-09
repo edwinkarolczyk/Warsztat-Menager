@@ -372,8 +372,17 @@ def _on_login(root, login, rola, extra=None):
         _error("Błąd w _on_login.")
 
 
-def _wm_git_check_on_start(preferred_branch: str = "Rozwiniecie", bat_path: str = "git_check_and_sync.bat"):
+def _wm_git_check_on_start(
+    preferred_branch: str | None = None, bat_path: str = "git_check_and_sync.bat"
+):
     """Lekki check Gita wywoływany przy starcie WM."""
+    if preferred_branch is None:
+        try:
+            preferred_branch = CONFIG_MANAGER.get(
+                "updates.push_branch", "Rozwiniecie"
+            ) if CONFIG_MANAGER else "Rozwiniecie"
+        except Exception:
+            preferred_branch = "Rozwiniecie"
     try:
         if not shutil.which("git"):
             print("[WM-DBG][GIT] git.exe nie znaleziony w PATH — pomijam check.")
