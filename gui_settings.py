@@ -434,7 +434,38 @@ class SettingsPanel:
         return grp_count, fld_count
 
     def _add_patch_group(self, parent: tk.Widget) -> None:
-        from tools import patcher
+        try:
+            from tools import patcher
+        except ImportError:
+            import subprocess
+            import sys
+            from pathlib import Path
+            from types import SimpleNamespace
+
+            script = Path(__file__).resolve().with_name("wm_patcher.py")
+
+            def _run(*args: str) -> subprocess.CompletedProcess:
+                cmd = [sys.executable, str(script), *args]
+                return subprocess.run(cmd, capture_output=True, text=True)
+
+            def apply_patch(path: str, dry_run: bool) -> subprocess.CompletedProcess:
+                args = ["apply", path]
+                if dry_run:
+                    args.append("--dry-run")
+                return _run(*args)
+
+            def get_commits() -> list[str]:
+                res = _run("commits")
+                return res.stdout.strip().splitlines() if res.returncode == 0 else []
+
+            def rollback_to(commit_hash: str) -> subprocess.CompletedProcess:
+                return _run("rollback", commit_hash)
+
+            patcher = SimpleNamespace(
+                apply_patch=apply_patch,
+                get_commits=get_commits,
+                rollback_to=rollback_to,
+            )
 
         grp = ttk.LabelFrame(parent, text="Paczowanie i wersje")
         grp.pack(fill="x", padx=5, pady=5)
