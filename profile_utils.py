@@ -112,6 +112,26 @@ def save_user(user: dict):
         users.append(user)
     return write_users(users)
 
+
+def set_module_visibility(login, module, visible):
+    """Update visibility of ``module`` for user ``login``.
+
+    ``visible`` set to ``False`` adds the module to ``disabled_modules``.
+    ``True`` removes it. Returns ``True`` if user exists, otherwise ``False``.
+    """
+    user = get_user(login)
+    if not user:
+        return False
+    mods = {str(m).strip().lower() for m in user.get("disabled_modules", []) if m}
+    name = str(module).strip().lower()
+    if visible:
+        mods.discard(name)
+    else:
+        mods.add(name)
+    user["disabled_modules"] = sorted(mods)
+    save_user(user)
+    return True
+
 def ensure_user_fields(users):
     """Uzupełnia brakujące pola w przekazanej liście użytkowników."""
     changed = False
