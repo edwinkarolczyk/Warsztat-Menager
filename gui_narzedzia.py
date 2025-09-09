@@ -216,6 +216,62 @@ def _remove_task(tasks: list, index: int) -> None:
     _delete_task_files(task)
     del tasks[index]
 
+# ===== Zadania – pomocnicze funkcje =====
+
+
+def _task_to_display(task):
+    """Return listbox display text for *task*.
+
+    Accepts both legacy string format ``"[ ] text"`` and dictionary
+    representation with keys like ``text`` and ``done``.  The returned
+    string always contains a prefix ``[x]`` or ``[ ]``.
+    """
+
+    if isinstance(task, str):
+        return task
+    text = task.get("text") or task.get("tytul") or ""
+    prefix = "[x]" if task.get("done") else "[ ]"
+    return f"{prefix} {text}".strip()
+
+
+def _update_global_tasks(state, comment, ts):
+    """Mark all tasks on *state* as done and refresh the listbox.
+
+    ``state`` is expected to provide ``global_tasks`` and ``tasks_listbox``
+    attributes. Tasks may be strings or dictionaries.  They are updated
+    in-place to dictionary form and the listbox is repopulated using
+    :func:`_task_to_display`.
+    """
+
+    tasks = []
+    for item in getattr(state, "global_tasks", []):
+        if isinstance(item, str):
+            text = item[3:].strip() if item.startswith("[") else item.strip()
+            task = {"text": text}
+        elif isinstance(item, dict):
+            task = dict(item)
+            if "text" not in task:
+                task["text"] = task.get("tytul") or task.get("title") or ""
+        else:
+            continue
+        task["done"] = True
+        task["status"] = "Zrobione"
+        task["done_at"] = ts
+        task["comment"] = comment
+        tasks.append(task)
+
+    state.global_tasks[:] = tasks
+
+    lb = getattr(state, "tasks_listbox", None)
+    if lb is not None:
+        try:
+            lb.delete(0, "end")
+            for t in state.global_tasks:
+                lb.insert("end", _task_to_display(t))
+        except Exception:
+            pass
+
+
 # ===== Uprawnienia z config =====
 def _can_convert_nn_to_sn(rola: str | None) -> bool:
     """Sprawdza uprawnienie narzedzia.uprawnienia.zmiana_klasy: 'brygadzista' | 'brygadzista_serwisant'."""
