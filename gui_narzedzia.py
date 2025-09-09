@@ -258,6 +258,57 @@ def _tasks_for_type(typ: str, phase: str):
     else:
         return _stare_convert_templates_from_config()
 
+# ===== Szablony z pliku zadania_narzedzia.json =====
+def build_task_template(parent):
+    """Tworzy prosty zestaw comboboxów Typ/Status i listę zadań.
+
+    Funkcja korzysta z :mod:`logika_zadan` w celu pobrania danych. Po zmianie
+    statusu wypełnia listę szablonem ``"[ ] <zadanie>"``. Zwraca słownik z
+    referencjami do utworzonych widgetów i funkcji obsługi zdarzeń – ułatwia to
+    testowanie bez środowiska graficznego.
+    """
+
+    typ_var = tk.StringVar()
+    status_var = tk.StringVar()
+    lst = tk.Listbox(parent, height=8)
+
+    types = LZ.get_tool_types_list()
+    type_map = {t["name"]: t["id"] for t in types}
+    cb_type = ttk.Combobox(parent, values=list(type_map.keys()), textvariable=typ_var, state="readonly")
+    cb_status = ttk.Combobox(parent, values=[], textvariable=status_var, state="readonly")
+
+    status_map: dict[str, str] = {}
+
+    def _on_type_change(_=None):
+        tid = type_map.get(typ_var.get())
+        statuses = LZ.get_statuses_for_type(tid)
+        status_map.clear()
+        status_map.update({s["name"]: s["id"] for s in statuses})
+        cb_status.config(values=list(status_map.keys()))
+        status_var.set("")
+        lst.delete(0, tk.END)
+
+    def _on_status_change(_=None):
+        tid = type_map.get(typ_var.get())
+        sid = status_map.get(status_var.get())
+        lst.delete(0, tk.END)
+        for t in LZ.get_tasks_for(tid, sid):
+            lst.insert(tk.END, f"[ ] {t}")
+
+    cb_type.bind("<<ComboboxSelected>>", _on_type_change)
+    cb_status.bind("<<ComboboxSelected>>", _on_status_change)
+
+    cb_type.pack()
+    cb_status.pack()
+    lst.pack(fill="both", expand=True)
+    return {
+        "cb_type": cb_type,
+        "cb_status": cb_status,
+        "listbox": lst,
+        "on_type_change": _on_type_change,
+        "on_status_change": _on_status_change,
+    }
+
 # ===================== ŚCIEŻKI DANYCH =====================
 def _resolve_tools_dir():
     cfg = _load_config()
