@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import datetime
 import json
+import os
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -12,8 +14,8 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 import config_manager as cm
 from config_manager import ConfigManager
-import ustawienia_produkty_bom
 from gui_products import ProductsMaterialsTab
+import ustawienia_produkty_bom
 
 
 def _create_widget(
@@ -381,7 +383,76 @@ class SettingsPanel:
                 grp_count += g
                 fld_count += f
 
+        if tab.get("id") == "update":
+            self._add_patch_section(parent)
+
         return grp_count, fld_count
+
+    def _add_patch_section(self, parent: tk.Widget) -> None:
+        """Append patching and version controls to the Updates tab."""
+
+        from tools import patcher
+
+        frame = ttk.LabelFrame(parent, text="Paczowanie i wersje")
+        frame.pack(fill="x", expand=True, padx=5, pady=5)
+
+        def audit(action: str, detail: str) -> None:
+            rec = {
+                "time": datetime.datetime.now().isoformat(timespec="seconds"),
+                "user": "system",
+                "key": action,
+                "before": "",
+                "after": detail,
+            }
+            os.makedirs(cm.AUDIT_DIR, exist_ok=True)
+            path = Path(cm.AUDIT_DIR) / "config_changes.jsonl"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+        def run_patch(dry: bool) -> None:
+            patch_path = filedialog.askopenfilename()
+            if not patch_path:
+                return
+            print(f"[WM-DBG] apply_patch dry_run={dry} path={patch_path}")
+            patcher.apply_patch(patch_path, dry_run=dry)
+            audit("patch.dry_run" if dry else "patch.apply", patch_path)
+
+        ttk.Button(
+            frame,
+            text="Sprawdź patch (dry-run)",
+            command=lambda: run_patch(True),
+        ).pack(side="left", padx=5, pady=5)
+        ttk.Button(
+            frame,
+            text="Zastosuj patch",
+            command=lambda: run_patch(False),
+        ).pack(side="left", padx=5, pady=5)
+
+        commits = patcher.get_commits()
+        print(f"[WM-DBG] available commits: {len(commits)}")
+        roll_frame = ttk.Frame(frame)
+        roll_frame.pack(fill="x", padx=5, pady=5)
+        commit_var = tk.StringVar()
+        ttk.Combobox(
+            roll_frame,
+            textvariable=commit_var,
+            values=commits,
+            state="readonly",
+        ).pack(side="left", fill="x", expand=True)
+
+        def rollback() -> None:
+            commit = commit_var.get()
+            if not commit:
+                return
+            print(f"[WM-DBG] rollback to {commit}")
+            patcher.rollback_to(commit)
+            audit("patch.rollback", commit)
+
+        ttk.Button(
+            roll_frame,
+            text="Cofnij do wersji",
+            command=rollback,
+        ).pack(side="left", padx=5)
 
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
