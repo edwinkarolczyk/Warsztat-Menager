@@ -119,19 +119,8 @@ class ProductsMaterialsTab(ttk.Frame):
         # Surowce -------------------------------------------------------
         mat_frame = ttk.Frame(nb)
         nb.add(mat_frame, text="Surowce")
-        headers = {
-            "id": "ID",
-            "typ": "Typ",
-            "rozmiar": "Rozmiar",
-            "dlugosc": "Długość",
-            "jednostka": "Jednostka",
-            "stan": "Stan",
-        }
-        self.mat_tree = ttk.Treeview(
-            mat_frame, columns=tuple(headers.keys()), show="headings"
-        )
-        for col, hdr in headers.items():
-            self.mat_tree.heading(col, text=hdr)
+        self.mat_tree = ttk.Treeview(mat_frame, show="headings")
+        self._relabel_mat_tree()
         self.mat_tree.pack(fill="both", expand=True, padx=5, pady=5)
         mat_btns = ttk.Frame(mat_frame)
         mat_btns.pack(fill="x", padx=5, pady=5)
@@ -147,6 +136,20 @@ class ProductsMaterialsTab(ttk.Frame):
         ttk.Button(mat_btns, text="Odśwież", command=self.refresh_all).pack(
             side="left", padx=2
         )
+
+    # ------------------------------------------------------------------
+    def _relabel_mat_tree(self) -> None:
+        cols = ("id", "nazwa", "typ", "jednostka", "dlugosc")
+        headers = {
+            "id": "ID",
+            "nazwa": "Nazwa",
+            "typ": "Typ",
+            "jednostka": "Jedn.",
+            "dlugosc": "Długość",
+        }
+        self.mat_tree.configure(columns=cols, show="headings")
+        for key, text in headers.items():
+            self.mat_tree.heading(key, text=text)
 
     # ------------------------------------------------------------------
     def _open_products_dir(self) -> None:
@@ -265,7 +268,8 @@ class ProductsMaterialsTab(ttk.Frame):
                 "Magazyn", "Plik magazynu nie zawiera danych", parent=self
             )
             return
-        for it in items.values():
+        self.surowce = list(items.values())
+        for it in self.surowce:
             iid = it.get("id")
             self.mat_tree.insert(
                 "",
@@ -273,11 +277,10 @@ class ProductsMaterialsTab(ttk.Frame):
                 iid=iid,
                 values=(
                     iid,
+                    it.get("nazwa"),
                     it.get("typ"),
-                    it.get("rozmiar"),
-                    it.get("dlugosc"),
                     it.get("jednostka"),
-                    it.get("stan"),
+                    it.get("dlugosc"),
                 ),
             )
 
