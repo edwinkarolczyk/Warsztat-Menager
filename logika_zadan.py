@@ -3,7 +3,6 @@
 # Zmiany 1.0.0:
 # - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo z definicji produktu
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
-# ⏹ KONIEC KODU
 import json
 import os
 from datetime import datetime
@@ -250,3 +249,5 @@ def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
         LM.zuzyj(iid, il, uzytkownik=uzytkownik, kontekst=kontekst)
         zuzyte.append({"id": iid, "ilosc": il})
     return zuzyte
+
+# ⏹ KONIEC KODU
