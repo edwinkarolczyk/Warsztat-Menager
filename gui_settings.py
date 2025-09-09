@@ -12,7 +12,6 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 import config_manager as cm
 from config_manager import ConfigManager
-import ustawienia_produkty_bom
 from gui_products import ProductsMaterialsTab
 
 
@@ -392,11 +391,8 @@ class SettingsPanel:
 
         ustawienia_frame = ttk.Frame(nb)
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
+        print("[WM-DBG] init magazyn tab")
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
-
-        bom_frame = ttk.Frame(nb)
-        nb.add(bom_frame, text="Produkty (BOM)")
-        ustawienia_produkty_bom.make_tab(bom_frame, notebook=nb)
 
         self._magazyn_initialized = True
 
