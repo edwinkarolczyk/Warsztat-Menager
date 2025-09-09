@@ -60,3 +60,14 @@ config.json
 *.jpg
 *.jpeg
 *.xlsm
+
+# ---- Local configs & secrets ----
+secrets.json
+config.local.json
+
+# ---- Lock files ----
+*.lock
+
+# ---- Project generated lists & audits ----
+raw_links.txt
+audit/*.jsonl
