@@ -3,6 +3,7 @@
 # Zmiany 1.6.17:
 # - Dodano przycisk w stopce otwierający changelog.
 # - Zapamiętywanie czasu ostatniego obejrzenia changeloga.
+# - Dodano w menu Ustawienia pozycję "Narzędzia" otwierającą konfigurację.
 # Poprzednio (1.6.16):
 # - Dodano przycisk „Magazyn” (wymaga gui_magazyn.open_panel_magazyn)
 # - Pasek nagłówka pokazuje kto jest zalogowany (label po prawej)
