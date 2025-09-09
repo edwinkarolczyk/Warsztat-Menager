@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
@@ -26,22 +28,37 @@ def _append_audit(entry: dict) -> None:
 
 
 def apply_patch(path: str, dry_run: bool = False) -> None:
-    """Apply a git patch from ``path``.
+    """Apply a git patch or patches from ``path``.
 
     Parameters
     ----------
     path:
-        Path to the patch file.
+        Path to the patch file or ZIP archive containing ``*.patch`` files.
     dry_run:
         When ``True``, run ``git apply --check`` to verify patch without
         applying it.
     """
-    cmd = ["git", "apply"]
-    if dry_run:
-        cmd.append("--check")
-    cmd.append(path)
-    print(f"[WM-DBG] Running {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
+
+    def _run_apply(patch_path: str) -> None:
+        cmd = ["git", "apply"]
+        if dry_run:
+            cmd.append("--check")
+        cmd.append(patch_path)
+        print(f"[WM-DBG] Running {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+
+    if path.endswith(".zip"):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with zipfile.ZipFile(path) as zf:
+                zf.extractall(tmpdir)
+            patch_files = sorted(Path(tmpdir).rglob("*.patch"))
+            if not patch_files:
+                raise RuntimeError("ZIP nie zawiera plików .patch")
+            for patch_file in patch_files:
+                _run_apply(str(patch_file))
+    else:
+        _run_apply(path)
+
     _append_audit(
         {
             "time": datetime.now(timezone.utc).isoformat(),
