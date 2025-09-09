@@ -114,6 +114,22 @@ def test_auto_heal_defaults(make_manager):
     assert recorded["backup.keep_last"] == 10
 
 
+def test_deprecated_fields_ignored(make_manager):
+    schema = {
+        "config_version": 1,
+        "options": [
+            {"key": "foo", "type": "int", "default": 1},
+            {"key": "old", "type": "int", "default": 2, "deprecated": True},
+        ],
+    }
+    mgr, paths = make_manager(schema=schema, global_cfg={})
+    assert mgr.get("foo") == 1
+    assert mgr.get("old") is None
+    with open(paths["global"], encoding="utf-8") as f:
+        data = json.load(f)
+    assert "old" not in data
+
+
 def test_set_and_save_all_persistence(make_manager):
     schema = {
         "config_version": 1,
