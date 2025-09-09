@@ -35,8 +35,10 @@ from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 import logger
 import logging
+from types import SimpleNamespace
 
 LOG = logging.getLogger(__name__)
+self = SimpleNamespace(global_tasks=None, tasks_listbox=None)
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH = cfg_path("config.json")
@@ -215,6 +217,35 @@ def _remove_task(tasks: list, index: int) -> None:
         return
     _delete_task_files(task)
     del tasks[index]
+
+
+# [WM-DBG][PATCH] helpers: normalizacja i formatowanie tasków
+def _task_from_any(item):
+    """Zwraca dict taska: text, done, status, done_at, comment."""
+    if isinstance(item, dict):
+        return {
+            "text": item.get("text") or item.get("name") or "",
+            "done": bool(item.get("done", False)),
+            "status": item.get("status") or ("Zrobione" if item.get("done") else "Nowe"),
+            "done_at": item.get("done_at"),
+            "comment": item.get("comment"),
+        }
+    s = str(item).strip()
+    done = s.startswith("[x]") or s.startswith("[X]")
+    text = s[3:].strip() if done or s.startswith("[ ]") else s
+    return {
+        "text": text,
+        "done": done,
+        "status": "Zrobione" if done else "Nowe",
+        "done_at": None,
+        "comment": None,
+    }
+
+
+def _task_to_display(task):
+    """Zwraca linię do Listboxa w formacie: [x]/[ ] Tekst"""
+    prefix = "[x]" if task.get("done") else "[ ]"
+    return f"{prefix} {task.get('text','').strip()}"
 
 # ===== Uprawnienia z config =====
 def _can_convert_nn_to_sn(rola: str | None) -> bool:
@@ -1138,21 +1169,23 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             path = os.path.join("data", "zadania_narzedzia.json")
             try:
                 with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                    self.global_tasks = json.load(f)
             except (OSError, json.JSONDecodeError):
-                data = []
-            changed = False
-            for item in data:
-                if item.get("status") != "Zrobione":
-                    item["status"] = "Zrobione"
-                    item["by"] = login or "nieznany"
-                    item["ts_done"] = ts
+                self.global_tasks = []
+            self.global_tasks = [_task_from_any(x) for x in (self.global_tasks or [])]
+            print(f"[WM-DBG][TASKS] normalized {len(self.global_tasks)} items")
+            # [WM-DBG][PATCH] bezpieczna aktualizacja dla dict/string
+            for i, raw in enumerate(self.global_tasks):
+                task = _task_from_any(raw)
+                if task.get("status") != "Zrobione":
+                    task["status"] = "Zrobione"
+                    task["done"] = True
+                    task["done_at"] = ts  # ts dostępny z wywołania
                     if comment:
-                        item["komentarz"] = comment
-                    changed = True
-            if changed:
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
+                        task["comment"] = comment
+                self.global_tasks[i] = task
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self.global_tasks, f, indent=2, ensure_ascii=False)
 
         def _mark_all_done():
             comment = simpledialog.askstring(
@@ -1170,6 +1203,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         t["komentarz"] = comment
             repaint_tasks()
             _update_global_tasks(comment, ts)
+            try:
+                self.tasks_listbox.delete(0, "end")
+                for t in self.global_tasks:
+                    self.tasks_listbox.insert(
+                        "end", _task_to_display(_task_from_any(t))
+                    )
+            except Exception as e:  # noqa: BLE001
+                print("[WM-DBG][TASKS] refresh listbox failed:", e)
 
         ttk.Button(
             tools_bar,
