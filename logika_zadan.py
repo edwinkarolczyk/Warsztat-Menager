@@ -4,7 +4,6 @@
 # - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo z definicji produktu
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
 # ⏹ KONIEC KODU
-
 import json
 import os
 from datetime import datetime
@@ -12,84 +11,176 @@ import logging
 
 import logika_magazyn as LM
 import bom
+import tools
 
 logger = logging.getLogger(__name__)
 
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 TOOL_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
-_TOOL_TASKS_CACHE: list[dict] | None = None
+_TOOLS_TEMPLATES_CACHE: dict[str, dict] | None = None
+DEFAULT_COLLECTION_ID = "default"
 
 
 class ToolTasksError(RuntimeError):
-    """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
+    """Wyjątek dla błędów w strukturze definicji zadań narzędzi."""
 
 
-def _load_tool_tasks() -> list[dict]:
-    """Ładuje definicje zadań narzędzi z pliku JSON.
+def _read_json_atomic(path: str) -> dict:
+    """Odczytaj plik JSON z prostą blokadą."""
 
-    Plik może zawierać maksymalnie 8 typów oraz po 8 statusów na typ.
-    Przekroczenie limitu zgłasza :class:`ToolTasksError`.
-    """
-
-    global _TOOL_TASKS_CACHE
-    if _TOOL_TASKS_CACHE is not None:
-        return _TOOL_TASKS_CACHE
+    lock_path = path + ".lock"
+    lock_f = None
     try:
-        with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
+        lock_f = open(lock_path, "w")
+        LM.lock_file(lock_f)
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+            logger.debug("[WM-DBG] read %s", path)
+            return data
     except FileNotFoundError:
-        data = {"types": []}
-    types = data.get("types") or []
+        logger.debug("[WM-DBG] missing %s", path)
+        return {}
+    except (OSError, json.JSONDecodeError) as e:
+        logger.warning("[WM-DBG] cannot read %s: %s", path, e, exc_info=True)
+        return {}
+    finally:
+        if lock_f:
+            LM.unlock_file(lock_f)
+            lock_f.close()
+
+
+def _validate_types(types: list[dict], collection_id: str) -> list[dict]:
     if len(types) > 8:
-        raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
+        raise ToolTasksError(
+            f"Przekroczono maksymalną liczbę typów (8) w kolekcji {collection_id}"
+        )
+    seen_types: set[str] = set()
     for typ in types:
+        tid = typ.get("id")
+        if tid in seen_types:
+            raise ToolTasksError(
+                f"Duplikat ID typu {tid} w kolekcji {collection_id}"
+            )
+        seen_types.add(tid)
         statuses = typ.get("statuses") or []
         if len(statuses) > 8:
             raise ToolTasksError(
-                f"Przekroczono maksymalną liczbę statusów dla typu {typ.get('id')}"
+                f"Przekroczono maksymalną liczbę statusów dla typu {tid}"
             )
-    _TOOL_TASKS_CACHE = types
+        seen_st: set[str] = set()
+        for st in statuses:
+            sid = st.get("id")
+            if sid in seen_st:
+                raise ToolTasksError(
+                    f"Duplikat ID statusu {sid} w typie {tid}"
+                )
+            seen_st.add(sid)
     return types
 
 
-def get_tool_types_list() -> list[dict]:
-    """Zwraca listę dostępnych typów narzędzi."""
+def load_tools_templates(force: bool = False) -> dict[str, dict]:
+    """Wczytaj szablony zadań narzędzi."""
 
+    global _TOOLS_TEMPLATES_CACHE
+    if _TOOLS_TEMPLATES_CACHE is not None and not force:
+        return _TOOLS_TEMPLATES_CACHE
+
+    logger.debug("[WM-DBG] load_tools_templates(force=%s)", force)
+    collections: dict[str, dict] = {}
+    paths = getattr(tools, "collections_paths", None) or {}
+    if paths:
+        logger.debug("[WM-DBG] using collections_paths: %s", paths)
+        for cid, path in paths.items():
+            data = _read_json_atomic(path)
+            types = _validate_types(data.get("types") or [], cid)
+            collections[cid] = {
+                "id": cid,
+                "name": data.get("name", cid),
+                "types": types,
+            }
+    else:
+        data = _read_json_atomic(TOOL_TASKS_PATH)
+        types = _validate_types(data.get("types") or [], DEFAULT_COLLECTION_ID)
+        collections[DEFAULT_COLLECTION_ID] = {
+            "id": DEFAULT_COLLECTION_ID,
+            "name": data.get("name", DEFAULT_COLLECTION_ID),
+            "types": types,
+        }
+    _TOOLS_TEMPLATES_CACHE = collections
+    return collections
+
+
+def get_collections() -> list[dict]:
+    templates = load_tools_templates()
     return [
-        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in _load_tool_tasks()
+        {"id": c["id"], "name": c.get("name", c["id"])}
+        for c in templates.values()
     ]
 
 
-def _find_type(type_id: str) -> dict | None:
-    for t in _load_tool_tasks():
+def get_tool_types(collection_id: str | None = None) -> list[dict]:
+    cid = collection_id or DEFAULT_COLLECTION_ID
+    coll = load_tools_templates().get(cid)
+    if not coll:
+        return []
+    return [
+        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
+        for t in (coll.get("types") or [])
+    ]
+
+
+def get_statuses(collection_id: str | None, type_id: str) -> list[dict]:
+    cid = collection_id or DEFAULT_COLLECTION_ID
+    coll = load_tools_templates().get(cid)
+    if not coll:
+        return []
+    for t in coll.get("types") or []:
         if t.get("id") == type_id:
-            return t
-    return None
+            return [
+                {"id": s.get("id"), "name": s.get("name", s.get("id"))}
+                for s in (t.get("statuses") or [])
+            ]
+    return []
+
+
+def get_tasks(collection_id: str | None, type_id: str, status_id: str) -> list[str]:
+    cid = collection_id or DEFAULT_COLLECTION_ID
+    coll = load_tools_templates().get(cid)
+    if not coll:
+        return []
+    for t in coll.get("types") or []:
+        if t.get("id") == type_id:
+            for st in t.get("statuses") or []:
+                if st.get("id") == status_id:
+                    return list(st.get("tasks") or [])
+    return []
+
+
+def should_autocheck(collection_id: str | None, type_id: str, status_id: str) -> bool:
+    cid = collection_id or DEFAULT_COLLECTION_ID
+    coll = load_tools_templates().get(cid)
+    if not coll:
+        return False
+    for t in coll.get("types") or []:
+        if t.get("id") == type_id:
+            t_auto = bool(t.get("autocheck"))
+            for st in t.get("statuses") or []:
+                if st.get("id") == status_id:
+                    return bool(st.get("autocheck", t_auto))
+    return False
+
+
+# Zachowanie kompatybilności ze starym API
+def get_tool_types_list() -> list[dict]:
+    return get_tool_types()
 
 
 def get_statuses_for_type(type_id: str) -> list[dict]:
-    """Zwraca listę statusów dostępnych dla danego typu."""
-
-    typ = _find_type(type_id)
-    if not typ:
-        return []
-    return [
-        {"id": s.get("id"), "name": s.get("name", s.get("id"))}
-        for s in (typ.get("statuses") or [])
-    ]
+    return get_statuses(None, type_id)
 
 
 def get_tasks_for(type_id: str, status_id: str) -> list[str]:
-    """Zwraca listę zadań dla kombinacji typu i statusu."""
-
-    typ = _find_type(type_id)
-    if not typ:
-        return []
-    for st in typ.get("statuses") or []:
-        if st.get("id") == status_id:
-            return list(st.get("tasks") or [])
-    return []
+    return get_tasks(None, type_id, status_id)
 
 
 def _now():
