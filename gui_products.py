@@ -256,6 +256,7 @@ class ProductsMaterialsTab(ttk.Frame):
                     "Magazyn", "Nie można wczytać danych magazynu", parent=self
                 )
                 return
+        self.surowce = list(items.values())
         if not isinstance(items, dict) or not items:
             print("[WM-DBG] [WARN] magazyn brak danych lub nieprawidłowy")
             messagebox.showinfo(
@@ -480,6 +481,19 @@ class ProductsMaterialsTab(ttk.Frame):
         self.refresh_all()
 
     def _polprodukt_form(self, item: dict[str, Any] | None = None) -> None:
+        try:
+            with open(self.paths["magazyn"], encoding="utf-8") as f:
+                data = json.load(f) or {}
+            items = data.get("items")
+            if not isinstance(items, dict):
+                raise KeyError("items")
+            self.surowce = list(items.values())
+        except Exception:
+            self.surowce = []
+            messagebox.showwarning(
+                "Magazyn", "Nie można wczytać danych magazynu", parent=self
+            )
+
         win = tk.Toplevel(self)
         win.title("Półprodukt")
         apply_theme(win)
