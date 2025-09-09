@@ -217,3 +217,43 @@ def test_magazyn_tab_has_subtabs(make_manager, monkeypatch):
     assert titles == ["Ustawienia magazynu", "Produkty (BOM)"]
     root.destroy()
 
+
+def test_deprecated_not_rendered(make_manager, monkeypatch, capsys):
+    tabs = [
+        {
+            "id": "t",
+            "title": "T",
+            "groups": [
+                {
+                    "label": "Old",
+                    "deprecated": True,
+                    "fields": [
+                        {"key": "a", "type": "int", "default": 1}
+                    ],
+                },
+                {
+                    "label": "New",
+                    "fields": [
+                        {"key": "b", "type": "int", "default": 2, "deprecated": True},
+                        {"key": "c", "type": "int", "default": 3},
+                    ],
+                },
+            ],
+        }
+    ]
+    paths = _setup_schema(make_manager, monkeypatch, tabs=tabs)
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+    root.withdraw()
+    panel = gui_settings.SettingsPanel(
+        root, config_path=paths["config"], schema_path=paths["schema"]
+    )
+    assert "a" not in panel.vars
+    assert "b" not in panel.vars
+    assert "c" in panel.vars
+    out = capsys.readouterr().out
+    assert out.count("[WM-DBG][SETTINGS] pomijam deprecated") == 2
+    root.destroy()
+

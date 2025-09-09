@@ -19,6 +19,12 @@ import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 
 
+def _is_deprecated(node: dict) -> bool:
+    """Return True if schema node is marked as deprecated."""
+
+    return node.get("deprecated") is True
+
+
 def _create_widget(
     option: dict[str, Any], parent: tk.Widget
 ) -> tuple[ttk.Frame, tk.Variable]:
@@ -362,6 +368,12 @@ class SettingsPanel:
         fld_count = 0
 
         for group in tab.get("groups", []):
+            if _is_deprecated(group):
+                ident = group.get("label") or group.get("id") or "group"
+                print(
+                    f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
+                )
+                continue
             grp_count += 1
             grp_frame = ttk.LabelFrame(parent, text=group.get("label", ""))
             grp_frame.pack(fill="both", expand=True, padx=5, pady=5)
@@ -371,6 +383,12 @@ class SettingsPanel:
             inner.pack(fill="both", expand=True, padx=8, pady=6)
 
             for field_def in group.get("fields", []):
+                if _is_deprecated(field_def):
+                    ident = field_def.get("key", "field")
+                    print(
+                        f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
+                    )
+                    continue
                 fld_count += 1
                 key = field_def["key"]
                 self._options[key] = field_def
