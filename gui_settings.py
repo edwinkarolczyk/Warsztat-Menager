@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -12,8 +13,38 @@ from tkinter import colorchooser, filedialog, messagebox, ttk
 
 import config_manager as cm
 from config_manager import ConfigManager
-import ustawienia_produkty_bom
 from gui_products import ProductsMaterialsTab
+
+
+def _git_state() -> tuple[bool, int, int]:
+    """Return (dirty, ahead, behind) for current git repo."""
+    dirty = False
+    ahead = behind = 0
+    try:
+        out = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        dirty = bool(out.stdout.strip())
+        out = subprocess.run(
+            [
+                "git",
+                "rev-list",
+                "--left-right",
+                "--count",
+                "origin/Rozwiniecie...HEAD",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.returncode == 0:
+            behind, ahead = map(int, out.stdout.strip().split())
+    except Exception:
+        pass
+    return dirty, ahead, behind
 
 
 def _create_widget(
@@ -129,7 +160,8 @@ def _create_widget(
 
     widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
 
-    if tip := option.get("tooltip"):
+    tip = option.get("help") or option.get("description")
+    if tip:
         _bind_tooltip(widget, tip)
 
     desc = option.get("description") or option.get("help")
@@ -308,6 +340,17 @@ class SettingsPanel:
 
         for tab in schema.get("tabs", []):
             title = tab.get("title", tab.get("id", ""))
+            if tab.get("id") == "update":
+                dirty, ahead, behind = _git_state()
+                badges: list[str] = []
+                if dirty:
+                    badges.append("DIRTY")
+                if ahead > 0:
+                    badges.append(f"AHEAD: {ahead}")
+                if behind > 0:
+                    badges.append(f"BEHIND: {behind}")
+                if badges:
+                    title = f"{title} [{' '.join(badges)}]"
             print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
@@ -320,10 +363,17 @@ class SettingsPanel:
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
                 )
+                if tab.get("id") == "update":
+                    self._add_patch_group(frame)
 
         base_dir = Path(__file__).resolve().parent
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
-        self.nb.add(self.products_tab, text="Produkty i materiały")
+        title = "Produkty i materiały"
+        lock_path = base_dir / "data" / "magazyn" / "magazyn.json.lock"
+        if lock_path.exists():
+            title += " [LOCK]"
+            print("[WM-DBG][SETTINGS][PIM] LOCK wykryty")
+        self.nb.add(self.products_tab, text=title)
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
         print("[WM-DBG] [SETTINGS] notebook packed")
 
@@ -383,6 +433,46 @@ class SettingsPanel:
 
         return grp_count, fld_count
 
+    def _add_patch_group(self, parent: tk.Widget) -> None:
+        from tools import patcher
+
+        grp = ttk.LabelFrame(parent, text="Paczowanie i wersje")
+        grp.pack(fill="x", padx=5, pady=5)
+        inner = ttk.Frame(grp)
+        inner.pack(fill="x", padx=5, pady=5)
+
+        def choose_patch(dry_run: bool) -> None:
+            path = filedialog.askopenfilename(
+                title="Wybierz patch",
+                filetypes=[("WM patch", "*.wmpatch"), ("Patch", "*.patch"), ("Wszystkie", "*.*")],
+                initialdir=str(Path(__file__).resolve().parent / "patches"),
+            )
+            if path:
+                patcher.apply_patch(path, dry_run=dry_run)
+
+        ttk.Button(
+            inner,
+            text="Sprawdź patch (dry-run)",
+            command=lambda: choose_patch(True),
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            inner,
+            text="Zastosuj patch",
+            command=lambda: choose_patch(False),
+        ).pack(side="left", padx=2)
+
+        commits = patcher.get_commits()
+        commit_var = tk.StringVar(value=commits[0] if commits else "")
+        cb = ttk.Combobox(
+            inner, values=commits, textvariable=commit_var, width=40, state="readonly"
+        )
+        cb.pack(side="left", padx=2)
+        ttk.Button(
+            inner,
+            text="Cofnij do wersji",
+            command=lambda: patcher.rollback_to(commit_var.get()),
+        ).pack(side="left", padx=2)
+
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
         if self._magazyn_frame is None or self._magazyn_schema is None:
@@ -392,11 +482,8 @@ class SettingsPanel:
 
         ustawienia_frame = ttk.Frame(nb)
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
+        print("[WM-DBG][SETTINGS][Magazyn] buduję sekcję 'Ustawienia magazynu'")
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
-
-        bom_frame = ttk.Frame(nb)
-        nb.add(bom_frame, text="Produkty (BOM)")
-        ustawienia_produkty_bom.make_tab(bom_frame, notebook=nb)
 
         self._magazyn_initialized = True
 

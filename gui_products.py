@@ -50,6 +50,22 @@ class ProductsMaterialsTab(ttk.Frame):
 
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
+        top = ttk.Frame(self)
+        top.pack(fill="x", pady=5)
+        ttk.Button(
+            top,
+            text="Otwórz folder produktów",
+            command=self._open_products_dir,
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            top,
+            text="Podgląd listy produktów",
+            command=self._preview_products,
+        ).pack(side="left", padx=2)
+        lock_path = os.path.join(self.base_dir, "data", "magazyn", "magazyn.json.lock")
+        if os.path.exists(lock_path):
+            ttk.Label(top, text="LOCK").pack(side="right", padx=5)
+
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True)
 
@@ -131,6 +147,29 @@ class ProductsMaterialsTab(ttk.Frame):
         ttk.Button(mat_btns, text="Odśwież", command=self.refresh_all).pack(
             side="left", padx=2
         )
+
+    # ------------------------------------------------------------------
+    def _open_products_dir(self) -> None:
+        try:
+            os.startfile(self.paths["produkty_dir"])  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    def _preview_products(self) -> None:
+        try:
+            files = [
+                f
+                for f in sorted(os.listdir(self.paths["produkty_dir"]))
+                if f.lower().endswith(".json")
+            ]
+        except OSError:
+            files = []
+        preview = files[:20]
+        messagebox.showinfo(
+            "Lista produktów", "\n".join(preview) or "Brak plików", parent=self
+        )
+        print(f"[WM-DBG][PIM] preview count: {len(preview)}")
 
     # ------------------------------------------------------------------
     def refresh_all(self) -> None:

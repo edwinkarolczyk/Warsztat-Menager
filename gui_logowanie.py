@@ -73,24 +73,31 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
     # tło z pliku grafiki/login_bg.png
     bg_path = os.path.join("grafiki", "login_bg.png")
-    if os.path.exists(bg_path):
-        try:
+    bg_failed = False
+    try:
+        if os.path.exists(bg_path):
             img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
             bg_image = ImageTk.PhotoImage(img)
             bg_label = tk.Label(root, image=bg_image)
             bg_label.place(x=0, y=0, relwidth=1, relheight=1)
             bg_label.image = bg_image  # pin referencji
             bg_label.lower()
-        except Exception as e:  # pragma: no cover - tylko logowanie
-            logging.warning("Nie można załadować tła logowania: %s", e)
+        else:
+            raise FileNotFoundError(bg_path)
+    except Exception as e:  # pragma: no cover - tylko logowanie
+        logging.debug("[WM-DBG] login_bg fallback: %s", e)
+        root.configure(bg="#121212")
+        bg_failed = True
 
     # --- GÓRA: LOGO (wyśrodkowane, stabilne) ---
     top = ttk.Frame(root, style="WM.TFrame")
     top.pack(fill="x", pady=(32, 8))
 
-    # logo (jeśli jest) — używamy tk.Label dla image
+    # logo (jeśli jest) — używamy tk.Label dla image lub fallback
     logo_path = "logo.png"
-    if os.path.exists(logo_path):
+    if bg_failed:
+        ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
+    elif os.path.exists(logo_path):
         try:
             img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
             logo_img = ImageTk.PhotoImage(img)
@@ -102,8 +109,9 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
             lbl_logo.image = logo_img  # pin referencji
             lbl_logo.pack()
         except Exception:
-            # brak PIL lub błąd pliku — po prostu nazwa
             ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
+    else:
+        ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
 
     # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
     center = ttk.Frame(root, style="WM.TFrame")
