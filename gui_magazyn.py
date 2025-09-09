@@ -21,6 +21,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import re
+from pathlib import Path
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
@@ -102,6 +103,14 @@ class PanelMagazyn(ttk.Frame):
         self._load()
 
     def _build_ui(self):
+        lock_path = Path("data/magazyn/magazyn.json.lock")
+        if lock_path.exists():
+            print("[WM-DBG] magazyn.json.lock detected")
+            try:
+                self.master.tab(self, text="Magazyn LOCK")
+            except Exception:
+                pass
+
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
