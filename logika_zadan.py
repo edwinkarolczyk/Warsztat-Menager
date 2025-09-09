@@ -12,34 +12,61 @@ import logging
 
 import logika_magazyn as LM
 import bom
+from utils.path_utils import cfg_path
 
 logger = logging.getLogger(__name__)
 
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 TOOL_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
-_TOOL_TASKS_CACHE: list[dict] | None = None
+
+# cache maps collection id -> list of types
+_TOOL_TASKS_CACHE: dict[str, list[dict]] | None = None
 
 
 class ToolTasksError(RuntimeError):
     """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
 
 
-def _load_tool_tasks() -> list[dict]:
-    """Ładuje definicje zadań narzędzi z pliku JSON.
+def _get_collections_paths() -> dict[str, str]:
+    """Return mapping kolekcja->ścieżka z configu."""
 
-    Plik może zawierać maksymalnie 8 typów oraz po 8 statusów na typ.
-    Przekroczenie limitu zgłasza :class:`ToolTasksError`.
+    try:
+        with open(cfg_path("config.json"), "r", encoding="utf-8") as f:
+            cfg = json.load(f) or {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+    tools = cfg.get("tools") or {}
+    paths = tools.get("collections_paths") or {}
+    if not isinstance(paths, dict):
+        return {}
+    return {str(k): str(v) for k, v in paths.items()}
+
+
+def _parse_collections(data: dict, default_id: str) -> dict[str, list[dict]]:
+    """Parse ``data`` into mapping of collections to types.
+
+    Supports new schema with ``collections`` as well as legacy
+    ``{"types": [...]}`` which is wrapped into ``default_id``.
     """
 
-    global _TOOL_TASKS_CACHE
-    if _TOOL_TASKS_CACHE is not None:
-        return _TOOL_TASKS_CACHE
-    try:
-        with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        data = {"types": []}
-    types = data.get("types") or []
+    if isinstance(data, dict):
+        if "collections" in data:
+            cols = {}
+            raw = data.get("collections") or {}
+            if isinstance(raw, dict):
+                for cid, col in raw.items():
+                    cols[str(cid)] = col.get("types") or []
+            elif isinstance(raw, list):
+                for col in raw:
+                    cid = str(col.get("id", default_id))
+                    cols[cid] = col.get("types") or []
+            return cols
+        if "types" in data:
+            return {default_id: data.get("types") or []}
+    return {default_id: []}
+
+
+def _validate_types(cid: str, types: list[dict]) -> None:
     if len(types) > 8:
         raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
     for typ in types:
@@ -48,30 +75,70 @@ def _load_tool_tasks() -> list[dict]:
             raise ToolTasksError(
                 f"Przekroczono maksymalną liczbę statusów dla typu {typ.get('id')}"
             )
-    _TOOL_TASKS_CACHE = types
-    return types
 
 
-def get_tool_types_list() -> list[dict]:
-    """Zwraca listę dostępnych typów narzędzi."""
+def _load_tool_tasks() -> dict[str, list[dict]]:
+    """Ładuje definicje zadań narzędzi z pliku/pliku kolekcji.
+
+    Plik może zawierać maksymalnie 8 typów oraz po 8 statusów na typ.
+    Przekroczenie limitu zgłasza :class:`ToolTasksError`.
+    """
+
+    global _TOOL_TASKS_CACHE
+    if _TOOL_TASKS_CACHE is not None:
+        return _TOOL_TASKS_CACHE
+
+    collections: dict[str, list[dict]] = {}
+    paths_map = _get_collections_paths()
+    if paths_map:
+        # variant-B: oddzielne pliki per kolekcja
+        for cid, rel_path in paths_map.items():
+            path = cfg_path(rel_path)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except FileNotFoundError:
+                data = {"types": []}
+            cols = _parse_collections(data, cid)
+            types = cols.get(cid, [])
+            _validate_types(cid, types)
+            collections[cid] = types
+    else:
+        # single file
+        try:
+            with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {"types": []}
+        cols = _parse_collections(data, "NN")
+        for cid, types in cols.items():
+            _validate_types(cid, types)
+            collections[cid] = types
+
+    _TOOL_TASKS_CACHE = collections
+    return collections
+
+
+def get_tool_types_list(collection: str = "NN") -> list[dict]:
+    """Zwraca listę dostępnych typów narzędzi dla kolekcji."""
 
     return [
         {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in _load_tool_tasks()
+        for t in _load_tool_tasks().get(collection, [])
     ]
 
 
-def _find_type(type_id: str) -> dict | None:
-    for t in _load_tool_tasks():
+def _find_type(collection: str, type_id: str) -> dict | None:
+    for t in _load_tool_tasks().get(collection, []):
         if t.get("id") == type_id:
             return t
     return None
 
 
-def get_statuses_for_type(type_id: str) -> list[dict]:
+def get_statuses_for_type(type_id: str, collection: str = "NN") -> list[dict]:
     """Zwraca listę statusów dostępnych dla danego typu."""
 
-    typ = _find_type(type_id)
+    typ = _find_type(collection, type_id)
     if not typ:
         return []
     return [
@@ -80,10 +147,10 @@ def get_statuses_for_type(type_id: str) -> list[dict]:
     ]
 
 
-def get_tasks_for(type_id: str, status_id: str) -> list[str]:
+def get_tasks_for(type_id: str, status_id: str, collection: str = "NN") -> list[str]:
     """Zwraca listę zadań dla kombinacji typu i statusu."""
 
-    typ = _find_type(type_id)
+    typ = _find_type(collection, type_id)
     if not typ:
         return []
     for st in typ.get("statuses") or []:
