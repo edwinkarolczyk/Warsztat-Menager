@@ -34,6 +34,10 @@ class ProductsMaterialsTab(ttk.Frame):
             ),
             "backup": os.path.join(self.base_dir, "backup"),
         }
+        lock_path = os.path.join(
+            self.base_dir, "data", "magazyn", "magazyn.json.lock"
+        )
+        self._lock_suffix = " LOCK" if os.path.exists(lock_path) else ""
         print("[WM-DBG] [SETTINGS] init ProductsMaterialsTab")
         print(f"[WM-DBG] paths: {self.paths}")
         self._ensure_dirs()
@@ -75,6 +79,16 @@ class ProductsMaterialsTab(ttk.Frame):
         ttk.Button(prod_btns, text="Odśwież", command=self.refresh_all).pack(
             side="left", padx=2
         )
+        ttk.Button(
+            prod_btns,
+            text="Otwórz folder produktów",
+            command=self.open_products_folder,
+        ).pack(side="left", padx=2)
+        ttk.Button(
+            prod_btns,
+            text="Podgląd listy produktów",
+            command=self.preview_products,
+        ).pack(side="left", padx=2)
 
         # Półprodukty ---------------------------------------------------
         pol_frame = ttk.Frame(nb)
@@ -102,7 +116,7 @@ class ProductsMaterialsTab(ttk.Frame):
 
         # Surowce -------------------------------------------------------
         mat_frame = ttk.Frame(nb)
-        nb.add(mat_frame, text="Surowce")
+        nb.add(mat_frame, text=f"Surowce{self._lock_suffix}")
         headers = {
             "id": "ID",
             "typ": "Typ",
@@ -131,6 +145,28 @@ class ProductsMaterialsTab(ttk.Frame):
         ttk.Button(mat_btns, text="Odśwież", command=self.refresh_all).pack(
             side="left", padx=2
         )
+
+    # ------------------------------------------------------------------
+    def open_products_folder(self) -> None:
+        path = self.paths["produkty_dir"]
+        try:
+            os.startfile(path)  # type: ignore[attr-defined]
+        except Exception:
+            messagebox.showwarning(
+                "Otwórz folder produktów", f"Nie udało się otworzyć {path}"
+            )
+
+    # ------------------------------------------------------------------
+    def preview_products(self) -> None:
+        files = [
+            f
+            for f in sorted(os.listdir(self.paths["produkty_dir"]))
+            if f.lower().endswith(".json")
+        ]
+        count = len(files)
+        print(f"[WM-DBG] preview count: {count}")
+        preview = "\n".join(files[:20]) or "(brak plików)"
+        messagebox.showinfo("Podgląd listy produktów", preview)
 
     # ------------------------------------------------------------------
     def refresh_all(self) -> None:
