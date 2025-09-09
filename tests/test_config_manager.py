@@ -85,7 +85,33 @@ def test_load_and_merge_overrides(make_manager):
         schema=schema,
     )
 
-    assert mgr.merged == {"a": 1, "b": {"x": 2}, "c": 4, "secret": "s"}
+    assert mgr.get("a") == 1
+    assert mgr.get("b.x") == 2
+    assert mgr.get("c") == 4
+    assert mgr.get("secret") == "s"
+
+
+def test_auto_heal_defaults(make_manager):
+    mgr, paths = make_manager(global_cfg={})
+
+    assert mgr.get("ui.theme") == "dark"
+    assert mgr.get("ui.language") == "pl"
+    assert mgr.get("backup.keep_last") == 10
+
+    with open(paths["global"], encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["ui"]["theme"] == "dark"
+    assert data["ui"]["language"] == "pl"
+    assert data["backup"]["keep_last"] == 10
+
+    audit_file = Path(paths["audit"]) / "config_changes.jsonl"
+    with open(audit_file, encoding="utf-8") as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    assert len(lines) == 3
+    recorded = {rec["key"]: rec["after"] for rec in lines}
+    assert recorded["ui.theme"] == "dark"
+    assert recorded["ui.language"] == "pl"
+    assert recorded["backup.keep_last"] == 10
 
 
 def test_set_and_save_all_persistence(make_manager):
@@ -121,8 +147,8 @@ def test_audit_and_prune_rollbacks(make_manager):
 
     audit_file = Path(paths["audit"]) / "config_changes.jsonl"
     with open(audit_file, encoding="utf-8") as f:
-        rec = json.loads(f.readline())
-    assert rec["key"] == "foo"
+        records = [json.loads(line) for line in f if line.strip()]
+    rec = next(r for r in records if r["key"] == "foo")
     assert rec["before"] == 1
     assert rec["after"] == 2
     assert rec["user"] == "tester"
@@ -198,7 +224,8 @@ def test_secret_admin_pin_masked(make_manager):
 
     audit_file = Path(paths["audit"]) / "config_changes.jsonl"
     with open(audit_file, encoding="utf-8") as f:
-        rec = json.loads(f.readline())
+        records = [json.loads(line) for line in f if line.strip()]
+    rec = next(r for r in records if r["key"] == "secrets.admin_pin")
     assert rec["before"] == "***"
     assert rec["after"] == "***"
 

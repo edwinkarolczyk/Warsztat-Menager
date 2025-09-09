@@ -105,6 +105,26 @@ class ConfigManager:
                 self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
+
+        # >>> WM PATCH START: auto-heal critical keys
+        healed: list[tuple[str, Any]] = []
+
+        def ensure_key(dotted: str, default: Any):
+            if get_by_key(self.global_cfg, dotted, None) is None:
+                set_by_key(self.global_cfg, dotted, default)
+                print(f"[WM-DBG] auto-heal: {dotted}={default}")
+                healed.append((dotted, default))
+
+        ensure_key("ui.theme", "dark")
+        ensure_key("ui.language", "pl")
+        ensure_key("backup.keep_last", 10)
+
+        if healed:
+            self._save_json(self.config_path, self.global_cfg)
+            for key, val in healed:
+                self._audit_change(key, before_val=None, after_val=val, who="auto-heal")
+        # >>> WM PATCH END
+
         self.global_cfg = self._ensure_defaults_from_schema(
             self.global_cfg, self.schema
         )
