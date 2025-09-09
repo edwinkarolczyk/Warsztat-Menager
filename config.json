@@ -66,7 +66,7 @@
     "auto": true,
     "remote": "origin",
     "branch": "Rozwiniecie",
-    "push_branch": "git-push"
+    "push_branch": "Rozwiniecie"
   },
   "modules": {
     "service": {
