@@ -14,6 +14,7 @@ ALLOWED_OPS = {
     "RW",
     "RESERVE",
     "UNRESERVE",
+    "DELETE",
 }
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"

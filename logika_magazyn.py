@@ -28,6 +28,7 @@ OP_TRANSLATIONS = {
     "RESERVE": "rezerwacja",
     "UNRESERVE": "zwolnienie",
     "CREATE": "utworzenie",
+    "DELETE": "usun",
 }
 try:
     from tkinter import messagebox
@@ -447,7 +448,7 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         item = items[item_id]
         try:
-            _append_history(items, item_id, uzytkownik, "usun", float(item.get("stan", 0)), kontekst)
+            _append_history(items, item_id, uzytkownik, "DELETE", float(item.get("stan", 0)), kontekst)
         except TypeError:
             _append_history({
                 "operacja": "usun",
