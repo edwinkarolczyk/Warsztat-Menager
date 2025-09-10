@@ -131,7 +131,7 @@ def _merge_list_into(mag: dict, path: str, item_type: str) -> None:
     """Scal zawartość ``path`` z magazynem ``mag``.
 
     Plik może zawierać listę rekordów albo słownik ``{id: rekord}``.
-    W przypadku słownika brakujące pola ``id`` są uzupełniane kluczem.
+    W przypadku słownika brakujące pola ``id`` są uzupełniane wartością klucza.
     Jeśli element o podanym ``id`` istnieje w magazynie, dopisywane są
     jedynie brakujące klucze – istniejące wartości pozostają bez zmian.
 
