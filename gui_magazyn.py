@@ -149,6 +149,9 @@ def drukuj_etykiete(item_id: str, host: str = "127.0.0.1", port: int = 9100) -> 
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
+        self.root = master
+        self.config = getattr(master, "config", None)
+        self.profiles = getattr(master, "profiles", None)
         apply_theme(self)
         self._build_ui()
         self._load()
@@ -515,19 +518,23 @@ class PanelMagazyn(ttk.Frame):
 
     def _act_dodaj(self):
         """Open dialog for adding a warehouse item."""
-        print("[WM-DBG][MAG] _act_dodaj -> otwieram okno dodawania")
-        master = getattr(self, "master", self)
-        config = getattr(self, "config", None)
-        profiles = getattr(self, "profiles", None)
-        MagazynAddDialog(master, config, profiles, on_saved=self._reload_data)
+        dlg = MagazynAddDialog(
+            self.root, self.config, self.profiles, on_saved=self._reload_data
+        )
+        self.root.wait_window(dlg.top)
 
     def _act_przyjecie(self):
         """Open dialog for registering a goods receipt (PZ)."""
-        print("[WM-DBG][MAG] _act_przyjecie -> otwieram okno przyjęcia")
-        master = getattr(self, "master", self)
-        config = getattr(self, "config", None)
-        profiles = getattr(self, "profiles", None)
-        MagazynPZDialog(master, config, profiles, on_saved=self._reload_data)
+        selected = self.tree.selection()
+        selected_id = selected[0] if selected else None
+        dlg = MagazynPZDialog(
+            self.root,
+            self.config,
+            self.profiles,
+            preselect_id=selected_id,
+            on_saved=self._reload_data,
+        )
+        self.root.wait_window(dlg.top)
 
     def _show_historia(self):
         iid = self._sel_id()
