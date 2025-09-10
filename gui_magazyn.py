@@ -33,19 +33,33 @@ from ui_utils import _ensure_topmost
 import logika_magazyn as LM
 from config_manager import ConfigManager
 from services.profile_service import authenticate
+from gui_magazyn_order import MagazynOrderDialog
 
 try:  # pragma: no cover - dialog modules optional in tests
-    from gui_magazyn_add import MagazynAddDialog
-except ImportError:  # pragma: no cover - fallback stub
-    class MagazynAddDialog:
-        def __init__(self, master, *_args, **_kwargs):
+    from gui_magazyn_add import MagazynAddDialog as _MagazynAddDialog
+except Exception:  # pragma: no cover - fallback stub
+    _MagazynAddDialog = None
+
+
+class MagazynAddDialog:  # pragma: no cover - thin wrapper for tests
+    def __init__(self, master, *_args, on_saved=None, **_kwargs):
+        if _MagazynAddDialog and hasattr(master, "tk"):
+            _MagazynAddDialog(master, on_saved=on_saved)
+        else:
             tk.Toplevel(master)
 
+
 try:  # pragma: no cover - dialog modules optional in tests
-    from gui_magazyn_pz import MagazynPZDialog
-except ImportError:  # pragma: no cover - fallback stub
-    class MagazynPZDialog:
-        def __init__(self, master, *_args, **_kwargs):
+    from gui_magazyn_pz import MagazynPZDialog as _MagazynPZDialog
+except Exception:  # pragma: no cover - fallback stub
+    _MagazynPZDialog = None
+
+
+class MagazynPZDialog:  # pragma: no cover - thin wrapper for tests
+    def __init__(self, master, *_args, on_saved=None, **_kwargs):
+        if _MagazynPZDialog and hasattr(master, "tk"):
+            _MagazynPZDialog(master, on_saved=on_saved)
+        else:
             tk.Toplevel(master)
 
 _CFG = ConfigManager()
@@ -493,7 +507,18 @@ class PanelMagazyn(ttk.Frame):
 
     def _act_do_zam(self):
         """Dodaj pozycję do listy zamówień."""
-        pass
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("Magazyn", "Zaznacz pozycję.")
+            return
+        selected_id = self.tree.item(sel[0], "values")[0]
+        dlg = MagazynOrderDialog(
+            self.root,
+            self.config,
+            preselect_id=selected_id,
+            on_saved=self._reload_data,
+        )
+        self.root.wait_window(dlg.top)
 
     def _act_drukuj_etykiete(self):
         iid = self._sel_id()
