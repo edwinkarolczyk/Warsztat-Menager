@@ -445,7 +445,7 @@ class SettingsPanel:
             win = gui_tools_config.open_window(parent)  # type: ignore[assignment]
         elif hasattr(gui_tools_config, "ToolsConfigWindow"):
             win = gui_tools_config.ToolsConfigWindow(parent)  # type: ignore[assignment]
-        else:  # pragma: no cover - unexpected api
+        else:  # pragma: no cover - unexpected API
             messagebox.showerror(
                 "Błąd",
                 "Brak funkcji otwierającej okno konfiguracji",
