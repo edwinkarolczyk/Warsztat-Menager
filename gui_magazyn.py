@@ -32,6 +32,8 @@ from ui_hover import ImageHoverTooltip
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
 from config_manager import ConfigManager
+import gui_magazyn_add
+import gui_magazyn_pz
 
 _CFG = ConfigManager()
 
@@ -429,10 +431,12 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _act_dodaj(self):
-        print("[WM-DBG] _act_dodaj")
+        gui_magazyn_add.open_window(self)
+        self._load()
 
     def _act_przyjecie(self):
-        print("[WM-DBG] _act_przyjecie")
+        gui_magazyn_pz.open_window(self)
+        self._load()
 
     def _show_historia(self):
         iid = self._sel_id()
