@@ -128,7 +128,7 @@ def _default_magazyn():
 
 
 def _merge_list_into(mag: dict, path: str, item_type: str) -> None:
-    """Scal listę/dictę z ``path`` do magazynu ``mag``.
+    """Scal listę lub słownik z ``path`` z magazynem ``mag``.
 
     Parametry:
         mag: docelowa struktura magazynu.
@@ -189,10 +189,10 @@ def load_magazyn(
 ):
     """Wczytaj magazyn z dysku i opcjonalnie scal dodatkowe listy.
 
-    Główna struktura ładowana jest z :data:`MAGAZYN_PATH`.  Gdy
+    Główna struktura ładowana jest z :data:`MAGAZYN_PATH`. Gdy
     ``merge_surowce`` lub ``merge_polprodukty`` są ustawione, zawartość
     odpowiednio :data:`SUROWCE_PATH` i :data:`POLPRODUKTY_PATH` jest
-    scalana do wyniku przez :func:`_merge_list_into`.
+    łączona z wynikiem przez :func:`_merge_list_into`.
     """
 
     _dbg("load_magazyn() start")
