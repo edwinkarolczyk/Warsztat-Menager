@@ -118,7 +118,7 @@ def open_window(parent: tk.Widget) -> None:
 
         try:
             record_pz(item_id, qty, user_login, comment)
-        except Exception as e:  # pragma: no cover - błędy trudne do odwzorowania
+        except Exception as e:  # pragma: no cover - errors hard to reproduce
             messagebox.showerror("Błąd", str(e), parent=win)
             return
 
