@@ -67,13 +67,20 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
         data = {"collections": {cid: {"types": []} for cid in enabled}}
         _save_tasks_file(data)
 
-    if "types" in data and "collections" not in data:
+    if isinstance(data, list):
+        types = data
+        data = {"collections": {cid: {"types": []} for cid in enabled}}
+        data["collections"].setdefault(default_coll, {"types": []})["types"] = types
+        _save_tasks_file(data)
+    elif "types" in data and "collections" not in data:
         types = data.get("types") or []
         data = {"collections": {cid: {"types": []} for cid in enabled}}
         data["collections"].setdefault(default_coll, {"types": []})["types"] = types
         _save_tasks_file(data)
 
-    collections: dict = data.get("collections") or {}
+    collections = data.get("collections") or {}
+    if not isinstance(collections, dict):
+        raise ToolTasksError("Nieprawidłowa struktura kolekcji")
     changed = False
     for cid in enabled:
         if cid not in collections:
