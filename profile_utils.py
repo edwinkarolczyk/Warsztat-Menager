@@ -7,6 +7,18 @@ from io_utils import read_json, write_json
 
 USERS_FILE = "uzytkownicy.json"
 
+SIDEBAR_MODULES: list[tuple[str, str]] = [
+    ("zlecenia", "Zlecenia"),
+    ("narzedzia", "Narzędzia"),
+    ("maszyny", "Maszyny"),
+    ("magazyn", "Magazyn"),
+    ("hale", "Hale"),
+    ("feedback", "Wyślij opinię"),
+    ("uzytkownicy", "Użytkownicy"),
+    ("ustawienia", "Ustawienia"),
+    ("profil", "Profil"),
+]
+
 # Domyślny profil użytkownika z rozszerzonymi polami
 DEFAULT_USER = {
     "login": "operator",

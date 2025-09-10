@@ -19,6 +19,9 @@ from gui_products import ProductsMaterialsTab
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
+from profile_utils import SIDEBAR_MODULES
+from services import profile_service
+from logger import log_akcja
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -304,6 +307,8 @@ class SettingsPanel:
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
         self._unsaved = False
+        self._mod_vars: dict[str, tk.BooleanVar] = {}
+        self._user_var: tk.StringVar | None = None
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -421,6 +426,28 @@ class SettingsPanel:
                 g, f = self._populate_tab(sub_frame, sub)
                 grp_count += g
                 fld_count += f
+
+        if tab.get("id") == "profile":
+            users = [u.get("login", "") for u in profile_service.get_all_users()]
+            sel = ttk.Frame(parent)
+            sel.pack(fill="x", padx=5, pady=5)
+            ttk.Label(sel, text="Użytkownik:").pack(side="left")
+            self._user_var = tk.StringVar()
+            cmb = ttk.Combobox(
+                sel, values=users, textvariable=self._user_var, state="readonly"
+            )
+            cmb.pack(side="left", fill="x", expand=True, padx=5)
+            cmb.bind(
+                "<<ComboboxSelected>>",
+                lambda _e: self._load_user_modules(self._user_var.get()),
+            )
+            box = ttk.LabelFrame(parent, text="Widoczność modułów")
+            box.pack(fill="x", padx=5, pady=5)
+            self._mod_vars = {}
+            for key, label in SIDEBAR_MODULES:
+                var = tk.BooleanVar(value=True)
+                self._mod_vars[key] = var
+                ttk.Checkbutton(box, text=label, variable=var).pack(anchor="w")
 
         if tab.get("id") == "update":
             self._add_patch_section(parent)
@@ -589,6 +616,25 @@ class SettingsPanel:
                 self.save()
         self.master.winfo_toplevel().destroy()
 
+    def _load_user_modules(self, user_id: str) -> None:
+        user = profile_service.get_user(user_id) or {}
+        disabled = {
+            str(m).strip().lower()
+            for m in user.get("disabled_modules", [])
+            if m
+        }
+        for key, var in self._mod_vars.items():
+            var.set(key not in disabled)
+
+    def _save_user_modules(self, user_id: str) -> list[str]:
+        if not user_id:
+            return []
+        user = profile_service.get_user(user_id) or {"login": user_id}
+        disabled = [k for k, v in self._mod_vars.items() if not v.get()]
+        user["disabled_modules"] = disabled
+        profile_service.save_user(user)
+        return disabled
+
     def save(self) -> None:
         for key, var in self.vars.items():
             value = var.get()
@@ -596,6 +642,13 @@ class SettingsPanel:
             self._initial[key] = value
         self.cfg.save_all()
         self._unsaved = False
+        if self._user_var is not None:
+            uid = self._user_var.get().strip()
+            if uid:
+                disabled = self._save_user_modules(uid)
+                log_akcja(
+                    f"[SETTINGS] zapisano moduły {uid}: {', '.join(disabled)}"
+                )
 
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
