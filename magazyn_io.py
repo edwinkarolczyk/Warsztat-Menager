@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Dict
 
 ALLOWED_OPS = {
     "CREATE",
@@ -62,15 +62,24 @@ def append_history(
     an additional record is stored in :data:`PRZYJECIA_PATH`.
     """
 
+    op = op.upper()
     if op not in ALLOWED_OPS:
         raise ValueError(f"Unknown op: {op}")
+
     qty = float(qty)
     if qty <= 0:
         raise ValueError("qty must be > 0")
-    if ts is None:
+
+    if not ts:
         ts = datetime.now(timezone.utc).isoformat()
 
-    entry = {"ts": ts, "user": user, "op": op, "qty": qty, "comment": comment}
+    entry = {
+        "ts": ts,
+        "user": user,
+        "op": op,
+        "qty": qty,
+        "comment": comment,
+    }
 
     item = items.setdefault(item_id, {})
     history = item.setdefault("historia", [])
