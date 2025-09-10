@@ -7,6 +7,7 @@
 # Zmiany 1.0.0:
 # - Dodano okno dodawania pozycji magazynowej.
 
+import logging
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
@@ -15,6 +16,8 @@ from config_manager import ConfigManager
 from services.profile_service import authenticate
 import magazyn_io
 import logika_magazyn as LM
+
+logger = logging.getLogger(__name__)
 
 _CFG = ConfigManager()
 
@@ -162,9 +165,9 @@ class MagazynAddDialog:
             comment="",
         )
 
-        print("[WM-DBG][MAGAZYN-ADD] saving")
+        logger.debug("[WM-DBG][MAG][ADD] saving")
         save(data)
-        print("[WM-DBG][MAGAZYN-ADD] saved")
+        logger.debug("[WM-DBG][MAG][ADD] saved")
 
         if self.on_saved:
             try:
