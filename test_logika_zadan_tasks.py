@@ -19,7 +19,7 @@ def test_limit_types(monkeypatch, tmp_path, caplog):
         ]
     }
     path = _write(tmp_path, data)
-    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    monkeypatch.setattr(LZ, "_TASKS_PATH", str(path))
     LZ.invalidate_cache()
     with caplog.at_level("WARNING"):
         assert LZ.get_tool_types_list() == []
@@ -36,7 +36,7 @@ def test_limit_statuses(monkeypatch, tmp_path, caplog):
         ]
     }
     path = _write(tmp_path, data)
-    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    monkeypatch.setattr(LZ, "_TASKS_PATH", str(path))
     LZ.invalidate_cache()
     with caplog.at_level("WARNING"):
         assert LZ.get_statuses_for_type("T1") == []
@@ -55,7 +55,7 @@ def test_get_tasks(monkeypatch, tmp_path):
         ]
     }
     path = _write(tmp_path, data)
-    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    monkeypatch.setattr(LZ, "_TASKS_PATH", str(path))
     LZ.invalidate_cache()
     assert LZ.get_tasks_for("T1", "S1") == ["a", "b"]
 
@@ -63,7 +63,7 @@ def test_get_tasks(monkeypatch, tmp_path):
 def test_force_reload(monkeypatch, tmp_path):
     data1 = {"types": [{"id": "T1", "name": "Old", "statuses": []}]}
     path = _write(tmp_path, data1)
-    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    monkeypatch.setattr(LZ, "_TASKS_PATH", str(path))
     LZ.invalidate_cache()
     assert LZ.get_tool_types_list() == [{"id": "T1", "name": "Old"}]
 
@@ -79,7 +79,7 @@ def test_force_reload(monkeypatch, tmp_path):
 def test_reload_on_mtime_change(monkeypatch, tmp_path):
     data1 = {"types": [{"id": "T1", "name": "Old", "statuses": []}]}
     path = _write(tmp_path, data1)
-    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    monkeypatch.setattr(LZ, "_TASKS_PATH", str(path))
     LZ.invalidate_cache()
     assert LZ.get_tool_types_list() == [{"id": "T1", "name": "Old"}]
 

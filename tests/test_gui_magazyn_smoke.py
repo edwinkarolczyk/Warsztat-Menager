@@ -18,6 +18,12 @@ def test_add_and_pz_buttons_create_windows(monkeypatch):
         types.SimpleNamespace(Toplevel=DummyToplevel),
     )
     monkeypatch.setattr(gui_magazyn, "apply_theme", lambda *a, **k: None)
+    monkeypatch.setattr(
+        gui_magazyn, "MagazynAddDialog", lambda master, *a, **k: DummyToplevel()
+    )
+    monkeypatch.setattr(
+        gui_magazyn, "MagazynPZDialog", lambda master, *a, **k: DummyToplevel()
+    )
 
     class DummyDialog:
         def __init__(self, parent, **_):
