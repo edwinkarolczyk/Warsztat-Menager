@@ -27,13 +27,48 @@ from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 from logger import log_akcja
-from ui_hover import ImageHoverTooltip
+from ui_utils import _ensure_topmost
 
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
 from config_manager import ConfigManager
 
 _CFG = ConfigManager()
+
+
+def _attach_tooltip(widget: tk.Misc, text: str):
+    """Attach a simple text tooltip to ``widget``."""
+    tip: dict[str, tk.Toplevel | None] = {"w": None}
+
+    def _show(_=None):
+        if tip["w"] or not text:
+            return
+        x = widget.winfo_rootx() + 16
+        y = widget.winfo_rooty() + 20
+        tw = tk.Toplevel(widget)
+        _ensure_topmost(tw, widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        lbl = tk.Label(
+            tw,
+            text=text,
+            bg="#2A2F37",
+            fg="#E8E8E8",
+            bd=1,
+            relief="solid",
+            justify="left",
+        )
+        lbl.pack(ipadx=8, ipady=6)
+        tip["w"] = tw
+
+    def _hide(_=None):
+        if tip["w"]:
+            tip["w"].destroy()
+            tip["w"] = None
+
+    widget.bind("<Enter>", _show, add="+")
+    widget.bind("<Leave>", _hide, add="+")
+    return tip
 
 
 def _fmt(num: float) -> str:
@@ -128,43 +163,55 @@ class PanelMagazyn(ttk.Frame):
 
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
 
-        self._tooltips: list[ImageHoverTooltip] = []
+        self._tooltips: list[dict[str, tk.Toplevel | None]] = []
 
         btn_dodaj = ttk.Button(bar, text="+ Dodaj", command=self._act_dodaj, style="WM.Side.TButton")
         btn_dodaj.grid(row=0, column=4, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_dodaj, None))
+        self._tooltips.append(_attach_tooltip(btn_dodaj, "Dodaj nową pozycję do magazynu"))
 
         btn_przyjecie = ttk.Button(
             bar, text="Przyjęcie (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
         )
         btn_przyjecie.grid(row=0, column=5, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_przyjecie, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_przyjecie, "Zarejestruj przyjęcie towaru (PZ)")
+        )
 
         btn_zuzyj = ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton")
         btn_zuzyj.grid(row=0, column=6, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_zuzyj, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_zuzyj, "Odnotuj zużycie materiału")
+        )
 
         btn_zwrot = ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton")
         btn_zwrot.grid(row=0, column=7, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_zwrot, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_zwrot, "Przyjmij zwrot na magazyn")
+        )
 
         btn_rezerwuj = ttk.Button(
             bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton"
         )
         btn_rezerwuj.grid(row=0, column=8, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_rezerwuj, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_rezerwuj, "Zarezerwuj materiał dla zlecenia")
+        )
 
         btn_zwolnij = ttk.Button(
             bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton"
         )
         btn_zwolnij.grid(row=0, column=9, padx=3)
-        self._tooltips.append(ImageHoverTooltip(btn_zwolnij, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_zwolnij, "Zwolnij zarezerwowany materiał")
+        )
 
         btn_historia = ttk.Button(
             bar, text="Historia", command=self._show_historia, style="WM.Side.TButton"
         )
         btn_historia.grid(row=0, column=10, padx=6)
-        self._tooltips.append(ImageHoverTooltip(btn_historia, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_historia, "Pokaż historię operacji")
+        )
 
         btn_etykieta = ttk.Button(
             bar,
@@ -173,7 +220,9 @@ class PanelMagazyn(ttk.Frame):
             style="WM.Side.TButton",
         )
         btn_etykieta.grid(row=0, column=11, padx=6)
-        self._tooltips.append(ImageHoverTooltip(btn_etykieta, None))
+        self._tooltips.append(
+            _attach_tooltip(btn_etykieta, "Drukuj etykietę z kodem")
+        )
 
         self.bind_all("<Control-n>", lambda _e: self._act_dodaj(), add="+")
         self.bind_all("<Control-p>", lambda _e: self._act_przyjecie(), add="+")
