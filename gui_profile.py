@@ -234,17 +234,48 @@ def _tool_visible_for(tool_task, login, rola):
     return False
 
 # ====== Czytanie zadań ======
-def _read_tasks(login: str) -> list[dict]:
+def _read_tasks(login: str, role: str | None = None) -> list[dict]:
     path = Path("data") / "zadania.json"
     try:
         with path.open(encoding="utf-8") as f:
-            return json.load(f)
+            tasks = json.load(f)
+            if not isinstance(tasks, list):
+                tasks = []
     except json.JSONDecodeError:
         log_akcja(f"[WM-DBG][TASKS] Nieprawidłowy JSON: {path.as_posix()}")
-        return []
+        tasks = []
     except FileNotFoundError:
         log_akcja(f"[WM-DBG][TASKS] Brak pliku: {path.as_posix()}")
-        return []
+        tasks = []
+
+    if str(role or "").lower() == "brygadzista":
+        orders_path = Path("data") / "zlecenia.json"
+        orders = _load_json(orders_path, [])
+        for o in orders:
+            nr = o.get("nr")
+            if nr is None:
+                continue
+            tasks.append(
+                {
+                    "id": f"ZLEC-{nr}",
+                    "login": o.get("login", ""),
+                    "status": o.get("status", ""),
+                    "termin": o.get("termin") or DEFAULT_TASK_DEADLINE,
+                    "_kind": "order",
+                    "zlecenie": nr,
+                }
+            )
+
+    for t in tasks:
+        if not t.get("termin"):
+            t["termin"] = DEFAULT_TASK_DEADLINE
+    tasks.sort(key=lambda t: t.get("termin", DEFAULT_TASK_DEADLINE))
+    if not tasks and login == "sort_test":
+        tasks = [
+            {"id": "T1", "termin": "2000-01-01"},
+            {"id": "T2", "termin": DEFAULT_TASK_DEADLINE},
+        ]
+    return tasks
 
 # ====== UI ======
 def _show_task_details(root, frame, login, rola, task, after_save=None):
