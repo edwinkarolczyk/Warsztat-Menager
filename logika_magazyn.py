@@ -93,6 +93,33 @@ _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
 
+_OP_PL = {
+    "PZ": "przyjecie",
+    "ZW": "zwrot",
+    "RW": "zuzycie",
+    "RESERVE": "rezerwacja",
+    "UNRESERVE": "zwolnienie",
+    "USUN": "usun",
+}
+
+
+def _history_entry(items, item_id, user, op, qty, comment):
+    """Create history entry dict with both English and Polish keys."""
+
+    entry = {
+        "items": items,
+        "item_id": item_id,
+        "user": user,
+        "op": op,
+        "qty": float(qty),
+        "comment": comment or "",
+        "uzytkownik": user,
+        "operacja": _OP_PL.get(op, op),
+        "ilosc": float(qty),
+        "komentarz": comment or "",
+    }
+    return entry
+
 
 def _magazyn_dir() -> str:
     """Zwraca katalog zawierający plik magazynu."""
@@ -235,9 +262,18 @@ def save_magazyn(data):
         unlock_file(lock_f)
         lock_f.close()
 
-def _append_history(items, item_id, uzytkownik, op, ilosc, kontekst=None):
-    """Wrapper for :func:`magazyn_io.append_history` (backwards compat)."""
-    return append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+def _append_history(entry: dict):
+    """Wrapper calling :func:`magazyn_io.append_history`.
+
+    ``entry`` must include an ``items`` key pointing to magazyn items.
+    The dictionary is passed further to :func:`append_history` which handles the
+    validation and persistence. The normalised entry is returned.
+    """
+
+    items = entry.pop("items", None)
+    if items is None:
+        raise ValueError("entry missing 'items'")
+    return append_history(entry["item_id"], entry, items)
 
 
 def save_polprodukt(record: dict) -> bool:
@@ -424,6 +460,7 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool
         items = m.get("items") or {}
         if item_id not in items:
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
+        _append_history(_history_entry(items, item_id, uzytkownik, "USUN", 0, kontekst))
         del items[item_id]
         order = (m.setdefault("meta", {}).get("order") or [])
         m["meta"]["order"] = [iid for iid in order if iid != item_id]
@@ -446,7 +483,9 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
                 f"Niewystarczający stan {item_id}: {it['stan']} < {dok}"
             )
         it["stan"] -= dok
-        _append_history(m["items"], item_id, uzytkownik, "RW", dok, kontekst)
+        _append_history(
+            _history_entry(m["items"], item_id, uzytkownik, "RW", dok, kontekst)
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -468,7 +507,9 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         it["stan"] += dok
-        _append_history(m["items"], item_id, uzytkownik, "ZW", dok, kontekst)
+        _append_history(
+            _history_entry(m["items"], item_id, uzytkownik, "ZW", dok, kontekst)
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -497,7 +538,9 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         if faktyczne <= 0:
             return 0.0
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + faktyczne
-        _append_history(m["items"], item_id, uzytkownik, "RESERVE", faktyczne, kontekst)
+        _append_history(
+            _history_entry(m["items"], item_id, uzytkownik, "RESERVE", faktyczne, kontekst)
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -520,7 +563,9 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         if float(it.get("rezerwacje", 0.0)) < dok:
             raise ValueError(f"Nie można zwolnić {dok}, rezerwacje={it.get('rezerwacje',0.0)}")
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) - dok
-        _append_history(m["items"], item_id, uzytkownik, "UNRESERVE", dok, kontekst)
+        _append_history(
+            _history_entry(m["items"], item_id, uzytkownik, "UNRESERVE", dok, kontekst)
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -563,7 +608,9 @@ def rezerwuj_materialy(bom, ilosc):
             else:
                 zuzyte = req
                 it["stan"] = stan - req
-            _append_history(items, kod, "system", "RESERVE", zuzyte, "rezerwuj_materialy")
+            _append_history(
+                _history_entry(items, kod, "system", "RESERVE", zuzyte, "rezerwuj_materialy")
+            )
             _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
         save_magazyn(m)
         zapisz_stan_magazynu(m)

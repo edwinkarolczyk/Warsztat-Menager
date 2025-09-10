@@ -1,101 +1,115 @@
-"""I/O helpers for warehouse history."""
+"""Helpers for magazyn JSON I/O and history handling."""
 
 from __future__ import annotations
 
-import json
 import os
+import shutil
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Dict
 
-ALLOWED_OPS = {
-    "CREATE",
-    "PZ",
-    "ZW",
-    "RW",
-    "RESERVE",
-    "UNRESERVE",
-}
+from io_utils import read_json, write_json
+from logger import log_akcja
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
-PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
-HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
 
 
-def _ensure_dirs(path: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+def load_magazyn(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
+    """Load magazyn data from ``path``.
 
-
-def _load_json(path: str, default):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if not isinstance(data, type(default)):
-                return default
-            return data
-    except FileNotFoundError:
-        return default
-    except Exception:
-        return default
-
-
-def append_history(
-    items: Dict[str, Any],
-    item_id: str,
-    user: str,
-    op: str,
-    qty: float,
-    comment: str = "",
-    ts: str | None = None,
-) -> Dict[str, Any]:
-    """Append a history entry for ``item_id``.
-
-    Parameters:
-        items: Mapping of warehouse items.
-        item_id: Identifier of the item being modified.
-        user: Name of the user performing the operation.
-        op: Operation type. Must be one of :data:`ALLOWED_OPS`.
-        qty: Positive quantity of the operation.
-        comment: Optional comment stored with the entry.
-        ts: Optional timestamp (ISO 8601). Generated when missing.
-
-    The entry is appended to ``items[item_id]['historia']``. For ``op == 'PZ'``
-    an additional record is stored in :data:`PRZYJECIA_PATH`.
+    Returns an empty structure when the file does not exist or contains invalid
+    data. The returned structure at minimum includes ``items`` and ``meta``
+    mappings.
     """
 
-    if op not in ALLOWED_OPS:
-        raise ValueError(f"Unknown op: {op}")
-    qty = float(qty)
-    if qty <= 0:
-        raise ValueError("qty must be > 0")
-    if ts is None:
-        ts = datetime.now(timezone.utc).isoformat()
+    data = read_json(path)
+    if not isinstance(data, dict):
+        data = {}
+    items = data.setdefault("items", {})
+    data.setdefault("meta", {})
+    if not isinstance(items, dict):
+        data["items"] = {}
+    return data
 
-    entry = {"ts": ts, "user": user, "op": op, "qty": qty, "comment": comment}
+
+def save_magazyn(data: Dict[str, Any], path: str = MAGAZYN_PATH, *, backup: bool = True) -> bool:
+    """Persist ``data`` to ``path`` in UTF-8 JSON format.
+
+    When ``backup`` is ``True`` a ``*.bak`` copy of the previous file is
+    created. Every save operation is logged with ``[WM-DBG]`` prefix.
+    """
+
+    if backup and os.path.exists(path):
+        try:
+            shutil.copyfile(path, f"{path}.bak")
+        except OSError:  # pragma: no cover - defensive
+            pass
+    log_akcja(f"[WM-DBG] Zapis magazynu: {path}")
+    return write_json(path, data)
+
+
+_OP_PL = {
+    "PZ": "przyjecie",
+    "ZW": "zwrot",
+    "RW": "zuzycie",
+    "RESERVE": "rezerwacja",
+    "UNRESERVE": "zwolnienie",
+    "USUN": "usun",
+}
+
+
+def append_history(item_id: str, entry: Dict[str, Any], path_or_items) -> Dict[str, Any]:
+    """Validate ``entry`` and append it to ``historia`` for ``item_id``.
+
+    ``entry`` must contain keys: ``ts``, ``user``, ``op``, ``qty`` and
+    ``comment``. Missing ``ts`` generates current UTC timestamp. ``qty`` is
+    converted to ``float``. Additional aliases with Polish field names are added
+    for backwards compatibility.
+
+    ``path_or_items`` can be a path to ``magazyn.json`` or a mapping with items
+    where the history should be appended. When a path is provided the file is
+    loaded and saved automatically.
+    """
+
+    required = {"user", "op", "qty", "comment"}
+    if ts := entry.get("ts") is None:
+        entry["ts"] = datetime.now(timezone.utc).isoformat()
+    missing = required - entry.keys()
+    if missing:
+        raise ValueError(f"entry missing keys: {missing}")
+
+    # normalised entry used for storage
+    norm = {
+        "ts": entry["ts"],
+        "user": entry["user"],
+        "op": entry["op"],
+        "qty": float(entry["qty"]),
+        "comment": entry["comment"],
+    }
+
+    # Polish aliases for legacy code/tests
+    norm.update(
+        {
+            "czas": norm["ts"],
+            "uzytkownik": norm["user"],
+            "operacja": _OP_PL.get(norm["op"], norm["op"]),
+            "ilosc": norm["qty"],
+            "komentarz": norm["comment"],
+        }
+    )
+
+    if isinstance(path_or_items, dict):
+        items = path_or_items
+        data = None
+    else:
+        data = load_magazyn(path_or_items)
+        items = data.setdefault("items", {})
 
     item = items.setdefault(item_id, {})
     history = item.setdefault("historia", [])
-    history.append(entry)
+    history.append(norm)
 
-    _ensure_dirs(HISTORY_PATH)
-    hist = _load_json(HISTORY_PATH, [])
-    hist.append({**entry, "item_id": item_id})
-    with open(HISTORY_PATH, "w", encoding="utf-8") as f:
-        json.dump(hist, f, ensure_ascii=False, indent=2)
+    if data is not None:
+        save_magazyn(data, path_or_items)
 
-    if op == "PZ":
-        _ensure_dirs(PRZYJECIA_PATH)
-        data = _load_json(PRZYJECIA_PATH, [])
-        data.append(
-            {
-                "ts": ts,
-                "item_id": item_id,
-                "qty": qty,
-                "user": user,
-                "comment": comment,
-            }
-        )
-        with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-    return entry
+    return norm
 
