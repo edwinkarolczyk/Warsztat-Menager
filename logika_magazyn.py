@@ -128,7 +128,12 @@ def _default_magazyn():
 
 
 def _merge_list_into(mag: dict, path: str, item_type: str) -> None:
-    """Scal listę lub słownik z ``path`` z magazynem ``mag``.
+    """Scal zawartość ``path`` z magazynem ``mag``.
+
+    Plik może zawierać listę rekordów albo słownik ``{id: rekord}``.
+    W przypadku słownika brakujące pola ``id`` są uzupełniane kluczem.
+    Jeśli element o podanym ``id`` istnieje w magazynie, dopisywane są
+    jedynie brakujące klucze – istniejące wartości pozostają bez zmian.
 
     Parametry:
         mag: docelowa struktura magazynu.
@@ -192,7 +197,8 @@ def load_magazyn(
     Główna struktura ładowana jest z :data:`MAGAZYN_PATH`. Gdy
     ``merge_surowce`` lub ``merge_polprodukty`` są ustawione, zawartość
     odpowiednio :data:`SUROWCE_PATH` i :data:`POLPRODUKTY_PATH` jest
-    łączona z wynikiem przez :func:`_merge_list_into`.
+    łączona z wynikiem przez :func:`_merge_list_into`. Pliki mogą
+    zawierać listy rekordów albo słowniki ``{id: rekord}``.
     """
 
     _dbg("load_magazyn() start")
