@@ -1,9 +1,8 @@
-# Wersja pliku: 1.0.0
+# Wersja pliku: 1.1.0
 # Plik: logika_zadan.py
-# Zmiany 1.0.0:
-# - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo z definicji produktu
-# - API: consume_for_task(tool_id, task_dict, uzytkownik)
-# ⏹ KONIEC KODU
+# Zmiany 1.1.0:
+# - Dodano obsługę błędnych definicji zadań narzędzi
+# - Doprecyzowano i uporządkowano komentarze modułu
 
 import json
 import os
