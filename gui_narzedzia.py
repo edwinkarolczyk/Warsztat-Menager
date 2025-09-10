@@ -21,6 +21,7 @@ import json
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
@@ -853,34 +854,34 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         tree.delete(*tree.get_children()); row_data.clear()
         q = (search_var.get() or "").strip().lower()
         data = _load_all_tools()
-        for t in data:
+        for tool in data:
             blob = ("%s %s %s %s %s %s %s %s" % (
-                t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], t["postep"], t.get("tryb",""), t.get("opis","")
+                tool["nr"], tool["nazwa"], tool["typ"], tool["status"], tool["data"], tool["postep"], tool.get("tryb", ""), tool.get("opis", "")
             )).lower()
             if q and q not in blob:
                 continue
-            tag = _band_tag(t["postep"])
-            bar = _bar_text(t["postep"])
+            tag = _band_tag(tool["postep"])
+            bar = _bar_text(tool["postep"])
             iid = tree.insert(
                 "",
                 "end",
-                values=(t["nr"], t["nazwa"], t["typ"], t["status"], t["data"], bar),
+                values=(tool["nr"], tool["nazwa"], tool["typ"], tool["status"], tool["data"], bar),
                 tags=(tag,),
             )
-            row_data[iid] = t
-            base_dir = _resolve_tools_dir()
+            row_data[iid] = tool
+            base_dir = Path(_resolve_tools_dir())
             paths = []
-            rel = t.get("dxf_png")
+            rel = tool.get("dxf_png")
             if rel:
-                p = os.path.join(base_dir, rel) if not os.path.isabs(rel) else rel
-                if os.path.exists(p):
-                    paths = [p]
+                p = base_dir / rel
+                if p.exists():
+                    paths.append(str(p))
             if not paths:
-                rel = t.get("obraz")
+                rel = tool.get("obraz")
                 if rel:
-                    p = os.path.join(base_dir, rel) if not os.path.isabs(rel) else rel
-                    if os.path.exists(p):
-                        paths = [p]
+                    p = base_dir / rel
+                    if p.exists():
+                        paths.append(str(p))
             if paths:
                 ui_hover.bind_treeview_row_hover(tree, iid, paths)
         if not data:
