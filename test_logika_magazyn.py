@@ -133,10 +133,9 @@ def test_set_order_persists(tmp_path, monkeypatch):
 
 def test_delete_item(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
+    monkeypatch.setattr(lm, 'HISTORY_PATH', str(tmp_path / 'magazyn_history.json'))
     logs = []
-    history = []
     monkeypatch.setattr(lm, '_log_mag', lambda a, d: logs.append((a, d)))
-    monkeypatch.setattr(lm, '_append_history', lambda e: history.append(e))
 
     lm.load_magazyn()
     lm.upsert_item({
@@ -160,7 +159,10 @@ def test_delete_item(tmp_path, monkeypatch):
     m = lm.load_magazyn()
     assert 'A' not in m['items']
     assert 'A' not in m['meta']['order']
-    assert history and history[-1]['operacja'] == 'usun'
+    with open(tmp_path / 'magazyn_history.json', encoding='utf-8') as f:
+        hist = json.load(f)
+    assert hist and hist[-1]['operacja'] == 'usun'
+    assert hist[-1]['item_id'] == 'A'
     assert any(a == 'usun' and d['item_id'] == 'A' for a, d in logs)
 
     with pytest.raises(KeyError):

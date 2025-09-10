@@ -8,7 +8,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import RLock
 import logging
 
@@ -19,7 +19,8 @@ if not logging.getLogger().handlers:
     )
 
 from config_manager import ConfigManager
-from magazyn_io import append_history
+from magazyn_io import append_history, HISTORY_PATH
+import magazyn_io
 try:
     from tkinter import messagebox
 except Exception:  # pragma: no cover - środowiska bez GUI
@@ -238,7 +239,35 @@ def save_magazyn(data):
 def _append_history(items_or_entry, item_id=None, uzytkownik=None, op=None, ilosc=None, kontekst=None):
     """Wrapper for :func:`magazyn_io.append_history` (backwards compat)."""
     if item_id is None and isinstance(items_or_entry, dict):
-        return items_or_entry
+        entry = items_or_entry.copy()
+        ts = entry.get("ts") or entry.get("czas")
+        if ts is None:
+            ts = (
+                datetime.now(timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+        entry.setdefault("ts", ts)
+        entry.setdefault("czas", ts)
+        user = entry.get("uzytkownik") or entry.get("user") or uzytkownik or "system"
+        entry.setdefault("uzytkownik", user)
+        entry.setdefault("user", user)
+        op_val = entry.get("operacja") or entry.get("op") or op or ""
+        entry.setdefault("operacja", op_val)
+        entry.setdefault("op", op_val)
+        qty = entry.get("ilosc") or entry.get("qty") or ilosc or 0
+        entry.setdefault("ilosc", qty)
+        entry.setdefault("qty", qty)
+        comment = entry.get("kontekst") or entry.get("comment") or kontekst or ""
+        entry.setdefault("kontekst", comment)
+        entry.setdefault("comment", comment)
+        magazyn_io._ensure_dirs(HISTORY_PATH)
+        hist = magazyn_io._load_json(HISTORY_PATH, [])
+        hist.append(entry)
+        with open(HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(hist, f, ensure_ascii=False, indent=2)
+        return entry
     return append_history(items_or_entry, item_id, uzytkownik, op, ilosc, kontekst or "")
 
 
