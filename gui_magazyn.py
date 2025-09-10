@@ -574,9 +574,9 @@ def open_panel_magazyn(root):
     return win
 
 def attach_magazyn_button(root, toolbar):
-    """
-    Dodaje przycisk 'Magazyn' do przekazanego toolbara (Frame).
-    Użycie w gui_panel.py: attach_magazyn_button(root, toolbar_frame)
+    """Dodaje przycisk 'Magazyn' do przekazanego toolbara (Frame).
+
+    Użycie w gui_panel.py: ``attach_magazyn_button(root, toolbar_frame)``
     """
     btn = ttk.Button(toolbar, text="Magazyn", command=lambda: open_panel_magazyn(root))
     try:
