@@ -1,43 +1,34 @@
-import json
+from pathlib import Path
 
 import pytest
 
 import tools_autocheck
 
 
-@pytest.fixture
-def write_entry(tmp_path, monkeypatch):
-    monkeypatch.setattr(tools_autocheck, "DATA_DIR", tmp_path)
+@pytest.fixture(autouse=True)
+def sample_data_dir(monkeypatch):
+    """Point :mod:`tools_autocheck` to bundled fixture data."""
 
-    def _write(collection_id: str, status_id: str, payload) -> None:
-        path = tmp_path / collection_id
-        path.mkdir(exist_ok=True)
-        (path / f"{status_id}.json").write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
-
-    return _write
+    path = Path(__file__).parent / "fixtures" / "tools_autocheck"
+    monkeypatch.setattr(tools_autocheck, "DATA_DIR", path)
+    return path
 
 
-def test_entry_flag_takes_precedence(write_entry):
+def test_entry_flag_takes_precedence():
     config = {"tools": {"auto_check_on_status_global": ["s1"]}}
-    write_entry("col", "s1", {"auto_check_on_entry": False})
     assert not tools_autocheck.should_autocheck("s1", "col", config)
 
 
-def test_entry_flag_true_overrides_global(write_entry):
+def test_entry_flag_true_overrides_global():
     config = {"tools": {"auto_check_on_status_global": []}}
-    write_entry("col", "s4", {"auto_check_on_entry": True})
     assert tools_autocheck.should_autocheck("s4", "col", config)
 
 
-def test_global_list_used_when_no_entry_flag(write_entry):
+def test_global_list_used_when_no_entry_flag():
     config = {"tools": {"auto_check_on_status_global": ["s2"]}}
-    write_entry("col", "s2", {"other": 1})
     assert tools_autocheck.should_autocheck("s2", "col", config)
 
 
-def test_none_returns_false(write_entry):
+def test_none_returns_false():
     config = {"tools": {"auto_check_on_status_global": []}}
-    write_entry("col", "s3", {"other": 2})
     assert not tools_autocheck.should_autocheck("s3", "col", config)
