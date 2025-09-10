@@ -6,30 +6,35 @@ import pytest
 import tools_templates
 
 
-def _write_template(path: Path, ident: str) -> None:
-    path.write_text(json.dumps({"id": ident}), encoding="utf-8")
+@pytest.fixture
+def template_factory(tmp_path: Path):
+    def _create(name: str, ident: str, collection: str = "col") -> Path:
+        col_dir = tmp_path / collection
+        col_dir.mkdir(exist_ok=True)
+        path = col_dir / name
+        path.write_text(json.dumps({"id": ident}, indent=2), encoding="utf-8")
+        return path
+
+    return _create
 
 
-def test_limit_8x8(tmp_path: Path) -> None:
-    paths = []
-    for i in range(tools_templates.MAX_TEMPLATES + 1):
-        p = tmp_path / f"{i:03}.json"
-        _write_template(p, f"{i:03}")
-        paths.append(p)
+def test_limit_8x8(template_factory) -> None:
+    paths = [
+        template_factory(f"{i:03}.json", f"{i:03}")
+        for i in range(tools_templates.MAX_TEMPLATES + 1)
+    ]
     with pytest.raises(ValueError):
         tools_templates.load_templates(paths)
 
 
-def test_duplicate_detection(tmp_path: Path) -> None:
-    p1 = tmp_path / "a.json"
-    p2 = tmp_path / "b.json"
-    _write_template(p1, "01")
-    _write_template(p2, "01")
+def test_duplicate_detection(template_factory) -> None:
+    p1 = template_factory("a.json", "01")
+    p2 = template_factory("b.json", "01")
     with pytest.raises(ValueError):
         tools_templates.load_templates([p1, p2])
 
 
 def test_missing_file_is_ignored(tmp_path: Path) -> None:
-    missing = tmp_path / "missing.json"
+    missing = tmp_path / "col" / "missing.json"
     result = tools_templates.load_templates([missing])
     assert result == []
