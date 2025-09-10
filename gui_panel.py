@@ -265,8 +265,10 @@ def uruchom_panel(root, login, rola):
     content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(fill="both", expand=True, padx=12, pady=6)
 
     footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(fill="x", padx=12, pady=(6,10))
+    footer_left = ttk.Frame(footer, style="WM.TFrame"); footer_left.pack(side="left")
+    footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
     # lewa część: pasek zmiany (1/3 szerokości)
-    shift_wrap = ttk.Frame(footer, style="WM.Card.TFrame"); shift_wrap.pack(side="left")
+    shift_wrap = ttk.Frame(footer_left, style="WM.Card.TFrame"); shift_wrap.pack(side="left")
     ttk.Label(shift_wrap, text="Zmiana", style="WM.Card.TLabel").pack(anchor="w", padx=8, pady=(6,0))
     CANVAS_W, CANVAS_H = 480, 18
     shift = tk.Canvas(shift_wrap, width=CANVAS_W, height=CANVAS_H, highlightthickness=0, bd=0, bg="#1b1f24")
@@ -361,12 +363,11 @@ def uruchom_panel(root, login, rola):
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie można otworzyć changeloga: {e}")
 
-    btns = ttk.Frame(footer, style="WM.TFrame"); btns.pack(side="right")
     ttk.Button(
-        btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
+        footer_btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
     ).pack(side="right")
     btn_changelog = ttk.Button(
-        btns,
+        footer_btns,
         text="Pokaż zmiany",
         command=_toggle_changelog,
         style="WM.Side.TButton",
@@ -376,7 +377,7 @@ def uruchom_panel(root, login, rola):
     _maybe_mark_button(btn_changelog)
     root.after(100, lambda: _toggle_changelog(auto=True))
     ttk.Button(
-        btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
+        footer_btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
     ).pack(side="right", padx=(6, 0))
     # --- licznik automatycznego wylogowania ---
     try:
@@ -388,24 +389,20 @@ def uruchom_panel(root, login, rola):
     _logout_deadline = datetime.now() + timedelta(seconds=_logout_total)
     logout_job = {"id": None}
     # label pokazujący czas pozostały do automatycznego wylogowania
-    logout_label = ttk.Label(btns, text="", style="WM.Muted.TLabel")
-    logout_label.pack(side="right", padx=(0, 6))
-
     def _logout_tick():
         if not logout_label.winfo_exists():
             logout_job["id"] = None
             return
         remaining = int((_logout_deadline - datetime.now()).total_seconds())
         if remaining <= 0:
-            logout_label.config(text="Wylogowanie za 0 s")
+            logout_label.config(text="Automatyczne wylogowanie za: 0 min")
             logout_job["id"] = None
             _logout()
             return
-        m, s = divmod(remaining, 60)
-        if m:
-            logout_label.config(text=f"Wylogowanie za {m} min {s} s")
-        else:
-            logout_label.config(text=f"Wylogowanie za {s} s")
+        minutes = max(0, remaining // 60)
+        logout_label.config(
+            text=f"Automatyczne wylogowanie za: {minutes} min"
+        )
         logout_job["id"] = root.after(1000, _logout_tick)
 
     def _on_logout_destroy(_e=None):
@@ -416,7 +413,7 @@ def uruchom_panel(root, login, rola):
                 pass
             logout_job["id"] = None
 
-    def _restart_logout_timer(_event=None):
+    def _reset_logout_timer(_event=None):
         nonlocal _logout_deadline
         try:
             cm = globals().get("CONFIG_MANAGER")
@@ -438,9 +435,19 @@ def uruchom_panel(root, login, rola):
         except Exception:
             pass
 
+    btn_reset = ttk.Button(
+        footer_btns,
+        text="Zresetuj licznik",
+        command=_reset_logout_timer,
+        style="WM.Side.TButton",
+    )
+    btn_reset.pack(side="right", padx=(6, 0))
+    logout_label = ttk.Label(footer_btns, text="", style="WM.Muted.TLabel")
+    logout_label.pack(side="right", padx=(0, 6))
+
     _logout_tick()
     logout_label.bind("<Destroy>", _on_logout_destroy)
-    root.bind("<<AuthTimeoutChanged>>", _restart_logout_timer, add="+")
+    root.bind("<<AuthTimeoutChanged>>", _reset_logout_timer, add="+")
 
     # --- bezpieczny timer paska zmiany ---
     shift_job = {"id": None}
