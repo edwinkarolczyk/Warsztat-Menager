@@ -382,15 +382,16 @@ class _TaskTemplateUI:
         return self.status_map.get(self.var_status.get())
 
     def _fill_collections(self):
+        cur = self._collection_id_from_combo()
         with self._suspend_ui():
             collections = LZ.get_collections()
             self.coll_map = {c["name"]: c["id"] for c in collections}
             self.cb_collection.config(values=list(self.coll_map.keys()))
-            default = LZ.get_default_collection()
-            name = next((n for n, cid in self.coll_map.items() if cid == default), "")
+            name = next((n for n, cid in self.coll_map.items() if cid == cur), "")
+            if not name:
+                default = LZ.get_default_collection()
+                name = next((n for n, cid in self.coll_map.items() if cid == default), "")
             self.var_collection.set(name)
-        self._cur_type_id = ""
-        self._cur_status_id = ""
         self._fill_types()
 
     def _fill_types(self):
