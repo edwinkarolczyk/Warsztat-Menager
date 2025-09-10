@@ -177,7 +177,7 @@ class MagazynAddDialog:
 
 
 def open_window(parent, on_saved=None):
-    """Zachowana dla kompatybilności funkcja otwierająca dialog."""
+    """Compatibility helper that opens the dialog."""
     MagazynAddDialog(parent, on_saved=on_saved)
 
 
