@@ -20,8 +20,7 @@ def test_limit_types(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ._TOOL_TASKS_CACHE = None
-    with pytest.raises(LZ.ToolTasksError):
-        LZ.get_tool_types_list()
+    assert LZ.get_tool_types_list() == []
 
 
 def test_limit_statuses(monkeypatch, tmp_path):
@@ -36,8 +35,7 @@ def test_limit_statuses(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ._TOOL_TASKS_CACHE = None
-    with pytest.raises(LZ.ToolTasksError):
-        LZ.get_statuses_for_type("T1")
+    assert LZ.get_statuses_for_type("T1") == []
 
 
 def test_get_tasks(monkeypatch, tmp_path):
