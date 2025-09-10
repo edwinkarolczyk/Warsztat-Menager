@@ -1,5 +1,9 @@
 # Plik: gui_magazyn_add.py
-# Wersja pliku: 1.1.0
+# Wersja pliku: 1.2.0
+# Zmiany 1.2.0:
+# - Rozszerzono ``MagazynAddDialog`` o parametry ``config`` i ``profiles``,
+#   wykorzystując ``self.top`` oraz obsługę zamiennych modułów ``tk``.
+#
 # Zmiany 1.1.0:
 # - Przepisano okno na klasę ``MagazynAddDialog`` z opcjonalną re-autoryzacją
 #   i callbackiem ``on_saved``.
