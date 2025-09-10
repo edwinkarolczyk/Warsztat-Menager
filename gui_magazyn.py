@@ -16,7 +16,6 @@
 # - Zarządzanie typami + dynamiczny combobox Typ
 #
 # Zmiany 1.1.1: Podpowiedz ID
-# ⏹ KONIEC KODU
 
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
