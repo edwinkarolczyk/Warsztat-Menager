@@ -448,6 +448,11 @@ class SettingsPanel:
                 var = tk.BooleanVar(value=True)
                 self._mod_vars[key] = var
                 ttk.Checkbutton(box, text=label, variable=var).pack(anchor="w")
+            ttk.Button(
+                parent,
+                text="Zastosuj teraz",
+                command=self._apply_user_modules,
+            ).pack(fill="x", padx=5, pady=(0, 5))
 
         if tab.get("id") == "update":
             self._add_patch_section(parent)
@@ -634,6 +639,20 @@ class SettingsPanel:
         user["disabled_modules"] = disabled
         profile_service.save_user(user)
         return disabled
+
+    def _apply_user_modules(self) -> None:
+        if self._user_var is None:
+            return
+        uid = self._user_var.get().strip()
+        if not uid:
+            return
+        disabled = self._save_user_modules(uid)
+        try:
+            root = self.master.winfo_toplevel().master
+            root.event_generate("<<SidebarReload>>", when="tail")
+        except Exception:
+            pass
+        log_akcja(f"[SETTINGS] zastosowano moduły {uid}: {', '.join(disabled)}")
 
     def save(self) -> None:
         for key, var in self.vars.items():

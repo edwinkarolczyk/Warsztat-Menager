@@ -616,135 +616,149 @@ def uruchom_panel(root, login, rola):
     admin_roles = {"admin", "kierownik", "brygadzista", "lider"}
     is_admin = str(rola).strip().lower() in admin_roles
 
-    for key, label in SIDEBAR_MODULES:
-        if key in disabled_modules:
-            continue
-        if key in {"uzytkownicy", "ustawienia"} and not is_admin:
-            continue
-        if key == "profil" and is_admin:
-            continue
-        pad = (12, 6) if start_panel is None else 6
-        if key == "zlecenia":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda f=panel_zlecenia, l=label: otworz_panel(f, l),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = panel_zlecenia
-                start_name = f"{label} (start)"
-        elif key == "narzedzia":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda f=panel_narzedzia, l=label: otworz_panel(f, l),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = panel_narzedzia
-                start_name = f"{label} (start)"
-        elif key == "maszyny":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda f=panel_maszyny, l=label: otworz_panel(f, l),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 6, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = panel_maszyny
-                start_name = f"{label} (start)"
-        elif key == "magazyn":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda f=panel_magazyn, l=label: otworz_panel(f, l),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 5, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = panel_magazyn
-                start_name = f"{label} (start)"
-        elif key == "hale":
-            btn = ttk.Button(
-                side, text=label, command=_open_hala, style="WM.Side.TButton"
-            )
-            btn.last_modified = datetime(2025, 4, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = lambda r, f, l, ro: _open_hala()
-                start_name = f"{label} (start)"
-        elif key == "feedback":
-            btn = ttk.Button(
-                side, text=label, command=_open_feedback, style="WM.Side.TButton"
-            )
-            btn.last_modified = datetime(2025, 3, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-        elif key == "uzytkownicy":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda f=panel_uzytkownicy, l=label: otworz_panel(f, l),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 2, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = panel_uzytkownicy
-                start_name = f"{label} (start)"
-        elif key == "ustawienia":
-            btn = ttk.Button(
-                side,
-                text=label,
-                command=lambda: open_settings_window(root),
-                style="WM.Side.TButton",
-            )
-            btn.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = lambda r, f, l, ro: open_settings_window(root)
-                start_name = f"{label} (start)"
-        elif key == "profil":
-            btn = ttk.Button(
-                side, text=label, command=_open_profil, style="WM.Side.TButton"
-            )
-            btn.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
-            btn.pack(padx=10, pady=pad, fill="x")
-            _maybe_mark_button(btn)
-            if start_panel is None:
-                start_panel = lambda r, f, l, ro: _open_profil()
-                start_name = f"{label} (start)"
+    def _build_sidebar(initial: bool = False) -> None:
+        nonlocal profile, disabled_modules, start_panel, start_name
+        clear_frame(side)
+        profile = get_user(login) or {}
+        disabled_modules = {
+            str(m).strip().lower()
+            for m in profile.get("disabled_modules", [])
+            if m
+        }
+        start_panel = None
+        start_name = ""
+        for key, label in SIDEBAR_MODULES:
+            if key in disabled_modules:
+                continue
+            if key in {"uzytkownicy", "ustawienia"} and not is_admin:
+                continue
+            if key == "profil" and is_admin:
+                continue
+            pad = (12, 6) if start_panel is None else 6
+            if key == "zlecenia":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda f=panel_zlecenia, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = panel_zlecenia
+                    start_name = f"{label} (start)"
+            elif key == "narzedzia":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda f=panel_narzedzia, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = panel_narzedzia
+                    start_name = f"{label} (start)"
+            elif key == "maszyny":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda f=panel_maszyny, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 6, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = panel_maszyny
+                    start_name = f"{label} (start)"
+            elif key == "magazyn":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda f=panel_magazyn, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 5, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = panel_magazyn
+                    start_name = f"{label} (start)"
+            elif key == "hale":
+                btn = ttk.Button(
+                    side, text=label, command=_open_hala, style="WM.Side.TButton"
+                )
+                btn.last_modified = datetime(2025, 4, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = lambda r, f, l, ro: _open_hala()
+                    start_name = f"{label} (start)"
+            elif key == "feedback":
+                btn = ttk.Button(
+                    side, text=label, command=_open_feedback, style="WM.Side.TButton"
+                )
+                btn.last_modified = datetime(2025, 3, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+            elif key == "uzytkownicy":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda f=panel_uzytkownicy, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 2, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = panel_uzytkownicy
+                    start_name = f"{label} (start)"
+            elif key == "ustawienia":
+                btn = ttk.Button(
+                    side,
+                    text=label,
+                    command=lambda: open_settings_window(root),
+                    style="WM.Side.TButton",
+                )
+                btn.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = lambda r, f, l, ro: open_settings_window(root)
+                    start_name = f"{label} (start)"
+            elif key == "profil":
+                btn = ttk.Button(
+                    side, text=label, command=_open_profil, style="WM.Side.TButton"
+                )
+                btn.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                _maybe_mark_button(btn)
+                if start_panel is None:
+                    start_panel = lambda r, f, l, ro: _open_profil()
+                    start_name = f"{label} (start)"
 
-    alerts = _load_mag_alerts() if "magazyn" not in disabled_modules else []
-    if alerts:
-        frm_alert = ttk.Frame(side, style="WM.Card.TFrame")
-        frm_alert.pack(padx=10, pady=6, fill="x")
-        ttk.Label(
-            frm_alert, text="Alerty magazynowe", style="WM.Card.TLabel"
-        ).pack(anchor="w", padx=8, pady=(6, 0))
-        for a in alerts:
-            ttk.Label(frm_alert, text=a, style="WM.Muted.TLabel").pack(
-                anchor="w", padx=8
-            )
-    root.update_idletasks()
-    if start_panel is not None:
-        otworz_panel(start_panel, start_name)
-    root.update_idletasks()
+        alerts = _load_mag_alerts() if "magazyn" not in disabled_modules else []
+        if alerts:
+            frm_alert = ttk.Frame(side, style="WM.Card.TFrame")
+            frm_alert.pack(padx=10, pady=6, fill="x")
+            ttk.Label(
+                frm_alert, text="Alerty magazynowe", style="WM.Card.TLabel"
+            ).pack(anchor="w", padx=8, pady=(6, 0))
+            for a in alerts:
+                ttk.Label(frm_alert, text=a, style="WM.Muted.TLabel").pack(
+                    anchor="w", padx=8
+                )
+        root.update_idletasks()
+        if initial and start_panel is not None:
+            otworz_panel(start_panel, start_name)
+        root.update_idletasks()
+
+    _build_sidebar(initial=True)
+    root.bind("<<SidebarReload>>", lambda _e: _build_sidebar(initial=False))
 
 # eksportowane dla logowania
 __all__ = ["uruchom_panel", "_shift_bounds", "_shift_progress"]
