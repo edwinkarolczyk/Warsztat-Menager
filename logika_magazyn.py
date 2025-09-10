@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from threading import RLock
 import logging
+from typing import Any, Dict, Iterable, List, TypeVar
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -80,13 +81,113 @@ except Exception:
         logging.info(f"[MAGAZYN] {akcja}: {dane}")
 
 
+# --- Helper utilities ------------------------------------------------------
+
+T = TypeVar("T")
+Item = Dict[str, Any]
+MagazynDict = Dict[str, Any]
+
+
+def _safe_load(path: str, default: Any | None = None) -> Any:
+    """Return JSON content from *path* or *default* on failure."""
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return default
+    except (OSError, json.JSONDecodeError) as exc:
+        _log_info(f"[MAGAZYN] Nie można odczytać {path}: {exc}")
+        return default
+
+
+def _safe_save_json(path: str, data: Any) -> None:
+    """Atomically save ``data`` as JSON to ``path``."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def _merge_list_into(src: Iterable[T], dest: List[T]) -> List[T]:
+    """Merge unique elements from ``src`` into ``dest`` preserving order."""
+    for el in src:
+        if el not in dest:
+            dest.append(el)
+    return dest
+
+
+def normalize_type(value: str | None) -> str:
+    """Normalize item type string."""
+    return (value or "").strip().lower()
+
+
+TYPE_PREFIXES = {
+    "materiał": "MAT",
+    "materia\u0142": "MAT",
+    "material": "MAT",
+    "półprodukt": "POL",
+    "polprodukt": "POL",
+    "komponent": "KOMP",
+}
+
+MATERIAL_ID_PREFIX = TYPE_PREFIXES["materiał"]
+MATERIAL_SEQ_PATH = os.path.join("data", "magazyn", "_seq_material.json")
+
+
+def type_to_prefix(typ: str) -> str:
+    """Return identifier prefix for given item type."""
+    t = normalize_type(typ)
+    return TYPE_PREFIXES.get(t, t[:3].upper() or "X")
+
+
+def peek_next_material_id() -> str:
+    """Peek next material identifier based on sequence file."""
+    data = _safe_load(MATERIAL_SEQ_PATH, {"seq": 0}) or {"seq": 0}
+    seq = int(data.get("seq") or 0) + 1
+    return f"{MATERIAL_ID_PREFIX}-{seq:03d}"
+
+
+def bump_material_seq_if_matches(item_id: str) -> None:
+    """Increase material sequence if ``item_id`` is newer."""
+    prefix = f"{MATERIAL_ID_PREFIX}-"
+    if not item_id.startswith(prefix):
+        return
+    try:
+        num = int(item_id[len(prefix) :])
+    except ValueError:
+        return
+    data = _safe_load(MATERIAL_SEQ_PATH, {"seq": 0}) or {"seq": 0}
+    if int(data.get("seq") or 0) < num:
+        data["seq"] = num
+        _safe_save_json(MATERIAL_SEQ_PATH, data)
+
+
+def _normalize_item(item: Item) -> Item:
+    """Return a normalised copy of ``item``."""
+    out: Item = {
+        "id": str(item.get("id") or item.get("kod") or "").strip(),
+        "nazwa": str(item.get("nazwa") or item.get("id") or "").strip(),
+        "typ": normalize_type(item.get("typ")),
+        "jednostka": str(item.get("jednostka") or "").strip(),
+        "stan": float(item.get("stan", 0) or 0),
+        "min_poziom": float(item.get("min_poziom", 0) or 0),
+        "rezerwacje": float(item.get("rezerwacje", 0) or 0),
+        "historia": list(item.get("historia") or []),
+    }
+    if "progi_alertow_pct" in item:
+        arr = item["progi_alertow_pct"]
+        out["progi_alertow_pct"] = list(arr) if isinstance(arr, list) else [arr]
+    return out
+
+
 _CFG = ConfigManager()
 
 
-MAGAZYN_PATH = "data/magazyn/magazyn.json"
+MAGAZYN_PATH = os.path.join("data", "magazyn", "magazyn.json")
 """Ścieżka do głównego pliku magazynu."""
 
-POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
+POLPRODUKTY_PATH = os.path.join("data", "magazyn", "polprodukty.json")
 """Ścieżka do pliku półproduktów magazynu."""
 
 _LOCK = RLock()
