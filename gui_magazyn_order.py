@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
+
+logger = logging.getLogger(__name__)
 
 ORDERS_PATH = Path("data/zamowienia_oczekujace.json")
 
@@ -57,10 +60,12 @@ class MagazynOrderDialog:
                 data = []
 
         data.append({"id": self.var_id.get(), "ilosc": qty})
+        logger.debug("[WM-DBG][MAG][ORDER] saving")
         ORDERS_PATH.parent.mkdir(parents=True, exist_ok=True)
         ORDERS_PATH.write_text(
             json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        logger.debug("[WM-DBG][MAG][ORDER] saved")
 
         if callable(self.on_saved):
             self.on_saved()
