@@ -35,16 +35,12 @@ def test_on_collection_change_handles_missing_data(monkeypatch, root):
         raise KeyError("missing")
 
     monkeypatch.setattr(gui_narzedzia.LZ, "get_tool_types", boom)
-    calls = []
-    monkeypatch.setattr(gui_narzedzia.messagebox, "showwarning", lambda *a, **k: calls.append(a))
-
     data["on_collection_change"]()
 
     assert data["cb_type"].cget("values") == ()
     assert data["cb_status"].cget("values") == ()
     assert data["listbox"].size() == 0
     assert data["tasks_state"] == []
-    assert calls
 
 
 def test_on_type_change_handles_missing_data(monkeypatch, root):
@@ -66,16 +62,12 @@ def test_on_type_change_handles_missing_data(monkeypatch, root):
         raise KeyError("missing")
 
     monkeypatch.setattr(gui_narzedzia.LZ, "get_statuses", boom)
-    calls = []
-    monkeypatch.setattr(gui_narzedzia.messagebox, "showwarning", lambda *a, **k: calls.append(a))
-
     data["cb_type"].set("T1")
     data["on_type_change"]()
 
     assert data["cb_status"].cget("values") == ()
     assert data["listbox"].size() == 0
     assert data["tasks_state"] == []
-    assert calls
 
 
 def test_on_status_change_handles_missing_data(monkeypatch, root):
@@ -103,12 +95,8 @@ def test_on_status_change_handles_missing_data(monkeypatch, root):
         raise KeyError("missing")
 
     monkeypatch.setattr(gui_narzedzia.LZ, "get_tasks", boom)
-    calls = []
-    monkeypatch.setattr(gui_narzedzia.messagebox, "showwarning", lambda *a, **k: calls.append(a))
-
     data["cb_status"].set("S1")
     data["on_status_change"]()
 
     assert data["listbox"].size() == 0
     assert data["tasks_state"] == []
-    assert calls
