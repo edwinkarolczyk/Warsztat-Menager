@@ -33,6 +33,16 @@ def _save_json(path: Path, data):
         json.dump(data, fh, ensure_ascii=False, indent=2)
 
 
+def _save_ops(lb: tk.Listbox) -> None:
+    """Save operations from listbox to ``DATA_DIR/czynnosci.json``."""
+    ops = list(lb.get(0, tk.END))
+    path = DATA_DIR / "czynnosci.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(ops, fh, ensure_ascii=False, indent=2)
+    messagebox.showinfo("Czynności", "Zapisano czynności technologiczne.")
+
+
 class WarehouseModel:
     """In-memory representation of warehouse, semi-finished and products."""
 
@@ -465,7 +475,13 @@ class MagazynBOM(ttk.Frame):
 
 def make_window(root: tk.Misc) -> ttk.Frame:
     """Return frame with Magazyn/BOM management."""
-    return MagazynBOM(root)
+    win = MagazynBOM(root)
+    win.lb = tk.Listbox(win)
+    for op in ConfigManager().get("czynnosci_technologiczne", []):
+        win.lb.insert(tk.END, op)
+    win.lb.pack(fill="both", expand=True)
+    ttk.Button(win, text="Zapisz", command=lambda: _save_ops(win.lb)).pack()
+    return win
 
 
 if __name__ == "__main__":  # pragma: no cover - manual launch
