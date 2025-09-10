@@ -245,14 +245,22 @@ def make_tab(parent, rola):
         btn_del = ttk.Button(btns, text="Usuń")
         btn_del.pack(side="left", padx=2)
 
-    notebook = parent.nametowidget(parent.winfo_parent())
-    base_title = notebook.tab(parent, "text")
+    try:
+        notebook = parent.nametowidget(parent.winfo_parent())
+        if hasattr(notebook, "tab"):
+            base_title = notebook.tab(parent, "text")
+        else:
+            base_title = "Profile"
+    except Exception:
+        notebook = parent
+        base_title = "Profile"
     guard = DirtyGuard(
         "Użytkownicy",
         on_save=lambda: (save_user(), guard.reset()),
         on_reset=lambda: (load_selected(), guard.reset()),
-        on_dirty_change=lambda d: notebook.tab(
-            parent, text=base_title + (" •" if d else "")
+        on_dirty_change=lambda d: (
+            hasattr(notebook, "tab")
+            and notebook.tab(parent, text=base_title + (" •" if d else ""))
         ),
     )
     guard.watch(frame)
