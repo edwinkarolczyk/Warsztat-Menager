@@ -25,11 +25,19 @@ def test_entry_flag_takes_precedence(write_entry):
     assert not tools_autocheck.should_autocheck("s1", "col", config)
 
 
+def test_entry_flag_true_overrides_global(write_entry):
+    config = {"tools": {"auto_check_on_status_global": []}}
+    write_entry("col", "s4", {"auto_check_on_entry": True})
+    assert tools_autocheck.should_autocheck("s4", "col", config)
+
+
 def test_global_list_used_when_no_entry_flag(write_entry):
     config = {"tools": {"auto_check_on_status_global": ["s2"]}}
+    write_entry("col", "s2", {"other": 1})
     assert tools_autocheck.should_autocheck("s2", "col", config)
 
 
 def test_none_returns_false(write_entry):
     config = {"tools": {"auto_check_on_status_global": []}}
+    write_entry("col", "s3", {"other": 2})
     assert not tools_autocheck.should_autocheck("s3", "col", config)

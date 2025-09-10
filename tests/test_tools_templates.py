@@ -12,7 +12,8 @@ def template_factory(tmp_path: Path):
         col_dir = tmp_path / collection
         col_dir.mkdir(exist_ok=True)
         path = col_dir / name
-        path.write_text(json.dumps({"id": ident}, indent=2), encoding="utf-8")
+        payload = {"id": ident, "name": f"Tool {ident}"}
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
 
     return _create
@@ -27,9 +28,9 @@ def test_limit_8x8(template_factory) -> None:
         tools_templates.load_templates(paths)
 
 
-def test_duplicate_detection(template_factory) -> None:
-    p1 = template_factory("a.json", "01")
-    p2 = template_factory("b.json", "01")
+def test_duplicate_detection_within_collection(template_factory) -> None:
+    p1 = template_factory("a.json", "01", collection="col")
+    p2 = template_factory("b.json", "01", collection="col")
     with pytest.raises(ValueError):
         tools_templates.load_templates([p1, p2])
 
