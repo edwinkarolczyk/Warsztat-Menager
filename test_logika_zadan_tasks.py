@@ -12,7 +12,7 @@ def _write(tmp_path, content):
     return path
 
 
-def test_limit_types(monkeypatch, tmp_path):
+def test_limit_types(monkeypatch, tmp_path, caplog):
     data = {
         "types": [
             {"id": str(i), "statuses": []} for i in range(9)
@@ -21,11 +21,12 @@ def test_limit_types(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ.invalidate_cache()
-    with pytest.raises(LZ.ToolTasksError):
-        LZ.get_tool_types_list()
+    with caplog.at_level("WARNING"):
+        assert LZ.get_tool_types_list() == []
+    assert "Przekroczono maksymalną liczbę typów" in caplog.text
 
 
-def test_limit_statuses(monkeypatch, tmp_path):
+def test_limit_statuses(monkeypatch, tmp_path, caplog):
     data = {
         "types": [
             {
@@ -37,8 +38,9 @@ def test_limit_statuses(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ.invalidate_cache()
-    with pytest.raises(LZ.ToolTasksError):
-        LZ.get_statuses_for_type("T1")
+    with caplog.at_level("WARNING"):
+        assert LZ.get_statuses_for_type("T1") == []
+    assert "Przekroczono maksymalną liczbę statusów" in caplog.text
 
 
 def test_get_tasks(monkeypatch, tmp_path):
@@ -66,7 +68,9 @@ def test_force_reload(monkeypatch, tmp_path):
     assert LZ.get_tool_types_list() == [{"id": "T1", "name": "Old"}]
 
     data2 = {"types": [{"id": "T1", "name": "New", "statuses": []}]}
+    prev_mtime = path.stat().st_mtime
     path.write_text(json.dumps(data2, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.utime(path, (prev_mtime, prev_mtime))
 
     assert LZ.get_tool_types_list()[0]["name"] == "Old"
     assert LZ.get_tool_types_list(force=True)[0]["name"] == "New"
