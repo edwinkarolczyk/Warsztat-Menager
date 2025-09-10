@@ -3,7 +3,6 @@
 # Zmiany 1.0.0:
 # - Pomost między zadaniami a magazynem: zużycie materiałów zdefiniowanych w zadaniu albo z definicji produktu
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
-# ⏹ KONIEC KODU
 
 import json
 import os
