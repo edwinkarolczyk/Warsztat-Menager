@@ -165,9 +165,9 @@ class MagazynAddDialog:
             comment="",
         )
 
-        logger.debug("[WM-DBG][MAG][ADD] saving")
+        logger.debug("[WM-DBG][MAGAZYN][ADD] saving")
         save(data)
-        logger.debug("[WM-DBG][MAG][ADD] saved")
+        logger.debug("[WM-DBG][MAGAZYN][ADD] saved")
 
         if self.on_saved:
             try:
