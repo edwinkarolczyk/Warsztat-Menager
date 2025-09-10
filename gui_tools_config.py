@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 def _slugify(name: str) -> str:
     """Return an ASCII slug generated from ``name``."""
 
-    base = (
-        unicodedata.normalize("NFKD", name)
-        .encode("ascii", "ignore")
-        .decode("ascii")
-    )
+    base = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     base = re.sub(r"[^a-zA-Z0-9]+", "-", base).strip("-").lower()
     return base or "id"
 
@@ -39,7 +35,8 @@ class ToolsConfigWindow(tk.Toplevel):
 
         self.cfg = ConfigManager()
         LZ = __import__("logika_zadan")
-        LZ._load_tool_tasks(force=True)
+        LZ.invalidate_cache()
+        LZ._ensure_cache()
         with open(LZ.TOOL_TASKS_PATH, "r", encoding="utf-8") as fh:
             self.data = json.load(fh).get("collections", {})
 
@@ -60,7 +57,9 @@ class ToolsConfigWindow(tk.Toplevel):
             self.collection_var.set(
                 self.cfg.get("tools.default_collection", collections[0])
             )
-        self.collection_box.bind("<<ComboboxSelected>>", lambda e: self._refresh_types())
+        self.collection_box.bind(
+            "<<ComboboxSelected>>", lambda e: self._refresh_types()
+        )
 
         lists_frame = ttk.Frame(self)
         lists_frame.pack(padx=4, pady=4)
@@ -104,12 +103,12 @@ class ToolsConfigWindow(tk.Toplevel):
         ttk.Button(btn_frames[1], text="Zmień", command=self._rename_status).pack(
             side=tk.LEFT
         )
-        ttk.Button(
-            btn_frames[1], text="↑", command=lambda: self._move_status(-1)
-        ).pack(side=tk.LEFT)
-        ttk.Button(
-            btn_frames[1], text="↓", command=lambda: self._move_status(1)
-        ).pack(side=tk.LEFT)
+        ttk.Button(btn_frames[1], text="↑", command=lambda: self._move_status(-1)).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(btn_frames[1], text="↓", command=lambda: self._move_status(1)).pack(
+            side=tk.LEFT
+        )
 
         # Column 3 buttons
         ttk.Button(btn_frames[2], text="Dodaj", command=self._add_task).pack(
@@ -210,18 +209,14 @@ class ToolsConfigWindow(tk.Toplevel):
     def _add_type(self) -> None:
         types = self._types_list()
         if len(types) >= 8:
-            messagebox.showerror(
-                "Błąd", "Maksymalnie 8 typów", parent=self
-            )
+            messagebox.showerror("Błąd", "Maksymalnie 8 typów", parent=self)
             return
         name = simpledialog.askstring("Nowy typ", "Nazwa", parent=self)
         if not name:
             return
         slug = _slugify(name)
         if any(t.get("id") == slug for t in types):
-            messagebox.showerror(
-                "Błąd", "Id typu już istnieje", parent=self
-            )
+            messagebox.showerror("Błąd", "Id typu już istnieje", parent=self)
             return
         types.append({"id": slug, "name": name, "statuses": []})
         self._refresh_types()
@@ -244,9 +239,7 @@ class ToolsConfigWindow(tk.Toplevel):
         slug = _slugify(name)
         types = self._types_list()
         if any(t.get("id") == slug and t is not typ for t in types):
-            messagebox.showerror(
-                "Błąd", "Id typu już istnieje", parent=self
-            )
+            messagebox.showerror("Błąd", "Id typu już istnieje", parent=self)
             return
         typ.update({"id": slug, "name": name})
         self._refresh_types()
@@ -270,18 +263,14 @@ class ToolsConfigWindow(tk.Toplevel):
             return
         statuses = self._statuses_list()
         if len(statuses) >= 8:
-            messagebox.showerror(
-                "Błąd", "Maksymalnie 8 statusów", parent=self
-            )
+            messagebox.showerror("Błąd", "Maksymalnie 8 statusów", parent=self)
             return
         name = simpledialog.askstring("Nowy status", "Nazwa", parent=self)
         if not name:
             return
         slug = _slugify(name)
         if any(s.get("id") == slug for s in statuses):
-            messagebox.showerror(
-                "Błąd", "Id statusu już istnieje", parent=self
-            )
+            messagebox.showerror("Błąd", "Id statusu już istnieje", parent=self)
             return
         statuses.append({"id": slug, "name": name, "tasks": []})
         self._refresh_statuses()
@@ -304,9 +293,7 @@ class ToolsConfigWindow(tk.Toplevel):
         slug = _slugify(name)
         statuses = self._statuses_list()
         if any(s.get("id") == slug and s is not st for s in statuses):
-            messagebox.showerror(
-                "Błąd", "Id statusu już istnieje", parent=self
-            )
+            messagebox.showerror("Błąd", "Id statusu już istnieje", parent=self)
             return
         st.update({"id": slug, "name": name})
         self._refresh_statuses()
@@ -418,7 +405,9 @@ class ToolsConfigWindow(tk.Toplevel):
         self.destroy()
 
 
-def open_tools_config(master: tk.Widget | None = None, on_save=None) -> ToolsConfigWindow:
+def open_tools_config(
+    master: tk.Widget | None = None, on_save=None
+) -> ToolsConfigWindow:
     """Convenience function to open :class:`ToolsConfigWindow`.
 
     When *on_save* is ``None`` the function connects the window's callback
@@ -431,4 +420,3 @@ def open_tools_config(master: tk.Widget | None = None, on_save=None) -> ToolsCon
 
         on_save = invalidate_cache
     return ToolsConfigWindow(master=master, on_save=on_save)
-
