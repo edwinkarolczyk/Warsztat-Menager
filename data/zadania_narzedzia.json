@@ -1,10 +1,39 @@
 {
   "collections": {
     "NN": {
-      "types": []
+      "types": [
+        {
+          "id": "NN1",
+          "name": "Narzędzie NN",
+          "statuses": [
+            {
+              "id": "NOWE",
+              "name": "Nowe",
+              "tasks": [
+                "Kontrola wizualna",
+                "Test działania"
+              ]
+            }
+          ]
+        }
+      ]
     },
     "ST": {
-      "types": []
+      "types": [
+        {
+          "id": "ST1",
+          "name": "Narzędzie ST",
+          "statuses": [
+            {
+              "id": "READY",
+              "name": "Gotowe",
+              "tasks": [
+                "Sprawdź baterię"
+              ]
+            }
+          ]
+        }
+      ]
     }
   }
 }
