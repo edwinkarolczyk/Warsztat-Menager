@@ -116,11 +116,11 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
 
 
 def save_tool_tasks(data: dict) -> None:
-    """Zapisz definicje zadań do :data:`TOOL_TASKS_PATH`.
+    """Zapisuje definicje zadań do :data:`TOOL_TASKS_PATH`.
 
     Tworzy brakujący plik zgodnie z ustawieniami ``tools.collections_enabled``.
-    Akceptuje zarówno nową strukturę z kluczem ``collections`` jak i
-    legacyjny format z ``types``.
+    Akceptuje zarówno nową strukturę z kluczem ``collections`` jak i stary
+    format z ``types``.
     """
 
     cfg = ConfigManager()
