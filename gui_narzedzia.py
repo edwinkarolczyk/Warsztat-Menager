@@ -796,12 +796,27 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     search_var = tk.StringVar()
     ttk.Entry(header, textvariable=search_var, width=36, style="WM.Search.TEntry").pack(side="right", padx=(8, 0))
 
+    def _set_info(msg: str) -> None:
+        try:
+            frame.statusbar.config(text=msg)  # type: ignore[attr-defined]
+        except Exception:
+            print(f"[WM-DBG][NARZ] {msg}")
+
     def _odswiez_zadania():
         try:
-            getattr(LZ, "invalidate_cache", lambda: None)()
+            LZ.invalidate_cache()
+            fn = (
+                locals().get("_reload_from_lz")
+                or locals().get("_on_collection_change")
+                or getattr(frame, "reload_from_lz", None)
+                or getattr(frame, "on_collection_change", None)
+            )
+            if callable(fn):
+                fn()
             print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
         except Exception as e:  # pragma: no cover - safeguard
             print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
+            _set_info("Błąd odświeżania zadań")
 
     btn_add = ttk.Button(header, text="Dodaj", style="WM.Side.TButton")
     btn_add.pack(side="right", padx=(0, 8))
