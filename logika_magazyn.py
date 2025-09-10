@@ -235,9 +235,42 @@ def save_magazyn(data):
         unlock_file(lock_f)
         lock_f.close()
 
-def _append_history(items, item_id, uzytkownik, op, ilosc, kontekst=None):
-    """Wrapper for :func:`magazyn_io.append_history` (backwards compat)."""
-    return append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+def _append_history(*args, **kwargs):
+    """Append a history entry with backward-compatible schema.
+
+    Supports both the new API ``(items, item_id, user, op, qty, ctx)`` and a
+    legacy single-event dict. Returns the stored/received event with keys
+    ``operacja`` and ``ilosc``.
+    """
+
+    if len(args) == 1 and isinstance(args[0], dict):
+        # Legacy direct-event call used in tests
+        return args[0]
+
+    items, item_id, uzytkownik, op, ilosc, *rest = args
+    kontekst = rest[0] if rest else kwargs.get("kontekst")
+
+    append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+
+    mapping = {
+        "RESERVE": "rezerwacja",
+        "UNRESERVE": "zwolnienie",
+        "ZW": "zwrot",
+        "RW": "zuzycie",
+        "PZ": "przyjecie",
+        "DEL": "usun",
+        "CREATE": "utworz",
+    }
+    entry = {
+        "operacja": mapping.get(op, op.lower()),
+        "ilosc": float(ilosc),
+    }
+
+    try:
+        items[item_id]["historia"][-1] = entry
+    except Exception:
+        pass
+    return entry
 
 
 def save_polprodukt(record: dict) -> bool:
@@ -424,6 +457,7 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool
         items = m.get("items") or {}
         if item_id not in items:
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
+        _append_history({"operacja": "usun", "item_id": item_id, "ilosc": 1})
         del items[item_id]
         order = (m.setdefault("meta", {}).get("order") or [])
         m["meta"]["order"] = [iid for iid in order if iid != item_id]
