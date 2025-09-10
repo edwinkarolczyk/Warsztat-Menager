@@ -1,3 +1,10 @@
 {
-  "types": []
+  "collections": {
+    "NN": {
+      "types": []
+    },
+    "ST": {
+      "types": []
+    }
+  }
 }
