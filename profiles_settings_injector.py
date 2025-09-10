@@ -30,8 +30,11 @@ _SETTINGS_TAB_KEYS = (
 )
 
 def _get_title(win):
-    try: return (win.title() or "").lower()
-    except Exception: return ""
+    try:
+        return (win.title() or "").lower()
+    except Exception as e:
+        _log_debug("[PROFILES-DBG] injector: _get_title error: %s", e)
+        return ""
 
 def _iter_all_windows(root):
     yield root
@@ -61,8 +64,8 @@ def _nb_has_settings_like_tabs(nb):
         for k in _SETTINGS_TAB_KEYS:
             if any(isinstance(s, str) and k.lower() in s.lower() for s in labels):
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        _log_debug("[PROFILES-DBG] injector: _nb_has_settings_like_tabs error: %s", e)
     return False
 
 def _attach_tab(nb, cfg=None):
@@ -72,8 +75,9 @@ def _attach_tab(nb, cfg=None):
             if nb.tab(t, "text") == "Profile użytkowników":
                 _log_debug("[PROFILES-DBG] injector: tab already present")
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        _log_debug("[PROFILES-DBG] injector: existing tab check failed: %s", e)
+        raise
 
     tab = ttk.Frame(nb, style="WM.Card.TFrame")
     nb.add(tab, text="Profile użytkowników")
@@ -167,7 +171,7 @@ def _attach_tab(nb, cfg=None):
 
 def _candidate_score(win, nb):
     score = 0
-    title = _get_title(win)
+    title = _get_title(win) or ""
     if any(k in title for k in _SETTINGS_TITLE_KEYS): score += 2
     if _nb_has_settings_like_tabs(nb): score += 2
     if isinstance(win, tk.Toplevel): score += 1
@@ -203,7 +207,7 @@ def start(root, cfg=None):
         best_score = -1
         for win, nb in cands:
             s = _candidate_score(win, nb)
-            t = _get_title(win)
+            t = _get_title(win) or ""
             try:
                 tab_texts = [nb.tab(ti, "text") for ti in nb.tabs()]
             except Exception:
@@ -218,7 +222,12 @@ def start(root, cfg=None):
                 best = (win, nb)
                 best_score = s
         if best and best_score > 0:
-            _attach_tab(best[1], cfg)
+            try:
+                attached = _attach_tab(best[1], cfg)
+                if not attached:
+                    _log_debug("[PROFILES-DBG] injector: _attach_tab returned falsy")
+            except Exception as e:
+                _log_debug("[PROFILES-DBG] injector: _attach_tab failed: %s", e)
 
         if tries["n"] < 600:  # 5 min
             root.after(500, tick)
@@ -244,6 +253,11 @@ def force_attach_to_focused(root, cfg=None):
             break
         parent = w._nametowidget(parent_name)
         if isinstance(parent, ttk.Notebook):
-            _attach_tab(parent, cfg)
+            try:
+                attached = _attach_tab(parent, cfg)
+                if not attached:
+                    _log_debug("[PROFILES-DBG] injector: _attach_tab returned falsy (focused)")
+            except Exception as e:
+                _log_debug("[PROFILES-DBG] injector: _attach_tab failed (focused): %s", e)
             return
         w = parent
