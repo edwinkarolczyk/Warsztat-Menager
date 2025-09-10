@@ -128,7 +128,7 @@ def _default_magazyn():
 
 
 def _merge_list_into(mag: dict, path: str, item_type: str) -> None:
-    """Scal listę/dictę z ``path`` do magazynu ``mag``.
+    """Scal listę lub słownik z ``path`` do magazynu ``mag``.
 
     Parametry:
         mag: docelowa struktura magazynu.
