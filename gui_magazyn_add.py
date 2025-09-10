@@ -22,11 +22,12 @@ _CFG = ConfigManager()
 class MagazynAddDialog:
     """Dialog umożliwiający dodanie nowej pozycji magazynowej."""
 
-    def __init__(self, parent, on_saved=None):
+    def __init__(self, parent, *_args, on_saved=None, **_kwargs):
         self.parent = parent
         self.on_saved = on_saved
 
         self.win = tk.Toplevel(parent)
+        self.top = self.win
         apply_theme(self.win)
         self.win.title("Dodaj pozycję")
         self.win.resizable(False, False)
@@ -81,7 +82,6 @@ class MagazynAddDialog:
         self.win.transient(parent)
         self.win.grab_set()
         self.win.protocol("WM_DELETE_WINDOW", self.on_cancel)
-        self.win.wait_window(self.win)
 
     # ------------------------------------------------------------------
     def on_cancel(self):

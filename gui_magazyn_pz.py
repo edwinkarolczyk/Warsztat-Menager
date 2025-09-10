@@ -54,8 +54,10 @@ class MagazynPZDialog:
     def __init__(
         self,
         parent: tk.Misc,
+        *_args,
         preselect_id: str | None = None,
         on_saved: callable | None = None,
+        **_kwargs,
     ) -> None:
         self._parent = parent
         self._on_saved = on_saved
@@ -67,6 +69,7 @@ class MagazynPZDialog:
         }
 
         win = self.win = tk.Toplevel(parent)
+        self.top = self.win
         apply_theme(win)
         win.title("Przyjęcie towaru (PZ)")
         win.resizable(False, False)
@@ -116,7 +119,6 @@ class MagazynPZDialog:
 
         win.transient(parent)
         win.grab_set()
-        win.wait_window(win)
 
     def _cancel(self) -> None:
         self.win.destroy()

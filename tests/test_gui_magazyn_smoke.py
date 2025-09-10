@@ -19,7 +19,19 @@ def test_add_and_pz_buttons_create_windows(monkeypatch):
     )
     monkeypatch.setattr(gui_magazyn, "apply_theme", lambda *a, **k: None)
 
+    class DummyDialog:
+        def __init__(self, *args, **kwargs):
+            self.top = gui_magazyn.tk.Toplevel(None)
+
+    monkeypatch.setattr(gui_magazyn, "MagazynAddDialog", DummyDialog)
+    monkeypatch.setattr(gui_magazyn, "MagazynPZDialog", DummyDialog)
+
     panel = object.__new__(gui_magazyn.PanelMagazyn)
+    panel.root = types.SimpleNamespace(wait_window=lambda *_: None)
+    panel.config = None
+    panel.profiles = None
+    panel._reload_data = lambda: None
+    panel.tree = types.SimpleNamespace(selection=lambda: ("x",))
 
     gui_magazyn.PanelMagazyn._act_dodaj(panel)
     gui_magazyn.PanelMagazyn._act_przyjecie(panel)
