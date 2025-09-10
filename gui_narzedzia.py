@@ -24,6 +24,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
+import contextlib
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
@@ -315,179 +316,183 @@ def _tasks_for_type(typ: str, phase: str):
         return _stare_convert_templates_from_config()
 
 # ===== Szablony z pliku zadania_narzedzia.json =====
-def build_task_template(parent):
-    """Build simple comboboxes for collection/type/status and a tasks list."""
+class _TaskTemplateUI:
+    """Helper object building comboboxes for collection/type/status."""
 
-    LZ.invalidate_cache()
+    def __init__(self, parent):
+        self.parent = parent
+        self._ui_updating = False
+        self.var_collection = tk.StringVar()
+        self.var_type = tk.StringVar()
+        self.var_status = tk.StringVar()
+        self.lst = tk.Listbox(parent, height=8)
+        self.tasks_state: list[dict] = []
+        self.cb_collection = ttk.Combobox(
+            parent, textvariable=self.var_collection, state="readonly", values=[]
+        )
+        self.cb_type = ttk.Combobox(
+            parent, textvariable=self.var_type, state="readonly", values=[]
+        )
+        self.cb_status = ttk.Combobox(
+            parent, textvariable=self.var_status, state="readonly", values=[]
+        )
+        self.cb_collection.bind("<<ComboboxSelected>>", self._on_collection_change)
+        self.cb_type.bind("<<ComboboxSelected>>", self._on_type_change)
+        self.cb_status.bind("<<ComboboxSelected>>", self._on_status_change)
+        self.cb_collection.pack()
+        self.cb_type.pack()
+        self.cb_status.pack()
+        self.lst.pack(fill="both", expand=True)
+        self.coll_map: dict[str, str] = {}
+        self.type_map: dict[str, str] = {}
+        self.status_map: dict[str, str] = {}
+        self._cur_type_id = ""
+        self._cur_status_id = ""
+        self._fill_collections()
 
-    coll_var = tk.StringVar()
-    typ_var = tk.StringVar()
-    status_var = tk.StringVar()
-    lst = tk.Listbox(parent, height=8)
-    tasks_state: list[dict] = []
-
-    collections = LZ.get_collections()
-    coll_map: dict[str, str] = {c["name"]: c["id"] for c in collections}
-    cb_coll = ttk.Combobox(
-        parent,
-        values=list(coll_map.keys()),
-        textvariable=coll_var,
-        state="readonly",
-    )
-
-    default_coll = LZ.get_default_collection()
-    for name, cid in coll_map.items():
-        if cid == default_coll:
-            coll_var.set(name)
-            break
-
-    type_map: dict[str, str] = {}
-    cb_type = ttk.Combobox(
-        parent, values=list(type_map.keys()), textvariable=typ_var, state="readonly"
-    )
-    cb_status = ttk.Combobox(
-        parent, values=[], textvariable=status_var, state="readonly"
-    )
-    status_map: dict[str, str] = {}
-
-    def _set_info(msg: str) -> None:
+    @contextlib.contextmanager
+    def _suspend_ui(self):
+        prev = self._ui_updating
+        self._ui_updating = True
         try:
-            parent.statusbar.config(text=msg)  # type: ignore[attr-defined]
+            yield
+        finally:
+            self._ui_updating = prev
+
+    def _set_info(self, msg: str) -> None:
+        try:
+            self.parent.statusbar.config(text=msg)  # type: ignore[attr-defined]
         except Exception:
             print(f"[WM-DBG][NARZ] {msg}")
 
-    def _reload_from_lz() -> None:
-        try:
+    def _collection_id_from_combo(self):
+        if hasattr(self.cb_collection, "get_id"):
+            return self.cb_collection.get_id()
+        return self.coll_map.get(self.var_collection.get())
+
+    def _type_id_from_combo(self):
+        if hasattr(self.cb_type, "get_id"):
+            return self.cb_type.get_id()
+        return self.type_map.get(self.var_type.get())
+
+    def _status_id_from_combo(self):
+        if hasattr(self.cb_status, "get_id"):
+            return self.cb_status.get_id()
+        return self.status_map.get(self.var_status.get())
+
+    def _fill_collections(self):
+        with self._suspend_ui():
             collections = LZ.get_collections()
-            coll_map.clear()
-            coll_map.update({c["name"]: c["id"] for c in collections})
-            cb_coll.config(values=list(coll_map.keys()))
+            self.coll_map = {c["name"]: c["id"] for c in collections}
+            self.cb_collection.config(values=list(self.coll_map.keys()))
             default = LZ.get_default_collection()
-            coll_var.set("")
-            for name, cid in coll_map.items():
-                if cid == default:
-                    coll_var.set(name)
-                    break
-            type_map.clear()
-            cb_type.config(values=[])
-            typ_var.set("")
-            status_map.clear()
-            cb_status.config(values=[])
-            status_var.set("")
-            lst.delete(0, tk.END)
-            tasks_state.clear()
-        except Exception as e:  # pragma: no cover
-            print(f"[WM-DBG][NARZ][ERROR] _reload_from_lz: {e!r}")
-            _set_info("Błąd odświeżania danych")
+            name = next((n for n, cid in self.coll_map.items() if cid == default), "")
+            self.var_collection.set(name)
+        self._cur_type_id = ""
+        self._cur_status_id = ""
+        self._fill_types()
 
-    def _odswiez_zadania() -> None:
-        try:
-            LZ.invalidate_cache()
-            _reload_from_lz()
-            print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
-        except Exception as e:  # pragma: no cover
-            print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
-            _set_info("Błąd odświeżania zadań")
+    def _fill_types(self):
+        cid = self._collection_id_from_combo()
+        types = LZ.get_tool_types(collection=cid) if cid else []
+        with self._suspend_ui():
+            self.type_map = {t["name"]: t["id"] for t in types}
+            self.cb_type.config(values=list(self.type_map.keys()))
+            name = next((n for n, tid in self.type_map.items() if tid == self._cur_type_id), "")
+            self.var_type.set(name)
+        if not name:
+            self._cur_type_id = ""
+        self._fill_statuses()
 
-    def _on_collection_change(_=None):
-        try:
-            cid = coll_map.get(coll_var.get())
-            types = LZ.get_tool_types(collection=cid)
-            if not types:
-                _set_info("Brak typów w tej kolekcji")
-                type_map.clear(); cb_type.config(values=[]); typ_var.set("")
-                cb_status.config(values=[]); status_var.set("")
-                lst.delete(0, tk.END); tasks_state.clear()
-                return
-        except Exception as e:
-            print(f"[WM-DBG][NARZ][ERROR] _on_collection_change: {e!r}")
-            _set_info("Błąd wczytywania typów")
-            type_map.clear(); cb_type.config(values=[]); typ_var.set("")
-            cb_status.config(values=[]); status_var.set("")
-            lst.delete(0, tk.END); tasks_state.clear()
-            return
-        type_map.clear()
-        type_map.update({t["name"]: t["id"] for t in types})
-        cb_type.config(values=list(type_map.keys()))
-        typ_var.set("")
-        cb_status.config(values=[]); status_var.set("")
-        lst.delete(0, tk.END); tasks_state.clear()
+    def _fill_statuses(self):
+        cid = self._collection_id_from_combo()
+        tid = self._type_id_from_combo()
+        statuses = LZ.get_statuses(tid, collection=cid) if tid else []
+        with self._suspend_ui():
+            self.status_map = {s["name"]: s["id"] for s in statuses}
+            self.cb_status.config(values=list(self.status_map.keys()))
+            name = next((n for n, sid in self.status_map.items() if sid == self._cur_status_id), "")
+            self.var_status.set(name)
+        if not name:
+            self._cur_status_id = ""
+        self._fill_tasks()
 
-    def _on_type_change(_=None):
-        try:
-            cid = coll_map.get(coll_var.get())
-            tid = type_map.get(typ_var.get())
-            statuses = LZ.get_statuses(tid, collection=cid)
-            if not statuses:
-                _set_info("Brak statusów dla tego typu")
-                status_map.clear(); cb_status.config(values=[]); status_var.set("")
-                lst.delete(0, tk.END); tasks_state.clear()
-                return
-        except Exception as e:
-            print(f"[WM-DBG][NARZ][ERROR] _on_type_change: {e!r}")
-            _set_info("Błąd wczytywania statusów")
-            status_map.clear(); cb_status.config(values=[]); status_var.set("")
-            lst.delete(0, tk.END); tasks_state.clear()
-            return
-        status_map.clear()
-        status_map.update({s["name"]: s["id"] for s in statuses})
-        cb_status.config(values=list(status_map.keys()))
-        status_var.set("")
-        lst.delete(0, tk.END); tasks_state.clear()
-
-    def _on_status_change(_=None):
-        try:
-            cid = coll_map.get(coll_var.get())
-            tid = type_map.get(typ_var.get())
-            sid = status_map.get(status_var.get())
-            tasks = LZ.get_tasks(tid, sid, cid)
-            if not tasks:
-                _set_info("Brak zadań dla tego statusu")
-                tasks_state.clear(); lst.delete(0, tk.END)
-                return
-            tasks_state[:] = [{"text": t, "done": False} for t in tasks]
-            if LZ.should_autocheck(sid, cid):
+    def _fill_tasks(self):
+        cid = self._collection_id_from_combo()
+        tid = self._type_id_from_combo()
+        sid = self._status_id_from_combo()
+        tasks = LZ.get_tasks(tid, sid, collection=cid) if cid and tid and sid else []
+        with self._suspend_ui():
+            self.lst.delete(0, tk.END)
+            self.tasks_state.clear()
+            for t in tasks:
+                self.tasks_state.append({"text": t, "done": False})
+            if tasks and LZ.should_autocheck(sid, cid):
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                user = getattr(parent, "login", None) or getattr(parent, "user", None)
-                for task in tasks_state:
+                user = getattr(self.parent, "login", None) or getattr(self.parent, "user", None)
+                for task in self.tasks_state:
                     task["done"] = True
                     task["done_at"] = ts
                     if user:
                         task["user"] = user
-            lst.delete(0, tk.END)
-            for t in tasks_state:
+            for t in self.tasks_state:
                 prefix = "[x]" if t.get("done") else "[ ]"
-                lst.insert(tk.END, f"{prefix} {t['text']}")
-        except Exception as e:
-            print(f"[WM-DBG][NARZ][ERROR] _on_status_change: {e!r}")
-            _set_info("Błąd wczytywania zadań")
-            tasks_state.clear(); lst.delete(0, tk.END)
+                self.lst.insert(tk.END, f"{prefix} {t['text']}")
 
-    cb_coll.bind("<<ComboboxSelected>>", _on_collection_change)
-    cb_type.bind("<<ComboboxSelected>>", _on_type_change)
-    cb_status.bind("<<ComboboxSelected>>", _on_status_change)
+    def _on_collection_change(self, _=None):
+        if self._ui_updating:
+            return
+        self._cur_type_id = ""
+        self._cur_status_id = ""
+        self._fill_types()
 
-    cb_coll.pack()
-    cb_type.pack()
-    cb_status.pack()
-    lst.pack(fill="both", expand=True)
+    def _on_type_change(self, _=None):
+        if self._ui_updating:
+            return
+        self._cur_type_id = self._type_id_from_combo() or ""
+        self._cur_status_id = ""
+        self._fill_statuses()
 
-    # populate types for default collection if available
-    if coll_var.get():
-        _on_collection_change()
+    def _on_status_change(self, _=None):
+        if self._ui_updating:
+            return
+        self._cur_status_id = self._status_id_from_combo() or ""
+        self._fill_tasks()
 
+    def _reload_from_lz(self) -> None:
+        try:
+            self._fill_collections()
+        except Exception as e:  # pragma: no cover
+            print(f"[WM-DBG][NARZ][ERROR] _reload_from_lz: {e!r}")
+            self._set_info("Błąd odświeżania danych")
+
+    def _odswiez_zadania(self) -> None:
+        try:
+            LZ.invalidate_cache()
+            self._reload_from_lz()
+            print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
+        except Exception as e:  # pragma: no cover
+            print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
+            self._set_info("Błąd odświeżania zadań")
+
+
+def build_task_template(parent):
+    """Build simple comboboxes for collection/type/status and a tasks list."""
+
+    LZ.invalidate_cache()
+    ui = _TaskTemplateUI(parent)
     return {
-        "cb_collection": cb_coll,
-        "cb_type": cb_type,
-        "cb_status": cb_status,
-        "listbox": lst,
-        "on_collection_change": _on_collection_change,
-        "on_type_change": _on_type_change,
-        "on_status_change": _on_status_change,
-        "tasks_state": tasks_state,
-        "odswiez_zadania": _odswiez_zadania,
-        "reload_from_lz": _reload_from_lz,
-        "set_info": _set_info,
+        "cb_collection": ui.cb_collection,
+        "cb_type": ui.cb_type,
+        "cb_status": ui.cb_status,
+        "listbox": ui.lst,
+        "on_collection_change": ui._on_collection_change,
+        "on_type_change": ui._on_type_change,
+        "on_status_change": ui._on_status_change,
+        "tasks_state": ui.tasks_state,
+        "odswiez_zadania": ui._odswiez_zadania,
+        "reload_from_lz": ui._reload_from_lz,
+        "set_info": ui._set_info,
     }
 
 # ===================== ŚCIEŻKI DANYCH =====================
