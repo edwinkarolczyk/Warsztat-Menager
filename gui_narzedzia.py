@@ -351,8 +351,22 @@ def build_task_template(parent):
     status_map: dict[str, str] = {}
 
     def _on_collection_change(_=None):
-        cid = coll_map.get(coll_var.get())
-        types = LZ.get_tool_types(collection=cid)
+        try:
+            cid = coll_map.get(coll_var.get())
+            types = LZ.get_tool_types(collection=cid)
+        except Exception:
+            LOG.exception("Failed to load types for collection")
+            type_map.clear()
+            cb_type.config(values=[])
+            typ_var.set("")
+            cb_status.config(values=[])
+            status_var.set("")
+            lst.delete(0, tk.END)
+            tasks_state.clear()
+            messagebox.showwarning(
+                "Narzędzia", "Nie udało się wczytać typów dla kolekcji."
+            )
+            return
         type_map.clear()
         type_map.update({t["name"]: t["id"] for t in types})
         cb_type.config(values=list(type_map.keys()))
@@ -363,9 +377,21 @@ def build_task_template(parent):
         tasks_state.clear()
 
     def _on_type_change(_=None):
-        cid = coll_map.get(coll_var.get())
-        tid = type_map.get(typ_var.get())
-        statuses = LZ.get_statuses(tid, collection=cid)
+        try:
+            cid = coll_map.get(coll_var.get())
+            tid = type_map.get(typ_var.get())
+            statuses = LZ.get_statuses(tid, collection=cid)
+        except Exception:
+            LOG.exception("Failed to load statuses for type")
+            status_map.clear()
+            cb_status.config(values=[])
+            status_var.set("")
+            lst.delete(0, tk.END)
+            tasks_state.clear()
+            messagebox.showwarning(
+                "Narzędzia", "Nie udało się wczytać statusów dla typu."
+            )
+            return
         status_map.clear()
         status_map.update({s["name"]: s["id"] for s in statuses})
         cb_status.config(values=list(status_map.keys()))
@@ -374,22 +400,32 @@ def build_task_template(parent):
         tasks_state.clear()
 
     def _on_status_change(_=None):
-        cid = coll_map.get(coll_var.get())
-        tid = type_map.get(typ_var.get())
-        sid = status_map.get(status_var.get())
-        tasks_state[:] = [{"text": t, "done": False} for t in LZ.get_tasks(tid, sid, cid)]
-        if LZ.should_autocheck(sid, cid):
-            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            user = getattr(parent, "login", None) or getattr(parent, "user", None)
-            for task in tasks_state:
-                task["done"] = True
-                task["done_at"] = ts
-                if user:
-                    task["user"] = user
-        lst.delete(0, tk.END)
-        for t in tasks_state:
-            prefix = "[x]" if t.get("done") else "[ ]"
-            lst.insert(tk.END, f"{prefix} {t['text']}")
+        try:
+            cid = coll_map.get(coll_var.get())
+            tid = type_map.get(typ_var.get())
+            sid = status_map.get(status_var.get())
+            tasks_state[:] = [
+                {"text": t, "done": False} for t in LZ.get_tasks(tid, sid, cid)
+            ]
+            if LZ.should_autocheck(sid, cid):
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                user = getattr(parent, "login", None) or getattr(parent, "user", None)
+                for task in tasks_state:
+                    task["done"] = True
+                    task["done_at"] = ts
+                    if user:
+                        task["user"] = user
+            lst.delete(0, tk.END)
+            for t in tasks_state:
+                prefix = "[x]" if t.get("done") else "[ ]"
+                lst.insert(tk.END, f"{prefix} {t['text']}")
+        except Exception:
+            LOG.exception("Failed to load tasks for status")
+            tasks_state.clear()
+            lst.delete(0, tk.END)
+            messagebox.showwarning(
+                "Narzędzia", "Nie udało się wczytać zadań dla statusu."
+            )
 
     cb_coll.bind("<<ComboboxSelected>>", _on_collection_change)
     cb_type.bind("<<ComboboxSelected>>", _on_type_change)
