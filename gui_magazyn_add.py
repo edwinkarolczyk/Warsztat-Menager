@@ -13,6 +13,7 @@ from tkinter import ttk, messagebox, simpledialog
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
 from services.profile_service import authenticate
+from logger import log_akcja
 import magazyn_io
 import logika_magazyn as LM
 
@@ -162,9 +163,9 @@ class MagazynAddDialog:
             comment="",
         )
 
-        print("[WM-DBG][MAGAZYN-ADD] saving")
+        log_akcja("MAGAZYN-ADD saving")
         save(data)
-        print("[WM-DBG][MAGAZYN-ADD] saved")
+        log_akcja("MAGAZYN-ADD saved")
 
         if self.on_saved:
             try:

@@ -8,6 +8,7 @@ from tkinter import messagebox, simpledialog, ttk
 from ui_theme import apply_theme_safe as apply_theme
 from config_manager import ConfigManager
 from services.profile_service import authenticate
+from logger import log_akcja
 import logika_magazyn as LM
 import magazyn_io
 
@@ -164,7 +165,7 @@ class MagazynPZDialog:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
 
             items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
-            print("[WM-DBG] przed zapisem PZ")
+            log_akcja("przed zapisem PZ")
             magazyn_io.append_history(
                 items,
                 iid,
@@ -174,7 +175,7 @@ class MagazynPZDialog:
                 comment=comment,
             )
             LM.save_magazyn(data)
-            print("[WM-DBG] po zapisie PZ")
+            log_akcja("po zapisie PZ")
         except Exception as exc:
             messagebox.showerror("Błąd", str(exc), parent=self.win)
             return
