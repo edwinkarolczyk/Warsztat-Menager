@@ -17,6 +17,7 @@ from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
+import logika_zadan as LZ
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -439,10 +440,14 @@ class SettingsPanel:
             )
             return
 
-        if hasattr(gui_tools_config, "open_window"):
-            win = gui_tools_config.open_window(parent)  # type: ignore[assignment]
+        callback = getattr(LZ, "invalidate_cache", lambda: None)
+
+        if hasattr(gui_tools_config, "open_tools_config"):
+            win = gui_tools_config.open_tools_config(parent, on_save=callback)  # type: ignore[assignment]
+        elif hasattr(gui_tools_config, "open_window"):
+            win = gui_tools_config.open_window(parent, on_save=callback)  # type: ignore[assignment]
         elif hasattr(gui_tools_config, "ToolsConfigWindow"):
-            win = gui_tools_config.ToolsConfigWindow(parent)  # type: ignore[assignment]
+            win = gui_tools_config.ToolsConfigWindow(parent, on_save=callback)  # type: ignore[assignment]
         else:  # pragma: no cover - unexpected api
             messagebox.showerror(
                 "Błąd",
