@@ -9,10 +9,12 @@ import json
 import os
 from datetime import datetime
 import logging
+from typing import Any, Dict
 
 import logika_magazyn as LM
 import bom
 from config_manager import ConfigManager
+import tools_autocheck
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +172,82 @@ def get_tasks_for(
         if st.get("id") == status_id:
             return list(st.get("tasks") or [])
     return []
+
+
+def invalidate_cache() -> None:
+    """Clear internal caches used for tool task definitions."""
+    global _TOOL_TASKS_CACHE
+    _TOOL_TASKS_CACHE = None
+
+
+def get_collections(
+    settings: ConfigManager | Dict[str, Any] | None = None,
+) -> list[dict]:
+    """Return list of available collections based on *settings*."""
+
+    cfg = settings or ConfigManager()
+    if isinstance(cfg, dict):
+        getter = lambda k, d=None: cfg.get(k, d)
+    else:
+        getter = cfg.get
+    enabled = getter("tools.collections_enabled", []) or []
+    return [{"id": cid, "name": cid} for cid in enabled]
+
+
+def get_default_collection(
+    settings: ConfigManager | Dict[str, Any] | None = None
+) -> str:
+    """Return identifier of the default collection from *settings*."""
+
+    cfg = settings or ConfigManager()
+    if isinstance(cfg, dict):
+        getter = lambda k, d=None: cfg.get(k, d)
+    else:
+        getter = cfg.get
+    enabled = getter("tools.collections_enabled", []) or []
+    return getter("tools.default_collection", enabled[0] if enabled else "default")
+
+
+def get_tool_types(
+    collection: str | None = None, force: bool = False
+) -> list[dict]:
+    """Wrapper for :func:`get_tool_types_list` with a simpler name."""
+
+    return get_tool_types_list(collection=collection, force=force)
+
+
+def get_statuses(
+    type_id: str, collection: str | None = None, force: bool = False
+) -> list[dict]:
+    """Wrapper returning statuses for *type_id* in *collection*."""
+
+    return get_statuses_for_type(type_id, collection=collection, force=force)
+
+
+def get_tasks(
+    type_id: str,
+    status_id: str,
+    collection: str | None = None,
+    force: bool = False,
+) -> list[str]:
+    """Wrapper returning tasks for *type_id*/*status_id* pair."""
+
+    return get_tasks_for(type_id, status_id, collection=collection, force=force)
+
+
+def should_autocheck(
+    status_id: str,
+    collection_id: str,
+    config: ConfigManager | Dict[str, Any] | None = None,
+) -> bool:
+    """Return ``True`` when tasks for *status_id* should be auto-checked."""
+
+    cfg = config
+    if cfg is None:
+        cfg = ConfigManager().merged
+    elif isinstance(cfg, ConfigManager):
+        cfg = cfg.merged
+    return tools_autocheck.should_autocheck(status_id, collection_id, cfg)
 
 
 def _now():

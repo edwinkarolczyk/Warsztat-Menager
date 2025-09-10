@@ -8,9 +8,21 @@ def test_tasks_from_comboboxes(monkeypatch):
         gui_narzedzia,
         "LZ",
         types.SimpleNamespace(
-            get_tool_types_list=lambda: [{"id": "T1", "name": "Typ1"}],
-            get_statuses_for_type=lambda tid: [{"id": "S1", "name": "St1"}] if tid == "T1" else [],
-            get_tasks_for=lambda tid, sid: ["A", "B"] if tid == "T1" and sid == "S1" else [],
+            invalidate_cache=lambda: None,
+            get_collections=lambda settings=None: [{"id": "C1", "name": "Coll1"}],
+            get_default_collection=lambda settings=None: "C1",
+            get_tool_types=lambda collection=None: (
+                [{"id": "T1", "name": "Typ1"}] if collection == "C1" else []
+            ),
+            get_statuses=lambda tid, collection=None: (
+                [{"id": "S1", "name": "St1"}] if tid == "T1" and collection == "C1" else []
+            ),
+            get_tasks=lambda tid, sid, collection=None: (
+                ["A", "B"]
+                if tid == "T1" and sid == "S1" and collection == "C1"
+                else []
+            ),
+            should_autocheck=lambda sid, collection_id: True,
         ),
     )
 
@@ -64,9 +76,12 @@ def test_tasks_from_comboboxes(monkeypatch):
     parent = DummyWidget()
     widgets = gui_narzedzia.build_task_template(parent)
 
+    widgets["cb_collection"].set("Coll1")
+    widgets["on_collection_change"]()
     widgets["cb_type"].set("Typ1")
     widgets["on_type_change"]()
     widgets["cb_status"].set("St1")
     widgets["on_status_change"]()
 
-    assert widgets["listbox"].items == ["[ ] A", "[ ] B"]
+    assert widgets["listbox"].items == ["[x] A", "[x] B"]
+    assert all(t["done"] for t in widgets["tasks_state"])

@@ -316,53 +316,103 @@ def _tasks_for_type(typ: str, phase: str):
 
 # ===== Szablony z pliku zadania_narzedzia.json =====
 def build_task_template(parent):
-    """Tworzy prosty zestaw comboboxów Typ/Status i listę zadań.
+    """Build simple comboboxes for collection/type/status and a tasks list."""
 
-    Funkcja korzysta z :mod:`logika_zadan` w celu pobrania danych. Po zmianie
-    statusu wypełnia listę szablonem ``"[ ] <zadanie>"``. Zwraca słownik z
-    referencjami do utworzonych widgetów i funkcji obsługi zdarzeń – ułatwia to
-    testowanie bez środowiska graficznego.
-    """
+    LZ.invalidate_cache()
 
+    coll_var = tk.StringVar()
     typ_var = tk.StringVar()
     status_var = tk.StringVar()
     lst = tk.Listbox(parent, height=8)
+    tasks_state: list[dict] = []
 
-    types = LZ.get_tool_types_list()
-    type_map = {t["name"]: t["id"] for t in types}
-    cb_type = ttk.Combobox(parent, values=list(type_map.keys()), textvariable=typ_var, state="readonly")
-    cb_status = ttk.Combobox(parent, values=[], textvariable=status_var, state="readonly")
+    collections = LZ.get_collections()
+    coll_map = {c["name"]: c["id"] for c in collections}
+    cb_coll = ttk.Combobox(
+        parent,
+        values=list(coll_map.keys()),
+        textvariable=coll_var,
+        state="readonly",
+    )
 
+    default_coll = LZ.get_default_collection()
+    for name, cid in coll_map.items():
+        if cid == default_coll:
+            coll_var.set(name)
+            break
+
+    type_map: dict[str, str] = {}
+    cb_type = ttk.Combobox(
+        parent, values=list(type_map.keys()), textvariable=typ_var, state="readonly"
+    )
+    cb_status = ttk.Combobox(
+        parent, values=[], textvariable=status_var, state="readonly"
+    )
     status_map: dict[str, str] = {}
 
+    def _on_collection_change(_=None):
+        cid = coll_map.get(coll_var.get())
+        types = LZ.get_tool_types(collection=cid)
+        type_map.clear()
+        type_map.update({t["name"]: t["id"] for t in types})
+        cb_type.config(values=list(type_map.keys()))
+        typ_var.set("")
+        cb_status.config(values=[])
+        status_var.set("")
+        lst.delete(0, tk.END)
+        tasks_state.clear()
+
     def _on_type_change(_=None):
+        cid = coll_map.get(coll_var.get())
         tid = type_map.get(typ_var.get())
-        statuses = LZ.get_statuses_for_type(tid)
+        statuses = LZ.get_statuses(tid, collection=cid)
         status_map.clear()
         status_map.update({s["name"]: s["id"] for s in statuses})
         cb_status.config(values=list(status_map.keys()))
         status_var.set("")
         lst.delete(0, tk.END)
+        tasks_state.clear()
 
     def _on_status_change(_=None):
+        cid = coll_map.get(coll_var.get())
         tid = type_map.get(typ_var.get())
         sid = status_map.get(status_var.get())
+        tasks_state[:] = [{"text": t, "done": False} for t in LZ.get_tasks(tid, sid, cid)]
+        if LZ.should_autocheck(sid, cid):
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            user = getattr(parent, "login", None) or getattr(parent, "user", None)
+            for task in tasks_state:
+                task["done"] = True
+                task["done_at"] = ts
+                if user:
+                    task["user"] = user
         lst.delete(0, tk.END)
-        for t in LZ.get_tasks_for(tid, sid):
-            lst.insert(tk.END, f"[ ] {t}")
+        for t in tasks_state:
+            prefix = "[x]" if t.get("done") else "[ ]"
+            lst.insert(tk.END, f"{prefix} {t['text']}")
 
+    cb_coll.bind("<<ComboboxSelected>>", _on_collection_change)
     cb_type.bind("<<ComboboxSelected>>", _on_type_change)
     cb_status.bind("<<ComboboxSelected>>", _on_status_change)
 
+    cb_coll.pack()
     cb_type.pack()
     cb_status.pack()
     lst.pack(fill="both", expand=True)
+
+    # populate types for default collection if available
+    if coll_var.get():
+        _on_collection_change()
+
     return {
+        "cb_collection": cb_coll,
         "cb_type": cb_type,
         "cb_status": cb_status,
         "listbox": lst,
+        "on_collection_change": _on_collection_change,
         "on_type_change": _on_type_change,
         "on_status_change": _on_status_change,
+        "tasks_state": tasks_state,
     }
 
 # ===================== ŚCIEŻKI DANYCH =====================
