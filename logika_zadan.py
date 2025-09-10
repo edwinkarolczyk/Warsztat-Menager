@@ -27,6 +27,22 @@ logger = logging.getLogger(__name__)
 TOOL_TASKS_PATH = _TASKS_PATH
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 
+__all__ = [
+    "TOOL_TASKS_PATH",
+    "HISTORY_PATH",
+    "invalidate_cache",
+    "get_collections",
+    "get_default_collection",
+    "get_tool_types",
+    "get_statuses",
+    "get_tasks",
+    "should_autocheck",
+    "get_tool_types_list",
+    "get_statuses_for_type",
+    "register_tasks_state",
+    "consume_for_task",
+]
+
 
 def _safe_load() -> dict:
     try:
@@ -134,6 +150,9 @@ def should_autocheck(
     elif isinstance(cfg, ConfigManager):
         cfg = cfg.merged
     return tools_autocheck.should_autocheck(status_id, collection_id, cfg)
+
+get_tool_types_list = get_tool_types
+get_statuses_for_type = get_statuses
 
 
 def _now():

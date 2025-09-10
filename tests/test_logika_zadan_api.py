@@ -47,3 +47,8 @@ def test_should_autocheck_respects_global_status():
     cfg = {"tools": {"auto_check_on_status_global": ["S1"]}}
     assert LZ.should_autocheck("S1", "C1", cfg)
     assert not LZ.should_autocheck("S2", "C1", cfg)
+
+
+def test_aliases_exposed():
+    assert LZ.get_tool_types_list is LZ.get_tool_types
+    assert LZ.get_statuses_for_type is LZ.get_statuses
