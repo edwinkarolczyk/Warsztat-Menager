@@ -14,18 +14,9 @@ from services.profile_service import (
     sync_presence as _service_sync_presence,
     write_users as _write_users,
 )
+from profile_utils import SIDEBAR_MODULES
 
-MODULES = [
-    "zlecenia",
-    "narzedzia",
-    "maszyny",
-    "magazyn",
-    "hale",
-    "feedback",
-    "uzytkownicy",
-    "ustawienia",
-    "profil",
-]
+MODULES = [key for key, _ in SIDEBAR_MODULES]
 
 _USERS_FILE = "uzytkownicy.json"
 _PRESENCE_FILE = "uzytkownicy_presence.json"
