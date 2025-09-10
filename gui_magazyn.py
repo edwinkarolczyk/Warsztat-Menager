@@ -34,12 +34,7 @@ import logika_magazyn as LM
 from config_manager import ConfigManager
 from services.profile_service import authenticate
 
-try:  # pragma: no cover - dialog modules optional in tests
-    from gui_magazyn_add import MagazynAddDialog
-except ImportError:  # pragma: no cover - fallback stub
-    class MagazynAddDialog:
-        def __init__(self, master, *_args, **_kwargs):
-            tk.Toplevel(master)
+from gui_magazyn_add import MagazynAddDialog
 
 try:  # pragma: no cover - dialog modules optional in tests
     from gui_magazyn_pz import MagazynPZDialog
@@ -514,12 +509,9 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _act_dodaj(self):
-        """Open dialog for adding a warehouse item."""
-        print("[WM-DBG][MAG] _act_dodaj -> otwieram okno dodawania")
-        master = getattr(self, "master", self)
-        config = getattr(self, "config", None)
-        profiles = getattr(self, "profiles", None)
-        MagazynAddDialog(master, config, profiles, on_saved=self._reload_data)
+        print("[WM-DBG][MAG] _act_dodaj -> okno dodawania")
+        dlg = MagazynAddDialog(self.root, self.config, self.profiles, on_saved=self._reload_data)
+        self.root.wait_window(dlg.top)
 
     def _act_przyjecie(self):
         """Open dialog for registering a goods receipt (PZ)."""
