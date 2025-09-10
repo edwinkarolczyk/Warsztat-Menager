@@ -6,11 +6,11 @@ import gui_magazyn as gm
 def test_btn_do_zam_attaches_tooltip(monkeypatch):
     recorded: list[str] = []
 
-    def fake_attach(widget, text):  # noqa: ANN001 - test helper
+    def fake_attach(self, widget, text):  # noqa: ANN001 - test helper
         recorded.append(text)
         return {}
 
-    monkeypatch.setattr(gm, "_attach_tooltip", fake_attach)
+    monkeypatch.setattr(gm.PanelMagazyn, "_attach_tooltip", fake_attach)
 
     class DummyWidget:
         def __init__(self, *_, **__):

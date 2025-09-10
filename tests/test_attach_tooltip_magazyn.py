@@ -54,7 +54,9 @@ def setup_dummy(monkeypatch):
 def test_attach_tooltip_shows_text(monkeypatch):
     setup_dummy(monkeypatch)
     widget = DummyWidget()
-    tip = gm._attach_tooltip(widget, "tekst")
+    panel = object.__new__(gm.PanelMagazyn)
+    panel._tooltip_windows = set()
+    tip = gm.PanelMagazyn._attach_tooltip(panel, widget, "tekst")
     widget.trigger("<Enter>")
     assert tip["w"] is not None
     assert tip["w"].label.text == "tekst"

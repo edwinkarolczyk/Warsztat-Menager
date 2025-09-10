@@ -51,41 +51,6 @@ except ImportError:  # pragma: no cover - fallback stub
 _CFG = ConfigManager()
 
 
-def _attach_tooltip(widget: tk.Misc, text: str):
-    """Attach a simple text tooltip to ``widget``."""
-    tip: dict[str, tk.Toplevel | None] = {"w": None}
-
-    def _show(_=None):
-        if tip["w"] or not text:
-            return
-        x = widget.winfo_rootx() + 16
-        y = widget.winfo_rooty() + 20
-        tw = tk.Toplevel(widget)
-        _ensure_topmost(tw, widget)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        lbl = tk.Label(
-            tw,
-            text=text,
-            bg="#2A2F37",
-            fg="#E8E8E8",
-            bd=1,
-            relief="solid",
-            justify="left",
-        )
-        lbl.pack(ipadx=8, ipady=6)
-        tip["w"] = tw
-
-    def _hide(_=None):
-        if tip["w"]:
-            tip["w"].destroy()
-            tip["w"] = None
-
-    widget.bind("<Enter>", _show, add="+")
-    widget.bind("<Leave>", _hide, add="+")
-    return tip
-
-
 def _fmt(num: float) -> str:
     prec = _CFG.get("magazyn_precision_mb", 3)
     return f"{float(num):.{prec}f}"
@@ -149,9 +114,56 @@ def drukuj_etykiete(item_id: str, host: str = "127.0.0.1", port: int = 9100) -> 
 class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
+        self.root = master
+        self._tooltip_windows: set[tk.Toplevel] = set()
+        self.root.bind("<Destroy>", self._cleanup_tooltips, add="+")
         apply_theme(self)
         self._build_ui()
         self._load()
+
+    def _attach_tooltip(self, widget: tk.Misc, text: str):
+        """Attach a simple text tooltip to ``widget`` and track windows."""
+        tip: dict[str, tk.Toplevel | None] = {"w": None}
+
+        def _show(_=None):
+            if tip["w"] or not text:
+                return
+            x = widget.winfo_rootx() + 16
+            y = widget.winfo_rooty() + 20
+            tw = tk.Toplevel(widget)
+            _ensure_topmost(tw, widget)
+            tw.wm_overrideredirect(True)
+            tw.wm_geometry(f"+{x}+{y}")
+            lbl = tk.Label(
+                tw,
+                text=text,
+                bg="#2A2F37",
+                fg="#E8E8E8",
+                bd=1,
+                relief="solid",
+                justify="left",
+            )
+            lbl.pack(ipadx=8, ipady=6)
+            tip["w"] = tw
+            self._tooltip_windows.add(tw)
+
+        def _hide(_=None):
+            if tip["w"]:
+                tip["w"].destroy()
+                self._tooltip_windows.discard(tip["w"])
+                tip["w"] = None
+
+        widget.bind("<Enter>", _show, add="+")
+        widget.bind("<Leave>", _hide, add="+")
+        return tip
+
+    def _cleanup_tooltips(self, _=None):
+        for win in list(self._tooltip_windows):
+            try:
+                win.destroy()
+            except Exception:
+                pass
+        self._tooltip_windows.clear()
 
     def _build_ui(self):
         lock_path = Path("data/magazyn/magazyn.json.lock")
@@ -178,55 +190,41 @@ class PanelMagazyn(ttk.Frame):
 
         ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
 
-        self._tooltips: list[dict[str, tk.Toplevel | None]] = []
-
         btn_dodaj = ttk.Button(bar, text="+ Dodaj", command=self._act_dodaj, style="WM.Side.TButton")
         btn_dodaj.grid(row=0, column=4, padx=3)
-        self._tooltips.append(_attach_tooltip(btn_dodaj, "Dodaj nową pozycję do magazynu"))
+        self._attach_tooltip(btn_dodaj, "Dodaj nową pozycję do magazynu")
 
         btn_przyjecie = ttk.Button(
             bar, text="Przyjęcie (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
         )
         btn_przyjecie.grid(row=0, column=5, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(btn_przyjecie, "Zarejestruj przyjęcie towaru (PZ)")
-        )
+        self._attach_tooltip(btn_przyjecie, "Zarejestruj przyjęcie towaru (PZ)")
 
         btn_zuzyj = ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton")
         btn_zuzyj.grid(row=0, column=6, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(btn_zuzyj, "Odnotuj zużycie materiału")
-        )
+        self._attach_tooltip(btn_zuzyj, "Odnotuj zużycie materiału")
 
         btn_zwrot = ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton")
         btn_zwrot.grid(row=0, column=7, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(btn_zwrot, "Przyjmij zwrot na magazyn")
-        )
+        self._attach_tooltip(btn_zwrot, "Przyjmij zwrot na magazyn")
 
         btn_rezerwuj = ttk.Button(
             bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton"
         )
         btn_rezerwuj.grid(row=0, column=8, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(btn_rezerwuj, "Zarezerwuj materiał dla zlecenia")
-        )
+        self._attach_tooltip(btn_rezerwuj, "Zarezerwuj materiał dla zlecenia")
 
         btn_zwolnij = ttk.Button(
             bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton"
         )
         btn_zwolnij.grid(row=0, column=9, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(btn_zwolnij, "Zwolnij zarezerwowany materiał")
-        )
+        self._attach_tooltip(btn_zwolnij, "Zwolnij zarezerwowany materiał")
 
         btn_historia = ttk.Button(
             bar, text="Historia", command=self._show_historia, style="WM.Side.TButton"
         )
         btn_historia.grid(row=0, column=10, padx=6)
-        self._tooltips.append(
-            _attach_tooltip(btn_historia, "Pokaż historię operacji")
-        )
+        self._attach_tooltip(btn_historia, "Pokaż historię operacji")
 
         btn_etykieta = ttk.Button(
             bar,
@@ -235,9 +233,7 @@ class PanelMagazyn(ttk.Frame):
             style="WM.Side.TButton",
         )
         btn_etykieta.grid(row=0, column=11, padx=6)
-        self._tooltips.append(
-            _attach_tooltip(btn_etykieta, "Drukuj etykietę z kodem")
-        )
+        self._attach_tooltip(btn_etykieta, "Drukuj etykietę z kodem")
 
         btn_do_zam = ttk.Button(
             bar,
@@ -246,11 +242,7 @@ class PanelMagazyn(ttk.Frame):
             style="WM.Side.TButton",
         )
         btn_do_zam.grid(row=0, column=12, padx=3)
-        self._tooltips.append(
-            _attach_tooltip(
-                btn_do_zam, "Dodaj pozycję do listy zamówień."
-            )
-        )
+        self._attach_tooltip(btn_do_zam, "Dodaj pozycję do listy zamówień.")
 
         self.bind_all("<Control-n>", lambda _e: self._act_dodaj(), add="+")
         self.bind_all("<Control-p>", lambda _e: self._act_przyjecie(), add="+")
@@ -517,17 +509,13 @@ class PanelMagazyn(ttk.Frame):
         """Open dialog for adding a warehouse item."""
         print("[WM-DBG][MAG] _act_dodaj -> otwieram okno dodawania")
         master = getattr(self, "master", self)
-        config = getattr(self, "config", None)
-        profiles = getattr(self, "profiles", None)
-        MagazynAddDialog(master, config, profiles, on_saved=self._reload_data)
+        MagazynAddDialog(master, on_saved=self._reload_data)
 
     def _act_przyjecie(self):
         """Open dialog for registering a goods receipt (PZ)."""
         print("[WM-DBG][MAG] _act_przyjecie -> otwieram okno przyjęcia")
         master = getattr(self, "master", self)
-        config = getattr(self, "config", None)
-        profiles = getattr(self, "profiles", None)
-        MagazynPZDialog(master, config, profiles, on_saved=self._reload_data)
+        MagazynPZDialog(master, on_saved=self._reload_data)
 
     def _show_historia(self):
         iid = self._sel_id()
