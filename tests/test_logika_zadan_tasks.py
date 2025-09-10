@@ -6,6 +6,7 @@ import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import logika_zadan as LZ
+from config_manager import ConfigManager
 
 
 def _write(tmp_path, content):
@@ -55,3 +56,18 @@ def test_duplicate_status_ids(monkeypatch, tmp_path):
     with pytest.raises(LZ.ToolTasksError) as exc:
         LZ.get_statuses_for_type("T1", collection="NN")
     assert "Powtarzające się id statusu" in str(exc.value)
+
+
+def test_migrate_plain_list(monkeypatch, tmp_path):
+    ConfigManager.refresh()
+    data = [{"id": "T1", "statuses": []}]
+    path = tmp_path / "zadania_narzedzia.json"
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+    LZ._TOOL_TASKS_CACHE = None
+    types = LZ.get_tool_types_list(collection="NN")
+    assert types and types[0]["id"] == "T1"
+    with path.open(encoding="utf-8") as fh:
+        stored = json.load(fh)
+    assert "collections" in stored
+    assert stored["collections"]["NN"]["types"][0]["id"] == "T1"

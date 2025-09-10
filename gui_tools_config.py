@@ -386,6 +386,9 @@ class ToolsConfigWindow(tk.Toplevel):
     # Saving ---------------------------------------------------------------
     def _save(self) -> None:
         path = os.path.join("data", "zadania_narzedzia.json")
+        collections = self.cfg.get("tools.collections_enabled", []) or []
+        for cid in collections:
+            self.data.setdefault(cid, {"types": []})
         payload = {"collections": self.data}
         tmp = path + ".tmp"
         try:
