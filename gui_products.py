@@ -14,6 +14,7 @@ from tkinter import messagebox, ttk
 from typing import Any
 
 import logika_magazyn as LM
+from logger import log_akcja
 
 from ui_theme import apply_theme_safe as apply_theme
 from ui_utils import _ensure_topmost, _msg_error, _msg_info, _msg_warning
@@ -39,8 +40,8 @@ class ProductsMaterialsTab(ttk.Frame):
             self.base_dir, "data", "magazyn", "magazyn.json.lock"
         )
         self._lock_suffix = " LOCK" if os.path.exists(lock_path) else ""
-        print("[WM-DBG] [SETTINGS] init ProductsMaterialsTab")
-        print(f"[WM-DBG] paths: {self.paths}")
+        log_akcja("[WM-DBG] [SETTINGS] init ProductsMaterialsTab")
+        log_akcja(f"[WM-DBG] paths: {self.paths}")
         self._ensure_dirs()
         self._build_ui()
         self.refresh_all()
@@ -167,7 +168,7 @@ class ProductsMaterialsTab(ttk.Frame):
             if f.lower().endswith(".json")
         ]
         count = len(files)
-        print(f"[WM-DBG] preview count: {count}")
+        log_akcja(f"[WM-DBG] preview count: {count}")
         preview = "\n".join(files[:20]) or "(brak plików)"
         _msg_info(self, "Podgląd listy produktów", preview)
 
@@ -190,7 +191,7 @@ class ProductsMaterialsTab(ttk.Frame):
                     data["_path"] = path
                     items.append(data)
             except Exception:
-                print(f"[WM-DBG] [ERROR] failed to read {path}")
+                log_akcja(f"[WM-DBG] [ERROR] failed to read {path}")
         return items
 
     def _refresh_products(self) -> None:
@@ -216,14 +217,14 @@ class ProductsMaterialsTab(ttk.Frame):
             with open(path, encoding="utf-8") as f:
                 return json.load(f) or []
         except Exception:
-            print(f"[WM-DBG] [ERROR] read list {path}")
+            log_akcja(f"[WM-DBG] [ERROR] read list {path}")
             return []
 
     def _write_json_list(self, path: str, data: list[dict[str, Any]], category: str) -> None:
         self._backup(path, category)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print(f"[WM-DBG] [IO] saved {path}")
+        log_akcja(f"[WM-DBG] [IO] saved {path}")
 
     def _refresh_polprodukty(self) -> None:
         for iid in self.pol_tree.get_children():
@@ -254,7 +255,7 @@ class ProductsMaterialsTab(ttk.Frame):
                     data = json.load(f) or {}
                     items = data.get("items", {})
             except Exception:
-                print("[WM-DBG] [ERROR] nie można wczytać magazynu")
+                log_akcja("[WM-DBG] [ERROR] nie można wczytać magazynu")
                 _msg_warning(
                     self,
                     "Magazyn",
@@ -263,7 +264,7 @@ class ProductsMaterialsTab(ttk.Frame):
                 return
         self.surowce = list(items.values())
         if not isinstance(items, dict) or not items:
-            print("[WM-DBG] [WARN] magazyn brak danych lub nieprawidłowy")
+            log_akcja("[WM-DBG] [WARN] magazyn brak danych lub nieprawidłowy")
             _msg_info(self, "Magazyn", "Plik magazynu nie zawiera danych")
             return
         for it in items.values():
@@ -311,7 +312,7 @@ class ProductsMaterialsTab(ttk.Frame):
 
     # ----------------------------- Produkty CRUD ----------------------
     def add_product(self) -> None:
-        print("[WM-DBG] [PROD] Dodaj produkt")
+        log_akcja("[WM-DBG] [PROD] Dodaj produkt")
         self._product_form()
 
     def edit_product(self) -> None:
@@ -319,7 +320,7 @@ class ProductsMaterialsTab(ttk.Frame):
         if not sel:
             return
         symbol = sel[0]
-        print(f"[WM-DBG] [PROD] Edytuj produkt: {symbol}")
+        log_akcja(f"[WM-DBG] [PROD] Edytuj produkt: {symbol}")
         prod = next((p for p in self.products if p.get("symbol") == symbol), None)
         if prod:
             self._product_form(prod)
@@ -339,9 +340,9 @@ class ProductsMaterialsTab(ttk.Frame):
         try:
             self._backup(path, "produkty")
             os.remove(path)
-            print(f"[WM-DBG] [PROD] Usunięto produkt: {symbol}")
+            log_akcja(f"[WM-DBG] [PROD] Usunięto produkt: {symbol}")
         except OSError:
-            print(f"[WM-DBG] [ERROR] nie można usunąć produktu: {symbol}")
+            log_akcja(f"[WM-DBG] [ERROR] nie można usunąć produktu: {symbol}")
         self.refresh_all()
 
     def _product_form(self, product: dict[str, Any] | None = None) -> None:
@@ -410,17 +411,17 @@ class ProductsMaterialsTab(ttk.Frame):
             name = name_var.get().strip()
             if not symbol or not name:
                 _msg_error(win, "Błąd", "Wymagany symbol i nazwa")
-                print("[WM-DBG] [ERROR] brak symbolu/nazwy")
+                log_akcja("[WM-DBG] [ERROR] brak symbolu/nazwy")
                 return
             if not _VALID_ID_RE.match(symbol):
                 _msg_error(win, "Błąd", "Nieprawidłowy symbol")
-                print("[WM-DBG] [ERROR] invalid symbol")
+                log_akcja("[WM-DBG] [ERROR] invalid symbol")
                 return
             if (not product or product.get("symbol") != symbol) and not self._is_symbol_unique(
                 symbol
             ):
                 _msg_error(win, "Błąd", "Duplikat symbolu")
-                print("[WM-DBG] [ERROR] duplicate symbol")
+                log_akcja("[WM-DBG] [ERROR] duplicate symbol")
                 return
             selected_pol = [pol_ids[i] for i in list_pol.curselection()]
             czyn = [czyn_list.get(i) for i in range(czyn_list.size())]
@@ -435,9 +436,9 @@ class ProductsMaterialsTab(ttk.Frame):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             if product:
-                print(f"[WM-DBG] [PROD] Aktualizacja produktu: {symbol}")
+                log_akcja(f"[WM-DBG] [PROD] Aktualizacja produktu: {symbol}")
             else:
-                print(f"[WM-DBG] [PROD] Dodano produkt: {symbol}")
+                log_akcja(f"[WM-DBG] [PROD] Dodano produkt: {symbol}")
             win.destroy()
             self.refresh_all()
 
@@ -449,7 +450,7 @@ class ProductsMaterialsTab(ttk.Frame):
 
     # ------------------------- Półprodukty CRUD ----------------------
     def add_polprodukt(self) -> None:
-        print("[WM-DBG] [POL] Dodaj półprodukt")
+        log_akcja("[WM-DBG] [POL] Dodaj półprodukt")
         self._polprodukt_form()
 
     def edit_polprodukt(self) -> None:
@@ -457,7 +458,7 @@ class ProductsMaterialsTab(ttk.Frame):
         if not sel:
             return
         pid = sel[0]
-        print(f"[WM-DBG] [POL] Edytuj półprodukt: {pid}")
+        log_akcja(f"[WM-DBG] [POL] Edytuj półprodukt: {pid}")
         item = next((p for p in self.polprodukty if p.get("id") == pid), None)
         if item:
             self._polprodukt_form(item)
@@ -473,7 +474,7 @@ class ProductsMaterialsTab(ttk.Frame):
                 "Błąd",
                 "Półprodukt użyty w produkcie – usuń najpierw produkt",
             )
-            print(f"[WM-DBG] [POL] blokada usunięcia: {pid}")
+            log_akcja(f"[WM-DBG] [POL] blokada usunięcia: {pid}")
             return
         if not messagebox.askyesno("Potwierdź", f"Czy na pewno usunąć {pid}?", parent=self):
             return
@@ -483,7 +484,7 @@ class ProductsMaterialsTab(ttk.Frame):
             return
         self.polprodukty = [p for p in self.polprodukty if p.get("id") != pid]
         self._write_json_list(self.paths["polprodukty"], self.polprodukty, "polprodukty")
-        print(f"[WM-DBG] [POL] Usunięto półprodukt: {pid}")
+        log_akcja(f"[WM-DBG] [POL] Usunięto półprodukt: {pid}")
         self.refresh_all()
 
     def _polprodukt_form(self, item: dict[str, Any] | None = None) -> None:
@@ -576,17 +577,17 @@ class ProductsMaterialsTab(ttk.Frame):
             rodz = rodz_var.get().strip()
             if not pid or not name or not rodz:
                 _msg_error(win, "Błąd", "Wszystkie pola wymagane")
-                print("[WM-DBG] [ERROR] brak danych półproduktu")
+                log_akcja("[WM-DBG] [ERROR] brak danych półproduktu")
                 return
             if not _VALID_ID_RE.match(pid):
                 _msg_error(win, "Błąd", "Nieprawidłowy ID")
-                print("[WM-DBG] [ERROR] invalid id")
+                log_akcja("[WM-DBG] [ERROR] invalid id")
                 return
             if (not item or item.get("id") != pid) and not self._is_id_unique(
                 self.polprodukty, pid
             ):
                 _msg_error(win, "Błąd", "Duplikat ID")
-                print("[WM-DBG] [ERROR] duplicate id")
+                log_akcja("[WM-DBG] [ERROR] duplicate id")
                 return
             selected_mat = [mat_ids[i] for i in list_mat.curselection()]
             czyn = [czyn_list.get(i) for i in range(czyn_list.size())]
@@ -607,9 +608,9 @@ class ProductsMaterialsTab(ttk.Frame):
                 self.paths["polprodukty"], self.polprodukty, "polprodukty"
             )
             if item:
-                print(f"[WM-DBG] [POL] Aktualizacja półproduktu: {pid}")
+                log_akcja(f"[WM-DBG] [POL] Aktualizacja półproduktu: {pid}")
             else:
-                print(f"[WM-DBG] [POL] Dodano półprodukt: {pid}")
+                log_akcja(f"[WM-DBG] [POL] Dodano półprodukt: {pid}")
             win.destroy()
             self.refresh_all()
 
@@ -621,7 +622,7 @@ class ProductsMaterialsTab(ttk.Frame):
 
     # ----------------------------- Surowce CRUD ----------------------
     def add_surowiec(self) -> None:
-        print("[WM-DBG] [MAT] Dodaj surowiec")
+        log_akcja("[WM-DBG] [MAT] Dodaj surowiec")
         self._surowiec_form()
 
     def edit_surowiec(self) -> None:
@@ -629,7 +630,7 @@ class ProductsMaterialsTab(ttk.Frame):
         if not sel:
             return
         sid = sel[0]
-        print(f"[WM-DBG] [MAT] Edytuj surowiec: {sid}")
+        log_akcja(f"[WM-DBG] [MAT] Edytuj surowiec: {sid}")
         item = next((m for m in self.surowce if m.get("id") == sid), None)
         if item:
             self._surowiec_form(item)
@@ -641,7 +642,7 @@ class ProductsMaterialsTab(ttk.Frame):
         sid = sel[0]
         if self._is_surowiec_used(sid):
             _msg_error(self, "Błąd", "Surowiec użyty w półprodukcie")
-            print(f"[WM-DBG] [MAT] blokada usunięcia: {sid}")
+            log_akcja(f"[WM-DBG] [MAT] blokada usunięcia: {sid}")
             return
         if not messagebox.askyesno("Potwierdź", f"Czy na pewno usunąć {sid}?", parent=self):
             return
@@ -651,7 +652,7 @@ class ProductsMaterialsTab(ttk.Frame):
             return
         self.surowce = [m for m in self.surowce if m.get("id") != sid]
         self._write_json_list(self.paths["magazyn"], self.surowce, "magazyn")
-        print(f"[WM-DBG] [MAT] Usunięto surowiec: {sid}")
+        log_akcja(f"[WM-DBG] [MAT] Usunięto surowiec: {sid}")
         self.refresh_all()
 
     def _surowiec_form(self, item: dict[str, Any] | None = None) -> None:
@@ -707,24 +708,24 @@ class ProductsMaterialsTab(ttk.Frame):
             sid = id_var.get().strip().upper()
             if not sid:
                 _msg_error(win, "Błąd", "ID wymagane")
-                print("[WM-DBG] [ERROR] brak ID surowca")
+                log_akcja("[WM-DBG] [ERROR] brak ID surowca")
                 return
             if not _VALID_ID_RE.match(sid):
                 _msg_error(win, "Błąd", "Nieprawidłowy ID")
-                print("[WM-DBG] [ERROR] invalid ID surowca")
+                log_akcja("[WM-DBG] [ERROR] invalid ID surowca")
                 return
             if (not item or item.get("id") != sid) and not self._is_id_unique(
                 self.surowce, sid
             ):
                 _msg_error(win, "Błąd", "Duplikat ID")
-                print("[WM-DBG] [ERROR] duplicate ID surowca")
+                log_akcja("[WM-DBG] [ERROR] duplicate ID surowca")
                 return
             try:
                 dl_val = float(dl_var.get())
                 stan_val = float(stan_var.get())
             except ValueError:
                 _msg_error(win, "Błąd", "Długość i stan muszą być liczbą")
-                print("[WM-DBG] [ERROR] liczby surowca")
+                log_akcja("[WM-DBG] [ERROR] liczby surowca")
                 return
             data = {
                 "id": sid,
@@ -742,9 +743,9 @@ class ProductsMaterialsTab(ttk.Frame):
                 self.surowce.append(data)
             self._write_json_list(self.paths["magazyn"], self.surowce, "magazyn")
             if item:
-                print(f"[WM-DBG] [MAT] Aktualizacja surowca: {sid}")
+                log_akcja(f"[WM-DBG] [MAT] Aktualizacja surowca: {sid}")
             else:
-                print(f"[WM-DBG] [MAT] Dodano surowiec: {sid}")
+                log_akcja(f"[WM-DBG] [MAT] Dodano surowiec: {sid}")
             win.destroy()
             self.refresh_all()
 
