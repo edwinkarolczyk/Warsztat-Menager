@@ -327,7 +327,7 @@ def build_task_template(parent):
     tasks_state: list[dict] = []
 
     collections = LZ.get_collections()
-    coll_map = {c["name"]: c["id"] for c in collections}
+    coll_map: dict[str, str] = {c["name"]: c["id"] for c in collections}
     cb_coll = ttk.Combobox(
         parent,
         values=list(coll_map.keys()),
@@ -350,63 +350,102 @@ def build_task_template(parent):
     )
     status_map: dict[str, str] = {}
 
-    def _on_collection_change(_=None):
+    def _set_info(msg: str) -> None:
         try:
-            cid = coll_map.get(coll_var.get())
-            types = LZ.get_tool_types(collection=cid)
+            parent.statusbar.config(text=msg)  # type: ignore[attr-defined]
         except Exception:
-            LOG.exception("Failed to load types for collection")
+            print(f"[WM-DBG][NARZ] {msg}")
+
+    def _reload_from_lz() -> None:
+        try:
+            collections = LZ.get_collections()
+            coll_map.clear()
+            coll_map.update({c["name"]: c["id"] for c in collections})
+            cb_coll.config(values=list(coll_map.keys()))
+            default = LZ.get_default_collection()
+            coll_var.set("")
+            for name, cid in coll_map.items():
+                if cid == default:
+                    coll_var.set(name)
+                    break
             type_map.clear()
             cb_type.config(values=[])
             typ_var.set("")
+            status_map.clear()
             cb_status.config(values=[])
             status_var.set("")
             lst.delete(0, tk.END)
             tasks_state.clear()
-            messagebox.showwarning(
-                "Narzędzia", "Nie udało się wczytać typów dla kolekcji."
-            )
+        except Exception as e:  # pragma: no cover
+            print(f"[WM-DBG][NARZ][ERROR] _reload_from_lz: {e!r}")
+            _set_info("Błąd odświeżania danych")
+
+    def _odswiez_zadania() -> None:
+        try:
+            LZ.invalidate_cache()
+            _reload_from_lz()
+            print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
+        except Exception as e:  # pragma: no cover
+            print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
+            _set_info("Błąd odświeżania zadań")
+
+    def _on_collection_change(_=None):
+        try:
+            cid = coll_map.get(coll_var.get())
+            types = LZ.get_tool_types(collection=cid)
+            if not types:
+                _set_info("Brak typów w tej kolekcji")
+                type_map.clear(); cb_type.config(values=[]); typ_var.set("")
+                cb_status.config(values=[]); status_var.set("")
+                lst.delete(0, tk.END); tasks_state.clear()
+                return
+        except Exception as e:
+            print(f"[WM-DBG][NARZ][ERROR] _on_collection_change: {e!r}")
+            _set_info("Błąd wczytywania typów")
+            type_map.clear(); cb_type.config(values=[]); typ_var.set("")
+            cb_status.config(values=[]); status_var.set("")
+            lst.delete(0, tk.END); tasks_state.clear()
             return
         type_map.clear()
         type_map.update({t["name"]: t["id"] for t in types})
         cb_type.config(values=list(type_map.keys()))
         typ_var.set("")
-        cb_status.config(values=[])
-        status_var.set("")
-        lst.delete(0, tk.END)
-        tasks_state.clear()
+        cb_status.config(values=[]); status_var.set("")
+        lst.delete(0, tk.END); tasks_state.clear()
 
     def _on_type_change(_=None):
         try:
             cid = coll_map.get(coll_var.get())
             tid = type_map.get(typ_var.get())
             statuses = LZ.get_statuses(tid, collection=cid)
-        except Exception:
-            LOG.exception("Failed to load statuses for type")
-            status_map.clear()
-            cb_status.config(values=[])
-            status_var.set("")
-            lst.delete(0, tk.END)
-            tasks_state.clear()
-            messagebox.showwarning(
-                "Narzędzia", "Nie udało się wczytać statusów dla typu."
-            )
+            if not statuses:
+                _set_info("Brak statusów dla tego typu")
+                status_map.clear(); cb_status.config(values=[]); status_var.set("")
+                lst.delete(0, tk.END); tasks_state.clear()
+                return
+        except Exception as e:
+            print(f"[WM-DBG][NARZ][ERROR] _on_type_change: {e!r}")
+            _set_info("Błąd wczytywania statusów")
+            status_map.clear(); cb_status.config(values=[]); status_var.set("")
+            lst.delete(0, tk.END); tasks_state.clear()
             return
         status_map.clear()
         status_map.update({s["name"]: s["id"] for s in statuses})
         cb_status.config(values=list(status_map.keys()))
         status_var.set("")
-        lst.delete(0, tk.END)
-        tasks_state.clear()
+        lst.delete(0, tk.END); tasks_state.clear()
 
     def _on_status_change(_=None):
         try:
             cid = coll_map.get(coll_var.get())
             tid = type_map.get(typ_var.get())
             sid = status_map.get(status_var.get())
-            tasks_state[:] = [
-                {"text": t, "done": False} for t in LZ.get_tasks(tid, sid, cid)
-            ]
+            tasks = LZ.get_tasks(tid, sid, cid)
+            if not tasks:
+                _set_info("Brak zadań dla tego statusu")
+                tasks_state.clear(); lst.delete(0, tk.END)
+                return
+            tasks_state[:] = [{"text": t, "done": False} for t in tasks]
             if LZ.should_autocheck(sid, cid):
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 user = getattr(parent, "login", None) or getattr(parent, "user", None)
@@ -419,13 +458,10 @@ def build_task_template(parent):
             for t in tasks_state:
                 prefix = "[x]" if t.get("done") else "[ ]"
                 lst.insert(tk.END, f"{prefix} {t['text']}")
-        except Exception:
-            LOG.exception("Failed to load tasks for status")
-            tasks_state.clear()
-            lst.delete(0, tk.END)
-            messagebox.showwarning(
-                "Narzędzia", "Nie udało się wczytać zadań dla statusu."
-            )
+        except Exception as e:
+            print(f"[WM-DBG][NARZ][ERROR] _on_status_change: {e!r}")
+            _set_info("Błąd wczytywania zadań")
+            tasks_state.clear(); lst.delete(0, tk.END)
 
     cb_coll.bind("<<ComboboxSelected>>", _on_collection_change)
     cb_type.bind("<<ComboboxSelected>>", _on_type_change)
@@ -449,6 +485,9 @@ def build_task_template(parent):
         "on_type_change": _on_type_change,
         "on_status_change": _on_status_change,
         "tasks_state": tasks_state,
+        "odswiez_zadania": _odswiez_zadania,
+        "reload_from_lz": _reload_from_lz,
+        "set_info": _set_info,
     }
 
 # ===================== ŚCIEŻKI DANYCH =====================
@@ -757,8 +796,23 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     search_var = tk.StringVar()
     ttk.Entry(header, textvariable=search_var, width=36, style="WM.Search.TEntry").pack(side="right", padx=(8, 0))
 
+    def _odswiez_zadania():
+        try:
+            getattr(LZ, "invalidate_cache", lambda: None)()
+            print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
+        except Exception as e:  # pragma: no cover - safeguard
+            print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
+
     btn_add = ttk.Button(header, text="Dodaj", style="WM.Side.TButton")
     btn_add.pack(side="right", padx=(0, 8))
+
+    btn_odswiez = ttk.Button(
+        header,
+        text="Odśwież zadania",
+        command=_odswiez_zadania,
+        style="WM.Side.TButton",
+    )
+    btn_odswiez.pack(side="right", padx=4)
 
     wrap = ttk.Frame(frame, style="WM.Card.TFrame")
     wrap.pack(fill="both", expand=True, padx=10, pady=10)
