@@ -429,10 +429,18 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _act_dodaj(self):
-        print("[WM-DBG] _act_dodaj")
+        """Open a minimal dialog for adding a warehouse item."""
+
+        win = tk.Toplevel(self)
+        win.title("Dodaj pozycję")
+        apply_theme(win)
 
     def _act_przyjecie(self):
-        print("[WM-DBG] _act_przyjecie")
+        """Open a minimal dialog for recording a goods receipt (PZ)."""
+
+        win = tk.Toplevel(self)
+        win.title("Przyjęcie (PZ)")
+        apply_theme(win)
 
     def _show_historia(self):
         iid = self._sel_id()
