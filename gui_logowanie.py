@@ -73,20 +73,17 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
     # tło z pliku grafiki/login_bg.png
     bg_path = os.path.join("grafiki", "login_bg.png")
-    fallback = False
-    if os.path.exists(bg_path):
-        try:
-            img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
-            bg_image = ImageTk.PhotoImage(img)
-            bg_label = tk.Label(root, image=bg_image)
-            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-            bg_label.image = bg_image  # pin referencji
-            bg_label.lower()
-        except Exception as e:  # pragma: no cover - tylko logowanie
-            logging.warning("Nie można załadować tła logowania: %s", e)
-            fallback = True
-    else:
-        fallback = True
+    fallback = True
+    try:
+        img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
+        bg_image = ImageTk.PhotoImage(img)
+        bg_label = tk.Label(root, image=bg_image)
+        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        bg_label.image = bg_image  # pin referencji
+        bg_label.lower()
+        fallback = False
+    except Exception:
+        print("[WM-DBG] pomijam tło logowania (login_bg.png)")
 
     if fallback:
         root.configure(bg="#0f1113")
