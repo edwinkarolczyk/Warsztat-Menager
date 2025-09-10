@@ -136,6 +136,10 @@ def should_autocheck(
     return tools_autocheck.should_autocheck(status_id, collection_id, cfg)
 
 
+get_tool_types_list = get_tool_types
+get_statuses_for_type = get_statuses
+
+
 def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
