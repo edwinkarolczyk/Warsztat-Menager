@@ -142,3 +142,24 @@ def test_get_tasks_and_cache(monkeypatch, tmp_path):
     LZ.invalidate_cache()
     assert LZ.get_tool_types("NN", SETTINGS)[0]["name"] == "New"
 
+
+def test_legacy_types_migrated(monkeypatch, tmp_path):
+    legacy = {"types": [{"id": "T1", "statuses": []}]}
+    path = _write(tmp_path, legacy)
+    monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
+
+    class Cfg:
+        def get(self, key, default=None):
+            if key == "tools.collections_enabled":
+                return ["NN"]
+            if key == "tools.default_collection":
+                return "NN"
+            return default
+
+    monkeypatch.setattr(LZ, "ConfigManager", lambda: Cfg())
+    LZ.invalidate_cache()
+    types = LZ.get_tool_types("NN", SETTINGS)
+    assert types and types[0]["id"] == "T1"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "collections" in data and "types" not in data
+
