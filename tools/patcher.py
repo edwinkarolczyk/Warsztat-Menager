@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -8,6 +9,17 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
+
+DEBUG = False
+
+logger = logging.getLogger(__name__)
+if DEBUG and not logging.getLogger().hasHandlers():
+    logging.basicConfig(level=logging.DEBUG)
+
+
+def _log_debug(msg, *args, **kwargs):
+    if DEBUG:
+        logger.debug(msg, *args, **kwargs)
 
 
 def _get_audit_file() -> Path:
@@ -27,6 +39,23 @@ def _append_audit(entry: dict) -> None:
         fh.write("\n")
 
 
+def _run(cmd: List[str], **kwargs) -> subprocess.CompletedProcess:
+    """Run ``cmd`` capturing output and log failures."""
+    _log_debug("[WM-DBG] Running %s", " ".join(cmd))
+    try:
+        return subprocess.run(
+            cmd, check=True, capture_output=True, text=True, **kwargs
+        )
+    except subprocess.CalledProcessError as exc:
+        _log_debug("[WM-DBG] Command failed: %s", " ".join(exc.cmd))
+        _log_debug("[WM-DBG] Return code: %s", exc.returncode)
+        if exc.stdout:
+            _log_debug("[WM-DBG] stdout: %s", exc.stdout)
+        if exc.stderr:
+            _log_debug("[WM-DBG] stderr: %s", exc.stderr)
+        raise
+
+
 def apply_patch(path: str, dry_run: bool = False) -> None:
     """Apply a git patch or patches from ``path``.
 
@@ -44,8 +73,7 @@ def apply_patch(path: str, dry_run: bool = False) -> None:
         if dry_run:
             cmd.append("--check")
         cmd.append(patch_path)
-        print(f"[WM-DBG] Running {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        _run(cmd)
 
     if path.endswith(".zip"):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -67,7 +95,7 @@ def apply_patch(path: str, dry_run: bool = False) -> None:
             "dry_run": dry_run,
         }
     )
-    print("[WM-DBG] apply_patch complete")
+    _log_debug("[WM-DBG] apply_patch complete")
 
 
 def get_commits(limit: int = 20, branch: str = "Rozwiniecie") -> List[Tuple[str, str]]:
@@ -81,8 +109,7 @@ def get_commits(limit: int = 20, branch: str = "Rozwiniecie") -> List[Tuple[str,
         Branch name to inspect.
     """
     cmd = ["git", "log", f"-n{limit}", "--format=%H%x09%s", branch]
-    print(f"[WM-DBG] Running {' '.join(cmd)}")
-    result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    result = _run(cmd)
     commits: List[Tuple[str, str]] = []
     for line in result.stdout.strip().splitlines():
         commit_hash, message = line.split("\t", 1)
@@ -95,7 +122,7 @@ def get_commits(limit: int = 20, branch: str = "Rozwiniecie") -> List[Tuple[str,
             "branch": branch,
         }
     )
-    print("[WM-DBG] get_commits complete")
+    _log_debug("[WM-DBG] get_commits complete")
     return commits
 
 
@@ -110,8 +137,7 @@ def rollback_to(commit_hash: str, hard: bool = True) -> None:
         When ``True`` perform ``--hard`` reset, otherwise ``--soft``.
     """
     cmd = ["git", "reset", "--hard" if hard else "--soft", commit_hash]
-    print(f"[WM-DBG] Running {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
+    _run(cmd)
     _append_audit(
         {
             "time": datetime.now(timezone.utc).isoformat(),
@@ -120,4 +146,4 @@ def rollback_to(commit_hash: str, hard: bool = True) -> None:
             "hard": hard,
         }
     )
-    print("[WM-DBG] rollback_to complete")
+    _log_debug("[WM-DBG] rollback_to complete")
