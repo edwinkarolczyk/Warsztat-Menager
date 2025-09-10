@@ -12,9 +12,11 @@ import sys
 import threading
 import tkinter as tk
 from pathlib import Path
+from tkinter import colorchooser
+from tkinter import filedialog
+from tkinter import messagebox
+from tkinter import ttk
 from typing import Any, Dict
-from tkinter import colorchooser, filedialog
-from tkinter import ttk, messagebox
 
 import config_manager as cm
 from config_manager import ConfigManager
