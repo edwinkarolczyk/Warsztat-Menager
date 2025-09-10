@@ -6,10 +6,12 @@ import json
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox
+import logging
 
 from ui_theme import apply_theme_safe as apply_theme
 
 ORDERS_PATH = Path("data/zamowienia_oczekujace.json")
+logger = logging.getLogger(__name__)
 
 
 class MagazynOrderDialog:
@@ -49,19 +51,34 @@ class MagazynOrderDialog:
             messagebox.showerror("Błąd", "Podaj poprawną dodatnią ilość.")
             return
 
+        logger.debug("[WM-DBG][MAG][ORDER] start")
         data: list[dict[str, object]] = []
         if ORDERS_PATH.exists():
             try:
-                data = json.loads(ORDERS_PATH.read_text(encoding="utf-8") or "[]")
-            except Exception:
+                raw = ORDERS_PATH.read_text(encoding="utf-8") or "[]"
+                data = json.loads(raw)
+                if not isinstance(data, list):
+                    raise ValueError("Invalid structure")
+            except Exception as e:
+                logger.exception("Failed to read pending orders: %s", e)
                 data = []
 
         data.append({"id": self.var_id.get(), "ilosc": qty})
-        ORDERS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        ORDERS_PATH.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        try:
+            ORDERS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            ORDERS_PATH.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            check = json.loads(ORDERS_PATH.read_text(encoding="utf-8") or "[]")
+            if not isinstance(check, list):
+                raise ValueError("Invalid structure after save")
+        except Exception as e:
+            logger.exception("Failed to write pending orders: %s", e)
+            messagebox.showerror("Błąd", f"Nie zapisano zamówienia: {e}")
+            return
 
+        logger.debug("[WM-DBG][MAG][ORDER] finish")
         if callable(self.on_saved):
             self.on_saved()
         self.top.destroy()
