@@ -517,14 +517,14 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _act_dodaj(self):
-        """Open dialog for adding a warehouse item."""
+        """Open dialog for adding a warehouse item and wait until it closes."""
         dlg = MagazynAddDialog(
             self.root, self.config, self.profiles, on_saved=self._reload_data
         )
         self.root.wait_window(dlg.top)
 
     def _act_przyjecie(self):
-        """Open dialog for registering a goods receipt (PZ)."""
+        """Open dialog for registering a goods receipt (PZ) and wait until it closes."""
         selected = self.tree.selection()
         selected_id = selected[0] if selected else None
         dlg = MagazynPZDialog(
