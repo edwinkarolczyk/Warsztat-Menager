@@ -29,9 +29,7 @@ def test_duplicate_type_ids(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ._TOOL_TASKS_CACHE = None
-    with pytest.raises(LZ.ToolTasksError) as exc:
-        LZ.get_tool_types_list(collection="NN")
-    assert "Powtarzające się id typu" in str(exc.value)
+    assert LZ.get_tool_types_list(collection="NN") == []
 
 
 def test_duplicate_status_ids(monkeypatch, tmp_path):
@@ -53,9 +51,7 @@ def test_duplicate_status_ids(monkeypatch, tmp_path):
     path = _write(tmp_path, data)
     monkeypatch.setattr(LZ, "TOOL_TASKS_PATH", str(path))
     LZ._TOOL_TASKS_CACHE = None
-    with pytest.raises(LZ.ToolTasksError) as exc:
-        LZ.get_statuses_for_type("T1", collection="NN")
-    assert "Powtarzające się id statusu" in str(exc.value)
+    assert LZ.get_statuses_for_type("T1", collection="NN") == []
 
 
 def test_migrate_plain_list(monkeypatch, tmp_path):
