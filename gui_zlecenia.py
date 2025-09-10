@@ -55,13 +55,18 @@ def _fmt(v):
 
 
 def _append_pending_order(kod_produktu, braki):
+    logger.debug("[WM-DBG][MAG][ORDER] start")
     zam_path = Path("data") / "zamowienia_oczekujace.json"
-    try:
-        with open(zam_path, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError) as e:
-        logger.exception("Failed to read pending orders: %s", e)
-        data = []
+    data: list[dict[str, object]] = []
+    if zam_path.exists():
+        try:
+            raw = zam_path.read_text(encoding="utf-8") or "[]"
+            data = json.loads(raw)
+            if not isinstance(data, list):
+                raise ValueError("Invalid structure")
+        except Exception as e:
+            logger.exception("Failed to read pending orders: %s", e)
+            data = []
     entry = {
         "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "produkt": kod_produktu,
@@ -69,8 +74,19 @@ def _append_pending_order(kod_produktu, braki):
         "status": "do_zamowienia",
     }
     data.append(entry)
-    with open(zam_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    try:
+        zam_path.parent.mkdir(parents=True, exist_ok=True)
+        zam_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        check = json.loads(zam_path.read_text(encoding="utf-8") or "[]")
+        if not isinstance(check, list):
+            raise ValueError("Invalid structure after save")
+    except Exception as e:
+        logger.exception("Failed to write pending orders: %s", e)
+    else:
+        logger.debug("[WM-DBG][MAG][ORDER] finish")
 
 _STATUS_TO_PCT = {
     "nowe": 0,
