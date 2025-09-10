@@ -1,4 +1,5 @@
 import types
+import sys
 import gui_magazyn
 
 
@@ -18,21 +19,18 @@ def test_add_and_pz_buttons_create_windows(monkeypatch):
         types.SimpleNamespace(Toplevel=DummyToplevel),
     )
     monkeypatch.setattr(gui_magazyn, "apply_theme", lambda *a, **k: None)
-    monkeypatch.setattr(
-        gui_magazyn, "MagazynAddDialog", lambda master, *a, **k: DummyToplevel()
-    )
-    monkeypatch.setattr(
-        gui_magazyn, "MagazynPZDialog", lambda master, *a, **k: DummyToplevel()
-    )
-
     class DummyDialog:
-        def __init__(self, parent, **_):
-            gui_magazyn.tk.Toplevel(parent)
+        def __init__(self, master, config, profiles=None, preselect_id=None, on_saved=None):
+            self.top = gui_magazyn.tk.Toplevel(master)
 
     monkeypatch.setattr(gui_magazyn, "MagazynAddDialog", DummyDialog)
-    monkeypatch.setattr(gui_magazyn, "MagazynPZDialog", DummyDialog)
+    dummy_mod = types.SimpleNamespace(MagazynPZDialog=DummyDialog)
+    monkeypatch.setitem(sys.modules, "gui_magazyn_pz", dummy_mod)
 
     panel = object.__new__(gui_magazyn.PanelMagazyn)
+    panel.root = types.SimpleNamespace(wait_window=lambda *_: None)
+    panel.config = {}
+    panel.profiles = {}
 
     gui_magazyn.PanelMagazyn._act_dodaj(panel)
     gui_magazyn.PanelMagazyn._act_przyjecie(panel)

@@ -22,6 +22,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import re
 from pathlib import Path
+from datetime import datetime
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
@@ -42,9 +43,9 @@ except Exception:  # pragma: no cover - fallback stub
 
 
 class MagazynAddDialog:  # pragma: no cover - thin wrapper for tests
-    def __init__(self, master, *_args, on_saved=None, **_kwargs):
+    def __init__(self, master, config, profiles=None, on_saved=None):
         if _MagazynAddDialog and hasattr(master, "tk"):
-            _MagazynAddDialog(master, on_saved=on_saved)
+            _MagazynAddDialog(master, config, profiles, on_saved=on_saved)
         else:
             tk.Toplevel(master)
 
@@ -56,9 +57,9 @@ except Exception:  # pragma: no cover - fallback stub
 
 
 class MagazynPZDialog:  # pragma: no cover - thin wrapper for tests
-    def __init__(self, master, *_args, on_saved=None, **_kwargs):
+    def __init__(self, master, config, profiles=None, preselect_id=None, on_saved=None):
         if _MagazynPZDialog and hasattr(master, "tk"):
-            _MagazynPZDialog(master, on_saved=on_saved)
+            _MagazynPZDialog(master, config, profiles, preselect_id=preselect_id, on_saved=on_saved)
         else:
             tk.Toplevel(master)
 
@@ -129,6 +130,8 @@ class PanelMagazyn(ttk.Frame):
     def __init__(self, master):
         super().__init__(master, style="WM.Card.TFrame")
         self.root = master
+        self.config = getattr(master, "config", ConfigManager())
+        self.profiles = getattr(master, "profiles", None)
         self._tooltip_windows: set[tk.Toplevel] = set()
         self.root.bind("<Destroy>", self._cleanup_tooltips, add="+")
         apply_theme(self)
@@ -533,29 +536,123 @@ class PanelMagazyn(ttk.Frame):
     def _act_dodaj(self):
         """Open dialog for adding a warehouse item."""
         print("[WM-DBG][MAG] _act_dodaj -> otwieram okno dodawania")
-        master = getattr(self, "master", self)
-        MagazynAddDialog(master, on_saved=self._reload_data)
+        try:
+            dlg = MagazynAddDialog(
+                self.root,
+                self.config,
+                getattr(self, "profiles", None),
+                on_saved=self._reload_data,
+            )
+            self.root.wait_window(dlg.top)
+        except TypeError as e:
+            print(f"[WM-DBG][MAG][ERROR] Nieprawidłowa sygnatura MagazynAddDialog: {e!r}")
 
     def _act_przyjecie(self):
-        """Open dialog for registering a goods receipt (PZ)."""
         print("[WM-DBG][MAG] _act_przyjecie -> otwieram okno przyjęcia")
-        master = getattr(self, "master", self)
-        MagazynPZDialog(master, on_saved=self._reload_data)
+
+        # Wyciągnięcie zaznaczonego ID z tabeli (jeśli jest)
+        selected_id = None
+        try:
+            sel = self.tree.selection()
+            if sel:
+                selected_id = self.tree.item(sel[0], "values")[0]  # kolumna 0 = ID
+        except Exception as e:
+            print(f"[WM-DBG][MAG] _act_przyjecie selection err: {e!r}")
+
+        # Import klasy (jeśli jest w osobnym pliku)
+        try:
+            from gui_magazyn_pz import MagazynPZDialog  # jeśli klasa jest tu, import zostanie pominięty
+        except Exception:
+            pass
+
+        try:
+            # UJEDNOLICONA SYGNATURA: (master, config, profiles=None, preselect_id=None, on_saved=None)
+            dlg = MagazynPZDialog(
+                self.root,
+                self.config,
+                getattr(self, "profiles", None),
+                preselect_id=selected_id,
+                on_saved=self._reload_data,
+            )
+            self.root.wait_window(dlg.top)
+        except TypeError as e:
+            print(f"[WM-DBG][MAG][ERROR] Nieprawidłowa sygnatura MagazynPZDialog: {e!r}")
+
+    @staticmethod
+    def _fmt_ts(value):
+        """Akceptuje epoch (int/float) lub ISO/string; zwraca tekst czasu."""
+        try:
+            if isinstance(value, (int, float)):
+                return datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")
+            s = str(value)
+            try:
+                return datetime.fromisoformat(s.replace("Z", "+00:00")).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            except Exception:
+                return s
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _hget(h: dict, want: str):
+        """
+        Mapowanie nazw pól historii:
+        - nowy format: ts, op, qty, user, comment
+        - stary format: czas, operacja, ilosc, uzytkownik, kontekst
+        """
+        if want == "czas":
+            return PanelMagazyn._fmt_ts(h.get("czas", h.get("ts", "")))
+        if want == "operacja":
+            return h.get("operacja", h.get("op", ""))
+        if want == "ilosc":
+            return h.get("ilosc", h.get("qty", ""))
+        if want == "uzytkownik":
+            return h.get("uzytkownik", h.get("user", ""))
+        if want == "kontekst":
+            return h.get("kontekst", h.get("comment", ""))
+        return ""
 
     def _show_historia(self):
         iid = self._sel_id()
-        if not iid: return
-        hist = LM.historia_item(iid, limit=200)
+        if not iid:
+            return
+        historia = LM.historia_item(iid, limit=200)
         win = tk.Toplevel(self)
         win.title(f"Historia: {iid}")
         apply_theme(win)
-        tv = ttk.Treeview(win, columns=("czas","op","ile","kto","ctx"), show="headings", style="WM.Treeview")
+        tv = ttk.Treeview(win, show="headings", style="WM.Treeview")
         tv.pack(fill="both", expand=True, padx=8, pady=8)
-        for c, t, w in [("czas","Czas",150),("op","Operacja",120),("ile","Ilość",80),("kto","Użytkownik",140),("ctx","Kontekst",300)]:
-            tv.heading(c, text=t); tv.column(c, width=w, anchor="w")
-        for h in hist:
-            tv.insert("", "end", values=(h["czas"], h["operacja"], h["ilosc"], h["uzytkownik"], h.get("kontekst","")))
-        ttk.Button(win, text="Zamknij", command=win.destroy).pack(pady=(0,8))
+        tv["columns"] = ("czas", "operacja", "ilosc", "uzytkownik", "kontekst")
+        tv.heading("czas", text="Czas")
+        tv.heading("operacja", text="Operacja")
+        tv.heading("ilosc", text="Ilość")
+        tv.heading("uzytkownik", text="Użytkownik")
+        tv.heading("kontekst", text="Kontekst")
+        tv.column("czas", width=150, anchor="w")
+        tv.column("operacja", width=120, anchor="w")
+        tv.column("ilosc", width=70, anchor="e")
+        tv.column("uzytkownik", width=120, anchor="w")
+        tv.column("kontekst", width=240, anchor="w")
+
+        for h in historia:  # lista wpisów historii
+            try:
+                tv.insert(
+                    "",
+                    "end",
+                    values=(
+                        self._hget(h, "czas"),
+                        self._hget(h, "operacja"),
+                        self._hget(h, "ilosc"),
+                        self._hget(h, "uzytkownik"),
+                        self._hget(h, "kontekst"),
+                    ),
+                )
+            except Exception as e:
+                print(
+                    f"[WM-DBG][MAG][WARN] Pominięto uszkodzony wpis historii: {e!r} | {h!r}"
+                )
+        ttk.Button(win, text="Zamknij", command=win.destroy).pack(pady=(0, 8))
 
     def _update_alerts(self):
         al = LM.sprawdz_progi()
