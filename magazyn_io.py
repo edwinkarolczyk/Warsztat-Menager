@@ -11,6 +11,8 @@ from io_utils import read_json, write_json
 from logger import log_akcja
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
+MAGAZYN_HISTORY_PATH = "data/magazyn/magazyn_history.json"
+PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
 
 
 def load_magazyn(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
@@ -110,6 +112,23 @@ def append_history(item_id: str, entry: Dict[str, Any], path_or_items) -> Dict[s
 
     if data is not None:
         save_magazyn(data, path_or_items)
+
+    # Persist history to global logs
+    history_entry = dict(norm)
+    history_entry["item_id"] = item_id
+
+    hist = read_json(MAGAZYN_HISTORY_PATH)
+    if not isinstance(hist, list):
+        hist = []
+    hist.append(history_entry)
+    write_json(MAGAZYN_HISTORY_PATH, hist)
+
+    if norm["op"] == "PZ":
+        pz = read_json(PRZYJECIA_PATH)
+        if not isinstance(pz, list):
+            pz = []
+        pz.append(history_entry)
+        write_json(PRZYJECIA_PATH, pz)
 
     return norm
 
