@@ -15,6 +15,18 @@ from services.profile_service import (
     write_users as _write_users,
 )
 
+MODULES = [
+    "zlecenia",
+    "narzedzia",
+    "maszyny",
+    "magazyn",
+    "hale",
+    "feedback",
+    "uzytkownicy",
+    "ustawienia",
+    "profil",
+]
+
 _USERS_FILE = "uzytkownicy.json"
 _PRESENCE_FILE = "uzytkownicy_presence.json"
 
@@ -66,7 +78,6 @@ def make_tab(parent, rola):
         "imie",
         "nazwisko",
         "staz",
-        "disabled_modules",
     ]
     text_fields = [
         "umiejetnosci",
@@ -79,10 +90,9 @@ def make_tab(parent, rola):
         "preferencje",
         "opis",
     ]
-    fields = fields_entry + text_fields
-
     vars = {}
     text_widgets = {}
+    module_vars = {}
 
     row = 1
     for f in fields_entry:
@@ -100,6 +110,15 @@ def make_tab(parent, rola):
     ).grid(row=row, column=1, sticky="ew")
     row += 1
 
+    ttk.Label(form, text="disabled_modules").grid(row=row, column=0, sticky="ne")
+    mods_frame = ttk.Frame(form)
+    mods_frame.grid(row=row, column=1, sticky="w")
+    for mod in MODULES:
+        var = tk.BooleanVar()
+        module_vars[mod] = var
+        ttk.Checkbutton(mods_frame, text=mod, variable=var).pack(anchor="w")
+    row += 1
+
     for f in text_fields:
         ttk.Label(form, text=f).grid(row=row, column=0, sticky="ne")
         txt = tk.Text(form, height=3)
@@ -115,10 +134,10 @@ def make_tab(parent, rola):
         user = users[idx]
         login_var.set(user.get("login", ""))
         for f in fields_entry:
-            val = user.get(f, "")
-            if f == "disabled_modules" and isinstance(val, list):
-                val = ", ".join(val)
-            vars[f].set(val)
+            vars[f].set(user.get(f, ""))
+        mods = {m.strip().lower() for m in user.get("disabled_modules", [])}
+        for mod, var in module_vars.items():
+            var.set(mod in mods)
         for f in text_fields:
             w = text_widgets[f]
             w.delete("1.0", "end")
@@ -132,8 +151,6 @@ def make_tab(parent, rola):
                 w.insert("1.0", val)
         widok_var.set(user.get("preferencje", {}).get("widok_startowy", "panel"))
         entry_login.config(state="disabled")
-
-    lb.bind("<<ListboxSelect>>", load_selected)
 
     def save_user():
         sel = lb.curselection()
@@ -152,11 +169,8 @@ def make_tab(parent, rola):
             lb.selection_clear(0, tk.END)
             lb.selection_set(lb.size() - 1)
         for f in fields_entry:
-            if f == "disabled_modules":
-                modules = [m.strip() for m in vars[f].get().split(",") if m.strip()]
-                user[f] = modules
-            else:
-                user[f] = vars[f].get()
+            user[f] = vars[f].get()
+        user["disabled_modules"] = [m for m, v in module_vars.items() if v.get()]
         defaults = {
             "umiejetnosci": {},
             "kursy": [],
@@ -191,7 +205,7 @@ def make_tab(parent, rola):
         load_selected()
 
     btn_save = ttk.Button(form, text="Zapisz")
-    btn_save.grid(row=len(fields) + 1, column=0, columnspan=2, pady=5)
+    btn_save.grid(row=row, column=0, columnspan=2, pady=5)
 
     if str(rola).lower() == "admin":
         btns = ttk.Frame(frame)
@@ -202,6 +216,8 @@ def make_tab(parent, rola):
             login_var.set("")
             for f in fields_entry:
                 vars[f].set("")
+            for var in module_vars.values():
+                var.set(False)
             for f in text_fields:
                 text_widgets[f].delete("1.0", "end")
             widok_var.set("panel")
@@ -240,6 +256,12 @@ def make_tab(parent, rola):
         ),
     )
     guard.watch(frame)
+    for var in module_vars.values():
+        var.trace_add("write", lambda *_: guard.set_dirty(True))
+
+    frame.lb = lb
+    frame.btn_save = btn_save
+    frame.module_vars = module_vars
 
     lb.bind(
         "<<ListboxSelect>>",
