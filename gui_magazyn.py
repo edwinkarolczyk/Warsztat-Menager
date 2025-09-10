@@ -32,6 +32,7 @@ from ui_utils import _ensure_topmost
 # Uwaga: korzystamy z istniejącego modułu logiki magazynu w projekcie
 import logika_magazyn as LM
 from config_manager import ConfigManager
+from services.profile_service import authenticate
 
 _CFG = ConfigManager()
 
@@ -478,18 +479,230 @@ class PanelMagazyn(ttk.Frame):
             messagebox.showerror("Magazyn", f"Błąd drukowania: {e}")
 
     def _act_dodaj(self):
-        """Open a minimal dialog for adding a warehouse item."""
+        """Build a small form for adding a warehouse item.
+
+        The form collects basic fields required for a new record. After
+        validation the data is passed to :func:`logika_magazyn.upsert_item` and
+        the panel is refreshed.
+        """
 
         win = tk.Toplevel(self)
         win.title("Dodaj pozycję")
         apply_theme(win)
+        if not hasattr(win, "tk"):
+            return
+
+        try:
+            from tkinter import StringVar as _TkStringVar
+            try:
+                _TkStringVar()
+                StringVar = _TkStringVar
+            except Exception:
+                raise RuntimeError
+        except Exception:  # pragma: no cover - fallback when tk is stubbed
+            class StringVar:  # minimal stand-in for tests
+                def __init__(self, value=""):
+                    self._val = value
+
+                def get(self):
+                    return self._val
+
+                def set(self, value):
+                    self._val = value
+
+        vars_ = {
+            "id": StringVar(),
+            "nazwa": StringVar(),
+            "typ": StringVar(value="komponent"),
+            "jednostka": StringVar(value="szt"),
+            "stan": StringVar(value="0"),
+            "min": StringVar(value="0"),
+        }
+
+        frm = ttk.Frame(win, padding=12, style="WM.TFrame")
+        frm.grid(row=0, column=0, sticky="nsew")
+        win.columnconfigure(0, weight=1)
+
+        fields = [
+            ("ID", "id"),
+            ("Nazwa", "nazwa"),
+            ("Typ", "typ"),
+            ("Jednostka", "jednostka"),
+            ("Stan", "stan"),
+            ("Min. poziom", "min"),
+        ]
+
+        for r, (lbl, key) in enumerate(fields):
+            ttk.Label(frm, text=f"{lbl}:").grid(row=r, column=0, sticky="w", pady=2)
+            ttk.Entry(frm, textvariable=vars_[key]).grid(
+                row=r, column=1, sticky="ew", pady=2
+            )
+        frm.columnconfigure(1, weight=1)
+
+        btns = ttk.Frame(win, style="WM.TFrame")
+        btns.grid(row=1, column=0, padx=12, pady=(4, 8), sticky="e")
+
+        def _submit():
+            iid = vars_["id"].get().strip()
+            nazwa = vars_["nazwa"].get().strip()
+            typ = vars_["typ"].get().strip() or "komponent"
+            jm = vars_["jednostka"].get().strip() or "szt"
+            if not all([iid, nazwa, typ, jm]):
+                messagebox.showerror(
+                    "Błąd", "Wszystkie pola są wymagane", parent=win
+                )
+                return
+            try:
+                stan = float(vars_["stan"].get() or 0)
+                min_p = float(vars_["min"].get() or 0)
+            except ValueError:
+                messagebox.showerror(
+                    "Błąd", "Stan i minimum muszą być liczbami", parent=win
+                )
+                return
+
+            payload = {
+                "id": iid,
+                "nazwa": nazwa,
+                "typ": typ,
+                "jednostka": jm,
+                "stan": stan,
+                "min_poziom": min_p,
+            }
+            try:
+                LM.upsert_item(payload)
+            except Exception as exc:  # pragma: no cover - protective
+                messagebox.showerror("Błąd", str(exc), parent=win)
+                return
+
+            self._load()
+            win.destroy()
+
+        ttk.Button(
+            btns, text="Zapisz", command=_submit, style="WM.Side.TButton"
+        ).pack(side="right", padx=(8, 0))
+        ttk.Button(
+            btns, text="Anuluj", command=win.destroy, style="WM.Side.TButton"
+        ).pack(side="right")
 
     def _act_przyjecie(self):
-        """Open a minimal dialog for recording a goods receipt (PZ)."""
+        """Dialog for registering a goods receipt (PZ)."""
 
         win = tk.Toplevel(self)
         win.title("Przyjęcie (PZ)")
         apply_theme(win)
+        if not hasattr(win, "tk"):
+            return
+
+        ids = [it["id"] for it in getattr(self, "_all", [])]
+        try:
+            sel = self._sel_id()
+        except Exception:
+            sel = None
+
+        try:
+            from tkinter import StringVar as _TkStringVar
+            try:
+                _TkStringVar()
+                StringVar = _TkStringVar
+            except Exception:
+                raise RuntimeError
+        except Exception:  # pragma: no cover - fallback
+            class StringVar:
+                def __init__(self, value=""):
+                    self._val = value
+
+                def get(self):
+                    return self._val
+
+                def set(self, value):
+                    self._val = value
+
+        var_id = StringVar(value=sel if sel in ids else (ids[0] if ids else ""))
+        var_qty = StringVar()
+
+        frm = ttk.Frame(win, padding=12, style="WM.TFrame")
+        frm.grid(row=0, column=0, sticky="nsew")
+        win.columnconfigure(0, weight=1)
+
+        ttk.Label(frm, text="Pozycja:").grid(row=0, column=0, sticky="w", pady=2)
+        cb = ttk.Combobox(frm, textvariable=var_id, values=ids, state="readonly")
+        cb.grid(row=0, column=1, sticky="ew", pady=2)
+
+        ttk.Label(frm, text="Ilość:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Entry(frm, textvariable=var_qty).grid(row=1, column=1, sticky="ew", pady=2)
+        frm.columnconfigure(1, weight=1)
+
+        btns = ttk.Frame(win, style="WM.TFrame")
+        btns.grid(row=1, column=0, padx=12, pady=(4, 8), sticky="e")
+
+        def _submit():
+            iid = var_id.get().strip()
+            try:
+                qty = float(var_qty.get())
+            except ValueError:
+                messagebox.showerror(
+                    "Błąd", "Ilość musi być liczbą", parent=win
+                )
+                return
+            if qty <= 0 or not iid:
+                messagebox.showerror(
+                    "Błąd", "Uzupełnij poprawnie wszystkie pola", parent=win
+                )
+                return
+
+            user_login = getattr(self.winfo_toplevel(), "login", "system")
+            if _CFG.get("magazyn.require_reauth", True):
+                login = simpledialog.askstring(
+                    "Re-autoryzacja", "Login:", parent=win
+                )
+                if login is None:
+                    return
+                pin = simpledialog.askstring(
+                    "Re-autoryzacja", "PIN:", show="*", parent=win
+                )
+                if pin is None:
+                    return
+                user = authenticate(login, pin)
+                if not user:
+                    messagebox.showerror(
+                        "Błąd", "Nieprawidłowy login lub PIN", parent=win
+                    )
+                    return
+                user_login = user.get("login", login)
+
+            try:
+                with LM._LOCK:
+                    m = LM.load_magazyn()
+                    items = m.get("items") or {}
+                    it = items.get(iid)
+                    if not it:
+                        raise KeyError(f"Brak pozycji {iid}")
+                    it["stan"] = float(it.get("stan", 0)) + qty
+                    LM._append_history(
+                        items, iid, user_login, "PZ", qty, kontekst="GUI Magazyn"
+                    )
+                    LM.save_magazyn(m)
+                    LM.zapisz_stan_magazynu(m)
+                    LM._log_mag(
+                        "przyjecie",
+                        {"item_id": iid, "ilosc": qty, "by": user_login, "ctx": "GUI Magazyn"},
+                    )
+                for al in filter(lambda a: a["item_id"] == iid, LM.sprawdz_progi()):
+                    LM._log_mag("prog_alert", al)
+            except Exception as exc:  # pragma: no cover - defensive
+                messagebox.showerror("Błąd", str(exc), parent=win)
+                return
+
+            self._load()
+            win.destroy()
+
+        ttk.Button(
+            btns, text="Zapisz", command=_submit, style="WM.Side.TButton"
+        ).pack(side="right", padx=(8, 0))
+        ttk.Button(
+            btns, text="Anuluj", command=win.destroy, style="WM.Side.TButton"
+        ).pack(side="right")
 
     def _show_historia(self):
         iid = self._sel_id()
