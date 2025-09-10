@@ -114,7 +114,12 @@ def open_window(parent):
         data.setdefault("meta", {}).setdefault("order", []).append(item_id)
 
         magazyn_io.append_history(
-            data["items"], item_id, user_login or "", "CREATE", stan, comment
+            data["items"],
+            item_id,
+            user=user_login or "",
+            op="CREATE",
+            qty=stan,
+            comment=comment,
         )
 
         print("[WM-DBG] przed zapisem")

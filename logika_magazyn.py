@@ -250,7 +250,14 @@ def _append_history(*args, **kwargs):
     items, item_id, uzytkownik, op, ilosc, *rest = args
     kontekst = rest[0] if rest else kwargs.get("kontekst")
 
-    append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+    append_history(
+        items,
+        item_id,
+        user=uzytkownik,
+        op=op,
+        qty=ilosc,
+        comment=kontekst or "",
+    )
 
     mapping = {
         "RESERVE": "rezerwacja",
@@ -480,7 +487,9 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
                 f"Niewystarczający stan {item_id}: {it['stan']} < {dok}"
             )
         it["stan"] -= dok
-        _append_history(m["items"], item_id, uzytkownik, "RW", dok, kontekst)
+        _append_history(
+            m["items"], item_id, uzytkownik, "RW", dok, kontekst=kontekst
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -502,7 +511,9 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
         dok = float(ilosc)
         it["stan"] += dok
-        _append_history(m["items"], item_id, uzytkownik, "ZW", dok, kontekst)
+        _append_history(
+            m["items"], item_id, uzytkownik, "ZW", dok, kontekst=kontekst
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -531,7 +542,9 @@ def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
         if faktyczne <= 0:
             return 0.0
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) + faktyczne
-        _append_history(m["items"], item_id, uzytkownik, "RESERVE", faktyczne, kontekst)
+        _append_history(
+            m["items"], item_id, uzytkownik, "RESERVE", faktyczne, kontekst=kontekst
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -554,7 +567,9 @@ def zwolnij_rezerwacje(item_id, ilosc, uzytkownik, kontekst=None):
         if float(it.get("rezerwacje", 0.0)) < dok:
             raise ValueError(f"Nie można zwolnić {dok}, rezerwacje={it.get('rezerwacje',0.0)}")
         it["rezerwacje"] = float(it.get("rezerwacje", 0.0)) - dok
-        _append_history(m["items"], item_id, uzytkownik, "UNRESERVE", dok, kontekst)
+        _append_history(
+            m["items"], item_id, uzytkownik, "UNRESERVE", dok, kontekst=kontekst
+        )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag(
@@ -597,7 +612,14 @@ def rezerwuj_materialy(bom, ilosc):
             else:
                 zuzyte = req
                 it["stan"] = stan - req
-            _append_history(items, kod, "system", "RESERVE", zuzyte, "rezerwuj_materialy")
+            _append_history(
+                items,
+                kod,
+                "system",
+                "RESERVE",
+                zuzyte,
+                kontekst="rezerwuj_materialy",
+            )
             _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
         save_magazyn(m)
         zapisz_stan_magazynu(m)
