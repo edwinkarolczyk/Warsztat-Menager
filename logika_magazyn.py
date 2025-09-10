@@ -228,7 +228,7 @@ def load_magazyn():
         _log_info(f"Tworzę nowy magazyn: {MAGAZYN_PATH}")
         save_magazyn(_default_magazyn())
 
-    # wczytaj i AUTONAPRAWY
+    # wczytaj i spróbuj naprawić strukturę
     try:
         with open(MAGAZYN_PATH, "r", encoding="utf-8") as f:
             mj = json.load(f)
