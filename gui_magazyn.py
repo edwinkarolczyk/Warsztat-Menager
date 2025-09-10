@@ -159,7 +159,7 @@ class PanelMagazyn(ttk.Frame):
     def _build_ui(self):
         lock_path = Path("data/magazyn/magazyn.json.lock")
         if lock_path.exists():
-            print("[WM-DBG] magazyn.json.lock detected")
+            log_akcja("[WM-DBG] magazyn.json.lock detected")
             try:
                 self.master.tab(self, text="Magazyn LOCK")
             except Exception:

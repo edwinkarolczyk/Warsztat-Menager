@@ -15,6 +15,7 @@ from config_manager import ConfigManager
 from services.profile_service import authenticate
 import magazyn_io
 import logika_magazyn as LM
+from logger import log_akcja
 
 _CFG = ConfigManager()
 
@@ -162,9 +163,9 @@ class MagazynAddDialog:
             comment="",
         )
 
-        print("[WM-DBG][MAGAZYN-ADD] saving")
+        log_akcja("[WM-DBG][MAGAZYN-ADD] saving")
         save(data)
-        print("[WM-DBG][MAGAZYN-ADD] saved")
+        log_akcja("[WM-DBG][MAGAZYN-ADD] saved")
 
         if self.on_saved:
             try:
