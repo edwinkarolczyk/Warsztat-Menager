@@ -23,6 +23,9 @@
     "theme": "dark",
     "language": "pl"
   },
+  "magazyn": {
+    "require_reauth": true
+  },
   "backup": {
     "keep_last": 10
   }
