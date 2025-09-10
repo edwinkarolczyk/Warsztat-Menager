@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 TOOL_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
 _TOOL_TASKS_CACHE: dict[str, list[dict]] | None = None
+_TOOL_TASKS_MTIME: float | None = None
 
 
 class ToolTasksError(RuntimeError):
@@ -50,9 +51,14 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
         force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
     """
 
-    global _TOOL_TASKS_CACHE
+    global _TOOL_TASKS_CACHE, _TOOL_TASKS_MTIME
     if _TOOL_TASKS_CACHE is not None and not force:
-        return _TOOL_TASKS_CACHE
+        try:
+            mtime = os.path.getmtime(TOOL_TASKS_PATH)
+        except OSError:
+            mtime = None
+        if _TOOL_TASKS_MTIME == mtime:
+            return _TOOL_TASKS_CACHE
 
     cfg = ConfigManager()
     enabled = cfg.get("tools.collections_enabled", []) or []
@@ -119,14 +125,11 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
         out[cid] = types
 
     _TOOL_TASKS_CACHE = out
+    try:
+        _TOOL_TASKS_MTIME = os.path.getmtime(TOOL_TASKS_PATH)
+    except OSError:
+        _TOOL_TASKS_MTIME = None
     return out
-
-
-def invalidate_cache() -> None:
-    """Clears cached tool tasks definitions."""
-
-    global _TOOL_TASKS_CACHE
-    _TOOL_TASKS_CACHE = None
 
 
 def _default_collection() -> str:
@@ -189,9 +192,10 @@ def get_tasks_for(
 
 
 def invalidate_cache() -> None:
-    """Clear internal caches used for tool task definitions."""
-    global _TOOL_TASKS_CACHE
+    """Clear cached tool task definitions and stored mtime."""
+    global _TOOL_TASKS_CACHE, _TOOL_TASKS_MTIME
     _TOOL_TASKS_CACHE = None
+    _TOOL_TASKS_MTIME = None
 
 
 def get_collections(
