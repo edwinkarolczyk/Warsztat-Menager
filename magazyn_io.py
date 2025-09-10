@@ -38,6 +38,21 @@ def _load_json(path: str, default):
         return default
 
 
+def load(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
+    """Return warehouse state from ``path`` or default structure."""
+
+    _ensure_dirs(path)
+    return _load_json(path, {"items": {}, "meta": {}})
+
+
+def save(data: Dict[str, Any], path: str = MAGAZYN_PATH) -> None:
+    """Persist warehouse ``data`` to ``path``."""
+
+    _ensure_dirs(path)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def append_history(
     items: Dict[str, Any],
     item_id: str,

@@ -20,6 +20,15 @@ if not logging.getLogger().handlers:
 
 from config_manager import ConfigManager
 from magazyn_io import append_history
+
+OP_TRANSLATIONS = {
+    "PZ": "przyjecie",
+    "ZW": "zwrot",
+    "RW": "zuzycie",
+    "RESERVE": "rezerwacja",
+    "UNRESERVE": "zwolnienie",
+    "CREATE": "utworzenie",
+}
 try:
     from tkinter import messagebox
 except Exception:  # pragma: no cover - środowiska bez GUI
@@ -236,8 +245,20 @@ def save_magazyn(data):
         lock_f.close()
 
 def _append_history(items, item_id, uzytkownik, op, ilosc, kontekst=None):
-    """Wrapper for :func:`magazyn_io.append_history` (backwards compat)."""
-    return append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+    """Append entry to history keeping backwards compatible keys."""
+
+    entry = append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+    hist = items.setdefault(item_id, {}).setdefault("historia", [])
+    if hist:
+        hist[-1] = {
+            "ts": entry.get("ts"),
+            "uzytkownik": entry.get("user"),
+            "operacja": OP_TRANSLATIONS.get(entry.get("op"), entry.get("op")),
+            "ilosc": entry.get("qty"),
+            "komentarz": entry.get("comment"),
+        }
+        return hist[-1]
+    return entry
 
 
 def save_polprodukt(record: dict) -> bool:
@@ -424,6 +445,17 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool
         items = m.get("items") or {}
         if item_id not in items:
             raise KeyError(f"Brak pozycji {item_id} w magazynie")
+        item = items[item_id]
+        try:
+            _append_history(items, item_id, uzytkownik, "usun", float(item.get("stan", 0)), kontekst)
+        except TypeError:
+            _append_history({
+                "operacja": "usun",
+                "ilosc": float(item.get("stan", 0)),
+                "item_id": item_id,
+                "by": uzytkownik,
+                "ctx": kontekst,
+            })
         del items[item_id]
         order = (m.setdefault("meta", {}).get("order") or [])
         m["meta"]["order"] = [iid for iid in order if iid != item_id]
