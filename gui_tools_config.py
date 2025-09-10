@@ -404,6 +404,12 @@ class ToolsConfigWindow(tk.Toplevel):
             except OSError:
                 pass
             return
+
+        try:
+            __import__("logika_zadan").invalidate_cache()
+        except Exception:  # pragma: no cover
+            logger.warning("invalidate_cache failed", exc_info=True)
+
         if self.on_save:
             try:
                 self.on_save()
@@ -413,7 +419,16 @@ class ToolsConfigWindow(tk.Toplevel):
 
 
 def open_tools_config(master: tk.Widget | None = None, on_save=None) -> ToolsConfigWindow:
-    """Convenience function to open :class:`ToolsConfigWindow`."""
+    """Convenience function to open :class:`ToolsConfigWindow`.
 
+    When *on_save* is ``None`` the function connects the window's callback
+    to :func:`logika_zadan.invalidate_cache` so that other parts of the
+    application see updated definitions immediately after saving.
+    """
+
+    if on_save is None:
+        from logika_zadan import invalidate_cache
+
+        on_save = invalidate_cache
     return ToolsConfigWindow(master=master, on_save=on_save)
 
