@@ -3,9 +3,24 @@
 # Plik: profile_utils.py
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
-from io_utils import read_json, write_json
+from pathlib import Path
 
-USERS_FILE = "uzytkownicy.json"
+from io_utils import read_json, write_json
+from utils.path_utils import cfg_path
+
+USERS_FILE = cfg_path("data/uzytkownicy.json")
+_DEFAULT_USERS_FILE = USERS_FILE
+
+
+def _ensure_users_file_path() -> None:
+    """Ensure target directory exists and migrate legacy file if present."""
+    global USERS_FILE
+    if USERS_FILE == _DEFAULT_USERS_FILE:
+        USERS_FILE = cfg_path("data/uzytkownicy.json")
+    Path(USERS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    legacy = Path(cfg_path("uzytkownicy.json"))
+    if legacy.exists() and not Path(USERS_FILE).exists():
+        legacy.replace(USERS_FILE)
 
 SIDEBAR_MODULES: list[tuple[str, str]] = [
     ("zlecenia", "Zlecenia"),
@@ -49,6 +64,7 @@ def read_users():
     Przy braku pliku – tworzy z DEFAULT_USER.
     Po odczycie uzupełnia brakujące pola przez ``ensure_user_fields``.
     """
+    _ensure_users_file_path()
     data = read_json(USERS_FILE)
     if data is None:
         users = [DEFAULT_USER.copy()]
@@ -65,6 +81,7 @@ def read_users():
 
 def write_users(users):
     """ Zapisuje jako listę (najprościej i spójnie). """
+    _ensure_users_file_path()
     # dopilnuj podstawowych pól
     norm = []
     for u in users:
