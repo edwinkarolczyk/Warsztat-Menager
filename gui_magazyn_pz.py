@@ -10,6 +10,7 @@ from config_manager import ConfigManager
 from services.profile_service import authenticate
 import logika_magazyn as LM
 import magazyn_io
+from logger import log_akcja
 
 _CFG = ConfigManager()
 
@@ -164,7 +165,7 @@ class MagazynPZDialog:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
 
             items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
-            print("[WM-DBG] przed zapisem PZ")
+            log_akcja("[WM-DBG] przed zapisem PZ")
             magazyn_io.append_history(
                 items,
                 iid,
@@ -174,7 +175,7 @@ class MagazynPZDialog:
                 comment=comment,
             )
             LM.save_magazyn(data)
-            print("[WM-DBG] po zapisie PZ")
+            log_akcja("[WM-DBG] po zapisie PZ")
         except Exception as exc:
             messagebox.showerror("Błąd", str(exc), parent=self.win)
             return
