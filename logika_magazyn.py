@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from threading import RLock
 import logging
+import re
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -139,6 +140,8 @@ def _merge_list_into(target: dict, source, typ: str) -> None:
 _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
+
+MATERIAL_SEQ_PATH = "data/magazyn/_seq_material.json"
 
 
 def _magazyn_dir() -> str:
@@ -383,6 +386,17 @@ def get_item_types():
             out = list(DEFAULT_ITEM_TYPES)
         return out
 
+
+def normalize_type(nazwa: str) -> str:
+    """Zwraca kanoniczną nazwę typu (case-insensitive)."""
+    nm = str(nazwa or "").strip()
+    if not nm:
+        return ""
+    for typ in get_item_types():
+        if nm.lower() == typ.lower():
+            return typ
+    return nm
+
 def add_item_type(nazwa: str, uzytkownik: str = "system") -> bool:
     """
     Dodaje nowy typ do meta.item_types. Zwraca True, gdy dodano; False, gdy już był.
@@ -426,6 +440,56 @@ def remove_item_type(nazwa: str, uzytkownik: str = "system") -> bool:
         _log_info(f"[MAGAZYN] Usunięto typ: {nm}")
         _log_mag("typ_usuniety", {"typ": nm, "by": uzytkownik})
         return True
+
+
+def _load_material_seq() -> dict:
+    try:
+        with open(MATERIAL_SEQ_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                return {str(k): int(v) for k, v in data.items()}
+    except Exception:
+        pass
+    return {}
+
+
+def _save_material_seq(data: dict) -> None:
+    _ensure_dirs()
+    with open(MATERIAL_SEQ_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def peek_next_material_id(typ: str) -> str:
+    typ = normalize_type(typ)
+    if typ != "materiał":
+        return ""
+    prefix = "MAT"
+    with _LOCK:
+        seq = _load_material_seq()
+        next_num = seq.get(prefix, 0) + 1
+        pat = re.compile(rf"^{prefix}[-_]?(\d+)$", re.IGNORECASE)
+        items = (load_magazyn().get("items") or {}).keys()
+        for iid in items:
+            mm = pat.match(str(iid))
+            if mm:
+                n = int(mm.group(1))
+                if n >= next_num:
+                    next_num = n + 1
+        return f"{prefix}-{next_num:03d}"
+
+
+def bump_material_seq_if_matches(item_id: str) -> None:
+    iid = str(item_id or "").strip().upper()
+    m = re.match(r"^MAT[-_]?(\d+)$", iid)
+    if not m:
+        return
+    num = int(m.group(1))
+    with _LOCK:
+        seq = _load_material_seq()
+        if seq.get("MAT", 0) < num:
+            seq["MAT"] = num
+            _save_material_seq(seq)
+
 
 def upsert_item(item):
     """item: {id, nazwa, typ, jednostka, stan, min_poziom} + opcjonalnie rezerwacje, historia"""
