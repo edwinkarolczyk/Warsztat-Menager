@@ -395,22 +395,22 @@ def build_task_template(parent):
             types = LZ.get_tool_types(collection=cid)
             if not types:
                 _set_info("Brak typów w tej kolekcji")
-                type_map.clear(); cb_type.config(values=[]); typ_var.set("")
-                cb_status.config(values=[]); status_var.set("")
+                type_map.clear(); cb_type.config(values=()); typ_var.set("")
+                cb_status.config(values=()); status_var.set("")
                 lst.delete(0, tk.END); tasks_state.clear()
                 return
         except Exception as e:
             print(f"[WM-DBG][NARZ][ERROR] _on_collection_change: {e!r}")
             _set_info("Błąd wczytywania typów")
-            type_map.clear(); cb_type.config(values=[]); typ_var.set("")
-            cb_status.config(values=[]); status_var.set("")
+            type_map.clear(); cb_type.config(values=()); typ_var.set("")
+            cb_status.config(values=()); status_var.set("")
             lst.delete(0, tk.END); tasks_state.clear()
             return
         type_map.clear()
         type_map.update({t["name"]: t["id"] for t in types})
         cb_type.config(values=list(type_map.keys()))
         typ_var.set("")
-        cb_status.config(values=[]); status_var.set("")
+        cb_status.config(values=()); status_var.set("")
         lst.delete(0, tk.END); tasks_state.clear()
 
     def _on_type_change(_=None):
@@ -420,13 +420,13 @@ def build_task_template(parent):
             statuses = LZ.get_statuses(tid, collection=cid)
             if not statuses:
                 _set_info("Brak statusów dla tego typu")
-                status_map.clear(); cb_status.config(values=[]); status_var.set("")
+                status_map.clear(); cb_status.config(values=()); status_var.set("")
                 lst.delete(0, tk.END); tasks_state.clear()
                 return
         except Exception as e:
             print(f"[WM-DBG][NARZ][ERROR] _on_type_change: {e!r}")
             _set_info("Błąd wczytywania statusów")
-            status_map.clear(); cb_status.config(values=[]); status_var.set("")
+            status_map.clear(); cb_status.config(values=()); status_var.set("")
             lst.delete(0, tk.END); tasks_state.clear()
             return
         status_map.clear()
