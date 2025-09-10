@@ -21,17 +21,17 @@ from logika_magazyn import (
     bump_material_seq_if_matches,
 )
 
-_CFG = ConfigManager()
-
 
 class MagazynAddDialog:
     """Dialog umożliwiający dodanie nowej pozycji magazynowej."""
 
-    def __init__(self, parent, on_saved=None):
-        self.parent = parent
+    def __init__(self, master, config, profiles=None, on_saved=None):
+        self.master = master
+        self.config = config
+        self.profiles = profiles
         self.on_saved = on_saved
 
-        self.win = tk.Toplevel(parent)
+        self.win = tk.Toplevel(master)
         apply_theme(self.win)
         self.win.title("Dodaj pozycję")
         self.win.resizable(False, False)
@@ -97,7 +97,7 @@ class MagazynAddDialog:
             style="WM.Side.TButton",
         ).pack(side="right")
 
-        self.win.transient(parent)
+        self.win.transient(master)
         self.win.grab_set()
         self.win.protocol("WM_DELETE_WINDOW", self.on_cancel)
         self._refresh_suggest_id()
@@ -127,11 +127,11 @@ class MagazynAddDialog:
 
     # ------------------------------------------------------------------
     def on_save(self):
-        user_login = getattr(self.parent.winfo_toplevel(), "login", "")
-        if _CFG.get("magazyn.require_reauth", True):
+        user_login = getattr(self.master.winfo_toplevel(), "login", "")
+        if self.config.get("magazyn.require_reauth", True):
             login = simpledialog.askstring(
                 "Re-autoryzacja", "Login:", parent=self.win
-            )
+        )
             if login is None:
                 return
             pin = simpledialog.askstring(
@@ -214,9 +214,9 @@ class MagazynAddDialog:
         self.win.destroy()
 
 
-def open_window(parent, on_saved=None):
+def open_window(parent, config, profiles=None, on_saved=None):
     """Zachowana dla kompatybilności funkcja otwierająca dialog."""
-    MagazynAddDialog(parent, on_saved=on_saved)
+    MagazynAddDialog(parent, config, profiles, on_saved=on_saved)
 
 
 # ⏹ KONIEC KODU
