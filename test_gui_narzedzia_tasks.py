@@ -9,20 +9,24 @@ def test_tasks_from_comboboxes(monkeypatch):
         "LZ",
         types.SimpleNamespace(
             invalidate_cache=lambda: None,
-            get_collections=lambda settings=None: [{"id": "C1", "name": "Coll1"}],
-            get_default_collection=lambda settings=None: "C1",
-            get_tool_types=lambda collection=None: (
-                [{"id": "T1", "name": "Typ1"}] if collection == "C1" else []
+            get_collections=lambda settings: [{"id": "C1", "name": "Coll1"}],
+            get_default_collection=lambda settings: "C1",
+            get_tool_types=lambda collection_id, settings: (
+                [{"id": "T1", "name": "Typ1"}] if collection_id == "C1" else []
             ),
-            get_statuses=lambda tid, collection=None: (
-                [{"id": "S1", "name": "St1"}] if tid == "T1" and collection == "C1" else []
-            ),
-            get_tasks=lambda tid, sid, collection=None: (
-                ["A", "B"]
-                if tid == "T1" and sid == "S1" and collection == "C1"
+            get_statuses=lambda collection_id, type_id, settings: (
+                [
+                    {"id": "S1", "name": "St1", "auto_check_on_entry": True}
+                ]
+                if collection_id == "C1" and type_id == "T1"
                 else []
             ),
-            should_autocheck=lambda sid, collection_id: True,
+            get_tasks=lambda collection_id, type_id, status_id, settings: (
+                ["A", "B"]
+                if collection_id == "C1" and type_id == "T1" and status_id == "S1"
+                else []
+            ),
+            should_autocheck=lambda collection_id, status_id, settings: True,
         ),
     )
 
@@ -72,6 +76,17 @@ def test_tasks_from_comboboxes(monkeypatch):
     dummy_ttk = types.SimpleNamespace(Combobox=DummyWidget)
     monkeypatch.setattr(gui_narzedzia, "tk", dummy_tk)
     monkeypatch.setattr(gui_narzedzia, "ttk", dummy_ttk)
+
+    class DummyCfg:
+        def __init__(self):
+            self.merged = {
+                "tools": {
+                    "collections_enabled": ["C1"],
+                    "default_collection": "C1",
+                }
+            }
+
+    monkeypatch.setattr(gui_narzedzia, "ConfigManager", DummyCfg)
 
     parent = DummyWidget()
     widgets = gui_narzedzia.build_task_template(parent)

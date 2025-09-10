@@ -28,6 +28,7 @@ import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
 import ui_hover
+from config_manager import ConfigManager
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -320,13 +321,15 @@ def build_task_template(parent):
 
     LZ.invalidate_cache()
 
+    cfg = ConfigManager().merged
+
     coll_var = tk.StringVar()
     typ_var = tk.StringVar()
     status_var = tk.StringVar()
     lst = tk.Listbox(parent, height=8)
     tasks_state: list[dict] = []
 
-    collections = LZ.get_collections()
+    collections = LZ.get_collections(cfg)
     coll_map = {c["name"]: c["id"] for c in collections}
     cb_coll = ttk.Combobox(
         parent,
@@ -335,7 +338,7 @@ def build_task_template(parent):
         state="readonly",
     )
 
-    default_coll = LZ.get_default_collection()
+    default_coll = LZ.get_default_collection(cfg)
     for name, cid in coll_map.items():
         if cid == default_coll:
             coll_var.set(name)
@@ -352,7 +355,7 @@ def build_task_template(parent):
 
     def _on_collection_change(_=None):
         cid = coll_map.get(coll_var.get())
-        types = LZ.get_tool_types(collection=cid)
+        types = LZ.get_tool_types(cid, cfg)
         type_map.clear()
         type_map.update({t["name"]: t["id"] for t in types})
         cb_type.config(values=list(type_map.keys()))
@@ -365,7 +368,7 @@ def build_task_template(parent):
     def _on_type_change(_=None):
         cid = coll_map.get(coll_var.get())
         tid = type_map.get(typ_var.get())
-        statuses = LZ.get_statuses(tid, collection=cid)
+        statuses = LZ.get_statuses(cid, tid, cfg)
         status_map.clear()
         status_map.update({s["name"]: s["id"] for s in statuses})
         cb_status.config(values=list(status_map.keys()))
@@ -377,8 +380,11 @@ def build_task_template(parent):
         cid = coll_map.get(coll_var.get())
         tid = type_map.get(typ_var.get())
         sid = status_map.get(status_var.get())
-        tasks_state[:] = [{"text": t, "done": False} for t in LZ.get_tasks(tid, sid, cid)]
-        if LZ.should_autocheck(sid, cid):
+        tasks_state[:] = [
+            {"text": t, "done": False}
+            for t in LZ.get_tasks(cid, tid, sid, cfg)
+        ]
+        if LZ.should_autocheck(cid, sid, cfg):
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             user = getattr(parent, "login", None) or getattr(parent, "user", None)
             for task in tasks_state:

@@ -39,7 +39,7 @@ class ToolsConfigWindow(tk.Toplevel):
 
         self.cfg = ConfigManager()
         LZ = __import__("logika_zadan")
-        LZ._load_tool_tasks(force=True)
+        LZ.load_tools_templates(force=True)
         with open(LZ.TOOL_TASKS_PATH, "r", encoding="utf-8") as fh:
             self.data = json.load(fh).get("collections", {})
 
