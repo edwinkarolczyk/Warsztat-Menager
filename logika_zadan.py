@@ -72,64 +72,77 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
     except FileNotFoundError:
         data = {"collections": {cid: {"types": []} for cid in enabled}}
         _save_tasks_file(data)
-
-    if isinstance(data, list):
-        types = data
-        data = {"collections": {cid: {"types": []} for cid in enabled}}
-        data["collections"].setdefault(default_coll, {"types": []})["types"] = types
-        _save_tasks_file(data)
-    elif "types" in data and "collections" not in data:
-        types = data.get("types") or []
-        data = {"collections": {cid: {"types": []} for cid in enabled}}
-        data["collections"].setdefault(default_coll, {"types": []})["types"] = types
-        _save_tasks_file(data)
-
-    collections = data.get("collections") or {}
-    if not isinstance(collections, dict):
-        raise ToolTasksError("Nieprawidłowa struktura kolekcji")
-    changed = False
-    for cid in enabled:
-        if cid not in collections:
-            collections[cid] = {"types": []}
-            changed = True
-    if changed:
-        data["collections"] = collections
-        _save_tasks_file(data)
-
-    out: dict[str, list[dict]] = {}
-    for cid, coll in collections.items():
-        types = coll.get("types") or []
-        if len(types) > 8:
-            raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
-        type_ids: set[str] = set()
-        for typ in types:
-            type_id = typ.get("id")
-            if type_id in type_ids:
-                raise ToolTasksError(f"Powtarzające się id typu: {type_id}")
-            type_ids.add(type_id)
-
-            statuses = typ.get("statuses") or []
-            if len(statuses) > 8:
-                raise ToolTasksError(
-                    f"Przekroczono maksymalną liczbę statusów dla typu {type_id}"
-                )
-
-            status_ids: set[str] = set()
-            for status in statuses:
-                status_id = status.get("id")
-                if status_id in status_ids:
-                    raise ToolTasksError(
-                        f"Powtarzające się id statusu {status_id} w typie {type_id}"
-                    )
-                status_ids.add(status_id)
-        out[cid] = types
-
-    _TOOL_TASKS_CACHE = out
-    try:
-        _TOOL_TASKS_MTIME = os.path.getmtime(TOOL_TASKS_PATH)
-    except OSError:
+    except json.JSONDecodeError as exc:
+        logger.warning("Nie można odczytać %s: %s", TOOL_TASKS_PATH, exc, exc_info=True)
+        _TOOL_TASKS_CACHE = {}
         _TOOL_TASKS_MTIME = None
-    return out
+        return {}
+
+    try:
+        if isinstance(data, list):
+            types = data
+            data = {"collections": {cid: {"types": []} for cid in enabled}}
+            data["collections"].setdefault(default_coll, {"types": []})["types"] = types
+            _save_tasks_file(data)
+        elif "types" in data and "collections" not in data:
+            types = data.get("types") or []
+            data = {"collections": {cid: {"types": []} for cid in enabled}}
+            data["collections"].setdefault(default_coll, {"types": []})["types"] = types
+            _save_tasks_file(data)
+
+        collections = data.get("collections") or {}
+        if not isinstance(collections, dict):
+            raise ToolTasksError("Nieprawidłowa struktura kolekcji")
+        changed = False
+        for cid in enabled:
+            if cid not in collections:
+                collections[cid] = {"types": []}
+                changed = True
+        if changed:
+            data["collections"] = collections
+            _save_tasks_file(data)
+
+        out: dict[str, list[dict]] = {}
+        for cid, coll in collections.items():
+            types = coll.get("types") or []
+            if len(types) > 8:
+                raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
+            type_ids: set[str] = set()
+            for typ in types:
+                type_id = typ.get("id")
+                if type_id in type_ids:
+                    raise ToolTasksError(f"Powtarzające się id typu: {type_id}")
+                type_ids.add(type_id)
+
+                statuses = typ.get("statuses") or []
+                if len(statuses) > 8:
+                    raise ToolTasksError(
+                        f"Przekroczono maksymalną liczbę statusów dla typu {type_id}"
+                    )
+
+                status_ids: set[str] = set()
+                for status in statuses:
+                    status_id = status.get("id")
+                    if status_id in status_ids:
+                        raise ToolTasksError(
+                            f"Powtarzające się id statusu {status_id} w typie {type_id}"
+                        )
+                    status_ids.add(status_id)
+            out[cid] = types
+
+        _TOOL_TASKS_CACHE = out
+        try:
+            _TOOL_TASKS_MTIME = os.path.getmtime(TOOL_TASKS_PATH)
+        except OSError:
+            _TOOL_TASKS_MTIME = None
+        return out
+    except Exception as exc:
+        logger.warning(
+            "Nieprawidłowa struktura %s: %s", TOOL_TASKS_PATH, exc, exc_info=True
+        )
+        _TOOL_TASKS_CACHE = {}
+        _TOOL_TASKS_MTIME = None
+        return {}
 
 
 def _default_collection() -> str:
@@ -143,18 +156,20 @@ def get_tool_types_list(
 ) -> list[dict]:
     """Zwraca listę typów narzędzi dla danej kolekcji."""
 
+    tasks = _load_tool_tasks(force=force) or {}
     coll = collection or _default_collection()
     return [
         {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in _load_tool_tasks(force=force).get(coll, [])
+        for t in tasks.get(coll, [])
     ]
 
 
 def _find_type(
     type_id: str, collection: str | None = None, force: bool = False
 ) -> dict | None:
+    tasks = _load_tool_tasks(force=force) or {}
     coll = collection or _default_collection()
-    for t in _load_tool_tasks(force=force).get(coll, []):
+    for t in tasks.get(coll, []):
         if t.get("id") == type_id:
             return t
     return None
