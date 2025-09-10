@@ -113,6 +113,13 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
     return out
 
 
+def invalidate_cache() -> None:
+    """Clears cached tool tasks definitions."""
+
+    global _TOOL_TASKS_CACHE
+    _TOOL_TASKS_CACHE = None
+
+
 def _default_collection() -> str:
     cfg = ConfigManager()
     enabled = cfg.get("tools.collections_enabled", []) or []
