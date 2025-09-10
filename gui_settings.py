@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import datetime
 import json
-import os
+import os, sys, subprocess, threading
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
-from tkinter import colorchooser, filedialog, messagebox, ttk
+from tkinter import colorchooser, filedialog
+from tkinter import ttk, messagebox
 
 import config_manager as cm
 from config_manager import ConfigManager
@@ -633,6 +634,90 @@ class SettingsWindow(SettingsPanel):
         super().__init__(master, config_path=config_path, schema_path=schema_path)
         self.schema = self.cfg.schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
+
+        self._init_tests_tab()
+
+    def _init_tests_tab(self):
+        print("[WM-DBG] [SETTINGS] init Tests tab")
+        self.tab_tests = ttk.Frame(self.nb)
+        self.nb.add(self.tab_tests, text="Testy")
+
+        wrap = ttk.Frame(self.tab_tests, padding=10)
+        wrap.pack(fill="both", expand=True)
+
+        ttk.Label(
+            wrap,
+            text="Testy automatyczne (pytest)",
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 6))
+        ttk.Label(
+            wrap,
+            text="Uruchom wszystkie testy projektu. Wynik pojawi się poniżej.",
+        ).pack(anchor="w", pady=(0, 8))
+
+        btns = ttk.Frame(wrap)
+        btns.pack(anchor="w", pady=(0, 8))
+        self.btn_tests_run = ttk.Button(btns, text="Uruchom testy", command=self._run_all_tests)
+        self.btn_tests_run.pack(side="left", padx=(0, 8))
+
+        self.txt_tests = tk.Text(wrap, height=18, wrap="none")
+        self.txt_tests.pack(fill="both", expand=True)
+        yscroll = ttk.Scrollbar(wrap, orient="vertical", command=self.txt_tests.yview)
+        self.txt_tests.configure(yscrollcommand=yscroll.set)
+        yscroll.place(relx=1.0, rely=0.0, relheight=1.0, anchor="ne")
+
+    def _append_tests_out(self, s: str):
+        try:
+            self.txt_tests.insert("end", s)
+            self.txt_tests.see("end")
+        except Exception:
+            pass
+
+    def _run_all_tests(self):
+        try:
+            self.btn_tests_run.config(state="disabled")
+        except Exception:
+            pass
+        self._append_tests_out("\n[INFO] Uruchamiam: pytest -q\n")
+        print("[WM-DBG] [SETTINGS][TESTS] start pytest")
+
+        def _worker():
+            try:
+                cmd = [sys.executable, "-m", "pytest", "-q"]
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=os.getcwd(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                )
+                for line in proc.stdout:
+                    self.txt_tests.after(0, self._append_tests_out, line)
+                ret = proc.wait()
+                self.txt_tests.after(
+                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
+                )
+                print(f"[WM-DBG] [SETTINGS][TESTS] finished ret={ret}")
+            except FileNotFoundError:
+                self.txt_tests.after(
+                    0,
+                    self._append_tests_out,
+                    "\n[ERROR] Nie znaleziono pytest. Zainstaluj: pip install pytest\n",
+                )
+                print("[WM-DBG] [SETTINGS][TESTS] pytest not found")
+            except Exception as e:
+                self.txt_tests.after(
+                    0, self._append_tests_out, f"\n[ERROR] Błąd uruchamiania testów: {e!r}\n"
+                )
+                print(f"[WM-DBG] [SETTINGS][TESTS] error: {e!r}")
+            finally:
+                try:
+                    self.btn_tests_run.after(0, lambda: self.btn_tests_run.config(state="normal"))
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
 
 
 if __name__ == "__main__":
