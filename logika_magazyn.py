@@ -89,6 +89,9 @@ MAGAZYN_PATH = "data/magazyn/magazyn.json"
 POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
 """Ścieżka do pliku półproduktów magazynu."""
 
+SUROWCE_PATH = "data/magazyn/surowce.json"
+"""Ścieżka do pliku surowców magazynu."""
+
 _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
@@ -104,6 +107,12 @@ def _ensure_dirs():
     os.makedirs(_magazyn_dir(), exist_ok=True)
 
 
+def _dbg(msg: str) -> None:
+    """Wypisz komunikat debugowy z prefiksem magazynu."""
+    if os.getenv("WM_DEBUG"):
+        print(f"[WM-DBG][MAG] {msg}")
+
+
 def _history_path():
     return os.path.join(_magazyn_dir(), "magazyn_history.json")
 
@@ -117,42 +126,114 @@ def _default_magazyn():
         "meta": {"updated": _now(), "item_types": list(DEFAULT_ITEM_TYPES)}
     }
 
-def load_magazyn():
+
+def _merge_list_into(mag: dict, path: str, item_type: str) -> None:
+    """Scal listę/dictę z ``path`` do magazynu ``mag``.
+
+    Parametry:
+        mag: docelowa struktura magazynu.
+        path: ścieżka do pliku JSON zawierającego listę lub słownik.
+        item_type: typ elementów dodawanych do magazynu.
     """
-    Wczytuje magazyn, a jeśli plik nie istnieje lub struktura jest niekompletna,
-    tworzy/naprawia ją i nadpisuje na dysku.
+    if not os.path.exists(path):
+        _dbg(f"pomijam brakujący plik: {path}")
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:  # pragma: no cover - log i wyjście
+        _dbg(f"błąd wczytania {path}: {exc}")
+        return
+
+    items = mag.setdefault("items", {})
+    order = mag.setdefault("meta", {}).setdefault("order", list(items.keys()))
+
+    src: list[dict] = []
+    if isinstance(data, list):
+        src = [r for r in data if isinstance(r, dict)]
+    elif isinstance(data, dict):
+        for k, v in data.items():
+            if isinstance(v, dict):
+                rec = {**v}
+                rec.setdefault("id", k)
+                src.append(rec)
+    else:
+        _dbg(f"nieznana struktura w {path}")
+        return
+
+    for rec in src:
+        iid = rec.get("id") or rec.get("kod")
+        if not iid or not isinstance(rec, dict):
+            continue
+        rec.setdefault("id", iid)
+        rec.setdefault("nazwa", rec.get("nazwa", iid))
+        rec.setdefault("typ", item_type)
+        rec.setdefault("jednostka", rec.get("jednostka", "szt"))
+        rec.setdefault("stan", float(rec.get("stan", 0)))
+        if "min_poziom" not in rec:
+            rec["min_poziom"] = rec.get("prog_alertu", 0)
+        rec.pop("prog_alertu", None)
+        rec.setdefault("rezerwacje", rec.get("rezerwacje", 0))
+        rec.setdefault("historia", rec.get("historia", []))
+        rec.setdefault("progi_alertow_pct", rec.get("progi_alertow_pct", [100]))
+        if iid in items:
+            for k, v in rec.items():
+                items[iid].setdefault(k, v)
+        else:
+            items[iid] = rec
+            if iid not in order:
+                order.append(iid)
+
+def load_magazyn(
+    merge_surowce: bool = True, merge_polprodukty: bool = True
+):
+    """Wczytaj magazyn z dysku i opcjonalnie scal dodatkowe listy.
+
+    Główna struktura ładowana jest z :data:`MAGAZYN_PATH`.  Gdy
+    ``merge_surowce`` lub ``merge_polprodukty`` są ustawione, zawartość
+    odpowiednio :data:`SUROWCE_PATH` i :data:`POLPRODUKTY_PATH` jest
+    scalana do wyniku przez :func:`_merge_list_into`.
     """
+
+    _dbg("load_magazyn() start")
     _ensure_dirs()
     if not os.path.exists(MAGAZYN_PATH):
         _log_info(f"Tworzę nowy magazyn: {MAGAZYN_PATH}")
         save_magazyn(_default_magazyn())
 
-    # wczytaj i AUTONAPRAWY
     try:
         with open(MAGAZYN_PATH, "r", encoding="utf-8") as f:
             mj = json.load(f)
     except Exception as e:
-        _log_info(f"Problem z wczytaniem magazynu ({e}) – przywracam domyślny.")
+        _log_info(
+            f"Problem z wczytaniem magazynu ({e}) – przywracam domyślny."
+        )
         mj = _default_magazyn()
         save_magazyn(mj)
         return mj
 
     fixed = False
     if not isinstance(mj, dict):
-        mj = _default_magazyn(); fixed = True
+        mj = _default_magazyn()
+        fixed = True
     if "items" not in mj or not isinstance(mj.get("items"), dict):
-        mj["items"] = {}; fixed = True
+        mj["items"] = {}
+        fixed = True
     if "meta" not in mj or not isinstance(mj.get("meta"), dict):
-        mj["meta"] = {}; fixed = True
-    # item_types
-    if "item_types" not in mj["meta"] or not isinstance(mj["meta"].get("item_types"), list):
-        mj["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES); fixed = True
-    # order list
+        mj["meta"] = {}
+        fixed = True
+    if (
+        "item_types" not in mj["meta"]
+        or not isinstance(mj["meta"].get("item_types"), list)
+    ):
+        mj["meta"]["item_types"] = list(DEFAULT_ITEM_TYPES)
+        fixed = True
     if "order" not in mj["meta"] or not isinstance(mj["meta"].get("order"), list):
-        mj["meta"]["order"] = list((mj.get("items") or {}).keys()); fixed = True
+        mj["meta"]["order"] = list((mj.get("items") or {}).keys())
+        fixed = True
     else:
         items_keys = list((mj.get("items") or {}).keys())
-        new_order = []
+        new_order: list[str] = []
         for iid in mj["meta"]["order"]:
             if iid in items_keys and iid not in new_order:
                 new_order.append(iid)
@@ -163,7 +244,6 @@ def load_magazyn():
             mj["meta"]["order"] = new_order
             fixed = True
 
-    # per-item progi_alertow_pct
     items = mj.get("items") or {}
     global_progi = _CFG.get("progi_alertow_pct", [100])
     for it in items.values():
@@ -171,11 +251,18 @@ def load_magazyn():
             it["progi_alertow_pct"] = list(global_progi)
             fixed = True
 
-    # uaktualnij timestamp meta
     mj["meta"]["updated"] = _now()
     if fixed:
-        _log_info("Naprawiono strukturę magazyn.json (dopisano brakujące klucze).")
+        _log_info(
+            "Naprawiono strukturę magazyn.json (dopisano brakujące klucze)."
+        )
         save_magazyn(mj)
+
+    if merge_polprodukty:
+        _merge_list_into(mj, POLPRODUKTY_PATH, "półprodukt")
+    if merge_surowce:
+        _merge_list_into(mj, SUROWCE_PATH, "materiał")
+
     return mj
 
 def save_magazyn(data):
