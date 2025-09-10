@@ -402,6 +402,13 @@ class SettingsPanel:
                 self._defaults[key] = field_def.get("default")
                 var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
 
+            if tab.get("id") == "narzedzia" and group.get("key") == "narzedzia":
+                ttk.Button(
+                    inner,
+                    text="Konfiguruj typy/statusy/zadania",
+                    command=self._open_tools_config,
+                ).pack(fill="x", padx=5, pady=5)
+
         if subtabs := tab.get("subtabs"):
             nb = ttk.Notebook(parent)
             nb.pack(fill="both", expand=True)
@@ -417,6 +424,43 @@ class SettingsPanel:
             self._add_patch_section(parent)
 
         return grp_count, fld_count
+
+    def _open_tools_config(self) -> None:
+        """Open tools configuration window in top-most mode."""
+
+        parent = self.master.winfo_toplevel()
+        try:
+            import gui_tools_config  # type: ignore
+        except Exception as exc:  # pragma: no cover - import error handling
+            messagebox.showerror(
+                "Błąd",
+                f"Nie można otworzyć konfiguracji narzędzi:\n{exc}",
+                parent=parent,
+            )
+            return
+
+        if hasattr(gui_tools_config, "open_window"):
+            win = gui_tools_config.open_window(parent)  # type: ignore[assignment]
+        elif hasattr(gui_tools_config, "ToolsConfigWindow"):
+            win = gui_tools_config.ToolsConfigWindow(parent)  # type: ignore[assignment]
+        else:  # pragma: no cover - unexpected api
+            messagebox.showerror(
+                "Błąd",
+                "Brak funkcji otwierającej okno konfiguracji",
+                parent=parent,
+            )
+            return
+
+        try:
+            win.transient(parent)
+            win.attributes("-topmost", True)
+            win.grab_set()
+        except Exception as exc:  # pragma: no cover - tk specifics
+            messagebox.showwarning(
+                "Uwaga",
+                f"Nie udało się poprawnie przygotować okna:\n{exc}",
+                parent=parent,
+            )
 
     def _add_patch_section(self, parent: tk.Widget) -> None:
         """Append patching and version controls to the Updates tab."""
