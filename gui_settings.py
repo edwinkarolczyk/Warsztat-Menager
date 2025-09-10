@@ -659,6 +659,10 @@ class SettingsWindow(SettingsPanel):
         btns.pack(anchor="w", pady=(0, 8))
         self.btn_tests_run = ttk.Button(btns, text="Uruchom testy", command=self._run_all_tests)
         self.btn_tests_run.pack(side="left", padx=(0, 8))
+        self.btn_tests_install = ttk.Button(
+            btns, text="Zainstaluj pytest", command=self._install_pytest
+        )
+        self.btn_tests_install.pack(side="left", padx=(0, 8))
 
         self.txt_tests = tk.Text(wrap, height=18, wrap="none")
         self.txt_tests.pack(fill="both", expand=True)
@@ -672,6 +676,47 @@ class SettingsWindow(SettingsPanel):
             self.txt_tests.see("end")
         except Exception:
             pass
+
+    def _install_pytest(self):
+        try:
+            self.btn_tests_install.config(state="disabled")
+        except Exception:
+            pass
+        self._append_tests_out("\n[INFO] Uruchamiam: pip install -U pytest\n")
+        print("[WM-DBG][SETTINGS][TESTS] install start")
+
+        def _worker():
+            try:
+                cmd = [sys.executable, "-m", "pip", "install", "-U", "pytest"]
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=os.getcwd(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                )
+                for line in proc.stdout:
+                    self.txt_tests.after(0, self._append_tests_out, line)
+                ret = proc.wait()
+                self.txt_tests.after(
+                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
+                )
+                print(f"[WM-DBG][SETTINGS][TESTS] install finished ret={ret}")
+            except Exception as e:
+                self.txt_tests.after(
+                    0, self._append_tests_out, f"\n[ERROR] Błąd instalacji pytest: {e!r}\n"
+                )
+                print(f"[WM-DBG][SETTINGS][TESTS] install error: {e!r}")
+            finally:
+                try:
+                    self.btn_tests_install.after(
+                        0, lambda: self.btn_tests_install.config(state="normal")
+                    )
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _run_all_tests(self):
         try:
