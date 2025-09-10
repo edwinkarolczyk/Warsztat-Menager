@@ -15,6 +15,11 @@ from config_manager import ConfigManager
 from services.profile_service import authenticate
 import magazyn_io
 import logika_magazyn as LM
+from logika_magazyn import (
+    normalize_type,
+    peek_next_material_id,
+    bump_material_seq_if_matches,
+)
 
 _CFG = ConfigManager()
 
@@ -39,6 +44,11 @@ class MagazynAddDialog:
             "stan": tk.StringVar(),
             "min_poziom": tk.StringVar(),
         }
+        self.vars["typ"].set(normalize_type(self.vars["typ"].get() or "materiał"))
+        self.vars["typ"].trace_add("write", self._on_type_change)
+
+        self.var_autoid = tk.BooleanVar(value=True)
+        self._last_suggest = ""
 
         frm = ttk.Frame(self.win, padding=12, style="WM.TFrame")
         frm.grid(row=0, column=0, sticky="nsew")
@@ -60,7 +70,16 @@ class MagazynAddDialog:
             ttk.Entry(frm, textvariable=self.vars[key]).grid(
                 row=r, column=1, sticky="ew", pady=2
             )
+        ttk.Checkbutton(
+            frm,
+            text="Auto ID",
+            variable=self.var_autoid,
+            command=self._refresh_suggest_id,
+        ).grid(row=0, column=2, sticky="w", padx=(8, 0))
+        self.lbl_suggest = ttk.Label(frm, text="", style="WM.Muted.TLabel")
+        self.lbl_suggest.grid(row=0, column=3, sticky="w", padx=(8, 0))
         frm.columnconfigure(1, weight=1)
+        frm.columnconfigure(3, weight=1)
 
         btns = ttk.Frame(self.win, style="WM.TFrame")
         btns.grid(row=1, column=0, padx=12, pady=(4, 8), sticky="e")
@@ -81,11 +100,30 @@ class MagazynAddDialog:
         self.win.transient(parent)
         self.win.grab_set()
         self.win.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        self._refresh_suggest_id()
         self.win.wait_window(self.win)
 
     # ------------------------------------------------------------------
     def on_cancel(self):
         self.win.destroy()
+
+    # ------------------------------------------------------------------
+    def _on_type_change(self, *_):
+        typ = normalize_type(self.vars["typ"].get())
+        if self.vars["typ"].get() != typ:
+            self.vars["typ"].set(typ)
+            return
+        self._refresh_suggest_id()
+
+    # ------------------------------------------------------------------
+    def _refresh_suggest_id(self):
+        suggest = peek_next_material_id(self.vars["typ"].get())
+        self._last_suggest = suggest
+        self.lbl_suggest.config(
+            text=f"Propozycja: {suggest}" if suggest else ""
+        )
+        if self.var_autoid.get() and suggest:
+            self.vars["id"].set(suggest)
 
     # ------------------------------------------------------------------
     def on_save(self):
@@ -165,6 +203,7 @@ class MagazynAddDialog:
         print("[WM-DBG][MAGAZYN-ADD] saving")
         save(data)
         print("[WM-DBG][MAGAZYN-ADD] saved")
+        bump_material_seq_if_matches(item_id)
 
         if self.on_saved:
             try:
