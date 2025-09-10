@@ -679,7 +679,7 @@ class SettingsWindow(SettingsPanel):
         except Exception:
             pass
         self._append_tests_out("\n[INFO] Uruchamiam: pytest -q\n")
-        print("[WM-DBG] [SETTINGS][TESTS] start pytest")
+        print("[WM-DBG][SETTINGS][TESTS] start")
 
         def _worker():
             try:
@@ -698,19 +698,19 @@ class SettingsWindow(SettingsPanel):
                 self.txt_tests.after(
                     0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
                 )
-                print(f"[WM-DBG] [SETTINGS][TESTS] finished ret={ret}")
+                print(f"[WM-DBG][SETTINGS][TESTS] finished ret={ret}")
             except FileNotFoundError:
                 self.txt_tests.after(
                     0,
                     self._append_tests_out,
                     "\n[ERROR] Nie znaleziono pytest. Zainstaluj: pip install pytest\n",
                 )
-                print("[WM-DBG] [SETTINGS][TESTS] pytest not found")
+                print("[WM-DBG][SETTINGS][TESTS] pytest not found")
             except Exception as e:
                 self.txt_tests.after(
                     0, self._append_tests_out, f"\n[ERROR] Błąd uruchamiania testów: {e!r}\n"
                 )
-                print(f"[WM-DBG] [SETTINGS][TESTS] error: {e!r}")
+                print(f"[WM-DBG][SETTINGS][TESTS] error: {e!r}")
             finally:
                 try:
                     self.btn_tests_run.after(0, lambda: self.btn_tests_run.config(state="normal"))
