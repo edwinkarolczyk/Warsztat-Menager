@@ -16,6 +16,15 @@ ALLOWED_OPS = {
     "UNRESERVE",
 }
 
+LEGACY_OPS = {
+    "CREATE": "utworz",
+    "PZ": "przyjecie",
+    "ZW": "zwrot",
+    "RW": "zuzycie",
+    "RESERVE": "rezerwacja",
+    "UNRESERVE": "zwolnienie",
+}
+
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
 PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
 HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
@@ -68,9 +77,26 @@ def append_history(
     if qty <= 0:
         raise ValueError("qty must be > 0")
     if ts is None:
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = (
+            datetime.now(timezone.utc)
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
 
-    entry = {"ts": ts, "user": user, "op": op, "qty": qty, "comment": comment}
+    legacy_op = LEGACY_OPS.get(op, op.lower())
+    entry = {
+        "ts": ts,
+        "user": user,
+        "op": op,
+        "qty": qty,
+        "comment": comment,
+        "czas": ts,
+        "uzytkownik": user,
+        "operacja": legacy_op,
+        "ilosc": qty,
+        "kontekst": comment,
+    }
 
     item = items.setdefault(item_id, {})
     history = item.setdefault("historia", [])

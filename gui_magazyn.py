@@ -82,6 +82,17 @@ def _resolve_role(parent, rola_hint=None):
     return None
 
 
+def _resolve_user(parent):
+    try:
+        top = parent.winfo_toplevel()
+        u = getattr(top, "login", None) or getattr(top, "user", None)
+        if isinstance(u, str) and u.strip():
+            return u.strip()
+    except Exception:
+        pass
+    return "system"
+
+
 def drukuj_etykiete(item_id: str, host: str = "127.0.0.1", port: int = 9100) -> None:
     """Drukuje etykietę z kodem kreskowym dla wskazanej pozycji."""
     if escpos_printer is None:
@@ -340,7 +351,8 @@ class PanelMagazyn(ttk.Frame):
         il = self._ask_float("Zużycie", "Ilość do zużycia:")
         if il is None: return
         try:
-            LM.zuzyj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
+            user = _resolve_user(self)
+            LM.zuzyj(iid, il, uzytkownik=user, kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))
@@ -351,7 +363,8 @@ class PanelMagazyn(ttk.Frame):
         il = self._ask_float("Zwrot", "Ilość do zwrotu:")
         if il is None: return
         try:
-            LM.zwrot(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
+            user = _resolve_user(self)
+            LM.zwrot(iid, il, uzytkownik=user, kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))
@@ -362,7 +375,8 @@ class PanelMagazyn(ttk.Frame):
         il = self._ask_float("Rezerwacja", "Ilość do rezerwacji:")
         if il is None: return
         try:
-            LM.rezerwuj(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
+            user = _resolve_user(self)
+            LM.rezerwuj(iid, il, uzytkownik=user, kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))
@@ -373,7 +387,8 @@ class PanelMagazyn(ttk.Frame):
         il = self._ask_float("Zwolnienie rezerwacji", "Ilość do zwolnienia:")
         if il is None: return
         try:
-            LM.zwolnij_rezerwacje(iid, il, uzytkownik="system", kontekst="GUI Magazyn")
+            user = _resolve_user(self)
+            LM.zwolnij_rezerwacje(iid, il, uzytkownik=user, kontekst="GUI Magazyn")
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))

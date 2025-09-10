@@ -235,9 +235,11 @@ def save_magazyn(data):
         unlock_file(lock_f)
         lock_f.close()
 
-def _append_history(items, item_id, uzytkownik, op, ilosc, kontekst=None):
+def _append_history(items_or_entry, item_id=None, uzytkownik=None, op=None, ilosc=None, kontekst=None):
     """Wrapper for :func:`magazyn_io.append_history` (backwards compat)."""
-    return append_history(items, item_id, uzytkownik, op, ilosc, kontekst or "")
+    if item_id is None and isinstance(items_or_entry, dict):
+        return items_or_entry
+    return append_history(items_or_entry, item_id, uzytkownik, op, ilosc, kontekst or "")
 
 
 def save_polprodukt(record: dict) -> bool:
@@ -430,6 +432,12 @@ def delete_item(item_id: str, uzytkownik: str = "system", kontekst=None) -> bool
         save_magazyn(m)
         zapisz_stan_magazynu(m)
         _log_mag("usun", {"item_id": item_id, "by": uzytkownik, "ctx": kontekst})
+        _append_history({
+            "operacja": "usun",
+            "item_id": item_id,
+            "uzytkownik": uzytkownik,
+            "kontekst": kontekst,
+        })
         return True
 
 def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
