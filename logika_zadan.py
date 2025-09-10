@@ -5,12 +5,15 @@
 # - API: consume_for_task(tool_id, task_dict, uzytkownik)
 # ⏹ KONIEC KODU
 
-import json
-import os
-import threading
-import time
-from datetime import datetime
+import os, json, threading
+
+_CACHE_LOCK = threading.RLock()
+_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
+_TOOL_TASKS_CACHE = None
+_TOOL_TASKS_MTIME = None
+
 import logging
+from datetime import datetime
 from typing import Any, Dict
 
 import logika_magazyn as LM
@@ -20,140 +23,38 @@ import tools_autocheck
 
 logger = logging.getLogger(__name__)
 
-_CACHE_LOCK = threading.RLock()
-_TOOL_TASKS_CACHE: dict[str, list[dict]] | None = None
-_TOOL_TASKS_MTIME: float | None = None
-_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
 # Backward compatibility for external modules
 TOOL_TASKS_PATH = _TASKS_PATH
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 
 
-class ToolTasksError(RuntimeError):
-    """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
-
-
-def _save_tasks_file(data: dict) -> None:
-    """Zapisuje ``data`` do pliku z zachowaniem atomowości."""
-
-    d = os.path.dirname(_TASKS_PATH)
-    if d and not os.path.exists(d):
-        os.makedirs(d, exist_ok=True)
-    tmp = _TASKS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, _TASKS_PATH)
-
-
-def _safe_load_tasks() -> dict:
-    """Bezpiecznie wczytuje definicje zadań z pliku JSON."""
-
+def _safe_load() -> dict:
     try:
-        with open(_TASKS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(_TASKS_PATH, "r", encoding="utf-8") as fh:
+            return json.load(fh)
     except FileNotFoundError:
-        cfg = ConfigManager()
-        enabled = cfg.get("tools.collections_enabled", []) or []
-        data = {"collections": {cid: {"types": []} for cid in enabled}}
-        _save_tasks_file(data)
-        return data
+        return {}
     except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("Nie można odczytać %s: %s", _TASKS_PATH, exc, exc_info=True)
+        print(f"[WM-DBG][NARZ][WARN] Nie można odczytać {_TASKS_PATH}: {exc}")
         return {}
 
 
-def _ensure_cache(force: bool = False) -> None:
-    """Zapewnia, że cache zadań narzędzi jest aktualny."""
-
+def _ensure_cache() -> None:
     global _TOOL_TASKS_CACHE, _TOOL_TASKS_MTIME
     with _CACHE_LOCK:
         try:
             mtime = os.path.getmtime(_TASKS_PATH)
         except OSError:
             mtime = None
-        if _TOOL_TASKS_CACHE is not None and _TOOL_TASKS_MTIME == mtime and not force:
+        if _TOOL_TASKS_CACHE is not None and _TOOL_TASKS_MTIME == mtime:
             return
-
-        data = _safe_load_tasks() or {}
-
-        cfg = ConfigManager()
-        enabled = cfg.get("tools.collections_enabled", []) or []
-        default_coll = cfg.get(
-            "tools.default_collection", enabled[0] if enabled else "default"
-        )
-
-        try:
-            if isinstance(data, list):
-                types = data
-                data = {"collections": {cid: {"types": []} for cid in enabled}}
-                data["collections"].setdefault(default_coll, {"types": []})["types"] = types
-                _save_tasks_file(data)
-            elif "types" in data and "collections" not in data:
-                types = data.get("types") or []
-                data = {"collections": {cid: {"types": []} for cid in enabled}}
-                data["collections"].setdefault(default_coll, {"types": []})["types"] = types
-                _save_tasks_file(data)
-
-            collections = data.get("collections") or {}
-            if not isinstance(collections, dict):
-                raise ToolTasksError("Nieprawidłowa struktura kolekcji")
-            changed = False
-            for cid in enabled:
-                if cid not in collections:
-                    collections[cid] = {"types": []}
-                    changed = True
-            if changed:
-                data["collections"] = collections
-                _save_tasks_file(data)
-
-            out: dict[str, list[dict]] = {}
-            for cid, coll in collections.items():
-                types = coll.get("types") or []
-                if len(types) > 8:
-                    raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
-                type_ids: set[str] = set()
-                for typ in types:
-                    type_id = typ.get("id")
-                    if type_id in type_ids:
-                        raise ToolTasksError(f"Powtarzające się id typu: {type_id}")
-                    type_ids.add(type_id)
-
-                    statuses = typ.get("statuses") or []
-                    if len(statuses) > 8:
-                        raise ToolTasksError(
-                            f"Przekroczono maksymalną liczbę statusów dla typu {type_id}"
-                        )
-
-                    status_ids: set[str] = set()
-                    for status in statuses:
-                        status_id = status.get("id")
-                        if status_id in status_ids:
-                            raise ToolTasksError(
-                                f"Powtarzające się id statusu {status_id} w typie {type_id}"
-                            )
-                        status_ids.add(status_id)
-                out[cid] = types
-
-            try:
-                mtime = os.path.getmtime(_TASKS_PATH)
-            except OSError:
-                mtime = None
-            _TOOL_TASKS_CACHE = out
-            _TOOL_TASKS_MTIME = mtime
-        except Exception as exc:
-            logger.warning(
-                "Nieprawidłowa struktura %s: %s", _TASKS_PATH, exc, exc_info=True
-            )
-            _TOOL_TASKS_CACHE = {}
-            _TOOL_TASKS_MTIME = None
-
-
-def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
-    """Wrapper zachowujący zgodność wsteczną."""
-
-    _ensure_cache(force=force)
-    return _TOOL_TASKS_CACHE or {}
-
+        data = _safe_load() or {}
+        collections = data.get("collections") or {}
+        _TOOL_TASKS_CACHE = {
+            cid: coll.get("types") or [] for cid, coll in collections.items()
+        }
+        _TOOL_TASKS_MTIME = mtime
+        print(f"[WM-DBG][NARZ] Przeładowano definicje zadań (mtime={mtime})")
 
 
 def _default_collection() -> str:
@@ -162,102 +63,32 @@ def _default_collection() -> str:
     return cfg.get("tools.default_collection", enabled[0] if enabled else "default")
 
 
-def get_tool_types_list(
-    collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę typów narzędzi dla danej kolekcji."""
-
-    _ensure_cache(force=force)
-    coll = collection or _default_collection()
-    tasks = _TOOL_TASKS_CACHE or {}
-    return [
-        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in tasks.get(coll, [])
-    ]
-
-
-def _find_type(
-    type_id: str, collection: str | None = None, force: bool = False
-) -> dict | None:
-    _ensure_cache(force=force)
-    tasks = _TOOL_TASKS_CACHE or {}
-    coll = collection or _default_collection()
-    for t in tasks.get(coll, []):
-        if t.get("id") == type_id:
-            return t
-    return None
-
-
-def get_statuses_for_type(
-    type_id: str, collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę statusów dostępnych dla danego typu."""
-
-    typ = _find_type(type_id, collection=collection, force=force)
-    if not typ:
-        return []
-    return [
-        {"id": s.get("id"), "name": s.get("name", s.get("id"))}
-        for s in (typ.get("statuses") or [])
-    ]
-
-
-def get_tasks_for(
-    type_id: str,
-    status_id: str,
-    collection: str | None = None,
-    force: bool = False,
-) -> list[str]:
-    """Zwraca listę zadań dla kombinacji typu i statusu w kolekcji."""
-
-    typ = _find_type(type_id, collection=collection, force=force)
-    if not typ:
-        return []
-    for st in typ.get("statuses") or []:
-        if st.get("id") == status_id:
-            return list(st.get("tasks") or [])
-    return []
-
-
-def invalidate_cache() -> None:
-    """Clear cached tool task definitions and stored mtime."""
+def invalidate_cache():
     global _TOOL_TASKS_CACHE, _TOOL_TASKS_MTIME
     with _CACHE_LOCK:
         _TOOL_TASKS_CACHE = None
         _TOOL_TASKS_MTIME = None
-    logger.debug("Tool tasks cache invalidated")
+        print("[WM-DBG][NARZ] Cache zadań wyczyszczony.")
 
 
 def get_collections(
     settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> list[dict]:
-    """Return list of available collections from cached tasks file."""
-
     _ensure_cache()
-    tasks = _TOOL_TASKS_CACHE or {}
-    return [{"id": cid, "name": cid} for cid in tasks.keys()]
+    return [{"id": cid, "name": cid} for cid in (_TOOL_TASKS_CACHE or {}).keys()]
 
 
 def get_default_collection(
-    settings: ConfigManager | Dict[str, Any] | None = None
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> str:
-    """Return identifier of the default collection from *settings*."""
-
     cfg = settings or ConfigManager()
-    if isinstance(cfg, dict):
-        getter = lambda k, d=None: cfg.get(k, d)
-    else:
-        getter = cfg.get
+    getter = cfg.get
     enabled = getter("tools.collections_enabled", []) or []
     return getter("tools.default_collection", enabled[0] if enabled else "default")
 
 
-def get_tool_types(
-    collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę typów narzędzi dla danej kolekcji."""
-
-    _ensure_cache(force=force)
+def get_tool_types(collection: str | None = None) -> list[dict]:
+    _ensure_cache()
     coll = collection or _default_collection()
     tasks = _TOOL_TASKS_CACHE or {}
     return [
@@ -266,12 +97,8 @@ def get_tool_types(
     ]
 
 
-def get_statuses(
-    type_id: str, collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę statusów dla danego typu w kolekcji."""
-
-    _ensure_cache(force=force)
+def get_statuses(type_id: str, collection: str | None = None) -> list[dict]:
+    _ensure_cache()
     coll = collection or _default_collection()
     tasks = _TOOL_TASKS_CACHE or {}
     for t in tasks.get(coll, []):
@@ -283,15 +110,8 @@ def get_statuses(
     return []
 
 
-def get_tasks(
-    type_id: str,
-    status_id: str,
-    collection: str | None = None,
-    force: bool = False,
-) -> list[str]:
-    """Zwraca listę zadań dla kombinacji typu i statusu."""
-
-    _ensure_cache(force=force)
+def get_tasks(type_id: str, status_id: str, collection: str | None = None) -> list[str]:
+    _ensure_cache()
     coll = collection or _default_collection()
     tasks = _TOOL_TASKS_CACHE or {}
     for t in tasks.get(coll, []):
@@ -307,8 +127,7 @@ def should_autocheck(
     collection_id: str,
     config: ConfigManager | Dict[str, Any] | None = None,
 ) -> bool:
-    """Return ``True`` when tasks for *status_id* should be auto-checked."""
-
+    _ensure_cache()
     cfg = config
     if cfg is None:
         cfg = ConfigManager().merged
@@ -338,7 +157,9 @@ def register_tasks_state(tasks_state, uzytkownik: str = "system"):
                     if not isinstance(data, list):
                         data = []
             except (OSError, json.JSONDecodeError) as e:
-                logger.warning("Nie można odczytać %s: %s", HISTORY_PATH, e, exc_info=True)
+                logger.warning(
+                    "Nie można odczytać %s: %s", HISTORY_PATH, e, exc_info=True
+                )
                 data = []
         else:
             data = []
@@ -351,6 +172,7 @@ def register_tasks_state(tasks_state, uzytkownik: str = "system"):
         LM.unlock_file(lock_f)
         lock_f.close()
     return entry
+
 
 def consume_for_task(tool_id: str, task: dict, uzytkownik: str = "system"):
     """
