@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.7
+# Wersja pliku: 1.5.8
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -657,12 +657,19 @@ class SettingsWindow(SettingsPanel):
 
         btns = ttk.Frame(wrap)
         btns.pack(anchor="w", pady=(0, 8))
-        self.btn_tests_run = ttk.Button(btns, text="Uruchom testy", command=self._run_all_tests)
+        self.btn_tests_run = ttk.Button(
+            btns, text="Uruchom testy", command=self._run_all_tests
+        )
         self.btn_tests_run.pack(side="left", padx=(0, 8))
         self.btn_tests_install = ttk.Button(
             btns, text="Zainstaluj pytest", command=self._install_pytest
         )
         self.btn_tests_install.pack(side="left", padx=(0, 8))
+
+        self.btn_install_pytest = ttk.Button(
+            btns, text="Zainstaluj pytest", command=self._install_pytest
+        )
+        self.btn_install_pytest.pack(side="left")
 
         self.txt_tests = tk.Text(wrap, height=18, wrap="none")
         self.txt_tests.pack(fill="both", expand=True)
@@ -759,6 +766,55 @@ class SettingsWindow(SettingsPanel):
             finally:
                 try:
                     self.btn_tests_run.after(0, lambda: self.btn_tests_run.config(state="normal"))
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _install_pytest(self):
+        try:
+            self.btn_install_pytest.config(state="disabled")
+        except Exception:
+            pass
+        self._append_tests_out(
+            "\n[INFO] Uruchamiam: python -m pip install -U pytest\n"
+        )
+
+        def _worker():
+            try:
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "-U",
+                    "pytest",
+                ]
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=os.getcwd(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                    bufsize=1,
+                )
+                for line in proc.stdout:
+                    self.txt_tests.after(0, self._append_tests_out, line)
+                ret = proc.wait()
+                self.txt_tests.after(
+                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
+                )
+            except Exception as e:
+                self.txt_tests.after(
+                    0,
+                    self._append_tests_out,
+                    f"\n[ERROR] Błąd instalacji pytest: {e!r}\n",
+                )
+            finally:
+                try:
+                    self.btn_install_pytest.after(
+                        0, lambda: self.btn_install_pytest.config(state="normal")
+                    )
                 except Exception:
                     pass
 
