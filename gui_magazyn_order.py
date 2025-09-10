@@ -60,12 +60,12 @@ class MagazynOrderDialog:
                 data = []
 
         data.append({"id": self.var_id.get(), "ilosc": qty})
-        logger.debug("[WM-DBG][MAG][ORDER] saving")
+        logger.debug("[WM-DBG][MAGAZYN][ORDER] saving")
         ORDERS_PATH.parent.mkdir(parents=True, exist_ok=True)
         ORDERS_PATH.write_text(
             json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-        logger.debug("[WM-DBG][MAG][ORDER] saved")
+        logger.debug("[WM-DBG][MAGAZYN][ORDER] saved")
 
         if callable(self.on_saved):
             self.on_saved()

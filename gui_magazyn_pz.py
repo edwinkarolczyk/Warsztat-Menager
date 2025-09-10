@@ -12,7 +12,6 @@ from services.profile_service import authenticate
 import logika_magazyn as LM
 import magazyn_io
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +38,7 @@ def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
     qty_f = float(qty)
     items[item_id]["stan"] = float(items[item_id].get("stan", 0)) + qty_f
 
-    logger.debug("[WM-DBG][MAG][PZ] saving")
+    logger.debug("[WM-DBG][MAGAZYN][PZ] saving")
     magazyn_io.append_history(
         items,
         item_id,
@@ -48,9 +47,9 @@ def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
         qty=qty_f,
         comment=comment,
     )
-    logger.debug("[WM-DBG][MAG][PZ] history updated")
+    logger.debug("[WM-DBG][MAGAZYN][PZ] history updated")
     LM.save_magazyn(data)
-    logger.debug("[WM-DBG][MAG][PZ] saved")
+    logger.debug("[WM-DBG][MAGAZYN][PZ] saved")
 
 
 class MagazynPZDialog:
@@ -171,7 +170,7 @@ class MagazynPZDialog:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
 
             items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
-            logger.debug("[WM-DBG][MAG][PZ] saving")
+            logger.debug("[WM-DBG][MAGAZYN][PZ] saving")
             magazyn_io.append_history(
                 items,
                 iid,
@@ -180,9 +179,9 @@ class MagazynPZDialog:
                 qty=qty,
                 comment=comment,
             )
-            logger.debug("[WM-DBG][MAG][PZ] history updated")
+            logger.debug("[WM-DBG][MAGAZYN][PZ] history updated")
             LM.save_magazyn(data)
-            logger.debug("[WM-DBG][MAG][PZ] saved")
+            logger.debug("[WM-DBG][MAGAZYN][PZ] saved")
         except Exception as exc:
             messagebox.showerror("Błąd", str(exc), parent=self.top)
             return
