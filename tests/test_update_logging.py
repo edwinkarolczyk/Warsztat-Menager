@@ -41,6 +41,12 @@ def test_git_has_updates_missing_branch(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     subprocess.run(["git", "init"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "WM"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "wm@example.com"],
+        cwd=repo,
+        check=True,
+    )
     (repo / "a.txt").write_text("a", encoding="utf-8")
     subprocess.run(["git", "add", "a.txt"], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-m", "init"], cwd=repo, check=True)
