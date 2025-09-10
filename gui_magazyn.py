@@ -225,6 +225,19 @@ class PanelMagazyn(ttk.Frame):
             _attach_tooltip(btn_etykieta, "Drukuj etykietę z kodem")
         )
 
+        btn_do_zam = ttk.Button(
+            bar,
+            text="Do zam.",
+            command=self._act_do_zam,
+            style="WM.Side.TButton",
+        )
+        btn_do_zam.grid(row=0, column=12, padx=3)
+        self._tooltips.append(
+            _attach_tooltip(
+                btn_do_zam, "Dodaj pozycję do listy zamówień."
+            )
+        )
+
         self.bind_all("<Control-n>", lambda _e: self._act_dodaj(), add="+")
         self.bind_all("<Control-p>", lambda _e: self._act_przyjecie(), add="+")
 
@@ -467,6 +480,10 @@ class PanelMagazyn(ttk.Frame):
             self._load()
         except Exception as e:
             error_dialogs.show_error_dialog("Błąd", str(e))
+
+    def _act_do_zam(self):
+        """Dodaj pozycję do listy zamówień."""
+        pass
 
     def _act_drukuj_etykiete(self):
         iid = self._sel_id()
