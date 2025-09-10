@@ -12,6 +12,18 @@ from tools import patcher
 def _init_repo(path: Path) -> None:
     subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
     subprocess.run(
+        ["git", "config", "user.name", "WM"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "wm@example.com"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
         ["git", "checkout", "-b", "Rozwiniecie"],
         cwd=path,
         check=True,
