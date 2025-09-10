@@ -19,6 +19,11 @@ def template_factory(tmp_path: Path):
     return _create
 
 
+@pytest.fixture
+def fixtures_dir() -> Path:
+    return Path(__file__).parent / "fixtures" / "tools_templates"
+
+
 def test_limit_8x8(template_factory) -> None:
     paths = [
         template_factory(f"{i:03}.json", f"{i:03}")
@@ -28,9 +33,9 @@ def test_limit_8x8(template_factory) -> None:
         tools_templates.load_templates(paths)
 
 
-def test_duplicate_detection_within_collection(template_factory) -> None:
-    p1 = template_factory("a.json", "01", collection="col")
-    p2 = template_factory("b.json", "01", collection="col")
+def test_duplicate_detection_within_collection(fixtures_dir) -> None:
+    p1 = fixtures_dir / "dup" / "a.json"
+    p2 = fixtures_dir / "dup" / "b.json"
     with pytest.raises(ValueError):
         tools_templates.load_templates([p1, p2])
 
