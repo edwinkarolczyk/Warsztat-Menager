@@ -27,6 +27,7 @@ import json
 import glob
 import re
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
 from config_manager import ConfigManager
@@ -233,84 +234,17 @@ def _tool_visible_for(tool_task, login, rola):
     return False
 
 # ====== Czytanie zadań ======
-def _read_tasks(login, rola=None):
-    role = str(rola or "").lower()
-    tasks = []
-
-    def _load_orders_dir(dir_path):
-        res = []
-        if os.path.isdir(dir_path):
-            for path in glob.glob(os.path.join(dir_path, "*.json")):
-                try:
-                    z = _load_json(path, {})
-                except json.JSONDecodeError as e:
-                    log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
-                    continue
-                if isinstance(z, dict) and _order_visible_for(z, login, role):
-                    res.append(_convert_order_to_task(z))
-        return res
-
-    def _load_tools_dir(dir_path):
-        res = []
-        if os.path.isdir(dir_path):
-            for path in glob.glob(os.path.join(dir_path, "*.json")):
-                try:
-                    tool = _load_json(path, {})
-                except json.JSONDecodeError as e:
-                    log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
-                    continue
-                if not isinstance(tool, dict):
-                    continue
-                num = tool.get("numer") or os.path.splitext(os.path.basename(path))[0]
-                name = tool.get("nazwa", "narzędzie")
-                worker = tool.get("pracownik", "")
-                items = tool.get("zadania", [])
-                for i, it in enumerate(items):
-                    t = _convert_tool_task(num, name, worker, i, it)
-                    if _tool_visible_for(t, login, role):
-                        res.append(t)
-        return res
-
-    # Wspólna tabela źródeł zadań (ścieżka + funkcja zwracająca listę)
-    sources = [
-        (os.path.join("data", f"zadania_{login}.json"),
-         lambda p: _load_json(p, [])),
-        (os.path.join("data", "zadania.json"),
-         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
-        (os.path.join("data", "zadania_narzedzia.json"),
-         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
-        (os.path.join("data", "zadania_zlecenia.json"),
-         lambda p: [z for z in _load_json(p, []) if str(z.get("login")) == str(login)]),
-        (os.path.join("data", f"zlecenia_{login}.json"),
-         lambda p: [_convert_order_to_task(z) for z in _load_json(p, [])]),
-        (os.path.join("data", "zlecenia.json"),
-         lambda p: [_convert_order_to_task(z)
-                    for z in _load_json(p, []) if _order_visible_for(z, login, role)]),
-        (os.path.join("data", "zlecenia"), _load_orders_dir),
-        (os.path.join("data", "narzedzia"), _load_tools_dir),
-    ]
-
-    for path, loader in sources:
-        try:
-            tasks.extend(loader(path))
-        except json.JSONDecodeError as e:
-            log_akcja(f"[WM-DBG][TASKS] Błąd JSON w {path}: {e}")
-        except Exception as e:
-            log_akcja(f"[WM-DBG][TASKS] Nie udało się wczytać {path}: {e}")
-
-    # i) status overrides
-    ovr = load_status_overrides(login)
-    for t in tasks:
-        ov = ovr.get(str(t.get("id")))
-        if ov: t["status"]=ov
-
-    # j) uzupełnij brakujące terminy i posortuj rosnąco po terminie
-    for t in tasks:
-        if not t.get("termin"):
-            t["termin"] = DEFAULT_TASK_DEADLINE
-    tasks.sort(key=lambda x: x.get("termin", DEFAULT_TASK_DEADLINE))
-
-    return tasks
+def _read_tasks(login: str) -> list[dict]:
+    path = Path("data") / "zadania.json"
+    try:
+        with path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        log_akcja(f"[WM-DBG][TASKS] Nieprawidłowy JSON: {path.as_posix()}")
+        return []
+    except FileNotFoundError:
+        log_akcja(f"[WM-DBG][TASKS] Brak pliku: {path.as_posix()}")
+        return []
 
 # ====== UI ======
 def _show_task_details(root, frame, login, rola, task, after_save=None):
@@ -682,7 +616,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
 
     # Dane
     rola_norm = str(rola).lower()
-    tasks = _read_tasks(login, rola_norm)
+    tasks = _read_tasks(login)
     user = get_user(login) or {}
 
     nb = ttk.Notebook(frame)
