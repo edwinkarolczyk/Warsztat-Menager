@@ -13,6 +13,14 @@
                 "Kontrola wizualna",
                 "Test działania"
               ]
+            },
+            {
+              "id": "SERWIS",
+              "name": "W serwisie",
+              "tasks": [
+                "Regulacja",
+                "Kalibracja"
+              ]
             }
           ]
         }
@@ -29,6 +37,14 @@
               "name": "Gotowe",
               "tasks": [
                 "Sprawdź baterię"
+              ]
+            },
+            {
+              "id": "BROKEN",
+              "name": "Uszkodzone",
+              "tasks": [
+                "Zgłoś awarię",
+                "Zamów części"
               ]
             }
           ]
