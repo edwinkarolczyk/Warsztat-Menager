@@ -20,7 +20,7 @@ def _make_root():
 
 @pytest.fixture
 def temp_users(tmp_path, monkeypatch):
-    src = Path("uzytkownicy.json").read_text(encoding="utf-8")
+    src = Path("data/uzytkownicy.json").read_text(encoding="utf-8")
     users_path = tmp_path / "uzytkownicy.json"
     users_path.write_text(src, encoding="utf-8")
     monkeypatch.setattr(ustawienia_uzytkownicy, "_USERS_FILE", str(users_path))
