@@ -393,6 +393,23 @@
           ]
         }
       ]
+    },
+    {
+      "id": "tests",
+      "title": "Testy",
+      "groups": [
+        {
+          "key": "tests",
+          "label": "Testy",
+          "fields": [
+            {
+              "key": "tests.run",
+              "type": "button",
+              "label": "Uruchom testy"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

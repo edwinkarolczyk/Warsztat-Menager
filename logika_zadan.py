@@ -134,6 +134,10 @@ def _ensure_cache(force: bool = False) -> None:
                         status_ids.add(status_id)
                 out[cid] = types
 
+            try:
+                mtime = os.path.getmtime(_TASKS_PATH)
+            except OSError:
+                mtime = None
             _TOOL_TASKS_CACHE = out
             _TOOL_TASKS_MTIME = mtime
         except Exception as exc:
