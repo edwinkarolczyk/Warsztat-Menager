@@ -14,247 +14,240 @@ from typing import Any, Dict
 import logika_magazyn as LM
 import bom
 from config_manager import ConfigManager
-import tools_autocheck
 
 logger = logging.getLogger(__name__)
 
 HISTORY_PATH = os.path.join("data", "zadania_history.json")
 TOOL_TASKS_PATH = os.path.join("data", "zadania_narzedzia.json")
-_TOOL_TASKS_CACHE: dict[str, list[dict]] | None = None
+_TOOLS_TEMPLATES_CACHE: dict[str, dict] | None = None
 
 
 class ToolTasksError(RuntimeError):
     """Wyjątek dla błędów w strukturze zadania_narzedzia.json."""
 
 
-def _save_tasks_file(data: dict) -> None:
-    """Zapisuje ``data`` do pliku z zachowaniem atomowości."""
+def load_tools_templates(force: bool = False) -> dict[str, dict]:
+    """Wczytaj definicje zadań narzędzi z pliku JSON.
 
-    d = os.path.dirname(TOOL_TASKS_PATH)
-    if d and not os.path.exists(d):
-        os.makedirs(d, exist_ok=True)
-    tmp = TOOL_TASKS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, TOOL_TASKS_PATH)
-
-
-def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
-    """Ładuje definicje zadań narzędzi z pliku JSON.
-
-    Dane są zorganizowane w kolekcje → typy → statusy. Brakujący plik jest
-    tworzony na podstawie ustawień ``tools.collections_enabled``. Każda
-    kolekcja może zawierać maksymalnie 8 typów, a każdy typ do 8 statusów.
+    Dane są zorganizowane w strukturze ``kolekcja → typ → status``. Funkcja
+    weryfikuje limity: maksymalnie 8 kolekcji, 8 typów na kolekcję oraz 8
+    statusów na typ. Identyfikatory muszą być unikalne w swoich zakresach.
 
     Args:
         force: Gdy ``True`` wymusza ponowne wczytanie pliku, ignorując cache.
     """
 
-    global _TOOL_TASKS_CACHE
-    if _TOOL_TASKS_CACHE is not None and not force:
-        return _TOOL_TASKS_CACHE
-
-    cfg = ConfigManager()
-    enabled = cfg.get("tools.collections_enabled", []) or []
-    default_coll = cfg.get(
-        "tools.default_collection", enabled[0] if enabled else "default"
-    )
+    global _TOOLS_TEMPLATES_CACHE
+    if _TOOLS_TEMPLATES_CACHE is not None and not force:
+        logger.debug("[WM-DBG][TASKS] użyto cache szablonów")
+        return _TOOLS_TEMPLATES_CACHE
 
     try:
-        with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        with open(TOOL_TASKS_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        logger.debug(
+            "[WM-DBG][TASKS] wczytano szablony z %s", TOOL_TASKS_PATH
+        )
     except FileNotFoundError:
-        data = {"collections": {cid: {"types": []} for cid in enabled}}
-        _save_tasks_file(data)
+        logger.debug(
+            "[WM-DBG][TASKS] brak pliku %s, zwracam pustą strukturę",
+            TOOL_TASKS_PATH,
+        )
+        data = {"collections": {}}
 
-    if "types" in data and "collections" not in data:
-        types = data.get("types") or []
-        data = {"collections": {cid: {"types": []} for cid in enabled}}
-        data["collections"].setdefault(default_coll, {"types": []})["types"] = types
-        _save_tasks_file(data)
+    collections: dict[str, dict] = data.get("collections") or {}
+    if len(collections) > 8:
+        raise ToolTasksError("Przekroczono maksymalną liczbę kolekcji (8)")
 
-    collections: dict = data.get("collections") or {}
-    changed = False
-    for cid in enabled:
-        if cid not in collections:
-            collections[cid] = {"types": []}
-            changed = True
-    if changed:
-        data["collections"] = collections
-        _save_tasks_file(data)
-
-    out: dict[str, list[dict]] = {}
+    out: dict[str, dict] = {}
     for cid, coll in collections.items():
+        if cid in out:
+            raise ToolTasksError(f"Powtarzające się id kolekcji: {cid}")
         types = coll.get("types") or []
         if len(types) > 8:
-            raise ToolTasksError("Przekroczono maksymalną liczbę typów (8)")
+            raise ToolTasksError(
+                f"Przekroczono maksymalną liczbę typów w kolekcji {cid}"
+            )
         type_ids: set[str] = set()
         for typ in types:
-            type_id = typ.get("id")
-            if type_id in type_ids:
-                raise ToolTasksError(f"Powtarzające się id typu: {type_id}")
-            type_ids.add(type_id)
-
+            tid = typ.get("id")
+            if tid in type_ids:
+                raise ToolTasksError(
+                    f"Powtarzające się id typu {tid} w kolekcji {cid}"
+                )
+            type_ids.add(tid)
             statuses = typ.get("statuses") or []
             if len(statuses) > 8:
                 raise ToolTasksError(
-                    f"Przekroczono maksymalną liczbę statusów dla typu {type_id}"
+                    f"Przekroczono maksymalną liczbę statusów dla typu {tid}"
                 )
-
             status_ids: set[str] = set()
-            for status in statuses:
-                status_id = status.get("id")
-                if status_id in status_ids:
+            for st in statuses:
+                sid = st.get("id")
+                if sid in status_ids:
                     raise ToolTasksError(
-                        f"Powtarzające się id statusu {status_id} w typie {type_id}"
+                        f"Powtarzające się id statusu {sid} w typie {tid}"
                     )
-                status_ids.add(status_id)
-        out[cid] = types
+                status_ids.add(sid)
+        out[cid] = coll
 
-    _TOOL_TASKS_CACHE = out
+    _TOOLS_TEMPLATES_CACHE = out
     return out
 
 
 def invalidate_cache() -> None:
-    """Clears cached tool tasks definitions."""
+    """Resetuje wewnętrzny cache szablonów."""
 
-    global _TOOL_TASKS_CACHE
-    _TOOL_TASKS_CACHE = None
-
-
-def _default_collection() -> str:
-    cfg = ConfigManager()
-    enabled = cfg.get("tools.collections_enabled", []) or []
-    return cfg.get("tools.default_collection", enabled[0] if enabled else "default")
+    global _TOOLS_TEMPLATES_CACHE
+    _TOOLS_TEMPLATES_CACHE = None
+    logger.debug("[WM-DBG][TASKS] cache unieważniony")
 
 
-def get_tool_types_list(
-    collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę typów narzędzi dla danej kolekcji."""
-
-    coll = collection or _default_collection()
-    return [
-        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
-        for t in _load_tool_tasks(force=force).get(coll, [])
-    ]
-
-
-def _find_type(
-    type_id: str, collection: str | None = None, force: bool = False
-) -> dict | None:
-    coll = collection or _default_collection()
-    for t in _load_tool_tasks(force=force).get(coll, []):
-        if t.get("id") == type_id:
-            return t
-    return None
-
-
-def get_statuses_for_type(
-    type_id: str, collection: str | None = None, force: bool = False
-) -> list[dict]:
-    """Zwraca listę statusów dostępnych dla danego typu."""
-
-    typ = _find_type(type_id, collection=collection, force=force)
-    if not typ:
-        return []
-    return [
-        {"id": s.get("id"), "name": s.get("name", s.get("id"))}
-        for s in (typ.get("statuses") or [])
-    ]
-
-
-def get_tasks_for(
-    type_id: str,
-    status_id: str,
-    collection: str | None = None,
-    force: bool = False,
-) -> list[str]:
-    """Zwraca listę zadań dla kombinacji typu i statusu w kolekcji."""
-
-    typ = _find_type(type_id, collection=collection, force=force)
-    if not typ:
-        return []
-    for st in typ.get("statuses") or []:
-        if st.get("id") == status_id:
-            return list(st.get("tasks") or [])
-    return []
-
-
-def invalidate_cache() -> None:
-    """Clear internal caches used for tool task definitions."""
-    global _TOOL_TASKS_CACHE
-    _TOOL_TASKS_CACHE = None
+def _coerce_settings(
+    settings: ConfigManager | Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    if settings is None:
+        return ConfigManager().merged
+    if isinstance(settings, ConfigManager):
+        return settings.merged
+    return settings
 
 
 def get_collections(
     settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> list[dict]:
-    """Return list of available collections based on *settings*."""
+    """Zwróć listę dostępnych kolekcji zgodnie z konfiguracją."""
 
-    cfg = settings or ConfigManager()
-    if isinstance(cfg, dict):
-        getter = lambda k, d=None: cfg.get(k, d)
-    else:
-        getter = cfg.get
-    enabled = getter("tools.collections_enabled", []) or []
-    return [{"id": cid, "name": cid} for cid in enabled]
+    cfg = _coerce_settings(settings)
+    enabled = cfg.get("tools", {}).get("collections_enabled", []) or []
+    templates = load_tools_templates()
+    result = []
+    for cid in enabled:
+        coll = templates.get(cid, {})
+        name = coll.get("name", cid)
+        result.append({"id": cid, "name": name})
+    logger.debug("[WM-DBG][TASKS] kolekcje: %s", result)
+    return result
 
 
 def get_default_collection(
-    settings: ConfigManager | Dict[str, Any] | None = None
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> str:
-    """Return identifier of the default collection from *settings*."""
-
-    cfg = settings or ConfigManager()
-    if isinstance(cfg, dict):
-        getter = lambda k, d=None: cfg.get(k, d)
-    else:
-        getter = cfg.get
-    enabled = getter("tools.collections_enabled", []) or []
-    return getter("tools.default_collection", enabled[0] if enabled else "default")
+    cfg = _coerce_settings(settings)
+    enabled = cfg.get("tools", {}).get("collections_enabled", []) or []
+    default = cfg.get("tools", {}).get(
+        "default_collection", enabled[0] if enabled else "default"
+    )
+    logger.debug("[WM-DBG][TASKS] domyślna kolekcja: %s", default)
+    return default
 
 
 def get_tool_types(
-    collection: str | None = None, force: bool = False
+    collection_id: str,
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> list[dict]:
-    """Wrapper for :func:`get_tool_types_list` with a simpler name."""
-
-    return get_tool_types_list(collection=collection, force=force)
+    templates = load_tools_templates()
+    types = templates.get(collection_id, {}).get("types", [])
+    result = [
+        {"id": t.get("id"), "name": t.get("name", t.get("id"))}
+        for t in types
+    ]
+    logger.debug(
+        "[WM-DBG][TASKS] typy dla %s: %s", collection_id, result
+    )
+    return result
 
 
 def get_statuses(
-    type_id: str, collection: str | None = None, force: bool = False
+    collection_id: str,
+    type_id: str,
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> list[dict]:
-    """Wrapper returning statuses for *type_id* in *collection*."""
-
-    return get_statuses_for_type(type_id, collection=collection, force=force)
+    templates = load_tools_templates()
+    types = templates.get(collection_id, {}).get("types", [])
+    for typ in types:
+        if typ.get("id") == type_id:
+            statuses = [
+                {
+                    "id": s.get("id"),
+                    "name": s.get("name", s.get("id")),
+                    "auto_check_on_entry": bool(s.get("auto_check_on_entry")),
+                }
+                for s in (typ.get("statuses") or [])
+            ]
+            logger.debug(
+                "[WM-DBG][TASKS] statusy dla %s/%s: %s",
+                collection_id,
+                type_id,
+                statuses,
+            )
+            return statuses
+    logger.debug(
+        "[WM-DBG][TASKS] brak statusów dla %s/%s", collection_id, type_id
+    )
+    return []
 
 
 def get_tasks(
+    collection_id: str,
     type_id: str,
     status_id: str,
-    collection: str | None = None,
-    force: bool = False,
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> list[str]:
-    """Wrapper returning tasks for *type_id*/*status_id* pair."""
-
-    return get_tasks_for(type_id, status_id, collection=collection, force=force)
+    templates = load_tools_templates()
+    types = templates.get(collection_id, {}).get("types", [])
+    for typ in types:
+        if typ.get("id") == type_id:
+            for st in typ.get("statuses") or []:
+                if st.get("id") == status_id:
+                    tasks = list(st.get("tasks") or [])
+                    logger.debug(
+                        "[WM-DBG][TASKS] zadania dla %s/%s/%s: %s",
+                        collection_id,
+                        type_id,
+                        status_id,
+                        tasks,
+                    )
+                    return tasks
+    logger.debug(
+        "[WM-DBG][TASKS] brak zadań dla %s/%s/%s",
+        collection_id,
+        type_id,
+        status_id,
+    )
+    return []
 
 
 def should_autocheck(
-    status_id: str,
     collection_id: str,
-    config: ConfigManager | Dict[str, Any] | None = None,
+    status_id: str,
+    settings: ConfigManager | Dict[str, Any] | None = None,
 ) -> bool:
-    """Return ``True`` when tasks for *status_id* should be auto-checked."""
-
-    cfg = config
-    if cfg is None:
-        cfg = ConfigManager().merged
-    elif isinstance(cfg, ConfigManager):
-        cfg = cfg.merged
-    return tools_autocheck.should_autocheck(status_id, collection_id, cfg)
+    cfg = _coerce_settings(settings)
+    templates = load_tools_templates()
+    coll = templates.get(collection_id, {})
+    for typ in coll.get("types", []):
+        for st in typ.get("statuses") or []:
+            if st.get("id") == status_id:
+                flag = st.get("auto_check_on_entry")
+                if flag is not None:
+                    res = bool(flag)
+                    logger.debug(
+                        "[WM-DBG][TASKS] autocheck %s/%s -> %s (entry)",
+                        collection_id,
+                        status_id,
+                        res,
+                    )
+                    return res
+    statuses = cfg.get("tools", {}).get("auto_check_on_status_global", [])
+    res = status_id in statuses
+    logger.debug(
+        "[WM-DBG][TASKS] autocheck %s/%s -> %s (global)",
+        collection_id,
+        status_id,
+        res,
+    )
+    return res
 
 
 def _now():
