@@ -7,29 +7,34 @@
 # Zmiany 1.0.0:
 # - Dodano okno dodawania pozycji magazynowej.
 
+import sys
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
-from config_manager import ConfigManager
 from services.profile_service import authenticate
 import magazyn_io
 import logika_magazyn as LM
-
-_CFG = ConfigManager()
 
 
 class MagazynAddDialog:
     """Dialog umożliwiający dodanie nowej pozycji magazynowej."""
 
-    def __init__(self, parent, on_saved=None):
-        self.parent = parent
+    def __init__(self, master, config, profiles=None, on_saved=None):
+        self.master = master
+        self.config = config
+        self.profiles = profiles
         self.on_saved = on_saved
 
-        self.win = tk.Toplevel(parent)
-        apply_theme(self.win)
-        self.win.title("Dodaj pozycję")
-        self.win.resizable(False, False)
+        gm = sys.modules.get("gui_magazyn")
+        tk_mod = getattr(gm, "tk", tk) if gm else tk
+        self.top = tk_mod.Toplevel(master)
+        if hasattr(self.top, "title"):
+            self.top.title("Dodaj pozycję")
+        if not getattr(self.top, "tk", None):
+            return
+        apply_theme(self.top)
+        self.top.resizable(False, False)
 
         self.vars = {
             "id": tk.StringVar(),
@@ -40,9 +45,9 @@ class MagazynAddDialog:
             "min_poziom": tk.StringVar(),
         }
 
-        frm = ttk.Frame(self.win, padding=12, style="WM.TFrame")
+        frm = ttk.Frame(self.top, padding=12, style="WM.TFrame")
         frm.grid(row=0, column=0, sticky="nsew")
-        self.win.columnconfigure(0, weight=1)
+        self.top.columnconfigure(0, weight=1)
 
         fields = [
             ("ID", "id"),
@@ -62,7 +67,7 @@ class MagazynAddDialog:
             )
         frm.columnconfigure(1, weight=1)
 
-        btns = ttk.Frame(self.win, style="WM.TFrame")
+        btns = ttk.Frame(self.top, style="WM.TFrame")
         btns.grid(row=1, column=0, padx=12, pady=(4, 8), sticky="e")
 
         ttk.Button(
@@ -78,33 +83,32 @@ class MagazynAddDialog:
             style="WM.Side.TButton",
         ).pack(side="right")
 
-        self.win.transient(parent)
-        self.win.grab_set()
-        self.win.protocol("WM_DELETE_WINDOW", self.on_cancel)
-        self.win.wait_window(self.win)
+        self.top.transient(master)
+        self.top.grab_set()
+        self.top.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
     # ------------------------------------------------------------------
     def on_cancel(self):
-        self.win.destroy()
+        self.top.destroy()
 
     # ------------------------------------------------------------------
     def on_save(self):
-        user_login = getattr(self.parent.winfo_toplevel(), "login", "")
-        if _CFG.get("magazyn.require_reauth", True):
+        user_login = getattr(self.master.winfo_toplevel(), "login", "")
+        if self.config.get("magazyn.require_reauth", True):
             login = simpledialog.askstring(
-                "Re-autoryzacja", "Login:", parent=self.win
+                "Re-autoryzacja", "Login:", parent=self.top
             )
             if login is None:
                 return
             pin = simpledialog.askstring(
-                "Re-autoryzacja", "PIN:", show="*", parent=self.win
+                "Re-autoryzacja", "PIN:", show="*", parent=self.top
             )
             if pin is None:
                 return
             user = authenticate(login, pin)
             if not user:
                 messagebox.showerror(
-                    "Błąd", "Nieprawidłowy login lub PIN", parent=self.win
+                    "Błąd", "Nieprawidłowy login lub PIN", parent=self.top
                 )
                 return
             user_login = user.get("login", login)
@@ -114,7 +118,7 @@ class MagazynAddDialog:
             minimum = float(self.vars["min_poziom"].get() or 0)
         except ValueError:
             messagebox.showerror(
-                "Błąd", "Stan i minimum muszą być liczbami", parent=self.win
+                "Błąd", "Stan i minimum muszą być liczbami", parent=self.top
             )
             return
 
@@ -125,7 +129,7 @@ class MagazynAddDialog:
 
         if not all([item_id, name, typ, jm]):
             messagebox.showerror(
-                "Błąd", "Wszystkie pola są wymagane", parent=self.win
+                "Błąd", "Wszystkie pola są wymagane", parent=self.top
             )
             return
 
@@ -135,7 +139,7 @@ class MagazynAddDialog:
 
         if item_id in data.get("items", {}):
             messagebox.showerror(
-                "Błąd", "ID już istnieje w magazynie", parent=self.win
+                "Błąd", "ID już istnieje w magazynie", parent=self.top
             )
             return
 
@@ -172,12 +176,12 @@ class MagazynAddDialog:
             except TypeError:
                 self.on_saved()
 
-        self.win.destroy()
+        self.top.destroy()
 
 
-def open_window(parent, on_saved=None):
+def open_window(parent, config, profiles=None, on_saved=None):
     """Zachowana dla kompatybilności funkcja otwierająca dialog."""
-    MagazynAddDialog(parent, on_saved=on_saved)
+    return MagazynAddDialog(parent, config, profiles, on_saved=on_saved)
 
 
 # ⏹ KONIEC KODU

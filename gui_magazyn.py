@@ -527,7 +527,13 @@ class PanelMagazyn(ttk.Frame):
         master = getattr(self, "master", self)
         config = getattr(self, "config", None)
         profiles = getattr(self, "profiles", None)
-        MagazynPZDialog(master, config, profiles, on_saved=self._reload_data)
+        try:
+            MagazynPZDialog(master, config, profiles, on_saved=self._reload_data)
+        except TypeError:  # pragma: no cover - legacy signature
+            try:
+                MagazynPZDialog(master, on_saved=self._reload_data)
+            except Exception:  # pragma: no cover - fallback to bare window
+                tk.Toplevel(master)
 
     def _show_historia(self):
         iid = self._sel_id()
