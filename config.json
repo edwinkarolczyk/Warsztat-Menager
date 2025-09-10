@@ -25,5 +25,8 @@
   },
   "backup": {
     "keep_last": 10
+  },
+  "magazyn": {
+    "require_reauth": true
   }
 }

@@ -136,6 +136,10 @@ class ConfigManager:
         self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
         self.merged = self._merge_all()
+        print(
+            "[WM-DBG][SETTINGS] require_reauth="
+            f"{self.get('magazyn.require_reauth', True)}"
+        )
         self._validate_all()
 
         # Settings for unsaved changes handling

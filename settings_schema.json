@@ -178,6 +178,12 @@
               "label": "Precyzja (MB)",
               "min": 0,
               "max": 6
+            },
+            {
+              "key": "magazyn.require_reauth",
+              "type": "bool",
+              "label": "Re-auth przy zmianach",
+              "default": true
             }
           ]
         },

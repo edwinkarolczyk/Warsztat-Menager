@@ -103,6 +103,9 @@
     },
     "modes": {}
   },
+  "magazyn": {
+    "require_reauth": true
+  },
   "magazyn_rezerwacje": true,
   "magazyn_precision_mb": 3,
   "produkty_dir": "data/produkty/",
