@@ -439,7 +439,9 @@ class SettingsPanel:
             )
             return
 
-        if hasattr(gui_tools_config, "open_window"):
+        if hasattr(gui_tools_config, "open_tools_config"):
+            win = gui_tools_config.open_tools_config(parent)  # type: ignore[assignment]
+        elif hasattr(gui_tools_config, "open_window"):
             win = gui_tools_config.open_window(parent)  # type: ignore[assignment]
         elif hasattr(gui_tools_config, "ToolsConfigWindow"):
             win = gui_tools_config.ToolsConfigWindow(parent)  # type: ignore[assignment]
