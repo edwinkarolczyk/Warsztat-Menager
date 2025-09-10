@@ -53,6 +53,21 @@ def load_tools_templates(force: bool = False) -> dict[str, dict]:
     except FileNotFoundError:
         raw = {"collections": {}}
 
+    if "types" in raw and "collections" not in raw:
+        cfg = ConfigManager()
+        enabled = cfg.get("tools.collections_enabled", []) or []
+        default_coll = cfg.get(
+            "tools.default_collection", enabled[0] if enabled else "default"
+        )
+        converted = {"collections": {cid: {"types": []} for cid in enabled}}
+        converted["collections"].setdefault(default_coll, {"types": []})[
+            "types"
+        ] = raw.get("types") or []
+        with open(TOOL_TASKS_PATH, "w", encoding="utf-8") as f:
+            json.dump(converted, f, ensure_ascii=False, indent=2)
+        logger.debug("%s zaktualizowano format 'types' -> 'collections'", DBG_PREFIX)
+        raw = converted
+
     collections = raw.get("collections") or {}
     if not isinstance(collections, dict):
         raise ToolTasksError("Brak sekcji 'collections' w zadania_narzedzia.json")
