@@ -8,6 +8,18 @@ def test_zadania_narzedzia_limits_and_structure():
         data = json.load(f)
     collections = data.get("collections")
     assert isinstance(collections, dict)
+
+    for cid in ("NN", "ST"):
+        assert cid in collections, f"Brak kolekcji {cid}"
+        types = collections[cid].get("types") or []
+        assert types, f"Kolekcja {cid} nie zawiera typów"
+        assert any(t.get("statuses") for t in types), f"Kolekcja {cid} bez statusów"
+        assert any(
+            st.get("tasks")
+            for t in types
+            for st in t.get("statuses") or []
+        ), f"Kolekcja {cid} bez zadań"
+
     for coll in collections.values():
         types = coll.get("types") or []
         assert len(types) <= 8, "Limit typów przekroczony"
