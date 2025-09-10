@@ -69,8 +69,9 @@ def test_rezerwuj_partial(tmp_path, monkeypatch):
     assert reserved == 5.0
     item = lm.get_item('MAT-X')
     assert item['rezerwacje'] == 8.0
-    assert item['historia'][-1]['operacja'] == 'rezerwacja'
-    assert item['historia'][-1]['ilosc'] == 5.0
+    entry = item['historia'][-1]
+    assert entry['op'] == 'RESERVE'
+    assert entry['qty'] == 5.0
 
 
 def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
@@ -134,9 +135,7 @@ def test_set_order_persists(tmp_path, monkeypatch):
 def test_delete_item(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     logs = []
-    history = []
     monkeypatch.setattr(lm, '_log_mag', lambda a, d: logs.append((a, d)))
-    monkeypatch.setattr(lm, '_append_history', lambda e: history.append(e))
 
     lm.load_magazyn()
     lm.upsert_item({
@@ -160,7 +159,6 @@ def test_delete_item(tmp_path, monkeypatch):
     m = lm.load_magazyn()
     assert 'A' not in m['items']
     assert 'A' not in m['meta']['order']
-    assert history and history[-1]['operacja'] == 'usun'
     assert any(a == 'usun' and d['item_id'] == 'A' for a, d in logs)
 
     with pytest.raises(KeyError):

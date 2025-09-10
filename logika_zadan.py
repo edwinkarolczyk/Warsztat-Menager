@@ -68,7 +68,9 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
     if "types" in data and "collections" not in data:
         types = data.get("types") or []
         data = {"collections": {cid: {"types": []} for cid in enabled}}
-        data["collections"].setdefault(default_coll, {"types": []})["types"] = types
+        data["collections"].setdefault(
+            default_coll, {"types": []}
+        )["types"] = types
         _save_tasks_file(data)
 
     collections: dict = data.get("collections") or {}
@@ -111,6 +113,37 @@ def _load_tool_tasks(force: bool = False) -> dict[str, list[dict]]:
 
     _TOOL_TASKS_CACHE = out
     return out
+
+
+def save_tool_tasks(data: dict) -> None:
+    """Zapisz definicje zadań do :data:`TOOL_TASKS_PATH`.
+
+    Tworzy brakujący plik zgodnie z ustawieniami ``tools.collections_enabled``.
+    Akceptuje zarówno nową strukturę z kluczem ``collections`` jak i
+    legacyjny format z ``types``.
+    """
+
+    cfg = ConfigManager()
+    enabled = cfg.get("tools.collections_enabled", []) or []
+    default_coll = cfg.get(
+        "tools.default_collection", enabled[0] if enabled else "default"
+    )
+
+    if "collections" not in data and "types" in data:
+        types = data.get("types") or []
+        data = {"collections": {cid: {"types": []} for cid in enabled}}
+        data["collections"].setdefault(
+            default_coll, {"types": []}
+        )["types"] = types
+    else:
+        collections = data.get("collections") or {}
+        for cid in enabled:
+            collections.setdefault(cid, {"types": []})
+        data = {"collections": collections}
+
+    _save_tasks_file(data)
+    global _TOOL_TASKS_CACHE
+    _TOOL_TASKS_CACHE = None
 
 
 def _default_collection() -> str:

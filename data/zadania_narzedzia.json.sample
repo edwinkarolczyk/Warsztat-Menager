@@ -48,7 +48,21 @@
       ]
     },
     "ST": {
-      "types": []
+      "types": [
+        {
+          "id": "lathe",
+          "name": "Tokarka",
+          "statuses": [
+            {
+              "id": "prod",
+              "name": "Produkcja",
+              "tasks": [
+                "Sprawdzenie narzędzia"
+              ]
+            }
+          ]
+        }
+      ]
     }
   }
 }
