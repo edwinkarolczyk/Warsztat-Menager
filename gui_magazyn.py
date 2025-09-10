@@ -510,8 +510,9 @@ class PanelMagazyn(ttk.Frame):
 
     def _act_dodaj(self):
         print("[WM-DBG][MAG] _act_dodaj -> okno dodawania")
-        dlg = MagazynAddDialog(self.root, self.config, self.profiles, on_saved=self._reload_data)
-        self.root.wait_window(dlg.top)
+        root = self.winfo_toplevel()
+        dlg = MagazynAddDialog(root, self.config, self.profiles, on_saved=self._reload_data)
+        root.wait_window(dlg.top)
 
     def _act_przyjecie(self):
         """Open dialog for registering a goods receipt (PZ)."""

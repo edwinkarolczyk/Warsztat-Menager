@@ -18,7 +18,8 @@ def test_add_and_pz_buttons_create_windows(monkeypatch):
     monkeypatch.setattr(gui_magazyn, "MagazynPZDialog", DummyPZDialog)
 
     panel = object.__new__(gui_magazyn.PanelMagazyn)
-    panel.root = types.SimpleNamespace(wait_window=lambda _win: None)
+    root = types.SimpleNamespace(wait_window=lambda _win: None)
+    panel.winfo_toplevel = lambda: root
     panel.config = None
     panel.profiles = None
     panel._reload_data = lambda *a, **k: None
