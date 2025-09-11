@@ -23,6 +23,24 @@
     "theme": "dark",
     "language": "pl"
   },
+  "magazyn": {
+    "kategorie": [
+      "komponent",
+      "półprodukt",
+      "materiał"
+    ],
+    "typy_materialu": [
+      "blacha",
+      "pret",
+      "rura",
+      "plaskownik"
+    ],
+    "jednostki": {
+      "szt": "sztuka",
+      "kg": "kilogram",
+      "m": "metr"
+    }
+  },
   "backup": {
     "keep_last": 10
   }
