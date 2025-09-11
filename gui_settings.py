@@ -29,13 +29,20 @@ _TOOLS_CFG_WARNED = False
 
 
 def _try_import_tools_config() -> bool:
-    """Try importing gui_tools_config and cache the result."""
+    """Spróbuj załadować moduł konfiguracji narzędzi."""
 
     global _TOOLS_CFG_IMPORT_OK, _TOOLS_CFG_WARNED
     if _TOOLS_CFG_IMPORT_OK is not None:
         return _TOOLS_CFG_IMPORT_OK
+    if "gui_tools_config" in sys.modules:
+        _TOOLS_CFG_IMPORT_OK = True
+        return True
     try:
-        __import__("gui_tools_config")
+        try:
+            mod = __import__("gui_tools_config_advanced")
+            sys.modules["gui_tools_config"] = mod
+        except ImportError:
+            __import__("gui_tools_config")
     except Exception as exc:  # pragma: no cover - import error handling
         _TOOLS_CFG_IMPORT_OK = False
         if not _TOOLS_CFG_WARNED:
