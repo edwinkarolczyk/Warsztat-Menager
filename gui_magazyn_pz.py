@@ -175,7 +175,6 @@ class MagazynPZDialog:
                 qty = float(rounded)
 
             items[iid]["stan"] = float(item.get("stan", 0)) + qty
-            print("[WM-DBG] przed zapisem PZ")
             magazyn_io.append_history(
                 items,
                 iid,
@@ -185,7 +184,6 @@ class MagazynPZDialog:
                 comment=comment,
             )
             LM.save_magazyn(data)
-            print("[WM-DBG] po zapisie PZ")
         except Exception as exc:
             messagebox.showerror("Błąd", str(exc), parent=self.top)
             return
