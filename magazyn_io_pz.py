@@ -14,7 +14,7 @@ from typing import Dict, Iterable
 PZ_SEQ_PATH = "data/magazyn/_seq_pz.json"
 PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
 STANY_PATH = "data/magazyn/stany.json"
-KATALOG_PATH = "data/magazyn/magazyn.json"
+KATALOG_PATH = "data/magazyn/katalog.json"
 
 
 def _ensure_dirs(path: str) -> None:
