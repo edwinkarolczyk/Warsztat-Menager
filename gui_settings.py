@@ -24,35 +24,6 @@ from services import profile_service
 from logger import log_akcja
 
 
-_TOOLS_CFG_IMPORT_OK: bool | None = None
-_TOOLS_CFG_WARNED = False
-
-
-def _try_import_tools_config() -> bool:
-    """Spróbuj załadować moduł konfiguracji narzędzi."""
-
-    global _TOOLS_CFG_IMPORT_OK, _TOOLS_CFG_WARNED
-    if _TOOLS_CFG_IMPORT_OK is not None:
-        return _TOOLS_CFG_IMPORT_OK
-    if "gui_tools_config" in sys.modules:
-        _TOOLS_CFG_IMPORT_OK = True
-        return True
-    try:
-        try:
-            mod = __import__("gui_tools_config_advanced")
-            sys.modules["gui_tools_config"] = mod
-        except ImportError:
-            __import__("gui_tools_config")
-    except Exception as exc:  # pragma: no cover - import error handling
-        _TOOLS_CFG_IMPORT_OK = False
-        if not _TOOLS_CFG_WARNED:
-            log_akcja(f"[SETTINGS] gui_tools_config import failed: {exc}")
-            _TOOLS_CFG_WARNED = True
-        return False
-    _TOOLS_CFG_IMPORT_OK = True
-    return True
-
-
 def _is_deprecated(node: dict) -> bool:
     """Return True if schema node is marked as deprecated."""
 
@@ -492,20 +463,39 @@ class SettingsPanel:
         """Open tools tasks configuration dialog."""
 
         import os
+        import importlib
         from tkinter import messagebox
-
-        if not _try_import_tools_config():
-            messagebox.showwarning(
-                "Konfiguracja zadań narzędzi",
-                "Moduł konfiguracji narzędzi nie jest dostępny.",
-            )
-            return
-
-        from gui_tools_config import ToolsConfigDialog
 
         callback = getattr(LZ, "invalidate_cache", lambda: None)
         path = os.path.join("data", "zadania_narzedzia.json")
-        win = ToolsConfigDialog(self, path=path, on_save=callback)
+
+        ToolsConfigDialog = None
+        try:
+            ToolsConfigDialog = importlib.import_module(
+                "gui_tools_config_advanced"
+            ).ToolsConfigDialog
+        except Exception:  # pragma: no cover - advanced import error handling
+            pass
+
+        if ToolsConfigDialog is not None:
+            try:
+                win = ToolsConfigDialog(self, path=path, on_save=callback)
+            except Exception:  # pragma: no cover - advanced instantiation error
+                ToolsConfigDialog = None
+
+        if ToolsConfigDialog is None:
+            try:
+                ToolsConfigDialog = importlib.import_module(
+                    "gui_tools_config"
+                ).ToolsConfigDialog
+                win = ToolsConfigDialog(self, path=path, on_save=callback)
+            except Exception:
+                messagebox.showwarning(
+                    "Konfiguracja zadań narzędzi",
+                    "Moduł konfiguracji narzędzi nie jest dostępny.",
+                )
+                return
+
         _ensure_topmost(win)
         try:
             self.wait_window(win)
