@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 import logging
 
 try:
@@ -150,9 +150,9 @@ def append_history(
 def generate_pz_id(now: datetime | None = None) -> str:
     """Return a sequential PZ identifier.
 
-    The identifier format is ``PZ-YYYY-MM-DD-XXXX`` where the counter
-    ``XXXX`` is stored in :data:`SEQ_PZ_PATH` and resets every year.
-    ``now`` can be provided for deterministic results in tests.
+    The identifier format is ``PZ/YYYY/NNNN`` where the counter ``NNNN`` is
+    stored in :data:`SEQ_PZ_PATH` and resets every year. ``now`` can be
+    provided for deterministic results in tests.
     """
 
     now = now or datetime.now(timezone.utc)
@@ -163,7 +163,7 @@ def generate_pz_id(now: datetime | None = None) -> str:
     seq_data["seq"] = int(seq_data.get("seq", 0)) + 1
     with open(SEQ_PZ_PATH, "w", encoding="utf-8") as f:
         json.dump(seq_data, f, ensure_ascii=False, indent=2)
-    pz_id = f"PZ-{now.strftime('%Y-%m-%d')}-{seq_data['seq']:04d}"
+    pz_id = f"PZ/{now.year}/{seq_data['seq']:04d}"
     logger.log_magazyn("nadano_id_pz", {"id": pz_id})
     return pz_id
 
@@ -190,33 +190,42 @@ def save_pz(entry: Dict[str, Any]) -> str:
     return data["id"]
 
 
-def update_stany_after_pz(entry: Dict[str, Any]) -> None:
-    """Update ``stany.json`` after recording a PZ.
+def update_stany_after_pz(entries: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    """Update ``stany.json`` after recording PZ ``entries``.
 
-    ``entry`` must contain ``item_id`` and ``qty``. When the item is
-    missing in ``stany.json`` it is created using ``nazwa`` and
-    optional ``prog_alert`` fields from ``entry``.
+    ``entries`` is an iterable of dictionaries each containing ``item_id`` and
+    ``qty``. Quantities for the same ``item_id`` are summed before applying to
+    ``stany.json``. The updated state dictionary is returned.
     """
 
-    item_id = entry["item_id"]
-    qty = float(entry.get("qty", 0))
     _ensure_dirs(STANY_PATH)
     stany = _load_json(STANY_PATH, {})
-    rec = stany.setdefault(
-        item_id,
-        {
-            "nazwa": entry.get("nazwa", item_id),
-            "stan": 0.0,
-            "prog_alert": float(entry.get("prog_alert", 0.0)),
-        },
-    )
-    rec["stan"] = float(rec.get("stan", 0)) + qty
+    totals: Dict[str, float] = {}
+    meta: Dict[str, Dict[str, Any]] = {}
+    for e in entries:
+        iid = e["item_id"]
+        qty = float(e.get("qty", 0))
+        totals[iid] = totals.get(iid, 0) + qty
+        meta.setdefault(iid, e)
+
+    for iid, qty in totals.items():
+        base = meta[iid]
+        rec = stany.setdefault(
+            iid,
+            {
+                "nazwa": base.get("nazwa", iid),
+                "stan": 0.0,
+                "prog_alert": float(base.get("prog_alert", 0.0)),
+            },
+        )
+        rec["stan"] = float(rec.get("stan", 0)) + qty
+        logger.log_magazyn(
+            "aktualizacja_stanow", {"item_id": iid, "dodano": qty, "stan": rec["stan"]}
+        )
+
     with open(STANY_PATH, "w", encoding="utf-8") as f:
         json.dump(stany, f, ensure_ascii=False, indent=2)
-    logger.log_magazyn(
-        "aktualizacja_stanow",
-        {"item_id": item_id, "dodano": qty, "stan": rec["stan"]},
-    )
+    return stany
 
 
 def ensure_in_katalog(entry: Dict[str, Any]) -> None:
