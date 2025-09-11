@@ -69,9 +69,9 @@ def test_record_pz_polprodukt_success(warehouse):
     assert history[-1] == ("ZBIJAK_KORPUS", 5)
 
 
-@pytest.mark.xfail(reason="Brak zaokr\u0105glania ilo\u015bci sztuk", strict=True)
-def test_fractional_quantity_prompts_rounding(warehouse):
+def test_fractional_quantity_prompts_rounding(warehouse, monkeypatch):
     gmpz, data, _ = warehouse
+    monkeypatch.setattr(gmpz, "ask_rounding", lambda qty, parent=None: "ceil")
     gmpz.record_pz("ZBIJAK_KORPUS", 2.5, "user")
     assert data["items"]["ZBIJAK_KORPUS"]["stan"] == 3
 
@@ -81,3 +81,4 @@ def test_invalid_profile_dimension_error(warehouse):
     with pytest.raises(KeyError) as exc:
         gmpz.record_pz("NNxNNxN", 1, "user")
     assert "Brak pozycji NNxNNxN w magazynie" in str(exc.value)
+
