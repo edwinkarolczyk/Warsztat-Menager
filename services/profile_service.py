@@ -28,36 +28,52 @@ def _use_users_file(path: str):
 
 def get_user(login: str, file_path: Optional[str] = None) -> Optional[Dict]:
     """Return profile dictionary for ``login`` or ``None`` if missing."""
-    if file_path:
-        with _use_users_file(file_path):
-            return _pu.get_user(login)
-    return _pu.get_user(login)
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                return _pu.get_user(login)
+        return _pu.get_user(login)
+    finally:
+        _pu.USERS_FILE = original
 
 
 def save_user(user: Dict, file_path: Optional[str] = None) -> None:
     """Persist ``user`` profile data."""
-    if file_path:
-        with _use_users_file(file_path):
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                _pu.save_user(user)
+        else:
             _pu.save_user(user)
-    else:
-        _pu.save_user(user)
+    finally:
+        _pu.USERS_FILE = original
 
 
 def get_all_users(file_path: Optional[str] = None) -> List[Dict]:
     """Return list of all user profiles."""
-    if file_path:
-        with _use_users_file(file_path):
-            return _pu.read_users()
-    return _pu.read_users()
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                return _pu.read_users()
+        return _pu.read_users()
+    finally:
+        _pu.USERS_FILE = original
 
 
 def write_users(users: List[Dict], file_path: Optional[str] = None) -> None:
     """Persist entire list of ``users``."""
-    if file_path:
-        with _use_users_file(file_path):
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                _pu.write_users(users)
+        else:
             _pu.write_users(users)
-    else:
-        _pu.write_users(users)
+    finally:
+        _pu.USERS_FILE = original
 
 
 def authenticate(login: str, pin: str, file_path: Optional[str] = None) -> Optional[Dict]:

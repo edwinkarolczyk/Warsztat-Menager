@@ -397,12 +397,18 @@ class _TaskTemplateUI:
     def _fill_types(self):
         cid = self._collection_id_from_combo()
         types = LZ.get_tool_types(collection=cid) if cid else []
+        if types:
+            self._set_info("")
+        else:
+            self._set_info("Brak typów w wybranej kolekcji.")
         with self._suspend_ui():
             self.type_map = {t["name"]: t["id"] for t in types}
             self.cb_type.config(values=list(self.type_map.keys()))
             name = next((n for n, tid in self.type_map.items() if tid == self._cur_type_id), "")
+            if not name and self.type_map:
+                name, self._cur_type_id = next(iter(self.type_map.items()))
             self.var_type.set(name)
-        if not name:
+        if not types:
             self._cur_type_id = ""
         self._fill_statuses()
 
@@ -410,55 +416,83 @@ class _TaskTemplateUI:
         cid = self._collection_id_from_combo()
         tid = self._type_id_from_combo()
         statuses = LZ.get_statuses(tid, collection=cid) if tid else []
+        if statuses:
+            self._set_info("")
+        else:
+            self._set_info("Brak statusów dla wybranego typu.")
         with self._suspend_ui():
             self.status_map = {s["name"]: s["id"] for s in statuses}
             self.cb_status.config(values=list(self.status_map.keys()))
             name = next((n for n, sid in self.status_map.items() if sid == self._cur_status_id), "")
+            if not name and self.status_map:
+                name, self._cur_status_id = next(iter(self.status_map.items()))
             self.var_status.set(name)
-        if not name:
+        if not statuses:
             self._cur_status_id = ""
         self._fill_tasks()
 
     def _fill_tasks(self):
         cid = self._collection_id_from_combo()
-        tid = self._type_id_from_combo()
-        sid = self._status_id_from_combo()
+        tid = self._type_id_from_combo() or self._cur_type_id
+        if not tid and self.type_map:
+            name, tid = next(iter(self.type_map.items()))
+            self._cur_type_id = tid
+            with self._suspend_ui():
+                self.var_type.set(name)
+            self._fill_statuses()
+            return
+        sid = self._status_id_from_combo() or self._cur_status_id
+        if not sid and self.status_map:
+            name, sid = next(iter(self.status_map.items()))
+            self._cur_status_id = sid
+            with self._suspend_ui():
+                self.var_status.set(name)
         tasks = LZ.get_tasks(tid, sid, collection=cid) if cid and tid and sid else []
         with self._suspend_ui():
             self.lst.delete(0, tk.END)
             self.tasks_state.clear()
-            for t in tasks:
-                self.tasks_state.append({"text": t, "done": False})
-            if tasks and LZ.should_autocheck(sid, cid):
-                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                user = getattr(self.parent, "login", None) or getattr(self.parent, "user", None)
-                for task in self.tasks_state:
-                    task["done"] = True
-                    task["done_at"] = ts
-                    if user:
-                        task["user"] = user
-            for t in self.tasks_state:
-                prefix = "[x]" if t.get("done") else "[ ]"
-                self.lst.insert(tk.END, f"{prefix} {t['text']}")
+            if tasks:
+                for t in tasks:
+                    self.tasks_state.append({"text": t, "done": False})
+                if LZ.should_autocheck(sid, cid):
+                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    user = getattr(self.parent, "login", None) or getattr(self.parent, "user", None)
+                    for task in self.tasks_state:
+                        task["done"] = True
+                        task["done_at"] = ts
+                        if user:
+                            task["user"] = user
+                for t in self.tasks_state:
+                    prefix = "[x]" if t.get("done") else "[ ]"
+                    self.lst.insert(tk.END, f"{prefix} {t['text']}")
+                self._set_info("")
+            else:
+                self._set_info("Brak zadań dla wybranego statusu.")
+                self.lst.insert(tk.END, "-- brak zadań --")
+                try:
+                    self.lst.itemconfig(0, state="disabled")
+                except Exception:
+                    pass
 
     def _on_collection_change(self, _=None):
         if self._ui_updating:
             return
-        self._cur_type_id = ""
-        self._cur_status_id = ""
         self._fill_types()
 
     def _on_type_change(self, _=None):
         if self._ui_updating:
             return
-        self._cur_type_id = self._type_id_from_combo() or ""
-        self._cur_status_id = ""
+        tid = self._type_id_from_combo()
+        if tid:
+            self._cur_type_id = tid
         self._fill_statuses()
 
     def _on_status_change(self, _=None):
         if self._ui_updating:
             return
-        self._cur_status_id = self._status_id_from_combo() or ""
+        sid = self._status_id_from_combo()
+        if sid:
+            self._cur_status_id = sid
         self._fill_tasks()
 
     def _reload_from_lz(self) -> None:
