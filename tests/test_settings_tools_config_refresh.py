@@ -1,3 +1,4 @@
+import os
 import sys
 import types
 
@@ -5,7 +6,7 @@ import gui_settings
 
 
 def test_open_tools_config_invalidates_cache(monkeypatch):
-    called = {"n": 0}
+    called = {"n": 0, "path": None, "wait": 0}
 
     def invalidate():
         called["n"] += 1
@@ -13,33 +14,22 @@ def test_open_tools_config_invalidates_cache(monkeypatch):
     monkeypatch.setattr(
         gui_settings, "LZ", types.SimpleNamespace(invalidate_cache=invalidate)
     )
-    monkeypatch.setattr(
-        gui_settings,
-        "messagebox",
-        types.SimpleNamespace(showerror=lambda *a, **k: None, showwarning=lambda *a, **k: None),
-    )
+    monkeypatch.setattr(gui_settings, "_ensure_topmost", lambda win: None)
 
     dummy_module = types.SimpleNamespace()
 
-    class DummyWin:
-        def __init__(self, master=None, on_save=None):
+    class DummyDialog:
+        def __init__(self, master=None, *, path="", on_save=None):
             self.on_save = on_save
+            called["path"] = path
             dummy_module.instance = self
 
-        def transient(self, parent):  # pragma: no cover - no-op
-            pass
-
-        def attributes(self, *args, **kwargs):  # pragma: no cover - no-op
-            pass
-
-        def grab_set(self):  # pragma: no cover - no-op
-            pass
-
-    dummy_module.ToolsConfigWindow = DummyWin
+    dummy_module.ToolsConfigDialog = DummyDialog
     monkeypatch.setitem(sys.modules, "gui_tools_config", dummy_module)
 
     dummy_self = types.SimpleNamespace(
-        master=types.SimpleNamespace(winfo_toplevel=lambda: None)
+        master=types.SimpleNamespace(winfo_toplevel=lambda: None),
+        wait_window=lambda win: called.__setitem__("wait", called["wait"] + 1),
     )
 
     gui_settings.SettingsPanel._open_tools_config(dummy_self)
@@ -47,4 +37,6 @@ def test_open_tools_config_invalidates_cache(monkeypatch):
     dummy_module.instance.on_save()
 
     assert called["n"] == 1
+    assert called["wait"] == 1
+    assert called["path"] == os.path.join("data", "zadania_narzedzia.json")
 

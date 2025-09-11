@@ -412,7 +412,7 @@ class SettingsPanel:
             if tab.get("id") == "narzedzia" and group.get("key") == "narzedzia":
                 ttk.Button(
                     inner,
-                    text="Konfiguruj typy/statusy/zadania",
+                    text="Edytor definicji zadań…",
                     command=self._open_tools_config,
                 ).pack(fill="x", padx=5, pady=5)
 
@@ -460,45 +460,20 @@ class SettingsPanel:
         return grp_count, fld_count
 
     def _open_tools_config(self) -> None:
-        """Open tools configuration window in top-most mode."""
+        """Open tools tasks configuration dialog."""
 
         parent = self.master.winfo_toplevel()
         try:
-            import gui_tools_config  # type: ignore
+            from gui_tools_config import ToolsConfigDialog
         except Exception as exc:  # pragma: no cover - import error handling
-            messagebox.showerror(
-                "Błąd",
-                f"Nie można otworzyć konfiguracji narzędzi:\n{exc}",
-                parent=parent,
-            )
+            print(f"[WM-DBG] gui_tools_config missing: {exc}")
             return
 
         callback = getattr(LZ, "invalidate_cache", lambda: None)
-
-        if hasattr(gui_tools_config, "open_tools_config"):
-            win = gui_tools_config.open_tools_config(parent, on_save=callback)  # type: ignore[assignment]
-        elif hasattr(gui_tools_config, "open_window"):
-            win = gui_tools_config.open_window(parent, on_save=callback)  # type: ignore[assignment]
-        elif hasattr(gui_tools_config, "ToolsConfigWindow"):
-            win = gui_tools_config.ToolsConfigWindow(parent, on_save=callback)  # type: ignore[assignment]
-        else:  # pragma: no cover - unexpected api
-            messagebox.showerror(
-                "Błąd",
-                "Brak funkcji otwierającej okno konfiguracji",
-                parent=parent,
-            )
-            return
-
-        try:
-            win.transient(parent)
-            win.attributes("-topmost", True)
-            win.grab_set()
-        except Exception as exc:  # pragma: no cover - tk specifics
-            messagebox.showwarning(
-                "Uwaga",
-                f"Nie udało się poprawnie przygotować okna:\n{exc}",
-                parent=parent,
-            )
+        path = os.path.join("data", "zadania_narzedzia.json")
+        win = ToolsConfigDialog(parent, path=path, on_save=callback)  # type: ignore[arg-type]
+        _ensure_topmost(win)
+        self.wait_window(win)
 
     def _add_patch_section(self, parent: tk.Widget) -> None:
         """Append patching and version controls to the Updates tab."""
