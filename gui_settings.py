@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime
 import json
-import os, sys, subprocess, threading
+import os, sys
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -26,6 +26,20 @@ from logger import log_akcja
 
 _TOOLS_CFG_IMPORT_OK: bool | None = None
 _TOOLS_CFG_WARNED = False
+
+# Docelowa kolejność zakładek w polskiej wersji interfejsu
+_TAB_ORDER_PL = [
+    "System",
+    "Użytkownicy",
+    "Hala",
+    "Narzędzia",
+    "Magazyn",
+    "Zlecenia",
+    "Aktualizacje & Kopie",
+    "Profile",
+    "Produkty i materiały",
+    "Audyt",
+]
 
 
 def _try_import_tools_config() -> bool:
@@ -381,6 +395,8 @@ class SettingsPanel:
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
+        self._init_audit_tab()
+        self._reorder_tabs()
         print("[WM-DBG] [SETTINGS] notebook packed")
 
         self.btns = ttk.Frame(self.master)
@@ -578,6 +594,36 @@ class SettingsPanel:
             command=rollback,
         ).pack(side="left", padx=5)
 
+    def _reorder_tabs(self) -> None:
+        """Reorder notebook tabs according to predefined order."""
+        try:
+            tabs = {self.nb.tab(t, "text"): t for t in self.nb.tabs()}
+        except Exception:
+            return
+        for index, name in enumerate(_TAB_ORDER_PL):
+            tab_id = tabs.get(name)
+            if tab_id is not None:
+                self.nb.insert(index, tab_id)
+        print("[WM-DBG] [SETTINGS] tabs reordered")
+
+    def _init_audit_tab(self) -> None:
+        """Append audit report tab if report file exists."""
+        frame = ttk.Frame(self.nb)
+        report = Path("audit_settings_schema_report.txt")
+        text = tk.Text(frame, height=10)
+        text.pack(fill="both", expand=True)
+        try:
+            if report.exists():
+                content = report.read_text(encoding="utf-8")
+            else:
+                content = "Brak raportu audytu."
+        except Exception as exc:
+            content = f"Błąd odczytu raportu: {exc}"
+        text.insert("1.0", content)
+        text.config(state="disabled")
+        self.nb.add(frame, text="Audyt")
+        print("[WM-DBG] [SETTINGS] zakładka Audyt: OK")
+
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
         if self._magazyn_frame is None or self._magazyn_schema is None:
@@ -719,112 +765,6 @@ class SettingsWindow(SettingsPanel):
         self.schema = self.cfg.schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
-        # self._init_tests_tab()
-
-    def _append_tests_out(self, s: str):
-        try:
-            self.txt_tests.insert("end", s)
-            self.txt_tests.see("end")
-        except Exception:
-            pass
-
-    def _run_all_tests(self):
-        try:
-            self.btn_tests_run.config(state="disabled")
-        except Exception:
-            pass
-        self._append_tests_out("\n[INFO] Uruchamiam: pytest -q\n")
-        print("[WM-DBG][SETTINGS][TESTS] start")
-
-        def _worker():
-            try:
-                cmd = [sys.executable, "-m", "pytest", "-q"]
-                proc = subprocess.Popen(
-                    cmd,
-                    cwd=os.getcwd(),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1,
-                )
-                for line in proc.stdout:
-                    self.txt_tests.after(0, self._append_tests_out, line)
-                ret = proc.wait()
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
-                )
-                print(f"[WM-DBG][SETTINGS][TESTS] finished ret={ret}")
-            except FileNotFoundError:
-                self.txt_tests.after(
-                    0,
-                    self._append_tests_out,
-                    "\n[ERROR] Nie znaleziono pytest. Zainstaluj: pip install pytest\n",
-                )
-                print("[WM-DBG][SETTINGS][TESTS] pytest not found")
-            except Exception as e:
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[ERROR] Błąd uruchamiania testów: {e!r}\n"
-                )
-                print(f"[WM-DBG][SETTINGS][TESTS] error: {e!r}")
-            finally:
-                try:
-                    self.btn_tests_run.after(0, lambda: self.btn_tests_run.config(state="normal"))
-                except Exception:
-                    pass
-
-        threading.Thread(target=_worker, daemon=True).start()
-
-    def _install_pytest(self):
-        try:
-            self.btn_install_pytest.config(state="disabled")
-        except Exception:
-            pass
-        self._append_tests_out(
-            "\n[INFO] Uruchamiam: python -m pip install -U pytest\n"
-        )
-        print("[WM-DBG][SETTINGS][TESTS] install start")
-
-        def _worker():
-            try:
-                cmd = [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "-U",
-                    "pytest",
-                ]
-                proc = subprocess.Popen(
-                    cmd,
-                    cwd=os.getcwd(),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                    bufsize=1,
-                )
-                for line in proc.stdout:
-                    self.txt_tests.after(0, self._append_tests_out, line)
-                ret = proc.wait()
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
-                )
-                print(f"[WM-DBG][SETTINGS][TESTS] install finished ret={ret}")
-            except Exception as e:
-                self.txt_tests.after(
-                    0,
-                    self._append_tests_out,
-                    f"\n[ERROR] Błąd instalacji pytest: {e!r}\n",
-                )
-                print(f"[WM-DBG][SETTINGS][TESTS] install error: {e!r}")
-            finally:
-                try:
-                    self.btn_install_pytest.after(
-                        0, lambda: self.btn_install_pytest.config(state="normal")
-                    )
-                except Exception:
-                    pass
-
-        threading.Thread(target=_worker, daemon=True).start()
 
 
 if __name__ == "__main__":
