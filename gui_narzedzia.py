@@ -25,7 +25,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
-import contextlib
+from contextlib import contextmanager
 import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
@@ -85,16 +85,27 @@ _cmb_user_var: tk.StringVar | None = None
 _var_filter_mine: tk.BooleanVar | None = None
 
 
-def _profiles_usernames() -> list[str]:
-    """Return list of all usernames from profiles."""
+def _profiles_usernames(cmb_user=None) -> list[str]:
+    """Return list of all usernames from profiles.
+
+    If ``cmb_user`` is provided, it will have its ``values`` configured with the
+    retrieved usernames.  This mirrors the behaviour of the legacy variant
+    which updated the combobox in-place.
+    """
     try:
         default = getattr(profile_utils, "_DEFAULT_USERS_FILE", profile_utils.USERS_FILE)
         profile_utils.USERS_FILE = default
         users = profile_utils.read_users()
         profile_utils.USERS_FILE = default
-        return [u.get("login", "") for u in users]
+        logins = [u.get("login", "") for u in users]
     except Exception:
-        return []
+        logins = []
+    if cmb_user is not None:
+        try:
+            cmb_user.config(values=logins)
+        except Exception:
+            pass
+    return logins
 
 
 def _current_user() -> tuple[str | None, str | None]:
@@ -222,18 +233,6 @@ def _clean_list(lst):
             if s and sl not in seen:
                 seen.add(sl); out.append(s)
     return out
-
-
-def _profiles_usernames(cmb_user) -> list[str]:
-    """Fill ``cmb_user`` combobox with logins from user profiles."""
-    from profile_utils import list_user_ids
-
-    users = list_user_ids()
-    try:
-        cmb_user.config(values=users)
-    except Exception:
-        pass
-    return users
 
 def _task_templates_from_config():
     try:
@@ -405,40 +404,39 @@ def _tasks_for_type(typ: str, phase: str):
 
 # ===== Szablony z pliku zadania_narzedzia.json =====
 class _TaskTemplateUI:
-    """Helper object building comboboxes for collection/type/status."""
+    """Helper object building comboboxes for collection/type/status and tasks."""
 
     def __init__(self, parent):
         self.parent = parent
+        self._state = {"collection": "", "type": "", "status": ""}
+        self._types: list[dict] = []
+        self._statuses: list[dict] = []
         self._ui_updating = False
+        self.tasks_state: list[dict] = []
+
         self.var_collection = tk.StringVar()
         self.var_type = tk.StringVar()
         self.var_status = tk.StringVar()
+
+        Combobox = getattr(ttk, "Combobox", getattr(ttk, "Entry", lambda *a, **k: None))
+        self.cb_collection = Combobox(parent, textvariable=self.var_collection, state="readonly", values=[])
+        self.cb_type = Combobox(parent, textvariable=self.var_type, state="readonly", values=[])
+        self.cb_status = Combobox(parent, textvariable=self.var_status, state="readonly", values=[])
         self.lst = tk.Listbox(parent, height=8)
-        self.tasks_state: list[dict] = []
-        self.cb_collection = ttk.Combobox(
-            parent, textvariable=self.var_collection, state="readonly", values=[]
-        )
-        self.cb_type = ttk.Combobox(
-            parent, textvariable=self.var_type, state="readonly", values=[]
-        )
-        self.cb_status = ttk.Combobox(
-            parent, textvariable=self.var_status, state="readonly", values=[]
-        )
-        self.cb_collection.bind("<<ComboboxSelected>>", self._on_collection_change)
-        self.cb_type.bind("<<ComboboxSelected>>", self._on_type_change)
-        self.cb_status.bind("<<ComboboxSelected>>", self._on_status_change)
+
+        self.cb_collection.bind("<<ComboboxSelected>>", self._on_collection_selected)
+        self.cb_type.bind("<<ComboboxSelected>>", self._on_type_selected)
+        self.cb_status.bind("<<ComboboxSelected>>", self._on_status_selected)
+
         self.cb_collection.pack()
         self.cb_type.pack()
         self.cb_status.pack()
         self.lst.pack(fill="both", expand=True)
-        self.coll_map: dict[str, str] = {}
-        self.type_map: dict[str, str] = {}
-        self.status_map: dict[str, str] = {}
-        self._cur_type_id = ""
-        self._cur_status_id = ""
-        self._fill_collections()
 
-    @contextlib.contextmanager
+        self._render_collections_initial()
+
+    # ===================== helpers =====================
+    @contextmanager
     def _suspend_ui(self):
         prev = self._ui_updating
         self._ui_updating = True
@@ -447,94 +445,123 @@ class _TaskTemplateUI:
         finally:
             self._ui_updating = prev
 
+    def _log(self, *msg):  # pragma: no cover - debug helper
+        try:
+            print("[WM-DBG][NARZ]", *msg)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _lookup_id_by_name(name: str, items: list[dict]) -> str:
+        for it in items:
+            if it.get("name") == name:
+                return it.get("id", "")
+        return ""
+
+    def _get_collections(self):
+        return LZ.get_collections()
+
+    def _get_types(self, collection_id):
+        return LZ.get_tool_types(collection=collection_id)
+
+    def _get_statuses(self, type_id, collection_id):
+        return LZ.get_statuses(type_id, collection=collection_id)
+
+    def _get_tasks(self, type_id, status_id, collection_id):
+        return LZ.get_tasks(type_id, status_id, collection=collection_id)
+
     def _set_info(self, msg: str) -> None:
         try:
             self.parent.statusbar.config(text=msg)  # type: ignore[attr-defined]
         except Exception:
             print(f"[WM-DBG][NARZ] {msg}")
 
-    def _collection_id_from_combo(self):
-        if hasattr(self.cb_collection, "get_id"):
-            return self.cb_collection.get_id()
-        return self.coll_map.get(self.var_collection.get())
-
-    def _type_id_from_combo(self):
-        if hasattr(self.cb_type, "get_id"):
-            return self.cb_type.get_id()
-        return self.type_map.get(self.var_type.get())
-
-    def _status_id_from_combo(self):
-        if hasattr(self.cb_status, "get_id"):
-            return self.cb_status.get_id()
-        return self.status_map.get(self.var_status.get())
-
-    def _fill_collections(self):
-        cur = self._collection_id_from_combo()
+    # ===================== renderers =====================
+    def _render_collections_initial(self):
+        try:
+            collections = self._get_collections()
+        except Exception as e:
+            self._log("collections", e)
+            collections = []
         with self._suspend_ui():
-            collections = LZ.get_collections()
-            self.coll_map = {c["name"]: c["id"] for c in collections}
-            self.cb_collection.config(values=list(self.coll_map.keys()))
-            name = next((n for n, cid in self.coll_map.items() if cid == cur), "")
-            if not name:
-                default = LZ.get_default_collection()
-                name = next((n for n, cid in self.coll_map.items() if cid == default), "")
-            self.var_collection.set(name)
-        self._fill_types()
+            names = [c.get("name", "") for c in collections]
+            self.cb_collection.config(values=names)
+            cid = self._state.get("collection") or LZ.get_default_collection()
+            sel_name = next((c.get("name") for c in collections if c.get("id") == cid), "")
+            if not sel_name and names:
+                sel_name = names[0]
+                cid = self._lookup_id_by_name(sel_name, collections)
+            else:
+                if not names:
+                    cid = ""
+            self.var_collection.set(sel_name)
+            self._state["collection"] = cid or ""
+        self._render_types()
 
-    def _fill_types(self):
-        cid = self._collection_id_from_combo()
-        types = LZ.get_tool_types(collection=cid) if cid else []
+    def _render_types(self):
+        cid = self._state.get("collection")
+        try:
+            types = self._get_types(cid) if cid else []
+        except Exception as e:
+            self._log("types", e)
+            types = []
         if types:
             self._set_info("")
         else:
             self._set_info("Brak typów w wybranej kolekcji.")
         with self._suspend_ui():
-            self.type_map = {t["name"]: t["id"] for t in types}
-            self.cb_type.config(values=list(self.type_map.keys()))
-            name = next((n for n, tid in self.type_map.items() if tid == self._cur_type_id), "")
-            if not name and self.type_map:
-                name, self._cur_type_id = next(iter(self.type_map.items()))
-            self.var_type.set(name)
-        if not types:
-            self._cur_type_id = ""
-        self._fill_statuses()
+            self._types = types
+            names = [t.get("name", "") for t in types]
+            self.cb_type.config(values=names)
+            tid = self._state.get("type")
+            sel_name = next((t.get("name") for t in types if t.get("id") == tid), "")
+            if not sel_name and names:
+                sel_name = names[0]
+                tid = self._lookup_id_by_name(sel_name, types)
+            else:
+                if not names:
+                    tid = ""
+            self.var_type.set(sel_name)
+            self._state["type"] = tid or ""
+        self._render_statuses()
 
-    def _fill_statuses(self):
-        cid = self._collection_id_from_combo()
-        tid = self._type_id_from_combo()
-        statuses = LZ.get_statuses(tid, collection=cid) if tid else []
+    def _render_statuses(self):
+        cid = self._state.get("collection")
+        tid = self._state.get("type")
+        try:
+            statuses = self._get_statuses(tid, cid) if tid else []
+        except Exception as e:
+            self._log("statuses", e)
+            statuses = []
         if statuses:
             self._set_info("")
         else:
             self._set_info("Brak statusów dla wybranego typu.")
         with self._suspend_ui():
-            self.status_map = {s["name"]: s["id"] for s in statuses}
-            self.cb_status.config(values=list(self.status_map.keys()))
-            name = next((n for n, sid in self.status_map.items() if sid == self._cur_status_id), "")
-            if not name and self.status_map:
-                name, self._cur_status_id = next(iter(self.status_map.items()))
-            self.var_status.set(name)
-        if not statuses:
-            self._cur_status_id = ""
-        self._fill_tasks()
+            self._statuses = statuses
+            names = [s.get("name", "") for s in statuses]
+            self.cb_status.config(values=names)
+            sid = self._state.get("status")
+            sel_name = next((s.get("name") for s in statuses if s.get("id") == sid), "")
+            if not sel_name and names:
+                sel_name = names[0]
+                sid = self._lookup_id_by_name(sel_name, statuses)
+            else:
+                if not names:
+                    sid = ""
+            self.var_status.set(sel_name)
+            self._state["status"] = sid or ""
+        self._render_tasks()
 
-    def _fill_tasks(self):
-        cid = self._collection_id_from_combo()
-        tid = self._type_id_from_combo() or self._cur_type_id
-        if not tid and self.type_map:
-            name, tid = next(iter(self.type_map.items()))
-            self._cur_type_id = tid
-            with self._suspend_ui():
-                self.var_type.set(name)
-            self._fill_statuses()
-            return
-        sid = self._status_id_from_combo() or self._cur_status_id
-        if not sid and self.status_map:
-            name, sid = next(iter(self.status_map.items()))
-            self._cur_status_id = sid
-            with self._suspend_ui():
-                self.var_status.set(name)
-        tasks = LZ.get_tasks(tid, sid, collection=cid) if cid and tid and sid else []
+    def _render_tasks(self):
+        cid = self._state.get("collection")
+        tid = self._state.get("type")
+        sid = self._state.get("status")
+        try:
+            tasks = self._get_tasks(tid, sid, cid) if (cid and tid and sid) else []
+        except Exception as e:
+            self._log("tasks", e)
+            tasks = []
         with self._suspend_ui():
             self.lst.delete(0, tk.END)
             self.tasks_state.clear()
@@ -561,41 +588,45 @@ class _TaskTemplateUI:
                 except Exception:
                     pass
 
-    def _on_collection_change(self, _=None):
+    # ===================== event handlers =====================
+    def _on_collection_selected(self, _=None):
         if self._ui_updating:
             return
-        self._fill_types()
+        name = self.var_collection.get()
+        self._state["collection"] = self._lookup_id_by_name(name, self._get_collections())
+        self._state["type"] = ""
+        self._state["status"] = ""
+        self._render_types()
 
-    def _on_type_change(self, _=None):
+    def _on_type_selected(self, _=None):
         if self._ui_updating:
             return
-        tid = self._type_id_from_combo()
-        if tid:
-            self._cur_type_id = tid
-        self._fill_statuses()
+        name = self.var_type.get()
+        self._state["type"] = self._lookup_id_by_name(name, self._types)
+        self._state["status"] = ""
+        self._render_statuses()
 
-    def _on_status_change(self, _=None):
+    def _on_status_selected(self, _=None):
         if self._ui_updating:
             return
-        sid = self._status_id_from_combo()
-        if sid:
-            self._cur_status_id = sid
-        self._fill_tasks()
+        name = self.var_status.get()
+        self._state["status"] = self._lookup_id_by_name(name, self._statuses)
+        self._render_tasks()
 
     def _reload_from_lz(self) -> None:
         try:
-            self._fill_collections()
+            self._render_collections_initial()
         except Exception as e:  # pragma: no cover
-            print(f"[WM-DBG][NARZ][ERROR] _reload_from_lz: {e!r}")
+            self._log("_reload_from_lz", e)
             self._set_info("Błąd odświeżania danych")
 
     def _odswiez_zadania(self) -> None:
         try:
             LZ.invalidate_cache()
-            self._reload_from_lz()
+            self._render_types()
             print("[WM-DBG][NARZ] Odświeżono zadania (invalidate_cache).")
         except Exception as e:  # pragma: no cover
-            print(f"[WM-DBG][NARZ][ERROR] Odświeżanie zadań: {e!r}")
+            self._log("Odświeżanie zadań:", e)
             self._set_info("Błąd odświeżania zadań")
 
 
@@ -609,9 +640,12 @@ def build_task_template(parent):
         "cb_type": ui.cb_type,
         "cb_status": ui.cb_status,
         "listbox": ui.lst,
-        "on_collection_change": ui._on_collection_change,
-        "on_type_change": ui._on_type_change,
-        "on_status_change": ui._on_status_change,
+        "on_collection_change": ui._on_collection_selected,
+        "on_type_change": ui._on_type_selected,
+        "on_status_change": ui._on_status_selected,
+        "on_collection_selected": ui._on_collection_selected,
+        "on_type_selected": ui._on_type_selected,
+        "on_status_selected": ui._on_status_selected,
         "tasks_state": ui.tasks_state,
         "odswiez_zadania": ui._odswiez_zadania,
         "reload_from_lz": ui._reload_from_lz,
@@ -938,9 +972,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             LZ.invalidate_cache()
             fn = (
                 locals().get("_reload_from_lz")
-                or locals().get("_on_collection_change")
+                or locals().get("_on_collection_selected")
                 or getattr(frame, "reload_from_lz", None)
-                or getattr(frame, "on_collection_change", None)
+                or getattr(frame, "on_collection_selected", None)
             )
             if callable(fn):
                 fn()
@@ -961,7 +995,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     btn_odswiez.pack(side="right", padx=4)
 
     cmb_user_var = tk.StringVar()
-    Combobox = getattr(ttk, "Combobox", ttk.Entry)
+    Combobox = getattr(ttk, "Combobox", getattr(ttk, "Entry", lambda *a, **k: None))
     cmb_user = Combobox(
         header,
         textvariable=cmb_user_var,
