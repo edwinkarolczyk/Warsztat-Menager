@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
 
 import magazyn_io
@@ -14,9 +15,13 @@ def test_generate_pz_id_resets_each_year(tmp_path, monkeypatch):
     pz2 = magazyn_io.generate_pz_id(now=now_2024)
     pz3 = magazyn_io.generate_pz_id(now=now_2025)
     data = json.loads(seq_path.read_text(encoding="utf-8"))
-    assert pz1.endswith("-0001")
-    assert pz2.endswith("-0002")
-    assert pz3.endswith("-0001")
+    regex = r"^PZ/\d{4}/\d{4}$"
+    assert re.match(regex, pz1)
+    assert re.match(regex, pz2)
+    assert re.match(regex, pz3)
+    assert pz1 == "PZ/2024/0001"
+    assert pz2 == "PZ/2024/0002"
+    assert pz3 == "PZ/2025/0001"
     assert data == {"2024": 2, "2025": 1}
 
 
