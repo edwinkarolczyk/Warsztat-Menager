@@ -1,10 +1,9 @@
 # Plik: logika_magazyn.py
-# Wersja pliku: 1.1.0
-# Zmiany 1.1.0:
-# - Dodano słownik typów w meta.item_types (domyślnie: komponent/półprodukt/materiał)
-# - API: get_item_types(), add_item_type(), remove_item_type()
-# - Walidacja przy usuwaniu typu (nie usuwa, jeśli typ jest w użyciu)
-# - Reszta 1.0.1 bez zmian
+# Wersja pliku: 1.1.1
+# Zmiany 1.1.1:
+# - Dodano słowniki magazynowe w pliku ``slowniki.json``
+# - API: get_mag_categories(), get_mag_material_types(), get_mag_units()
+# - Reszta 1.1.0 bez zmian
 
 import json
 import os
