@@ -60,16 +60,25 @@ def _write_json(path, data):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    LOCK_PATH = path + ".lock"
+    with open(LOCK_PATH, "w", encoding="utf-8") as f:
+        f.write(str(time.time()))
     try:
-        os.replace(tmp, path)
-    except Exception as e:
         try:
-            if os.path.exists(path):
-                os.remove(path)
-            os.rename(tmp, path)
-        except Exception as e2:
-            log_akcja(f"[JSON] write error for {path}: {e2}")
-            raise
+            os.replace(tmp, path)
+        except Exception as e:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                os.rename(tmp, path)
+            except Exception as e2:
+                log_akcja(f"[JSON] write error for {path}: {e2}")
+                raise
+    finally:
+        try:
+            os.remove(LOCK_PATH)
+        except Exception:
+            pass
 
 def _shifts_from_cfg(c):
     p = c.get("presence", {})

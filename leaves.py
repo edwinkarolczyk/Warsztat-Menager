@@ -1,6 +1,6 @@
 # leaves.py
 # Prosty dziennik urlopów/L4/spóźnień/NN i agregaty do bilansu
-import os, json
+import os, json, time
 from datetime import datetime
 
 config = {}
@@ -35,12 +35,22 @@ def _write(path, data):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+    LOCK_PATH = path + ".lock"
+    with open(LOCK_PATH, "w", encoding="utf-8") as f:
+        f.write(str(time.time()))
     try:
-        os.replace(tmp, path)
-    except Exception:
         try:
-            if os.path.exists(path): os.remove(path)
-            os.rename(tmp, path)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                os.rename(tmp, path)
+            except Exception:
+                pass
+    finally:
+        try:
+            os.remove(LOCK_PATH)
         except Exception:
             pass
 

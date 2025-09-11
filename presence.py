@@ -56,16 +56,25 @@ def _atomic_write(path, data_dict):
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data_dict, f, ensure_ascii=False, indent=2)
+        LOCK_PATH = path + ".lock"
+        with open(LOCK_PATH, "w", encoding="utf-8") as f_lock:
+            f_lock.write(str(time.time()))
         try:
-            os.replace(tmp_path, path)
-        except OSError as e:
-            logger.exception("os.replace failed for %s: %s", path, e)
             try:
-                if os.path.exists(path):
-                    os.remove(path)
-                os.rename(tmp_path, path)
+                os.replace(tmp_path, path)
             except OSError as e:
-                logger.exception("rename fallback failed for %s: %s", path, e)
+                logger.exception("os.replace failed for %s: %s", path, e)
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                    os.rename(tmp_path, path)
+                except OSError as e:
+                    logger.exception("rename fallback failed for %s: %s", path, e)
+        finally:
+            try:
+                os.remove(LOCK_PATH)
+            except Exception:
+                pass
     finally:
         if os.path.exists(tmp_path):
             try:
