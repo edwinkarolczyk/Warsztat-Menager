@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 import profile_utils as _pu
 from profile_utils import DEFAULT_USER
 from logger import log_akcja
+from utils.path_utils import cfg_path
 
 
 @contextmanager
@@ -80,12 +81,22 @@ def authenticate(login: str, pin: str, file_path: Optional[str] = None) -> Optio
     """Return user dict matching ``login`` and ``pin`` or ``None``."""
     login = str(login).strip().lower()
     pin = str(pin).strip()
-    for user in get_all_users(file_path):
+    users = get_all_users(file_path)
+    for user in users:
         if (
             str(user.get("login", "")).strip().lower() == login
             and str(user.get("pin", "")).strip() == pin
         ):
             return user
+    if not file_path:
+        legacy = cfg_path("uzytkownicy.json")
+        if os.path.exists(legacy):
+            for user in get_all_users(legacy):
+                if (
+                    str(user.get("login", "")).strip().lower() == login
+                    and str(user.get("pin", "")).strip() == pin
+                ):
+                    return user
     return None
 
 

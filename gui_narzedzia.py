@@ -148,6 +148,18 @@ def _clean_list(lst):
                 seen.add(sl); out.append(s)
     return out
 
+
+def _profiles_usernames(cmb_user) -> list[str]:
+    """Fill ``cmb_user`` combobox with logins from user profiles."""
+    from profile_utils import list_user_ids
+
+    users = list_user_ids()
+    try:
+        cmb_user.config(values=users)
+    except Exception:
+        pass
+    return users
+
 def _task_templates_from_config():
     try:
         cfg = _load_config()
