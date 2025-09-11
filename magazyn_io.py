@@ -47,6 +47,8 @@ def append_history(
     qty: float,
     comment: str = "",
     ts: str | None = None,
+    *,
+    write_pz: bool = True,
 ) -> Dict[str, Any]:
     """Append a history entry for ``item_id``.
 
@@ -60,7 +62,8 @@ def append_history(
         ts: Optional timestamp (ISO 8601). Generated when missing.
 
     The entry is appended to ``items[item_id]['historia']``. For ``op == 'PZ'``
-    an additional record is stored in :data:`PRZYJECIA_PATH`.
+    an additional record is stored in :data:`PRZYJECIA_PATH` unless
+    ``write_pz`` is set to ``False``.
     """
 
     op = op.upper()
@@ -92,7 +95,7 @@ def append_history(
     with open(HISTORY_PATH, "w", encoding="utf-8") as f:
         json.dump(hist, f, ensure_ascii=False, indent=2)
 
-    if op == "PZ":
+    if op == "PZ" and write_pz:
         _ensure_dirs(PRZYJECIA_PATH)
         data = _load_json(PRZYJECIA_PATH, [])
         data.append(

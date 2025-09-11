@@ -312,6 +312,37 @@ class MagazynPZDialog:
 
         try:
             pz_id = magazyn_io.save_pz(record)
+
+            data = LM.load_magazyn()
+            items = data.setdefault("items", {})
+            item = items.get(kod)
+            if not item:
+                items[kod] = {
+                    "id": kod,
+                    "nazwa": nazwa,
+                    "typ": "półprodukt" if cat == "Półprodukt" else "materiał",
+                    "jednostka": jm,
+                    "stan": 0,
+                    "min_poziom": 0,
+                    "rezerwacje": 0,
+                    "historia": [],
+                    "komentarz": "",
+                    "progi_alertow_pct": [100.0],
+                }
+                LM.bump_material_seq_if_matches(kod)
+                item = items[kod]
+
+            item["stan"] = float(item.get("stan", 0)) + qty
+            magazyn_io.append_history(
+                items,
+                kod,
+                user=user_login,
+                op="PZ",
+                qty=qty,
+                comment="",
+                write_pz=False,
+            )
+            LM.save_magazyn(data)
         except Exception as exc:
             messagebox.showerror("Błąd", str(exc), parent=self.top)
             return
