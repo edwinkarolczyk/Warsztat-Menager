@@ -192,7 +192,7 @@ def get_mag_categories(cfg: ConfigManager | Dict[str, Any] | None = None) -> lis
 def get_mag_material_types(
     cfg: ConfigManager | Dict[str, Any] | None = None,
 ) -> list:
-    """Return material types for warehouse."""
+    """Return material types from config or schema defaults."""
 
     keys = (
         "magazyn_typy_materialow",
@@ -211,7 +211,7 @@ def get_mag_material_types(
 def get_mag_units(
     cfg: ConfigManager | Dict[str, Any] | None = None,
 ):
-    """Return units mapping for warehouse items."""
+    """Return units mapping from config or schema defaults."""
 
     keys = (
         "jednostki_miary",
