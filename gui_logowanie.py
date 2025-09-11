@@ -21,6 +21,7 @@ from updates_utils import load_last_update_info, remote_branch_exists
 from utils import error_dialogs
 
 from services.profile_service import authenticate, find_first_brygadzista
+import profile_utils
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -341,6 +342,9 @@ def logowanie():
     login = entry_login.get().strip().lower()
     pin = entry_pin.get().strip()
     try:
+        profile_utils.USERS_FILE = getattr(
+            profile_utils, "_DEFAULT_USERS_FILE", profile_utils.USERS_FILE
+        )
         user = authenticate(login, pin)
         if user:
             login_key = user.get("login", login)
