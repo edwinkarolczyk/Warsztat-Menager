@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
-from config_manager import ConfigManager
 from services.profile_service import authenticate
 import logika_magazyn as LM
 import magazyn_io
@@ -51,12 +50,12 @@ class MagazynPZDialog:
 
     def __init__(
         self,
-        master: tk.Misc,
-        config: ConfigManager,
-        profiles: dict | None = None,
-        preselect_id: str | None = None,
-        on_saved: callable | None = None,
-    ) -> None:
+        master,
+        config,
+        profiles=None,
+        preselect_id=None,
+        on_saved=None,
+    ):
         self.master = master
         self.config = config
         self.profiles = profiles
