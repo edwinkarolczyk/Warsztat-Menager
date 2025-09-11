@@ -23,6 +23,7 @@ from tkinter import ttk, messagebox, simpledialog
 import re
 from pathlib import Path
 from datetime import datetime
+import logging
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
@@ -185,7 +186,7 @@ class PanelMagazyn(ttk.Frame):
     def _build_ui(self):
         lock_path = Path("data/magazyn/magazyn.json.lock")
         if lock_path.exists():
-            print("[WM-DBG] magazyn.json.lock detected")
+            logging.info("Wykryto plik blokady magazyn.json.lock")
             try:
                 self.master.tab(self, text="Magazyn LOCK")
             except Exception:
@@ -535,7 +536,7 @@ class PanelMagazyn(ttk.Frame):
 
     def _act_dodaj(self):
         """Open dialog for adding a warehouse item."""
-        print("[WM-DBG][MAG] _act_dodaj -> otwieram okno dodawania")
+        logging.info("Otwieram okno dodawania pozycji magazynu")
         try:
             dlg = MagazynAddDialog(
                 self.root,
@@ -545,10 +546,10 @@ class PanelMagazyn(ttk.Frame):
             )
             self.root.wait_window(dlg.top)
         except TypeError as e:
-            print(f"[WM-DBG][MAG][ERROR] Nieprawidłowa sygnatura MagazynAddDialog: {e!r}")
+            logging.error("Nieprawidłowa sygnatura MagazynAddDialog: %r", e)
 
     def _act_przyjecie(self):
-        print("[WM-DBG][MAG] _act_przyjecie -> otwieram okno przyjęcia")
+        logging.info("Otwieram okno przyjęcia towaru (PZ)")
 
         # Wyciągnięcie zaznaczonego ID z tabeli (jeśli jest)
         selected_id = None
@@ -557,7 +558,7 @@ class PanelMagazyn(ttk.Frame):
             if sel:
                 selected_id = self.tree.item(sel[0], "values")[0]  # kolumna 0 = ID
         except Exception as e:
-            print(f"[WM-DBG][MAG] _act_przyjecie selection err: {e!r}")
+            logging.error("Błąd przy odczycie zaznaczenia: %r", e)
 
         # Import klasy (jeśli jest w osobnym pliku)
         try:
@@ -576,7 +577,7 @@ class PanelMagazyn(ttk.Frame):
             )
             self.root.wait_window(dlg.top)
         except TypeError as e:
-            print(f"[WM-DBG][MAG][ERROR] Nieprawidłowa sygnatura MagazynPZDialog: {e!r}")
+            logging.error("Nieprawidłowa sygnatura MagazynPZDialog: %r", e)
 
     @staticmethod
     def _fmt_ts(value):
@@ -649,8 +650,8 @@ class PanelMagazyn(ttk.Frame):
                     ),
                 )
             except Exception as e:
-                print(
-                    f"[WM-DBG][MAG][WARN] Pominięto uszkodzony wpis historii: {e!r} | {h!r}"
+                logging.warning(
+                    "Pominięto uszkodzony wpis historii: %r | %r", e, h
                 )
         ttk.Button(win, text="Zamknij", command=win.destroy).pack(pady=(0, 8))
 

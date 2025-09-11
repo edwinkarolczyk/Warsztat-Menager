@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
+import logging
 
 from ui_theme import apply_theme_safe as apply_theme
 from services.profile_service import authenticate
 import logika_magazyn as LM
 import magazyn_io
+
+try:  # pragma: no cover - logger optional
+    import logger
+
+    _log_mag = getattr(
+        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+    )
+except Exception:  # pragma: no cover - logger fallback
+    def _log_mag(akcja, dane):
+        logging.info(f"[MAGAZYN] {akcja}: {dane}")
 
 
 def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
@@ -29,7 +40,9 @@ def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
     data = LM.load_magazyn()
     items = data.get("items") or {}
     if item_id not in items:
-        raise KeyError(f"Brak pozycji {item_id} w magazynie")
+        msg = f"Brak pozycji {item_id} w magazynie"
+        logging.error(msg)
+        raise KeyError(msg)
 
     qty_f = float(qty)
     items[item_id]["stan"] = float(items[item_id].get("stan", 0)) + qty_f
@@ -43,6 +56,27 @@ def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
         comment=comment,
     )
     LM.save_magazyn(data)
+    name = items[item_id].get("nazwa", item_id)
+    jm = items[item_id].get("jednostka", "")
+    _log_mag(
+        "PZ",
+        {
+            "item_id": item_id,
+            "nazwa": name,
+            "qty": qty_f,
+            "jm": jm,
+            "by": user,
+            "comment": comment,
+        },
+    )
+    logging.info(
+        "Zapisano PZ %s: %s, %s %s, wystawił: %s",
+        item_id,
+        name,
+        qty_f,
+        jm,
+        user,
+    )
 
 
 class MagazynPZDialog:
@@ -120,6 +154,7 @@ class MagazynPZDialog:
         self.top.grab_set()
 
     def _cancel(self) -> None:
+        logging.info("Anulowano przyjęcie towaru (PZ)")
         self.top.destroy()
 
     def _submit(self) -> None:
@@ -127,10 +162,12 @@ class MagazynPZDialog:
         try:
             qty = float(self._vars["qty"].get())
         except ValueError:
+            logging.error("Ilość musi być liczbą")
             messagebox.showerror("Błąd", "Ilość musi być liczbą", parent=self.top)
             return
 
         if qty <= 0 or not iid:
+            logging.error("Uzupełnij poprawnie wszystkie pola")
             messagebox.showerror(
                 "Błąd", "Uzupełnij poprawnie wszystkie pola", parent=self.top
             )
@@ -140,14 +177,17 @@ class MagazynPZDialog:
         if self.config.get("magazyn.require_reauth", True):
             login = simpledialog.askstring("Re-autoryzacja", "Login:", parent=self.top)
             if login is None:
+                logging.info("Przerwano re-autoryzację - brak loginu")
                 return
             pin = simpledialog.askstring(
                 "Re-autoryzacja", "PIN:", show="*", parent=self.top
             )
             if pin is None:
+                logging.info("Przerwano re-autoryzację - brak PIN-u")
                 return
             user = authenticate(login, pin)
             if not user:
+                logging.error("Nieprawidłowy login lub PIN")
                 messagebox.showerror(
                     "Błąd", "Nieprawidłowy login lub PIN", parent=self.top
                 )
@@ -163,7 +203,6 @@ class MagazynPZDialog:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
 
             items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
-            print("[WM-DBG] przed zapisem PZ")
             magazyn_io.append_history(
                 items,
                 iid,
@@ -173,8 +212,29 @@ class MagazynPZDialog:
                 comment=comment,
             )
             LM.save_magazyn(data)
-            print("[WM-DBG] po zapisie PZ")
+            name = items[iid].get("nazwa", iid)
+            jm = items[iid].get("jednostka", "")
+            _log_mag(
+                "PZ",
+                {
+                    "item_id": iid,
+                    "nazwa": name,
+                    "qty": qty,
+                    "jm": jm,
+                    "by": user_login,
+                    "comment": comment,
+                },
+            )
+            logging.info(
+                "Zapisano PZ %s: %s, %s %s, wystawił: %s",
+                iid,
+                name,
+                qty,
+                jm,
+                user_login,
+            )
         except Exception as exc:
+            logging.error("Błąd zapisu PZ: %s", exc)
             messagebox.showerror("Błąd", str(exc), parent=self.top)
             return
 
