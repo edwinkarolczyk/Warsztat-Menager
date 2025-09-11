@@ -6,6 +6,17 @@ import json
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict
+import logging
+
+try:
+    import logger
+
+    _log_mag = getattr(
+        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+    )
+except Exception:  # pragma: no cover - logger optional
+    def _log_mag(akcja, dane):
+        logging.info(f"[MAGAZYN] {akcja}: {dane}")
 
 ALLOWED_OPS = {
     "CREATE",
@@ -64,10 +75,12 @@ def append_history(
 
     op = op.upper()
     if op not in ALLOWED_OPS:
+        logging.error("Nieznana operacja magazynowa: %s", op)
         raise ValueError(f"Unknown op: {op}")
 
     qty = float(qty)
     if qty <= 0:
+        logging.error("Ilość musi być dodatnia: %s", qty)
         raise ValueError("qty must be > 0")
 
     if not ts:
@@ -105,6 +118,26 @@ def append_history(
         )
         with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+    name = items.get(item_id, {}).get("nazwa", item_id)
+    jm = items.get(item_id, {}).get("jednostka", "")
+    _log_mag(op, {
+        "item_id": item_id,
+        "nazwa": name,
+        "qty": qty,
+        "jm": jm,
+        "by": user,
+        "comment": comment,
+    })
+    logging.info(
+        "Zapisano %s %s: %s, %s %s, wystawił: %s",
+        op,
+        item_id,
+        name,
+        qty,
+        jm,
+        user,
+    )
 
     return entry
 
