@@ -30,6 +30,8 @@ import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
 import ui_hover
+import zadania_assign_io
+import profile_utils
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -73,6 +75,79 @@ NN_PROD_STATES = {
 # Obsługa załączników do narzędzi
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".dxf"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+_current_login: str | None = None
+_current_role: str | None = None
+_assign_tree = None
+_assign_row_data: dict[str, dict] = {}
+_cmb_user_var: tk.StringVar | None = None
+_var_filter_mine: tk.BooleanVar | None = None
+
+
+def _profiles_usernames() -> list[str]:
+    """Return list of all usernames from profiles."""
+    try:
+        default = getattr(profile_utils, "_DEFAULT_USERS_FILE", profile_utils.USERS_FILE)
+        profile_utils.USERS_FILE = default
+        users = profile_utils.read_users()
+        profile_utils.USERS_FILE = default
+        return [u.get("login", "") for u in users]
+    except Exception:
+        return []
+
+
+def _current_user() -> tuple[str | None, str | None]:
+    """Return current login and role as tuple."""
+    return _current_login, _current_role
+
+
+def _selected_task() -> tuple[str | None, str]:
+    """Return ``(task_id, context)`` of selected assignment."""
+    if _assign_tree is None:
+        return None, ""
+    try:
+        sel = _assign_tree.focus()
+    except Exception:
+        return None, ""
+    if not sel:
+        return None, ""
+    rec = _assign_row_data.get(sel)
+    if not rec:
+        return None, ""
+    return rec.get("task"), rec.get("context", "")
+
+
+def _refresh_assignments_view() -> None:
+    """Refresh assignments list using ``zadania_assign_io``."""
+    if _assign_tree is None:
+        return
+    ctx = "narzedzia"
+    data = zadania_assign_io.list_in_context(ctx)
+    if _var_filter_mine is not None and _var_filter_mine.get():
+        login, _ = _current_user()
+        data = [d for d in data if d.get("user") == login]
+    _assign_tree.delete(*_assign_tree.get_children())
+    _assign_row_data.clear()
+    for rec in data:
+        iid = _assign_tree.insert("", "end", values=(rec.get("task"), rec.get("user")))
+        _assign_row_data[iid] = rec
+
+
+def _asgn_assign() -> bool:
+    """Assign selected task to user from combobox."""
+    login, role = _current_user()
+    if role not in {"brygadzista", "admin"}:
+        return False
+    task_id, ctx = _selected_task()
+    if not task_id:
+        return False
+    user = _cmb_user_var.get().strip() if _cmb_user_var else ""
+    if not user:
+        return False
+    zadania_assign_io.assign(task_id, user, ctx or "narzedzia")
+    _refresh_assignments_view()
+    return True
 
 # ===================== CONFIG / DEBUG =====================
 def _load_config():
@@ -791,6 +866,9 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 def panel_narzedzia(root, frame, login=None, rola=None):
+    global _current_login, _current_role, _assign_tree, _assign_row_data, _cmb_user_var, _var_filter_mine
+    _current_login = login
+    _current_role = rola
     _load_config()
     _maybe_seed_config_templates()
     apply_theme(root)
@@ -836,6 +914,31 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     )
     btn_odswiez.pack(side="right", padx=4)
 
+    cmb_user_var = tk.StringVar()
+    Combobox = getattr(ttk, "Combobox", ttk.Entry)
+    cmb_user = Combobox(
+        header,
+        textvariable=cmb_user_var,
+        state="readonly",
+        values=_profiles_usernames(),
+        width=16,
+    )
+    cmb_user.pack(side="left", padx=(8, 0))
+    btn_asgn = ttk.Button(header, text="Przypisz", command=_asgn_assign, style="WM.Side.TButton")
+    btn_asgn.pack(side="left", padx=4)
+    BooleanVar = getattr(tk, "BooleanVar", tk.StringVar)
+    var_filter_mine = BooleanVar(value=False)
+    Checkbutton = getattr(ttk, "Checkbutton", ttk.Button)
+    Checkbutton(
+        header, text="Moje", variable=var_filter_mine, command=_refresh_assignments_view
+    ).pack(side="left", padx=4)
+
+    _cmb_user_var = cmb_user_var
+    _var_filter_mine = var_filter_mine
+    frame.cmb_user = cmb_user
+    frame.var_filter_mine = var_filter_mine
+    frame.btn_asgn = btn_asgn
+
     wrap = ttk.Frame(frame, style="WM.Card.TFrame")
     wrap.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -855,6 +958,21 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     tree.tag_configure("p100", foreground="#188038")
 
     row_data = {}
+
+    assign_wrap = ttk.Frame(frame, style="WM.Card.TFrame")
+    assign_wrap.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+    assign_cols = ("task", "user")
+    assign_headers = {"task": "Zadanie", "user": "Użytkownik"}
+    assign_widths = {"task": 240, "user": 160}
+    assign_tree = ttk.Treeview(assign_wrap, columns=assign_cols, show="headings", style="WM.Treeview")
+    for c in assign_cols:
+        assign_tree.heading(c, text=assign_headers[c])
+        assign_tree.column(c, width=assign_widths[c], anchor="w")
+    assign_tree.pack(fill="both", expand=True)
+    _assign_tree = assign_tree
+    _assign_row_data = {}
+    _refresh_assignments_view()
+    frame.assign_tree = assign_tree
 
     def refresh_list(*_):
         tree.delete(*tree.get_children()); row_data.clear()
@@ -1534,5 +1652,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     search_var.trace_add("write", refresh_list)
     refresh_list()
 
-__all__ = ["panel_narzedzia"]
+__all__ = [
+    "panel_narzedzia",
+    "_profiles_usernames",
+    "_current_user",
+    "_selected_task",
+    "_asgn_assign",
+    "_refresh_assignments_view",
+]
 # Koniec pliku
