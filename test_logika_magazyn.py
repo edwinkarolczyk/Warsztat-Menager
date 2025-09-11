@@ -305,3 +305,19 @@ def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
     assert shortage[0]["zamowiono"] is True
     created = [d for a, d in logs if a == "utworzono_zlecenie_zakupow"]
     assert created and created[0]["nr"] == zlec["nr"]
+
+
+def test_migrates_old_magazyn_path(tmp_path, monkeypatch):
+    old = tmp_path / "magazyn.json"
+    old.write_text(
+        json.dumps({"pozycje": {"A": {"id": "A"}}, "historia": []}),
+        encoding="utf-8",
+    )
+    new = tmp_path / "magazyn" / "magazyn.json"
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(new))
+    monkeypatch.setattr(lm, "OLD_MAGAZYN_PATH", str(old))
+    lm._migrate_legacy_path()
+    m = lm.load_magazyn()
+    assert "A" in m["items"]
+    assert new.exists()
+    assert not old.exists()

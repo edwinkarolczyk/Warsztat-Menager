@@ -11,9 +11,14 @@ import logging
 import subprocess
 import tkinter as tk
 from datetime import datetime
-from PIL import Image, ImageTk
-from tkinter import ttk, messagebox
 from pathlib import Path
+from tkinter import ttk, messagebox
+
+try:  # opcjonalny Pillow
+    from PIL import Image, ImageTk
+except Exception:  # pragma: no cover - brak Pillow
+    Image = None
+    ImageTk = None
 
 from config_manager import ConfigManager
 from grafiki.shifts_schedule import who_is_on_now

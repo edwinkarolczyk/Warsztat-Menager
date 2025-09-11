@@ -85,7 +85,8 @@ _CFG = ConfigManager()
 
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
-"""Ścieżka do głównego pliku magazynu."""
+OLD_MAGAZYN_PATH = "data/magazyn.json"
+"""Ścieżki do pliku magazynu (nowa i stara lokalizacja)."""
 
 SUROWCE_PATH = "data/magazyn/surowce.json"
 """Ścieżka do pliku surowców magazynu."""
@@ -94,11 +95,26 @@ POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
 """Ścieżka do pliku półproduktów magazynu."""
 
 
+def _migrate_legacy_path() -> None:
+    """Przenosi stary plik magazynu do nowej lokalizacji, jeśli istnieje."""
+    if os.path.exists(OLD_MAGAZYN_PATH) and not os.path.exists(MAGAZYN_PATH):
+        os.makedirs(os.path.dirname(MAGAZYN_PATH), exist_ok=True)
+        try:
+            os.replace(OLD_MAGAZYN_PATH, MAGAZYN_PATH)
+        except OSError:
+            pass
+
+
+_migrate_legacy_path()
+
+
 def _safe_load(path, default):
     try:
         with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
+        if path == MAGAZYN_PATH and os.path.exists(OLD_MAGAZYN_PATH):
+            return _safe_load(OLD_MAGAZYN_PATH, default)
         return default
     except (OSError, json.JSONDecodeError) as exc:
         print(f"[WM-DBG][MAG] Nie można odczytać {path}: {exc}")
