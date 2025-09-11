@@ -41,4 +41,4 @@ def test_suggest_names_for_category(tmp_path, monkeypatch):
     result = mc.suggest_names_for_category(
         "rura", "Ru", katalog_path=str(katalog_path), stany_path=str(stany_path)
     )
-    assert set(result) == {"Rura 30mm", "Rurka 40mm", "Rura 50mm"}
+    assert result == ["Rura 30mm", "Rurka 40mm", "Rura 50mm"]
