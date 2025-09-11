@@ -26,23 +26,26 @@ def _load_json(path: str, default):
         return default
 
 
-def load_catalog(path: str = CATALOG_PATH) -> Dict[str, Any]:
+def load_catalog(path: str | None = None) -> Dict[str, Any]:
     """Load and return the warehouse catalogue."""
 
+    path = path or CATALOG_PATH
     return _load_json(path, {})
 
 
-def save_catalog(catalog: Dict[str, Any], path: str = CATALOG_PATH) -> None:
+def save_catalog(catalog: Dict[str, Any], path: str | None = None) -> None:
     """Persist ``catalog`` to :data:`CATALOG_PATH`."""
 
+    path = path or CATALOG_PATH
     _ensure_dirs(path)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(catalog, fh, ensure_ascii=False, indent=2)
 
 
 def _normalize(text: Any) -> str:
-    s = unicodedata.normalize("NFD", str(text))
+    s = unicodedata.normalize("NFKD", str(text))
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.replace("ł", "l").replace("Ł", "L")
     s = s.replace(" ", "_")
     return s
 
