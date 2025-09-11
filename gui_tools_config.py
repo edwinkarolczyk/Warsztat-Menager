@@ -46,6 +46,13 @@ class ToolsConfigDialog(tk.Toplevel):
             json.dump(data, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
 
+        try:
+            from logika_zadan import invalidate_cache
+        except Exception:  # pragma: no cover - optional import
+            invalidate_cache = None
+        if callable(invalidate_cache):
+            invalidate_cache()
+
         if callable(self.on_save):
             self.on_save()
         self.destroy()
