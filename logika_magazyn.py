@@ -20,7 +20,12 @@ if not logging.getLogger().handlers:
     )
 
 from config_manager import ConfigManager
-from magazyn_io import append_history
+from magazyn_io import (
+    append_history,
+    get_mag_categories,
+    get_mag_material_types,
+    get_mag_units,
+)
 try:
     from tkinter import messagebox
 except Exception:  # pragma: no cover - środowiska bez GUI
