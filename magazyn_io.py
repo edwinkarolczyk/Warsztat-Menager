@@ -7,6 +7,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+import logger
+
 ALLOWED_OPS = {
     "CREATE",
     "PZ",
@@ -18,6 +20,9 @@ ALLOWED_OPS = {
 
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
 PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
+STANY_PATH = "data/magazyn/stany.json"
+KATALOG_PATH = "data/magazyn/katalog.json"
+SEQ_PZ_PATH = "data/magazyn/_seq_pz.json"
 HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
 
 
@@ -107,4 +112,94 @@ def append_history(
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     return entry
+
+
+def generate_pz_id(now: datetime | None = None) -> str:
+    """Return a sequential PZ identifier.
+
+    The identifier format is ``PZ-YYYY-MM-DD-XXXX`` where the counter
+    ``XXXX`` is stored in :data:`SEQ_PZ_PATH` and resets every year.
+    ``now`` can be provided for deterministic results in tests.
+    """
+
+    now = now or datetime.now(timezone.utc)
+    _ensure_dirs(SEQ_PZ_PATH)
+    seq_data = _load_json(SEQ_PZ_PATH, {"year": now.year, "seq": 0})
+    if seq_data.get("year") != now.year:
+        seq_data = {"year": now.year, "seq": 0}
+    seq_data["seq"] = int(seq_data.get("seq", 0)) + 1
+    with open(SEQ_PZ_PATH, "w", encoding="utf-8") as f:
+        json.dump(seq_data, f, ensure_ascii=False, indent=2)
+    pz_id = f"PZ-{now.strftime('%Y-%m-%d')}-{seq_data['seq']:04d}"
+    logger.log_magazyn("nadano_id_pz", {"id": pz_id})
+    return pz_id
+
+
+def save_pz(entry: Dict[str, Any]) -> str:
+    """Append ``entry`` describing a PZ to ``przyjecia.json``.
+
+    Missing ``id`` or ``ts`` fields are generated automatically.
+    The function returns the PZ identifier.
+    """
+
+    data = dict(entry)
+    data.setdefault("id", generate_pz_id())
+    data.setdefault("ts", datetime.now(timezone.utc).isoformat())
+    _ensure_dirs(PRZYJECIA_PATH)
+    records = _load_json(PRZYJECIA_PATH, [])
+    records.append(data)
+    with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
+    logger.log_magazyn(
+        "zapis_przyjecia",
+        {"pz_id": data["id"], "item_id": data.get("item_id"), "ilosc": data.get("qty")},
+    )
+    return data["id"]
+
+
+def update_stany_after_pz(entry: Dict[str, Any]) -> None:
+    """Update ``stany.json`` after recording a PZ.
+
+    ``entry`` must contain ``item_id`` and ``qty``. When the item is
+    missing in ``stany.json`` it is created using ``nazwa`` and
+    optional ``prog_alert`` fields from ``entry``.
+    """
+
+    item_id = entry["item_id"]
+    qty = float(entry.get("qty", 0))
+    _ensure_dirs(STANY_PATH)
+    stany = _load_json(STANY_PATH, {})
+    rec = stany.setdefault(
+        item_id,
+        {
+            "nazwa": entry.get("nazwa", item_id),
+            "stan": 0.0,
+            "prog_alert": float(entry.get("prog_alert", 0.0)),
+        },
+    )
+    rec["stan"] = float(rec.get("stan", 0)) + qty
+    with open(STANY_PATH, "w", encoding="utf-8") as f:
+        json.dump(stany, f, ensure_ascii=False, indent=2)
+    logger.log_magazyn(
+        "aktualizacja_stanow",
+        {"item_id": item_id, "dodano": qty, "stan": rec["stan"]},
+    )
+
+
+def ensure_in_katalog(entry: Dict[str, Any]) -> None:
+    """Ensure that an item from ``entry`` exists in ``katalog.json``."""
+
+    item_id = entry["item_id"]
+    _ensure_dirs(KATALOG_PATH)
+    katalog = _load_json(KATALOG_PATH, {})
+    if item_id not in katalog:
+        katalog[item_id] = {
+            "nazwa": entry.get("nazwa", item_id),
+            "jednostka": entry.get("jednostka", ""),
+        }
+        with open(KATALOG_PATH, "w", encoding="utf-8") as f:
+            json.dump(katalog, f, ensure_ascii=False, indent=2)
+        logger.log_magazyn("katalog_dodano", {"item_id": item_id})
+    else:
+        logger.log_magazyn("katalog_istnial", {"item_id": item_id})
 
