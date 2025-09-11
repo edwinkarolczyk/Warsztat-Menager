@@ -2,7 +2,7 @@
 # Wersja pliku: 1.3.2
 # Zmiany 1.3.2:
 # - _has_priv: {'brygadzista','magazynier'}
-# - "Przyjęcie (PZ)" dostępne tylko dla uprzywilejowanych ról
+# - "Przyjęcia (PZ)" dostępne tylko dla uprzywilejowanych ról
 #
 # Zmiany 1.3.1:
 # - Dodano __all__ (PanelMagazyn, open_panel_magazyn, panel_ustawien_magazyn, attach_magazyn_button)
@@ -219,7 +219,7 @@ class PanelMagazyn(ttk.Frame):
         self._attach_tooltip(btn_dodaj, "Dodaj nową pozycję do magazynu")
 
         btn_przyjecie = ttk.Button(
-            bar, text="Przyjęcie (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
+            bar, text="Przyjęcia (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
         )
         btn_przyjecie.grid(row=0, column=5, padx=3)
         if not getattr(self, "is_priv", False):
