@@ -1,5 +1,9 @@
 # Plik: gui_magazyn.py
-# Wersja pliku: 1.3.1
+# Wersja pliku: 1.3.2
+# Zmiany 1.3.2:
+# - _has_priv: {'brygadzista','magazynier'}
+# - "Przyjęcie (PZ)" dostępne tylko dla uprzywilejowanych ról
+#
 # Zmiany 1.3.1:
 # - Dodano __all__ (PanelMagazyn, open_panel_magazyn, panel_ustawien_magazyn, attach_magazyn_button)
 # - Helper attach_magazyn_button(root, toolbar) do łatwego podpięcia przycisku "Magazyn" w głównym GUI
@@ -87,7 +91,7 @@ __all__ = [
 # ----- uprawnienia -----
 def _has_priv(rola: str | None) -> bool:
     r = (rola or "").strip().lower()
-    return r in {"brygadzista", "brygadzista_serwisant", "admin", "kierownik"}
+    return r in {"brygadzista", "magazynier"}
 
 def _resolve_role(parent, rola_hint=None):
     # 1) z parametru
@@ -132,6 +136,8 @@ class PanelMagazyn(ttk.Frame):
         self.root = master
         self.config = getattr(master, "config", ConfigManager())
         self.profiles = getattr(master, "profiles", None)
+        self.resolved_role = _resolve_role(master)
+        self.is_priv = _has_priv(self.resolved_role)
         self._tooltip_windows: set[tk.Toplevel] = set()
         self.root.bind("<Destroy>", self._cleanup_tooltips, add="+")
         apply_theme(self)
@@ -215,6 +221,9 @@ class PanelMagazyn(ttk.Frame):
             bar, text="Przyjęcie (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
         )
         btn_przyjecie.grid(row=0, column=5, padx=3)
+        if not getattr(self, "is_priv", False):
+            if hasattr(btn_przyjecie, "state"):
+                btn_przyjecie.state(["disabled"])
         self._attach_tooltip(btn_przyjecie, "Zarejestruj przyjęcie towaru (PZ)")
 
         btn_zuzyj = ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton")
