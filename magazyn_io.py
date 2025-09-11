@@ -138,7 +138,9 @@ def append_history(
         ts: Optional timestamp (ISO 8601). Generated when missing.
 
     The entry is appended to ``items[item_id]['historia']``. For ``op == 'PZ'``
-    an additional record is stored in :data:`PRZYJECIA_PATH`.
+    an additional record is stored in :data:`PRZYJECIA_PATH` and the simplified
+    stock file :data:`STANY_PATH` is updated (new items are added when
+    missing).
     """
 
     op = op.upper()
@@ -185,7 +187,7 @@ def append_history(
         with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-        # update simplified stock file
+        # update simplified stock file and auto-register the item
         _ensure_dirs(STANY_PATH)
         stany = _load_json(STANY_PATH, {})
         rec = stany.setdefault(
