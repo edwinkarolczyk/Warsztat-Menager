@@ -24,6 +24,9 @@ from services import profile_service
 from logger import log_akcja
 
 
+MAG_DICT_PATH = "data/magazyn/slowniki.json"
+
+
 def _is_deprecated(node: dict) -> bool:
     """Return True if schema node is marked as deprecated."""
 
@@ -585,17 +588,121 @@ class SettingsPanel:
             command=rollback,
         ).pack(side="left", padx=5)
 
+    def _load_magazyn_dicts(self) -> dict[str, list[str]]:
+        try:
+            with open(MAG_DICT_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return {
+                        k: [str(v) for v in data.get(k, [])]
+                        for k in ("kategorie", "typy_materialu", "jednostki")
+                    }
+        except Exception:
+            pass
+        return {"kategorie": [], "typy_materialu": [], "jednostki": []}
+
+    def _save_magazyn_dicts(self, data: dict[str, list[str]]) -> None:
+        os.makedirs(os.path.dirname(MAG_DICT_PATH), exist_ok=True)
+        with open(MAG_DICT_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def _build_slowniki_tab(self, parent: tk.Widget) -> None:
+        data = self._load_magazyn_dicts()
+        editors: list[tuple[str, tk.Listbox]] = []
+
+        def make_editor(key: str, label: str) -> None:
+            frame = ttk.LabelFrame(parent, text=label)
+            frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
+            lb = tk.Listbox(frame, height=8, exportselection=False)
+            for item in data.get(key, []):
+                lb.insert("end", item)
+            lb.pack(fill="both", expand=True, padx=5, pady=5)
+            _bind_tooltip(lb, f"Lista: {label.lower()}")
+
+            entry = ttk.Entry(frame)
+            entry.pack(fill="x", padx=5, pady=(0, 5))
+
+            btns = ttk.Frame(frame)
+            btns.pack(pady=2)
+
+            def add_item() -> None:
+                val = entry.get().strip()
+                if val:
+                    lb.insert("end", val)
+                    entry.delete(0, "end")
+
+            def del_item() -> None:
+                for idx in reversed(lb.curselection()):
+                    lb.delete(idx)
+
+            def move_up() -> None:
+                sel = lb.curselection()
+                if not sel:
+                    return
+                idx = sel[0]
+                if idx <= 0:
+                    return
+                val = lb.get(idx)
+                lb.delete(idx)
+                lb.insert(idx - 1, val)
+                lb.selection_set(idx - 1)
+
+            def move_down() -> None:
+                sel = lb.curselection()
+                if not sel:
+                    return
+                idx = sel[0]
+                if idx >= lb.size() - 1:
+                    return
+                val = lb.get(idx)
+                lb.delete(idx)
+                lb.insert(idx + 1, val)
+                lb.selection_set(idx + 1)
+
+            b_add = ttk.Button(btns, text="Dodaj", command=add_item)
+            b_del = ttk.Button(btns, text="Usuń", command=del_item)
+            b_up = ttk.Button(btns, text="Góra", command=move_up)
+            b_down = ttk.Button(btns, text="Dół", command=move_down)
+            b_add.grid(row=0, column=0, padx=2)
+            b_del.grid(row=0, column=1, padx=2)
+            b_up.grid(row=0, column=2, padx=2)
+            b_down.grid(row=0, column=3, padx=2)
+            _bind_tooltip(b_add, "Dodaj wpis do listy")
+            _bind_tooltip(b_del, "Usuń zaznaczony wpis")
+            _bind_tooltip(b_up, "Przesuń w górę")
+            _bind_tooltip(b_down, "Przesuń w dół")
+
+            editors.append((key, lb))
+
+        make_editor("kategorie", "Kategorie")
+        make_editor("typy_materialu", "Typy materiału")
+        make_editor("jednostki", "Jednostki")
+
+        def save_all_dicts() -> None:
+            payload = {key: list(lb.get(0, "end")) for key, lb in editors}
+            self._save_magazyn_dicts(payload)
+
+        btn_save = ttk.Button(parent, text="Zapisz", command=save_all_dicts)
+        btn_save.pack(anchor="e", padx=5, pady=5)
+        _bind_tooltip(btn_save, "Zapisz słowniki")
+
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
         if self._magazyn_frame is None or self._magazyn_schema is None:
             return
         nb = ttk.Notebook(self._magazyn_frame)
         nb.pack(fill="both", expand=True)
+        nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
         ustawienia_frame = ttk.Frame(nb)
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
         print("[WM-DBG] init magazyn tab")
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
+
+        slowniki_frame = ttk.Frame(nb)
+        nb.add(slowniki_frame, text="Słowniki")
+        self._build_slowniki_tab(slowniki_frame)
 
         self._magazyn_initialized = True
 
