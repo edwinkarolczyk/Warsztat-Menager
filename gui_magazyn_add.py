@@ -73,27 +73,15 @@ class MagazynAddDialog:
         frm.grid(row=0, column=0, sticky="nsew")
         self.win.columnconfigure(0, weight=1)
 
+        def _combo_opts(values):
+            return {"values": values, **({"state": "readonly"} if values else {})}
+
         fields = [
             ("ID", "id", ttk.Entry, {}),
             ("Nazwa", "nazwa", ttk.Entry, {}),
-            (
-                "Kategoria",
-                "kategoria",
-                ttk.Combobox,
-                {"values": kategorie, "state": "readonly"},
-            ),
-            (
-                "Typ",
-                "typ",
-                ttk.Combobox,
-                {"values": typy_materialu, "state": "readonly"},
-            ),
-            (
-                "J.m.",
-                "jednostka",
-                ttk.Combobox,
-                {"values": jednostki, "state": "readonly"},
-            ),
+            ("Kategoria", "kategoria", ttk.Combobox, _combo_opts(kategorie)),
+            ("Typ", "typ", ttk.Combobox, _combo_opts(typy_materialu)),
+            ("J.m.", "jednostka", ttk.Combobox, _combo_opts(jednostki)),
             ("Stan pocz.", "stan", ttk.Entry, {}),
             ("Minimum", "min_poziom", ttk.Entry, {}),
         ]
