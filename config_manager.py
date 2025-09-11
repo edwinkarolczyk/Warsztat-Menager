@@ -67,19 +67,61 @@ class ConfigManager:
                 continue
             yield opt
 
+    @staticmethod
+    def _coerce_default_for_field(field: Dict[str, Any]) -> Any:
+        """Return a sane default coerced to the field's type."""
+
+        default = field.get("default")
+        ftype = field.get("type")
+
+        if ftype == "bool":
+            if isinstance(default, bool):
+                return default
+            if isinstance(default, str):
+                return default.lower() in {"1", "true", "yes", "on"}
+            return bool(default) if default is not None else False
+
+        if ftype == "int":
+            try:
+                return int(default)
+            except (TypeError, ValueError):
+                return 0
+
+        if ftype == "float":
+            try:
+                return float(default)
+            except (TypeError, ValueError):
+                return 0.0
+
+        if ftype in ("enum", "select"):
+            allowed = (
+                field.get("allowed")
+                or field.get("values")
+                or field.get("enum")
+                or []
+            )
+            if default in allowed:
+                return default
+            return allowed[0] if allowed else None
+
+        return default
+
     @classmethod
     def _ensure_defaults_from_schema(
         cls, cfg: Dict[str, Any], schema: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Uzupełnia brakujące klucze domyślnymi wartościami ze schematu."""
 
-        def apply_default(key: str | None, default: Any) -> None:
+        def apply_default(field: Dict[str, Any]) -> None:
+            key = field.get("key")
+            default = field.get("default")
             if key and default is not None and key not in cfg:
-                print(f"[WM-DBG] [SETTINGS] default injected: {key}={default}")
-                cfg[key] = default
+                value = cls._coerce_default_for_field(field)
+                print(f"[WM-DBG] [SETTINGS] default injected: {key}={value}")
+                cfg[key] = value
 
         for field in cls._iter_schema_fields(schema):
-            apply_default(field.get("key"), field.get("default"))
+            apply_default(field)
         return cfg
     # >>> WM PATCH END
 
