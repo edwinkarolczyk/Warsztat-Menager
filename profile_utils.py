@@ -107,6 +107,11 @@ def write_users(users):
         norm.append(u)
     return write_json(USERS_FILE, norm)
 
+
+def list_user_ids() -> list[str]:
+    """Return a list of user logins from the profiles file."""
+    return [u.get("login", "") for u in read_users()]
+
 def find_user_by_pin(pin):
     users = read_users()
     sp = str(pin).strip()
@@ -163,3 +168,18 @@ def ensure_user_fields(users):
     if changed:
         write_json(USERS_FILE, users)
     return users
+
+
+__all__ = [
+    "USERS_FILE",
+    "SIDEBAR_MODULES",
+    "DEFAULT_USER",
+    "read_users",
+    "write_users",
+    "list_user_ids",
+    "find_user_by_pin",
+    "get_tasks_for",
+    "get_user",
+    "save_user",
+    "ensure_user_fields",
+]
