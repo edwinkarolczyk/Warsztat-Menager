@@ -109,3 +109,61 @@ def ensure_in_katalog(entry: Dict[str, object], path: str = KATALOG_PATH) -> boo
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(katalog, fh, ensure_ascii=False, indent=2)
     return True
+
+
+def record_pz_entry(
+    *,
+    category: str,
+    material_type: str,
+    qty: float,
+    location: str,
+    issuer: str,
+    unit: str | None = None,
+    comment: str = "",
+    rounding_cb=None,
+    **extra,
+) -> Dict[str, object]:
+    """Validate data, build code and persist PZ entry.
+
+    ``extra`` contains fields specific for categories.  The function
+    returns the created entry dictionary.
+    """
+    import re as _re
+    import magazyn_catalog
+    import magazyn_io
+
+    cat = category.lower()
+    unit = unit or ("mb" if cat in {"profil", "rura"} else "szt")
+    try:
+        qty = float(qty)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError("Ilość musi być liczbą") from exc
+    if unit == "szt":
+        if abs(qty - round(qty)) > 1e-9:
+            if rounding_cb:
+                qty = int(rounding_cb(qty))
+            else:
+                raise ValueError("Ilość w sztukach nie może być ułamkiem")
+        qty = int(qty)
+    elif unit == "mb":
+        qty = round(qty, 3)
+    if cat == "profil":
+        wymiar = str(extra.get("wymiar", ""))
+        if not _re.match(r"^\d{1,4}x\d{1,4}x\d{1,3}$", wymiar):
+            raise ValueError("Nieprawidłowy format wymiaru")
+    entry_ids = magazyn_catalog.build_code(category, material_type, **extra)
+    entry = {
+        "item_id": entry_ids["id"],
+        "nazwa": entry_ids["nazwa"],
+        "kategoria": category,
+        "typ_materialu": material_type,
+        "jednostka": unit,
+        "qty": qty,
+        "lokalizacja": location,
+        "komentarz": comment,
+        "wystawiajacy": issuer,
+    }
+    magazyn_io.save_pz(entry)
+    magazyn_io.update_stany_after_pz(entry)
+    magazyn_io.ensure_in_katalog(entry)
+    return entry

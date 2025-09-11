@@ -1,5 +1,6 @@
 import json
 import re
+import pytest
 
 from magazyn_io_pz import (
     ensure_in_katalog,
@@ -45,3 +46,63 @@ def test_ensure_in_katalog_adds_new_position(tmp_path):
     data = json.loads(katalog_path.read_text(encoding="utf-8"))
     assert "NEW" in data["items"]
     assert "NEW" in data["meta"]["order"]
+
+
+def test_record_pz_entry_rounding_and_files(tmp_path, monkeypatch):
+    import magazyn_io
+    from magazyn_io_pz import record_pz_entry
+
+    monkeypatch.setattr(magazyn_io, "PRZYJECIA_PATH", str(tmp_path / "przyjecia.json"))
+    monkeypatch.setattr(magazyn_io, "STANY_PATH", str(tmp_path / "stany.json"))
+    monkeypatch.setattr(magazyn_io, "KATALOG_PATH", str(tmp_path / "katalog.json"))
+    monkeypatch.setattr(magazyn_io, "SEQ_PZ_PATH", str(tmp_path / "seq.json"))
+
+    record = record_pz_entry(
+        category="profil",
+        material_type="stal",
+        qty=1.23456,
+        location="A1",
+        issuer="tester",
+        rodzaj_profilu="ceownik",
+        wymiar="100x50x5",
+        comment="ok",
+    )
+    assert record["jednostka"] == "mb"
+    assert record["qty"] == 1.235
+    data = json.loads((tmp_path / "przyjecia.json").read_text(encoding="utf-8"))
+    assert data[0]["item_id"] == record["item_id"]
+    stany = json.loads((tmp_path / "stany.json").read_text(encoding="utf-8"))
+    assert stany[record["item_id"]]["stan"] == 1.235
+    katalog = json.loads((tmp_path / "katalog.json").read_text(encoding="utf-8"))
+    assert record["item_id"] in katalog
+
+
+def test_record_pz_entry_fractional_szt(tmp_path, monkeypatch):
+    import magazyn_io
+    from magazyn_io_pz import record_pz_entry
+
+    monkeypatch.setattr(magazyn_io, "PRZYJECIA_PATH", str(tmp_path / "przyjecia.json"))
+    monkeypatch.setattr(magazyn_io, "STANY_PATH", str(tmp_path / "stany.json"))
+    monkeypatch.setattr(magazyn_io, "KATALOG_PATH", str(tmp_path / "katalog.json"))
+    monkeypatch.setattr(magazyn_io, "SEQ_PZ_PATH", str(tmp_path / "seq.json"))
+
+    with pytest.raises(ValueError):
+        record_pz_entry(
+            category="półprodukt",
+            material_type="stal",
+            qty=2.5,
+            location="B2",
+            issuer="tester",
+            nazwa="Detale",
+        )
+
+    record = record_pz_entry(
+        category="półprodukt",
+        material_type="stal",
+        qty=2.5,
+        location="B2",
+        issuer="tester",
+        nazwa="Detale",
+        rounding_cb=round,
+    )
+    assert record["qty"] == 2
