@@ -36,9 +36,10 @@ def _create_widget(
     """Return a frame containing label, widget and description for the option."""
 
     frame = ttk.Frame(parent)
-    ttk.Label(frame, text=option.get("label", "")).grid(
-        row=0, column=0, sticky="w", padx=5, pady=(5, 0)
-    )
+    ttk.Label(
+        frame,
+        text=option.get("label_pl") or option.get("label") or option["key"],
+    ).grid(row=0, column=0, sticky="w", padx=5, pady=(5, 0))
 
     opt_type = option.get("type")
     widget_type = option.get("widget")
@@ -148,11 +149,7 @@ def _create_widget(
 
     widget.grid(row=0, column=1, sticky="w", padx=5, pady=(5, 0))
 
-    tip = (
-        option.get("tooltip")
-        or option.get("help")
-        or option.get("description")
-    )
+    tip = option.get("help_pl") or option.get("help") or ""
     if tip:
         _bind_tooltip(widget, tip)
 
