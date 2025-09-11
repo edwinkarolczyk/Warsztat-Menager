@@ -167,8 +167,13 @@ def _default_magazyn():
         "meta": {"updated": _now(), "item_types": list(DEFAULT_ITEM_TYPES)}
     }
 
-def load_magazyn():
-    """Wczytuje stan magazynu wraz z danymi z surowców i półproduktów."""
+def load_magazyn(include_external: bool = True):
+    """Wczytuje stan magazynu, opcjonalnie dołączając surowce i półprodukty."""
+
+    print(
+        "[WM-DBG][MAG] Ładuję magazyn (z dołączeniem surowców/półproduktów = %s)."
+        % include_external
+    )
 
     base = _safe_load(MAGAZYN_PATH, {"pozycje": {}, "historia": []})
     if not isinstance(base, dict):
@@ -182,8 +187,9 @@ def load_magazyn():
     historia = list(base.get("historia") or [])
     meta = base.get("meta") if isinstance(base.get("meta"), dict) else {}
 
-    _merge_list_into(pozycje, _safe_load(SUROWCE_PATH, []), "surowiec")
-    _merge_list_into(pozycje, _safe_load(POLPRODUKTY_PATH, []), "półprodukt")
+    if include_external:
+        _merge_list_into(pozycje, _safe_load(SUROWCE_PATH, []), "surowiec")
+        _merge_list_into(pozycje, _safe_load(POLPRODUKTY_PATH, []), "półprodukt")
 
     result = {"pozycje": pozycje, "historia": historia, "meta": meta}
     result["items"] = pozycje  # kompatybilność
