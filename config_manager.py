@@ -24,6 +24,7 @@ DEFAULTS_PATH = cfg_path("config.defaults.json")
 GLOBAL_PATH = cfg_path("config.json")
 LOCAL_PATH = cfg_path("config.local.json")
 SECRETS_PATH = cfg_path("secrets.json")
+MAG_DICT_PATH = cfg_path("data/magazyn/slowniki.json")
 AUDIT_DIR = cfg_path("audit")
 BACKUP_DIR = cfg_path("backup_wersji")
 ROLLBACK_KEEP = 10
@@ -140,7 +141,8 @@ class ConfigManager:
         added: Dict[str, Any] = {}
         field_idx = {f.get("key"): f for f in cls._iter_schema_fields(schema)}
         for key in ("kategorie", "typy_materialu", "jednostki"):
-            if key in magazyn_cfg:
+            current = magazyn_cfg.get(key)
+            if isinstance(current, list):
                 continue
             field = field_idx.get(f"magazyn.{key}")
             if not field or field.get("default") is None:
@@ -151,6 +153,27 @@ class ConfigManager:
         if added:
             logger.info("Dodano domyślne ustawienia magazynu: %s", added)
         return config
+
+    def _ensure_magazyn_slowniki(self, schema: Dict[str, Any]) -> None:
+        """Ensure ``data/magazyn/slowniki.json`` exists with default values."""
+
+        if os.path.exists(MAG_DICT_PATH):
+            return
+
+        field_idx = {f.get("key"): f for f in self._iter_schema_fields(schema)}
+        defaults: Dict[str, Any] = {}
+        for key in ("kategorie", "typy_materialu", "jednostki"):
+            field = field_idx.get(f"magazyn.{key}")
+            if field and field.get("default") is not None:
+                defaults[key] = self._coerce_default_for_field(field)
+            else:
+                defaults[key] = []
+
+        os.makedirs(os.path.dirname(MAG_DICT_PATH), exist_ok=True)
+        self._save_json(MAG_DICT_PATH, defaults)
+        logger.info(
+            "[INFO] Zainicjalizowano data/magazyn/slowniki.json domyślnymi wartościami"
+        )
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -178,6 +201,7 @@ class ConfigManager:
                 self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
+        self._ensure_magazyn_slowniki(self.schema)
 
         # >>> WM PATCH START: auto-heal critical keys
         healed: list[tuple[str, Any]] = []
