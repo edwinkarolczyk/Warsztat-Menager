@@ -28,6 +28,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 import logging
+import json
 
 from ui_theme import apply_theme_safe as apply_theme, COLORS
 from utils.gui_helpers import clear_frame
@@ -189,6 +190,15 @@ class PanelMagazyn(ttk.Frame):
                 pass
         self._tooltip_windows.clear()
 
+    def _clear_filters(self):
+        for var in (
+            getattr(self, "var_kat", None),
+            getattr(self, "var_typ_f", None),
+            getattr(self, "var_jed", None),
+        ):
+            if var is not None:
+                var.set("")
+
     def _build_ui(self):
         lock_path = Path("data/magazyn/magazyn.json.lock")
         if lock_path.exists():
@@ -204,7 +214,6 @@ class PanelMagazyn(ttk.Frame):
         # Pasek narzędzi
         bar = ttk.Frame(self, style="WM.TFrame")
         bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8,4))
-        bar.columnconfigure(3, weight=1)
 
         ttk.Label(bar, text="Szukaj:", style="WM.Muted.TLabel").grid(row=0, column=0, sticky="w")
         self.var_szukaj = tk.StringVar()
@@ -212,45 +221,66 @@ class PanelMagazyn(ttk.Frame):
         ent.grid(row=0, column=1, sticky="ew", padx=6)
         ent.bind("<KeyRelease>", lambda e: self._filter())
 
-        ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=2, padx=6)
+        # Comboboxy filtrujące
+        try:
+            slowniki = json.loads(Path("data/magazyn/slowniki.json").read_text(encoding="utf-8"))
+        except Exception:
+            slowniki = {}
+        self.var_kat = tk.StringVar()
+        self.var_typ_f = tk.StringVar()
+        self.var_jed = tk.StringVar()
+        Combo = getattr(ttk, "Combobox", None)
+        if Combo:
+            cb_kat = Combo(bar, textvariable=self.var_kat, values=slowniki.get("kategorie", []), state="readonly")
+            cb_typ = Combo(bar, textvariable=self.var_typ_f, values=slowniki.get("typy_materialu", []), state="readonly")
+            cb_jed = Combo(bar, textvariable=self.var_jed, values=slowniki.get("jednostki", []), state="readonly")
+            cb_kat.grid(row=0, column=2, sticky="ew", padx=6)
+            cb_typ.grid(row=0, column=3, sticky="ew", padx=6)
+            cb_jed.grid(row=0, column=4, sticky="ew", padx=6)
+        for _var in (self.var_kat, self.var_typ_f, self.var_jed):
+            if hasattr(_var, "trace_add"):
+                _var.trace_add("write", lambda *_: self._filter())
+
+        ttk.Button(bar, text="Odśwież", command=self._load, style="WM.Side.TButton").grid(row=0, column=5, padx=6)
+        bar.columnconfigure(6, weight=1)
 
         btn_dodaj = ttk.Button(bar, text="+ Dodaj", command=self._act_dodaj, style="WM.Side.TButton")
-        btn_dodaj.grid(row=0, column=4, padx=3)
+        btn_dodaj.grid(row=0, column=7, padx=3)
         self._attach_tooltip(btn_dodaj, "Dodaj nową pozycję do magazynu")
 
         btn_przyjecie = ttk.Button(
             bar, text="Przyjęcia (PZ)", command=self._act_przyjecie, style="WM.Side.TButton"
         )
-        btn_przyjecie.grid(row=0, column=5, padx=3)
+        btn_przyjecie.grid(row=0, column=8, padx=3)
         if not getattr(self, "is_priv", False):
             if hasattr(btn_przyjecie, "state"):
                 btn_przyjecie.state(["disabled"])
         self._attach_tooltip(btn_przyjecie, "Zarejestruj przyjęcie towaru (PZ)")
 
         btn_zuzyj = ttk.Button(bar, text="Zużyj", command=self._act_zuzyj, style="WM.Side.TButton")
-        btn_zuzyj.grid(row=0, column=6, padx=3)
+        btn_zuzyj.grid(row=0, column=9, padx=3)
         self._attach_tooltip(btn_zuzyj, "Odnotuj zużycie materiału")
 
         btn_zwrot = ttk.Button(bar, text="Zwrot", command=self._act_zwrot, style="WM.Side.TButton")
-        btn_zwrot.grid(row=0, column=7, padx=3)
+        btn_zwrot.grid(row=0, column=10, padx=3)
         self._attach_tooltip(btn_zwrot, "Przyjmij zwrot na magazyn")
 
         btn_rezerwuj = ttk.Button(
             bar, text="Rezerwuj", command=self._act_rezerwuj, style="WM.Side.TButton"
         )
-        btn_rezerwuj.grid(row=0, column=8, padx=3)
+        btn_rezerwuj.grid(row=0, column=11, padx=3)
         self._attach_tooltip(btn_rezerwuj, "Zarezerwuj materiał dla zlecenia")
 
         btn_zwolnij = ttk.Button(
             bar, text="Zwolnij rez.", command=self._act_zwolnij, style="WM.Side.TButton"
         )
-        btn_zwolnij.grid(row=0, column=9, padx=3)
+        btn_zwolnij.grid(row=0, column=12, padx=3)
         self._attach_tooltip(btn_zwolnij, "Zwolnij zarezerwowany materiał")
 
         btn_historia = ttk.Button(
             bar, text="Historia", command=self._show_historia, style="WM.Side.TButton"
         )
-        btn_historia.grid(row=0, column=10, padx=6)
+        btn_historia.grid(row=0, column=13, padx=6)
         self._attach_tooltip(btn_historia, "Pokaż historię operacji")
 
         btn_etykieta = ttk.Button(
@@ -259,7 +289,7 @@ class PanelMagazyn(ttk.Frame):
             command=self._act_drukuj_etykiete,
             style="WM.Side.TButton",
         )
-        btn_etykieta.grid(row=0, column=11, padx=6)
+        btn_etykieta.grid(row=0, column=14, padx=6)
         self._attach_tooltip(btn_etykieta, "Drukuj etykietę z kodem")
 
         btn_do_zam = ttk.Button(
@@ -268,7 +298,7 @@ class PanelMagazyn(ttk.Frame):
             command=self._act_do_zam,
             style="WM.Side.TButton",
         )
-        btn_do_zam.grid(row=0, column=12, padx=3)
+        btn_do_zam.grid(row=0, column=15, padx=3)
         self._attach_tooltip(btn_do_zam, "Dodaj pozycję do listy zamówień.")
 
         self.bind_all("<Control-n>", lambda _e: self._act_dodaj(), add="+")
@@ -327,7 +357,8 @@ class PanelMagazyn(ttk.Frame):
 
     def _load(self):
         self._all = LM.lista_items()
-        self._refresh()
+        self._clear_filters()
+        self._filter()
         self._low = [
             it
             for it in self._all
@@ -435,14 +466,33 @@ class PanelMagazyn(ttk.Frame):
 
     def _filter(self):
         q = (self.var_szukaj.get() or "").strip().lower()
-        if not q:
-            self._refresh(self._all); return
+        kat = (
+            self.var_kat.get() if hasattr(self, "var_kat") else ""
+        ).strip().lower()
+        typ = (
+            self.var_typ_f.get() if hasattr(self, "var_typ_f") else ""
+        ).strip().lower()
+        jed = (
+            self.var_jed.get() if hasattr(self, "var_jed") else ""
+        ).strip().lower()
+        if not any([q, kat, typ, jed]):
+            self._refresh(self._all)
+            return
         out = []
         for it in self._all:
-            if (q in it["id"].lower()
+            if q and not (
+                q in it["id"].lower()
                 or q in it["nazwa"].lower()
-                or q in it.get("typ","").lower()):
-                out.append(it)
+                or q in str(it.get("typ", "")).lower()
+            ):
+                continue
+            if kat and str(it.get("kategoria", "")).strip().lower() != kat:
+                continue
+            if typ and str(it.get("typ", "")).strip().lower() != typ:
+                continue
+            if jed and str(it.get("jednostka", "")).strip().lower() != jed:
+                continue
+            out.append(it)
         self._refresh(out)
 
     def _color_for(self, it):
