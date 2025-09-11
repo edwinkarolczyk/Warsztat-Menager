@@ -150,9 +150,9 @@ def append_history(
 def generate_pz_id(now: datetime | None = None) -> str:
     """Return a sequential PZ identifier.
 
-    The identifier format is ``PZ-YYYY-MM-DD-XXXX`` where the counter
-    ``XXXX`` is stored in :data:`SEQ_PZ_PATH` and resets every year.
-    ``now`` can be provided for deterministic results in tests.
+    The identifier format is ``PZ/YYYY/XXXX`` where the counter ``XXXX`` is
+    stored in :data:`SEQ_PZ_PATH` and resets every year. ``now`` can be
+    provided for deterministic results in tests.
     """
 
     now = now or datetime.now(timezone.utc)
@@ -162,7 +162,7 @@ def generate_pz_id(now: datetime | None = None) -> str:
     seq_data[year] = int(seq_data.get(year, 0)) + 1
     with open(SEQ_PZ_PATH, "w", encoding="utf-8") as f:
         json.dump(seq_data, f, ensure_ascii=False, indent=2)
-    pz_id = f"PZ-{now.strftime('%Y-%m-%d')}-{seq_data[year]:04d}"
+    pz_id = f"PZ/{year}/{seq_data[year]:04d}"
     logger.log_magazyn("nadano_id_pz", {"id": pz_id})
     return pz_id
 

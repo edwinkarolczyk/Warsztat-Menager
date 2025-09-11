@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 
 from magazyn_io_pz import (
     ensure_in_katalog,
@@ -11,9 +12,15 @@ from magazyn_io_pz import (
 
 def test_generate_pz_id_format(tmp_path):
     seq_path = tmp_path / "_seq_pz.json"
-    seq_path.write_text('{"year": 2025, "seq": 0}', encoding="utf-8")
+    current_year = datetime.now().year
+    seq_path.write_text(
+        json.dumps({"year": current_year - 1, "seq": 5}), encoding="utf-8"
+    )
     pz_id = generate_pz_id(seq_path=str(seq_path))
+    assert pz_id == f"PZ/{current_year}/0001"
     assert re.match(r"^PZ/\d{4}/\d{4}$", pz_id)
+    data = json.loads(seq_path.read_text(encoding="utf-8"))
+    assert data == {"year": current_year, "seq": 1}
 
 
 def test_save_pz_appends_entry(tmp_path):
