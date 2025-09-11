@@ -1,4 +1,21 @@
 {
+  "magazyn": {
+    "kategorie": [
+      "profil",
+      "rura",
+      "półprodukt"
+    ],
+    "typy_materialu": [
+      "stal",
+      "aluminium",
+      "miedź",
+      "teflon"
+    ],
+    "jednostki": [
+      "szt",
+      "mb"
+    ]
+  },
   "tabs": [
     {
       "id": "ui",
@@ -237,51 +254,6 @@
               "label": "Progi alertów surowców",
               "key_type": "string",
               "value_type": "int"
-            }
-          ]
-        },
-        {
-          "key": "magazyn_slowniki",
-          "label": "Słowniki",
-          "fields": [
-            {
-              "key": "magazyn.kategorie",
-              "type": "array",
-              "label": "Kategorie",
-              "description": "Dostępne kategorie magazynowe",
-              "tooltip": "Lista kategorii",
-              "value_type": "string",
-              "default": [
-                "profil",
-                "rura",
-                "półprodukt"
-              ]
-            },
-            {
-              "key": "magazyn.typy_materialu",
-              "type": "array",
-              "label": "Typy materiału",
-              "description": "Domyślne typy materiału",
-              "tooltip": "Lista typów materiału",
-              "value_type": "string",
-              "default": [
-                "stal",
-                "aluminium",
-                "miedź",
-                "teflon"
-              ]
-            },
-            {
-              "key": "magazyn.jednostki",
-              "type": "array",
-              "label": "Jednostki",
-              "description": "Jednostki miary dla magazynu",
-              "tooltip": "Lista jednostek",
-              "value_type": "string",
-              "default": [
-                "szt",
-                "mb"
-              ]
             }
           ]
         }
