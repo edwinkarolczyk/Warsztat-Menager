@@ -19,6 +19,7 @@ ALLOWED_OPS = {
 MAGAZYN_PATH = "data/magazyn/magazyn.json"
 PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
 HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
+PZ_SEQ_PATH = "data/magazyn/_seq_pz.json"
 
 
 def _ensure_dirs(path: str) -> None:
@@ -107,4 +108,46 @@ def append_history(
             json.dump(data, f, ensure_ascii=False, indent=2)
 
     return entry
+
+
+def _next_pz_code() -> str:
+    """Generate next PZ document code (year based sequence)."""
+
+    now = datetime.now(timezone.utc)
+    seq_data = _load_json(PZ_SEQ_PATH, {"year": now.year, "seq": 0})
+    if int(seq_data.get("year", 0)) != now.year:
+        seq_data = {"year": now.year, "seq": 0}
+    seq_data["seq"] = int(seq_data.get("seq", 0)) + 1
+    _ensure_dirs(PZ_SEQ_PATH)
+    with open(PZ_SEQ_PATH, "w", encoding="utf-8") as f:
+        json.dump(seq_data, f, ensure_ascii=False, indent=2)
+    return f"PZ{now.year}-{seq_data['seq']:04d}"
+
+
+def save_pz(record: Dict[str, Any]) -> str:
+    """Persist information about a goods receipt (PZ).
+
+    Parameters
+    ----------
+    record:
+        Mapping containing details about the received item. The function
+        augments the record with automatically generated ``pz_id`` and
+        timestamp and appends it to :data:`PRZYJECIA_PATH`.
+
+    Returns
+    -------
+    str
+        Generated PZ document identifier.
+    """
+
+    rec = record.copy()
+    rec.setdefault("ts", datetime.now(timezone.utc).isoformat())
+    rec["pz_id"] = _next_pz_code()
+
+    _ensure_dirs(PRZYJECIA_PATH)
+    data = _load_json(PRZYJECIA_PATH, [])
+    data.append(rec)
+    with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return rec["pz_id"]
 
