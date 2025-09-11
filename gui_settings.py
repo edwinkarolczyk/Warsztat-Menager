@@ -335,6 +335,7 @@ class SettingsPanel:
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
+        self._fields_vars: list[tuple[tk.Variable, dict[str, Any]]] = []
         self._unsaved = False
         self._mod_vars: dict[str, tk.BooleanVar] = {}
         self._user_var: tk.StringVar | None = None
@@ -345,6 +346,7 @@ class SettingsPanel:
         """Create notebook tabs and widgets based on current schema."""
 
         self._unsaved = False
+        self._fields_vars = []
         for child in self.master.winfo_children():
             child.destroy()
 
@@ -397,6 +399,23 @@ class SettingsPanel:
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def _coerce_default_for_var(self, opt: dict[str, Any], default: Any) -> Any:
+        """Return value adjusted for Tk variable according to option definition."""
+
+        opt_type = opt.get("type")
+        widget_type = opt.get("widget")
+        if opt_type == "array":
+            default_list = default or []
+            return "\n".join(str(x) for x in default_list)
+        if opt_type in {"dict", "object"}:
+            default_dict: Dict[str, Any] = default or {}
+            return "\n".join(f"{k} = {v}" for k, v in default_dict.items())
+        if opt_type == "string" and widget_type == "color":
+            return default or ""
+        if opt_type == "path":
+            return default or ""
+        return default
+
     def _populate_tab(self, parent: tk.Widget, tab: dict[str, Any]) -> tuple[int, int]:
         """Populate a single tab or subtab frame and return counts."""
 
@@ -436,6 +455,7 @@ class SettingsPanel:
                 self.vars[key] = var
                 self._initial[key] = current
                 self._defaults[key] = field_def.get("default")
+                self._fields_vars.append((var, field_def))
                 var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
 
             if tab.get("id") == "narzedzia" and group.get("key") == "narzedzia":
@@ -606,25 +626,14 @@ class SettingsPanel:
                 self.save()
 
     def restore_defaults(self) -> None:
-        for key, var in self.vars.items():
-            opt = self._options[key]
-            default = self._defaults.get(key)
-            opt_type = opt.get("type")
-            widget_type = opt.get("widget")
-            if opt_type == "array":
-                default_list = default or []
-                lines = "\n".join(str(x) for x in default_list)
-                var.set(lines)
-            elif opt_type in {"dict", "object"}:
-                default_dict: Dict[str, Any] = default or {}
-                lines = "\n".join(f"{k} = {v}" for k, v in default_dict.items())
-                var.set(lines)
-            elif opt_type == "string" and widget_type == "color":
-                var.set(default or "")
-            elif opt_type == "path":
-                var.set(default or "")
-            else:
-                var.set(default)
+        for var, opt in self._fields_vars:
+            default = opt.get("default")
+            try:
+                value = self._coerce_default_for_var(opt, default)
+                var.set(value)
+            except Exception:
+                if opt.get("type") == "bool":
+                    var.set(str(bool(default)))
 
     def on_close(self) -> None:
         changed = any(var.get() != self._initial[key] for key, var in self.vars.items())
@@ -668,7 +677,20 @@ class SettingsPanel:
 
     def save(self) -> None:
         for key, var in self.vars.items():
+            opt = self._options.get(key, {})
             value = var.get()
+            if opt.get("type") == "bool" and isinstance(value, str):
+                if value in {"0", "1"}:
+                    value = value == "1"
+            if opt.get("type") == "enum":
+                allowed = (
+                    opt.get("allowed")
+                    or opt.get("enum")
+                    or opt.get("values")
+                    or []
+                )
+                if allowed and value not in allowed:
+                    value = allowed[0]
             self.cfg.set(key, value)
             self._initial[key] = value
         self.cfg.save_all()
@@ -691,6 +713,7 @@ class SettingsPanel:
         self._initial.clear()
         self._defaults.clear()
         self._options.clear()
+        self._fields_vars.clear()
         self._build_ui()
 
 
