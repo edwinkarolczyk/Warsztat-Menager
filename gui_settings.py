@@ -24,6 +24,28 @@ from services import profile_service
 from logger import log_akcja
 
 
+_TOOLS_CFG_IMPORT_OK: bool | None = None
+_TOOLS_CFG_WARNED = False
+
+
+def _try_import_tools_config() -> bool:
+    """Try importing gui_tools_config and cache the result."""
+
+    global _TOOLS_CFG_IMPORT_OK, _TOOLS_CFG_WARNED
+    if _TOOLS_CFG_IMPORT_OK is not None:
+        return _TOOLS_CFG_IMPORT_OK
+    try:
+        __import__("gui_tools_config")
+    except Exception as exc:  # pragma: no cover - import error handling
+        _TOOLS_CFG_IMPORT_OK = False
+        if not _TOOLS_CFG_WARNED:
+            log_akcja(f"[SETTINGS] gui_tools_config import failed: {exc}")
+            _TOOLS_CFG_WARNED = True
+        return False
+    _TOOLS_CFG_IMPORT_OK = True
+    return True
+
+
 def _is_deprecated(node: dict) -> bool:
     """Return True if schema node is marked as deprecated."""
 
@@ -462,18 +484,26 @@ class SettingsPanel:
     def _open_tools_config(self) -> None:
         """Open tools tasks configuration dialog."""
 
-        parent = self.master.winfo_toplevel()
-        try:
-            from gui_tools_config import ToolsConfigDialog
-        except Exception as exc:  # pragma: no cover - import error handling
-            print(f"[WM-DBG] gui_tools_config missing: {exc}")
+        import os
+        from tkinter import messagebox
+
+        if not _try_import_tools_config():
+            messagebox.showwarning(
+                "Konfiguracja zadań narzędzi",
+                "Moduł konfiguracji narzędzi nie jest dostępny.",
+            )
             return
+
+        from gui_tools_config import ToolsConfigDialog
 
         callback = getattr(LZ, "invalidate_cache", lambda: None)
         path = os.path.join("data", "zadania_narzedzia.json")
-        win = ToolsConfigDialog(parent, path=path, on_save=callback)  # type: ignore[arg-type]
+        win = ToolsConfigDialog(self, path=path, on_save=callback)
         _ensure_topmost(win)
-        self.wait_window(win)
+        try:
+            self.wait_window(win)
+        except Exception as exc:  # pragma: no cover - wait_window error handling
+            log_akcja(f"[SETTINGS] ToolsConfigDialog wait failed: {exc}")
 
     def _add_patch_section(self, parent: tk.Widget) -> None:
         """Append patching and version controls to the Updates tab."""
