@@ -7,6 +7,9 @@
 # Zmiany 1.0.0:
 # - Dodano okno dodawania pozycji magazynowej.
 
+import json
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
@@ -20,6 +23,17 @@ from logika_magazyn import (
     peek_next_material_id,
     bump_material_seq_if_matches,
 )
+
+
+_SLOWNIKI_PATH = Path(__file__).resolve().parent / "data/magazyn/slowniki.json"
+try:
+    with _SLOWNIKI_PATH.open(encoding="utf-8") as f:
+        _slowniki = json.load(f)
+except Exception:
+    _slowniki = {}
+kategorie = _slowniki.get("kategorie", [])
+typy_materialu = _slowniki.get("typy_materialu", [])
+jednostki = _slowniki.get("jednostki", [])
 
 
 class MagazynAddDialog:
@@ -39,13 +53,18 @@ class MagazynAddDialog:
         self.vars = {
             "id": tk.StringVar(),
             "nazwa": tk.StringVar(),
+            "kategoria": tk.StringVar(),
             "typ": tk.StringVar(),
             "jednostka": tk.StringVar(),
             "stan": tk.StringVar(),
             "min_poziom": tk.StringVar(),
         }
-        self.vars["typ"].set(normalize_type(self.vars["typ"].get() or "materiał"))
+        self.vars["typ"].set(
+            normalize_type(self.vars["typ"].get() or "materiał")
+        )
         self.vars["typ"].trace_add("write", self._on_type_change)
+        if kategorie:
+            self.vars["kategoria"].set(kategorie[0])
 
         self.var_autoid = tk.BooleanVar(value=True)
         self._last_suggest = ""
@@ -55,19 +74,35 @@ class MagazynAddDialog:
         self.win.columnconfigure(0, weight=1)
 
         fields = [
-            ("ID", "id"),
-            ("Nazwa", "nazwa"),
-            ("Typ", "typ"),
-            ("J.m.", "jednostka"),
-            ("Stan pocz.", "stan"),
-            ("Minimum", "min_poziom"),
+            ("ID", "id", ttk.Entry, {}),
+            ("Nazwa", "nazwa", ttk.Entry, {}),
+            (
+                "Kategoria",
+                "kategoria",
+                ttk.Combobox,
+                {"values": kategorie, "state": "readonly"},
+            ),
+            (
+                "Typ",
+                "typ",
+                ttk.Combobox,
+                {"values": typy_materialu, "state": "readonly"},
+            ),
+            (
+                "J.m.",
+                "jednostka",
+                ttk.Combobox,
+                {"values": jednostki, "state": "readonly"},
+            ),
+            ("Stan pocz.", "stan", ttk.Entry, {}),
+            ("Minimum", "min_poziom", ttk.Entry, {}),
         ]
 
-        for r, (lbl, key) in enumerate(fields):
+        for r, (lbl, key, widget_cls, kwargs) in enumerate(fields):
             ttk.Label(frm, text=f"{lbl}:", style="WM.TLabel").grid(
                 row=r, column=0, sticky="w", pady=2
             )
-            ttk.Entry(frm, textvariable=self.vars[key]).grid(
+            widget_cls(frm, textvariable=self.vars[key], **kwargs).grid(
                 row=r, column=1, sticky="ew", pady=2
             )
         ttk.Checkbutton(
@@ -158,10 +193,11 @@ class MagazynAddDialog:
 
         item_id = self.vars["id"].get().strip()
         name = self.vars["nazwa"].get().strip()
+        kategoria = self.vars["kategoria"].get().strip()
         typ = self.vars["typ"].get().strip()
         jm = self.vars["jednostka"].get().strip()
 
-        if not all([item_id, name, typ, jm]):
+        if not all([item_id, name, kategoria, typ, jm]):
             messagebox.showerror(
                 "Błąd", "Wszystkie pola są wymagane", parent=self.win
             )
@@ -182,6 +218,7 @@ class MagazynAddDialog:
             "nazwa": name,
             "typ": typ,
             "jednostka": jm,
+            "kategoria": kategoria,
             "stan": stan,
             "min_poziom": minimum,
             "rezerwacje": 0,
