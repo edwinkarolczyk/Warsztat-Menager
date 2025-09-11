@@ -76,7 +76,7 @@ def test_rezerwuj_partial(tmp_path, monkeypatch):
 def test_alert_after_zuzycie_below_min(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     logs = []
-    monkeypatch.setattr(lm, '_log_mag', lambda a, d: logs.append((a, d)))
+    monkeypatch.setattr(lm, '_log_mag', lambda a, d, **kw: logs.append((a, d)))
 
     lm.load_magazyn()
     lm.upsert_item({
@@ -135,7 +135,7 @@ def test_delete_item(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, 'MAGAZYN_PATH', str(tmp_path / 'magazyn.json'))
     logs = []
     history = []
-    monkeypatch.setattr(lm, '_log_mag', lambda a, d: logs.append((a, d)))
+    monkeypatch.setattr(lm, '_log_mag', lambda a, d, **kw: logs.append((a, d)))
     monkeypatch.setattr(lm, '_append_history', lambda e: history.append(e))
 
     lm.load_magazyn()
@@ -274,7 +274,7 @@ def test_rezerwuj_materialy_updates_and_saves(tmp_path, monkeypatch):
 def test_rezerwuj_materialy_braki_log(tmp_path, monkeypatch):
     monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
     logs = []
-    monkeypatch.setattr(lm, "_log_mag", lambda a, d: logs.append((a, d)))
+    monkeypatch.setattr(lm, "_log_mag", lambda a, d, **kw: logs.append((a, d)))
     class DummyMB:
         @staticmethod
         def askyesno(*a, **k):
