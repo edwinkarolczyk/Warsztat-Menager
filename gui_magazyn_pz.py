@@ -5,6 +5,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 import logging
+import math
 
 from ui_theme import apply_theme_safe as apply_theme
 from services.profile_service import authenticate
@@ -45,6 +46,16 @@ def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
         raise KeyError(msg)
 
     qty_f = float(qty)
+    jm = items[item_id].get("jednostka", "")
+    if jm.lower() == "szt" and not float(qty_f).is_integer():
+        choice = messagebox.askyesnocancel(
+            "Zaokrąglanie",
+            f"Ilość {qty_f} szt jest ułamkowa. Zaokrąglić w górę?",
+        )
+        if choice is None:
+            logging.info("Anulowano PZ - zaokrąglanie ilości")
+            return
+        qty_f = float(math.ceil(qty_f) if choice else math.floor(qty_f))
     items[item_id]["stan"] = float(items[item_id].get("stan", 0)) + qty_f
 
     magazyn_io.append_history(
@@ -201,6 +212,17 @@ class MagazynPZDialog:
             items = data.get("items") or {}
             if iid not in items:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
+            jm = items[iid].get("jednostka", "")
+            if jm.lower() == "szt" and not float(qty).is_integer():
+                choice = messagebox.askyesnocancel(
+                    "Zaokrąglanie",
+                    f"Ilość {qty} szt jest ułamkowa. Zaokrąglić w górę?",
+                    parent=self.top,
+                )
+                if choice is None:
+                    logging.info("Anulowano PZ - zaokrąglanie ilości")
+                    return
+                qty = float(math.ceil(qty) if choice else math.floor(qty))
 
             items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
             magazyn_io.append_history(

@@ -68,12 +68,28 @@ def test_record_pz_polprodukt_success(warehouse):
     assert data["items"]["ZBIJAK_KORPUS"]["stan"] == pytest.approx(5)
     assert history[-1] == ("ZBIJAK_KORPUS", 5)
 
-
-@pytest.mark.xfail(reason="Brak zaokr\u0105glania ilo\u015bci sztuk", strict=True)
-def test_fractional_quantity_prompts_rounding(warehouse):
-    gmpz, data, _ = warehouse
+def test_fractional_quantity_rounds_up(warehouse, monkeypatch):
+    gmpz, data, history = warehouse
+    monkeypatch.setattr(gmpz.messagebox, "askyesnocancel", lambda *a, **k: True)
     gmpz.record_pz("ZBIJAK_KORPUS", 2.5, "user")
     assert data["items"]["ZBIJAK_KORPUS"]["stan"] == 3
+    assert history[-1] == ("ZBIJAK_KORPUS", 3)
+
+
+def test_fractional_quantity_rounds_down(warehouse, monkeypatch):
+    gmpz, data, history = warehouse
+    monkeypatch.setattr(gmpz.messagebox, "askyesnocancel", lambda *a, **k: False)
+    gmpz.record_pz("ZBIJAK_KORPUS", 2.5, "user")
+    assert data["items"]["ZBIJAK_KORPUS"]["stan"] == 2
+    assert history[-1] == ("ZBIJAK_KORPUS", 2)
+
+
+def test_fractional_quantity_rounding_cancel(warehouse, monkeypatch):
+    gmpz, data, history = warehouse
+    monkeypatch.setattr(gmpz.messagebox, "askyesnocancel", lambda *a, **k: None)
+    gmpz.record_pz("ZBIJAK_KORPUS", 2.5, "user")
+    assert data["items"]["ZBIJAK_KORPUS"]["stan"] == 0
+    assert not history
 
 
 def test_invalid_profile_dimension_error(warehouse):
