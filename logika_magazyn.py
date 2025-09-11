@@ -94,6 +94,9 @@ SUROWCE_PATH = "data/magazyn/surowce.json"
 POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
 """Ścieżka do pliku półproduktów magazynu."""
 
+SLOWNIKI_PATH = "data/magazyn/slowniki.json"
+"""Ścieżka do pliku słowników magazynu."""
+
 
 def _migrate_legacy_path() -> None:
     """Przenosi stary plik magazynu do nowej lokalizacji, jeśli istnieje."""
@@ -157,6 +160,15 @@ _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
 
+DEFAULT_MAG_CATEGORIES = ["profil", "rura", "półprodukt"]
+DEFAULT_MAG_MATERIAL_TYPES = ["stal", "aluminium", "miedź", "teflon"]
+DEFAULT_MAG_UNITS = ["szt", "mb"]
+DEFAULT_SLOWNIKI = {
+    "kategorie": DEFAULT_MAG_CATEGORIES,
+    "typy_materialu": DEFAULT_MAG_MATERIAL_TYPES,
+    "jednostki": DEFAULT_MAG_UNITS,
+}
+
 MATERIAL_SEQ_PATH = "data/magazyn/_seq_material.json"
 
 
@@ -173,6 +185,30 @@ def _ensure_dirs():
 def _history_path():
     return os.path.join(_magazyn_dir(), "magazyn_history.json")
 
+def _load_slowniki():
+    os.makedirs(os.path.dirname(SLOWNIKI_PATH), exist_ok=True)
+    try:
+        with open(SLOWNIKI_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+            if not isinstance(data, dict):
+                data = {}
+    except FileNotFoundError:
+        data = {}
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    changed = False
+    for key, default in DEFAULT_SLOWNIKI.items():
+        val = data.get(key)
+        if not isinstance(val, list):
+            data[key] = list(default)
+            changed = True
+        else:
+            data[key] = [str(x) for x in val]
+    if changed or not os.path.exists(SLOWNIKI_PATH):
+        with open(SLOWNIKI_PATH, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+    return data
+
 def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -182,6 +218,24 @@ def _default_magazyn():
         "items": {},
         "meta": {"updated": _now(), "item_types": list(DEFAULT_ITEM_TYPES)}
     }
+
+
+def get_mag_categories():
+    """Zwraca listę kategorii materiałów magazynowych."""
+    with _LOCK:
+        return list(_load_slowniki()["kategorie"])
+
+
+def get_mag_material_types():
+    """Zwraca listę typów materiału magazynowego."""
+    with _LOCK:
+        return list(_load_slowniki()["typy_materialu"])
+
+
+def get_mag_units():
+    """Zwraca listę jednostek magazynowych."""
+    with _LOCK:
+        return list(_load_slowniki()["jednostki"])
 
 def load_magazyn(include_external: bool = True):
     """Wczytuje stan magazynu, opcjonalnie dołączając surowce i półprodukty."""

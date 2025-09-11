@@ -1,5 +1,17 @@
 {
-  "kategorie": [],
-  "typy_materialu": [],
-  "jednostki": []
+  "kategorie": [
+    "profil",
+    "rura",
+    "półprodukt"
+  ],
+  "typy_materialu": [
+    "stal",
+    "aluminium",
+    "miedź",
+    "teflon"
+  ],
+  "jednostki": [
+    "szt",
+    "mb"
+  ]
 }
