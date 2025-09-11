@@ -1,5 +1,7 @@
 import json
 import types
+
+from services import profile_service
 import subprocess
 import pytest
 from config_manager import ConfigManager
@@ -285,6 +287,11 @@ def test_logowanie_case_insensitive(tmp_path, monkeypatch, attempt_login):
         gui_logowanie, "__file__", str(tmp_path / "gui_logowanie.py")
     )
     monkeypatch.setattr(gui_logowanie, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(
+        profile_service._pu,
+        "USERS_FILE",
+        str(tmp_path / "uzytkownicy.json"),
+    )
     monkeypatch.setattr(
         gui_logowanie, "entry_login", types.SimpleNamespace(get=lambda: attempt_login)
     )
