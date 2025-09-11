@@ -11,7 +11,7 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime
+import json, os, shutil, datetime, time
 import logging
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -188,7 +188,16 @@ class ConfigManager:
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
+        LOCK_PATH = path + ".lock"
+        with open(LOCK_PATH, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+        try:
+            os.replace(tmp, path)
+        finally:
+            try:
+                os.remove(LOCK_PATH)
+            except Exception:
+                pass
 
     # ========== scalanie i indeks schematu ==========
     def _merge_all(self) -> Dict[str, Any]:
