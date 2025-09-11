@@ -125,6 +125,33 @@ class ConfigManager:
         return cfg
     # >>> WM PATCH END
 
+    @classmethod
+    def _ensure_magazyn_defaults(
+        cls, schema: Dict[str, Any], config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Zapewnia domyślne ustawienia magazynu zdefiniowane w schemacie.
+
+        W pliku ``settings_schema.json`` mogą być zdefiniowane domyślne wartości
+        dla pól ``magazyn.kategorie``, ``magazyn.typy_materialu`` oraz
+        ``magazyn.jednostki``. Funkcja kopiuje je do ``config`` jeśli brakują.
+        """
+
+        magazyn_cfg = config.setdefault("magazyn", {})
+        added: Dict[str, Any] = {}
+        field_idx = {f.get("key"): f for f in cls._iter_schema_fields(schema)}
+        for key in ("kategorie", "typy_materialu", "jednostki"):
+            if key in magazyn_cfg:
+                continue
+            field = field_idx.get(f"magazyn.{key}")
+            if not field or field.get("default") is None:
+                continue
+            value = cls._coerce_default_for_field(field)
+            magazyn_cfg[key] = value
+            added[key] = value
+        if added:
+            logger.info("Dodano domyślne ustawienia magazynu: %s", added)
+        return config
+
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -174,6 +201,7 @@ class ConfigManager:
         self.global_cfg = self._ensure_defaults_from_schema(
             self.global_cfg, self.schema
         )
+        self._ensure_magazyn_defaults(self.schema, self.global_cfg)
         self.local_cfg = self._load_json(LOCAL_PATH) or {}
         self.secrets = self._load_json(SECRETS_PATH) or {}
         self._ensure_dirs()
@@ -200,7 +228,9 @@ class ConfigManager:
         """Reset cached instance and reload configuration."""
         cls._instance = None
         cls._initialized = False
-        return cls(config_path=config_path, schema_path=schema_path)
+        inst = cls(config_path=config_path, schema_path=schema_path)
+        inst._ensure_magazyn_defaults(inst.schema, inst.global_cfg)
+        return inst
 
     # ========== I/O pomocnicze ==========
     def _ensure_dirs(self):
