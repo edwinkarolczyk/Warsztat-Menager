@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import datetime
 import json
-import os, sys
+import os
+import sys
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -105,10 +106,6 @@ def _create_widget(
         var = tk.StringVar(value=default)
         enum_list = option.get("enum")
         values_list = option.get("values")
-        if enum_list is not None:
-            print(f"[WM-DBG] enum values: {len(enum_list)}")
-        if values_list is not None:
-            print(f"[WM-DBG] values: {len(values_list)}")
         enum_vals = enum_list or values_list or []
         widget = ttk.Combobox(
             frame,
@@ -362,12 +359,9 @@ class SettingsPanel:
         for child in self.master.winfo_children():
             child.destroy()
 
-        schema = self._get_schema()
-        print(f"[WM-DBG] using schema via _get_schema(): {schema is not None}")
-        schema = schema or {}
+        schema = self._get_schema() or {}
 
         self.nb = ttk.Notebook(self.master)
-        print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
 
@@ -378,7 +372,6 @@ class SettingsPanel:
 
         for tab in schema.get("tabs", []):
             title = tab.get("title", tab.get("id", ""))
-            print("[WM-DBG] [SETTINGS] add tab:", title)
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
@@ -386,18 +379,13 @@ class SettingsPanel:
                 self._magazyn_frame = frame
                 self._magazyn_schema = tab
             else:
-                grp_count, fld_count = self._populate_tab(frame, tab)
-                print(
-                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
-                )
+                self._populate_tab(frame, tab)
 
         base_dir = Path(__file__).resolve().parent
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
-        print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
         self._init_audit_tab()
         self._reorder_tabs()
-        print("[WM-DBG] [SETTINGS] notebook packed")
 
         self.btns = ttk.Frame(self.master)
         self.btns.pack(pady=5)
@@ -422,9 +410,6 @@ class SettingsPanel:
         for group in tab.get("groups", []):
             if _is_deprecated(group):
                 ident = group.get("label") or group.get("id") or "group"
-                print(
-                    f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
-                )
                 continue
             grp_count += 1
             grp_frame = ttk.LabelFrame(parent, text=group.get("label", ""))
@@ -437,9 +422,6 @@ class SettingsPanel:
             for field_def in group.get("fields", []):
                 if _is_deprecated(field_def):
                     ident = field_def.get("key", "field")
-                    print(
-                        f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
-                    )
                     continue
                 fld_count += 1
                 key = field_def["key"]
@@ -553,7 +535,6 @@ class SettingsPanel:
             patch_path = filedialog.askopenfilename()
             if not patch_path:
                 return
-            print(f"[WM-DBG] apply_patch dry_run={dry} path={patch_path}")
             patcher.apply_patch(patch_path, dry_run=dry)
             audit("patch.dry_run" if dry else "patch.apply", patch_path)
 
@@ -569,7 +550,6 @@ class SettingsPanel:
         ).pack(side="left", padx=5, pady=5)
 
         commits = patcher.get_commits()
-        print(f"[WM-DBG] available commits: {len(commits)}")
         roll_frame = ttk.Frame(frame)
         roll_frame.pack(fill="x", padx=5, pady=5)
         commit_var = tk.StringVar()
@@ -584,7 +564,6 @@ class SettingsPanel:
             commit = commit_var.get()
             if not commit:
                 return
-            print(f"[WM-DBG] rollback to {commit}")
             patcher.rollback_to(commit)
             audit("patch.rollback", commit)
 
@@ -604,7 +583,6 @@ class SettingsPanel:
             tab_id = tabs.get(name)
             if tab_id is not None:
                 self.nb.insert(index, tab_id)
-        print("[WM-DBG] [SETTINGS] tabs reordered")
 
     def _init_audit_tab(self) -> None:
         """Append audit report tab if report file exists."""
@@ -622,7 +600,6 @@ class SettingsPanel:
         text.insert("1.0", content)
         text.config(state="disabled")
         self.nb.add(frame, text="Audyt")
-        print("[WM-DBG] [SETTINGS] zakładka Audyt: OK")
 
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
@@ -633,7 +610,6 @@ class SettingsPanel:
 
         ustawienia_frame = ttk.Frame(nb)
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
-        print("[WM-DBG] init magazyn tab")
         self._populate_tab(ustawienia_frame, self._magazyn_schema)
 
         self._magazyn_initialized = True
@@ -758,12 +734,9 @@ class SettingsWindow(SettingsPanel):
             schema_path = os.path.join(base_dir, schema_path)
         self.config_path = config_path
         self.schema_path = schema_path
-        print(f"[WM-DBG] config_path={self.config_path}")
-        print(f"[WM-DBG] schema_path={self.schema_path}")
 
         super().__init__(master, config_path=config_path, schema_path=schema_path)
         self.schema = self.cfg.schema
-        print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
 
 
