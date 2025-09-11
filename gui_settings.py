@@ -683,6 +683,7 @@ class SettingsWindow(SettingsPanel):
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
         self._init_tests_tab()
+        self._init_audit_tab()
 
     def _init_tests_tab(self):
         print("[WM-DBG] [SETTINGS] init Tests tab")
@@ -725,6 +726,98 @@ class SettingsWindow(SettingsPanel):
             self.txt_tests.see("end")
         except Exception:
             pass
+
+    # ------------------------------------------------------------------ AUDIT
+
+    def _init_audit_tab(self):
+        print("[WM-DBG] [SETTINGS] init Audit tab")
+        self.tab_audit = ttk.Frame(self.nb)
+        self.nb.add(self.tab_audit, text="Audyt")
+
+        wrap = ttk.Frame(self.tab_audit, padding=10)
+        wrap.pack(fill="both", expand=True)
+
+        ttk.Label(
+            wrap,
+            text="Audyt konfiguracji",
+            font=("TkDefaultFont", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 6))
+        ttk.Label(
+            wrap,
+            text="Uruchom audyt konfiguracji. Wynik pojawi się poniżej.",
+        ).pack(anchor="w", pady=(0, 8))
+
+        btns = ttk.Frame(wrap)
+        btns.pack(anchor="w", pady=(0, 8))
+        self.btn_run_audit = ttk.Button(
+            btns, text="Uruchom audyt", command=self._run_audit_now
+        )
+        self.btn_run_audit.pack(side="left", padx=(0, 8))
+
+        self.txt_audit = tk.Text(wrap, height=18, wrap="none")
+        self.txt_audit.pack(fill="both", expand=True)
+        yscroll = ttk.Scrollbar(wrap, orient="vertical", command=self.txt_audit.yview)
+        self.txt_audit.configure(yscrollcommand=yscroll.set)
+        yscroll.place(relx=1.0, rely=0.0, relheight=1.0, anchor="ne")
+
+    def _append_audit_out(self, s: str):
+        try:
+            self.txt_audit.insert("end", s)
+            self.txt_audit.see("end")
+        except Exception:
+            pass
+
+    def _run_audit_now(self):
+        try:
+            self.btn_run_audit.config(state="disabled")
+        except Exception:
+            pass
+        self._append_audit_out("\n[INFO] Uruchamiam audyt\n")
+        print("[WM-DBG][SETTINGS][AUDIT] start")
+
+        def _worker():
+            try:
+                import wm_audit_runtime  # type: ignore
+
+                # attempt to call common entry points
+                if hasattr(wm_audit_runtime, "run_audit"):
+                    result = wm_audit_runtime.run_audit()
+                elif hasattr(wm_audit_runtime, "run"):
+                    result = wm_audit_runtime.run()
+                elif hasattr(wm_audit_runtime, "main"):
+                    result = wm_audit_runtime.main()
+                else:
+                    result = None
+
+                if isinstance(result, str):
+                    lines = [result]
+                elif isinstance(result, (list, tuple)):
+                    lines = [str(x) for x in result]
+                else:
+                    lines = []
+
+                for line in lines:
+                    self.txt_audit.after(0, self._append_audit_out, line + "\n")
+                self.txt_audit.after(
+                    0, self._append_audit_out, "\n[INFO] Zakończono audyt\n"
+                )
+                print("[WM-DBG][SETTINGS][AUDIT] finished")
+            except Exception as e:  # pragma: no cover - GUI-only
+                self.txt_audit.after(
+                    0,
+                    self._append_audit_out,
+                    f"\n[ERROR] Błąd uruchamiania audytu: {e!r}\n",
+                )
+                print(f"[WM-DBG][SETTINGS][AUDIT] error: {e!r}")
+            finally:
+                try:
+                    self.btn_run_audit.after(
+                        0, lambda: self.btn_run_audit.config(state="normal")
+                    )
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _run_all_tests(self):
         try:
