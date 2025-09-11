@@ -35,13 +35,14 @@
       "rura",
       "plaskownik"
     ],
-    "jednostki": {
-      "szt": "sztuka",
-      "kg": "kilogram",
-      "m": "metr"
-    }
+    "jednostki": [
+      "szt",
+      "kg",
+      "m"
+    ]
   },
   "backup": {
     "keep_last": 10
   }
 }
+
