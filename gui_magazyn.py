@@ -42,6 +42,14 @@ from config_manager import ConfigManager
 from services.profile_service import authenticate
 from gui_magazyn_order import MagazynOrderDialog
 
+# Bezpieczne importy IO – magazyn_io jest opcjonalny
+try:  # pragma: no cover - moduł może być niedostępny w środowisku testowym
+    import magazyn_io  # type: ignore
+    HAVE_MAG_IO = True
+except Exception:  # pragma: no cover - brak modułu IO
+    magazyn_io = None
+    HAVE_MAG_IO = False
+
 try:  # pragma: no cover - dialog modules optional in tests
     from gui_magazyn_add import MagazynAddDialog as _MagazynAddDialog
 except Exception:  # pragma: no cover - fallback stub
@@ -88,6 +96,8 @@ __all__ = [
     "panel_ustawien_magazyn",
     "attach_magazyn_button",
     "drukuj_etykiete",
+    "MagazynView",
+    "open_window",
 ]
 
 # ----- uprawnienia -----
@@ -993,3 +1003,145 @@ def panel_ustawien_magazyn(parent, rola=None):
         _reload_types()
         _update_sum_label()
     _init_lists()
+
+
+# --- Prosty podgląd magazynu -------------------------------------------
+
+COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
+
+
+def _load_data():
+    """Czyta magazyn bezpiecznie."""
+    try:
+        if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
+            data = magazyn_io.load()
+        else:
+            data = LM.load_magazyn()
+    except Exception:
+        data = {}
+    items = data.get("items", {})
+    return items
+
+
+def _fmt_row(item_id: str, item: dict):
+    """Zwraca tuple do Treeview zgodnie z COLUMNS, z bezpiecznymi fallbackami."""
+    typ = (item.get("typ") or "").strip()
+    rozmiar = (item.get("rozmiar") or "").strip()
+    nazwa = (item.get("nazwa") or "").strip()
+    stan_val = item.get("stan", "")
+    try:
+        stan_txt = f"{float(stan_val):g}"
+    except Exception:
+        stan_txt = str(stan_val)
+    jm = (item.get("jednostka") or "").strip()
+    if jm:
+        stan_txt = f"{stan_txt} {jm}"
+    z = item.get("zadania", [])
+    if isinstance(z, list):
+        zadania = ", ".join([str(x) for x in z if str(x).strip()])
+    else:
+        zadania = str(z).strip()
+
+    return (
+        item_id,
+        typ or "-",
+        rozmiar or "-",
+        nazwa or "-",
+        stan_txt or "-",
+        zadania,
+    )
+
+
+class MagazynView:
+    def __init__(self, master, config=None):
+        self.master = master
+        self.config = config or {}
+
+        self.win = tk.Toplevel(master)
+        apply_theme(self.win)
+        self.win.title("Magazyn")
+        self.win.geometry(self.config.get("magazyn.window_geometry", "1024x600"))
+        self.win.minsize(900, 480)
+
+        container = ttk.Frame(self.win, padding=(8, 8, 8, 8), style="WM.TFrame")
+        container.pack(fill="both", expand=True)
+
+        toolbar = ttk.Frame(container, style="WM.TFrame")
+        toolbar.pack(fill="x", pady=(0, 6))
+
+        ttk.Button(
+            toolbar,
+            text="Odśwież",
+            command=self.refresh,
+            style="WM.Side.TButton",
+        ).pack(side="right")
+
+        self.tree = ttk.Treeview(
+            container,
+            columns=COLUMNS,
+            show="headings",
+            selectmode="browse",
+            height=22,
+        )
+        self.tree.pack(fill="both", expand=True)
+
+        self.tree.heading("id", text="ID")
+        self.tree.heading("typ", text="Typ")
+        self.tree.heading("rozmiar", text="Rozmiar")
+        self.tree.heading("nazwa", text="Nazwa")
+        self.tree.heading("stan", text="Stan")
+        self.tree.heading("zadania", text="Tech. zadania")
+
+        self.tree.column("id", width=110, anchor="w")
+        self.tree.column("typ", width=140, anchor="w")
+        self.tree.column("rozmiar", width=140, anchor="w")
+        self.tree.column("nazwa", width=360, anchor="w")
+        self.tree.column("stan", width=120, anchor="center")
+        self.tree.column("zadania", width=280, anchor="w")
+
+        vsb = ttk.Scrollbar(self.tree, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+
+        self.tree.bind("<Double-1>", self._on_double_click)
+
+        self.refresh()
+
+        self.win.protocol("WM_DELETE_WINDOW", self.win.destroy)
+        self.win.transient(master)
+        self.win.grab_set()
+        self.win.wait_window(self.win)
+
+    def refresh(self):
+        items = _load_data()
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        order = []
+        try:
+            order = LM.load_magazyn().get("meta", {}).get("order", [])
+        except Exception:
+            order = []
+        seen = set(order)
+        sorted_ids = list(order) + sorted([k for k in items.keys() if k not in seen])
+        for item_id in sorted_ids:
+            item = items.get(item_id)
+            if not isinstance(item, dict):
+                continue
+            row = _fmt_row(item_id, item)
+            self.tree.insert("", "end", values=row)
+
+    def _on_double_click(self, _e):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        labels = ["ID", "Typ", "Rozmiar", "Nazwa", "Stan", "Tech. zadania"]
+        txt = "\n".join(
+            [f"{labels[i]}: {values[i]}" for i in range(min(len(labels), len(values)))]
+        )
+        messagebox.showinfo("Szczegóły pozycji", txt, parent=self.win)
+
+
+def open_window(parent, config=None, *args, **kwargs):
+    MagazynView(parent, config or {})
+
