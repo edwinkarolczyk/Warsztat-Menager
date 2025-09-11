@@ -779,7 +779,7 @@ class SettingsWindow(SettingsPanel):
             try:
                 import wm_audit_runtime  # type: ignore
 
-                # attempt to call common entry points
+                # Attempt to call common entry points.
                 if hasattr(wm_audit_runtime, "run_audit"):
                     result = wm_audit_runtime.run_audit()
                 elif hasattr(wm_audit_runtime, "run"):
