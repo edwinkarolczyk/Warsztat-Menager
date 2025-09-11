@@ -12,13 +12,20 @@ try:
     import logger
 
     _log_mag = getattr(
-        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+        logger,
+        "log_magazyn",
+        lambda a, d, poziom="INFO": logging.log(
+            getattr(logging, poziom.upper(), logging.INFO),
+            f"[MAGAZYN] {a}: {d}",
+        ),
     )
 except Exception:  # pragma: no cover - logger optional
-    def _log_mag(akcja, dane):
-        logging.info(f"[MAGAZYN] {akcja}: {dane}")
 
-import logger
+    def _log_mag(akcja, dane, poziom="INFO"):
+        logging.log(
+            getattr(logging, poziom.upper(), logging.INFO),
+            f"[MAGAZYN] {akcja}: {dane}",
+        )
 
 ALLOWED_OPS = {
     "CREATE",
@@ -80,13 +87,13 @@ def append_history(
 
     op = op.upper()
     if op not in ALLOWED_OPS:
-        logging.error("Nieznana operacja magazynowa: %s", op)
-        raise ValueError(f"Unknown op: {op}")
+        _log_mag("nieznana_operacja", {"op": op}, poziom="ERROR")
+        raise ValueError(f"Nieznana operacja: {op}")
 
     qty = float(qty)
     if qty <= 0:
-        logging.error("Ilość musi być dodatnia: %s", qty)
-        raise ValueError("qty must be > 0")
+        _log_mag("niedodatnia_ilosc", {"op": op, "qty": qty}, poziom="ERROR")
+        raise ValueError("Ilość musi być dodatnia")
 
     if not ts:
         ts = datetime.now(timezone.utc).isoformat()
@@ -164,7 +171,7 @@ def generate_pz_id(now: datetime | None = None) -> str:
     with open(SEQ_PZ_PATH, "w", encoding="utf-8") as f:
         json.dump(seq_data, f, ensure_ascii=False, indent=2)
     pz_id = f"PZ-{now.strftime('%Y-%m-%d')}-{seq_data['seq']:04d}"
-    logger.log_magazyn("nadano_id_pz", {"id": pz_id})
+    _log_mag("nadano_id_pz", {"id": pz_id}, poziom="INFO")
     return pz_id
 
 
@@ -183,9 +190,10 @@ def save_pz(entry: Dict[str, Any]) -> str:
     records.append(data)
     with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
-    logger.log_magazyn(
+    _log_mag(
         "zapis_przyjecia",
         {"pz_id": data["id"], "item_id": data.get("item_id"), "ilosc": data.get("qty")},
+        poziom="INFO",
     )
     return data["id"]
 
@@ -213,9 +221,10 @@ def update_stany_after_pz(entry: Dict[str, Any]) -> None:
     rec["stan"] = float(rec.get("stan", 0)) + qty
     with open(STANY_PATH, "w", encoding="utf-8") as f:
         json.dump(stany, f, ensure_ascii=False, indent=2)
-    logger.log_magazyn(
+    _log_mag(
         "aktualizacja_stanow",
         {"item_id": item_id, "dodano": qty, "stan": rec["stan"]},
+        poziom="INFO",
     )
 
 
@@ -232,7 +241,7 @@ def ensure_in_katalog(entry: Dict[str, Any]) -> None:
         }
         with open(KATALOG_PATH, "w", encoding="utf-8") as f:
             json.dump(katalog, f, ensure_ascii=False, indent=2)
-        logger.log_magazyn("katalog_dodano", {"item_id": item_id})
+        _log_mag("katalog_dodano", {"item_id": item_id}, poziom="INFO")
     else:
-        logger.log_magazyn("katalog_istnial", {"item_id": item_id})
+        _log_mag("katalog_istnial", {"item_id": item_id}, poziom="INFO")
 

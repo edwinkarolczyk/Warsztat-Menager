@@ -7,11 +7,15 @@
 from datetime import datetime
 import json
 
-def log_akcja(tekst: str) -> None:
+
+def log_akcja(tekst: str, poziom: str = "INFO") -> None:
     """Zapis prostych zdarzeń GUI/aplikacji do logi_gui.txt (linia tekstowa)."""
     try:
         with open("logi_gui.txt", "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {tekst}\n")
+            f.write(
+                f"[{poziom.upper()}] "
+                f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {tekst}\n"
+            )
     except Exception as e:
         # awaryjnie do konsoli – nie podnosimy wyjątku, żeby nie wywalać GUI
         print(f"[Błąd loggera] {e}")
@@ -19,7 +23,8 @@ def log_akcja(tekst: str) -> None:
 # zgodność wstecz: wiele miejsc może używać starej nazwy
 zapisz_log = log_akcja
 
-def log_magazyn(akcja: str, dane: dict) -> None:
+
+def log_magazyn(akcja: str, dane: dict, poziom: str = "INFO") -> None:
     """
     Zapis operacji magazynowych do logi_magazyn.txt w formacie JSON Lines.
     Przykład rekordu:
@@ -32,7 +37,9 @@ def log_magazyn(akcja: str, dane: dict) -> None:
             "dane": dane
         }
         with open("logi_magazyn.txt", "a", encoding="utf-8") as f:
-            f.write(json.dumps(line, ensure_ascii=False) + "\n")
+            f.write(
+                f"[{poziom.upper()}] " + json.dumps(line, ensure_ascii=False) + "\n"
+            )
     except Exception as e:
         # awaryjnie do konsoli – nie przerywamy działania
         print(f"[Błąd log_magazyn] {e}")

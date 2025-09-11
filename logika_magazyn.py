@@ -69,16 +69,32 @@ except ImportError:  # pragma: no cover - Windows path
 
 try:
     import logger
-    _log_info = getattr(logger, "log_akcja", lambda m: logging.info(m))
+
+    _log_info = getattr(
+        logger,
+        "log_akcja",
+        lambda m, poziom="INFO": logging.log(
+            getattr(logging, poziom.upper(), logging.INFO), m
+        ),
+    )
     _log_mag = getattr(
-        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+        logger,
+        "log_magazyn",
+        lambda a, d, poziom="INFO": logging.log(
+            getattr(logging, poziom.upper(), logging.INFO),
+            f"[MAGAZYN] {a}: {d}",
+        ),
     )
 except Exception:
-    def _log_info(msg):
-        logging.info(msg)
 
-    def _log_mag(akcja, dane):
-        logging.info(f"[MAGAZYN] {akcja}: {dane}")
+    def _log_info(msg, poziom="INFO"):
+        logging.log(getattr(logging, poziom.upper(), logging.INFO), msg)
+
+    def _log_mag(akcja, dane, poziom="INFO"):
+        logging.log(
+            getattr(logging, poziom.upper(), logging.INFO),
+            f"[MAGAZYN] {akcja}: {dane}",
+        )
 
 
 _CFG = ConfigManager()
@@ -255,7 +271,10 @@ def save_magazyn(data):
             try:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             except Exception as e:
-                _log_info(f"save_magazyn dump error: {e}")
+                _log_info(
+                    f"Błąd zapisu magazynu (tworzenie danych): {e}",
+                    poziom="ERROR",
+                )
                 try:
                     os.remove(tmp)
                 except Exception:
@@ -264,13 +283,19 @@ def save_magazyn(data):
         try:
             os.replace(tmp, MAGAZYN_PATH)
         except Exception as e:
-            _log_info(f"save_magazyn replace error: {e}")
+            _log_info(
+                f"Błąd zapisu magazynu (podmiana pliku): {e}",
+                poziom="ERROR",
+            )
             try:
                 if os.path.exists(MAGAZYN_PATH):
                     os.remove(MAGAZYN_PATH)
                 os.rename(tmp, MAGAZYN_PATH)
             except Exception as e2:
-                _log_info(f"save_magazyn rename error: {e2}")
+                _log_info(
+                    f"Błąd zapisu magazynu (zmiana nazwy): {e2}",
+                    poziom="ERROR",
+                )
                 try:
                     os.remove(tmp)
                 except Exception:
@@ -339,7 +364,7 @@ def save_polprodukt(record: dict) -> bool:
 
     kod = str(record.get("kod") or record.get("id") or "").strip()
     if not kod:
-        raise ValueError("Record must contain 'kod' or 'id'.")
+        raise ValueError("Rekord musi zawierać 'kod' lub 'id'.")
 
     data_rec = record.copy()
     data_rec.pop("kod", None)
@@ -608,7 +633,7 @@ def zuzyj(item_id, ilosc, uzytkownik, kontekst=None):
         )
         res = it
     for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
-        _log_mag("prog_alert", al)
+        _log_mag("prog_alert", al, poziom="WARNING")
     return res
 
 def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
@@ -632,7 +657,7 @@ def zwrot(item_id, ilosc, uzytkownik, kontekst=None):
         )
         res = it
     for al in filter(lambda a: a["item_id"] == item_id, sprawdz_progi()):
-        _log_mag("prog_alert", al)
+        _log_mag("prog_alert", al, poziom="WARNING")
     return res
 
 def rezerwuj(item_id, ilosc, uzytkownik, kontekst=None):
@@ -730,7 +755,11 @@ def rezerwuj_materialy(bom, ilosc):
                 zuzyte,
                 kontekst="rezerwuj_materialy",
             )
-            _log_mag("rezerwacja_materialu", {"item_id": kod, "ilosc": zuzyte})
+            _log_mag(
+                "rezerwacja_materialu",
+                {"item_id": kod, "ilosc": zuzyte},
+                poziom="INFO",
+            )
         save_magazyn(m)
         zapisz_stan_magazynu(m)
 
@@ -743,6 +772,7 @@ def rezerwuj_materialy(bom, ilosc):
                 "brakuje": float(brak["ilosc_potrzebna"]),
                 "zamowiono": True,
             },
+            poziom="WARNING",
         )
 
     if braki:
@@ -750,10 +780,10 @@ def rezerwuj_materialy(bom, ilosc):
             from logika_zakupy import utworz_zlecenie_zakupow
 
             nr, sciezka = utworz_zlecenie_zakupow(braki)
-            _log_mag("utworzono_zlecenie_zakupow", {"nr": nr})
+            _log_mag("utworzono_zlecenie_zakupow", {"nr": nr}, poziom="INFO")
             zlec_info = {"nr": nr, "sciezka": sciezka}
         except Exception as e:
-            _log_mag("blad_zlecenia_zakupow", {"err": str(e)})
+            _log_mag("blad_zlecenia_zakupow", {"err": str(e)}, poziom="ERROR")
 
     ok = not braki
     return ok, braki, zlec_info
