@@ -26,6 +26,7 @@ def test_suggest_names_for_category(tmp_path, monkeypatch):
     stany = {
         "RURA_30": {"nazwa": "Rura 30mm"},
         "RURA_50": {"nazwa": "Rura 50mm"},
+        "RURA_60": {"nazwa": "Rura 60mm", "typ": "rura"},
         "PLASK_40": {"nazwa": "Plaskownik 40mm"},
     }
     katalog_path = tmp_path / "katalog.json"
@@ -41,4 +42,4 @@ def test_suggest_names_for_category(tmp_path, monkeypatch):
     result = mc.suggest_names_for_category(
         "rura", "Ru", katalog_path=str(katalog_path), stany_path=str(stany_path)
     )
-    assert set(result) == {"Rura 30mm", "Rurka 40mm", "Rura 50mm"}
+    assert set(result) == {"Rura 30mm", "Rurka 40mm", "Rura 60mm"}
