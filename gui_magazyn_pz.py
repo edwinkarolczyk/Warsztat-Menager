@@ -37,7 +37,7 @@ def ask_rounding(qty: float, parent=None) -> str | None:
 
     msg = ttk.Label(
         win,
-        text=f"Ilość {qty} szt nie jest całkowita. Wybierz działanie:",
+        text=f"Ilość {qty} szt nie jest liczbą całkowitą. Wybierz działanie:",
         style="WM.TLabel",
     )
     msg.pack(padx=12, pady=(12, 8))
