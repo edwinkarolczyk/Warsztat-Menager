@@ -465,7 +465,8 @@ class PanelMagazyn(ttk.Frame):
         self._drag_moved = False
 
     def _filter(self):
-        q = (self.var_szukaj.get() or "").strip().lower()
+        var_szukaj = getattr(self, "var_szukaj", None)
+        q = (var_szukaj.get() if var_szukaj is not None else "").strip().lower()
         kat = (
             self.var_kat.get() if hasattr(self, "var_kat") else ""
         ).strip().lower()
