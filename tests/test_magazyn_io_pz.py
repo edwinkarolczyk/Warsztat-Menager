@@ -38,7 +38,7 @@ def test_update_stany_after_pz_sums_quantities(tmp_path):
 
 
 def test_ensure_in_katalog_adds_new_position(tmp_path):
-    katalog_path = tmp_path / "magazyn.json"
+    katalog_path = tmp_path / "katalog.json"
     katalog_path.write_text('{"items": {}, "meta": {"order": []}}', encoding="utf-8")
     added = ensure_in_katalog({"id": "NEW", "nazwa": "Nowy"}, path=str(katalog_path))
     assert added
