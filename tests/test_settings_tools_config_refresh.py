@@ -16,7 +16,7 @@ def test_open_tools_config_invalidates_cache(monkeypatch):
     monkeypatch.setattr(
         gui_settings, "LZ", types.SimpleNamespace(invalidate_cache=invalidate)
     )
-    monkeypatch.setattr(gui_settings, "_ensure_topmost", lambda win: None)
+    monkeypatch.setattr(gui_settings, "_ensure_topmost", lambda *args: None)
 
     dummy_module = types.SimpleNamespace()
 
@@ -25,6 +25,7 @@ def test_open_tools_config_invalidates_cache(monkeypatch):
             self.on_save = on_save
             called["path"] = path
             dummy_module.instance = self
+            self.top = object()
 
     dummy_module.ToolsConfigDialog = DummyDialog
     monkeypatch.setitem(sys.modules, "gui_tools_config", dummy_module)

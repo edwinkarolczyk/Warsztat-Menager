@@ -506,9 +506,9 @@ class SettingsPanel:
         callback = getattr(LZ, "invalidate_cache", lambda: None)
         path = os.path.join("data", "zadania_narzedzia.json")
         win = ToolsConfigDialog(self, path=path, on_save=callback)
-        _ensure_topmost(win)
+        _ensure_topmost(win.top, self)
         try:
-            self.wait_window(win)
+            self.wait_window(win.top)
         except Exception as exc:  # pragma: no cover - wait_window error handling
             log_akcja(f"[SETTINGS] ToolsConfigDialog wait failed: {exc}")
 

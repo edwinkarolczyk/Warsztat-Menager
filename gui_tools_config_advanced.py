@@ -10,13 +10,27 @@ from tkinter import messagebox, simpledialog, ttk
 import logika_zadan as LZ
 
 
-class ToolsConfigDialog(tk.Toplevel):
+def _resolve_parent(parent: tk.Widget | None) -> tk.Widget | None:
+    """Return the real ``Tk`` parent for ``parent``."""
+
+    if parent is None:
+        return None
+    parent = getattr(parent, "top", parent)
+    while parent is not None and not isinstance(parent, tk.Tk):
+        parent = getattr(parent, "master", None)
+    return parent
+
+
+class ToolsConfigDialog:
     """Okno z listami Kolekcja → Typ → Status i edycją zadań."""
 
-    def __init__(self, master: tk.Widget | None = None, *, path: str, on_save=None) -> None:
-        super().__init__(master)
-        self.title("Konfiguracja zadań narzędzi")
-        self.resizable(True, True)
+    def __init__(
+        self, parent: tk.Widget | None = None, *, path: str, on_save=None
+    ) -> None:
+        parent = _resolve_parent(parent)
+        self.top = tk.Toplevel(parent)
+        self.top.title("Konfiguracja zadań narzędzi")
+        self.top.resizable(True, True)
         self.path = path
         self.on_save = on_save
         self._ui_updating = False
@@ -26,7 +40,11 @@ class ToolsConfigDialog(tk.Toplevel):
         self.current_type: dict | None = None
         self.current_status: dict | None = None
 
-        main = ttk.Frame(self)
+        self._build_ui()
+        self._populate_collections()
+
+    def _build_ui(self) -> None:
+        main = ttk.Frame(self.top)
         main.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         top = ttk.Frame(main)
@@ -60,9 +78,7 @@ class ToolsConfigDialog(tk.Toplevel):
         ttk.Button(btns, text="Edytuj", command=self.edit_task).pack(side=tk.LEFT)
         ttk.Button(btns, text="Usuń", command=self.delete_task).pack(side=tk.LEFT)
         ttk.Button(btns, text="Zapisz", command=self._save).pack(side=tk.RIGHT)
-        ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side=tk.RIGHT)
-
-        self._populate_collections()
+        ttk.Button(btns, text="Anuluj", command=self.top.destroy).pack(side=tk.RIGHT)
 
     # ------------------------- UI helpers ---------------------------------
     @contextmanager
@@ -80,7 +96,7 @@ class ToolsConfigDialog(tk.Toplevel):
         except FileNotFoundError:
             return {"collections": {}}
         except json.JSONDecodeError as exc:
-            messagebox.showerror("Błąd", f"Niepoprawny JSON: {exc}")
+            messagebox.showerror("Błąd", f"Niepoprawny JSON: {exc}", parent=self.top)
             return {"collections": {}}
 
     def _populate_collections(self) -> None:
@@ -163,7 +179,9 @@ class ToolsConfigDialog(tk.Toplevel):
     def add_task(self) -> None:
         if not self.current_status:
             return
-        name = simpledialog.askstring("Dodaj zadanie", "Opis zadania:", parent=self)
+        name = simpledialog.askstring(
+            "Dodaj zadanie", "Opis zadania:", parent=self.top
+        )
         if name:
             self.current_status.setdefault("tasks", []).append(name)
             self._refresh_tasks()
@@ -178,7 +196,7 @@ class ToolsConfigDialog(tk.Toplevel):
         tasks = self.current_status.setdefault("tasks", [])
         old = tasks[idx]
         name = simpledialog.askstring(
-            "Edytuj zadanie", "Opis zadania:", initialvalue=old, parent=self
+            "Edytuj zadanie", "Opis zadania:", initialvalue=old, parent=self.top
         )
         if name:
             tasks[idx] = name
@@ -191,7 +209,9 @@ class ToolsConfigDialog(tk.Toplevel):
         if not sel:
             return
         idx = sel[0]
-        if messagebox.askyesno("Usuń zadanie", "Czy na pewno usunąć wybrane zadanie?"):
+        if messagebox.askyesno(
+            "Usuń zadanie", "Czy na pewno usunąć wybrane zadanie?", parent=self.top
+        ):
             tasks = self.current_status.setdefault("tasks", [])
             del tasks[idx]
             self._refresh_tasks()
@@ -204,4 +224,10 @@ class ToolsConfigDialog(tk.Toplevel):
         LZ.invalidate_cache()
         if callable(self.on_save) and self.on_save is not LZ.invalidate_cache:
             self.on_save()
-        self.destroy()
+        messagebox.showinfo(
+            "Konfiguracja zadań narzędzi",
+            "Zapisano ustawienia.",
+            parent=self.top,
+        )
+        self.top.destroy()
+
