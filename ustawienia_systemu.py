@@ -126,7 +126,7 @@ def panel_ustawien(
     # Intercept tab changes and window close to warn about unsaved changes.
     prev_tab = {"id": panel.nb.select()}
 
-    def _on_tab_changed(event):
+    def _zakladka(event):
         if panel._dirty and not messagebox.askyesno(
             "Niezapisane zmiany",
             "Masz niezapisane zmiany. Kontynuować?",
@@ -135,10 +135,10 @@ def panel_ustawien(
             panel.nb.select(prev_tab["id"])
             return
         prev_tab["id"] = panel.nb.select()
-        if hasattr(panel, "_on_tab_change"):
-            panel._on_tab_change(event)
+        if hasattr(panel, "_zmiana_zakladki"):
+            panel._zmiana_zakladki(event)
 
-    panel.nb.bind("<<NotebookTabChanged>>", _on_tab_changed, add="+")
+    panel.nb.bind("<<NotebookTabChanged>>", _zakladka, add="+")
 
     orig_close = getattr(panel, "on_close", lambda: None)
 

@@ -230,7 +230,7 @@ def _bind_tooltip(widget, text: str):
 
     tip = {"w": None}
 
-    def _show(_=None):
+    def _pokaz(_=None):
         if tip["w"] or not text:
             return
         x = widget.winfo_rootx() + 16
@@ -251,13 +251,13 @@ def _bind_tooltip(widget, text: str):
         lbl.pack(ipadx=8, ipady=6)
         tip["w"] = tw
 
-    def _hide(_=None):
+    def _ukryj(_=None):
         if tip["w"]:
             tip["w"].destroy()
             tip["w"] = None
 
-    widget.bind("<Enter>", _show, add="+")
-    widget.bind("<Leave>", _hide, add="+")
+    widget.bind("<Enter>", _pokaz, add="+")
+    widget.bind("<Leave>", _ukryj, add="+")
 
 
 def save_all(options: Dict[str, tk.Variable], cfg: ConfigManager | None = None) -> None:
@@ -328,7 +328,7 @@ class SettingsPanel:
         self.nb = ttk.Notebook(self.master)
         print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
-        self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
+        self.nb.bind("<<NotebookTabChanged>>", self._zmiana_zakladki)
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -618,7 +618,7 @@ class SettingsPanel:
             for item in data.get(key, []):
                 lb.insert("end", item)
             lb.pack(fill="both", expand=True, padx=5, pady=5)
-            _bind_tooltip(lb, f"Lista: {label.lower()}")
+            _bind_tooltip(lb, label)
 
             entry = ttk.Entry(frame)
             entry.pack(fill="x", padx=5, pady=(0, 5))
@@ -668,10 +668,10 @@ class SettingsPanel:
             b_del.grid(row=0, column=1, padx=2)
             b_up.grid(row=0, column=2, padx=2)
             b_down.grid(row=0, column=3, padx=2)
-            _bind_tooltip(b_add, "Dodaj wpis do listy")
-            _bind_tooltip(b_del, "Usuń zaznaczony wpis")
-            _bind_tooltip(b_up, "Przesuń w górę")
-            _bind_tooltip(b_down, "Przesuń w dół")
+            _bind_tooltip(b_add, "Dodaj")
+            _bind_tooltip(b_del, "Usuń")
+            _bind_tooltip(b_up, "Góra")
+            _bind_tooltip(b_down, "Dół")
 
             editors.append((key, lb))
 
@@ -685,7 +685,7 @@ class SettingsPanel:
 
         btn_save = ttk.Button(parent, text="Zapisz", command=save_all_dicts)
         btn_save.pack(anchor="e", padx=5, pady=5)
-        _bind_tooltip(btn_save, "Zapisz słowniki")
+        _bind_tooltip(btn_save, "Zapisz")
 
     def _init_magazyn_tab(self) -> None:
         """Create subtabs for the 'magazyn' section on first use."""
@@ -693,7 +693,7 @@ class SettingsPanel:
             return
         nb = ttk.Notebook(self._magazyn_frame)
         nb.pack(fill="both", expand=True)
-        nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
+        nb.bind("<<NotebookTabChanged>>", self._zmiana_zakladki)
 
         ustawienia_frame = ttk.Frame(nb)
         nb.add(ustawienia_frame, text="Ustawienia magazynu")
@@ -706,7 +706,7 @@ class SettingsPanel:
 
         self._magazyn_initialized = True
 
-    def _on_tab_change(self, _=None):
+    def _zmiana_zakladki(self, _=None):
         if self._magazyn_frame is not None and not self._magazyn_initialized:
             if self.nb.select() == str(self._magazyn_frame):
                 self._init_magazyn_tab()
