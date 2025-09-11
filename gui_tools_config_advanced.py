@@ -11,7 +11,7 @@ import logika_zadan as LZ
 
 
 def _resolve_parent(parent: tk.Widget | None) -> tk.Widget | None:
-    """Return the real ``Tk`` parent for ``parent``."""
+    """Zwróć główne okno ``Tk`` będące rodzicem ``parent``."""
 
     if parent is None:
         return None
