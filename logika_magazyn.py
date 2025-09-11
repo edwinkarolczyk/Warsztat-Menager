@@ -263,6 +263,10 @@ def save_magazyn(data):
     finally:
         unlock_file(lock_f)
         lock_f.close()
+        try:
+            os.remove(lock_path)
+        except Exception:
+            pass
 
 def _append_history(*args, **kwargs):
     """Append a history entry with backward-compatible schema.
