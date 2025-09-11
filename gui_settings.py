@@ -682,42 +682,7 @@ class SettingsWindow(SettingsPanel):
         self.schema = self.cfg.schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
 
-        self._init_tests_tab()
-
-    def _init_tests_tab(self):
-        print("[WM-DBG] [SETTINGS] init Tests tab")
-        self.tab_tests = ttk.Frame(self.nb)
-        self.nb.add(self.tab_tests, text="Testy")
-
-        wrap = ttk.Frame(self.tab_tests, padding=10)
-        wrap.pack(fill="both", expand=True)
-
-        ttk.Label(
-            wrap,
-            text="Testy automatyczne (pytest)",
-            font=("TkDefaultFont", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 6))
-        ttk.Label(
-            wrap,
-            text="Uruchom wszystkie testy projektu. Wynik pojawi się poniżej.",
-        ).pack(anchor="w", pady=(0, 8))
-
-        btns = ttk.Frame(wrap)
-        btns.pack(anchor="w", pady=(0, 8))
-        self.btn_tests_run = ttk.Button(
-            btns, text="Uruchom testy", command=self._run_all_tests
-        )
-        self.btn_tests_run.pack(side="left", padx=(0, 8))
-        self.btn_install_pytest = ttk.Button(
-            btns, text="Zainstaluj pytest", command=self._install_pytest
-        )
-        self.btn_install_pytest.pack(side="left", padx=(0, 8))
-
-        self.txt_tests = tk.Text(wrap, height=18, wrap="none")
-        self.txt_tests.pack(fill="both", expand=True)
-        yscroll = ttk.Scrollbar(wrap, orient="vertical", command=self.txt_tests.yview)
-        self.txt_tests.configure(yscrollcommand=yscroll.set)
-        yscroll.place(relx=1.0, rely=0.0, relheight=1.0, anchor="ne")
+        # self._init_tests_tab()
 
     def _append_tests_out(self, s: str):
         try:
