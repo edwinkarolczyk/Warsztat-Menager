@@ -93,8 +93,14 @@ def suggest_names_for_category(
         name = data.get("nazwa", "")
         if not name.lower().startswith(pref_norm):
             continue
-        typ = str(items.get(iid, {}).get("typ") or items.get(iid, {}).get("kategoria") or "").lower()
-        if typ and typ != cat_norm:
+        typ = str(
+            data.get("typ")
+            or data.get("kategoria")
+            or items.get(iid, {}).get("typ")
+            or items.get(iid, {}).get("kategoria")
+            or ""
+        ).lower()
+        if cat_norm and typ != cat_norm:
             continue
         suggestions.append(name)
 
