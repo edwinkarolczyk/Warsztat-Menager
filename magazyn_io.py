@@ -191,11 +191,12 @@ def save_pz(entry: Dict[str, Any]) -> str:
 
 
 def update_stany_after_pz(entries: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
-    """Update ``stany.json`` after recording PZ ``entries``.
+    """Update ``stany.json`` using aggregated PZ ``entries``.
 
-    ``entries`` is an iterable of dictionaries each containing ``item_id`` and
-    ``qty``. Quantities for the same ``item_id`` are summed before applying to
-    ``stany.json``. The updated state dictionary is returned.
+    Each element of ``entries`` must contain ``item_id`` and ``qty``.
+    Quantities for identical ``item_id`` values are summed before the file is
+    updated. Metadata such as ``nazwa`` or ``prog_alert`` comes from the last
+    entry for a given item. The function returns the updated stock mapping.
     """
 
     _ensure_dirs(STANY_PATH)
