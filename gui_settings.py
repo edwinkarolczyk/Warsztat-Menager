@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import datetime
 import json
-import os, sys, subprocess, threading
+import os
+import subprocess
+import sys
+import threading
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
