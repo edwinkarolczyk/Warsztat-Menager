@@ -718,8 +718,68 @@ class SettingsWindow(SettingsPanel):
         super().__init__(master, config_path=config_path, schema_path=schema_path)
         self.schema = self.cfg.schema
         print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
+        self._init_audit_tab()
+        self._reorder_tabs()
 
-        # self._init_tests_tab()
+    def _reorder_tabs(self) -> None:
+        """Place the audit tab before the products tab."""
+
+        tabs = {self.nb.tab(t, "text"): t for t in self.nb.tabs()}
+        audit_id = tabs.get("Audyt")
+        products_id = tabs.get("Produkty i materiały")
+        if audit_id and products_id:
+            index = self.nb.index(products_id)
+            self.nb.insert(index, audit_id)
+
+    def _init_audit_tab(self) -> None:
+        """Create the Audit tab with controls."""
+
+        frame = ttk.Frame(self.nb)
+        self.nb.add(frame, text="Audyt")
+        btn = ttk.Button(frame, text="Uruchom audyt", command=self._run_audit_now)
+        btn.pack(anchor="w", padx=5, pady=5)
+        txt = tk.Text(frame, height=15)
+        txt.pack(fill="both", expand=True, padx=5, pady=5)
+        self.btn_audit_run = btn
+        self.txt_audit = txt
+
+    def _append_audit_out(self, s: str) -> None:
+        try:
+            self.txt_audit.insert("end", s)
+            self.txt_audit.see("end")
+        except Exception:
+            pass
+
+    def _run_audit_now(self) -> None:
+        try:
+            self.btn_audit_run.config(state="disabled")
+        except Exception:
+            pass
+        self._append_audit_out("\n[INFO] Uruchamiam audyt...\n")
+
+        def _worker() -> None:
+            try:
+                import wm_audit_runtime
+
+                result = wm_audit_runtime.run_audit()
+                path = "audit_wm_report.txt"
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(result)
+                msg = result + f"\n[INFO] Raport zapisano do {path}\n"
+                self.txt_audit.after(0, self._append_audit_out, msg)
+            except Exception as exc:
+                self.txt_audit.after(
+                    0, self._append_audit_out, f"[ERROR] {exc!r}\n"
+                )
+            finally:
+                try:
+                    self.btn_audit_run.after(
+                        0, lambda: self.btn_audit_run.config(state="normal")
+                    )
+                except Exception:
+                    pass
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _append_tests_out(self, s: str):
         try:
