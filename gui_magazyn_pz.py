@@ -162,7 +162,19 @@ class MagazynPZDialog:
             if iid not in items:
                 raise KeyError(f"Brak pozycji {iid} w magazynie")
 
-            items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
+            item = items[iid]
+            unit = str(item.get("jednostka", "")).lower()
+            if unit.startswith("szt") and qty != int(qty):
+                rounded = round(qty)
+                if not messagebox.askyesno(
+                    "Zaokrąglenie",
+                    f"Ilość {qty} szt. zaokrąglić do {rounded}?",
+                    parent=self.top,
+                ):
+                    return
+                qty = float(rounded)
+
+            items[iid]["stan"] = float(item.get("stan", 0)) + qty
             print("[WM-DBG] przed zapisem PZ")
             magazyn_io.append_history(
                 items,
