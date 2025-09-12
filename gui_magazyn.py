@@ -1151,8 +1151,11 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
     Adapter zgodności dla starego panelu:
     - Panel wywołuje gui_magazyn.open_panel_magazyn(...)
     - Przekierowujemy to do open_window(parent, config)
-    - Config bierzemy z parent.config jeśli jest; w przeciwnym razie pusty dict.
+    - Config: preferuj 'config' z kwargs; jeśli nie-dict, sprawdź parent.config (dict); inaczej {}.
     """
-    cfg = getattr(parent, "config", None) or kwargs.get("config") or {}
+    cfg = kwargs.get("config")
+    if not isinstance(cfg, dict):
+        maybe = getattr(parent, "config", None)
+        cfg = maybe if isinstance(maybe, dict) else {}
     return open_window(parent, cfg)
 
