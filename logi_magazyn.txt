@@ -34,3 +34,21 @@
 {"ts": "2025-09-10 07:47:50", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
 {"ts": "2025-09-11 05:48:04", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
 {"ts": "2025-09-11 05:48:05", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
+{"ts": "2025-09-12 09:20:54", "akcja": "RESERVE", "dane": {"item_id": "MAT-X", "nazwa": "Test", "qty": 5.0, "jm": "szt", "by": "test", "comment": "pytest"}}
+{"ts": "2025-09-12 09:20:54", "akcja": "rezerwacja", "dane": {"item_id": "MAT-X", "ilosc": 5.0, "by": "test", "ctx": "pytest"}}
+{"ts": "2025-09-12 09:20:54", "akcja": "RW", "dane": {"item_id": "MAT-AL", "nazwa": "Aluminium", "qty": 4.0, "jm": "szt", "by": "test", "comment": "pytest"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "RESERVE", "dane": {"item_id": "MAT-A", "nazwa": "A", "qty": 6.0, "jm": "szt", "by": "system", "comment": "rezerwuj_materialy"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "rezerwacja_materialu", "dane": {"item_id": "MAT-A", "ilosc": 6.0}}
+{"ts": "2025-09-12 09:20:55", "akcja": "RESERVE", "dane": {"item_id": "MAT-B", "nazwa": "B", "qty": 5.0, "jm": "szt", "by": "system", "comment": "rezerwuj_materialy"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "PZ", "dane": {"item_id": "PROFIL_20x20x2_STAL", "nazwa": "profil 20x20x2 stal", "qty": 1.5, "jm": "mb", "by": "user", "comment": ""}}
+{"ts": "2025-09-12 09:20:55", "akcja": "PZ", "dane": {"item_id": "RURA_FI30_SC2_STAL", "nazwa": "rura fi30 sc2 stal", "qty": 0.75, "jm": "mb", "by": "user", "comment": ""}}
+{"ts": "2025-09-12 09:20:55", "akcja": "PZ", "dane": {"item_id": "ZBIJAK_KORPUS", "nazwa": "ZBIJAK_KORPUS", "qty": 5.0, "jm": "szt", "by": "user", "comment": ""}}
+{"ts": "2025-09-12 09:20:55", "akcja": "PZ", "dane": {"item_id": "ZBIJAK_KORPUS", "nazwa": "ZBIJAK_KORPUS", "qty": 3.0, "jm": "szt", "by": "user", "comment": ""}}
+{"ts": "2025-09-12 09:20:55", "akcja": "PZ", "dane": {"item_id": "ZBIJAK_KORPUS", "nazwa": "ZBIJAK_KORPUS", "qty": 2.0, "jm": "szt", "by": "user", "comment": ""}}
+{"ts": "2025-09-12 09:20:55", "akcja": "nadano_id_pz", "dane": {"id": "PZ/2024/0001"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "nadano_id_pz", "dane": {"id": "PZ/2024/0002"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "nadano_id_pz", "dane": {"id": "PZ/2025/0001"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "katalog_dodano", "dane": {"item_id": "A"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "nadano_id_pz", "dane": {"id": "PZ/2025/0001"}}
+{"ts": "2025-09-12 09:20:55", "akcja": "zapis_przyjecia", "dane": {"pz_id": "PZ/2025/0001", "item_id": "X", "ilosc": 1}}
+{"ts": "2025-09-12 09:20:55", "akcja": "aktualizacja_stanow", "dane": {"item_id": "X", "dodano": 1.0, "stan": 1.0}}
