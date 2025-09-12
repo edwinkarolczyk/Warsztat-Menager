@@ -111,7 +111,7 @@ class MagazynFrame(ttk.Frame):
         self.tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
 
-        # Podwójny klik – podgląd
+        # Podwójny klik – edycja
         self.tree.bind("<Double-1>", self._on_double_click)
 
     # Logika ------------------------------------------------
