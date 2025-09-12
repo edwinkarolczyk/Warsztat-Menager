@@ -321,3 +321,47 @@ def test_migrates_old_magazyn_path(tmp_path, monkeypatch):
     assert "A" in m["items"]
     assert new.exists()
     assert not old.exists()
+
+
+def test_performance_table_aggregates(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    history_path = lm._history_path()
+    history = [
+        {"item_id": "A", "operacja": "PZ", "ilosc": 5},
+        {"item_id": "B", "operacja": "PZ", "ilosc": 3},
+        {"item_id": "A", "operacja": "PZ", "ilosc": 1},
+        {"item_id": "B", "operacja": "PZ", "ilosc": 3},
+        {"item_id": "A", "operacja": "RW", "ilosc": 2},
+        {"item_id": "B", "operacja": "RW", "ilosc": 4},
+    ]
+    with open(history_path, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+    result = lm.performance_table()
+
+    assert result == [
+        {"item_id": "A", "operacja": "PZ", "ilosc": 6.0, "liczba": 2},
+        {"item_id": "B", "operacja": "PZ", "ilosc": 6.0, "liczba": 2},
+        {"item_id": "B", "operacja": "RW", "ilosc": 4.0, "liczba": 1},
+        {"item_id": "A", "operacja": "RW", "ilosc": 2.0, "liczba": 1},
+    ]
+
+
+def test_performance_table_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr(lm, "MAGAZYN_PATH", str(tmp_path / "magazyn.json"))
+    history_path = lm._history_path()
+    history = [
+        {"item_id": "X", "operacja": "PZ", "ilosc": 1},
+        {"item_id": "Y", "operacja": "PZ", "ilosc": 2},
+        {"item_id": "A", "operacja": "RW", "ilosc": 2},
+        {"item_id": "B", "operacja": "RW", "ilosc": 4},
+    ]
+    with open(history_path, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+    result = lm.performance_table(limit=2)
+
+    assert result == [
+        {"item_id": "B", "operacja": "RW", "ilosc": 4.0, "liczba": 1},
+        {"item_id": "A", "operacja": "RW", "ilosc": 2.0, "liczba": 1},
+    ]
