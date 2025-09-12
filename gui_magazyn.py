@@ -8,7 +8,8 @@
 # Zasada: zmieniamy tylko to, co potrzebne – brak zmian w IO/strukturze danych.
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
+from gui_magazyn_edit import open_edit_dialog
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -130,13 +131,8 @@ class MagazynFrame(ttk.Frame):
         if not sel:
             return
         values = self.tree.item(sel[0], "values")
-        labels = ["ID", "Typ", "Rozmiar", "Nazwa", "Stan", "Tech. zadania"]
-        txt = "\n".join(
-            f"{labels[i]}: {values[i]}" for i in range(min(len(labels), len(values)))
-        )
-        # Szukamy okna-rodzica, żeby dialog był modalny do głównego okna
-        root = self.winfo_toplevel()
-        messagebox.showinfo("Szczegóły pozycji", txt, parent=root)
+        item_id = values[0]
+        open_edit_dialog(self, item_id, on_saved=lambda _id=item_id: self.refresh())
 
 
 # Tryb Toplevel (dla zgodności) -----------------------------
