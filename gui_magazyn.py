@@ -251,27 +251,48 @@ def open_window(parent, config=None, *args, **kwargs):
 
 def _resolve_container(parent, notebook=None, container=None):
     """
-    Znajduje kontener do osadzenia:
-    - jawnie podany 'container' lub 'notebook'
-    - atrybuty parenta: 'content', 'main_frame', 'body', 'container'
-    - fallback: parent (jeśli to Frame/okno)
+    Znajduje kontener (widget) do osadzenia widoku:
+    - jeśli podano bezpośrednio widget (Frame/Toplevel) -> zwróć
+    - jeśli podano string -> potraktuj jako nazwę atrybutu (np. "content")
+    - jeśli podano notebook (ttk.Notebook) -> zwróć
+    - inaczej spróbuj typowych nazw w parent: content/main_frame/body/container
+    - fallback: parent (jeśli jest widgetem)
     """
-    if container is not None:
+    # 1) Jawnie przekazany widget
+    if isinstance(container, (tk.Widget, ttk.Frame)):
         return container
-    if notebook is not None:
+
+    # 2) Przekazany notebook
+    if isinstance(notebook, (tk.Widget, ttk.Frame)):
         return notebook
+
+    # 3) Jeśli 'container' to string -> spróbuj znaleźć atrybut o tej nazwie
+    if isinstance(container, str):
+        maybe = getattr(parent, container, None)
+        if isinstance(maybe, (tk.Widget, ttk.Frame)):
+            return maybe
+
+    # 4) Typowe atrybuty na parent
     for name in ("content", "main_frame", "body", "container"):
         maybe = getattr(parent, name, None)
         if isinstance(maybe, (tk.Widget, ttk.Frame)):
             return maybe
-    return parent
+
+    # 5) Fallback: parent sam w sobie jest widgetem?
+    if isinstance(parent, (tk.Widget, ttk.Frame)):
+        return parent
+
+    # 6) Ostatecznie: zwróć None (wywołujący obsłuży błąd)
+    return None
 
 
 def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwargs):
     """
-    Adapter dla panelu: renderuje widok Magazynu **wewnątrz programu**.
-    - Próbuje osadzić w przekazanym kontenerze/notebooku lub w parent.content itp.
-    - Zamyka poprzednią instancję, jeśli była (parent._magazyn_embed).
+    Renderuje widok Magazynu **wewnątrz programu** (embed).
+    Przyjmuje:
+     - parent: obiekt ekranu głównego/panelu (ma atrybuty typu 'content' itp.)
+     - notebook: opcjonalny ttk.Notebook
+     - container: widget **albo** nazwa atrybutu (str), np. "content"
     """
     # Config
     cfg = kwargs.get("config")
@@ -279,12 +300,26 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
         maybe = getattr(parent, "config", None)
         cfg = maybe if isinstance(maybe, dict) else {}
 
-    # Kontener docelowy
+    # Rozwiąż kontener
     container = _resolve_container(parent, notebook=notebook, container=kwargs.get("container"))
 
-    # Notebook jako zakładka
+    if container is None:
+        # twardy, czytelny komunikat – bez wysypywania się na .tk
+        try:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Magazyn",
+                "Nie znaleziono kontenera do osadzenia widoku Magazynu.\n"
+                "Przekaż widget lub nazwę atrybutu, np. container='content'.",
+            )
+        except Exception:
+            pass
+        return None
+
+    # Notebook -> dodaj zakładkę
     try:
         if hasattr(container, "add") and hasattr(container, "tabs"):
+            # usuń starą instancję, jeśli była
             old = getattr(parent, "_magazyn_embed", None)
             if isinstance(old, tk.Widget) and old.winfo_exists():
                 try:
@@ -294,15 +329,17 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
                         old.destroy()
                     except Exception:
                         pass
+
             frame = MagazynFrame(container, config=cfg)
             container.add(frame, text="Magazyn")
             container.select(frame)
             parent._magazyn_embed = frame
             return frame
     except Exception:
+        # jeśli to nie notebook – lecimy dalej
         pass
 
-    # Standard: osadź jako Frame w kontenerze (zastępując poprzedni)
+    # Standardowy embed w ramce
     old = getattr(parent, "_magazyn_embed", None)
     if isinstance(old, tk.Widget) and old.winfo_exists():
         try:
