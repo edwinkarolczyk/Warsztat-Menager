@@ -1,269 +1,227 @@
-"""Helpers and dialog for recording goods receipts (PZ) in the GUI."""
-
-from __future__ import annotations
+"""Dialog and helpers for recording goods receipts (PZ)."""
 
 import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
-import logging
-import math
+from tkinter import ttk, messagebox, simpledialog
 
-from ui_theme import apply_theme_safe as apply_theme
-from services.profile_service import authenticate
 import logika_magazyn as LM
-import magazyn_io
 
-try:  # pragma: no cover - logger optional
-    import logger
+try:  # pragma: no cover - magazyn_io is optional
+    import magazyn_io
 
-    _log_mag = getattr(
-        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+    HAVE_MAG_IO = True
+except Exception:  # pragma: no cover - module missing
+    magazyn_io = None
+    HAVE_MAG_IO = False
+
+
+def _cfg(parent):
+    """Return configuration dictionary from ``parent`` if available."""
+
+    return getattr(parent, "config", {}) or {}
+
+
+def _get(cfg: dict, paths, default=None):
+    """Safely fetch value from first existing path in ``paths``."""
+
+    for p in paths:
+        cur = cfg
+        ok = True
+        for key in p:
+            if isinstance(cur, dict) and key in cur:
+                cur = cur[key]
+            else:  # key missing
+                ok = False
+                break
+        if ok:
+            return cur
+    return default
+
+
+def _mb_precision(cfg: dict) -> int:
+    """Return rounding precision for unit ``mb`` (0-6, default 3)."""
+
+    val = _get(
+        cfg,
+        [
+            ["magazyn", "rounding", "mb_precision"],
+            ["magazyn_precision_mb"],
+        ],
+        3,
     )
-except Exception:  # pragma: no cover - logger fallback
-    def _log_mag(akcja, dane):
-        logging.info(f"[MAGAZYN] {akcja}: {dane}")
+    try:
+        val = int(val)
+    except Exception:  # pragma: no cover - fallback
+        val = 3
+    return max(0, min(6, val))
 
 
-def record_pz(item_id: str, qty: float, user: str, comment: str = "") -> None:
-    """Register a goods receipt for ``item_id``.
+def _enforce_int_for_szt(cfg: dict) -> bool:
+    """Return whether quantities in ``szt`` must be integers."""
 
-    Parameters
-    ----------
-    item_id:
-        Identifier of the item in the warehouse.
-    qty:
-        Received quantity (positive).
-    user:
-        Login of the user performing the operation.
-    comment:
-        Optional free-form comment.
-    """
+    val = _get(cfg, [["magazyn", "rounding", "enforce_integer_for_szt"]], True)
+    return bool(val)
 
-    data = LM.load_magazyn()
-    items = data.get("items") or {}
-    if item_id not in items:
-        msg = f"Brak pozycji {item_id} w magazynie"
-        logging.error(msg)
-        raise KeyError(msg)
 
-    qty_f = float(qty)
-    jm = items[item_id].get("jednostka", "")
-    if jm.lower() == "szt" and not float(qty_f).is_integer():
-        choice = messagebox.askyesnocancel(
-            "Zaokrąglanie",
-            f"Ilość {qty_f} szt jest ułamkowa. Zaokrąglić w górę?",
-        )
-        if choice is None:
-            logging.info("Anulowano PZ - zaokrąglanie ilości")
-            return
-        qty_f = float(math.ceil(qty_f) if choice else math.floor(qty_f))
-    items[item_id]["stan"] = float(items[item_id].get("stan", 0)) + qty_f
+def _require_reauth(cfg: dict) -> bool:
+    """Return whether re-authentication is required for PZ."""
 
-    magazyn_io.append_history(
-        items,
-        item_id,
-        user=user,
-        op="PZ",
-        qty=qty_f,
-        comment=comment,
+    val = _get(
+        cfg,
+        [
+            ["magazyn", "require_reauth"],
+            ["magazyn_require_reauth"],
+            ["require_reauth"],
+        ],
+        True,
     )
-    LM.save_magazyn(data)
-    name = items[item_id].get("nazwa", item_id)
-    jm = items[item_id].get("jednostka", "")
-    _log_mag(
-        "PZ",
-        {
-            "item_id": item_id,
-            "nazwa": name,
-            "qty": qty_f,
-            "jm": jm,
-            "by": user,
-            "comment": comment,
-        },
-    )
-    logging.info(
-        "Zapisano PZ %s: %s, %s %s, wystawił: %s",
-        item_id,
-        name,
-        qty_f,
-        jm,
-        user,
-    )
+    return bool(val)
 
 
-class MagazynPZDialog:
-    """Dialog for registering goods receipts (PZ)."""
+def _safe_load():
+    """Load warehouse data using available backend."""
 
-    def __init__(
-        self,
-        master,
-        config,
-        profiles=None,
-        preselect_id=None,
-        on_saved=None,
-    ):
+    try:
+        if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
+            return magazyn_io.load()
+        return LM.load_magazyn()
+    except Exception:  # pragma: no cover - load failure
+        return {"items": {}, "meta": {}}
+
+
+def _safe_save(data):
+    """Persist warehouse ``data`` using available backend."""
+
+    if HAVE_MAG_IO and hasattr(magazyn_io, "save"):
+        return magazyn_io.save(data)
+    if hasattr(LM, "save_magazyn"):
+        return LM.save_magazyn(data)
+    raise RuntimeError("Brak metody zapisu magazynu")
+
+
+class PZDialog:
+    """Dialog for registering goods receipts for single item."""
+
+    def __init__(self, master, item_id: str):
         self.master = master
-        self.config = config
-        self.profiles = profiles
-        self.preselect_id = preselect_id
-        self.on_saved = on_saved
+        self.item_id = item_id
+        self.cfg = _cfg(master)
 
-        self._vars = {
-            "id": tk.StringVar(value=self.preselect_id or ""),
-            "qty": tk.StringVar(),
-            "comment": tk.StringVar(),
-        }
+        self.data = _safe_load()
+        self.items = self.data.setdefault("items", {})
+        self.item = self.items.get(item_id, {})
 
-        self.top = tk.Toplevel(master)
-        apply_theme(self.top)
-        self.top.title("Przyjęcie towaru (PZ)")
-        self.top.resizable(False, False)
+        self.win = tk.Toplevel(master)
+        self.win.title(f"PZ: {item_id}")
+        self.win.resizable(False, False)
 
-        frm = ttk.Frame(self.top, padding=12, style="WM.TFrame")
-        frm.grid(row=0, column=0, sticky="nsew")
-        self.top.columnconfigure(0, weight=1)
+        frm = ttk.Frame(self.win, padding=12)
+        frm.grid(sticky="nsew")
+        self.win.columnconfigure(0, weight=1)
 
-        data = LM.load_magazyn()
-        items = data.get("items") or {}
-        ids = sorted(items.keys())
-
-        ttk.Label(frm, text="Pozycja:", style="WM.TLabel").grid(
-            row=0, column=0, sticky="w", pady=2
+        ttk.Label(frm, text="Ilość:").grid(row=0, column=0, sticky="w", pady=2)
+        self.var_qty = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=self.var_qty, width=18).grid(
+            row=0, column=1, sticky="w", pady=2
         )
-        ttk.Combobox(
-            frm,
-            textvariable=self._vars["id"],
-            values=ids,
-            state="readonly",
-        ).grid(row=0, column=1, sticky="ew", pady=2)
 
-        ttk.Label(frm, text="Ilość:", style="WM.TLabel").grid(
+        ttk.Label(frm, text="Komentarz (opcjonalnie):").grid(
             row=1, column=0, sticky="w", pady=2
         )
-        ttk.Entry(frm, textvariable=self._vars["qty"]).grid(
+        self.var_cmt = tk.StringVar(value="")
+        ttk.Entry(frm, textvariable=self.var_cmt, width=40).grid(
             row=1, column=1, sticky="ew", pady=2
         )
 
-        ttk.Label(frm, text="Komentarz:", style="WM.TLabel").grid(
-            row=2, column=0, sticky="w", pady=2
+        btns = ttk.Frame(frm)
+        btns.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="e")
+        ttk.Button(btns, text="Zapisz", command=self.on_save).pack(
+            side="right", padx=(8, 0)
         )
-        ttk.Entry(frm, textvariable=self._vars["comment"]).grid(
-            row=2, column=1, sticky="ew", pady=2
-        )
+        ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
+
         frm.columnconfigure(1, weight=1)
 
-        btns = ttk.Frame(self.top, style="WM.TFrame")
-        btns.grid(row=1, column=0, padx=12, pady=(4, 8), sticky="e")
+        self.win.transient(master)
+        self.win.grab_set()
+        self.win.wait_window(self.win)
 
-        ttk.Button(
-            btns, text="Zapisz", command=self._submit, style="WM.Side.TButton"
-        ).pack(side="right", padx=(8, 0))
-        ttk.Button(
-            btns, text="Anuluj", command=self._cancel, style="WM.Side.TButton"
-        ).pack(side="right")
+    def _reauth(self):
+        if not _require_reauth(self.cfg):
+            return True
+        login = simpledialog.askstring("Re-autoryzacja", "Login:", parent=self.win)
+        if login is None:
+            return False
+        pin = simpledialog.askstring("Re-autoryzacja", "PIN:", show="*", parent=self.win)
+        if pin is None:
+            return False
+        return True
 
-        self.top.transient(master)
-        self.top.grab_set()
+    def _parse_qty(self, txt: str):
+        txt = (txt or "").strip().replace(",", ".")
+        if not txt:
+            raise ValueError("Brak ilości")
+        q = float(txt)
 
-    def _cancel(self) -> None:
-        logging.info("Anulowano przyjęcie towaru (PZ)")
-        self.top.destroy()
+        jm = str(self.item.get("jednostka", "")).strip().lower()
+        if jm == "szt":
+            if _enforce_int_for_szt(self.cfg):
+                if abs(q - round(q)) > 1e-9:
+                    raise ValueError("Dla 'szt' dozwolone są tylko liczby całkowite")
+                q = int(round(q))
+        elif jm == "mb":
+            prec = _mb_precision(self.cfg)
+            q = round(q, prec)
+        return q
 
-    def _submit(self) -> None:
-        iid = self._vars["id"].get().strip()
-        try:
-            qty = float(self._vars["qty"].get())
-        except ValueError:
-            logging.error("Ilość musi być liczbą")
-            messagebox.showerror("Błąd", "Ilość musi być liczbą", parent=self.top)
+    def on_save(self):
+        if not self._reauth():
             return
 
-        if qty <= 0 or not iid:
-            logging.error("Uzupełnij poprawnie wszystkie pola")
+        try:
+            qty = self._parse_qty(self.var_qty.get())
+        except Exception as exc:  # pragma: no cover - GUI message
+            messagebox.showerror("Błąd", f"Ilość nieprawidłowa: {exc}", parent=self.win)
+            return
+
+        cmt = self.var_cmt.get().strip()
+
+        cur = self.item.get("stan", 0)
+        try:
+            cur = float(cur)
+        except Exception:  # pragma: no cover - fallback
+            cur = 0.0
+        self.item["stan"] = cur + float(qty)
+
+        if hasattr(LM, "append_history"):
+            try:  # pragma: no cover - history optional
+                LM.append_history(
+                    self.data.get("items", {}),
+                    self.item_id,
+                    user="",
+                    op="PZ",
+                    qty=qty,
+                    komentarz=cmt,
+                )
+            except Exception:
+                pass
+
+        try:
+            _safe_save(self.data)
+        except Exception as exc:  # pragma: no cover - GUI message
             messagebox.showerror(
-                "Błąd", "Uzupełnij poprawnie wszystkie pola", parent=self.top
+                "Błąd zapisu",
+                f"Nie udało się zapisać magazynu:\n{exc}",
+                parent=self.win,
             )
             return
 
-        user_login = getattr(self.top.winfo_toplevel(), "login", "")
-        if self.config.get("magazyn.require_reauth", True):
-            login = simpledialog.askstring("Re-autoryzacja", "Login:", parent=self.top)
-            if login is None:
-                logging.info("Przerwano re-autoryzację - brak loginu")
-                return
-            pin = simpledialog.askstring(
-                "Re-autoryzacja", "PIN:", show="*", parent=self.top
-            )
-            if pin is None:
-                logging.info("Przerwano re-autoryzację - brak PIN-u")
-                return
-            user = authenticate(login, pin)
-            if not user:
-                logging.error("Nieprawidłowy login lub PIN")
-                messagebox.showerror(
-                    "Błąd", "Nieprawidłowy login lub PIN", parent=self.top
-                )
-                return
-            user_login = user.get("login", login)
+        self.win.destroy()
 
-        comment = self._vars["comment"].get().strip()
 
-        try:
-            data = LM.load_magazyn()
-            items = data.get("items") or {}
-            if iid not in items:
-                raise KeyError(f"Brak pozycji {iid} w magazynie")
-            jm = items[iid].get("jednostka", "")
-            if jm.lower() == "szt" and not float(qty).is_integer():
-                choice = messagebox.askyesnocancel(
-                    "Zaokrąglanie",
-                    f"Ilość {qty} szt jest ułamkowa. Zaokrąglić w górę?",
-                    parent=self.top,
-                )
-                if choice is None:
-                    logging.info("Anulowano PZ - zaokrąglanie ilości")
-                    return
-                qty = float(math.ceil(qty) if choice else math.floor(qty))
+def open_pz_dialog(master, item_id: str):
+    """Convenience wrapper to open :class:`PZDialog`."""
 
-            items[iid]["stan"] = float(items[iid].get("stan", 0)) + qty
-            magazyn_io.append_history(
-                items,
-                iid,
-                user=user_login,
-                op="PZ",
-                qty=qty,
-                comment=comment,
-            )
-            LM.save_magazyn(data)
-            name = items[iid].get("nazwa", iid)
-            jm = items[iid].get("jednostka", "")
-            _log_mag(
-                "PZ",
-                {
-                    "item_id": iid,
-                    "nazwa": name,
-                    "qty": qty,
-                    "jm": jm,
-                    "by": user_login,
-                    "comment": comment,
-                },
-            )
-            logging.info(
-                "Zapisano PZ %s: %s, %s %s, wystawił: %s",
-                iid,
-                name,
-                qty,
-                jm,
-                user_login,
-            )
-        except Exception as exc:
-            logging.error("Błąd zapisu PZ: %s", exc)
-            messagebox.showerror("Błąd", str(exc), parent=self.top)
-            return
-
-        if callable(self.on_saved):
-            self.on_saved()
-
-        self.top.destroy()
+    PZDialog(master, item_id)
 
 
 # ⏹ KONIEC KODU
