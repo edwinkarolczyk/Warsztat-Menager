@@ -1,20 +1,72 @@
 {
   "magazyn": {
-    "kategorie": [
-      "profil",
-      "rura",
-      "półprodukt"
-    ],
-    "typy_materialu": [
-      "stal",
-      "aluminium",
-      "miedź",
-      "teflon"
-    ],
-    "jednostki": [
-      "szt",
-      "mb"
-    ]
+    "type": "object",
+    "title": "Magazyn",
+    "properties": {
+      "require_reauth": {
+        "type": "boolean",
+        "title": "Wymagaj re-autoryzacji przy operacjach (PZ/WZ/edycja)",
+        "default": true
+      },
+      "categories": {
+        "type": "array",
+        "title": "Kategorie materiałów (widoczne w PZ i filtrach)",
+        "items": { "type": "string" },
+        "default": ["profil", "rura", "półprodukt"]
+      },
+      "types": {
+        "type": "array",
+        "title": "Typy materiału (np. stal, aluminium…) – edytowalne",
+        "items": { "type": "string" },
+        "default": ["stal", "aluminium", "miedź", "teflon"]
+      },
+      "units": {
+        "type": "array",
+        "title": "Jednostki miary",
+        "items": { "type": "string" },
+        "default": ["szt", "mb"]
+      },
+      "default_unit_by_category": {
+        "type": "object",
+        "title": "Domyślna jednostka per kategoria",
+        "properties": {
+          "profil": { "type": "string", "default": "mb" },
+          "rura": { "type": "string", "default": "mb" },
+          "półprodukt": { "type": "string", "default": "szt" }
+        },
+        "additionalProperties": { "type": "string" },
+        "default": { "profil": "mb", "rura": "mb", "półprodukt": "szt" }
+      },
+      "rounding": {
+        "type": "object",
+        "title": "Zasady zaokrągleń",
+        "properties": {
+          "enforce_integer_for_szt": { "type": "boolean", "default": true },
+          "mb_precision": { "type": "integer", "minimum": 0, "maximum": 6, "default": 3 }
+        },
+        "required": ["enforce_integer_for_szt", "mb_precision"]
+      },
+      "ui_new_table": {
+        "type": "boolean",
+        "title": "Używaj nowego widoku tabeli (ID/Typ/Rozmiar/Nazwa/Stan/Zadania)",
+        "default": true
+      },
+      "alerts": {
+        "type": "object",
+        "title": "Alerty magazynowe",
+        "properties": {
+          "low_stock_badge": { "type": "boolean", "default": true }
+        }
+      },
+      "reservations": {
+        "type": "object",
+        "title": "Rezerwacje materiału pod zlecenia",
+        "properties": {
+          "enabled": { "type": "boolean", "default": true }
+        }
+      }
+    },
+    "required": ["require_reauth", "categories", "types", "units", "default_unit_by_category", "rounding", "ui_new_table"]
   },
   "tabs": [
     {
