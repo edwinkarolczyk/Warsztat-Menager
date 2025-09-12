@@ -1,15 +1,21 @@
 # Plik: gui_magazyn.py
-# Wersja pliku: 1.5.0
-# Zmiany 1.5.0:
+# Wersja pliku: 1.6.0
+# Zmiany 1.6.0:
+# - Dodano filtry nad tabelą:
+#   * Combobox "Typ" (wartości dynamiczne z danych)
+#   * Pole "Szukaj" (filtrowanie po Nazwa/Rozmiar, case-insensitive, substring)
+# - Brak zmian w IO/strukturze danych; widok 6 kolumn zostaje:
+#   ID | Typ | Rozmiar | Nazwa | Stan | Tech. zadania
+#
+# Zmiany 1.5.x:
 # - Tryb osadzony (embed): open_panel_magazyn renderuje widok w panelu (bez Toplevel).
 # - open_window pozostaje (Toplevel) dla zgodności.
-# - Widok 6 kolumn: ID | Typ | Rozmiar | Nazwa | Stan | Tech. zadania.
 #
-# Zasada: zmieniamy tylko to, co potrzebne – brak zmian w IO/strukturze danych.
+# Zasada: minimalne modyfikacje, bez naruszania istniejących API.
 
+import re
 import tkinter as tk
 from tkinter import ttk
-from gui_magazyn_edit import open_edit_dialog
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -17,12 +23,12 @@ from ui_theme import apply_theme_safe as apply_theme
 try:
     import magazyn_io
     HAVE_MAG_IO = True
-except Exception:  # pragma: no cover - fallback
+except Exception:
     magazyn_io = None
     HAVE_MAG_IO = False
 
 import logika_magazyn as LM
-
+from gui_magazyn_edit import open_edit_dialog
 
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
@@ -34,9 +40,11 @@ def _load_data():
             data = magazyn_io.load()
         else:
             data = LM.load_magazyn()
-    except Exception:  # pragma: no cover - safe fallback
+    except Exception:
         data = {}
-    return data.get("items", {}), (data.get("meta", {}) or {}).get("order", [])
+    items = data.get("items", {})
+    order = (data.get("meta", {}) or {}).get("order", [])
+    return items, order
 
 
 def _format_row(item_id: str, item: dict):
@@ -71,22 +79,38 @@ class MagazynFrame(ttk.Frame):
     def __init__(self, master, config=None):
         super().__init__(master, padding=(8, 8, 8, 8), style="WM.TFrame")
         self.config_obj = config or {}
+
+        # stan filtrów
+        self._filter_typ = tk.StringVar(value="(wszystkie)")
+        self._filter_query = tk.StringVar(value="")
+
         self._build_ui()
         self.refresh()
 
     # UI ----------------------------------------------------
     def _build_ui(self):
-        # Pasek narzędzi (odśwież)
+        # Pasek narzędzi (filtry + odśwież)
         toolbar = ttk.Frame(self, style="WM.TFrame")
         toolbar.pack(fill="x", pady=(0, 6))
-        ttk.Button(toolbar, text="Odśwież", command=self.refresh, style="WM.Side.TButton").pack(
-            side="right"
-        )
+
+        # Typ (dynamicznie, wartości ustawimy przy refresh)
+        ttk.Label(toolbar, text="Typ:", style="WM.TLabel").pack(side="left", padx=(0, 6))
+        self.cbo_typ = ttk.Combobox(toolbar, textvariable=self._filter_typ, state="readonly", width=22)
+        self.cbo_typ.pack(side="left", padx=(0, 10))
+        self.cbo_typ.bind("<<ComboboxSelected>>", lambda _e: self._apply_filters())
+
+        # Szukaj
+        ttk.Label(toolbar, text="Szukaj (Nazwa/Rozmiar):", style="WM.TLabel").pack(side="left", padx=(0, 6))
+        self.ent_q = ttk.Entry(toolbar, textvariable=self._filter_query, width=28)
+        self.ent_q.pack(side="left", padx=(0, 6))
+        self.ent_q.bind("<KeyRelease>", lambda _e: self._apply_filters())
+
+        # Przyciski
+        ttk.Button(toolbar, text="Wyczyść", command=self._clear_filters, style="WM.Side.TButton").pack(side="right")
+        ttk.Button(toolbar, text="Odśwież", command=self.refresh, style="WM.Side.TButton").pack(side="right", padx=(0, 6))
 
         # Tabela
-        self.tree = ttk.Treeview(
-            self, columns=COLUMNS, show="headings", selectmode="browse", height=22
-        )
+        self.tree = ttk.Treeview(self, columns=COLUMNS, show="headings", selectmode="browse", height=22)
         self.tree.pack(fill="both", expand=True)
 
         # Nagłówki
@@ -100,7 +124,7 @@ class MagazynFrame(ttk.Frame):
         # Szerokości startowe
         self.tree.column("id", width=110, anchor="w")
         self.tree.column("typ", width=140, anchor="w")
-        self.tree.column("rozmiar", width=140, anchor="w")
+        self.tree.column("rozmiar", width=160, anchor="w")
         self.tree.column("nazwa", width=380, anchor="w")
         self.tree.column("stan", width=120, anchor="center")
         self.tree.column("zadania", width=280, anchor="w")
@@ -110,20 +134,81 @@ class MagazynFrame(ttk.Frame):
         self.tree.configure(yscrollcommand=vsb.set)
         vsb.pack(side="right", fill="y")
 
-        # Podwójny klik – podgląd
+        # Double-click → edycja
         self.tree.bind("<Double-1>", self._on_double_click)
 
     # Logika ------------------------------------------------
+    def _clear_filters(self):
+        self._filter_typ.set("(wszystkie)")
+        self._filter_query.set("")
+        self._apply_filters()
+
     def refresh(self):
+        # wczytaj dane
         items, order = _load_data()
-        for iid in self.tree.get_children():
-            self.tree.delete(iid)
+
+        # cache do filtrowania
+        self._all_rows = []  # lista krotek (id, dict_item)
         seen = set(order or [])
         sorted_ids = list(order or []) + sorted([k for k in items.keys() if k not in seen])
+
         for item_id in sorted_ids:
             item = items.get(item_id)
-            if not isinstance(item, dict):
+            if isinstance(item, dict):
+                self._all_rows.append((item_id, item))
+
+        # wartości do combobox Typ
+        typy = ["(wszystkie)"]
+        bucket = set()
+        for _id, it in self._all_rows:
+            t = str(it.get("typ", "")).strip()
+            if t:
+                bucket.add(t)
+        typy.extend(sorted(bucket, key=lambda s: s.lower()))
+        # zachowaj wybór jeśli istnieje
+        cur = self._filter_typ.get()
+        self.cbo_typ["values"] = typy
+        if cur not in typy:
+            self._filter_typ.set("(wszystkie)")
+
+        # wypełnij widok z filtrami
+        self._apply_filters()
+
+    def _apply_filters(self):
+        # wyczyść widok
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+
+        q = self._filter_query.get().strip().lower()
+        t = self._filter_typ.get()
+
+        # przygotuj regex „q” bezpiecznie (opcjonalne)
+        rx = None
+        if q:
+            try:
+                rx = re.compile(re.escape(q))
+            except Exception:
+                rx = None
+
+        for item_id, item in getattr(self, "_all_rows", []):
+            # filtr po typie
+            typ_val = str(item.get("typ", "")).strip()
+            if t != "(wszystkie)" and typ_val.lower() != t.lower():
                 continue
+
+            # filtr po szukajce (Nazwa/Rozmiar)
+            nazwa = str(item.get("nazwa", "")).lower()
+            rozmiar = str(item.get("rozmiar", "")).lower()
+            hay = f"{nazwa} {rozmiar}"
+            if q:
+                if rx:
+                    if rx.search(hay) is None:
+                        continue
+                else:
+                    if q not in hay:
+                        continue
+
+            # dodaj wiersz
             self.tree.insert("", "end", values=_format_row(item_id, item))
 
     def _on_double_click(self, _e):
@@ -138,7 +223,6 @@ class MagazynFrame(ttk.Frame):
 # Tryb Toplevel (dla zgodności) -----------------------------
 class MagazynWindow:
     """Stary tryb: okno Toplevel otwierane niezależnie."""
-
     def __init__(self, master, config=None):
         self.master = master
         self.config = config or {}
@@ -196,17 +280,11 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
         cfg = maybe if isinstance(maybe, dict) else {}
 
     # Kontener docelowy
-    container_arg = kwargs.get("container")
-    if container_arg is None and isinstance(root, (tk.Widget, ttk.Frame)):
-        container_arg = root
-    container = _resolve_container(parent, notebook=notebook, container=container_arg)
+    container = _resolve_container(parent, notebook=notebook, container=kwargs.get("container"))
 
-    # Jeżeli panel ma notebook i chcemy zakładkę, można użyć:
-    # - jeżeli container ma metodę 'add', potraktuj jako ttk.Notebook
+    # Notebook jako zakładka
     try:
         if hasattr(container, "add") and hasattr(container, "tabs"):
-            # zakładka w notebooku
-            # usuń starą zakładkę, jeśli istnieje
             old = getattr(parent, "_magazyn_embed", None)
             if isinstance(old, tk.Widget) and old.winfo_exists():
                 try:
@@ -221,7 +299,7 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
             container.select(frame)
             parent._magazyn_embed = frame
             return frame
-    except Exception:  # pragma: no cover - notebook failures
+    except Exception:
         pass
 
     # Standard: osadź jako Frame w kontenerze (zastępując poprzedni)
@@ -233,11 +311,8 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
             pass
 
     frame = MagazynFrame(container, config=cfg)
-    if hasattr(frame, "pack"):
-        frame.pack(fill="both", expand=True)
+    frame.pack(fill="both", expand=True)
     parent._magazyn_embed = frame
     return frame
-
-
 # ⏹ KONIEC KODU
 
