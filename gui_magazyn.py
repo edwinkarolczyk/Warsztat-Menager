@@ -1145,3 +1145,14 @@ class MagazynView:
 def open_window(parent, config=None, *args, **kwargs):
     MagazynView(parent, config or {})
 
+
+def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwargs):
+    """
+    Adapter zgodności dla starego panelu:
+    - Panel wywołuje gui_magazyn.open_panel_magazyn(...)
+    - Przekierowujemy to do open_window(parent, config)
+    - Config bierzemy z parent.config jeśli jest; w przeciwnym razie pusty dict.
+    """
+    cfg = getattr(parent, "config", None) or kwargs.get("config") or {}
+    return open_window(parent, cfg)
+
