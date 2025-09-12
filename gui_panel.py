@@ -148,6 +148,11 @@ except Exception:
 from gui_magazyn import open_panel_magazyn
 
 
+def panel_magazyn(root, frame, login=None, rola=None):
+    """Adapter do ``open_panel_magazyn`` osadzający widok w kontenerze."""
+    open_panel_magazyn(root, container=frame)
+
+
 # ---------- Zmiany / czas pracy ----------
 
 def _shift_bounds(dt: datetime):
@@ -678,14 +683,14 @@ def uruchom_panel(root, login, rola):
                 btn = ttk.Button(
                     side,
                     text=label,
-                    command=lambda f=open_panel_magazyn, l=label: otworz_panel(f, l),
+                    command=lambda f=panel_magazyn, l=label: otworz_panel(f, l),
                     style="WM.Side.TButton",
                 )
                 btn.last_modified = datetime(2025, 5, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 _maybe_mark_button(btn)
                 if start_panel is None:
-                    start_panel = open_panel_magazyn
+                    start_panel = panel_magazyn
                     start_name = f"{label} (start)"
             elif key == "hale":
                 btn = ttk.Button(
