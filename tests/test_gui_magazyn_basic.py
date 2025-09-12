@@ -17,14 +17,25 @@ def test_format_row_handles_optional_fields():
 
 def test_open_panel_magazyn_passes_parent_config(monkeypatch):
     called = {}
+    fake_container = object()
 
-    def fake_open_window(parent, config, *args, **kwargs):
-        called["args"] = (parent, config)
+    class DummyFrame:
+        def __init__(self, master, config=None):
+            called["args"] = (master, config)
+            called["frame"] = self
 
-    monkeypatch.setattr(gm, "open_window", fake_open_window)
+        def pack(self, *a, **kw):
+            called["packed"] = True
+
+    monkeypatch.setattr(gm, "MagazynFrame", DummyFrame)
+    monkeypatch.setattr(
+        gm, "_resolve_container", lambda parent, notebook=None, container=None: fake_container
+    )
+
     parent = types.SimpleNamespace(config={"x": 1})
-    gm.open_panel_magazyn(parent)
-    assert called["args"] == (parent, {"x": 1})
+    frame = gm.open_panel_magazyn(parent)
+    assert called["args"] == (fake_container, {"x": 1})
+    assert frame is called["frame"]
 
 
 def test_load_data_prefers_io(monkeypatch):
