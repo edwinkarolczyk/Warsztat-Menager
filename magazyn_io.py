@@ -8,17 +8,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 import logging
 
-try:
-    import logger
-
-    _log_mag = getattr(
-        logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
-    )
-except Exception:  # pragma: no cover - logger optional
-    def _log_mag(akcja, dane):
-        logging.info(f"[MAGAZYN] {akcja}: {dane}")
-
 import logger
+
+_log_mag = getattr(
+    logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
+)
 
 ALLOWED_OPS = {
     "CREATE",
