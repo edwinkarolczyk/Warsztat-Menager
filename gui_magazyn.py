@@ -29,6 +29,10 @@ except Exception:
 
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
+from gui_magazyn_rezerwacje import (
+    open_rezerwuj_dialog,
+    open_zwolnij_rezerwacje_dialog,
+)
 
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
@@ -106,8 +110,30 @@ class MagazynFrame(ttk.Frame):
         self.ent_q.bind("<KeyRelease>", lambda _e: self._apply_filters())
 
         # Przyciski
-        ttk.Button(toolbar, text="Wyczyść", command=self._clear_filters, style="WM.Side.TButton").pack(side="right")
-        ttk.Button(toolbar, text="Odśwież", command=self.refresh, style="WM.Side.TButton").pack(side="right", padx=(0, 6))
+        ttk.Button(
+            toolbar,
+            text="Rezerwuj",
+            command=self._rez_do_polproduktu,
+            style="WM.Side.TButton",
+        ).pack(side="right", padx=(0, 6))
+        ttk.Button(
+            toolbar,
+            text="Zwolnij rez.",
+            command=self._rez_release,
+            style="WM.Side.TButton",
+        ).pack(side="right", padx=(0, 6))
+        ttk.Button(
+            toolbar,
+            text="Wyczyść",
+            command=self._clear_filters,
+            style="WM.Side.TButton",
+        ).pack(side="right")
+        ttk.Button(
+            toolbar,
+            text="Odśwież",
+            command=self.refresh,
+            style="WM.Side.TButton",
+        ).pack(side="right", padx=(0, 6))
 
         # Tabela
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="headings", selectmode="browse", height=22)
@@ -218,6 +244,26 @@ class MagazynFrame(ttk.Frame):
         values = self.tree.item(sel[0], "values")
         item_id = values[0]
         open_edit_dialog(self, item_id, on_saved=lambda _id=item_id: self.refresh())
+
+    def _selected_item_id(self):
+        sel = self.tree.selection()
+        if not sel:
+            return None
+        return self.tree.item(sel[0], "values")[0]
+
+    def _rez_do_polproduktu(self):
+        item_id = self._selected_item_id()
+        if not item_id:
+            return
+        open_rezerwuj_dialog(self, item_id)
+        self.refresh()
+
+    def _rez_release(self):
+        item_id = self._selected_item_id()
+        if not item_id:
+            return
+        open_zwolnij_rezerwacje_dialog(self, item_id)
+        self.refresh()
 
 
 # Tryb Toplevel (dla zgodności) -----------------------------
