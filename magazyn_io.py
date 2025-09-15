@@ -10,7 +10,7 @@ import logging
 
 import logger
 
-_log_mag = getattr(
+log_magazyn = getattr(
     logger, "log_magazyn", lambda a, d: logging.info(f"[MAGAZYN] {a}: {d}")
 )
 
@@ -149,14 +149,17 @@ def append_history(
 
     name = items.get(item_id, {}).get("nazwa", item_id)
     jm = items.get(item_id, {}).get("jednostka", "")
-    _log_mag(op, {
-        "item_id": item_id,
-        "nazwa": name,
-        "qty": qty,
-        "jm": jm,
-        "by": user,
-        "comment": comment,
-    })
+    log_magazyn(
+        op,
+        {
+            "item_id": item_id,
+            "nazwa": name,
+            "qty": qty,
+            "jm": jm,
+            "by": user,
+            "comment": comment,
+        },
+    )
     logging.info(
         "Zapisano %s %s: %s, %s %s, wystawił: %s",
         op,
@@ -186,7 +189,7 @@ def generate_pz_id(now: datetime | None = None) -> str:
     with open(SEQ_PZ_PATH, "w", encoding="utf-8") as f:
         json.dump(seq_data, f, ensure_ascii=False, indent=2)
     pz_id = f"PZ/{year}/{seq_data[year]:04d}"
-    logger.log_magazyn("nadano_id_pz", {"id": pz_id})
+    log_magazyn("nadano_id_pz", {"id": pz_id})
     return pz_id
 
 
@@ -206,7 +209,7 @@ def save_pz(entry: Dict[str, Any]) -> str:
     with open(PRZYJECIA_PATH, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
     logging.info("[INFO] Zapisano PZ %s", data["id"])
-    logger.log_magazyn(
+    log_magazyn(
         "zapis_przyjecia",
         {"pz_id": data["id"], "item_id": data.get("item_id"), "ilosc": data.get("qty")},
     )
@@ -237,7 +240,7 @@ def update_stany_after_pz(entry: Dict[str, Any]) -> None:
     with open(STANY_PATH, "w", encoding="utf-8") as f:
         json.dump(stany, f, ensure_ascii=False, indent=2)
     logging.info("[INFO] Zaktualizowano stan %s: %s", item_id, rec["stan"])
-    logger.log_magazyn(
+    log_magazyn(
         "aktualizacja_stanow",
         {"item_id": item_id, "dodano": qty, "stan": rec["stan"]},
     )
@@ -260,12 +263,12 @@ def ensure_in_katalog(entry: Dict[str, Any]) -> Dict[str, str] | None:
         }
         with open(KATALOG_PATH, "w", encoding="utf-8") as f:
             json.dump(katalog, f, ensure_ascii=False, indent=2)
-        logger.log_magazyn("katalog_dodano", {"item_id": item_id})
+        log_magazyn("katalog_dodano", {"item_id": item_id})
         return None
     jm_kat = katalog[item_id].get("jednostka")
     jm_pz = entry.get("jednostka")
     if jm_kat and jm_pz and jm_kat != jm_pz:
         return {"warning": f"Jednostka różni się: katalog={jm_kat}, PZ={jm_pz}"}
-    logger.log_magazyn("katalog_istnial", {"item_id": item_id})
+    log_magazyn("katalog_istnial", {"item_id": item_id})
     return None
 
