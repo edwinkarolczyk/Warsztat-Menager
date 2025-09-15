@@ -15,7 +15,7 @@
 
 import re
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -33,6 +33,7 @@ from gui_magazyn_rezerwacje import (
     open_rezerwuj_dialog,
     open_zwolnij_rezerwacje_dialog,
 )
+from gui_magazyn_order import MagazynOrderDialog
 
 try:
     from gui_orders import open_orders_window
@@ -130,6 +131,12 @@ class MagazynFrame(ttk.Frame):
                 pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
 
+        ttk.Button(
+            toolbar,
+            text="Do zamówień",
+            command=self._order_if_low,
+        ).pack(side="left", padx=(6, 0))
+
         # Przyciski
         ttk.Button(
             toolbar,
@@ -183,6 +190,9 @@ class MagazynFrame(ttk.Frame):
 
         # Double-click → edycja
         self.tree.bind("<Double-1>", self._on_double_click)
+        menu = tk.Menu(self.tree, tearoff=0)
+        menu.add_command(label="Do zamówień", command=self._order_if_low)
+        self.tree.bind("<Button-3>", lambda e: self._on_right_click(e, menu))
 
     # Logika ------------------------------------------------
     def _clear_filters(self):
@@ -285,6 +295,32 @@ class MagazynFrame(ttk.Frame):
             return
         open_zwolnij_rezerwacje_dialog(self, item_id)
         self.refresh()
+
+    def _order_if_low(self):
+        item_id = self._selected_item_id()
+        if not item_id:
+            return
+        item = next((it for iid, it in getattr(self, "_all_rows", []) if iid == item_id), None)
+        if not isinstance(item, dict):
+            return
+        try:
+            stan = float(item.get("stan", 0))
+            min_poziom = float(item.get("min_poziom", 0))
+        except Exception:
+            return
+        if stan <= min_poziom:
+            MagazynOrderDialog(self, config=self.config_obj, preselect_id=item_id)
+        else:
+            messagebox.showinfo("Magazyn", "Stan powyżej minimum.")
+
+    def _on_right_click(self, event, menu):
+        iid = self.tree.identify_row(event.y)
+        if iid:
+            self.tree.selection_set(iid)
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
 
 
 # Tryb Toplevel (dla zgodności) -----------------------------

@@ -352,9 +352,7 @@ class SettingsPanel:
                 )
 
         base_dir = Path(__file__).resolve().parent
-        tab_magazyn = MagazynSettingsPane(
-            self.nb, config_manager=getattr(self, "config_manager", None)
-        )
+        tab_magazyn = MagazynSettingsPane(self.nb, config_manager=self.cfg)
         self.nb.add(tab_magazyn, text="Magazyn")
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")

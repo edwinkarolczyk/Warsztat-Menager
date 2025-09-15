@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict
 import logging
@@ -29,7 +30,7 @@ ALLOWED_OPS = {
     "UNRESERVE",
 }
 
-MAGAZYN_PATH = "data/magazyn/magazyn.json"
+MAGAZYN_PATH = Path("data/magazyn/magazyn.json")
 PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
 STANY_PATH = "data/magazyn/stany.json"
 KATALOG_PATH = "data/magazyn/katalog.json"
@@ -37,11 +38,11 @@ SEQ_PZ_PATH = "data/magazyn/_seq_pz.json"
 HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
 
 
-def _ensure_dirs(path: str) -> None:
+def _ensure_dirs(path: str | os.PathLike[str]) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
 
-def _load_json(path: str, default):
+def _load_json(path: str | os.PathLike[str], default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -54,7 +55,7 @@ def _load_json(path: str, default):
         return default
 
 
-def load(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
+def load(path: str | os.PathLike[str] = MAGAZYN_PATH) -> Dict[str, Any]:
     """Load warehouse data from ``path``.
 
     Returns a structure with ``items`` and ``meta`` keys. When the file is
@@ -81,6 +82,20 @@ def load(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
     items = data.get("items") if isinstance(data.get("items"), dict) else {}
     meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
     return {"items": items, "meta": meta}
+
+
+def save(data: dict) -> None:
+    """Zapisuje pełną strukturę magazynu.
+
+    Plik jest tworzony z nową linią na końcu, a struktura wejściowa jest
+    weryfikowana, aby upewnić się, że ma postać słownika.
+    """
+
+    if not isinstance(data, dict):
+        raise ValueError("magazyn_io.save: oczekiwano dict")
+    MAGAZYN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    txt = json.dumps(data, ensure_ascii=False, indent=2)
+    MAGAZYN_PATH.write_text(txt + "\n", encoding="utf-8")
 
 
 def append_history(
