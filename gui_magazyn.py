@@ -17,15 +17,15 @@ import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from ui_theme import apply_theme_safe as apply_theme
-
-# I/O bezpiecznie
 try:
-    import magazyn_io
-    HAVE_MAG_IO = True
+    from gui_magazyn_order import MagazynOrderDialog
 except Exception:
-    magazyn_io = None
-    HAVE_MAG_IO = False
+    MagazynOrderDialog = None
+import magazyn_io
+import json
+HAVE_MAG_IO = True
+
+from ui_theme import apply_theme_safe as apply_theme
 
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
@@ -33,7 +33,6 @@ from gui_magazyn_rezerwacje import (
     open_rezerwuj_dialog,
     open_zwolnij_rezerwacje_dialog,
 )
-from gui_magazyn_order import MagazynOrderDialog
 
 try:
     from gui_orders import open_orders_window
@@ -46,6 +45,29 @@ except Exception as _e:
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
 
+ROLE_PERMS = {
+    "view": "brygadzista",
+    "add": "magazynier",
+    "edit": "magazynier",
+    "pz": "magazynier",
+    "reserve": "brygadzista",
+    "unreserve": "brygadzista",
+    "to_orders": "brygadzista",
+}
+
+
+def _role_rank(role: str) -> int:
+    order = ["", "brygadzista", "magazynier"]
+    role = (role or "").lower()
+    return order.index(role) if role in order else 0
+
+
+def _can(self, action: str) -> bool:
+    required = ROLE_PERMS.get(action, "brygadzista")
+    user_role = getattr(self, "user_role", "") or getattr(self, "role", "")
+    return _role_rank(user_role) >= _role_rank(required)
+
+
 def _load_data():
     """Czyta magazyn; preferuj magazyn_io.load(), fallback do LM.load_magazyn()."""
     try:
@@ -54,7 +76,10 @@ def _load_data():
         else:
             data = LM.load_magazyn()
     except Exception:
-        data = {}
+        try:
+            data = LM.load_magazyn()
+        except Exception:
+            data = {}
     items = data.get("items", {})
     order = (data.get("meta", {}) or {}).get("order", [])
     return items, order
@@ -122,12 +147,82 @@ def _open_orders_for_shortages(self):
         )
 
 
+def _tag_low_stock(self, node, item_dict):
+    try:
+        stan = float(item_dict.get("stan", 0) or 0)
+        minp = float(item_dict.get("min_poziom", 0) or 0)
+        if minp > 0 and stan <= minp:
+            if "low" not in self.tree.tag_names():
+                self.tree.tag_configure("low", foreground="#C62828")
+            self.tree.item(node, tags=("low",))
+    except Exception:
+        pass
+
+
+def _get_selected_item(self):
+    sel = self.tree.selection()
+    if not sel:
+        return None, None
+    node = sel[0]
+    item_id = (
+        self.tree.set(node, "id")
+        if "id" in self.tree["columns"]
+        else self.tree.item(node, "text")
+    )
+    data = getattr(self, "_items_map", None) or {}
+    return item_id, data.get(item_id)
+
+
+def _quick_add_to_orders(self):
+    if not _can(self, "to_orders"):
+        messagebox.showwarning(
+            "Uprawnienia", "Brak uprawnień do dodawania do zamówień."
+        )
+        return
+    item_id, it = _get_selected_item(self)
+    if not item_id or not isinstance(it, dict):
+        messagebox.showinfo("Magazyn", "Wybierz pozycję z listy.")
+        return
+    stan = float(it.get("stan", 0) or 0)
+    minp = float(it.get("min_poziom", 0) or 0)
+    low = minp > 0 and stan <= minp
+    try:
+        if MagazynOrderDialog:
+            MagazynOrderDialog(self, preselected_id=item_id, low_stock_hint=low)
+        else:
+            path = "data/zamowienia_oczekujace.json"
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    arr = json.load(f)
+                if not isinstance(arr, list):
+                    arr = []
+            except Exception:
+                arr = []
+            qty = max(1.0, (minp - stan) + 1) if low else 1.0
+            arr.append({"id": item_id, "qty": qty})
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(json.dumps(arr, ensure_ascii=False, indent=2) + "\n")
+            messagebox.showinfo(
+                "Zamówienia",
+                f"Dodano {item_id} do oczekujących zamówień (qty={qty}).",
+            )
+    except Exception as e:
+        messagebox.showerror(
+            "Zamówienia", f"Nie udało się dodać do zamówień: {e}"
+        )
+
+
 class MagazynFrame(ttk.Frame):
     """Widok Magazynu osadzony w kontenerze (bez Toplevel)."""
 
     def __init__(self, master, config=None):
         super().__init__(master, padding=(8, 8, 8, 8), style="WM.TFrame")
         self.config_obj = config or {}
+        self.user_role = (
+            getattr(self.master.winfo_toplevel(), "role", "")
+            or getattr(self.master, "role", "")
+        )
+        self._quick_add_to_orders = _quick_add_to_orders.__get__(self, self.__class__)
 
         # stan filtrów
         self._filter_typ = tk.StringVar(value="(wszystkie)")
@@ -177,8 +272,8 @@ class MagazynFrame(ttk.Frame):
         ttk.Button(
             toolbar,
             text="Do zamówień",
-            command=self._order_if_low,
-        ).pack(side="left", padx=(6, 0))
+            command=self._quick_add_to_orders,
+        ).pack(side="left", padx=4)
 
         # Przyciski
         ttk.Button(
@@ -234,7 +329,7 @@ class MagazynFrame(ttk.Frame):
         # Double-click → edycja
         self.tree.bind("<Double-1>", self._on_double_click)
         menu = tk.Menu(self.tree, tearoff=0)
-        menu.add_command(label="Do zamówień", command=self._order_if_low)
+        menu.add_command(label="Do zamówień", command=self._quick_add_to_orders)
         self.tree.bind("<Button-3>", lambda e: self._on_right_click(e, menu))
 
     # Logika ------------------------------------------------
@@ -249,6 +344,7 @@ class MagazynFrame(ttk.Frame):
 
         # cache do filtrowania
         self._all_rows = []  # lista krotek (id, dict_item)
+        self._items_map = {}
         seen = set(order or [])
         sorted_ids = list(order or []) + sorted([k for k in items.keys() if k not in seen])
 
@@ -256,6 +352,7 @@ class MagazynFrame(ttk.Frame):
             item = items.get(item_id)
             if isinstance(item, dict):
                 self._all_rows.append((item_id, item))
+                self._items_map[item_id] = item
 
         # wartości do combobox Typ
         typy = ["(wszystkie)"]
@@ -309,11 +406,17 @@ class MagazynFrame(ttk.Frame):
                         continue
 
             # dodaj wiersz
-            self.tree.insert("", "end", values=_format_row(item_id, item))
+            node = self.tree.insert("", "end", values=_format_row(item_id, item))
+            _tag_low_stock(self, node, item)
 
     def _on_double_click(self, _e):
         sel = self.tree.selection()
         if not sel:
+            return
+        if not _can(self, "edit"):
+            messagebox.showwarning(
+                "Uprawnienia", "Tylko magazynier może edytować pozycje."
+            )
             return
         values = self.tree.item(sel[0], "values")
         item_id = values[0]
@@ -326,6 +429,11 @@ class MagazynFrame(ttk.Frame):
         return self.tree.item(sel[0], "values")[0]
 
     def _rez_do_polproduktu(self):
+        if not _can(self, "reserve"):
+            messagebox.showwarning(
+                "Uprawnienia", "Brak uprawnień do rezerwacji."
+            )
+            return
         item_id = self._selected_item_id()
         if not item_id:
             return
@@ -333,28 +441,16 @@ class MagazynFrame(ttk.Frame):
         self.refresh()
 
     def _rez_release(self):
+        if not _can(self, "unreserve"):
+            messagebox.showwarning(
+                "Uprawnienia", "Brak uprawnień do zwolnienia rezerwacji."
+            )
+            return
         item_id = self._selected_item_id()
         if not item_id:
             return
         open_zwolnij_rezerwacje_dialog(self, item_id)
         self.refresh()
-
-    def _order_if_low(self):
-        item_id = self._selected_item_id()
-        if not item_id:
-            return
-        item = next((it for iid, it in getattr(self, "_all_rows", []) if iid == item_id), None)
-        if not isinstance(item, dict):
-            return
-        try:
-            stan = float(item.get("stan", 0))
-            min_poziom = float(item.get("min_poziom", 0))
-        except Exception:
-            return
-        if stan <= min_poziom:
-            MagazynOrderDialog(self, config=self.config_obj, preselect_id=item_id)
-        else:
-            messagebox.showinfo("Magazyn", "Stan powyżej minimum.")
 
     def _on_right_click(self, event, menu):
         iid = self.tree.identify_row(event.y)

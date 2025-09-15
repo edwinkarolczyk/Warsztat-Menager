@@ -16,7 +16,10 @@ from tkinter import ttk, messagebox
 import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
-from ustawienia_magazyn import MagazynSettingsPane
+try:
+    from ustawienia_magazyn import MagazynSettingsPane
+except Exception:
+    MagazynSettingsPane = None
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
@@ -26,6 +29,19 @@ from logger import log_akcja
 
 
 MAG_DICT_PATH = "data/magazyn/slowniki.json"
+
+
+def _wm_try_add_magazyn_tab(self):
+    if MagazynSettingsPane is None:
+        return
+    nb = getattr(self, "nb", None) or getattr(self, "notebook", None)
+    if nb is None:
+        return
+    try:
+        pane = MagazynSettingsPane(nb, config=self.cfg)
+        nb.add(pane, text="Magazyn")
+    except Exception:
+        pass
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -352,8 +368,7 @@ class SettingsPanel:
                 )
 
         base_dir = Path(__file__).resolve().parent
-        tab_magazyn = MagazynSettingsPane(self.nb, config_manager=self.cfg)
-        self.nb.add(tab_magazyn, text="Magazyn")
+        _wm_try_add_magazyn_tab(self)
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
