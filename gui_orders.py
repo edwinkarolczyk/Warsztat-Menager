@@ -91,9 +91,8 @@ class OrdersWindow(tk.Toplevel):
         lbl_info.pack(anchor="w")
 
     def _generate_id(self) -> str:
-        today = dt.datetime.now().strftime("%Y%m%d")
-        seq = int(dt.datetime.now().strftime("%H%M%S"))
-        return f"ORD-{today}-{seq:06d}"
+        now = dt.datetime.now()
+        return now.strftime("ORD-%Y%m%d-%H%M%S")
 
     def _save_draft(self):
         _ensure_orders_dir()
