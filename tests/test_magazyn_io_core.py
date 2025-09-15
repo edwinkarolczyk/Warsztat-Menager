@@ -28,7 +28,9 @@ def test_generate_pz_id_resets_each_year(tmp_path, monkeypatch):
 def test_ensure_in_katalog_unit_conflict(tmp_path, monkeypatch):
     katalog_path = tmp_path / "katalog.json"
     monkeypatch.setattr(magazyn_io, "KATALOG_PATH", str(katalog_path))
-    magazyn_io.ensure_in_katalog({"item_id": "A", "nazwa": "A", "jednostka": "szt"})
+    magazyn_io.ensure_in_katalog(
+        {"item_id": "A", "nazwa": "A", "jednostka": "szt"}
+    )
     warning = magazyn_io.ensure_in_katalog({"item_id": "A", "jednostka": "kg"})
     assert warning == {"warning": "Jednostka różni się: katalog=szt, PZ=kg"}
 
@@ -45,3 +47,12 @@ def test_logging_messages(tmp_path, monkeypatch, caplog):
     magazyn_io.update_stany_after_pz({"item_id": "X", "qty": 1, "nazwa": "X"})
     assert f"[INFO] Zapisano PZ {pz_id}" in caplog.text
     assert "[INFO] Zaktualizowano stan X: 1.0" in caplog.text
+
+
+def test_load_bad_json(tmp_path, caplog):
+    bad_file = tmp_path / "magazyn.json"
+    bad_file.write_text("{bad json", encoding="utf-8")
+    caplog.set_level(logging.ERROR)
+    data = magazyn_io.load(str(bad_file))
+    assert data == {"items": {}, "meta": {}}
+    assert "Niepoprawny format JSON" in caplog.text

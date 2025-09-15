@@ -54,6 +54,35 @@ def _load_json(path: str, default):
         return default
 
 
+def load(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
+    """Load warehouse data from ``path``.
+
+    Returns a structure with ``items`` and ``meta`` keys. When the file is
+    missing or contains invalid JSON the default ``{"items": {},
+    "meta": {}}`` structure is returned.  A JSON decoding problem is logged to
+    aid debugging.
+    """
+
+    default = {"items": {}, "meta": {}}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        return default
+    except json.JSONDecodeError as exc:
+        logging.error("Niepoprawny format JSON w %s: %s", path, exc)
+        return default
+    except Exception as exc:  # unexpected issues
+        logging.error("Błąd podczas odczytu %s: %s", path, exc)
+        return default
+
+    if not isinstance(data, dict):
+        return default
+    items = data.get("items") if isinstance(data.get("items"), dict) else {}
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    return {"items": items, "meta": meta}
+
+
 def append_history(
     items: Dict[str, Any],
     item_id: str,
