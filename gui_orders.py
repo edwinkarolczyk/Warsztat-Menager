@@ -1,7 +1,10 @@
 # gui_orders.py
-# Wersja pliku: 1.0.0
+# Wersja pliku: 1.1.0
 # Zmiany:
-# - [1.0.0] Pierwsza wersja: szkielet okna Zamówienia (Toplevel) + zapis draftu do JSON
+# - [1.1.0] Dodano obsługę konfiguracji modułu Zamówień (flaga włączenia i
+#           katalog) oraz zabezpieczenie w ``open_orders_window``.
+# - [1.0.0] Pierwsza wersja: szkielet okna Zamówienia (Toplevel) +
+#           zapis draftu do JSON
 # - Minimalna implementacja, bez integracji z Magazynem/Zleceniami/Narzędziami
 #
 # Uwagi:
