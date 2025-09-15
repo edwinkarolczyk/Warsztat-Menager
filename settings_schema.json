@@ -25,6 +25,60 @@
             "default": true
           }
         }
+      },
+      "round_quantities": { "type": "boolean", "default": true },
+      "default_unit": {
+        "type": "string",
+        "default": "szt",
+        "enum": ["szt", "mb"]
+      },
+      "dim_in_mm": { "type": "boolean", "default": true },
+      "len_in_mb": { "type": "boolean", "default": true },
+      "pz": {
+        "type": "object",
+        "properties": {
+          "prefix": { "type": "string", "default": "PZ" },
+          "width": {
+            "type": "integer",
+            "default": 5,
+            "minimum": 1,
+            "maximum": 10
+          },
+          "reset_daily": { "type": "boolean", "default": false },
+          "seq_file": {
+            "type": "string",
+            "default": "data/magazyn/_seq_pz.json"
+          }
+        }
+      },
+      "auto_rezerwacje": { "type": "boolean", "default": true },
+      "rezerwacje_only_started_orders": { "type": "boolean", "default": true },
+      "rezerwacje_positive_only": { "type": "boolean", "default": true },
+      "alert_procent": {
+        "type": "integer",
+        "default": 10,
+        "minimum": 1,
+        "maximum": 100
+      },
+      "low_stock_auto_order": { "type": "boolean", "default": true },
+      "perms": {
+        "type": "object",
+        "properties": {
+          "brygadzista": {
+            "type": "object",
+            "properties": {
+              "edit": { "type": "boolean", "default": true },
+              "pz": { "type": "boolean", "default": false }
+            }
+          },
+          "magazynier": {
+            "type": "object",
+            "properties": {
+              "edit": { "type": "boolean", "default": true },
+              "pz": { "type": "boolean", "default": true }
+            }
+          }
+        }
       }
     }
   },

@@ -16,10 +16,7 @@ from tkinter import ttk, messagebox
 import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
-try:
-    from ustawienia_magazyn import MagazynSettingsFrame
-except Exception:
-    MagazynSettingsFrame = None
+from ustawienia_magazyn import MagazynSettingsFrame
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
@@ -376,13 +373,15 @@ class SettingsPanel:
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _add_magazyn_tab(self) -> None:
-        if MagazynSettingsFrame is None:
-            return
         try:
             frame = MagazynSettingsFrame(self.nb, self.cfg)
-            self.nb.add(frame, text="Magazyn")
-        except Exception:
-            pass
+        except Exception as e:
+            import tkinter as tk
+            from tkinter import ttk
+            frame = ttk.Frame(self.nb)
+            lbl = ttk.Label(frame, text=f"Błąd ładowania zakładki Magazyn:\n{e}")
+            lbl.pack(padx=12, pady=12)
+        self.nb.add(frame, text="Magazyn")
 
     def _coerce_default_for_var(self, opt: dict[str, Any], default: Any) -> Any:
         """Return value adjusted for Tk variable according to option definition."""
