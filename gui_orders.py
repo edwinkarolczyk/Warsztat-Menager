@@ -19,6 +19,7 @@ ORDERS_DIR = os.path.join("data", "zamowienia")
 
 
 def _ensure_orders_dir():
+    """Ensure the directory for storing order files exists."""
     try:
         os.makedirs(ORDERS_DIR, exist_ok=True)
     except Exception as e:
@@ -26,6 +27,8 @@ def _ensure_orders_dir():
 
 
 class OrdersWindow(tk.Toplevel):
+    """Toplevel window for creating and saving order drafts."""
+
     def __init__(self, master=None):
         super().__init__(master)
         self.title("Zamówienia")
@@ -57,6 +60,7 @@ class OrdersWindow(tk.Toplevel):
         print("[WM-DBG][ORDERS] Otwarto okno Zamówienia")
 
     def _build_ui(self):
+        """Construct basic widgets that make up the window layout."""
         # Pasek górny (nagłówek + akcje)
         top = ttk.Frame(self)
         top.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
@@ -91,11 +95,13 @@ class OrdersWindow(tk.Toplevel):
         lbl_info.pack(anchor="w")
 
     def _generate_id(self) -> str:
+        """Return a timestamp-based identifier for a new draft."""
         today = dt.datetime.now().strftime("%Y%m%d")
         seq = int(dt.datetime.now().strftime("%H%M%S"))
         return f"ORD-{today}-{seq:06d}"
 
     def _save_draft(self):
+        """Persist the current draft to a JSON file in the orders directory."""
         _ensure_orders_dir()
         if not self.order_draft.get("id"):
             self.order_draft["id"] = self._generate_id()
