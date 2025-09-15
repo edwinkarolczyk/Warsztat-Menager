@@ -41,6 +41,11 @@ def open_rezerwuj_dialog(master, item_id):
         except ValueError:
             messagebox.showerror("Błąd", "Ilość musi być liczbą.", parent=win)
             return
+        if qty <= 0:
+            messagebox.showerror(
+                "Błąd", "Ilość musi być większa od zera.", parent=win
+            )
+            return
         data = magazyn_io.load()
         items = data.get("items", {})
         if item_id not in items:
@@ -88,6 +93,11 @@ def open_zwolnij_rezerwacje_dialog(master, item_id):
             qty = float(var_qty.get())
         except ValueError:
             messagebox.showerror("Błąd", "Ilość musi być liczbą.", parent=win)
+            return
+        if qty <= 0:
+            messagebox.showerror(
+                "Błąd", "Ilość musi być większa od zera.", parent=win
+            )
             return
         data = magazyn_io.load()
         items = data.get("items", {})
