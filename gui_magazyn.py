@@ -34,6 +34,14 @@ from gui_magazyn_rezerwacje import (
     open_zwolnij_rezerwacje_dialog,
 )
 
+try:
+    from gui_orders import open_orders_window
+except Exception as _e:
+    open_orders_window = None
+    print(
+        "[ERROR][ORDERS] Nie można zaimportować gui_orders.open_orders_window – przycisk będzie nieaktywny."
+    )
+
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
 
@@ -108,6 +116,16 @@ class MagazynFrame(ttk.Frame):
         self.ent_q = ttk.Entry(toolbar, textvariable=self._filter_query, width=28)
         self.ent_q.pack(side="left", padx=(0, 6))
         self.ent_q.bind("<KeyRelease>", lambda _e: self._apply_filters())
+
+        btn_orders = ttk.Button(
+            toolbar,
+            text="Zamówienia",
+            command=lambda: open_orders_window(self) if open_orders_window else None,
+        )
+        btn_orders.pack(side="left", padx=(6, 0))
+        if open_orders_window is None:
+            btn_orders.state(["disabled"])
+        print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
 
         # Przyciski
         ttk.Button(
