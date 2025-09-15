@@ -43,14 +43,16 @@ def open_rezerwuj_dialog(master, item_id):
             return
         data = magazyn_io.load()
         items = data.get("items", {})
-        if item_id not in items:
+        it = items.get(item_id)
+        if it is None:
             messagebox.showerror(
                 "Błąd", "Nie znaleziono pozycji w magazynie.", parent=win
             )
             return
-        items[item_id]["rezerwacje"] = items[item_id].get("rezerwacje", 0) + qty
+        it["rezerwacje"] = it.get("rezerwacje", 0) + qty
         LM.append_history(
-            items, item_id, user="", op="REZERWUJ", qty=qty, comment=var_comment.get()
+            items, item_id, user="", op="REZERWUJ", qty=qty,
+            comment=var_comment.get()
         )
         magazyn_io.save(data)
         win.destroy()
@@ -91,16 +93,16 @@ def open_zwolnij_rezerwacje_dialog(master, item_id):
             return
         data = magazyn_io.load()
         items = data.get("items", {})
-        if item_id not in items:
+        it = items.get(item_id)
+        if it is None:
             messagebox.showerror(
                 "Błąd", "Nie znaleziono pozycji w magazynie.", parent=win
             )
             return
-        items[item_id]["rezerwacje"] = max(
-            0, items[item_id].get("rezerwacje", 0) - qty
-        )
+        it["rezerwacje"] = max(0, it.get("rezerwacje", 0) - qty)
         LM.append_history(
-            items, item_id, user="", op="ZWOLNIJ", qty=qty, comment=var_comment.get()
+            items, item_id, user="", op="ZWOLNIJ", qty=qty,
+            comment=var_comment.get()
         )
         magazyn_io.save(data)
         win.destroy()
