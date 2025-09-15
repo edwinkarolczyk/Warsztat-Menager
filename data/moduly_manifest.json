@@ -1,0 +1,66 @@
+{
+  "wersja": "2025-09-15.1",
+  "rdzen": {
+    "id": "rdzen",
+    "nazwa": "Rdzeń (Konfiguracja / Logger / Motyw / Utils)",
+    "pliki": ["config_manager.py", "logger.py", "ui_theme.py", "utils/**"],
+    "dostarcza": ["konfiguracja", "logi", "motyw", "io", "sciezki"],
+    "korzysta_z": []
+  },
+  "moduly": [
+    {
+      "id": "ustawienia",
+      "nazwa": "Ustawienia",
+      "pliki": ["gui_settings.py", "settings_schema.json", "updater.py", "updates_utils.py"],
+      "dostarcza": ["ustawienia_aplikacji", "aktualizacje", "schema_ui"],
+      "korzysta_z": ["rdzen"]
+    },
+    {
+      "id": "profile",
+      "nazwa": "Profile / Obecność",
+      "pliki": ["services/profile_service.py", "presence.py", "presence_watcher.py", "data/profiles.json"],
+      "dostarcza": ["autoryzacja", "role", "obecnosc"],
+      "korzysta_z": ["rdzen", "ustawienia"]
+    },
+    {
+      "id": "panel_glowny",
+      "nazwa": "Panel główny",
+      "pliki": ["gui_panel.py", "gui_dashboard.py"],
+      "dostarcza": ["nawigacja", "start"],
+      "korzysta_z": ["rdzen", "ustawienia", "profile"]
+    },
+    {
+      "id": "narzedzia",
+      "nazwa": "Narzędzia",
+      "pliki": ["gui_narzedzia.py", "tools_*.py", "data/narzedzia/**"],
+      "dostarcza": ["baza_narzedzi", "szablony", "historia", "qr"],
+      "korzysta_z": ["rdzen", "ustawienia", "profile"]
+    },
+    {
+      "id": "magazyn",
+      "nazwa": "Magazyn",
+      "pliki": ["gui_magazyn*.py", "logika_magazyn.py", "logika_bom.py", "data/magazyn/**", "data/produkty/**"],
+      "dostarcza": ["stany", "pz", "rezerwacje", "bom"],
+      "korzysta_z": ["rdzen", "ustawienia", "profile"]
+    },
+    {
+      "id": "zlecenia",
+      "nazwa": "Zlecenia / Kreator",
+      "pliki": ["gui_orders.py", "gui_zlecenia.py", "zlecenia_*.py", "data/zlecenia/**"],
+      "dostarcza": ["baza_zlecen", "kreator"],
+      "korzysta_z": ["rdzen", "ustawienia", "profile", "magazyn"]
+    },
+    {
+      "id": "maszyny_hala",
+      "nazwa": "Maszyny / Hala",
+      "pliki": ["gui_hala.py", "widok_hali/**", "data/maszyny.json", "data/sciany.json"],
+      "dostarcza": ["widok_hali", "maszyny"],
+      "korzysta_z": ["rdzen", "ustawienia", "profile"]
+    }
+  ],
+  "reguly": [
+    {"musi_startowac_przed": "panel_glowny", "modul": "ustawienia"},
+    {"musi_startowac_przed": "panel_glowny", "modul": "profile"},
+    {"musi_startowac_przed": "zlecenia", "modul": "magazyn"}
+  ]
+}

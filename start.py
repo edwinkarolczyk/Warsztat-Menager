@@ -549,6 +549,26 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    # --- Integracja manifestu modułów (lekka) ---
+    try:
+        from utils.moduly import (
+            zaladuj_manifest,
+            lista_modulow,
+            sprawdz_reguly,
+            tag_logu,
+        )
+
+        _mod_tag = tag_logu("rdzen")
+        print(f"{_mod_tag} Ładuję manifest modułów…")
+        _manifest = zaladuj_manifest()
+        _lista = lista_modulow(_manifest)
+        print(f"{_mod_tag} Moduły zdefiniowane w manifeście: {', '.join(_lista)}")
+        _kom = sprawdz_reguly(_manifest)
+        for k in _kom:
+            print(k)
+    except Exception as e:
+        print(f"[ERROR] Problem z manifestem modułów: {e}")
+    # --- Koniec integracji manifestu ---
     _wm_git_check_on_start()
     main()
 
