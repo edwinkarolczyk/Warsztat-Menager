@@ -62,6 +62,8 @@ def append_history(
     qty: float,
     comment: str = "",
     ts: str | None = None,
+    *,
+    komentarz: str | None = None,
 ) -> Dict[str, Any]:
     """Append a history entry for ``item_id``.
 
@@ -73,6 +75,8 @@ def append_history(
         qty: Positive quantity of the operation.
         comment: Optional comment stored with the entry.
         ts: Optional timestamp (ISO 8601). Generated when missing.
+        komentarz: Polish alias for ``comment``. Overrides ``comment`` when
+            provided.
 
     The entry is appended to ``items[item_id]['historia']``. For ``op == 'PZ'``
     an additional record is stored in :data:`PRZYJECIA_PATH`.
@@ -90,6 +94,9 @@ def append_history(
 
     if not ts:
         ts = datetime.now(timezone.utc).isoformat()
+
+    if komentarz is not None:
+        comment = komentarz
 
     entry = {
         "ts": ts,
