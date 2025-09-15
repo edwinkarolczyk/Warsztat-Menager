@@ -124,7 +124,10 @@ class MagazynFrame(ttk.Frame):
         )
         btn_orders.pack(side="left", padx=(6, 0))
         if open_orders_window is None:
-            btn_orders.state(["disabled"])
+            try:
+                btn_orders.state(["disabled"])
+            except Exception:
+                pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
 
         # Przyciski

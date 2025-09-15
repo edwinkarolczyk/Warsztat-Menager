@@ -21,9 +21,53 @@
   ],
   "ui": {
     "theme": "dark",
-    "language": "pl"
+    "language": "pl",
   },
   "backup": {
     "keep_last": 10
+  },
+  "orders": {
+    "enabled": true,
+    "enabled_steps": [
+      "typ",
+      "kontekst",
+      "pozycje",
+      "dostawca",
+      "terminy_status",
+      "podsumowanie"
+    ],
+    "types": [
+      "zakup",
+      "naprawa",
+      "uzupelnienie"
+    ],
+    "statuses": [
+      "draft",
+      "oczekuje_wyslania",
+      "wyslane",
+      "w_realizacji",
+      "dostarczone",
+      "zamkniete",
+      "anulowane"
+    ],
+    "data_dir": "data/zamowienia",
+    "default_supplier": "",
+    "auto_id_format": "ORD-{YYYYMMDD}-{HHMMSS}",
+    "permissions": {
+      "create": [
+        "brygadzista",
+        "kierownik",
+        "admin"
+      ],
+      "receive": [
+        "magazynier",
+        "kierownik",
+        "admin"
+      ],
+      "cancel": [
+        "kierownik",
+        "admin"
+      ]
+    }
   }
 }
