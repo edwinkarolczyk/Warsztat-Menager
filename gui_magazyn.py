@@ -86,6 +86,42 @@ def _format_row(item_id: str, item: dict):
     return (item_id, typ or "-", rozmiar or "-", nazwa or "-", stan_txt or "-", zadania)
 
 
+def _open_orders_for_shortages(self):
+    """
+    Otwiera kreator Zamówień z prefill'em pozycji na podstawie braków/zaznaczenia w Magazynie.
+    Implementacja jest defensywna – bierze 'kod/nazwa/ilosc/j' jeśli są dostępne.
+    """
+    rows = []
+    try:
+        # PRZYKŁAD 1: jeśli masz tabelę z zaznaczeniem:
+        # for item in self.tree.selection():
+        #     data = self.tree.item(item, "values")  # dopasuj do swojej struktury
+        #     rows.append({"kod": data[0], "nazwa": data[1], "ilosc": float(data[2]), "j": data[3]})
+
+        # PRZYKŁAD 2: jeśli masz listę braków uzyskaną z logiki:
+        # shortages = self.magazyn_logic.get_shortages()  # <-- Twoja funkcja, jeśli istnieje
+        # for s in shortages:
+        #     rows.append({"kod": s["kod"], "nazwa": s.get("nazwa",""), "ilosc": s["brakuje"], "j": s.get("jm","szt")})
+
+        pass
+    except Exception as e:
+        print(
+            f"[ERROR][MAGAZYN] Nie udało się zbudować listy pozycji do zamówienia: {e}"
+        )
+
+    context = {
+        "typ": "zakup",
+        "pozycje": rows,
+    }
+    try:
+        if open_orders_window:
+            open_orders_window(self, context=context)
+    except Exception as e:
+        print(
+            f"[ERROR][MAGAZYN] Nie udało się otworzyć kreatora Zamówień z kontekstem: {e}"
+        )
+
+
 class MagazynFrame(ttk.Frame):
     """Widok Magazynu osadzony w kontenerze (bez Toplevel)."""
 
@@ -130,6 +166,13 @@ class MagazynFrame(ttk.Frame):
             except Exception:
                 pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
+
+        btn_orders_prefill = ttk.Button(
+            toolbar,
+            text="Zamów brakujące",
+            command=lambda: _open_orders_for_shortages(self),
+        )
+        btn_orders_prefill.pack(side="left", padx=(6, 0))
 
         ttk.Button(
             toolbar,

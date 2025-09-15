@@ -85,11 +85,32 @@ class MagazynSettingsPane(ttk.Frame):
         )
 
     # -------------------- helpers cfg --------------------
-    def _get_cfg(self) -> dict:
-        if hasattr(self.cm, "get"):
-            return self.cm.get() or {}
+    def _get_cfg(self):
+        """
+        Zwraca cały bieżący config jako dict.
+        Wcześniej wywoływano self.cm.get() bez klucza, co powodowało TypeError.
+        """
+        try:
+            if hasattr(self.cm, "data") and isinstance(self.cm.data, dict):
+                return dict(self.cm.data)
+        except Exception as e:
+            print(
+                f"[ERROR][USTAWIENIA_MAGAZYN] Nie udało się pobrać self.cm.data: {e}"
+            )
+
+        try:
+            if hasattr(self.cm, "get"):
+                try:
+                    return self.cm.get("magazyn") or {}
+                except TypeError:
+                    return {}
+        except Exception as e:
+            print(
+                f"[ERROR][USTAWIENIA_MAGAZYN] Fallback get('magazyn') nieudany: {e}"
+            )
+
         if isinstance(self.cm, dict):
-            return self.cm
+            return dict(self.cm)
         return {}
 
     def _set_cfg(self, cfg: dict):
