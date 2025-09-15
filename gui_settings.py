@@ -16,13 +16,33 @@ from tkinter import ttk, messagebox
 import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
-from ustawienia_magazyn import MagazynSettingsPane
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
 from profile_utils import SIDEBAR_MODULES
 from services import profile_service
 from logger import log_akcja
+
+try:  # pragma: no cover - optional magazyn settings pane
+    from ustawienia_magazyn import MagazynSettingsPane
+except Exception:  # pragma: no cover - missing optional dependency
+    MagazynSettingsPane = None
+
+
+def _wm_try_add_magazyn_tab(self) -> None:
+    """Attach the optional 'Magazyn' tab to settings notebook."""
+    if MagazynSettingsPane is None:
+        return
+    nb = getattr(self, "nb", None) or getattr(self, "notebook", None)
+    if nb is None:
+        return
+    try:
+        pane = MagazynSettingsPane(
+            nb, config_manager=getattr(self, "config_manager", getattr(self, "cfg", None))
+        )
+        nb.add(pane, text="Magazyn")
+    except Exception:  # pragma: no cover - don't block settings window
+        pass
 
 
 MAG_DICT_PATH = "data/magazyn/slowniki.json"
@@ -330,6 +350,7 @@ class SettingsPanel:
         print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
+        _wm_try_add_magazyn_tab(self)
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -352,10 +373,6 @@ class SettingsPanel:
                 )
 
         base_dir = Path(__file__).resolve().parent
-        tab_magazyn = MagazynSettingsPane(
-            self.nb, config_manager=getattr(self, "config_manager", None)
-        )
-        self.nb.add(tab_magazyn, text="Magazyn")
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")

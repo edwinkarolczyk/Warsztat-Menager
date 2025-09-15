@@ -15,7 +15,7 @@
 
 import re
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -26,6 +26,16 @@ try:
 except Exception:
     magazyn_io = None
     HAVE_MAG_IO = False
+
+try:
+    import zamowienia_io as ZIO
+except Exception:  # pragma: no cover - optional orders module
+    ZIO = None
+
+try:
+    from gui_magazyn_order import MagazynOrderDialog
+except Exception:  # pragma: no cover - optional dialog
+    MagazynOrderDialog = None
 
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
@@ -85,6 +95,49 @@ def _format_row(item_id: str, item: dict):
     return (item_id, typ or "-", rozmiar or "-", nazwa or "-", stan_txt or "-", zadania)
 
 
+def _wm_get_selected_item(self):
+    """Return ``(item_id, item_dict)`` for the selected tree row."""
+    try:
+        sel = self.tree.selection()
+        if not sel:
+            return None, None
+        node = sel[0]
+        item_id = (
+            self.tree.set(node, "id")
+            if "id" in self.tree["columns"]
+            else self.tree.item(node, "text")
+        )
+        items = getattr(self, "_items_map", None) or getattr(self, "items", {})
+        return item_id, items.get(item_id)
+    except Exception:
+        return None, None
+
+
+def _quick_add_to_orders(self):
+    """Shortcut: open orders dialog for selected item."""
+    item_id, it = _wm_get_selected_item(self)
+    if not item_id or not isinstance(it, dict):
+        messagebox.showinfo("Magazyn", "Wybierz pozycję z listy.")
+        return
+    stan = float(it.get("stan", 0) or 0)
+    min_poziom = float(it.get("min_poziom", 0) or 0)
+    low = stan <= min_poziom and (min_poziom > 0)
+
+    if MagazynOrderDialog is not None:
+        try:
+            MagazynOrderDialog(self, preselect_id=item_id)
+            return
+        except Exception:
+            pass
+    if ZIO is not None:
+        ZIO.add_to_pending_orders(
+            item_id=item_id, qty=max(1.0, min_poziom - stan + 1)
+        )
+    messagebox.showinfo(
+        "Zamówienia",
+        f"Dodano {item_id} do oczekujących zamówień." + (" (niski stan)" if low else ""),
+    )
+
 class MagazynFrame(ttk.Frame):
     """Widok Magazynu osadzony w kontenerze (bez Toplevel)."""
 
@@ -95,6 +148,8 @@ class MagazynFrame(ttk.Frame):
         # stan filtrów
         self._filter_typ = tk.StringVar(value="(wszystkie)")
         self._filter_query = tk.StringVar(value="")
+
+        self._quick_add_to_orders = _quick_add_to_orders.__get__(self, self.__class__)
 
         self._build_ui()
         self.refresh()
@@ -130,6 +185,10 @@ class MagazynFrame(ttk.Frame):
                 pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
 
+        ttk.Button(
+            toolbar, text="Do zamówień", command=self._quick_add_to_orders
+        ).pack(side="left", padx=4)
+
         # Przyciski
         ttk.Button(
             toolbar,
@@ -159,6 +218,7 @@ class MagazynFrame(ttk.Frame):
         # Tabela
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="headings", selectmode="browse", height=22)
         self.tree.pack(fill="both", expand=True)
+        self.tree.tag_configure("low", foreground="#C62828")
 
         # Nagłówki
         self.tree.heading("id", text="ID")
@@ -203,6 +263,8 @@ class MagazynFrame(ttk.Frame):
             item = items.get(item_id)
             if isinstance(item, dict):
                 self._all_rows.append((item_id, item))
+
+        self._items_map = {item_id: item for item_id, item in self._all_rows}
 
         # wartości do combobox Typ
         typy = ["(wszystkie)"]
@@ -256,7 +318,14 @@ class MagazynFrame(ttk.Frame):
                         continue
 
             # dodaj wiersz
-            self.tree.insert("", "end", values=_format_row(item_id, item))
+            try:
+                stan = float(item.get("stan", 0) or 0)
+                min_poziom = float(item.get("min_poziom", 0) or 0)
+                low = stan <= min_poziom and (min_poziom > 0)
+            except Exception:
+                low = False
+            tags = ("low",) if low else ()
+            self.tree.insert("", "end", values=_format_row(item_id, item), tags=tags)
 
     def _on_double_click(self, _e):
         sel = self.tree.selection()
