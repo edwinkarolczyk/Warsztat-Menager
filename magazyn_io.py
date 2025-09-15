@@ -54,6 +54,35 @@ def _load_json(path: str, default):
         return default
 
 
+def load(path: str = MAGAZYN_PATH) -> Dict[str, Any]:
+    """Load warehouse data from ``path``.
+
+    The file is expected to contain a mapping with ``items`` and ``meta`` keys.
+    Missing keys are supplemented with defaults.
+    """
+
+    data = _load_json(path, {"items": {}, "meta": {"order": []}})
+    if not isinstance(data, dict):
+        data = {"items": {}, "meta": {"order": []}}
+    data.setdefault("items", {})
+    meta = data.setdefault("meta", {})
+    if not isinstance(meta, dict):
+        meta = {}
+        data["meta"] = meta
+    meta.setdefault("order", [])
+    return data
+
+
+def save(data: Dict[str, Any], path: str = MAGAZYN_PATH) -> None:
+    """Save warehouse ``data`` to ``path``."""
+
+    if not isinstance(data, dict):
+        raise TypeError("data must be a dict")
+    _ensure_dirs(path)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def append_history(
     items: Dict[str, Any],
     item_id: str,
