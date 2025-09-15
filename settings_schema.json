@@ -341,6 +341,107 @@
       ]
     },
     {
+      "id": "orders",
+      "title": "Zamówienia",
+      "groups": [
+        {
+          "label": "Konfiguracja kreatora",
+          "fields": [
+            {
+              "key": "orders.enabled",
+              "type": "bool",
+              "label": "Włącz moduł Zamówienia",
+              "default": true,
+              "help": "Pozwala uruchamiać okno Zamówień z modułów."
+            },
+            {
+              "key": "orders.enabled_steps",
+              "type": "list",
+              "label": "Aktywne kroki kreatora",
+              "default": [
+                "typ",
+                "kontekst",
+                "pozycje",
+                "dostawca",
+                "terminy_status",
+                "podsumowanie"
+              ],
+              "help": "Kolejność i widoczność kroków kreatora."
+            },
+            {
+              "key": "orders.types",
+              "type": "list",
+              "label": "Dozwolone typy zamówień",
+              "default": [
+                "zakup",
+                "naprawa",
+                "uzupelnienie"
+              ],
+              "help": "Lista typów widocznych w kroku „Typ zamówienia”."
+            },
+            {
+              "key": "orders.statuses",
+              "type": "list",
+              "label": "Statusy zamówień (kolejność)",
+              "default": [
+                "draft",
+                "oczekuje_wyslania",
+                "wyslane",
+                "w_realizacji",
+                "dostarczone",
+                "zamkniete",
+                "anulowane"
+              ],
+              "help": "Definiuje lejek statusów i ich kolejność."
+            },
+            {
+              "key": "orders.data_dir",
+              "type": "string",
+              "label": "Katalog danych zamówień",
+              "default": "data/zamowienia",
+              "help": "Ścieżka, gdzie zapisywane są pliki ORD-*.json."
+            },
+            {
+              "key": "orders.default_supplier",
+              "type": "string",
+              "label": "Domyślny dostawca",
+              "default": "",
+              "help": "Opcjonalny dostawca wpisywany domyślnie."
+            },
+            {
+              "key": "orders.auto_id_format",
+              "type": "string",
+              "label": "Format identyfikatora",
+              "default": "ORD-{YYYYMMDD}-{HHMMSS}",
+              "help": "Wzór ID zamówienia."
+            },
+            {
+              "key": "orders.permissions",
+              "type": "object",
+              "label": "Uprawnienia (role)",
+              "default": {
+                "create": [
+                  "brygadzista",
+                  "kierownik",
+                  "admin"
+                ],
+                "receive": [
+                  "magazynier",
+                  "kierownik",
+                  "admin"
+                ],
+                "cancel": [
+                  "kierownik",
+                  "admin"
+                ]
+              },
+              "help": "Role uprawnione do operacji na zamówieniach."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "tests",
       "title": "Testy",
       "groups": [
