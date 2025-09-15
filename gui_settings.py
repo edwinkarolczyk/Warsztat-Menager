@@ -17,9 +17,9 @@ import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
 try:
-    from ustawienia_magazyn import MagazynSettingsPane
+    from ustawienia_magazyn import MagazynSettingsFrame
 except Exception:
-    MagazynSettingsPane = None
+    MagazynSettingsFrame = None
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
@@ -29,19 +29,6 @@ from logger import log_akcja
 
 
 MAG_DICT_PATH = "data/magazyn/slowniki.json"
-
-
-def _wm_try_add_magazyn_tab(self):
-    if MagazynSettingsPane is None:
-        return
-    nb = getattr(self, "nb", None) or getattr(self, "notebook", None)
-    if nb is None:
-        return
-    try:
-        pane = MagazynSettingsPane(nb, config=self.cfg)
-        nb.add(pane, text="Magazyn")
-    except Exception:
-        pass
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -368,7 +355,7 @@ class SettingsPanel:
                 )
 
         base_dir = Path(__file__).resolve().parent
-        _wm_try_add_magazyn_tab(self)
+        self._add_magazyn_tab()
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
@@ -387,6 +374,15 @@ class SettingsPanel:
         )
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _add_magazyn_tab(self) -> None:
+        if MagazynSettingsFrame is None:
+            return
+        try:
+            frame = MagazynSettingsFrame(self.nb, self.cfg)
+            self.nb.add(frame, text="Magazyn")
+        except Exception:
+            pass
 
     def _coerce_default_for_var(self, opt: dict[str, Any], default: Any) -> Any:
         """Return value adjusted for Tk variable according to option definition."""
