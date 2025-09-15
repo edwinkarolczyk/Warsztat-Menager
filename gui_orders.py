@@ -17,17 +17,81 @@ from tkinter import ttk, messagebox
 
 ORDERS_DIR = os.path.join("data", "zamowienia")
 
+# Domyślne ustawienia modułu Zamówień
+DEFAULT_ORDERS_SETTINGS = {
+    "enabled": True,
+    "dir": ORDERS_DIR,
+}
+
+
+def _get_orders_settings(master=None):
+    """Pobierz ustawienia modułu Zamówień z konfiguracji.
+
+    Najpierw pobiera domyślne wartości z ``DEFAULT_ORDERS_SETTINGS`` i nadpisuje
+    je wartościami z ``master.config_manager`` jeśli taki obiekt jest dostępny.
+    W przeciwnym razie próbuje skorzystać z funkcji ``get_config()`` jeżeli
+    została zdefiniowana globalnie.
+    """
+
+    settings = DEFAULT_ORDERS_SETTINGS.copy()
+    cm = getattr(master, "config_manager", None) if master else None
+
+    if cm and hasattr(cm, "get"):
+        settings["enabled"] = cm.get(
+            "orders.enabled", settings["enabled"]
+        )
+        settings["dir"] = cm.get("orders.dir", settings["dir"])
+        return settings
+
+    get_cfg = globals().get("get_config")
+    if callable(get_cfg):
+        try:
+            cfg = get_cfg()
+        except Exception:
+            cfg = None
+
+        if isinstance(cfg, dict):
+            orders = cfg.get("orders") or {}
+            if isinstance(orders, dict):
+                settings.update({k: orders.get(k, settings[k]) for k in settings})
+            else:
+                settings["enabled"] = cfg.get(
+                    "orders.enabled", settings["enabled"]
+                )
+                settings["dir"] = cfg.get("orders.dir", settings["dir"])
+        elif hasattr(cfg, "get"):
+            settings["enabled"] = cfg.get(
+                "orders.enabled", settings["enabled"]
+            )
+            settings["dir"] = cfg.get("orders.dir", settings["dir"])
+
+    return settings
+
 
 def _ensure_orders_dir():
     try:
         os.makedirs(ORDERS_DIR, exist_ok=True)
     except Exception as e:
-        print(f"[ERROR][ORDERS] Nie można utworzyć katalogu {ORDERS_DIR}: {e}")
+        print(
+            f"[ERROR][ORDERS] Nie można utworzyć katalogu {ORDERS_DIR}: {e}"
+        )
 
 
 class OrdersWindow(tk.Toplevel):
     def __init__(self, master=None):
         super().__init__(master)
+        settings = _get_orders_settings(master)
+        if not settings.get("enabled", True):
+            messagebox.showinfo(
+                "Zamówienia", "Moduł Zamówienia jest wyłączony."
+            )
+            self.destroy()
+            return
+
+        global ORDERS_DIR
+        ORDERS_DIR = settings.get("dir", ORDERS_DIR)
+        _ensure_orders_dir()
+
         self.title("Zamówienia")
         self.geometry("760x520")
         self.minsize(720, 480)
@@ -126,6 +190,8 @@ def open_orders_window(master=None):
     """Funkcja pomocnicza do otwarcia okna z innych modułów."""
     try:
         win = OrdersWindow(master=master)
+        if not win.winfo_exists():
+            return
         win.transient(master)
         win.grab_set()
         win.focus_set()
