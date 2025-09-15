@@ -104,10 +104,13 @@
     "modes": {}
   },
   "magazyn": {
-    "require_reauth": true
+    "require_reauth": true,
+    "rounding": {
+      "mb_precision": 3,
+      "enforce_integer_for_szt": true
+    }
   },
   "magazyn_rezerwacje": true,
-  "magazyn_precision_mb": 3,
   "produkty_dir": "data/produkty/",
   "produkty_auto_sync": false,
   "polprodukty_dir": "data/polprodukty/",

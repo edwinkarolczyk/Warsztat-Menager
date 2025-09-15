@@ -16,6 +16,7 @@ from tkinter import ttk, messagebox
 import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
+from ustawienia_magazyn import MagazynSettingsPane
 import ustawienia_produkty_bom
 from ui_utils import _ensure_topmost
 import logika_zadan as LZ
@@ -351,6 +352,10 @@ class SettingsPanel:
                 )
 
         base_dir = Path(__file__).resolve().parent
+        tab_magazyn = MagazynSettingsPane(
+            self.nb, config_manager=getattr(self, "config_manager", None)
+        )
+        self.nb.add(tab_magazyn, text="Magazyn")
         self.products_tab = ProductsMaterialsTab(self.nb, base_dir=base_dir)
         self.nb.add(self.products_tab, text="Produkty i materiały")
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
