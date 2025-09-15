@@ -9,20 +9,25 @@
 # - Logi: [WM-DBG][ORDERS]
 # - Zgodność z dark theme: jeżeli globalne apply_theme() istnieje, użyj
 
-import os
-import json
 import datetime as dt
+import json
+import logging
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 ORDERS_DIR = os.path.join("data", "zamowienia")
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_orders_dir():
     try:
         os.makedirs(ORDERS_DIR, exist_ok=True)
     except Exception as e:
-        print(f"[ERROR][ORDERS] Nie można utworzyć katalogu {ORDERS_DIR}: {e}")
+        logger.error(
+            "[ERROR][ORDERS] Nie można utworzyć katalogu %s: %s", ORDERS_DIR, e
+        )
 
 
 class OrdersWindow(tk.Toplevel):
@@ -54,7 +59,7 @@ class OrdersWindow(tk.Toplevel):
             pass
 
         self._build_ui()
-        print("[WM-DBG][ORDERS] Otwarto okno Zamówienia")
+        logger.debug("[WM-DBG][ORDERS] Otwarto okno Zamówienia")
 
     def _build_ui(self):
         # Pasek górny (nagłówek + akcje)
@@ -113,12 +118,12 @@ class OrdersWindow(tk.Toplevel):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(self.order_draft, f, ensure_ascii=False, indent=2)
-            print(f"[WM-DBG][ORDERS] Zapisano draft: {path}")
+            logger.debug("[WM-DBG][ORDERS] Zapisano draft: %s", path)
             messagebox.showinfo(
                 "Zapisano", f"Zapisano draft zamówienia:\n{self.order_draft['id']}"
             )
         except Exception as e:
-            print(f"[ERROR][ORDERS] Błąd zapisu draftu: {e}")
+            logger.error("[ERROR][ORDERS] Błąd zapisu draftu: %s", e)
             messagebox.showerror("Błąd", f"Nie udało się zapisać: {e}")
 
 
@@ -130,6 +135,8 @@ def open_orders_window(master=None):
         win.grab_set()
         win.focus_set()
     except Exception as e:
-        print(f"[ERROR][ORDERS] Nie udało się otworzyć okna Zamówienia: {e}")
+        logger.error(
+            "[ERROR][ORDERS] Nie udało się otworzyć okna Zamówienia: %s", e
+        )
 
 # ⏹ KONIEC KODU
