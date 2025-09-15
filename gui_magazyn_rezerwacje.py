@@ -9,7 +9,7 @@
 # ===============================================
 
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import messagebox, ttk
 
 import magazyn_io
 import logika_magazyn as LM
@@ -50,7 +50,7 @@ def open_rezerwuj_dialog(master, item_id):
             return
         items[item_id]["rezerwacje"] = items[item_id].get("rezerwacje", 0) + qty
         LM.append_history(
-            items, item_id, user="", op="REZERWUJ", qty=qty, komentarz=var_comment.get()
+            items, item_id, user="", op="REZERWUJ", qty=qty, comment=var_comment.get()
         )
         magazyn_io.save(data)
         win.destroy()
@@ -100,7 +100,7 @@ def open_zwolnij_rezerwacje_dialog(master, item_id):
             0, items[item_id].get("rezerwacje", 0) - qty
         )
         LM.append_history(
-            items, item_id, user="", op="ZWOLNIJ", qty=qty, komentarz=var_comment.get()
+            items, item_id, user="", op="ZWOLNIJ", qty=qty, comment=var_comment.get()
         )
         magazyn_io.save(data)
         win.destroy()
