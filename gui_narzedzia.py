@@ -1453,6 +1453,34 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     repaint_tasks()
                     hist_items.append({"ts": now_ts, "by": (login or "system"), "z": "[zadania]", "na": "auto ✔ przy przeniesieniu do SN"})
                     hist_view.insert("", 0, values=(now_ts, login or "system", "[zadania]", "auto ✔ przy przeniesieniu do SN"))
+            final_status = statusy[-1] if statusy else ""
+            if final_status and new_st.lower() == final_status.lower():
+                now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+                marked_any = False
+                for item in tasks:
+                    if not item.get("done"):
+                        item["done"] = True
+                        item["by"] = login or "system"
+                        item["ts_done"] = now_ts
+                        marked_any = True
+                if marked_any:
+                    repaint_tasks()
+                    hist_items.append({
+                        "ts": now_ts,
+                        "by": (login or "system"),
+                        "z": "[zadania]",
+                        "na": "auto ✔ przy statusie końcowym",
+                    })
+                    hist_view.insert(
+                        "",
+                        0,
+                        values=(
+                            now_ts,
+                            login or "system",
+                            "[zadania]",
+                            "auto ✔ przy statusie końcowym",
+                        ),
+                    )
             last_status[0] = new_st
             last_applied_status[0] = new_st
 
