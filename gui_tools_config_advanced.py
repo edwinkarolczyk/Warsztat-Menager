@@ -90,6 +90,12 @@ class ToolsConfigDialog(tk.Toplevel):
         super().__init__(master)
         self.title("Narzędzia — konfiguracja (NN/SN)")
         self.resizable(True, True)
+        try:
+            self.attributes("-topmost", True)
+            self.lift()
+            self.focus_force()
+        except Exception:
+            pass
         self.path = path
         self.on_save = on_save
 
@@ -101,6 +107,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._current_status_index: int | None = None
         self._visible_type_indexes: list[int] = []
         self._visible_status_indexes: list[int] = []
+        self._types_index_map: list[int] = self._visible_type_indexes
 
         self._collection_var = tk.StringVar(value=COLLECTIONS[0])
         self._search_var = tk.StringVar()
@@ -251,7 +258,7 @@ class ToolsConfigDialog(tk.Toplevel):
         types = self._get_shared_types()
         query = (self._search_var.get() or "").strip().lower()
         self.types_list.delete(0, tk.END)
-        self._visible_type_indexes = []
+        self._visible_type_indexes.clear()
         for idx, typ in enumerate(types):
             label = str(typ.get("name") or typ.get("id") or "")
             if query and query not in label.lower():
@@ -270,7 +277,7 @@ class ToolsConfigDialog(tk.Toplevel):
 
     def _refresh_statuses(self, preferred_idx: int | None = None) -> None:
         self.status_list.delete(0, tk.END)
-        self._visible_status_indexes = []
+        self._visible_status_indexes.clear()
         type_idx = self._current_type_index
         if type_idx is None:
             self._current_status_index = None
@@ -335,8 +342,18 @@ class ToolsConfigDialog(tk.Toplevel):
                 break
         self._refresh_tasks()
 
-    def _selected_type_index(self) -> int | None:
+    def _selected_type_true_index(self) -> int | None:
+        """Zwraca indeks typu w danych zgodny z aktualnym wyborem."""
+
+        sel = self.types_list.curselection()
+        if sel:
+            visible_idx = sel[0]
+            if 0 <= visible_idx < len(self._types_index_map):
+                return self._types_index_map[visible_idx]
         return self._current_type_index
+
+    def _selected_type_index(self) -> int | None:
+        return self._selected_type_true_index()
 
     def _selected_status_index(self) -> int | None:
         return self._current_status_index
@@ -385,7 +402,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._select_status_by_index(data_index)
 
     def _on_type_edit(self, *_event) -> None:
-        idx = self._selected_type_index()
+        idx = self._selected_type_true_index()
         if idx is None:
             return
         shared_types = self._get_shared_types()
@@ -412,7 +429,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_types(preferred_idx=idx)
 
     def _on_status_edit(self, *_event) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         status_idx = self._selected_status_index()
         if type_idx is None or status_idx is None:
             return
@@ -437,7 +454,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_statuses(preferred_idx=status_idx)
 
     def _on_task_edit(self, *_event) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         status_idx = self._selected_status_index()
         if type_idx is None or status_idx is None:
             return
@@ -492,7 +509,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_types(preferred_idx=new_index)
 
     def _del_type(self) -> None:
-        idx = self._selected_type_index()
+        idx = self._selected_type_true_index()
         if idx is None:
             return
         label = str(
@@ -514,7 +531,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_types()
 
     def _add_status(self) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         if type_idx is None:
             return
         statuses = self._get_statuses_for_current(type_idx)
@@ -544,7 +561,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_statuses(preferred_idx=new_index)
 
     def _del_status(self) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         status_idx = self._selected_status_index()
         if type_idx is None or status_idx is None:
             return
@@ -559,7 +576,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_statuses()
 
     def _add_task(self) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         status_idx = self._selected_status_index()
         if type_idx is None or status_idx is None:
             return
@@ -582,7 +599,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_tasks()
 
     def _del_task(self) -> None:
-        type_idx = self._selected_type_index()
+        type_idx = self._selected_type_true_index()
         status_idx = self._selected_status_index()
         if type_idx is None or status_idx is None:
             return

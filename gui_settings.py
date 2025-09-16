@@ -315,6 +315,7 @@ class SettingsPanel:
         self._options: Dict[str, dict[str, Any]] = {}
         self._fields_vars: list[tuple[tk.Variable, dict[str, Any]]] = []
         self._unsaved = False
+        self._open_windows: dict[str, tk.Toplevel] = {}
         self._mod_vars: dict[str, tk.BooleanVar] = {}
         self._user_var: tk.StringVar | None = None
         self._build_ui()
@@ -508,6 +509,25 @@ class SettingsPanel:
             )
             return
 
+        if not hasattr(self, "_open_windows"):
+            self._open_windows = {}
+
+        try:
+            existing = self._open_windows.get("tools_config")
+            if existing is not None and existing.winfo_exists():
+                try:
+                    existing.attributes("-topmost", True)
+                except Exception:
+                    pass
+                try:
+                    existing.lift()
+                    existing.focus_force()
+                except Exception:
+                    pass
+                return
+        except Exception:
+            pass
+
         path = self._get_tools_config_path()
         try:
             # master=None, żeby uniknąć błędu
@@ -526,6 +546,32 @@ class SettingsPanel:
             )
             return
 
+        self._open_windows["tools_config"] = dlg
+
+        def _cleanup(*_args: object) -> None:
+            if self._open_windows.get("tools_config") is dlg:
+                self._open_windows.pop("tools_config", None)
+
+        try:
+            dlg.bind("<Destroy>", _cleanup, add="+")
+        except Exception:
+            pass
+
+        try:
+            dlg.attributes("-topmost", True)
+            dlg.lift()
+            dlg.focus_force()
+        except Exception:
+            pass
+
+        def _fallback_topmost(win: tk.Misc) -> None:
+            try:
+                win.transient(self)
+                win.grab_set()
+                win.lift()
+            except Exception:
+                pass
+
         # A-2g: preferujemy nowe API helpera, ale obsłuż oba warianty.
         try:
             _ensure_topmost(dlg, self)
@@ -533,17 +579,16 @@ class SettingsPanel:
             try:
                 _ensure_topmost(dlg)
             except Exception:
-                try:
-                    dlg.transient(self)
-                    dlg.grab_set()
-                    dlg.lift()
-                except Exception:
-                    pass
+                _fallback_topmost(dlg)
+        except Exception:
+            _fallback_topmost(dlg)
 
         try:
             self.wait_window(dlg)
         except Exception as exc:  # pragma: no cover - wait_window error handling
             log_akcja(f"[SETTINGS] ToolsConfigDialog wait failed: {exc}")
+        finally:
+            _cleanup()
 
     def _get_tools_config_path(self) -> str:
         """Ścieżka do definicji typów/statusów narzędzi (NN/SN)."""
