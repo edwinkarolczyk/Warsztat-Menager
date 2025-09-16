@@ -1481,6 +1481,32 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                             "auto ✔ przy statusie końcowym",
                         ),
                     )
+                else:
+                    try:
+                        comment = simpledialog.askstring(
+                            "Brak odhaczeń",
+                            "Nie odhaczono żadnych zadań dla ostatniego statusu.\n"
+                            "Podaj komentarz (dlaczego):",
+                            parent=dlg,
+                        )
+                    except Exception:
+                        comment = ""
+                    msg = f"Ostatni status '{new_st}': brak zadań do odhaczenia."
+                    if comment:
+                        msg += f" Komentarz: {comment}"
+                    hist_items.append(
+                        {
+                            "ts": now_ts,
+                            "by": (login or "system"),
+                            "z": "[zadania]",
+                            "na": msg,
+                        }
+                    )
+                    hist_view.insert(
+                        "",
+                        0,
+                        values=(now_ts, login or "system", "[zadania]", msg),
+                    )
             last_status[0] = new_st
             last_applied_status[0] = new_st
 
