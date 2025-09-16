@@ -495,39 +495,21 @@ class SettingsPanel:
     def _open_tools_config(self) -> None:
         """Open tools tasks configuration dialog."""
 
-        import os
         import importlib
-        from tkinter import messagebox
 
         callback = getattr(LZ, "invalidate_cache", lambda: None)
         path = os.path.join("data", "zadania_narzedzia.json")
 
-        ToolsConfigDialog = None
         try:
-            ToolsConfigDialog = importlib.import_module(
-                "gui_tools_config_advanced"
-            ).ToolsConfigDialog
-        except Exception:  # pragma: no cover - advanced import error handling
-            pass
-
-        if ToolsConfigDialog is not None:
-            try:
-                win = ToolsConfigDialog(self, path=path, on_save=callback)
-            except Exception:  # pragma: no cover - advanced instantiation error
-                ToolsConfigDialog = None
-
-        if ToolsConfigDialog is None:
-            try:
-                ToolsConfigDialog = importlib.import_module(
-                    "gui_tools_config"
-                ).ToolsConfigDialog
-                win = ToolsConfigDialog(self, path=path, on_save=callback)
-            except Exception:
-                messagebox.showwarning(
-                    "Konfiguracja zadań narzędzi",
-                    "Moduł konfiguracji narzędzi nie jest dostępny.",
-                )
-                return
+            module = importlib.import_module("gui_tools_config")
+            dialog_cls = module.ToolsConfigDialog  # alias preferujący wersję advanced
+            win = dialog_cls(self, path=path, on_save=callback)
+        except Exception:
+            messagebox.showwarning(
+                "Konfiguracja zadań narzędzi",
+                "Moduł konfiguracji narzędzi nie jest dostępny.",
+            )
+            return
 
         _ensure_topmost(win)
         try:
