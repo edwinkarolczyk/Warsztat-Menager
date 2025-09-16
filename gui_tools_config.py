@@ -1,4 +1,4 @@
-"""Prosty edytor konfiguracji zadań narzędzi (alias do wersji zaawansowanej)."""
+"""Alias do edytora zaawansowanego Narzędzi (fallback na prosty edytor JSON)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ def _can_use_advanced_dialog() -> bool:
     except Exception:
         return False
 
-    # Jeśli istnieje domyślne okno główne, zakładamy, że Tk działa.
     default_root = getattr(_tk, "_default_root", None)
     if default_root is not None:
         return True
@@ -29,23 +28,23 @@ def _can_use_advanced_dialog() -> bool:
     return True
 
 
-_AdvancedDialog: type | None = None
+_AdvancedDialog = None
 try:
     from gui_tools_config_advanced import ToolsConfigDialog as _AdvancedDialog  # type: ignore
 except Exception:
     _AdvancedDialog = None
-else:
-    if not _can_use_advanced_dialog():
-        _AdvancedDialog = None
-if _AdvancedDialog is not None:
+
+if _AdvancedDialog is not None and _can_use_advanced_dialog():
     ToolsConfigDialog = _AdvancedDialog
+    print("[WM-DBG] gui_tools_config: używam wersji advanced")
 else:
-    # Fallback: zachowaj minimalny, tekstowy edytor JSON (stara wersja)
+    print("[WM-DBG] gui_tools_config: fallback na prosty edytor JSON")
+
     import json
     import tkinter as tk
     from tkinter import messagebox, ttk
 
-    class ToolsConfigDialog(tk.Toplevel):  # type: ignore[no-redef]
+    class ToolsConfigDialog(tk.Toplevel):
         """Minimalne okno do edycji pliku ``zadania_narzedzia.json``."""
 
         def __init__(self, master: tk.Widget | None = None, *, path: str, on_save=None) -> None:
@@ -75,14 +74,13 @@ else:
 
             raw = self.text.get("1.0", tk.END).strip()
             try:
-                data = json.loads(raw)
+                json.loads(raw)
             except json.JSONDecodeError as exc:
                 messagebox.showerror("Błąd", f"Niepoprawny JSON: {exc}")
                 return
 
             with open(self.path, "w", encoding="utf-8") as fh:
-                json.dump(data, fh, ensure_ascii=False, indent=2)
-                fh.write("\n")
+                fh.write(raw + ("\n" if not raw.endswith("\n") else ""))
 
             try:
                 from logika_zadan import invalidate_cache
@@ -94,4 +92,3 @@ else:
             if callable(self.on_save):
                 self.on_save()
             self.destroy()
-
