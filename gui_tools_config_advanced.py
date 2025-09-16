@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import json
+import re
 from contextlib import contextmanager
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
 import logika_zadan as LZ
+
+
+MAX_TOOL_TYPES = 8
+MAX_STATUSES_PER_TYPE = 8
 
 
 class ToolsConfigDialog(tk.Toplevel):
@@ -34,21 +39,42 @@ class ToolsConfigDialog(tk.Toplevel):
 
         ttk.Label(top, text="Kolekcja:").grid(row=0, column=0, sticky="w")
         self.combo_coll = ttk.Combobox(top, state="readonly")
-        self.combo_coll.grid(row=1, column=0, sticky="nsew", padx=2)
+        self.combo_coll.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 4))
         self.combo_coll.bind("<<ComboboxSelected>>", self._on_collection_change)
 
-        ttk.Label(top, text="Typ:").grid(row=0, column=1, sticky="w")
-        self.list_types = tk.Listbox(top, height=8)
-        self.list_types.grid(row=1, column=1, sticky="nsew", padx=2)
-        self.list_types.bind("<<ListboxSelect>>", self._on_type_select)
+        self.search_var = tk.StringVar()
+        search_row = ttk.Frame(top)
+        search_row.grid(row=0, column=1, columnspan=2, sticky="ew", padx=2)
+        ttk.Label(search_row, text="Szukaj:").pack(side="left")
+        search_entry = ttk.Entry(search_row, textvariable=self.search_var, width=26)
+        search_entry.pack(side="left", fill="x", expand=True)
+        self.search_var.trace_add("write", lambda *_: self._on_search_change())
 
-        ttk.Label(top, text="Status:").grid(row=0, column=2, sticky="w")
+        ttk.Label(top, text="Typ:").grid(row=1, column=1, sticky="w")
+        self.list_types = tk.Listbox(top, height=8)
+        self.list_types.grid(row=2, column=1, sticky="nsew", padx=2)
+        self.list_types.bind("<<ListboxSelect>>", self._on_type_select)
+        self.list_types.bind("<Double-Button-1>", lambda _e: self.edit_selected_type())
+
+        ttk.Label(top, text="Status:").grid(row=1, column=2, sticky="w")
         self.list_status = tk.Listbox(top, height=8)
-        self.list_status.grid(row=1, column=2, sticky="nsew", padx=2)
+        self.list_status.grid(row=2, column=2, sticky="nsew", padx=2)
         self.list_status.bind("<<ListboxSelect>>", self._on_status_select)
+        self.list_status.bind("<Double-Button-1>", lambda _e: self.edit_selected_status())
+
+        type_btns = ttk.Frame(top)
+        type_btns.grid(row=3, column=1, sticky="ew", padx=2, pady=(4, 0))
+        ttk.Button(type_btns, text="Dodaj typ", command=self.add_type).pack(side="left")
+        ttk.Button(type_btns, text="Usuń", command=self.delete_type).pack(side="left", padx=(4, 0))
+
+        status_btns = ttk.Frame(top)
+        status_btns.grid(row=3, column=2, sticky="ew", padx=2, pady=(4, 0))
+        ttk.Button(status_btns, text="Dodaj status", command=self.add_status).pack(side="left")
+        ttk.Button(status_btns, text="Usuń", command=self.delete_status).pack(side="left", padx=(4, 0))
 
         for i in range(3):
             top.columnconfigure(i, weight=1)
+        top.rowconfigure(2, weight=1)
 
         ttk.Label(main, text="Zadania:").pack(anchor="w", pady=(4, 0))
         self.list_tasks = tk.Listbox(main, height=10)
@@ -100,16 +126,11 @@ class ToolsConfigDialog(tk.Toplevel):
 
     def _populate_types(self) -> None:
         types = self.current_collection.get("types") if self.current_collection else []
-        self._type_name_to_id: dict[str, str] = {}
-        with self._suspend_ui():
-            self.list_types.delete(0, tk.END)
-            for t in types or []:
-                name = t.get("name", t.get("id"))
-                self.list_types.insert(tk.END, name)
-                self._type_name_to_id[name] = t.get("id")
-            if types:
-                self.list_types.selection_set(0)
-        self._on_type_select()
+        self._types = list(types or [])
+        self._type_name_to_id = {
+            self._display_label(t): t.get("id") for t in self._types
+        }
+        self._apply_type_filter()
 
     def _on_type_select(self, event=None) -> None:  # noqa: ANN001
         if self._ui_updating:
@@ -127,16 +148,11 @@ class ToolsConfigDialog(tk.Toplevel):
 
     def _populate_statuses(self) -> None:
         statuses = self.current_type.get("statuses") if self.current_type else []
-        self._status_name_to_id: dict[str, str] = {}
-        with self._suspend_ui():
-            self.list_status.delete(0, tk.END)
-            for st in statuses or []:
-                name = st.get("name", st.get("id"))
-                self.list_status.insert(tk.END, name)
-                self._status_name_to_id[name] = st.get("id")
-            if statuses:
-                self.list_status.selection_set(0)
-        self._on_status_select()
+        self._statuses = list(statuses or [])
+        self._status_name_to_id = {
+            self._display_label(st): st.get("id") for st in self._statuses
+        }
+        self._apply_status_filter()
 
     def _on_status_select(self, event=None) -> None:  # noqa: ANN001
         if self._ui_updating:
@@ -158,6 +174,198 @@ class ToolsConfigDialog(tk.Toplevel):
             self.list_tasks.delete(0, tk.END)
             for t in tasks or []:
                 self.list_tasks.insert(tk.END, t)
+
+    def _on_search_change(self) -> None:
+        if self._ui_updating:
+            return
+        self._apply_type_filter()
+
+    def _apply_type_filter(self) -> None:
+        query = (self.search_var.get() or "").strip().lower()
+        preferred = self._display_label(self.current_type)
+        shown: list[str] = []
+        with self._suspend_ui():
+            self.list_types.delete(0, tk.END)
+            for t in self._types:
+                name = self._display_label(t)
+                if query and query not in name.lower():
+                    continue
+                idx = len(shown)
+                self.list_types.insert(tk.END, name)
+                shown.append(name)
+                if preferred and name == preferred:
+                    self.list_types.selection_set(idx)
+            if shown and not self.list_types.curselection():
+                self.list_types.selection_set(0)
+            if not shown:
+                self.current_type = None
+        self._on_type_select()
+
+    def _apply_status_filter(self) -> None:
+        query = (self.search_var.get() or "").strip().lower()
+        preferred = self._display_label(self.current_status)
+        shown: list[str] = []
+        with self._suspend_ui():
+            self.list_status.delete(0, tk.END)
+            for st in self._statuses:
+                name = self._display_label(st)
+                if query and query not in name.lower():
+                    continue
+                idx = len(shown)
+                self.list_status.insert(tk.END, name)
+                shown.append(name)
+                if preferred and name == preferred:
+                    self.list_status.selection_set(idx)
+            if shown and not self.list_status.curselection():
+                self.list_status.selection_set(0)
+            if not shown:
+                self.current_status = None
+        self._on_status_select()
+
+    @staticmethod
+    def _display_label(item: dict | None) -> str:
+        if not item:
+            return ""
+        return str(item.get("name") or item.get("id") or "")
+
+    @staticmethod
+    def _make_unique_id(label: str, existing: set[str]) -> str:
+        slug = re.sub(r"[^0-9A-Za-z]+", "_", label.strip())
+        slug = slug.strip("_") or "ID"
+        candidate = slug.upper()
+        counter = 2
+        while candidate in existing:
+            candidate = f"{slug}_{counter}".upper()
+            counter += 1
+        return candidate
+
+    def add_type(self) -> None:
+        if not self.current_collection:
+            messagebox.showinfo("Typy", "Najpierw wybierz kolekcję.")
+            return
+        types = self.current_collection.setdefault("types", [])
+        if len(types) >= MAX_TOOL_TYPES:
+            messagebox.showwarning(
+                "Limit typów",
+                f"Nie można dodać więcej niż {MAX_TOOL_TYPES} typów w kolekcji.",
+            )
+            return
+        name = simpledialog.askstring("Nowy typ", "Nazwa typu:", parent=self)
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            return
+        if any((self._display_label(t).lower() == name.lower()) for t in types):
+            messagebox.showinfo("Typy", "Taki typ już istnieje.")
+            return
+        existing_ids = {t.get("id", "") for t in types if t.get("id")}
+        type_id = self._make_unique_id(name, existing_ids)
+        new_type = {"id": type_id, "name": name, "statuses": []}
+        types.append(new_type)
+        self.current_type = new_type
+        self.current_status = None
+        self.search_var.set("")
+        self._populate_types()
+
+    def delete_type(self) -> None:
+        if not self.current_collection or not self.current_type:
+            return
+        label = self._display_label(self.current_type)
+        if not messagebox.askyesno("Usuń typ", f"Czy na pewno usunąć typ „{label}”?"):
+            return
+        type_id = self.current_type.get("id")
+        types = self.current_collection.setdefault("types", [])
+        types[:] = [t for t in types if t.get("id") != type_id]
+        self.current_type = None
+        self.current_status = None
+        self._populate_types()
+
+    def edit_selected_type(self) -> None:
+        if not self.current_type:
+            return
+        current_label = self._display_label(self.current_type)
+        name = simpledialog.askstring(
+            "Edytuj typ", "Nazwa typu:", initialvalue=current_label, parent=self
+        )
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            return
+        types = self.current_collection.setdefault("types", []) if self.current_collection else []
+        if any(
+            (self._display_label(t).lower() == name.lower() and t is not self.current_type)
+            for t in types
+        ):
+            messagebox.showinfo("Typy", "Taki typ już istnieje.")
+            return
+        self.current_type["name"] = name
+        self._populate_types()
+
+    def add_status(self) -> None:
+        if not self.current_type:
+            messagebox.showinfo("Statusy", "Najpierw wybierz typ narzędzia.")
+            return
+        statuses = self.current_type.setdefault("statuses", [])
+        if len(statuses) >= MAX_STATUSES_PER_TYPE:
+            messagebox.showwarning(
+                "Limit statusów",
+                f"Nie można dodać więcej niż {MAX_STATUSES_PER_TYPE} statusów dla typu.",
+            )
+            return
+        name = simpledialog.askstring("Nowy status", "Nazwa statusu:", parent=self)
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            return
+        if any((self._display_label(s).lower() == name.lower()) for s in statuses):
+            messagebox.showinfo("Statusy", "Taki status już istnieje.")
+            return
+        existing_ids = {s.get("id", "") for s in statuses if s.get("id")}
+        status_id = self._make_unique_id(name, existing_ids)
+        new_status = {"id": status_id, "name": name, "tasks": []}
+        statuses.append(new_status)
+        self.current_status = new_status
+        self.search_var.set("")
+        self._populate_statuses()
+
+    def delete_status(self) -> None:
+        if not self.current_type or not self.current_status:
+            return
+        label = self._display_label(self.current_status)
+        if not messagebox.askyesno("Usuń status", f"Czy na pewno usunąć status „{label}”?"):
+            return
+        status_id = self.current_status.get("id")
+        statuses = self.current_type.setdefault("statuses", [])
+        self.current_type["statuses"] = [
+            st for st in statuses if st.get("id") != status_id
+        ]
+        self.current_status = None
+        self._populate_statuses()
+
+    def edit_selected_status(self) -> None:
+        if not self.current_status:
+            return
+        current_label = self._display_label(self.current_status)
+        name = simpledialog.askstring(
+            "Edytuj status", "Nazwa statusu:", initialvalue=current_label, parent=self
+        )
+        if name is None:
+            return
+        name = name.strip()
+        if not name:
+            return
+        statuses = self.current_type.setdefault("statuses", []) if self.current_type else []
+        if any(
+            (self._display_label(st).lower() == name.lower() and st is not self.current_status)
+            for st in statuses
+        ):
+            messagebox.showinfo("Statusy", "Taki status już istnieje.")
+            return
+        self.current_status["name"] = name
+        self._populate_statuses()
 
     # -------------------------- task ops ----------------------------------
     def add_task(self) -> None:
