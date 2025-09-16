@@ -71,7 +71,7 @@ def _create_widget(
             print(f"[WM-DBG] enum values: {len(enum_list)}")
         if values_list is not None:
             print(f"[WM-DBG] values: {len(values_list)}")
-        enum_vals = enum_list or values_list or []
+        enum_vals = values_list or enum_list or []
         widget = ttk.Combobox(
             frame,
             textvariable=var,
@@ -157,7 +157,7 @@ def _create_widget(
     if tip:
         _bind_tooltip(widget, tip)
 
-    desc = option.get("description") or option.get("help")
+    desc = option.get("help_pl") or option.get("help") or option.get("description")
     if desc:
         ttk.Label(frame, text=desc, font=("", 8)).grid(
             row=1, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5)
