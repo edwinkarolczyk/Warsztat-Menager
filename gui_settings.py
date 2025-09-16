@@ -510,13 +510,19 @@ class SettingsPanel:
 
         path = self._get_tools_config_path()
         try:
+            # master=None, żeby uniknąć błędu
+            # "SettingsWindow object has no attribute 'tk'"
             win = ToolsConfigDialog(
-                self, path=path, on_save=self._on_tools_config_saved
+                master=None, path=path, on_save=self._on_tools_config_saved
             )
         except Exception as exc:
+            # Pokaż dokładny błąd – łatwiej debugować.
             messagebox.showerror(
                 "Błąd",
-                f"Nie udało się otworzyć edytora narzędzi:\n{exc}",
+                (
+                    "Nie udało się otworzyć edytora narzędzi:\n"
+                    f"{type(exc).__name__}: {exc}"
+                ),
             )
             return
 
