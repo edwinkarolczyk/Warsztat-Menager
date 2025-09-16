@@ -1,415 +1,620 @@
-"""Zaawansowany edytor konfiguracji zadań narzędzi."""
+"""Zaawansowany edytor konfiguracji zadań narzędzi (kolekcje NN/SN)."""
 
 from __future__ import annotations
 
+import glob
 import json
+import os
 import re
-from contextlib import contextmanager
+import time
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
 import logika_zadan as LZ
 
-
+COLLECTIONS = ("NN", "SN")
 MAX_TOOL_TYPES = 8
 MAX_STATUSES_PER_TYPE = 8
+MAX_TASKS_PER_STATUS = 10
+BACKUP_KEEP_LAST = 5
+
+
+def _wm(msg: str) -> None:
+    try:
+        print(f"[WM-DBG][TOOLS_ADV] {msg}")
+    except Exception:  # pragma: no cover - debug helper
+        pass
+
+
+def _require_brygadzista_auth(master: tk.Misc) -> bool:
+    """Prosta walidacja roli brygadzisty (login+hasło muszą być podane)."""
+
+    login = simpledialog.askstring(
+        "Autoryzacja", "Login brygadzisty:", parent=master
+    )
+    if not login:
+        return False
+    pwd = simpledialog.askstring(
+        "Autoryzacja", "Hasło brygadzisty:", parent=master, show="*"
+    )
+    if not pwd:
+        return False
+    return True
+
+
+def _make_backup(path: str) -> None:
+    """Zapisz kopię zapasową pliku wraz z obcięciem starych backupów."""
+
+    if not os.path.exists(path):
+        return
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    backup_path = f"{path}.bak.{ts}.json"
+    try:
+        with open(path, "rb") as src, open(backup_path, "wb") as dst:
+            dst.write(src.read())
+        _wm(f"Backup zapisany: {backup_path}")
+    except OSError as exc:  # pragma: no cover - best effort
+        print(f"[WM-DBG][TOOLS_ADV] Backup nieudany: {exc}")
+    try:
+        backups = sorted(glob.glob(f"{path}.bak.*.json"))
+        for old in backups[: max(0, len(backups) - BACKUP_KEEP_LAST)]:
+            try:
+                os.remove(old)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
+def _make_unique_id(label: str, existing: set[str]) -> str:
+    slug = re.sub(r"[^0-9A-Za-z]+", "_", label.strip())
+    slug = slug.strip("_") or "ID"
+    candidate = slug.upper()
+    counter = 2
+    while candidate in existing:
+        candidate = f"{slug}_{counter}".upper()
+        counter += 1
+    return candidate
 
 
 class ToolsConfigDialog(tk.Toplevel):
-    """Okno z listami Kolekcja → Typ → Status i edycją zadań."""
+    """Okno edycji typów/statusów zadań z kolekcjami NN/SN."""
 
-    def __init__(self, master: tk.Widget | None = None, *, path: str, on_save=None) -> None:
+    def __init__(
+        self,
+        master: tk.Widget | None = None,
+        *,
+        path: str,
+        on_save=None,
+    ) -> None:
         super().__init__(master)
-        self.title("Konfiguracja zadań narzędzi")
+        self.title("Narzędzia — konfiguracja (NN/SN)")
         self.resizable(True, True)
         self.path = path
         self.on_save = on_save
-        self._ui_updating = False
 
-        self.data = self._load_data()
-        self.current_collection: dict | None = None
-        self.current_type: dict | None = None
-        self.current_status: dict | None = None
+        self._data = self._load_or_init()
+        self._ensure_shared_types_integrity()
+
+        self._current_collection = COLLECTIONS[0]
+        self._current_type_index: int | None = None
+        self._current_status_index: int | None = None
+        self._visible_type_indexes: list[int] = []
+        self._visible_status_indexes: list[int] = []
+
+        self._collection_var = tk.StringVar(value=COLLECTIONS[0])
+        self._search_var = tk.StringVar()
+
+        top = ttk.Frame(self)
+        top.pack(fill="x", padx=6, pady=6)
+        ttk.Label(top, text="Kolekcja:").pack(side="left")
+        self._collection_cb = ttk.Combobox(
+            top,
+            values=COLLECTIONS,
+            state="readonly",
+            textvariable=self._collection_var,
+            width=6,
+        )
+        self._collection_cb.pack(side="left", padx=(4, 12))
+        self._collection_cb.bind("<<ComboboxSelected>>", self._on_collection_change)
+
+        ttk.Label(top, text="Szukaj:").pack(side="left")
+        search_entry = ttk.Entry(top, textvariable=self._search_var, width=24)
+        search_entry.pack(side="left", fill="x", expand=True)
+        search_entry.bind("<KeyRelease>", self._on_search)
 
         main = ttk.Frame(self)
-        main.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        main.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
-        top = ttk.Frame(main)
-        top.pack(fill=tk.X)
+        left = ttk.Frame(main)
+        left.pack(side="left", fill="both", expand=True)
+        ttk.Label(left, text="Typy (wspólne NN/SN)").pack(anchor="w")
+        self.types_list = tk.Listbox(left, height=12)
+        self.types_list.pack(fill="both", expand=True, pady=(2, 4))
+        self.types_list.bind("<<ListboxSelect>>", self._on_type_select)
+        self.types_list.bind("<Double-Button-1>", self._on_type_edit)
+        type_btns = ttk.Frame(left)
+        type_btns.pack(fill="x")
+        ttk.Button(type_btns, text="Dodaj typ", command=self._add_type).pack(side="left")
+        ttk.Button(type_btns, text="Usuń typ", command=self._del_type).pack(
+            side="left", padx=(6, 0)
+        )
 
-        ttk.Label(top, text="Kolekcja:").grid(row=0, column=0, sticky="w")
-        self.combo_coll = ttk.Combobox(top, state="readonly")
-        self.combo_coll.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 4))
-        self.combo_coll.bind("<<ComboboxSelected>>", self._on_collection_change)
+        mid = ttk.Frame(main)
+        mid.pack(side="left", fill="both", expand=True, padx=(8, 0))
+        ttk.Label(mid, text="Statusy (dla kolekcji)").pack(anchor="w")
+        self.status_list = tk.Listbox(mid, height=12)
+        self.status_list.pack(fill="both", expand=True, pady=(2, 4))
+        self.status_list.bind("<<ListboxSelect>>", self._on_status_select)
+        self.status_list.bind("<Double-Button-1>", self._on_status_edit)
+        status_btns = ttk.Frame(mid)
+        status_btns.pack(fill="x")
+        ttk.Button(status_btns, text="Dodaj status", command=self._add_status).pack(
+            side="left"
+        )
+        ttk.Button(status_btns, text="Usuń status", command=self._del_status).pack(
+            side="left", padx=(6, 0)
+        )
 
-        self.search_var = tk.StringVar()
-        search_row = ttk.Frame(top)
-        search_row.grid(row=0, column=1, columnspan=2, sticky="ew", padx=2)
-        ttk.Label(search_row, text="Szukaj:").pack(side="left")
-        search_entry = ttk.Entry(search_row, textvariable=self.search_var, width=26)
-        search_entry.pack(side="left", fill="x", expand=True)
-        self.search_var.trace_add("write", lambda *_: self._on_search_change())
+        right = ttk.Frame(main)
+        right.pack(side="left", fill="both", expand=True, padx=(8, 0))
+        ttk.Label(right, text="Zadania (dla statusu)").pack(anchor="w")
+        self.tasks_list = tk.Listbox(right, height=12)
+        self.tasks_list.pack(fill="both", expand=True, pady=(2, 4))
+        self.tasks_list.bind("<Double-Button-1>", self._on_task_edit)
+        task_btns = ttk.Frame(right)
+        task_btns.pack(fill="x")
+        ttk.Button(task_btns, text="Dodaj zadanie", command=self._add_task).pack(
+            side="left"
+        )
+        ttk.Button(task_btns, text="Usuń zadanie", command=self._del_task).pack(
+            side="left", padx=(6, 0)
+        )
 
-        ttk.Label(top, text="Typ:").grid(row=1, column=1, sticky="w")
-        self.list_types = tk.Listbox(top, height=8)
-        self.list_types.grid(row=2, column=1, sticky="nsew", padx=2)
-        self.list_types.bind("<<ListboxSelect>>", self._on_type_select)
-        self.list_types.bind("<Double-Button-1>", lambda _e: self.edit_selected_type())
+        bottom = ttk.Frame(self)
+        bottom.pack(fill="x", padx=6, pady=6)
+        ttk.Button(bottom, text="Zapisz", command=self._save).pack(side="left")
+        ttk.Button(bottom, text="Anuluj", command=self.destroy).pack(
+            side="left", padx=(6, 0)
+        )
 
-        ttk.Label(top, text="Status:").grid(row=1, column=2, sticky="w")
-        self.list_status = tk.Listbox(top, height=8)
-        self.list_status.grid(row=2, column=2, sticky="nsew", padx=2)
-        self.list_status.bind("<<ListboxSelect>>", self._on_status_select)
-        self.list_status.bind("<Double-Button-1>", lambda _e: self.edit_selected_status())
+        self._current_collection = self._collection_var.get()
+        self._refresh_types()
 
-        type_btns = ttk.Frame(top)
-        type_btns.grid(row=3, column=1, sticky="ew", padx=2, pady=(4, 0))
-        ttk.Button(type_btns, text="Dodaj typ", command=self.add_type).pack(side="left")
-        ttk.Button(type_btns, text="Usuń", command=self.delete_type).pack(side="left", padx=(4, 0))
-
-        status_btns = ttk.Frame(top)
-        status_btns.grid(row=3, column=2, sticky="ew", padx=2, pady=(4, 0))
-        ttk.Button(status_btns, text="Dodaj status", command=self.add_status).pack(side="left")
-        ttk.Button(status_btns, text="Usuń", command=self.delete_status).pack(side="left", padx=(4, 0))
-
-        for i in range(3):
-            top.columnconfigure(i, weight=1)
-        top.rowconfigure(2, weight=1)
-
-        ttk.Label(main, text="Zadania:").pack(anchor="w", pady=(4, 0))
-        self.list_tasks = tk.Listbox(main, height=10)
-        self.list_tasks.pack(fill=tk.BOTH, expand=True)
-
-        btns = ttk.Frame(main)
-        btns.pack(fill=tk.X, pady=(4, 0))
-        ttk.Button(btns, text="Dodaj", command=self.add_task).pack(side=tk.LEFT)
-        ttk.Button(btns, text="Edytuj", command=self.edit_task).pack(side=tk.LEFT)
-        ttk.Button(btns, text="Usuń", command=self.delete_task).pack(side=tk.LEFT)
-        ttk.Button(btns, text="Zapisz", command=self._save).pack(side=tk.RIGHT)
-        ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side=tk.RIGHT)
-
-        self._populate_collections()
-
-    # ------------------------- UI helpers ---------------------------------
-    @contextmanager
-    def _suspend_ui(self):
-        self._ui_updating = True
-        try:
-            yield
-        finally:
-            self._ui_updating = False
-
-    def _load_data(self) -> dict:
+    # ===== model helpers ==================================================
+    def _load_or_init(self) -> dict:
         try:
             with open(self.path, "r", encoding="utf-8") as fh:
-                return json.load(fh)
+                data = json.load(fh)
         except FileNotFoundError:
-            return {"collections": {}}
+            data = {"collections": {}}
         except json.JSONDecodeError as exc:
             messagebox.showerror("Błąd", f"Niepoprawny JSON: {exc}")
-            return {"collections": {}}
+            data = {"collections": {}}
+        collections = data.setdefault("collections", {})
+        legacy = collections.pop("ST", None)
+        collections.setdefault("NN", {"types": []})
+        if legacy is not None and "SN" not in collections:
+            collections["SN"] = legacy
+        collections.setdefault("SN", {"types": []})
+        for cid in COLLECTIONS:
+            coll = collections.get(cid, {})
+            coll.setdefault("types", [])
+            for typ in coll.get("types", []):
+                typ.setdefault("id", typ.get("id") or _make_unique_id("TYP", set()))
+                typ.setdefault("name", typ.get("name") or typ.get("id"))
+                typ.setdefault("statuses", [])
+                for status in typ.get("statuses", []):
+                    status.setdefault(
+                        "id", status.get("id") or _make_unique_id("STATUS", set())
+                    )
+                    status.setdefault("name", status.get("name") or status.get("id"))
+                    status.setdefault("tasks", [])
+        return data
 
-    def _populate_collections(self) -> None:
-        collections = sorted((self.data.get("collections") or {}).keys())
-        with self._suspend_ui():
-            self.combo_coll["values"] = collections
-            if collections:
-                self.combo_coll.set(collections[0])
-        self._on_collection_change()
+    def _ensure_shared_types_integrity(self) -> None:
+        collections = self._data.setdefault("collections", {})
+        nn_types = collections.setdefault("NN", {}).setdefault("types", [])
+        sn_types = collections.setdefault("SN", {}).setdefault("types", [])
+        sn_by_id = {t.get("id"): t for t in sn_types}
+        new_sn_types: list[dict] = []
+        for typ in nn_types:
+            typ.setdefault("statuses", [])
+            tid = typ.get("id")
+            name = typ.get("name") or tid or ""
+            sn_entry = sn_by_id.get(tid)
+            if sn_entry is None:
+                sn_entry = {"id": tid, "name": name, "statuses": []}
+            else:
+                sn_entry.setdefault("statuses", [])
+                sn_entry["id"] = tid
+                sn_entry["name"] = name
+            new_sn_types.append(sn_entry)
+        collections["SN"]["types"] = new_sn_types
 
-    def _on_collection_change(self, event=None) -> None:  # noqa: ANN001
-        if self._ui_updating:
+    def _get_shared_types(self) -> list[dict]:
+        return self._data["collections"]["NN"].setdefault("types", [])
+
+    def _get_statuses_for_current(self, type_idx: int) -> list[dict]:
+        coll = self._data["collections"].setdefault(self._current_collection, {})
+        types = coll.setdefault("types", [])
+        if 0 <= type_idx < len(types):
+            return types[type_idx].setdefault("statuses", [])
+        return []
+
+    # ===== UI refresh =====================================================
+    def _refresh_types(
+        self,
+        preferred_idx: int | None = None,
+        preferred_status_idx: int | None = None,
+    ) -> None:
+        types = self._get_shared_types()
+        query = (self._search_var.get() or "").strip().lower()
+        self.types_list.delete(0, tk.END)
+        self._visible_type_indexes = []
+        for idx, typ in enumerate(types):
+            label = str(typ.get("name") or typ.get("id") or "")
+            if query and query not in label.lower():
+                continue
+            self.types_list.insert(tk.END, label)
+            self._visible_type_indexes.append(idx)
+        if not self._visible_type_indexes:
+            self._current_type_index = None
+            self._current_status_index = None
+            self._refresh_statuses()
             return
-        cid = self.combo_coll.get()
-        self.current_collection = (self.data.get("collections") or {}).get(cid, {})
-        self._populate_types()
+        target = preferred_idx
+        if target not in self._visible_type_indexes:
+            target = self._visible_type_indexes[0]
+        self._select_type_by_index(target, preferred_status_idx)
 
-    def _populate_types(self) -> None:
-        types = self.current_collection.get("types") if self.current_collection else []
-        self._types = list(types or [])
-        self._type_name_to_id = {
-            self._display_label(t): t.get("id") for t in self._types
-        }
-        self._apply_type_filter()
-
-    def _on_type_select(self, event=None) -> None:  # noqa: ANN001
-        if self._ui_updating:
-            return
-        sel = self.list_types.curselection()
-        if not sel:
-            self.current_type = None
-            self._populate_statuses()
-            return
-        name = self.list_types.get(sel[0])
-        tid = self._type_name_to_id.get(name)
-        types = self.current_collection.get("types") if self.current_collection else []
-        self.current_type = next((t for t in types if t.get("id") == tid), None)
-        self._populate_statuses()
-
-    def _populate_statuses(self) -> None:
-        statuses = self.current_type.get("statuses") if self.current_type else []
-        self._statuses = list(statuses or [])
-        self._status_name_to_id = {
-            self._display_label(st): st.get("id") for st in self._statuses
-        }
-        self._apply_status_filter()
-
-    def _on_status_select(self, event=None) -> None:  # noqa: ANN001
-        if self._ui_updating:
-            return
-        sel = self.list_status.curselection()
-        if not sel:
-            self.current_status = None
+    def _refresh_statuses(self, preferred_idx: int | None = None) -> None:
+        self.status_list.delete(0, tk.END)
+        self._visible_status_indexes = []
+        type_idx = self._current_type_index
+        if type_idx is None:
+            self._current_status_index = None
             self._refresh_tasks()
             return
-        name = self.list_status.get(sel[0])
-        sid = self._status_name_to_id.get(name)
-        statuses = self.current_type.get("statuses") if self.current_type else []
-        self.current_status = next((s for s in statuses if s.get("id") == sid), None)
-        self._refresh_tasks()
+        statuses = self._get_statuses_for_current(type_idx)
+        query = (self._search_var.get() or "").strip().lower()
+        for idx, status in enumerate(statuses):
+            label = str(status.get("name") or status.get("id") or "")
+            if query and query not in label.lower():
+                continue
+            self.status_list.insert(tk.END, label)
+            self._visible_status_indexes.append(idx)
+        if not self._visible_status_indexes:
+            self._current_status_index = None
+            self._refresh_tasks()
+            return
+        target = preferred_idx
+        if target not in self._visible_status_indexes:
+            target = self._visible_status_indexes[0]
+        self._select_status_by_index(target)
 
     def _refresh_tasks(self) -> None:
-        tasks = self.current_status.get("tasks") if self.current_status else []
-        with self._suspend_ui():
-            self.list_tasks.delete(0, tk.END)
-            for t in tasks or []:
-                self.list_tasks.insert(tk.END, t)
+        self.tasks_list.delete(0, tk.END)
+        type_idx = self._current_type_index
+        status_idx = self._current_status_index
+        if type_idx is None or status_idx is None:
+            return
+        coll = self._data["collections"].setdefault(self._current_collection, {})
+        types = coll.setdefault("types", [])
+        if not (0 <= type_idx < len(types)):
+            return
+        statuses = types[type_idx].setdefault("statuses", [])
+        if not (0 <= status_idx < len(statuses)):
+            return
+        tasks = list(statuses[status_idx].get("tasks") or [])
+        for task in tasks:
+            self.tasks_list.insert(tk.END, str(task))
 
-    def _on_search_change(self) -> None:
-        if self._ui_updating:
-            return
-        self._apply_type_filter()
+    # ===== selections =====================================================
+    def _select_type_by_index(
+        self,
+        data_index: int,
+        preferred_status_idx: int | None = None,
+    ) -> None:
+        self._current_type_index = data_index
+        for visible_idx, actual_idx in enumerate(self._visible_type_indexes):
+            if actual_idx == data_index:
+                self.types_list.selection_clear(0, tk.END)
+                self.types_list.selection_set(visible_idx)
+                self.types_list.activate(visible_idx)
+                break
+        self._refresh_statuses(preferred_status_idx)
 
-    def _apply_type_filter(self) -> None:
-        query = (self.search_var.get() or "").strip().lower()
-        preferred = self._display_label(self.current_type)
-        shown: list[str] = []
-        with self._suspend_ui():
-            self.list_types.delete(0, tk.END)
-            for t in self._types:
-                name = self._display_label(t)
-                if query and query not in name.lower():
-                    continue
-                idx = len(shown)
-                self.list_types.insert(tk.END, name)
-                shown.append(name)
-                if preferred and name == preferred:
-                    self.list_types.selection_set(idx)
-            if shown and not self.list_types.curselection():
-                self.list_types.selection_set(0)
-            if not shown:
-                self.current_type = None
-        self._on_type_select()
+    def _select_status_by_index(self, data_index: int) -> None:
+        self._current_status_index = data_index
+        for visible_idx, actual_idx in enumerate(self._visible_status_indexes):
+            if actual_idx == data_index:
+                self.status_list.selection_clear(0, tk.END)
+                self.status_list.selection_set(visible_idx)
+                self.status_list.activate(visible_idx)
+                break
+        self._refresh_tasks()
 
-    def _apply_status_filter(self) -> None:
-        query = (self.search_var.get() or "").strip().lower()
-        preferred = self._display_label(self.current_status)
-        shown: list[str] = []
-        with self._suspend_ui():
-            self.list_status.delete(0, tk.END)
-            for st in self._statuses:
-                name = self._display_label(st)
-                if query and query not in name.lower():
-                    continue
-                idx = len(shown)
-                self.list_status.insert(tk.END, name)
-                shown.append(name)
-                if preferred and name == preferred:
-                    self.list_status.selection_set(idx)
-            if shown and not self.list_status.curselection():
-                self.list_status.selection_set(0)
-            if not shown:
-                self.current_status = None
-        self._on_status_select()
+    def _selected_type_index(self) -> int | None:
+        return self._current_type_index
 
-    @staticmethod
-    def _display_label(item: dict | None) -> str:
-        if not item:
-            return ""
-        return str(item.get("name") or item.get("id") or "")
+    def _selected_status_index(self) -> int | None:
+        return self._current_status_index
 
-    @staticmethod
-    def _make_unique_id(label: str, existing: set[str]) -> str:
-        slug = re.sub(r"[^0-9A-Za-z]+", "_", label.strip())
-        slug = slug.strip("_") or "ID"
-        candidate = slug.upper()
-        counter = 2
-        while candidate in existing:
-            candidate = f"{slug}_{counter}".upper()
-            counter += 1
-        return candidate
+    # ===== event handlers =================================================
+    def _on_collection_change(self, *_event) -> None:
+        new_coll = self._collection_var.get()
+        if new_coll == self._current_collection:
+            return
+        if not _require_brygadzista_auth(self):
+            self._collection_var.set(self._current_collection)
+            return
+        self._current_collection = new_coll
+        self._current_status_index = None
+        self._refresh_statuses()
 
-    def add_type(self) -> None:
-        if not self.current_collection:
-            messagebox.showinfo("Typy", "Najpierw wybierz kolekcję.")
-            return
-        types = self.current_collection.setdefault("types", [])
-        if len(types) >= MAX_TOOL_TYPES:
-            messagebox.showwarning(
-                "Limit typów",
-                f"Nie można dodać więcej niż {MAX_TOOL_TYPES} typów w kolekcji.",
-            )
-            return
-        name = simpledialog.askstring("Nowy typ", "Nazwa typu:", parent=self)
-        if name is None:
-            return
-        name = name.strip()
-        if not name:
-            return
-        if any((self._display_label(t).lower() == name.lower()) for t in types):
-            messagebox.showinfo("Typy", "Taki typ już istnieje.")
-            return
-        existing_ids = {t.get("id", "") for t in types if t.get("id")}
-        type_id = self._make_unique_id(name, existing_ids)
-        new_type = {"id": type_id, "name": name, "statuses": []}
-        types.append(new_type)
-        self.current_type = new_type
-        self.current_status = None
-        self.search_var.set("")
-        self._populate_types()
-
-    def delete_type(self) -> None:
-        if not self.current_collection or not self.current_type:
-            return
-        label = self._display_label(self.current_type)
-        if not messagebox.askyesno("Usuń typ", f"Czy na pewno usunąć typ „{label}”?"):
-            return
-        type_id = self.current_type.get("id")
-        types = self.current_collection.setdefault("types", [])
-        types[:] = [t for t in types if t.get("id") != type_id]
-        self.current_type = None
-        self.current_status = None
-        self._populate_types()
-
-    def edit_selected_type(self) -> None:
-        if not self.current_type:
-            return
-        current_label = self._display_label(self.current_type)
-        name = simpledialog.askstring(
-            "Edytuj typ", "Nazwa typu:", initialvalue=current_label, parent=self
+    def _on_search(self, *_event) -> None:
+        self._refresh_types(
+            preferred_idx=self._current_type_index,
+            preferred_status_idx=self._current_status_index,
         )
-        if name is None:
+
+    def _on_type_select(self, *_event) -> None:
+        sel = self.types_list.curselection()
+        if not sel:
+            self._current_type_index = None
+            self._current_status_index = None
+            self._refresh_statuses()
             return
-        name = name.strip()
-        if not name:
+        visible_idx = sel[0]
+        if visible_idx >= len(self._visible_type_indexes):
             return
-        types = self.current_collection.setdefault("types", []) if self.current_collection else []
+        data_index = self._visible_type_indexes[visible_idx]
+        self._select_type_by_index(data_index)
+
+    def _on_status_select(self, *_event) -> None:
+        sel = self.status_list.curselection()
+        if not sel:
+            self._current_status_index = None
+            self._refresh_tasks()
+            return
+        visible_idx = sel[0]
+        if visible_idx >= len(self._visible_status_indexes):
+            return
+        data_index = self._visible_status_indexes[visible_idx]
+        self._select_status_by_index(data_index)
+
+    def _on_type_edit(self, *_event) -> None:
+        idx = self._selected_type_index()
+        if idx is None:
+            return
+        shared_types = self._get_shared_types()
+        current = shared_types[idx]
+        label = current.get("name") or current.get("id") or ""
+        value = simpledialog.askstring(
+            "Edycja typu", "Nazwa typu:", initialvalue=str(label), parent=self
+        )
+        if not value:
+            return
+        value = value.strip()
+        if not value:
+            return
         if any(
-            (self._display_label(t).lower() == name.lower() and t is not self.current_type)
-            for t in types
+            (t is not current and str(t.get("name", "")).lower() == value.lower())
+            for t in shared_types
         ):
             messagebox.showinfo("Typy", "Taki typ już istnieje.")
             return
-        self.current_type["name"] = name
-        self._populate_types()
+        for cid in COLLECTIONS:
+            types = self._data["collections"][cid].setdefault("types", [])
+            if 0 <= idx < len(types):
+                types[idx]["name"] = value
+        self._refresh_types(preferred_idx=idx)
 
-    def add_status(self) -> None:
-        if not self.current_type:
-            messagebox.showinfo("Statusy", "Najpierw wybierz typ narzędzia.")
+    def _on_status_edit(self, *_event) -> None:
+        type_idx = self._selected_type_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
             return
-        statuses = self.current_type.setdefault("statuses", [])
+        statuses = self._get_statuses_for_current(type_idx)
+        current = statuses[status_idx]
+        label = current.get("name") or current.get("id") or ""
+        value = simpledialog.askstring(
+            "Edycja statusu", "Nazwa statusu:", initialvalue=str(label), parent=self
+        )
+        if not value:
+            return
+        value = value.strip()
+        if not value:
+            return
+        if any(
+            (s is not current and str(s.get("name", "")).lower() == value.lower())
+            for s in statuses
+        ):
+            messagebox.showinfo("Statusy", "Taki status już istnieje.")
+            return
+        current["name"] = value
+        self._refresh_statuses(preferred_idx=status_idx)
+
+    def _on_task_edit(self, *_event) -> None:
+        type_idx = self._selected_type_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
+            return
+        statuses = self._get_statuses_for_current(type_idx)
+        status = statuses[status_idx]
+        tasks = status.setdefault("tasks", [])
+        sel = self.tasks_list.curselection()
+        if not sel:
+            return
+        task_idx = sel[0]
+        if not (0 <= task_idx < len(tasks)):
+            return
+        current = str(tasks[task_idx])
+        value = simpledialog.askstring(
+            "Edycja zadania", "Treść zadania:", initialvalue=current, parent=self
+        )
+        if not value:
+            return
+        value = value.strip()
+        if not value:
+            return
+        tasks[task_idx] = value
+        self._refresh_tasks()
+
+    # ===== add/remove operations =========================================
+    def _add_type(self) -> None:
+        shared_types = self._get_shared_types()
+        if len(shared_types) >= MAX_TOOL_TYPES:
+            messagebox.showwarning(
+                "Limit typów", f"Maksymalnie {MAX_TOOL_TYPES} typów narzędzi."
+            )
+            return
+        value = simpledialog.askstring("Nowy typ", "Nazwa typu:", parent=self)
+        if not value:
+            return
+        value = value.strip()
+        if not value:
+            return
+        if any(str(t.get("name", "")).lower() == value.lower() for t in shared_types):
+            messagebox.showinfo("Typy", "Taki typ już istnieje.")
+            return
+        existing_ids = {
+            str(t.get("id"))
+            for t in shared_types
+            if str(t.get("id"))
+        }
+        type_id = _make_unique_id(value, existing_ids)
+        shared_types.append({"id": type_id, "name": value, "statuses": []})
+        sn_types = self._data["collections"]["SN"].setdefault("types", [])
+        sn_types.append({"id": type_id, "name": value, "statuses": []})
+        new_index = len(shared_types) - 1
+        self._refresh_types(preferred_idx=new_index)
+
+    def _del_type(self) -> None:
+        idx = self._selected_type_index()
+        if idx is None:
+            return
+        label = str(
+            self._get_shared_types()[idx].get("name")
+            or self._get_shared_types()[idx].get("id")
+            or ""
+        )
+        if not messagebox.askyesno(
+            "Usunąć typ?",
+            f"Typ „{label}” zostanie usunięty z obu kolekcji. Kontynuować?",
+        ):
+            return
+        for cid in COLLECTIONS:
+            types = self._data["collections"][cid].setdefault("types", [])
+            if 0 <= idx < len(types):
+                types.pop(idx)
+        self._current_type_index = None
+        self._current_status_index = None
+        self._refresh_types()
+
+    def _add_status(self) -> None:
+        type_idx = self._selected_type_index()
+        if type_idx is None:
+            return
+        statuses = self._get_statuses_for_current(type_idx)
         if len(statuses) >= MAX_STATUSES_PER_TYPE:
             messagebox.showwarning(
                 "Limit statusów",
-                f"Nie można dodać więcej niż {MAX_STATUSES_PER_TYPE} statusów dla typu.",
+                f"Maksymalnie {MAX_STATUSES_PER_TYPE} statusów dla typu.",
             )
             return
-        name = simpledialog.askstring("Nowy status", "Nazwa statusu:", parent=self)
-        if name is None:
+        value = simpledialog.askstring("Nowy status", "Nazwa statusu:", parent=self)
+        if not value:
             return
-        name = name.strip()
-        if not name:
+        value = value.strip()
+        if not value:
             return
-        if any((self._display_label(s).lower() == name.lower()) for s in statuses):
+        if any(str(s.get("name", "")).lower() == value.lower() for s in statuses):
             messagebox.showinfo("Statusy", "Taki status już istnieje.")
             return
-        existing_ids = {s.get("id", "") for s in statuses if s.get("id")}
-        status_id = self._make_unique_id(name, existing_ids)
-        new_status = {"id": status_id, "name": name, "tasks": []}
-        statuses.append(new_status)
-        self.current_status = new_status
-        self.search_var.set("")
-        self._populate_statuses()
+        existing_ids = {
+            str(s.get("id"))
+            for s in statuses
+            if str(s.get("id"))
+        }
+        status_id = _make_unique_id(value, existing_ids)
+        statuses.append({"id": status_id, "name": value, "tasks": []})
+        new_index = len(statuses) - 1
+        self._refresh_statuses(preferred_idx=new_index)
 
-    def delete_status(self) -> None:
-        if not self.current_type or not self.current_status:
+    def _del_status(self) -> None:
+        type_idx = self._selected_type_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
             return
-        label = self._display_label(self.current_status)
-        if not messagebox.askyesno("Usuń status", f"Czy na pewno usunąć status „{label}”?"):
-            return
-        status_id = self.current_status.get("id")
-        statuses = self.current_type.setdefault("statuses", [])
-        self.current_type["statuses"] = [
-            st for st in statuses if st.get("id") != status_id
-        ]
-        self.current_status = None
-        self._populate_statuses()
-
-    def edit_selected_status(self) -> None:
-        if not self.current_status:
-            return
-        current_label = self._display_label(self.current_status)
-        name = simpledialog.askstring(
-            "Edytuj status", "Nazwa statusu:", initialvalue=current_label, parent=self
-        )
-        if name is None:
-            return
-        name = name.strip()
-        if not name:
-            return
-        statuses = self.current_type.setdefault("statuses", []) if self.current_type else []
-        if any(
-            (self._display_label(st).lower() == name.lower() and st is not self.current_status)
-            for st in statuses
+        if not messagebox.askyesno(
+            "Usunąć status?", "Status oraz jego zadania zostaną usunięte."
         ):
-            messagebox.showinfo("Statusy", "Taki status już istnieje.")
             return
-        self.current_status["name"] = name
-        self._populate_statuses()
+        statuses = self._get_statuses_for_current(type_idx)
+        if 0 <= status_idx < len(statuses):
+            statuses.pop(status_idx)
+        self._current_status_index = None
+        self._refresh_statuses()
 
-    # -------------------------- task ops ----------------------------------
-    def add_task(self) -> None:
-        if not self.current_status:
+    def _add_task(self) -> None:
+        type_idx = self._selected_type_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
             return
-        name = simpledialog.askstring("Dodaj zadanie", "Opis zadania:", parent=self)
-        if name:
-            self.current_status.setdefault("tasks", []).append(name)
-            self._refresh_tasks()
+        statuses = self._get_statuses_for_current(type_idx)
+        status = statuses[status_idx]
+        tasks = status.setdefault("tasks", [])
+        if len(tasks) >= MAX_TASKS_PER_STATUS:
+            messagebox.showwarning(
+                "Limit zadań",
+                f"Maksymalnie {MAX_TASKS_PER_STATUS} zadań dla statusu.",
+            )
+            return
+        value = simpledialog.askstring("Nowe zadanie", "Treść zadania:", parent=self)
+        if not value:
+            return
+        value = value.strip()
+        if not value:
+            return
+        tasks.append(value)
+        self._refresh_tasks()
 
-    def edit_task(self) -> None:
-        if not self.current_status:
+    def _del_task(self) -> None:
+        type_idx = self._selected_type_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
             return
-        sel = self.list_tasks.curselection()
+        sel = self.tasks_list.curselection()
         if not sel:
             return
-        idx = sel[0]
-        tasks = self.current_status.setdefault("tasks", [])
-        old = tasks[idx]
-        name = simpledialog.askstring(
-            "Edytuj zadanie", "Opis zadania:", initialvalue=old, parent=self
-        )
-        if name:
-            tasks[idx] = name
-            self._refresh_tasks()
-
-    def delete_task(self) -> None:
-        if not self.current_status:
+        task_idx = sel[0]
+        statuses = self._get_statuses_for_current(type_idx)
+        status = statuses[status_idx]
+        tasks = status.setdefault("tasks", [])
+        if not (0 <= task_idx < len(tasks)):
             return
-        sel = self.list_tasks.curselection()
-        if not sel:
+        if not messagebox.askyesno("Usunąć zadanie?", "Czy usunąć wybrane zadanie?"):
             return
-        idx = sel[0]
-        if messagebox.askyesno("Usuń zadanie", "Czy na pewno usunąć wybrane zadanie?"):
-            tasks = self.current_status.setdefault("tasks", [])
-            del tasks[idx]
-            self._refresh_tasks()
+        tasks.pop(task_idx)
+        self._refresh_tasks()
 
-    # -------------------------- save --------------------------------------
+    # ===== save ===========================================================
     def _save(self) -> None:
+        self._ensure_shared_types_integrity()
+        folder = os.path.dirname(self.path) or "."
+        os.makedirs(folder, exist_ok=True)
+        _make_backup(self.path)
         with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump(self.data, fh, ensure_ascii=False, indent=2)
+            json.dump(self._data, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
-        LZ.invalidate_cache()
+        try:
+            LZ.invalidate_cache()
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"[WM-DBG][TOOLS_ADV] invalidate_cache error: {exc}")
         if callable(self.on_save) and self.on_save is not LZ.invalidate_cache:
             self.on_save()
+        messagebox.showinfo("Zapisano", "Konfiguracja narzędzi została zapisana.")
         self.destroy()
+
