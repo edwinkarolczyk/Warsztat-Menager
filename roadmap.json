@@ -1,0 +1,145 @@
+{
+  "version": "2025-09-15",
+  "modules": [
+    {
+      "id": "SETTINGS",
+      "name": "Ustawienia",
+      "percent": 70,
+      "rag": "Y",
+      "dod": [
+        "Combobox/description z settings_schema.json",
+        "Zakładka Profile",
+        "Focus okien",
+        "Logi PL"
+      ]
+    },
+    {
+      "id": "TOOLS",
+      "name": "Narzędzia",
+      "percent": 80,
+      "rag": "Y",
+      "dod": [
+        "Model: Typ (<=8) → Statusy (<=8/typ) → Zadania (checklista)",
+        "Edycja: dwuklik, dark, wyszukiwarka, bez tooltipów",
+        "Limity 8/8 z komunikatem PL",
+        "Auto-domknięcie zadań w ostatnim statusie",
+        "Historia zmian w narzedzia/NNN.json (data, login, komentarz)"
+      ]
+    },
+    {
+      "id": "WAREHOUSE",
+      "name": "Magazyn",
+      "percent": 60,
+      "rag": "Y",
+      "dod": [
+        "Dodaj materiał (po logowaniu)",
+        "Nazwy zakładek czytelne",
+        "Alert progowy"
+      ]
+    },
+    {
+      "id": "ORDERS",
+      "name": "Zlecenia",
+      "percent": 55,
+      "rag": "Y",
+      "dod": [
+        "Kreator (Toplevel, dark)",
+        "Comboboxy",
+        "Walidacja BOM + 'Zamówić brak?'"
+      ]
+    },
+    {
+      "id": "MACHINES",
+      "name": "Maszyny",
+      "percent": 55,
+      "rag": "Y",
+      "dod": [
+        "Kolumna Awaria[h]",
+        "Kropki statusu (zielona/czerwona migająca)",
+        "Natychmiastowe usunięcie z hali"
+      ]
+    },
+    {
+      "id": "HALL",
+      "name": "Hala/Serwis",
+      "percent": 45,
+      "rag": "R",
+      "dod": [
+        "Tło JPEG",
+        "Siatka 4px = 20cm",
+        "Drag&drop zapis do maszyny.json"
+      ]
+    },
+    {
+      "id": "PROFILES",
+      "name": "Profile",
+      "percent": 50,
+      "rag": "Y",
+      "dod": [
+        "Zakładka w Ustawieniach",
+        "Nazwa przy Wyloguj",
+        "Wyłączanie modułów w Panelu"
+      ]
+    },
+    {
+      "id": "DASHBOARD",
+      "name": "Dashboard",
+      "percent": 60,
+      "rag": "Y",
+      "dod": [
+        "Kafel Awarie",
+        "Opcjonalny start"
+      ]
+    },
+    {
+      "id": "UPDATES",
+      "name": "Aktualizacje/Git",
+      "percent": 70,
+      "rag": "Y",
+      "dod": [
+        "Dialog 3 opcji dirty git",
+        "Logi PL"
+      ]
+    },
+    {
+      "id": "MOBILE",
+      "name": "Mobile (Kivy)",
+      "percent": 20,
+      "rag": "R",
+      "dod": [
+        "APK offline (login, lista maszyn, zgłoszenie awarii)",
+        "Docelowo sync FTP"
+      ]
+    }
+  ],
+  "iterationA_backlog": [
+    "SETTINGS: combobox+description",
+    "TOOLS: edycja Typ→Status→Zadania 8/8",
+    "WAREHOUSE: dodaj materiał",
+    "ORDERS: kreator+combobox+BOM",
+    "MACHINES: awaria[h]+kropki",
+    "HALL: tło+siatka+drag&drop",
+    "PROFILES: zakładka+logout name",
+    "DASHBOARD: kafel awarie",
+    "UPDATES: dialog dirty git",
+    "MOBILE: szkic+APK offline"
+  ],
+  "global_assumptions": {
+    "data_format": "JSON only",
+    "history_per_file": true,
+    "dark_theme": true,
+    "fixed_search_in_tables": true,
+    "no_demo_mobile": true,
+    "backup_keep_last": 5
+  },
+  "guardrails": {
+    "one_task_one_file": true,
+    "require_pl_texts": true,
+    "log_tags": [
+      "[WM-DBG]",
+      "[INFO]",
+      "[ERROR]"
+    ],
+    "refuse_out_of_scope": "block"
+  }
+}
