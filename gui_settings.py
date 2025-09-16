@@ -13,6 +13,12 @@ from typing import Any, Dict
 from tkinter import colorchooser, filedialog
 from tkinter import ttk, messagebox
 
+# A-2e: alias do edytora advanced (wyszukiwarka, limity, kolekcje NN/SN)
+try:
+    from gui_tools_config import ToolsConfigDialog  # preferuje advanced, fallback prosty
+except Exception:  # pragma: no cover - środowisko bez gui_tools_config
+    ToolsConfigDialog = None
+
 import config_manager as cm
 from config_manager import ConfigManager
 from gui_products import ProductsMaterialsTab
@@ -493,21 +499,24 @@ class SettingsPanel:
         return grp_count, fld_count
 
     def _open_tools_config(self) -> None:
-        """Open tools tasks configuration dialog."""
+        """Otwiera alias ``gui_tools_config`` (advanced lub fallback JSON)."""
 
-        import importlib
+        if ToolsConfigDialog is None:
+            messagebox.showerror(
+                "Błąd",
+                "Moduł edytora narzędzi jest niedostępny.",
+            )
+            return
 
-        callback = getattr(LZ, "invalidate_cache", lambda: None)
-        path = os.path.join("data", "zadania_narzedzia.json")
-
+        path = self._get_tools_config_path()
         try:
-            module = importlib.import_module("gui_tools_config")
-            dialog_cls = module.ToolsConfigDialog  # alias preferujący wersję advanced
-            win = dialog_cls(self, path=path, on_save=callback)
-        except Exception:
-            messagebox.showwarning(
-                "Konfiguracja zadań narzędzi",
-                "Moduł konfiguracji narzędzi nie jest dostępny.",
+            win = ToolsConfigDialog(
+                self, path=path, on_save=self._on_tools_config_saved
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Błąd",
+                f"Nie udało się otworzyć edytora narzędzi:\n{exc}",
             )
             return
 
@@ -516,6 +525,41 @@ class SettingsPanel:
             self.wait_window(win)
         except Exception as exc:  # pragma: no cover - wait_window error handling
             log_akcja(f"[SETTINGS] ToolsConfigDialog wait failed: {exc}")
+
+    def _get_tools_config_path(self) -> str:
+        """Ścieżka do definicji typów/statusów narzędzi (NN/SN)."""
+
+        try:
+            cfg = getattr(self, "cfg", None)
+            if cfg is not None:
+                path = cfg.get("tools.definitions_path", None)  # type: ignore[attr-defined]
+                if isinstance(path, str) and path.strip():
+                    return path
+        except Exception:
+            pass
+        return os.path.join("data", "zadania_narzedzia.json")
+
+    def _on_tools_config_saved(self) -> None:
+        """Callback po zapisie konfiguracji narzędzi."""
+
+        invalidate = getattr(LZ, "invalidate_cache", None)
+        if callable(invalidate):
+            try:
+                invalidate()
+            except Exception:
+                pass
+        try:
+            self._reload_tools_section()
+        except Exception:
+            pass
+
+    def _reload_tools_section(self) -> None:
+        """Odświeża sekcję Narzędzia po zmianie definicji."""
+
+        try:
+            self.refresh_panel()
+        except Exception:
+            pass
 
     def _add_patch_section(self, parent: tk.Widget) -> None:
         """Append patching and version controls to the Updates tab."""

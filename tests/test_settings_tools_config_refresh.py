@@ -18,29 +18,34 @@ def test_open_tools_config_invalidates_cache(monkeypatch):
     )
     monkeypatch.setattr(gui_settings, "_ensure_topmost", lambda win: None)
 
-    dummy_module = types.SimpleNamespace()
-
     class DummyDialog:
         def __init__(self, master=None, *, path="", on_save=None):
             self.on_save = on_save
             called["path"] = path
-            dummy_module.instance = self
+            dummy_holder["instance"] = self
 
-    dummy_module.ToolsConfigDialog = DummyDialog
-    monkeypatch.setitem(sys.modules, "gui_tools_config", dummy_module)
+    dummy_holder = {}
+    monkeypatch.setattr(gui_settings, "ToolsConfigDialog", DummyDialog)
 
-    dummy_self = types.SimpleNamespace(
-        master=types.SimpleNamespace(winfo_toplevel=lambda: None),
-        wait_window=lambda win: called.__setitem__("wait", called["wait"] + 1),
-    )
+    dummy_self = gui_settings.SettingsPanel.__new__(gui_settings.SettingsPanel)
+    dummy_self.master = types.SimpleNamespace(winfo_toplevel=lambda: None)
+    dummy_self.wait_window = lambda win: called.__setitem__("wait", called["wait"] + 1)
+    dummy_self.cfg = types.SimpleNamespace(get=lambda key, default=None: None)
+
+    def reload_section():
+        called.setdefault("reload", 0)
+        called["reload"] += 1
+
+    dummy_self._reload_tools_section = reload_section
 
     gui_settings.SettingsPanel._open_tools_config(dummy_self)
 
-    dummy_module.instance.on_save()
+    dummy_holder["instance"].on_save()
 
     assert called["n"] == 1
     assert called["wait"] == 1
     assert called["path"] == os.path.join("data", "zadania_narzedzia.json")
+    assert called.get("reload") == 1
 
 
 def test_dialog_save_invalidates_cache(monkeypatch, tmp_path):
