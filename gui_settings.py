@@ -512,7 +512,7 @@ class SettingsPanel:
         try:
             # master=None, żeby uniknąć błędu
             # "SettingsWindow object has no attribute 'tk'"
-            win = ToolsConfigDialog(
+            dlg = ToolsConfigDialog(
                 master=None, path=path, on_save=self._on_tools_config_saved
             )
         except Exception as exc:
@@ -526,9 +526,22 @@ class SettingsPanel:
             )
             return
 
-        _ensure_topmost(win)
+        # A-2g: preferujemy nowe API helpera, ale obsłuż oba warianty.
         try:
-            self.wait_window(win)
+            _ensure_topmost(dlg, self)
+        except TypeError:
+            try:
+                _ensure_topmost(dlg)
+            except Exception:
+                try:
+                    dlg.transient(self)
+                    dlg.grab_set()
+                    dlg.lift()
+                except Exception:
+                    pass
+
+        try:
+            self.wait_window(dlg)
         except Exception as exc:  # pragma: no cover - wait_window error handling
             log_akcja(f"[SETTINGS] ToolsConfigDialog wait failed: {exc}")
 
