@@ -1545,17 +1545,24 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             if current.lower() not in names_lower:
                 var_st.set(names[0])
 
+        def _reload_statuses_and_refresh(*, via_button: bool = False, force: bool = False) -> None:
+            _reload_statuses_from_definitions(via_button=via_button, force=force)
+            try:
+                _refresh_task_presets()
+            except Exception:
+                pass
+
         btn_status_reload.configure(
-            command=lambda: _reload_statuses_from_definitions(via_button=True, force=True)
+            command=lambda: _reload_statuses_and_refresh(via_button=True, force=True)
         )
 
-        cb_ty.bind("<<ComboboxSelected>>", lambda *_: _reload_statuses_from_definitions())
+        cb_ty.bind("<<ComboboxSelected>>", lambda *_: _reload_statuses_and_refresh())
         try:
-            var_typ.trace_add("write", lambda *_: _reload_statuses_from_definitions())
+            var_typ.trace_add("write", lambda *_: _reload_statuses_and_refresh())
         except AttributeError:
             pass
 
-        _reload_statuses_from_definitions()
+        _reload_statuses_and_refresh()
 
         row("Opis",   ttk.Entry(frm, textvariable=var_op, style="WM.Search.TEntry"))
         row("Pracownik", ttk.Entry(frm, textvariable=var_pr, style="WM.Search.TEntry"))
@@ -1757,6 +1764,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         # ---- REAKCJA NA ZMIANĘ STATUSU ----
         def _on_status_change(_=None):
             new_st = (var_st.get() or "").strip()
+            try:
+                _refresh_task_presets()
+            except Exception:
+                pass
             # garda: jeśli to samo co ostatnio obsłużone, nic nie rób
             if new_st == (last_applied_status[0] or ""):
                 return
@@ -1844,9 +1855,46 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
         # Pasek narzędzi do zadań (manualnie też można)
         tools_bar = ttk.Frame(frm, style="WM.TFrame"); tools_bar.grid(row=r+1, column=0, columnspan=2, sticky="ew", pady=(6,0))
+        legacy_task_presets = list(_task_templates_from_config())
         tmpl_var = tk.StringVar()
-        tmpl_box = ttk.Combobox(tools_bar, textvariable=tmpl_var, values=_task_templates_from_config(), state="readonly", width=36)
+        tmpl_box = ttk.Combobox(
+            tools_bar,
+            textvariable=tmpl_var,
+            values=legacy_task_presets,
+            state="readonly",
+            width=36,
+        )
         tmpl_box.pack(side="left")
+
+        def _refresh_task_presets() -> None:
+            type_name = (var_typ.get() or "").strip()
+            status_name = (var_st.get() or "").strip()
+            collection_id = _active_collection()
+            try:
+                tasks_from_defs = _task_names_for_status(collection_id, type_name, status_name)
+            except Exception:
+                tasks_from_defs = []
+            if tasks_from_defs:
+                tmpl_box.config(values=tasks_from_defs)
+                current = (tmpl_var.get() or "").strip()
+                if current not in tasks_from_defs:
+                    tmpl_var.set(tasks_from_defs[0])
+                print(
+                    "[WM-DBG][TOOLS_UI] presets set from defs "
+                    f"coll={collection_id} type='{type_name}' status='{status_name}' "
+                    f"count={len(tasks_from_defs)}"
+                )
+                return
+            tmpl_box.config(values=legacy_task_presets)
+            current = (tmpl_var.get() or "").strip()
+            if legacy_task_presets and current not in legacy_task_presets:
+                tmpl_var.set(legacy_task_presets[0])
+            print(
+                "[WM-DBG][TOOLS_UI] presets fallback (legacy); "
+                f"no defs for type='{type_name}' status='{status_name}'"
+            )
+
+        _refresh_task_presets()
 
         def _add_from_template(sel):
             s = (sel or "").strip()
