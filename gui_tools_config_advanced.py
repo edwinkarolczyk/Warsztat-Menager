@@ -96,6 +96,7 @@ class ToolsConfigDialog(tk.Toplevel):
             self.focus_force()
         except Exception:
             pass
+        self._write_through = True
         self.path = path
         self.on_save = on_save
 
@@ -430,6 +431,8 @@ class ToolsConfigDialog(tk.Toplevel):
                 types[idx]["name"] = value
         _wm(f"edited type idx={idx} name={value}")
         self._refresh_types(preferred_idx=idx)
+        if self._write_through:
+            self._save_now()
 
     def _on_status_edit(self, *_event) -> None:
         type_idx = self._selected_type_true_index()
@@ -455,6 +458,8 @@ class ToolsConfigDialog(tk.Toplevel):
             return
         current["name"] = value
         self._refresh_statuses(preferred_idx=status_idx)
+        if self._write_through:
+            self._save_now()
 
     def _on_task_edit(self, *_event) -> None:
         type_idx = self._selected_type_true_index()
@@ -481,6 +486,8 @@ class ToolsConfigDialog(tk.Toplevel):
             return
         tasks[task_idx] = value
         self._refresh_tasks()
+        if self._write_through:
+            self._save_now()
 
     # ===== add/remove operations =========================================
     def _add_type(self) -> None:
@@ -515,6 +522,8 @@ class ToolsConfigDialog(tk.Toplevel):
         except tk.TclError:
             pass
         self._refresh_types(preferred_idx=new_index)
+        if self._write_through:
+            self._save_now()
 
     def _del_type(self) -> None:
         idx = self._selected_type_true_index()
@@ -545,6 +554,8 @@ class ToolsConfigDialog(tk.Toplevel):
         self._current_type_index = None
         self._current_status_index = None
         self._refresh_types(preferred_idx=preferred_idx)
+        if self._write_through:
+            self._save_now()
 
     def _add_status(self) -> None:
         type_idx = self._selected_type_true_index()
@@ -590,6 +601,8 @@ class ToolsConfigDialog(tk.Toplevel):
             % (new_index, type_idx, self._current_collection)
         )
         self._refresh_statuses(preferred_idx=new_index)
+        if self._write_through:
+            self._save_now()
 
     def _del_status(self) -> None:
         type_idx = self._selected_type_true_index()
@@ -605,6 +618,8 @@ class ToolsConfigDialog(tk.Toplevel):
             statuses.pop(status_idx)
         self._current_status_index = None
         self._refresh_statuses()
+        if self._write_through:
+            self._save_now()
 
     def _add_task(self) -> None:
         type_idx = self._selected_type_true_index()
@@ -632,6 +647,8 @@ class ToolsConfigDialog(tk.Toplevel):
             % (type_idx, status_idx, self._current_collection)
         )
         self._refresh_tasks()
+        if self._write_through:
+            self._save_now()
 
     def _del_task(self) -> None:
         type_idx = self._selected_type_true_index()
@@ -651,22 +668,49 @@ class ToolsConfigDialog(tk.Toplevel):
             return
         tasks.pop(task_idx)
         self._refresh_tasks()
+        if self._write_through:
+            self._save_now()
 
     # ===== save ===========================================================
-    def _save(self) -> None:
+    def _save_now(self) -> bool:
+        """Persist current configuration without closing the dialog."""
+
         self._ensure_shared_types_integrity()
         folder = os.path.dirname(self.path) or "."
-        os.makedirs(folder, exist_ok=True)
-        _make_backup(self.path)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump(self._data, fh, ensure_ascii=False, indent=2)
-            fh.write("\n")
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError as exc:
+            messagebox.showerror(
+                "Błąd zapisu",
+                f"Nie udało się utworzyć katalogu docelowego:\n{exc}",
+            )
+            return False
+        try:
+            _make_backup(self.path)
+            with open(self.path, "w", encoding="utf-8") as fh:
+                json.dump(self._data, fh, ensure_ascii=False, indent=2)
+                fh.write("\n")
+        except (OSError, TypeError, ValueError) as exc:
+            messagebox.showerror(
+                "Błąd zapisu",
+                f"Nie udało się zapisać konfiguracji narzędzi:\n{exc}",
+            )
+            return False
         try:
             LZ.invalidate_cache()
         except Exception as exc:  # pragma: no cover - best effort
             print(f"[WM-DBG][TOOLS_ADV] invalidate_cache error: {exc}")
         if callable(self.on_save) and self.on_save is not LZ.invalidate_cache:
-            self.on_save()
+            try:
+                self.on_save()
+            except Exception as exc:  # pragma: no cover - best effort
+                print(f"[WM-DBG][TOOLS_ADV] on_save callback error: {exc}")
+        _wm(f"auto-saved configuration to {self.path}")
+        return True
+
+    def _save(self) -> None:
+        if not self._save_now():
+            return
         messagebox.showinfo("Zapisano", "Konfiguracja narzędzi została zapisana.")
         self.destroy()
 
