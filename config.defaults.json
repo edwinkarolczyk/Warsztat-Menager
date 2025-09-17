@@ -136,7 +136,7 @@
   "tools": {
     "collections_enabled": [
       "NN",
-      "ST"
+      "SN"
     ],
     "default_collection": "NN",
     "auto_check_on_status_global": [
