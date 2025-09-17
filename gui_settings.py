@@ -564,6 +564,15 @@ class SettingsPanel:
         except Exception:
             pass
 
+        try:
+            print("[WM-DBG][SETTINGS] Tools editor opened (advanced).")
+            messagebox.showinfo(
+                "Edytor narzędzi",
+                "Otworzono edytor definicji zadań (wersja advanced).",
+            )
+        except Exception:
+            pass
+
         def _fallback_topmost(win: tk.Misc) -> None:
             try:
                 win.transient(self)

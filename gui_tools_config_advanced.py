@@ -377,6 +377,7 @@ class ToolsConfigDialog(tk.Toplevel):
         )
 
     def _on_type_select(self, *_event) -> None:
+        _wm("type_select")
         sel = self.types_list.curselection()
         if not sel:
             self._current_type_index = None
@@ -390,6 +391,7 @@ class ToolsConfigDialog(tk.Toplevel):
         self._select_type_by_index(data_index)
 
     def _on_status_select(self, *_event) -> None:
+        _wm("status_select")
         sel = self.status_list.curselection()
         if not sel:
             self._current_status_index = None
@@ -426,6 +428,7 @@ class ToolsConfigDialog(tk.Toplevel):
             types = self._data["collections"][cid].setdefault("types", [])
             if 0 <= idx < len(types):
                 types[idx]["name"] = value
+        _wm(f"edited type idx={idx} name={value}")
         self._refresh_types(preferred_idx=idx)
 
     def _on_status_edit(self, *_event) -> None:
@@ -506,6 +509,7 @@ class ToolsConfigDialog(tk.Toplevel):
         sn_types = self._data["collections"]["SN"].setdefault("types", [])
         sn_types.append({"id": type_id, "name": value, "statuses": []})
         new_index = len(shared_types) - 1
+        _wm(f"added type idx={new_index} id={type_id} name={value}")
         self._refresh_types(preferred_idx=new_index)
 
     def _del_type(self) -> None:
@@ -533,6 +537,11 @@ class ToolsConfigDialog(tk.Toplevel):
     def _add_status(self) -> None:
         type_idx = self._selected_type_true_index()
         if type_idx is None:
+            messagebox.showinfo(
+                "Wybierz typ",
+                "Najpierw wybierz typ narzędzia z listy po lewej.",
+            )
+            _wm("add_status blocked: no type selected")
             return
         statuses = self._get_statuses_for_current(type_idx)
         if len(statuses) >= MAX_STATUSES_PER_TYPE:
@@ -558,6 +567,10 @@ class ToolsConfigDialog(tk.Toplevel):
         status_id = _make_unique_id(value, existing_ids)
         statuses.append({"id": status_id, "name": value, "tasks": []})
         new_index = len(statuses) - 1
+        _wm(
+            "added status idx=%s type_idx=%s coll=%s"
+            % (new_index, type_idx, self._current_collection)
+        )
         self._refresh_statuses(preferred_idx=new_index)
 
     def _del_status(self) -> None:
@@ -596,6 +609,10 @@ class ToolsConfigDialog(tk.Toplevel):
         if not value:
             return
         tasks.append(value)
+        _wm(
+            "added task type_idx=%s status_idx=%s coll=%s"
+            % (type_idx, status_idx, self._current_collection)
+        )
         self._refresh_tasks()
 
     def _del_task(self) -> None:
