@@ -115,6 +115,116 @@ def _profiles_usernames(cmb_user=None) -> list[str]:
     return logins
 
 
+def _tools_editor_user_choices() -> list[str]:
+    """Collect display names of users for the tools editor combobox."""
+
+    seen: set[str] = set()
+    users: list[str] = []
+
+    def add(value: str) -> None:
+        value = (value or "").strip()
+        if not value:
+            return
+        lower = value.lower()
+        if lower in seen:
+            return
+        seen.add(lower)
+        users.append(value)
+
+    # 1) services.profile_service.get_all_users
+    try:
+        from services.profile_service import get_all_users  # type: ignore
+
+        for entry in get_all_users() or []:
+            if isinstance(entry, dict):
+                add(
+                    entry.get("display_name")
+                    or entry.get("name")
+                    or entry.get("login")
+                    or ""
+                )
+            elif isinstance(entry, str):
+                add(entry)
+    except Exception:
+        pass
+
+    # 2) profiles.json (prefer data/ subdir, fallback to repo root)
+    for path in ("data/profiles.json", "profiles.json"):
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            continue
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    add(
+                        value.get("display_name")
+                        or value.get("name")
+                        or value.get("login")
+                        or key
+                    )
+                elif isinstance(value, str):
+                    add(value)
+                else:
+                    add(str(key))
+        elif isinstance(data, list):
+            for value in data:
+                if isinstance(value, dict):
+                    add(
+                        value.get("display_name")
+                        or value.get("name")
+                        or value.get("login")
+                        or ""
+                    )
+                elif isinstance(value, str):
+                    add(value)
+                else:
+                    add(str(value))
+
+    # 3) data/uzytkownicy.json
+    path_users = os.path.join("data", "uzytkownicy.json")
+    if os.path.exists(path_users):
+        try:
+            with open(path_users, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            data = None
+
+        if isinstance(data, list):
+            for value in data:
+                if isinstance(value, dict):
+                    add(
+                        value.get("name")
+                        or value.get("login")
+                        or value.get("id")
+                        or ""
+                    )
+                else:
+                    add(str(value))
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    add(
+                        value.get("name")
+                        or value.get("login")
+                        or value.get("id")
+                        or key
+                    )
+                else:
+                    add(str(key))
+
+    # 4) Legacy fallback – ensure previous behaviour still works
+    if not users:
+        for login in _profiles_usernames():
+            add(login)
+
+    return sorted(users, key=str.lower)
+
+
 def _current_user() -> tuple[str | None, str | None]:
     """Return current login and role as tuple."""
     return _current_login, _current_role
@@ -1564,8 +1674,22 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
         _reload_statuses_and_refresh()
 
-        row("Opis",   ttk.Entry(frm, textvariable=var_op, style="WM.Search.TEntry"))
-        row("Pracownik", ttk.Entry(frm, textvariable=var_pr, style="WM.Search.TEntry"))
+        row("Opis", ttk.Entry(frm, textvariable=var_op, style="WM.Search.TEntry"))
+
+        pracownik_choices = _tools_editor_user_choices()
+        if pracownik_choices:
+            cb_pracownik = ttk.Combobox(
+                frm,
+                textvariable=var_pr,
+                values=pracownik_choices,
+                state="normal",
+            )
+            row("Pracownik", cb_pracownik)
+        else:
+            row(
+                "Pracownik",
+                ttk.Entry(frm, textvariable=var_pr, style="WM.Search.TEntry"),
+            )
 
         def _media_dir():
             path = os.path.join(_resolve_tools_dir(), "media")
