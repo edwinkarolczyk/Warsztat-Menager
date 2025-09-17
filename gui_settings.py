@@ -726,10 +726,60 @@ class SettingsPanel:
         for item in tree.get_children():
             tree.delete(item)
 
+        # --- helpers: zgodność PL/EN i różne kształty ---
+        def _pick(dct: Any, *names: str) -> Any:
+            if isinstance(dct, dict):
+                for name in names:
+                    if name in dct:
+                        return dct[name]
+            return None
+
+        def _as_dict(
+            obj: Any,
+            key_name_for_items: str = "name",
+            alt_key_name: str = "nazwa",
+        ) -> dict[str, Any]:
+            """Return mapping created from list of dicts or existing dict."""
+
+            if isinstance(obj, dict):
+                return obj
+            if isinstance(obj, list):
+                result: dict[str, Any] = {}
+                for item in obj:
+                    if isinstance(item, dict):
+                        key = (
+                            item.get(key_name_for_items)
+                            or item.get(alt_key_name)
+                            or item.get("key")
+                            or item.get("id")
+                        )
+                        if key is None:
+                            key = f"poz_{len(result) + 1}"
+                        result[str(key)] = item
+                    elif isinstance(item, str):
+                        result[str(item)] = {}
+                return result
+            return {}
+
+        def _extract_tasks(val: Any) -> list[str]:
+            """Return list of tasks supporting PL/EN keys and plain lists."""
+
+            if isinstance(val, list):
+                return [str(x) for x in val]
+            if isinstance(val, dict):
+                tasks = _pick(val, "tasks", "zadania")
+                if isinstance(tasks, list):
+                    return [str(x) for x in tasks]
+            return []
+
         definitions: dict[str, Any] | None = None
-        definitions_path = self.cfg.get(
-            "tools.definitions_path", "data/zadania_narzedzia.json"
-        )
+        definitions_path: str | None = None
+        try:
+            definitions_path = self.cfg.get("tools.definitions_path")
+        except Exception:
+            definitions_path = None
+        if not definitions_path:
+            definitions_path = "data/zadania_narzedzia.json"
 
         if definitions_path and os.path.exists(definitions_path):
             try:
@@ -761,63 +811,62 @@ class SettingsPanel:
                 lbl_tasks.config(text="Zadania: 0")
             return
 
-        collections = definitions.get("collections") or {}
+        # Zgodność PL/EN: collections/kolekcje → types/typy → statuses/statusy → tasks/zadania
+        collections = _pick(definitions, "collections", "kolekcje") or {}
+        collections_dict = _as_dict(collections)
+
         total_types = 0
         total_statuses = 0
         total_tasks = 0
 
-        def add_collection(coll_key: str, coll_data: Any) -> None:
-            nonlocal total_types, total_statuses, total_tasks
-            if not isinstance(coll_data, dict):
-                return
-            coll_id = tree.insert("", "end", text=coll_key, values=("kolekcja",))
-            types = coll_data.get("types") if isinstance(coll_data, dict) else {}
-            if not isinstance(types, dict):
-                return
-            for t_name, t_obj in types.items():
-                if not isinstance(t_obj, dict):
-                    continue
-                statuses = t_obj.get("statuses") or {}
-                if not isinstance(statuses, dict):
-                    statuses = {}
-                status_count = len(statuses)
+        for coll_key, coll_val in collections_dict.items():
+            coll_id = tree.insert(
+                "",
+                "end",
+                text=str(coll_key),
+                values=("kolekcja",),
+            )
+            types = _pick(coll_val, "types", "typy") or {}
+            types_dict = _as_dict(types)
+
+            for type_name, type_val in types_dict.items():
+                statuses = _pick(type_val, "statuses", "statusy") or {}
+                statuses_dict = _as_dict(statuses)
+
+                status_count = 0
                 task_count = 0
-                for s_tasks in statuses.values():
-                    if isinstance(s_tasks, list):
-                        task_count += len(s_tasks)
-                t_id = tree.insert(
+                type_id = tree.insert(
                     coll_id,
                     "end",
-                    text=f"• {t_name}",
-                    values=(f"{status_count} status., {task_count} zadań",),
+                    text=f"• {type_name}",
+                    values=("typ",),
                 )
-                total_types += 1
-                total_statuses += status_count
-                total_tasks += task_count
-                for s_name, s_tasks in statuses.items():
-                    s_list = s_tasks if isinstance(s_tasks, list) else []
-                    s_id = tree.insert(
-                        t_id,
+
+                for status_name, status_val in statuses_dict.items():
+                    status_count += 1
+                    tasks = _extract_tasks(status_val)
+                    task_count += len(tasks)
+                    status_id = tree.insert(
+                        type_id,
                         "end",
-                        text=f"- {s_name}",
-                        values=(f"{len(s_list)}",),
+                        text=f"- {status_name}",
+                        values=(f"{len(tasks)}",),
                     )
-                    for task in s_list:
+                    for task in tasks:
                         tree.insert(
-                            s_id,
+                            status_id,
                             "end",
                             text=f"· {task}",
                             values=("zadanie",),
                         )
 
-        for key in ("NN", "SN"):
-            if key in collections:
-                add_collection(key, collections[key])
-
-        for key, value in collections.items():
-            if key in {"NN", "SN"}:
-                continue
-            add_collection(key, value)
+                tree.item(
+                    type_id,
+                    values=(f"{status_count} status., {task_count} zadań",),
+                )
+                total_types += 1
+                total_statuses += status_count
+                total_tasks += task_count
 
         if lbl_types:
             lbl_types.config(text=f"Typy: {total_types}")
@@ -826,8 +875,9 @@ class SettingsPanel:
         if lbl_tasks:
             lbl_tasks.config(text=f"Zadania: {total_tasks}")
         print(
-            f"[WM-DBG] Podsumowanie podglądu: typy={total_types}, "
-            f"statusy={total_statuses}, zadania={total_tasks}"
+            "[WM-DBG] Podgląd OK: "
+            f"typy={total_types}, statusy={total_statuses}, zadania={total_tasks} "
+            f"(plik: {definitions_path})"
         )
 
     def _open_tools_config(self) -> None:
