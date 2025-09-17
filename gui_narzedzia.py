@@ -1763,11 +1763,11 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
         # ---- REAKCJA NA ZMIANĘ STATUSU ----
         def _on_status_change(_=None):
-            new_st = (var_st.get() or "").strip()
             try:
                 _refresh_task_presets()
             except Exception:
                 pass
+            new_st = (var_st.get() or "").strip()
             # garda: jeśli to samo co ostatnio obsłużone, nic nie rób
             if new_st == (last_applied_status[0] or ""):
                 return
@@ -1885,13 +1885,62 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     f"count={len(tasks_from_defs)}"
                 )
                 return
+            alt_status: str | None = None
+            if type_name and status_name and collection_id:
+                try:
+                    for candidate in _status_names_for_type(collection_id, type_name):
+                        cand_clean = (candidate or "").strip()
+                        if not cand_clean or cand_clean == status_name:
+                            continue
+                        cand_tasks = _task_names_for_status(
+                            collection_id, type_name, cand_clean
+                        )
+                        if cand_tasks:
+                            alt_status = cand_clean
+                            break
+                except Exception:
+                    alt_status = None
+            if alt_status:
+                try:
+                    ask_switch = messagebox.askyesno(
+                        "Brak zadań dla statusu",
+                        (
+                            f"Dla statusu „{status_name}” nie ma zdefiniowanych zadań.\n"
+                            f"Czy przełączyć na najbliższy status z zadaniami: „{alt_status}”?"
+                        ),
+                    )
+                except Exception:
+                    ask_switch = False
+                if ask_switch:
+                    try:
+                        cb_status.set(alt_status)
+                    except Exception:
+                        pass
+                    var_st.set(alt_status)
+                    status_name = alt_status
+                    try:
+                        tasks_from_defs = _task_names_for_status(
+                            collection_id, type_name, alt_status
+                        )
+                    except Exception:
+                        tasks_from_defs = []
+                    if tasks_from_defs:
+                        tmpl_box.config(values=tasks_from_defs)
+                        current = (tmpl_var.get() or "").strip()
+                        if current not in tasks_from_defs:
+                            tmpl_var.set(tasks_from_defs[0])
+                        print(
+                            f"[WM-DBG][TOOLS_UI] status auto-switched to '{alt_status}' "
+                            f"(tasks={len(tasks_from_defs)})"
+                        )
+                        return
             tmpl_box.config(values=legacy_task_presets)
             current = (tmpl_var.get() or "").strip()
             if legacy_task_presets and current not in legacy_task_presets:
                 tmpl_var.set(legacy_task_presets[0])
             print(
-                "[WM-DBG][TOOLS_UI] presets fallback (legacy); "
-                f"no defs for type='{type_name}' status='{status_name}'"
+                "[WM-DBG][TOOLS_UI] no task defs for "
+                f"type='{type_name}' status='{status_name}' — user kept status"
             )
 
         _refresh_task_presets()
