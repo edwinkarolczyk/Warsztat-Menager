@@ -1,16 +1,91 @@
 from __future__ import annotations
 
+import glob
 import json
 import os
+import re
+import shutil
+import time
 from typing import Any, Dict, List
+
+
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "collections": {"NN": {"types": []}, "SN": {"types": []}}
+}
+
+
+def _read_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as fh:
+        return fh.read()
+
+
+def _write_atomic(path: str, text: str) -> None:
+    tmp = f"{path}.tmp_{int(time.time() * 1000)}"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+    os.replace(tmp, path)
+
+
+def _sanitize_json(text: str) -> str:
+    text = text.lstrip("\ufeff")
+    text = re.sub(r"//[^\n\r]*", "", text)
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r",(\s*[}\]])", r"\1", text)
+    text = re.sub(r"([\[{]\s*),", r"\1", text)
+    return text
+
+
+def _try_load(text: str) -> Dict[str, Any]:
+    return json.loads(text) if text.strip() else {}
+
+
+def _restore_latest_backup(path: str) -> Dict[str, Any] | None:
+    pattern = f"{path}.bak.*.json"
+    files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    for candidate in files:
+        try:
+            data = _try_load(_read_text(candidate))
+            candidate_name = os.path.basename(candidate)
+            print(
+                "[WARNING] Przywrócono definicje z backupu: "
+                f"{candidate_name}"
+            )
+            _write_atomic(path, json.dumps(data, ensure_ascii=False, indent=2))
+            return data
+        except Exception:
+            continue
+    return None
 
 
 def load_config(definitions_path: str | None = None) -> Dict[str, Any]:
     path = definitions_path or "data/zadania_narzedzia.json"
     if not os.path.exists(path):
-        return {"collections": {"NN": {"types": []}, "SN": {"types": []}}}
-    with open(path, "r", encoding="utf-8") as fh:
-        return json.load(fh) or {}
+        return DEFAULT_CONFIG
+    try:
+        return _try_load(_read_text(path)) or {}
+    except Exception:
+        try:
+            raw = _read_text(path)
+            fixed = _sanitize_json(raw)
+            data = _try_load(fixed)
+            path_name = os.path.basename(path)
+            print(
+                "[WARNING] Auto-heal definicji: "
+                f"{path_name} (naprawiono format JSON)."
+            )
+            corrupt = f"{path}.corrupt.{int(time.time())}.json"
+            try:
+                shutil.copy2(path, corrupt)
+            except Exception:
+                pass
+            _write_atomic(path, json.dumps(data, ensure_ascii=False, indent=2))
+            return data
+        except Exception as exc:
+            print("[ERROR] Nie można wczytać definicji (strict ani sanitize):", exc)
+            backup = _restore_latest_backup(path)
+            if backup is not None:
+                return backup
+            return {}
 
 
 def get_types(cfg: Dict[str, Any], collection: str) -> List[Dict[str, Any]]:
