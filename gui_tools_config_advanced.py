@@ -136,7 +136,7 @@ class ToolsConfigDialog(tk.Toplevel):
         left = ttk.Frame(main)
         left.pack(side="left", fill="both", expand=True)
         ttk.Label(left, text="Typy (wspólne NN/SN)").pack(anchor="w")
-        self.types_list = tk.Listbox(left, height=12)
+        self.types_list = tk.Listbox(left, height=12, exportselection=False)
         self.types_list.pack(fill="both", expand=True, pady=(2, 4))
         self.types_list.bind("<<ListboxSelect>>", self._on_type_select)
         self.types_list.bind("<Double-Button-1>", self._on_type_edit)
@@ -150,7 +150,7 @@ class ToolsConfigDialog(tk.Toplevel):
         mid = ttk.Frame(main)
         mid.pack(side="left", fill="both", expand=True, padx=(8, 0))
         ttk.Label(mid, text="Statusy (dla kolekcji)").pack(anchor="w")
-        self.status_list = tk.Listbox(mid, height=12)
+        self.status_list = tk.Listbox(mid, height=12, exportselection=False)
         self.status_list.pack(fill="both", expand=True, pady=(2, 4))
         self.status_list.bind("<<ListboxSelect>>", self._on_status_select)
         self.status_list.bind("<Double-Button-1>", self._on_status_edit)
@@ -166,7 +166,7 @@ class ToolsConfigDialog(tk.Toplevel):
         right = ttk.Frame(main)
         right.pack(side="left", fill="both", expand=True, padx=(8, 0))
         ttk.Label(right, text="Zadania (dla statusu)").pack(anchor="w")
-        self.tasks_list = tk.Listbox(right, height=12)
+        self.tasks_list = tk.Listbox(right, height=12, exportselection=False)
         self.tasks_list.pack(fill="both", expand=True, pady=(2, 4))
         self.tasks_list.bind("<Double-Button-1>", self._on_task_edit)
         task_btns = ttk.Frame(right)
@@ -270,7 +270,7 @@ class ToolsConfigDialog(tk.Toplevel):
             self._current_status_index = None
             self._refresh_statuses()
             return
-        target = preferred_idx
+        target = preferred_idx if preferred_idx is not None else self._current_type_index
         if target not in self._visible_type_indexes:
             target = self._visible_type_indexes[0]
         self._select_type_by_index(target, preferred_status_idx)
@@ -295,7 +295,7 @@ class ToolsConfigDialog(tk.Toplevel):
             self._current_status_index = None
             self._refresh_tasks()
             return
-        target = preferred_idx
+        target = preferred_idx if preferred_idx is not None else self._current_status_index
         if target not in self._visible_status_indexes:
             target = self._visible_status_indexes[0]
         self._select_status_by_index(target)
@@ -510,6 +510,10 @@ class ToolsConfigDialog(tk.Toplevel):
         sn_types.append({"id": type_id, "name": value, "statuses": []})
         new_index = len(shared_types) - 1
         _wm(f"added type idx={new_index} id={type_id} name={value}")
+        try:
+            self._search_var.set("")
+        except tk.TclError:
+            pass
         self._refresh_types(preferred_idx=new_index)
 
     def _del_type(self) -> None:
@@ -530,19 +534,33 @@ class ToolsConfigDialog(tk.Toplevel):
             types = self._data["collections"][cid].setdefault("types", [])
             if 0 <= idx < len(types):
                 types.pop(idx)
+        shared_types = self._get_shared_types()
+        preferred_idx = None
+        if shared_types:
+            preferred_idx = idx - 1
+            if preferred_idx < 0:
+                preferred_idx = 0
+            if preferred_idx >= len(shared_types):
+                preferred_idx = len(shared_types) - 1
         self._current_type_index = None
         self._current_status_index = None
-        self._refresh_types()
+        self._refresh_types(preferred_idx=preferred_idx)
 
     def _add_status(self) -> None:
         type_idx = self._selected_type_true_index()
         if type_idx is None:
-            messagebox.showinfo(
-                "Wybierz typ",
-                "Najpierw wybierz typ narzędzia z listy po lewej.",
-            )
-            _wm("add_status blocked: no type selected")
-            return
+            if len(self._visible_type_indexes) == 1:
+                auto_idx = self._visible_type_indexes[0]
+                self._select_type_by_index(auto_idx)
+                type_idx = auto_idx
+                _wm(f"add_status: auto-selected type_idx={type_idx} for single visible type")
+            else:
+                messagebox.showinfo(
+                    "Wybierz typ",
+                    "Najpierw wybierz typ narzędzia z listy po lewej.",
+                )
+                _wm("add_status blocked: no type selected")
+                return
         statuses = self._get_statuses_for_current(type_idx)
         if len(statuses) >= MAX_STATUSES_PER_TYPE:
             messagebox.showwarning(
