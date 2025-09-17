@@ -1097,9 +1097,90 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         if not data:
             _dbg("Lista narzędzi pusta – filtr:", q or "(brak)")
 
+    _defs_watch_state: dict[str, object] = {"path": None, "mtime": None}
+
+    def _resolve_definitions_path() -> str | None:
+        candidate: str | None = None
+        try:
+            cfg_mgr = ConfigManager()
+            candidate = cfg_mgr.get("tools.definitions_path", None)
+        except Exception:
+            candidate = None
+        if not candidate:
+            candidate = getattr(LZ, "TOOL_TASKS_PATH", os.path.join("data", "zadania_narzedzia.json"))
+        candidate = str(candidate or "").strip()
+        if not candidate:
+            return None
+        if not os.path.isabs(candidate):
+            try:
+                candidate = cfg_path(candidate)
+            except Exception:
+                candidate = os.path.join("data", "zadania_narzedzia.json")
+        return candidate
+
+    def _definitions_mtime(path: str | None) -> float | None:
+        if not path:
+            return None
+        try:
+            return os.path.getmtime(path)
+        except OSError:
+            return None
+
+    def _reload_definitions_from_disk(path: str | None) -> None:
+        if not path:
+            return
+        try:
+            LZ.invalidate_cache()
+        except Exception as exc:
+            print("[ERROR][NARZ] błąd przeładowania definicji:", exc)
+        try:
+            refresh_list()
+        except Exception as exc:
+            print("[ERROR][NARZ] błąd odświeżenia widoku:", exc)
+        else:
+            print(
+                f"[WM-DBG][NARZ] Definicje narzędzi przeładowane po zapisie w ustawieniach ({path})."
+            )
+
+    def _maybe_reload_definitions(_event=None, *, force: bool = False) -> bool:
+        path = _resolve_definitions_path()
+        mtime = _definitions_mtime(path)
+        prev_path = _defs_watch_state.get("path")
+        prev_mtime = _defs_watch_state.get("mtime")
+        _defs_watch_state["path"] = path
+        _defs_watch_state["mtime"] = mtime
+        if not path:
+            return False
+        if not force and prev_path == path and prev_mtime == mtime:
+            return False
+        print(f"[WM-DBG][NARZ] Wykryto zmianę definicji ({path}) → przeładowuję.")
+        _reload_definitions_from_disk(path)
+        return True
+
+    _defs_watch_state["path"] = _resolve_definitions_path()
+    _defs_watch_state["mtime"] = _definitions_mtime(_defs_watch_state["path"])
+
+    def _on_focus_back(_event=None):
+        _maybe_reload_definitions()
+
+    widgets_to_bind = {root, frame, getattr(frame, "master", None)}
+    try:
+        widgets_to_bind.add(frame.winfo_toplevel())
+    except Exception:
+        pass
+    for widget in widgets_to_bind:
+        if widget is None:
+            continue
+        try:
+            widget.bind("<FocusIn>", _on_focus_back, add="+")
+        except Exception:
+            pass
+
     def _on_cfg_updated(_event=None):
         _maybe_seed_config_templates()
-        refresh_list()
+        changed = _maybe_reload_definitions(force=True)
+        if not changed:
+            refresh_list()
 
     root.bind("<<ConfigUpdated>>", _on_cfg_updated)
 

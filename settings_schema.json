@@ -211,7 +211,7 @@
               "value_type": "string",
               "default": [
                 "NN",
-                "ST"
+                "SN"
               ]
             },
             {

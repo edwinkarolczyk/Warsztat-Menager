@@ -26,11 +26,11 @@
         }
       ]
     },
-    "ST": {
+    "SN": {
       "types": [
         {
-          "id": "ST1",
-          "name": "Narzędzie ST",
+          "id": "SN1",
+          "name": "Narzędzie SN",
           "statuses": [
             {
               "id": "READY",

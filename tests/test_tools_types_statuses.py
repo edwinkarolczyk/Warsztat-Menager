@@ -9,7 +9,7 @@ def test_zadania_narzedzia_limits_and_structure():
     collections = data.get("collections")
     assert isinstance(collections, dict)
 
-    for cid in ("NN", "ST"):
+    for cid in ("NN", "SN"):
         assert cid in collections, f"Brak kolekcji {cid}"
         types = collections[cid].get("types") or []
         assert types, f"Kolekcja {cid} nie zawiera typów"
