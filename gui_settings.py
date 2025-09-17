@@ -232,6 +232,30 @@ class StrDictVar(tk.StringVar):
         return result
 
 
+class CSVListVar(tk.StringVar):
+    """StringVar that normalizes comma-separated values into a list."""
+
+    def _split(self, raw: str) -> list[str]:
+        parts: list[str] = []
+        for chunk in raw.replace(";", ",").replace("\n", ",").split(","):
+            text = chunk.strip()
+            if text:
+                parts.append(text)
+        return parts
+
+    def get(self) -> list[str]:  # type: ignore[override]
+        return self._split(super().get())
+
+    def set(self, value: Any) -> None:  # type: ignore[override]
+        if isinstance(value, str):
+            tokens = self._split(value)
+        elif isinstance(value, (list, tuple, set)):
+            tokens = [str(item).strip() for item in value if str(item).strip()]
+        else:
+            tokens = [str(value).strip()] if value is not None else []
+        super().set(", ".join(tokens))
+
+
 def _bind_tooltip(widget, text: str):
     import tkinter as tk
 
@@ -352,6 +376,11 @@ class SettingsPanel:
             if tab.get("id") == "magazyn":
                 self._magazyn_frame = frame
                 self._magazyn_schema = tab
+            elif tab.get("id") == "narzedzia":
+                grp_count, fld_count = self._build_tools_tab(frame, tab)
+                print(
+                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+                )
             else:
                 grp_count, fld_count = self._populate_tab(frame, tab)
                 print(
@@ -406,6 +435,22 @@ class SettingsPanel:
         if opt_type == "path":
             return default or ""
         return default
+
+    def _register_option_var(
+        self,
+        key: str,
+        var: tk.Variable,
+        field_def: dict[str, Any] | None,
+    ) -> None:
+        """Register Tk variable for config option with bookkeeping."""
+
+        opt = dict(field_def) if field_def else {"key": key}
+        self.vars[key] = var
+        self._options[key] = opt
+        self._initial[key] = var.get()
+        self._defaults[key] = opt.get("default")
+        self._fields_vars.append((var, opt))
+        var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
 
     def _populate_tab(self, parent: tk.Widget, tab: dict[str, Any]) -> tuple[int, int]:
         """Populate a single tab or subtab frame and return counts."""
@@ -498,6 +543,292 @@ class SettingsPanel:
             self._add_patch_section(parent)
 
         return grp_count, fld_count
+
+    def _build_tools_tab(
+        self, parent: tk.Widget, tab: dict[str, Any]
+    ) -> tuple[int, int]:
+        """Custom layout for the Tools tab with preview tree."""
+
+        print(
+            "[INFO][WM-DBG] Buduję zakładkę: Ustawienia → Narzędzia (UI-only patch)"
+        )
+        field_defs: dict[str, dict[str, Any]] = {}
+        for group in tab.get("groups", []):
+            if _is_deprecated(group):
+                continue
+            for field_def in group.get("fields", []):
+                if _is_deprecated(field_def):
+                    continue
+                key = field_def.get("key")
+                if key:
+                    field_defs[key] = field_def
+
+        grp_count = 0
+        fld_count = 0
+
+        # === Kolekcje narzędzi ===
+        collections_group = ttk.LabelFrame(parent, text="Kolekcje narzędzi")
+        collections_group.pack(fill="x", padx=10, pady=(10, 6))
+        grp_count += 1
+        collections_group.grid_columnconfigure(1, weight=1)
+
+        ttk.Label(
+            collections_group,
+            text="Włączone kolekcje (NN, SN):",
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        collections_var = CSVListVar(master=collections_group)
+        collections_value = self.cfg.get(
+            "tools.collections_enabled",
+            field_defs.get("tools.collections_enabled", {}).get("default", []),
+        )
+        collections_var.set(collections_value or [])
+        self.entry_tools_collections_enabled = ttk.Entry(
+            collections_group, width=40, textvariable=collections_var
+        )
+        self.entry_tools_collections_enabled.grid(
+            row=0, column=1, sticky="we", padx=8, pady=6
+        )
+        fld_count += 1
+        self._register_option_var(
+            "tools.collections_enabled",
+            collections_var,
+            field_defs.get("tools.collections_enabled"),
+        )
+
+        default_values = ["NN", "SN"]
+        for item in collections_var.get():
+            if item not in default_values:
+                default_values.append(item)
+
+        ttk.Label(collections_group, text="Domyślna kolekcja:").grid(
+            row=1, column=0, sticky="w", padx=8, pady=6
+        )
+        default_field = field_defs.get("tools.default_collection")
+        default_value = self.cfg.get(
+            "tools.default_collection",
+            default_field.get("default") if default_field else None,
+        )
+        if not isinstance(default_value, str):
+            default_value = str(default_value or "")
+        if default_value and default_value not in default_values:
+            default_values.append(default_value)
+        if not default_value and default_values:
+            default_value = default_values[0]
+        state = "readonly" if default_values else "normal"
+        default_var = tk.StringVar(value=default_value)
+        self.combo_tools_default_collection = ttk.Combobox(
+            collections_group,
+            width=20,
+            textvariable=default_var,
+            values=default_values,
+            state=state,
+        )
+        self.combo_tools_default_collection.grid(
+            row=1, column=1, sticky="w", padx=8, pady=6
+        )
+        fld_count += 1
+        self._register_option_var(
+            "tools.default_collection", default_var, default_field
+        )
+
+        # === Statusy globalne ===
+        global_group = ttk.LabelFrame(parent, text="Statusy globalne (zakończenia)")
+        global_group.pack(fill="x", padx=10, pady=6)
+        grp_count += 1
+
+        ttk.Label(
+            global_group,
+            text=(
+                "Lista statusów traktowanych jako globalne zakończenia "
+                "(np. sprawne, zakończone):"
+            ),
+        ).grid(row=0, column=0, sticky="w", padx=8, pady=(8, 4))
+        statuses_var = CSVListVar(master=global_group)
+        statuses_value = self.cfg.get(
+            "tools.auto_check_on_status_global",
+            field_defs.get("tools.auto_check_on_status_global", {}).get(
+                "default", []
+            ),
+        )
+        statuses_var.set(statuses_value or [])
+        self.entry_tools_global_statuses = ttk.Entry(
+            global_group, width=60, textvariable=statuses_var
+        )
+        self.entry_tools_global_statuses.grid(
+            row=1, column=0, sticky="we", padx=8, pady=(0, 8)
+        )
+        global_group.grid_columnconfigure(0, weight=1)
+        fld_count += 1
+        self._register_option_var(
+            "tools.auto_check_on_status_global",
+            statuses_var,
+            field_defs.get("tools.auto_check_on_status_global"),
+        )
+
+        # === Podgląd definicji ===
+        preview_group = ttk.LabelFrame(
+            parent, text="Podgląd definicji NN/SN (tylko do odczytu)"
+        )
+        preview_group.pack(fill="both", expand=True, padx=10, pady=(6, 10))
+        grp_count += 1
+
+        self.tools_preview_tree = ttk.Treeview(
+            preview_group,
+            columns=("info",),
+            show="tree headings",
+            selectmode="browse",
+            height=14,
+        )
+        self.tools_preview_tree.heading("#0", text="Struktura")
+        self.tools_preview_tree.heading("info", text="Info")
+        self.tools_preview_tree.column("#0", width=420, stretch=True)
+        self.tools_preview_tree.column("info", width=180, stretch=False)
+        self.tools_preview_tree.pack(fill="both", expand=True, padx=8, pady=8)
+
+        counters_frame = ttk.Frame(preview_group)
+        counters_frame.pack(fill="x", padx=8, pady=(0, 8))
+        self.lbl_counter_types = ttk.Label(counters_frame, text="Typy: 0")
+        self.lbl_counter_statuses = ttk.Label(counters_frame, text="Statusy: 0")
+        self.lbl_counter_tasks = ttk.Label(counters_frame, text="Zadania: 0")
+        self.lbl_counter_types.pack(side="left", padx=(0, 16))
+        self.lbl_counter_statuses.pack(side="left", padx=(0, 16))
+        self.lbl_counter_tasks.pack(side="left")
+
+        btns = ttk.Frame(preview_group)
+        btns.pack(fill="x", padx=8, pady=(0, 8))
+        self.btn_open_tools_def_editor = ttk.Button(
+            btns,
+            text="Otwórz edytor definicji zadań…",
+            command=self._open_tools_definitions_editor,
+        )
+        self.btn_open_tools_def_editor.pack(side="left")
+
+        self._tools_paths_hidden = True
+
+        self._refresh_tools_def_preview()
+
+        return grp_count, fld_count
+
+    def _open_tools_definitions_editor(self) -> None:
+        try:
+            self._open_tools_config()
+        except Exception as exc:
+            print("[INFO] Edytor definicji zadań niedostępny w tej wersji UI:", exc)
+
+    def _refresh_tools_def_preview(self) -> None:
+        """Build read-only tree with NN/SN definitions summary."""
+
+        print("[WM-DBG] Odświeżam podgląd definicji NN/SN (read-only)")
+        tree = getattr(self, "tools_preview_tree", None)
+        if tree is None:
+            return
+
+        for item in tree.get_children():
+            tree.delete(item)
+
+        definitions: dict[str, Any] | None = None
+        definitions_path = self.cfg.get(
+            "tools.definitions_path", "data/zadania_narzedzia.json"
+        )
+
+        if definitions_path and os.path.exists(definitions_path):
+            try:
+                with open(definitions_path, "r", encoding="utf-8") as f:
+                    definitions = json.load(f)
+                    print(
+                        f"[INFO] Wczytano definicje z pliku: {definitions_path}"
+                    )
+            except Exception as exc:
+                print("[ERROR] Nie udało się wczytać definicji z pliku:", exc)
+
+        if definitions is None and hasattr(self, "tools_definitions"):
+            definitions = getattr(self, "tools_definitions")  # type: ignore[attr-defined]
+            print("[INFO] Używam definicji z pamięci (self.tools_definitions)")
+
+        lbl_types = getattr(self, "lbl_counter_types", None)
+        lbl_statuses = getattr(self, "lbl_counter_statuses", None)
+        lbl_tasks = getattr(self, "lbl_counter_tasks", None)
+
+        if not isinstance(definitions, dict):
+            print(
+                "[WM-DBG] Brak definicji lub niepoprawny format. Podgląd będzie pusty."
+            )
+            if lbl_types:
+                lbl_types.config(text="Typy: 0")
+            if lbl_statuses:
+                lbl_statuses.config(text="Statusy: 0")
+            if lbl_tasks:
+                lbl_tasks.config(text="Zadania: 0")
+            return
+
+        collections = definitions.get("collections") or {}
+        total_types = 0
+        total_statuses = 0
+        total_tasks = 0
+
+        def add_collection(coll_key: str, coll_data: Any) -> None:
+            nonlocal total_types, total_statuses, total_tasks
+            if not isinstance(coll_data, dict):
+                return
+            coll_id = tree.insert("", "end", text=coll_key, values=("kolekcja",))
+            types = coll_data.get("types") if isinstance(coll_data, dict) else {}
+            if not isinstance(types, dict):
+                return
+            for t_name, t_obj in types.items():
+                if not isinstance(t_obj, dict):
+                    continue
+                statuses = t_obj.get("statuses") or {}
+                if not isinstance(statuses, dict):
+                    statuses = {}
+                status_count = len(statuses)
+                task_count = 0
+                for s_tasks in statuses.values():
+                    if isinstance(s_tasks, list):
+                        task_count += len(s_tasks)
+                t_id = tree.insert(
+                    coll_id,
+                    "end",
+                    text=f"• {t_name}",
+                    values=(f"{status_count} status., {task_count} zadań",),
+                )
+                total_types += 1
+                total_statuses += status_count
+                total_tasks += task_count
+                for s_name, s_tasks in statuses.items():
+                    s_list = s_tasks if isinstance(s_tasks, list) else []
+                    s_id = tree.insert(
+                        t_id,
+                        "end",
+                        text=f"- {s_name}",
+                        values=(f"{len(s_list)}",),
+                    )
+                    for task in s_list:
+                        tree.insert(
+                            s_id,
+                            "end",
+                            text=f"· {task}",
+                            values=("zadanie",),
+                        )
+
+        for key in ("NN", "SN"):
+            if key in collections:
+                add_collection(key, collections[key])
+
+        for key, value in collections.items():
+            if key in {"NN", "SN"}:
+                continue
+            add_collection(key, value)
+
+        if lbl_types:
+            lbl_types.config(text=f"Typy: {total_types}")
+        if lbl_statuses:
+            lbl_statuses.config(text=f"Statusy: {total_statuses}")
+        if lbl_tasks:
+            lbl_tasks.config(text=f"Zadania: {total_tasks}")
+        print(
+            f"[WM-DBG] Podsumowanie podglądu: typy={total_types}, "
+            f"statusy={total_statuses}, zadania={total_tasks}"
+        )
 
     def _open_tools_config(self) -> None:
         """Otwiera alias ``gui_tools_config`` (advanced lub fallback JSON)."""
