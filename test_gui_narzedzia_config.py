@@ -116,6 +116,7 @@ def test_panel_refreshes_after_config_change(monkeypatch, tmp_path):
     monkeypatch.setattr(gui_narzedzia, "apply_theme", lambda *a, **k: None)
     monkeypatch.setattr(gui_narzedzia, "clear_frame", lambda *a, **k: None)
     monkeypatch.setattr(gui_narzedzia, "_load_all_tools", lambda: [])
+    monkeypatch.setattr(gui_narzedzia, "_type_names_for_collection", lambda *a, **k: [])
 
     gui_narzedzia.panel_narzedzia(DummyWidget(), DummyWidget())
     assert "Specjalny" in gui_narzedzia._types_from_config()

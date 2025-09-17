@@ -126,6 +126,15 @@ def test_enter_triggers_actions(monkeypatch):
     monkeypatch.setattr(gui_narzedzia, "_next_free_in_range", lambda lo, hi: "001")
     monkeypatch.setattr(gui_narzedzia, "_resolve_tools_dir", lambda: ".")
     monkeypatch.setattr(gui_narzedzia, "_types_from_config", lambda: [])
+    monkeypatch.setattr(
+        gui_narzedzia, "_type_names_for_collection", lambda *a, **k: ["Specjalny"]
+    )
+    monkeypatch.setattr(
+        gui_narzedzia, "_status_names_for_type", lambda *a, **k: ["s"]
+    )
+    monkeypatch.setattr(
+        gui_narzedzia, "_task_names_for_status", lambda *a, **k: []
+    )
     monkeypatch.setattr(gui_narzedzia, "_append_type_to_config", lambda v: True)
     monkeypatch.setattr(gui_narzedzia, "_tasks_for_type", lambda *a, **k: [])
     monkeypatch.setattr(gui_narzedzia, "_task_templates_from_config", lambda: [])
