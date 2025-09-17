@@ -32,6 +32,12 @@ from utils.path_utils import cfg_path
 import ui_hover
 import zadania_assign_io
 import profile_utils
+from config_manager import ConfigManager
+from tools_config_loader import (
+    load_config,
+    get_status_names_for_type,
+    get_tasks_for_status,
+)
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -1229,11 +1235,18 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         # === Typ (Combobox + ➕ do listy) ===
         typy_list = _types_from_config()
         typ_frame = ttk.Frame(frm, style="WM.TFrame")
-        cb_ty = ttk.Combobox(typ_frame, values=typy_list, state="normal", width=28)
+        var_typ = tk.StringVar(value=start.get("typ", ""))
+        cb_ty = ttk.Combobox(
+            typ_frame,
+            textvariable=var_typ,
+            values=typy_list,
+            state="normal",
+            width=28,
+        )
         start_typ = start.get("typ","")
         if start_typ:
             cb_ty.set(start_typ)
-        cb_ty.pack(side="left")
+        cb_ty.pack(side="left", fill="x", expand=True)
         def _add_type():
             try:
                 val = (cb_ty.get() or "").strip()
@@ -1249,8 +1262,132 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         ttk.Button(typ_frame, text="➕ do listy", style="WM.Side.TButton", command=_add_type).pack(side="left", padx=6)
         row("Typ", typ_frame)
 
-        cb_status = ttk.Combobox(frm, textvariable=var_st, values=statusy, state="readonly")
-        row("Status", cb_status)
+        status_frame = ttk.Frame(frm, style="WM.TFrame")
+        cb_status = ttk.Combobox(
+            status_frame,
+            textvariable=var_st,
+            values=statusy,
+            state="readonly",
+        )
+        cb_status.pack(side="left", fill="x", expand=True)
+        btn_status_reload = ttk.Button(
+            status_frame,
+            text="↻",
+            width=3,
+            style="WM.Side.TButton",
+        )
+        btn_status_reload.pack(side="left", padx=(6, 0))
+        row("Status", status_frame)
+
+        status_fallback = list(statusy)
+
+        def _status_values_list() -> list[str]:
+            try:
+                raw_values = cb_status.cget("values")
+            except Exception:
+                return []
+            if isinstance(raw_values, (list, tuple)):
+                return [str(v) for v in raw_values]
+            try:
+                split = cb_status.tk.splitlist(raw_values)
+            except Exception:
+                return [str(raw_values)] if raw_values else []
+            return [str(v) for v in split]
+
+        _tools_cfg_cache: dict[str, dict] = {}
+
+        def _active_collection() -> str:
+            fallback = "SN" if tool_mode == "STARE" else "NN"
+            try:
+                cfg_mgr = ConfigManager()
+                if tool_mode == "STARE":
+                    enabled = cfg_mgr.get("tools.collections_enabled", []) or []
+                    for candidate in ("SN", "ST"):
+                        if candidate in enabled:
+                            fallback = candidate
+                            break
+                    paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
+                    if isinstance(paths_cfg, dict):
+                        for candidate in ("SN", "ST"):
+                            if candidate in paths_cfg:
+                                fallback = candidate
+                                break
+                else:
+                    fallback = cfg_mgr.get("tools.default_collection", fallback) or fallback
+            except Exception:
+                pass
+            result = str(fallback or ("SN" if tool_mode == "STARE" else "NN")).strip()
+            return result.upper() if result else ("SN" if tool_mode == "STARE" else "NN")
+
+        def _definitions_path_for_collection(collection_id: str) -> str:
+            candidate = "data/zadania_narzedzia.json"
+            try:
+                cfg_mgr = ConfigManager()
+                paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
+                if isinstance(paths_cfg, dict):
+                    for key in (collection_id, collection_id.upper(), collection_id.lower()):
+                        value = paths_cfg.get(key)
+                        if value:
+                            candidate = str(value)
+                            break
+            except Exception:
+                pass
+            candidate = candidate or "data/zadania_narzedzia.json"
+            if os.path.isabs(candidate):
+                return candidate
+            return cfg_path(candidate)
+
+        def _load_tools_cfg(collection_id: str, *, force: bool = False) -> dict:
+            path_cfg = _definitions_path_for_collection(collection_id)
+            cache_key = f"{collection_id}|{path_cfg}"
+            if force or cache_key not in _tools_cfg_cache:
+                _tools_cfg_cache[cache_key] = load_config(path_cfg) or {}
+            return _tools_cfg_cache[cache_key]
+
+        def _reload_statuses_from_definitions(*, via_button: bool = False, force: bool = False) -> None:
+            type_name = (var_typ.get() or "").strip()
+            if not type_name:
+                cb_status.config(values=status_fallback)
+                if status_fallback:
+                    var_st.set(status_fallback[0])
+                return
+            collection_id = _active_collection()
+            cfg_data = _load_tools_cfg(collection_id, force=force)
+            names_raw = get_status_names_for_type(cfg_data, collection_id, type_name)
+            names = [str(name).strip() for name in names_raw if str(name or "").strip()]
+            if not names:
+                cb_status.config(values=status_fallback)
+                if via_button and type_name:
+                    messagebox.showinfo(
+                        "Brak statusów",
+                        f"Nie znaleziono statusów dla typu '{type_name}' w kolekcji {collection_id}.",
+                    )
+                current = (var_st.get() or "").strip()
+                if status_fallback:
+                    fallback_lower = {s.lower() for s in status_fallback if s}
+                    if current.lower() not in fallback_lower:
+                        var_st.set(status_fallback[0])
+                else:
+                    var_st.set("")
+                return
+            cb_status.config(values=names)
+            current = (var_st.get() or "").strip()
+            names_lower = {n.lower() for n in names}
+            if current.lower() not in names_lower:
+                var_st.set(names[0])
+
+        btn_status_reload.configure(
+            command=lambda: _reload_statuses_from_definitions(via_button=True, force=True)
+        )
+
+        cb_ty.bind("<<ComboboxSelected>>", lambda *_: _reload_statuses_from_definitions())
+        try:
+            var_typ.trace_add("write", lambda *_: _reload_statuses_from_definitions())
+        except AttributeError:
+            pass
+
+        _reload_statuses_from_definitions()
+
         row("Opis",   ttk.Entry(frm, textvariable=var_op, style="WM.Search.TEntry"))
         row("Pracownik", ttk.Entry(frm, textvariable=var_pr, style="WM.Search.TEntry"))
 
@@ -1404,6 +1541,27 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             tl = (title or "").strip().lower()
             return any((t.get("tytul","").strip().lower() == tl) for t in tasks)
 
+        def _add_default_tasks_for_status(status_name: str) -> None:
+            status_clean = (status_name or "").strip()
+            type_clean = (var_typ.get() or "").strip()
+            if not status_clean or not type_clean:
+                return
+            collection_id = _active_collection()
+            cfg_data = _load_tools_cfg(collection_id)
+            defaults = [
+                str(task).strip()
+                for task in get_tasks_for_status(cfg_data, collection_id, type_clean, status_clean)
+                if str(task or "").strip()
+            ]
+            added = False
+            for title in defaults:
+                if _has_title(title):
+                    continue
+                tasks.append({"tytul": title, "done": False, "by": "", "ts_done": ""})
+                added = True
+            if added:
+                repaint_tasks()
+
         def repaint_tasks():
             tv.delete(*tv.get_children())
             for t in tasks:
@@ -1436,6 +1594,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             phase = _phase_for_status(tool_mode, new_st)
             if phase:
                 _apply_template_for_phase(phase)
+            _add_default_tasks_for_status(new_st)
             if tool_mode == "NOWE" and new_st.lower() == "odbiór zakończony".lower():
                 if messagebox.askyesno("Przenieść", "Przenieść do SN?"):
                     convert_var.set(True)
@@ -1453,7 +1612,8 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     repaint_tasks()
                     hist_items.append({"ts": now_ts, "by": (login or "system"), "z": "[zadania]", "na": "auto ✔ przy przeniesieniu do SN"})
                     hist_view.insert("", 0, values=(now_ts, login or "system", "[zadania]", "auto ✔ przy przeniesieniu do SN"))
-            final_status = statusy[-1] if statusy else ""
+            status_values = [s for s in _status_values_list() if s]
+            final_status = status_values[-1] if status_values else ""
             if final_status and new_st.lower() == final_status.lower():
                 now_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
                 marked_any = False
@@ -1707,7 +1867,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             st_new = _normalize_status(raw_status)
 
             allowed = _statusy_for_mode(tool_mode)
-            if (st_new.lower() not in [x.lower() for x in allowed]) and (raw_status.lower() not in [x.lower() for x in allowed]):
+            status_values = [s for s in _status_values_list() if s]
+            allowed_lower = {x.lower() for x in allowed}
+            allowed_lower.update(s.lower() for s in status_values)
+            if (st_new.lower() not in allowed_lower) and (raw_status.lower() not in allowed_lower):
                 error_dialogs.show_error_dialog("Błąd", f"Status '{raw_status}' nie jest dozwolony.")
                 return
 
