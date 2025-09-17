@@ -37,6 +37,7 @@ from tools_config_loader import (
     load_config,
     get_status_names_for_type,
     get_tasks_for_status,
+    get_types,
 )
 
 # ===================== MOTYW (użytkownika) =====================
@@ -258,6 +259,14 @@ def _stare_convert_templates_from_config():
 
 def _types_from_config():
     try:
+        cfg_mgr = ConfigManager()
+        default_collection = cfg_mgr.get("tools.default_collection", "NN") or "NN"
+    except Exception:
+        default_collection = "NN"
+    names = _type_names_for_collection(str(default_collection).strip() or "NN")
+    if names:
+        return names
+    try:
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
         return lst or TYPY_NARZEDZI_DEFAULT
@@ -277,6 +286,110 @@ def _append_type_to_config(new_type: str) -> bool:
     _save_config(cfg)
     _dbg("Dopisano typ do config:", t)
     return True
+
+
+_TOOLS_DEFINITIONS_CACHE: dict[str, dict] = {}
+
+
+def _definitions_path_for_collection(collection_id: str) -> str:
+    """Resolve definitions path for given *collection_id*."""
+
+    candidate: str | None = None
+    try:
+        cfg_mgr = ConfigManager()
+        paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
+        if isinstance(paths_cfg, dict):
+            for key in (collection_id, collection_id.upper(), collection_id.lower()):
+                value = paths_cfg.get(key)
+                if value:
+                    candidate = str(value)
+                    break
+        if not candidate:
+            candidate = cfg_mgr.get("tools.definitions_path", None)
+    except Exception:
+        candidate = None
+
+    fallback = getattr(LZ, "TOOL_TASKS_PATH", "data/zadania_narzedzia.json")
+    candidate = str(candidate or fallback or "data/zadania_narzedzia.json").strip()
+    if not candidate:
+        candidate = "data/zadania_narzedzia.json"
+    return cfg_path(candidate)
+
+
+def _invalidate_tools_definitions_cache() -> None:
+    """Clear cached tool definitions paths."""
+
+    _TOOLS_DEFINITIONS_CACHE.clear()
+
+
+def _load_tools_definitions(collection_id: str, *, force: bool = False) -> dict:
+    """Load tools definitions for *collection_id* with caching."""
+
+    path = _definitions_path_for_collection(collection_id)
+    cache_key = f"{collection_id}|{path}"
+    if force or cache_key not in _TOOLS_DEFINITIONS_CACHE:
+        _TOOLS_DEFINITIONS_CACHE[cache_key] = load_config(path) or {}
+    return _TOOLS_DEFINITIONS_CACHE[cache_key]
+
+
+def _type_names_for_collection(collection_id: str, *, force: bool = False) -> list[str]:
+    """Return distinct type names available for *collection_id*."""
+
+    if not collection_id:
+        return []
+    cfg_data = _load_tools_definitions(collection_id, force=force)
+    items = get_types(cfg_data, collection_id)
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        name = str(item.get("name") or item.get("id") or "").strip()
+        if not name:
+            continue
+        lower = name.lower()
+        if lower in seen:
+            continue
+        seen.add(lower)
+        result.append(name)
+    return result
+
+
+def _status_names_for_type(
+    collection_id: str,
+    type_name: str,
+    *,
+    force: bool = False,
+) -> list[str]:
+    """Return statuses defined for ``type_name`` in *collection_id*."""
+
+    if not collection_id or not type_name:
+        return []
+    cfg_data = _load_tools_definitions(collection_id, force=force)
+    statuses = get_status_names_for_type(cfg_data, collection_id, type_name)
+    return [
+        str(name).strip()
+        for name in statuses
+        if str(name or "").strip()
+    ]
+
+
+def _task_names_for_status(
+    collection_id: str,
+    type_name: str,
+    status_name: str,
+    *,
+    force: bool = False,
+) -> list[str]:
+    """Return tasks defined for ``status_name`` of ``type_name``."""
+
+    if not (collection_id and type_name and status_name):
+        return []
+    cfg_data = _load_tools_definitions(collection_id, force=force)
+    tasks = get_tasks_for_status(cfg_data, collection_id, type_name, status_name)
+    return [
+        str(task).strip()
+        for task in tasks
+        if str(task or "").strip()
+    ]
 
 
 def _is_allowed_file(path: str) -> bool:
@@ -1133,6 +1246,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             LZ.invalidate_cache()
         except Exception as exc:
             print("[ERROR][NARZ] błąd przeładowania definicji:", exc)
+        _invalidate_tools_definitions_cache()
         try:
             refresh_list()
         except Exception as exc:
@@ -1303,6 +1417,29 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         # status poprzedni (do historii/przyszłych reguł)
         last_status = [ (start.get("status") or "").strip() ]
 
+        def _active_collection() -> str:
+            fallback = "SN" if tool_mode == "STARE" else "NN"
+            try:
+                cfg_mgr = ConfigManager()
+                if tool_mode == "STARE":
+                    enabled = cfg_mgr.get("tools.collections_enabled", []) or []
+                    for candidate in ("SN", "ST"):
+                        if candidate in enabled:
+                            fallback = candidate
+                            break
+                    paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
+                    if isinstance(paths_cfg, dict):
+                        for candidate in ("SN", "ST"):
+                            if candidate in paths_cfg:
+                                fallback = candidate
+                                break
+                else:
+                    fallback = cfg_mgr.get("tools.default_collection", fallback) or fallback
+            except Exception:
+                pass
+            result = str(fallback or ("SN" if tool_mode == "STARE" else "NN")).strip()
+            return result.upper() if result else ("SN" if tool_mode == "STARE" else "NN")
+
         r = 2
         def row(lbl, widget):
             nonlocal r
@@ -1313,34 +1450,33 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         row("Numer (3 cyfry)", ttk.Entry(frm, textvariable=var_nr, style="WM.Search.TEntry"))
         row("Nazwa",           ttk.Entry(frm, textvariable=var_nm, style="WM.Search.TEntry"))
 
-        # === Typ (Combobox + ➕ do listy) ===
-        typy_list = _types_from_config()
+        # === Typ (Combobox z definicji) ===
         typ_frame = ttk.Frame(frm, style="WM.TFrame")
         var_typ = tk.StringVar(value=start.get("typ", ""))
+        collection_for_types = _active_collection()
+        type_names = _type_names_for_collection(collection_for_types, force=True)
+        start_typ = (start.get("typ", "") or "").strip()
+        if start_typ and start_typ not in type_names:
+            type_names = [start_typ] + [name for name in type_names if name != start_typ]
+        print(
+            "[WM-DBG][NARZ] Typy z definicji: "
+            f"coll={collection_for_types} → {len(type_names)} pozycji"
+        )
         cb_ty = ttk.Combobox(
             typ_frame,
             textvariable=var_typ,
-            values=typy_list,
-            state="normal",
+            values=type_names,
+            state="readonly",
             width=28,
         )
-        start_typ = start.get("typ","")
         if start_typ:
             cb_ty.set(start_typ)
-        cb_ty.pack(side="left", fill="x", expand=True)
-        def _add_type():
+        elif type_names:
             try:
-                val = (cb_ty.get() or "").strip()
-                if not val:
-                    messagebox.showinfo("Typ", "Podaj nazwę typu."); return
-                if _append_type_to_config(val):
-                    messagebox.showinfo("Typ", f"Dodano '{val}' do listy typów.")
-                    cb_ty.config(values=_types_from_config())
-                else:
-                    messagebox.showinfo("Typ", f"'{val}' już jest na liście.")
-            except (OSError, ValueError) as e:
-                messagebox.showwarning("Typ", f"Nie udało się dopisać typu: {e}")
-        ttk.Button(typ_frame, text="➕ do listy", style="WM.Side.TButton", command=_add_type).pack(side="left", padx=6)
+                cb_ty.set(type_names[0])
+            except tk.TclError:
+                var_typ.set(type_names[0])
+        cb_ty.pack(side="left", fill="x", expand=True)
         row("Typ", typ_frame)
 
         status_frame = ttk.Frame(frm, style="WM.TFrame")
@@ -1375,56 +1511,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 return [str(raw_values)] if raw_values else []
             return [str(v) for v in split]
 
-        _tools_cfg_cache: dict[str, dict] = {}
-
-        def _active_collection() -> str:
-            fallback = "SN" if tool_mode == "STARE" else "NN"
-            try:
-                cfg_mgr = ConfigManager()
-                if tool_mode == "STARE":
-                    enabled = cfg_mgr.get("tools.collections_enabled", []) or []
-                    for candidate in ("SN", "ST"):
-                        if candidate in enabled:
-                            fallback = candidate
-                            break
-                    paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
-                    if isinstance(paths_cfg, dict):
-                        for candidate in ("SN", "ST"):
-                            if candidate in paths_cfg:
-                                fallback = candidate
-                                break
-                else:
-                    fallback = cfg_mgr.get("tools.default_collection", fallback) or fallback
-            except Exception:
-                pass
-            result = str(fallback or ("SN" if tool_mode == "STARE" else "NN")).strip()
-            return result.upper() if result else ("SN" if tool_mode == "STARE" else "NN")
-
-        def _definitions_path_for_collection(collection_id: str) -> str:
-            candidate = "data/zadania_narzedzia.json"
-            try:
-                cfg_mgr = ConfigManager()
-                paths_cfg = cfg_mgr.get("tools.collections_paths", {}) or {}
-                if isinstance(paths_cfg, dict):
-                    for key in (collection_id, collection_id.upper(), collection_id.lower()):
-                        value = paths_cfg.get(key)
-                        if value:
-                            candidate = str(value)
-                            break
-            except Exception:
-                pass
-            candidate = candidate or "data/zadania_narzedzia.json"
-            if os.path.isabs(candidate):
-                return candidate
-            return cfg_path(candidate)
-
-        def _load_tools_cfg(collection_id: str, *, force: bool = False) -> dict:
-            path_cfg = _definitions_path_for_collection(collection_id)
-            cache_key = f"{collection_id}|{path_cfg}"
-            if force or cache_key not in _tools_cfg_cache:
-                _tools_cfg_cache[cache_key] = load_config(path_cfg) or {}
-            return _tools_cfg_cache[cache_key]
-
         def _reload_statuses_from_definitions(*, via_button: bool = False, force: bool = False) -> None:
             type_name = (var_typ.get() or "").strip()
             if not type_name:
@@ -1433,9 +1519,11 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     var_st.set(status_fallback[0])
                 return
             collection_id = _active_collection()
-            cfg_data = _load_tools_cfg(collection_id, force=force)
-            names_raw = get_status_names_for_type(cfg_data, collection_id, type_name)
-            names = [str(name).strip() for name in names_raw if str(name or "").strip()]
+            names = _status_names_for_type(collection_id, type_name, force=force)
+            print(
+                "[WM-DBG][NARZ] Statusy z definicji: "
+                f"coll={collection_id} typ={type_name} → {len(names)} pozycji"
+            )
             if not names:
                 cb_status.config(values=status_fallback)
                 if via_button and type_name:
@@ -1628,12 +1716,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             if not status_clean or not type_clean:
                 return
             collection_id = _active_collection()
-            cfg_data = _load_tools_cfg(collection_id)
-            defaults = [
-                str(task).strip()
-                for task in get_tasks_for_status(cfg_data, collection_id, type_clean, status_clean)
-                if str(task or "").strip()
-            ]
+            defaults = _task_names_for_status(collection_id, type_clean, status_clean)
+            print(
+                "[WM-DBG][NARZ] Zadania z definicji: "
+                f"coll={collection_id} typ={type_clean} "
+                f"status={status_clean} → {len(defaults)} zadań"
+            )
             added = False
             for title in defaults:
                 if _has_title(title):
