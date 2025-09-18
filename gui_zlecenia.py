@@ -15,19 +15,16 @@ import logging
 import traceback
 
 try:
+    from gui_zlecenia_creator import open_order_creator
+except Exception:
+    open_order_creator = None
+    print("[ERROR][ZLECENIA] Nie można zaimportować gui_zlecenia_creator.open_order_creator")
+
+try:
     from zlecenia_utils import statuses_for
 except Exception:
     def statuses_for(kind):
         return []
-
-try:
-    from gui_orders import open_orders_window
-except Exception:
-    open_orders_window = None
-    print(
-        "[ERROR][ZLECENIA] Nie można zaimportować gui_orders.open_orders_window – przycisk 'Zamówienia' będzie nieaktywny."
-    )
-
 
 import bom
 
@@ -105,11 +102,10 @@ logger = logging.getLogger(__name__)
 
 
 def _add_orders_button_to(toolbar_or_parent):
-    """Wstawia przycisk 'Zamówienia' do podanego kontenera (toolbar/ramka)."""
+    """Wstawia przycisk otwierający kreator zleceń do paska narzędzi."""
     import tkinter as tk
     from tkinter import ttk
 
-    # Jeśli przekazano root zamiast toolbara – zbuduj mały pasek
     container = toolbar_or_parent
     if not isinstance(container, (ttk.Frame, tk.Frame)):
         container = ttk.Frame(toolbar_or_parent)
@@ -117,16 +113,18 @@ def _add_orders_button_to(toolbar_or_parent):
 
     btn = ttk.Button(
         container,
-        text="Zamówienia",
-        command=(lambda: open_orders_window(container)) if open_orders_window else None,
+        text="Dodaj zlecenie (Kreator)",
+        command=(lambda: open_order_creator(container)) if open_order_creator else None,
     )
     btn.pack(side="left", padx=(6, 0))
-    if open_orders_window is None:
+    if open_order_creator is None:
         try:
             btn.state(["disabled"])
         except Exception:
             pass
-    print("[WM-DBG][ZLECENIA] Dodano przycisk 'Zamówienia' w pasku narzędzi Zleceń.")
+    print(
+        "[WM-DBG][ZLECENIA] Dodano przycisk 'Dodaj zlecenie (Kreator)' w pasku narzędzi Zleceń."
+    )
 
 try:
     from zlecenia_logika import (
