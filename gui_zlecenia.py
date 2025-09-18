@@ -14,6 +14,15 @@ from tkinter import ttk, messagebox
 import logging
 import traceback
 
+try:
+    from gui_orders import open_orders_window
+except Exception:
+    open_orders_window = None
+    print(
+        "[ERROR][ZLECENIA] Nie można zaimportować gui_orders.open_orders_window – przycisk 'Zamówienia' będzie nieaktywny."
+    )
+
+
 import bom
 
 from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
@@ -22,6 +31,31 @@ from config_manager import ConfigManager
 from utils.dirty_guard import DirtyGuard
 
 logger = logging.getLogger(__name__)
+
+
+def _add_orders_button_to(toolbar_or_parent):
+    """Wstawia przycisk 'Zamówienia' do podanego kontenera (toolbar/ramka)."""
+    import tkinter as tk
+    from tkinter import ttk
+
+    # Jeśli przekazano root zamiast toolbara – zbuduj mały pasek
+    container = toolbar_or_parent
+    if not isinstance(container, (ttk.Frame, tk.Frame)):
+        container = ttk.Frame(toolbar_or_parent)
+        container.pack(fill="x", pady=(0, 6))
+
+    btn = ttk.Button(
+        container,
+        text="Zamówienia",
+        command=(lambda: open_orders_window(container)) if open_orders_window else None,
+    )
+    btn.pack(side="left", padx=(6, 0))
+    if open_orders_window is None:
+        try:
+            btn.state(["disabled"])
+        except Exception:
+            pass
+    print("[WM-DBG][ZLECENIA] Dodano przycisk 'Zamówienia' w pasku narzędzi Zleceń.")
 
 try:
     from zlecenia_logika import (
@@ -126,6 +160,7 @@ def panel_zlecenia(parent, root=None, app=None, notebook=None):
     btn_edyt = ttk.Button(actions, text="Edytuj");       btn_edyt.pack(side="left", padx=6)
     btn_usun = ttk.Button(actions, text="Usuń");         btn_usun.pack(side="left", padx=6)
     btn_rez  = ttk.Button(actions, text="Rezerwuj");     btn_rez.pack(side="left", padx=6)
+    _add_orders_button_to(actions)
 
     right = ttk.Frame(actions, style="WM.TFrame"); right.pack(side="right")
     ttk.Label(right, text="Status:", style="WM.TLabel").pack(side="left", padx=(0, 6))
