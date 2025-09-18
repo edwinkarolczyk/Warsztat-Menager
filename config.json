@@ -34,43 +34,31 @@
         "label": "Zlecenie wewnętrzne",
         "prefix": "ZW-",
         "reserve_by_default": false,
-        "requires_approval": false,
-        "wizard": false,
-        "statuses": ["nowe", "w trakcie", "zakończone", "anulowane"]
+        "allow_products": true,
+        "bom_required": true,
+        "statuses": ["nowe","w trakcie","zakończone","anulowane"]
       },
       "ZN": {
         "enabled": true,
         "label": "Zlecenie na narzędzie",
         "prefix": "ZN-",
         "reserve_by_default": true,
-        "requires_approval": false,
-        "wizard": true,
-        "statuses": [
-          "projekt",
-          "w budowie",
-          "1 próba",
-          "2 próba",
-          "odbiór",
-          "na produkcji",
-          "anulowane"
-        ]
+        "allow_old_tools": true,
+        "tools_range": [500,1000],
+        "statuses": ["projekt","w budowie","ostrzenie","naprawa","odbiór","na produkcji","anulowane"]
       },
       "ZM": {
         "enabled": true,
         "label": "Naprawa/awaria maszyny",
         "prefix": "ZM-",
         "reserve_by_default": true,
-        "requires_approval": false,
-        "wizard": true,
-        "statuses": [
-          "awaria zgłoszona",
-          "diagnoza",
-          "w naprawie",
-          "test",
-          "sprawdzona",
-          "zakończone",
-          "anulowane"
-        ]
+        "require_description": true,
+        "urgency_colors": {
+          "wysoki": "blink_red",
+          "normalny": "yellow",
+          "niski": "green"
+        },
+        "statuses": ["awaria zgłoszona","diagnoza","w naprawie","test","sprawdzona","zakończone","anulowane"]
       }
     }
   }
