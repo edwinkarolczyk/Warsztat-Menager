@@ -1,4 +1,4 @@
-# Wersja pliku: 1.7.0
+# Wersja pliku: 1.7.1
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -14,6 +14,53 @@ from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser, filedialog
 from tkinter import ttk, messagebox
+
+
+class ScrollableFrame(ttk.Frame):
+    """Generic vertically scrollable frame with mouse wheel support."""
+
+    def __init__(self, parent: tk.Misc, *args: object, **kwargs: object) -> None:
+        super().__init__(parent, *args, **kwargs)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vsb.set)
+
+        self.inner = ttk.Frame(self.canvas)
+        self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+
+        self.inner.bind(
+            "<Configure>",
+            lambda event: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+        )
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.vsb.grid(row=0, column=1, sticky="ns")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.inner.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.inner.bind_all("<Button-4>", lambda event: self._scroll(-120))
+        self.inner.bind_all("<Button-5>", lambda event: self._scroll(120))
+
+    def _on_canvas_configure(self, event: tk.Event) -> None:
+        """Ensure the inner frame matches the canvas width."""
+
+        self.canvas.itemconfigure(self._window, width=event.width)
+
+    def _on_mousewheel(self, event: tk.Event) -> None:
+        """Scroll canvas when mouse wheel is used (Windows/Linux)."""
+
+        delta = getattr(event, "delta", 0)
+        if delta:
+            self._scroll(-int(delta / 120) * 30)
+
+    def _scroll(self, pixels: int) -> None:
+        """Perform vertical scrolling by the given pixel delta."""
+
+        units = int(pixels / 10) if pixels else 0
+        if units:
+            self.canvas.yview_scroll(units, "units")
 
 # A-2e: alias do edytora advanced (wyszukiwarka, limity, kolekcje NN/SN)
 try:
@@ -387,6 +434,23 @@ class SettingsPanel:
         self._open_windows: dict[str, tk.Toplevel] = {}
         self._mod_vars: dict[str, tk.BooleanVar] = {}
         self._user_var: tk.StringVar | None = None
+
+        self._container = ttk.Frame(self.master)
+        self._container.pack(fill="both", expand=True)
+        self._container.grid_rowconfigure(0, weight=1)
+        self._container.grid_columnconfigure(0, weight=1)
+
+        self._scroll_area = ScrollableFrame(self._container)
+        self._scroll_area.grid(row=0, column=0, sticky="nsew", padx=8, pady=(8, 0))
+        self._content_area = self._scroll_area.inner
+
+        self._footer_frame = ttk.Frame(self._container)
+        self._footer_frame.grid(row=1, column=0, sticky="ew", padx=8, pady=8)
+        self._footer_frame.grid_columnconfigure(0, weight=1)
+
+        self.btns = ttk.Frame(self._footer_frame)
+        self.btns.grid(row=0, column=0, sticky="ew")
+
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -395,14 +459,18 @@ class SettingsPanel:
 
         self._unsaved = False
         self._fields_vars = []
-        for child in self.master.winfo_children():
+        content_parent = getattr(self, "_content_area", self.master)
+        for child in content_parent.winfo_children():
             child.destroy()
+        if hasattr(self, "btns"):
+            for child in self.btns.winfo_children():
+                child.destroy()
 
         schema = self._get_schema()
         print(f"[WM-DBG] using schema via _get_schema(): {schema is not None}")
         schema = schema or {}
 
-        self.nb = ttk.Notebook(self.master)
+        self.nb = ttk.Notebook(content_parent)
         print("[WM-DBG] [SETTINGS] notebook created")
         self.nb.pack(fill="both", expand=True)
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
@@ -445,19 +513,38 @@ class SettingsPanel:
         print("[WM-DBG] [SETTINGS] zakładka Produkty i materiały: OK")
         print("[WM-DBG] [SETTINGS] notebook packed")
 
-        self.btns = ttk.Frame(self.master)
-        self.btns.pack(pady=5)
-        ttk.Button(self.btns, text="Zapisz", command=self.save).pack(
+        left_btns = ttk.Frame(self.btns)
+        left_btns.pack(side="left", padx=5)
+        ttk.Button(left_btns, text="Anuluj", command=self._close_window).pack(
             side="left", padx=5
         )
         ttk.Button(
-            self.btns, text="Przywróć domyślne", command=self.restore_defaults
+            left_btns,
+            text="Przywróć domyślne",
+            command=self.restore_defaults,
         ).pack(side="left", padx=5)
-        ttk.Button(self.btns, text="Odśwież", command=self.refresh_panel).pack(
+        ttk.Button(left_btns, text="Odśwież", command=self.refresh_panel).pack(
             side="left", padx=5
         )
 
+        right_btns = ttk.Frame(self.btns)
+        right_btns.pack(side="right", padx=5)
+        ttk.Button(right_btns, text="Zapisz", command=self.save).pack(
+            side="right", padx=5
+        )
+
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _close_window(self) -> None:
+        """Invoke the standard close flow used by the Cancel button."""
+
+        try:
+            self.on_close()
+        except Exception:
+            try:
+                self.master.winfo_toplevel().destroy()
+            except Exception:
+                pass
 
     def _add_magazyn_tab(self) -> None:
         try:
