@@ -1,3 +1,13 @@
+## 2025-09-18 — Stabilizacja kreatora zleceń (ZW/ZN/ZM/ZZ)
+- Ujednolicono przekazywanie danych z kreatora: teraz trafiają **proste pola**
+  (`produkt`, `narzedzie_id`, `maszyna_id`, `material`, `ilosc`, itp.), bez
+  słownika `powiazania`.
+- `zlecenia_utils.create_order_skeleton(...)` przyjmuje jawne argumenty i **nie
+  wymaga** `powiazania`. Ma bezpieczne fallbacki i walidacje typów.
+- Poprawiono gałęzie ZN/ZM/ZZ w kreatorze, by nie przekazywały struktur, które
+  potem są traktowane jak słowniki (błąd „string indices must be integers”).
+- Dodatkowe osłony na błędne typy w utils (statusy, zapis).
+
 ## 2025-09-18 — Poprawka funkcji statuses_for
 - Naprawiono błąd w `zlecenia_utils.py`, który powodował wyjątek
   (`'str' object has no attribute 'get'`) przy odczycie statusów z configa.
