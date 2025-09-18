@@ -15,15 +15,22 @@ try:
 except Exception:  # pragma: no cover - fallback dla środowisk testowych
     ConfigManager = None  # type: ignore
 
+try:
+    _CONFIG_MANAGER = ConfigManager() if ConfigManager else None
+except Exception:  # pragma: no cover - zabezpieczenie dla wyjątków inicjalizacji
+    _CONFIG_MANAGER = None
+
 DATA_DIR = os.path.join("data", "zlecenia")
 
 
 def _orders_cfg() -> Dict[str, object]:
     """Zwraca sekcję konfiguracyjną modułu zleceń."""
 
-    if ConfigManager:
-        cfg = ConfigManager.get()
-        return (cfg or {}).get("orders", {}) or {}
+    if _CONFIG_MANAGER:
+        try:
+            return _CONFIG_MANAGER.get("orders") or {}
+        except Exception:  # pragma: no cover - zabezpieczenie na wypadek błędnej konfiguracji
+            return {}
     return {}
 
 

@@ -147,15 +147,28 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
                 with open(machines_path, "r", encoding="utf-8") as handle:
                     machines_data = json.load(handle)
             except Exception:
-                machines_data = {}
+                machines_data = []
+
+            if isinstance(machines_data, dict):
+                machines_raw = machines_data.get("maszyny", []) or []
+            elif isinstance(machines_data, list):
+                machines_raw = machines_data
+            else:
+                machines_raw = []
+
             machines = [
-                f"{machine.get('id')} - {machine.get('nazwa')}"
-                for machine in machines_data.get("maszyny", [])
-                if machine.get("id")
+                f"{machine.get('id')} - {machine.get('nazwa', '')}".strip()
+                for machine in machines_raw
+                if machine.get("id") is not None
             ]
 
             ttk.Label(container, text="Maszyna:").pack(anchor="w")
-            cb_machine = ttk.Combobox(container, values=machines, state="readonly")
+            cb_machine = ttk.Combobox(
+                container,
+                values=machines,
+                state="readonly",
+                width=40,
+            )
             cb_machine.pack(anchor="w")
             state["widgets"]["maszyna"] = cb_machine
 
@@ -165,12 +178,17 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
             state["widgets"]["opis"] = entry_desc
 
             ttk.Label(container, text="Pilność:").pack(anchor="w")
+            priority_values = ["niski", "normalny", "wysoki"]
             cb_priority = ttk.Combobox(
                 container,
-                values=["niski", "normalny", "wysoki"],
+                values=priority_values,
                 state="readonly",
+                width=12,
             )
             cb_priority.pack(anchor="w")
+            if priority_values:
+                default_idx = 1 if len(priority_values) > 1 else 0
+                cb_priority.current(default_idx)
             state["widgets"]["pilnosc"] = cb_priority
 
         else:
