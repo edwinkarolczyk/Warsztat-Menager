@@ -325,7 +325,15 @@ def open_settings_window(root):
     print("[WM-DBG] open_settings_window()")
     win = Toplevel(root)
     win.title("Ustawienia – Warsztat Menager")
-    win.geometry("1000x680")
+    try:
+        screen_h = win.winfo_screenheight()
+        screen_w = win.winfo_screenwidth()
+        height = int(screen_h * 0.8)
+        width = min(1100, int(screen_w * 0.85))
+        win.geometry(f"{width}x{height}")
+        win.minsize(900, 600)
+    except Exception:
+        win.geometry("1000x680")
     apply_theme(win)
     SettingsWindow(
         win,

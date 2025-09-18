@@ -1,3 +1,8 @@
+## 2025-09-18 — Ustawienia: przewijanie i stała stopka
+- Dodano przewijanie (scroll) dla zawartości zakładek w module **Ustawienia**.
+- Stopka z przyciskami (Zapisz/Anuluj) jest teraz przypięta do dołu okna i zawsze widoczna.
+- Okno Ustawień startuje dopasowane do ekranu (max ~80% wysokości) i nie wymaga ręcznego powiększania.
+
 ## 2025-09-18 — Rozbudowa ustawień zleceń
 - Zakładka „Zlecenia” w ustawieniach rozbudowana o sekcje:
   - Definicje typów zleceń (ZW/ZN/ZM/ZZ),
