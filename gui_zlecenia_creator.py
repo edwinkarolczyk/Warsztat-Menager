@@ -66,6 +66,7 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
             ("ZW", "Zlecenie wewnętrzne (ZW)"),
             ("ZN", "Zlecenie na narzędzie (ZN)"),
             ("ZM", "Naprawa/awaria maszyny (ZM)"),
+            ("ZZ", "Zlecenie zakupu (ZZ)"),
         ):
             radio = ttk.Radiobutton(
                 container,
@@ -173,6 +174,58 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
             cb_priority.pack(anchor="w")
             state["widgets"]["pilnosc"] = cb_priority
 
+        elif kind == "ZZ":
+            ttk.Label(
+                container,
+                text="Krok 2/2 – Zlecenie zakupu",
+                style="WM.H1.TLabel",
+            ).pack(anchor="w", pady=(0, 12))
+
+            ttk.Label(
+                container,
+                text="Wybierz materiał z katalogu:",
+            ).pack(anchor="w")
+            materials: list[str] = []
+            try:
+                with open(
+                    os.path.join("data", "magazyn", "katalog.json"),
+                    "r",
+                    encoding="utf-8",
+                ) as handle:
+                    katalog = json.load(handle)
+                if isinstance(katalog, dict):
+                    materials = list(katalog.keys())
+            except Exception:
+                materials = []
+            cb_material = ttk.Combobox(
+                container,
+                values=materials,
+                state="readonly",
+                width=40,
+            )
+            cb_material.pack(anchor="w", pady=(0, 8))
+            state["widgets"]["zz_cbm"] = cb_material
+
+            ttk.Label(container, text="lub wpisz nowy materiał:").pack(anchor="w")
+            entry_new = ttk.Entry(container, width=40)
+            entry_new.pack(anchor="w", pady=(0, 8))
+            state["widgets"]["zz_new"] = entry_new
+
+            ttk.Label(container, text="Ilość:").pack(anchor="w")
+            entry_qty = ttk.Entry(container, width=10)
+            entry_qty.insert(0, "1")
+            entry_qty.pack(anchor="w", pady=(0, 8))
+            state["widgets"]["zz_qty"] = entry_qty
+
+            ttk.Label(container, text="Dostawca:").pack(anchor="w")
+            entry_supplier = ttk.Entry(container, width=30)
+            entry_supplier.pack(anchor="w", pady=(0, 8))
+            state["widgets"]["zz_dst"] = entry_supplier
+
+            ttk.Label(container, text="Termin (YYYY-MM-DD):").pack(anchor="w")
+            entry_due = ttk.Entry(container, width=15)
+            entry_due.pack(anchor="w", pady=(0, 8))
+            state["widgets"]["zz_term"] = entry_due
         else:
             ttk.Label(container, text="Nie wybrano rodzaju zlecenia.").pack(anchor="w")
 
@@ -232,6 +285,36 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
                     {"maszyna_id": machine_id},
                     komentarz=description,
                     pilnosc=priority,
+                )
+            elif kind == "ZZ":
+                mat_selected = widgets["zz_cbm"].get().strip()  # type: ignore[call-arg]
+                mat_new = widgets["zz_new"].get().strip()  # type: ignore[call-arg]
+                if not mat_selected and not mat_new:
+                    raise ValueError(
+                        "Podaj materiał (z katalogu lub nowy).",
+                    )
+                qty_raw = widgets["zz_qty"].get().strip()  # type: ignore[call-arg]
+                if not qty_raw:
+                    raise ValueError("Podaj ilość.")
+                try:
+                    qty = int(qty_raw)
+                except ValueError:
+                    raise ValueError("Ilość musi być liczbą całkowitą.") from None
+                if qty <= 0:
+                    raise ValueError("Ilość musi być dodatnia.")
+                supplier = widgets["zz_dst"].get().strip()  # type: ignore[call-arg]
+                deadline = widgets["zz_term"].get().strip()  # type: ignore[call-arg]
+                material_name = mat_selected or mat_new
+                data = create_order_skeleton(
+                    "ZZ",
+                    autor,
+                    "ZZ",
+                    {},
+                    ilosc=qty,
+                    material=material_name,
+                    dostawca=supplier,
+                    termin=deadline,
+                    nowy=bool(mat_new),
                 )
             else:
                 raise ValueError("Nie wybrano rodzaju zlecenia.")

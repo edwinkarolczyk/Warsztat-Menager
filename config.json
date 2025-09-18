@@ -59,6 +59,12 @@
           "niski": "green"
         },
         "statuses": ["awaria zgłoszona","diagnoza","w naprawie","test","sprawdzona","zakończone","anulowane"]
+      },
+      "ZZ": {
+        "enabled": true,
+        "label": "Zlecenie zakupu",
+        "prefix": "ZZ-",
+        "statuses": ["nowe","oczekuje na dostawę","zrealizowane","anulowane"]
       }
     }
   }

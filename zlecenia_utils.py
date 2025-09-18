@@ -1,5 +1,10 @@
 """Narzędzia pomocnicze dla modułu zleceń."""
 
+# Wersja pliku: 1.3.0
+# Zmiany:
+# - skeleton dla ZZ
+# - zapis draftu do zamowienia_oczekujace.json
+
 from __future__ import annotations
 
 import json
@@ -16,6 +21,34 @@ except Exception:  # pragma: no cover - fallback dla środowisk testowych
     ConfigManager = None  # type: ignore
 
 DATA_DIR = os.path.join("data", "zlecenia")
+
+
+def _zamowienia_oczek_path() -> str:
+    return os.path.join("data", "zamowienia_oczekujace.json")
+
+
+def _load_oczekujace() -> List[Dict[str, object]]:
+    path = _zamowienia_oczek_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return []
+
+
+def _save_oczekujace(data: List[Dict[str, object]]) -> None:
+    path = _zamowienia_oczek_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+
+
+def _add_oczekujace(entry: Dict[str, object]) -> None:
+    data = _load_oczekujace()
+    data.append(entry)
+    _save_oczekujace(data)
 
 
 def _orders_cfg() -> Dict[str, object]:
@@ -40,14 +73,15 @@ def _seq_path() -> str:
 
 
 def _load_seq() -> Dict[str, int]:
+    defaults = {"ZW": 0, "ZN": 0, "ZM": 0, "ZZ": 0}
     if not os.path.exists(_seq_path()):
-        return {"ZW": 0, "ZN": 0, "ZM": 0}
+        return defaults.copy()
     with open(_seq_path(), "r", encoding="utf-8") as handle:
         try:
             data = json.load(handle)
         except json.JSONDecodeError:
-            return {"ZW": 0, "ZN": 0, "ZM": 0}
-    return {"ZW": int(data.get("ZW", 0)), "ZN": int(data.get("ZN", 0)), "ZM": int(data.get("ZM", 0))}
+            return defaults.copy()
+    return {key: int(data.get(key, 0)) for key in defaults}
 
 
 def _save_seq(seq: Dict[str, int]) -> None:
@@ -90,6 +124,10 @@ def create_order_skeleton(
     produkt: str | None = None,
     komentarz: str | None = None,
     pilnosc: str | None = None,
+    material: str | None = None,
+    dostawca: str | None = None,
+    termin: str | None = None,
+    nowy: bool = False,
 ) -> Dict[str, object]:
     """Buduje strukturę zlecenia dla podanego rodzaju."""
 
@@ -131,6 +169,23 @@ def create_order_skeleton(
         data["maszyna_id"] = powiazania.get("maszyna_id")
         data["awaria"] = komentarz
         data["pilnosc"] = pilnosc
+    elif kind == "ZZ":
+        data["material"] = material
+        data["ilosc"] = ilosc
+        data["dostawca"] = dostawca
+        data["termin"] = termin
+        if nowy:
+            data["nowy"] = True
+        draft: Dict[str, object] = {
+            "id": order_id,
+            "material": material,
+            "ilosc": ilosc,
+            "status": "oczekuje",
+            "zrodlo": "zlecenie",
+        }
+        if nowy:
+            draft["nowy"] = True
+        _add_oczekujace(draft)
 
     return data
 
