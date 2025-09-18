@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-import tkinter as tk
-from tkinter import ttk, messagebox
 import logging
+import tkinter as tk
+from tkinter import messagebox, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
+from logika_zakupy import add_item_to_orders, load_pending_orders
 
-ORDERS_PATH = Path("data/zamowienia_oczekujace.json")
 logger = logging.getLogger(__name__)
 
 
 class MagazynOrderDialog:
     """Prosty dialog dodawania pozycji do oczekujących zamówień."""
 
-    def __init__(self, parent: tk.Misc, config=None, preselect_id: str | None = None, on_saved=None):
+    def __init__(
+        self,
+        parent: tk.Misc,
+        config=None,
+        preselect_id: str | None = None,
+        on_saved=None,
+    ):
         self.parent = parent
         self.config = config
         self.preselect_id = preselect_id or ""
@@ -28,12 +32,16 @@ class MagazynOrderDialog:
         self.top.title("Dodaj do zamówienia")
         self.top.resizable(False, False)
 
-        ttk.Label(self.top, text="ID:").grid(row=0, column=0, padx=8, pady=8, sticky="e")
+        ttk.Label(self.top, text="ID:").grid(
+            row=0, column=0, padx=8, pady=8, sticky="e"
+        )
         self.var_id = tk.StringVar(value=self.preselect_id)
         ent_id = ttk.Entry(self.top, textvariable=self.var_id, state="readonly")
         ent_id.grid(row=0, column=1, padx=8, pady=8, sticky="w")
 
-        ttk.Label(self.top, text="Ilość:").grid(row=1, column=0, padx=8, pady=8, sticky="e")
+        ttk.Label(self.top, text="Ilość:").grid(
+            row=1, column=0, padx=8, pady=8, sticky="e"
+        )
         self.var_qty = tk.StringVar()
         ent_qty = ttk.Entry(self.top, textvariable=self.var_qty)
         ent_qty.grid(row=1, column=1, padx=8, pady=8, sticky="w")
@@ -51,34 +59,63 @@ class MagazynOrderDialog:
             messagebox.showerror("Błąd", "Podaj poprawną dodatnią ilość.")
             return
 
-        logger.debug("[WM-DBG][MAG][ORDER] start")
-        data: list[dict[str, object]] = []
-        if ORDERS_PATH.exists():
-            try:
-                raw = ORDERS_PATH.read_text(encoding="utf-8") or "[]"
-                data = json.loads(raw)
-                if not isinstance(data, list):
-                    raise ValueError("Invalid structure")
-            except Exception as e:
-                logger.exception("Failed to read pending orders: %s", e)
-                data = []
-
-        data.append({"id": self.var_id.get(), "ilosc": qty})
-        try:
-            ORDERS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            ORDERS_PATH.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
+        logger.debug("[WM-DBG][MAG][ORDER] zapis pozycji %s", self.var_id.get())
+        if not add_item_to_orders(
+            self.var_id.get(), qty, comment="Magazyn - dialog"
+        ):
+            messagebox.showerror(
+                "Błąd", "Nie udało się zapisać zamówienia do pliku oczekujących."
             )
-            check = json.loads(ORDERS_PATH.read_text(encoding="utf-8") or "[]")
-            if not isinstance(check, list):
-                raise ValueError("Invalid structure after save")
-        except Exception as e:
-            logger.exception("Failed to write pending orders: %s", e)
-            messagebox.showerror("Błąd", f"Nie zapisano zamówienia: {e}")
             return
-
-        logger.debug("[WM-DBG][MAG][ORDER] finish")
         if callable(self.on_saved):
             self.on_saved()
         self.top.destroy()
+
+
+def open_pending_orders_window(parent=None):
+    """Proste okno listy oczekujących zamówień z Magazynu."""
+
+    top = tk.Toplevel(parent)
+    apply_theme(top)
+    top.title("Zamówienia oczekujące")
+    top.geometry("600x320")
+    top.minsize(480, 240)
+
+    frame = ttk.Frame(top)
+    frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+    tree = ttk.Treeview(
+        frame,
+        columns=("id", "qty", "comment", "ts"),
+        show="headings",
+        selectmode="browse",
+    )
+    tree.heading("id", text="ID")
+    tree.heading("qty", text="Ilość")
+    tree.heading("comment", text="Komentarz")
+    tree.heading("ts", text="Dodano")
+    tree.column("id", width=120, anchor="w")
+    tree.column("qty", width=100, anchor="center")
+    tree.column("comment", width=220, anchor="w")
+    tree.column("ts", width=160, anchor="w")
+
+    vsb = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=vsb.set)
+    vsb.pack(side="right", fill="y")
+    tree.pack(fill="both", expand=True, side="left")
+
+    for row in load_pending_orders():
+        qty = row.get("qty")
+        qty_txt = "" if qty is None else f"{qty:g}"
+        tree.insert(
+            "",
+            "end",
+            values=(
+                row.get("id", ""),
+                qty_txt,
+                row.get("comment", ""),
+                row.get("ts", ""),
+            ),
+        )
+
+    ttk.Button(top, text="Zamknij", command=top.destroy).pack(pady=(4, 8))
