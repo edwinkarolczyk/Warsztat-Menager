@@ -1655,20 +1655,31 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             if current.lower() not in names_lower:
                 var_st.set(names[0])
 
-        def _reload_statuses_and_refresh(*, via_button: bool = False, force: bool = False) -> None:
+        def _reload_statuses_and_refresh(
+            *, via_button: bool = False, force: bool = False, refresh_presets: bool = True
+        ) -> None:
             _reload_statuses_from_definitions(via_button=via_button, force=force)
-            try:
-                _refresh_task_presets()
-            except Exception:
-                pass
+            if refresh_presets:
+                try:
+                    _refresh_task_presets()
+                except Exception:
+                    pass
 
-        btn_status_reload.configure(
-            command=lambda: _reload_statuses_and_refresh(via_button=True, force=True)
-        )
+        def _handle_status_reload() -> None:
+            _reload_statuses_and_refresh(
+                via_button=True, force=True, refresh_presets=False
+            )
+            _on_status_change(force=True)
 
-        cb_ty.bind("<<ComboboxSelected>>", lambda *_: _reload_statuses_and_refresh())
+        def _handle_type_change(*_args: object) -> None:
+            _reload_statuses_and_refresh(refresh_presets=False)
+            _on_status_change(force=True)
+
+        btn_status_reload.configure(command=_handle_status_reload)
+
+        cb_ty.bind("<<ComboboxSelected>>", _handle_type_change)
         try:
-            var_typ.trace_add("write", lambda *_: _reload_statuses_and_refresh())
+            var_typ.trace_add("write", _handle_type_change)
         except AttributeError:
             pass
 
@@ -1886,14 +1897,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             repaint_tasks()
 
         # ---- REAKCJA NA ZMIANĘ STATUSU ----
-        def _on_status_change(_=None):
+        def _on_status_change(_=None, *, force: bool = False):
             try:
                 _refresh_task_presets()
             except Exception:
                 pass
             new_st = (var_st.get() or "").strip()
             # garda: jeśli to samo co ostatnio obsłużone, nic nie rób
-            if new_st == (last_applied_status[0] or ""):
+            if not force and new_st == (last_applied_status[0] or ""):
                 return
             phase = _phase_for_status(tool_mode, new_st)
             if phase:
@@ -1974,8 +1985,13 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             last_status[0] = new_st
             last_applied_status[0] = new_st
 
-        cb_status.bind("<<ComboboxSelected>>", _on_status_change)
+        cb_status.bind("<<ComboboxSelected>>", lambda event=None: _on_status_change(event))
         # (bez '<FocusOut>' – żeby nie dublować)
+
+        try:
+            _on_status_change(force=True)
+        except Exception:
+            pass
 
         # Pasek narzędzi do zadań (manualnie też można)
         tools_bar = ttk.Frame(frm, style="WM.TFrame"); tools_bar.grid(row=r+1, column=0, columnspan=2, sticky="ew", pady=(6,0))
@@ -2077,10 +2093,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             tasks.append({"tytul": s, "done": False, "by": "", "ts_done": ""})
             repaint_tasks()
 
-        ttk.Button(tools_bar, text="Dodaj z listy", style="WM.Side.TButton",
-                   command=lambda: (_add_from_template(tmpl_var.get()))).pack(side="left", padx=(6,0))
-        ttk.Button(tools_bar, text="Dodaj z typu (dla bieżącej fazy)", style="WM.Side.TButton",
-                   command=lambda: (_apply_template_for_phase(_phase_for_status(tool_mode, var_st.get()) or ("produkcja" if tool_mode=="NOWE" else "serwis")))).pack(side="left", padx=(6,0))
+        ttk.Button(
+            tools_bar,
+            text="Dodaj z listy",
+            style="WM.Side.TButton",
+            command=lambda: (_add_from_template(tmpl_var.get())),
+        ).pack(side="left", padx=(6, 0))
 
         new_var = tk.StringVar()
         ttk.Entry(tools_bar, textvariable=new_var, width=28, style="WM.Search.TEntry").pack(side="left", padx=(12,6))
