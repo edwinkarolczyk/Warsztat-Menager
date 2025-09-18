@@ -1,75 +1,80 @@
-# Plik: zlecenia_utils.py
-# Wersja pliku: 1.0.0
+"""Narzędzia pomocnicze dla modułu zleceń."""
+
+from __future__ import annotations
 
 import json
 import os
 from datetime import datetime
+from typing import Dict, List, Tuple
 
 from bom import compute_sr_for_pp
-from io_utils import read_json, write_json
+from io_utils import read_json
 
 try:
-    from config_manager import ConfigManager
-except Exception:
-    ConfigManager = None
+    from config_manager import ConfigManager  # type: ignore
+except Exception:  # pragma: no cover - fallback dla środowisk testowych
+    ConfigManager = None  # type: ignore
+
+DATA_DIR = os.path.join("data", "zlecenia")
 
 
-def _orders_cfg():
-    """Zwraca sekcję config['orders'] lub sensowne domyślne wartości."""
+def _orders_cfg() -> Dict[str, object]:
+    """Zwraca sekcję konfiguracyjną modułu zleceń."""
+
     if ConfigManager:
         cfg = ConfigManager.get()
         return (cfg or {}).get("orders", {}) or {}
     return {}
 
 
-def _orders_types():
+def _orders_types() -> Dict[str, Dict[str, object]]:
     return _orders_cfg().get("types", {}) or {}
 
 
-def _orders_id_width():
+def _orders_id_width() -> int:
     return int(_orders_cfg().get("id_width", 4))
 
 
-def _seq_path():
-    return os.path.join("data", "zlecenia", "_seq.json")
+def _seq_path() -> str:
+    return os.path.join(DATA_DIR, "_seq.json")
 
 
-def _load_seq():
-    p = _seq_path()
-    if not os.path.exists(p):
+def _load_seq() -> Dict[str, int]:
+    if not os.path.exists(_seq_path()):
         return {"ZW": 0, "ZN": 0, "ZM": 0}
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {"ZW": 0, "ZN": 0, "ZM": 0}
+    with open(_seq_path(), "r", encoding="utf-8") as handle:
+        try:
+            data = json.load(handle)
+        except json.JSONDecodeError:
+            return {"ZW": 0, "ZN": 0, "ZM": 0}
+    return {"ZW": int(data.get("ZW", 0)), "ZN": int(data.get("ZN", 0)), "ZM": int(data.get("ZM", 0))}
 
 
-def _save_seq(seq):
-    os.makedirs(os.path.join("data", "zlecenia"), exist_ok=True)
-    with open(_seq_path(), "w", encoding="utf-8") as f:
-        json.dump(seq, f, ensure_ascii=False, indent=2)
+def _save_seq(seq: Dict[str, int]) -> None:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(_seq_path(), "w", encoding="utf-8") as handle:
+        json.dump(seq, handle, ensure_ascii=False, indent=2)
 
 
 def next_order_id(kind: str) -> str:
-    """Zwraca np. 'ZN-0001' zgodnie z configiem."""
+    """Zwraca kolejny identyfikator zlecenia dla danego rodzaju."""
+
     kinds = _orders_types()
     if kind not in kinds:
-        raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj zlecenia: {kind}")
+        raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
 
     prefix = kinds[kind].get("prefix", f"{kind}-")
     width = _orders_id_width()
+
     seq = _load_seq()
     seq[kind] = int(seq.get(kind, 0)) + 1
     _save_seq(seq)
+
     return f"{prefix}{str(seq[kind]).zfill(width)}"
 
 
-def statuses_for(kind: str):
-    kinds = _orders_types()
-    if kind not in kinds:
-        return []
-    return kinds[kind].get("statuses", []) or []
+def statuses_for(kind: str) -> List[str]:
+    return _orders_types().get(kind, {}).get("statuses", []) or []
 
 
 def is_valid_status(kind: str, status: str) -> bool:
@@ -80,33 +85,24 @@ def create_order_skeleton(
     kind: str,
     autor: str,
     opis: str,
-    powiazania: dict | None = None,
-    rezerwacja: bool | None = None,
-) -> dict:
-    """
-    Tworzy dane zlecenia bez zapisu do pliku (do użycia w wyższym poziomie).
-    Wymagane powiązania:
-      - ZN: powiazania['narzedzie_id']
-      - ZM: powiazania['maszyna_id']
-    """
+    powiazania: Dict[str, object] | None = None,
+    ilosc: int | None = None,
+    produkt: str | None = None,
+    komentarz: str | None = None,
+    pilnosc: str | None = None,
+) -> Dict[str, object]:
+    """Buduje strukturę zlecenia dla podanego rodzaju."""
+
     kinds = _orders_types()
     if kind not in kinds:
         raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
 
-    if rezerwacja is None:
-        rezerwacja = bool(kinds[kind].get("reserve_by_default", False))
-
     powiazania = powiazania or {}
-    if kind == "ZN" and not powiazania.get("narzedzie_id"):
-        raise ValueError("[ERROR][ZLECENIA] ZN wymaga 'powiazania.narzedzie_id'.")
-    if kind == "ZM" and not powiazania.get("maszyna_id"):
-        raise ValueError("[ERROR][ZLECENIA] ZM wymaga 'powiazania.maszyna_id'.")
-
-    start_status = (statuses_for(kind) or ["nowe"])[0]
     order_id = next_order_id(kind)
     ts = datetime.now().isoformat(timespec="seconds")
+    start_status = (statuses_for(kind) or ["nowe"])[0]
 
-    data = {
+    data: Dict[str, object] = {
         "id": order_id,
         "rodzaj": kind,
         "status": start_status,
@@ -114,30 +110,76 @@ def create_order_skeleton(
         "autor": autor,
         "opis": opis,
         "powiazania": powiazania,
-        "materialy": {
-            "rezerwacja": rezerwacja,
-            "pozycje": []
-        },
         "historia": [
-            {"ts": ts, "kto": autor, "operacja": "utworzenie", "szczegoly": ""}
+            {
+                "ts": ts,
+                "kto": autor,
+                "operacja": "utworzenie",
+                "szczegoly": opis,
+            }
         ],
-        "uwagi": ""
     }
+
+    if kind == "ZW":
+        data["produkt"] = produkt
+        data["ilosc"] = ilosc
+        data["zapotrzebowanie"] = _calc_bom(produkt or "", ilosc or 0)
+    elif kind == "ZN":
+        data["narzedzie_id"] = powiazania.get("narzedzie_id")
+        data["komentarz"] = komentarz
+    elif kind == "ZM":
+        data["maszyna_id"] = powiazania.get("maszyna_id")
+        data["awaria"] = komentarz
+        data["pilnosc"] = pilnosc
+
     return data
 
 
-def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
-    """Oblicz zapotrzebowanie na surowce dla produktu.
+def save_order(data: Dict[str, object]) -> None:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    path = os.path.join(DATA_DIR, f"{data['id']}.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+    print(f"[WM-DBG][ZLECENIA] Zapisano zlecenie {data['id']}")
 
-    Funkcja odczytuje definicję produktu (``polprodukty``) i dla każdego
-    półproduktu wylicza zapotrzebowanie na surowiec na podstawie
-    ``polproduktów`` oraz norm zużycia zdefiniowanych w plikach
-    ``data/polprodukty``. Wynik zwracany jest jako słownik w postaci
-    ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
-    """
+
+def load_orders() -> List[Dict[str, object]]:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    results: List[Dict[str, object]] = []
+    for filename in os.listdir(DATA_DIR):
+        if filename.startswith("_") or not filename.endswith(".json"):
+            continue
+        path = os.path.join(DATA_DIR, filename)
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                results.append(json.load(handle))
+        except Exception:
+            continue
+    return results
+
+
+def _calc_bom(produkt: str, ilosc: int) -> Dict[str, int]:
+    if not produkt or not ilosc:
+        return {}
+    path = os.path.join("data", "produkty", f"{produkt}.json")
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            prod = json.load(handle)
+    except Exception:
+        return {}
+    bom = prod.get("bom", {}) or {}
+    return {key: value * ilosc for key, value in bom.items()}
+
+
+# --- Funkcje zachowane dla zgodności wstecznej ---
+
+def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> Dict[str, Dict[str, float]]:
+    """Oblicz zapotrzebowanie na surowce dla produktu."""
 
     data = read_json(plik_produktu) or {}
-    wynik: dict = {}
+    wynik: Dict[str, Dict[str, float]] = {}
 
     for pp in data.get("polprodukty", []):
         kod_pp = pp.get("kod")
@@ -154,17 +196,16 @@ def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:
     return wynik
 
 
-def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1):
-    """Sprawdź dostępność surowców w magazynie.
-
-    ``zapotrzebowanie`` to słownik ``{kod_surowca: {"ilosc": qty, "jednostka": unit}}``.
-    Funkcja zwraca krotkę ``(ok, alerty, ostrzezenia)`` gdzie ``ok`` jest
-    ``True`` jeśli wszystkie surowce są dostępne w wymaganych ilościach.
-    """
+def sprawdz_magazyn(
+    plik_magazynu: str,
+    zapotrzebowanie: Dict[str, Dict[str, float]],
+    prog: float = 0.1,
+) -> Tuple[bool, str, str]:
+    """Sprawdź dostępność surowców w magazynie."""
 
     magazyn = read_json(plik_magazynu) or {}
-    alerty: list[str] = []
-    zuzycie: list[str] = []
+    alerty: List[str] = []
+    zuzycie: List[str] = []
 
     for kod, info in zapotrzebowanie.items():
         potrzebne = info.get("ilosc", 0)
@@ -186,19 +227,3 @@ def sprawdz_magazyn(plik_magazynu: str, zapotrzebowanie: dict, prog: float = 0.1
             zuzycie.append(f"{kod} – UWAGA: niski stan po zużyciu")
 
     return (len(alerty) == 0), ", ".join(alerty), ", ".join(zuzycie)
-
-
-def zapisz_zlecenie(folder, produkt, ilosc):
-    numer = f"ZL-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-    dane = {
-        "numer": numer,
-        "typ": "produkcja",
-        "produkt": produkt,
-        "ilość": ilosc,
-        "status": "oczekujące",
-        "data_start": datetime.now().strftime("%Y-%m-%d"),
-        "data_koniec": "",
-        "użytkownik": "Edwin",
-        "komentarze": []
-    }
-    write_json(os.path.join(folder, f"{numer}.json"), dane)
