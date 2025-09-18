@@ -1,3 +1,10 @@
+## 2025-09-18 — Zlecenie Zakupu (ZZ)
+- Dodano nowy typ zlecenia: ZZ (Zlecenie zakupu).
+- Kreator ZZ: wybór materiału z katalogu magazynu albo wpisanie nowego materiału ręcznie.
+- Obsługa pól: materiał, ilość, dostawca, termin.
+- Przy zapisie ZZ tworzony jest draft w `data/zamowienia_oczekujace.json`.
+- Nowe materiały (spoza magazynu) oznaczane są flagą `"nowy": true`.
+
 # Changelog
 
 ## 2025-09-18 — Poprawki modułu Zleceń

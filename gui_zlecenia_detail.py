@@ -47,6 +47,15 @@ def open_order_detail(master: tk.Widget, order: dict[str, Any]) -> tk.Toplevel:
         ttk.Label(frame, text=f"Maszyna: {order.get('maszyna_id', '–')}").pack(anchor="w")
         ttk.Label(frame, text=f"Awaria: {order.get('awaria', '')}").pack(anchor="w")
         ttk.Label(frame, text=f"Pilność: {order.get('pilnosc', '')}").pack(anchor="w")
+    elif order.get("rodzaj") == "ZZ":
+        ttk.Label(frame, text=f"Materiał: {order.get('material')}").pack(anchor="w")
+        ttk.Label(frame, text=f"Ilość: {order.get('ilosc')}").pack(anchor="w")
+        if order.get("dostawca"):
+            ttk.Label(frame, text=f"Dostawca: {order.get('dostawca')}").pack(anchor="w")
+        if order.get("termin"):
+            ttk.Label(frame, text=f"Termin: {order.get('termin')}").pack(anchor="w")
+        if order.get("nowy"):
+            ttk.Label(frame, text="(Nowy materiał spoza magazynu)").pack(anchor="w")
 
     ttk.Label(frame, text="Historia:").pack(anchor="w", pady=(12, 0))
     historia = order.get("historia", []) or []
