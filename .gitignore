@@ -58,6 +58,7 @@ config.json
 *.png
 !grafiki/login_bg.png
 *.jpg
+!grafiki/machine_placeholder.jpg
 *.jpeg
 *.xlsm
 
