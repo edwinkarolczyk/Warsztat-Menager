@@ -1,11 +1,129 @@
 # Plik: zlecenia_utils.py
 # Wersja pliku: 1.0.0
 
+import json
 import os
 from datetime import datetime
 
 from bom import compute_sr_for_pp
 from io_utils import read_json, write_json
+
+try:
+    from config_manager import ConfigManager
+except Exception:
+    ConfigManager = None
+
+
+def _orders_cfg():
+    """Zwraca sekcję config['orders'] lub sensowne domyślne wartości."""
+    if ConfigManager:
+        cfg = ConfigManager.get()
+        return (cfg or {}).get("orders", {}) or {}
+    return {}
+
+
+def _orders_types():
+    return _orders_cfg().get("types", {}) or {}
+
+
+def _orders_id_width():
+    return int(_orders_cfg().get("id_width", 4))
+
+
+def _seq_path():
+    return os.path.join("data", "zlecenia", "_seq.json")
+
+
+def _load_seq():
+    p = _seq_path()
+    if not os.path.exists(p):
+        return {"ZW": 0, "ZN": 0, "ZM": 0}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"ZW": 0, "ZN": 0, "ZM": 0}
+
+
+def _save_seq(seq):
+    os.makedirs(os.path.join("data", "zlecenia"), exist_ok=True)
+    with open(_seq_path(), "w", encoding="utf-8") as f:
+        json.dump(seq, f, ensure_ascii=False, indent=2)
+
+
+def next_order_id(kind: str) -> str:
+    """Zwraca np. 'ZN-0001' zgodnie z configiem."""
+    kinds = _orders_types()
+    if kind not in kinds:
+        raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj zlecenia: {kind}")
+
+    prefix = kinds[kind].get("prefix", f"{kind}-")
+    width = _orders_id_width()
+    seq = _load_seq()
+    seq[kind] = int(seq.get(kind, 0)) + 1
+    _save_seq(seq)
+    return f"{prefix}{str(seq[kind]).zfill(width)}"
+
+
+def statuses_for(kind: str):
+    kinds = _orders_types()
+    if kind not in kinds:
+        return []
+    return kinds[kind].get("statuses", []) or []
+
+
+def is_valid_status(kind: str, status: str) -> bool:
+    return status in statuses_for(kind)
+
+
+def create_order_skeleton(
+    kind: str,
+    autor: str,
+    opis: str,
+    powiazania: dict | None = None,
+    rezerwacja: bool | None = None,
+) -> dict:
+    """
+    Tworzy dane zlecenia bez zapisu do pliku (do użycia w wyższym poziomie).
+    Wymagane powiązania:
+      - ZN: powiazania['narzedzie_id']
+      - ZM: powiazania['maszyna_id']
+    """
+    kinds = _orders_types()
+    if kind not in kinds:
+        raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
+
+    if rezerwacja is None:
+        rezerwacja = bool(kinds[kind].get("reserve_by_default", False))
+
+    powiazania = powiazania or {}
+    if kind == "ZN" and not powiazania.get("narzedzie_id"):
+        raise ValueError("[ERROR][ZLECENIA] ZN wymaga 'powiazania.narzedzie_id'.")
+    if kind == "ZM" and not powiazania.get("maszyna_id"):
+        raise ValueError("[ERROR][ZLECENIA] ZM wymaga 'powiazania.maszyna_id'.")
+
+    start_status = (statuses_for(kind) or ["nowe"])[0]
+    order_id = next_order_id(kind)
+    ts = datetime.now().isoformat(timespec="seconds")
+
+    data = {
+        "id": order_id,
+        "rodzaj": kind,
+        "status": start_status,
+        "utworzono": ts,
+        "autor": autor,
+        "opis": opis,
+        "powiazania": powiazania,
+        "materialy": {
+            "rezerwacja": rezerwacja,
+            "pozycje": []
+        },
+        "historia": [
+            {"ts": ts, "kto": autor, "operacja": "utworzenie", "szczegoly": ""}
+        ],
+        "uwagi": ""
+    }
+    return data
 
 
 def przelicz_zapotrzebowanie(plik_produktu: str, ilosc: float) -> dict:

@@ -15,6 +15,12 @@ import logging
 import traceback
 
 try:
+    from zlecenia_utils import statuses_for
+except Exception:
+    def statuses_for(kind):
+        return []
+
+try:
     from gui_orders import open_orders_window
 except Exception:
     open_orders_window = None
@@ -29,6 +35,71 @@ from ui_theme import apply_theme_safe as apply_theme, FG as _FG, DARK_BG as _DBG
 from utils import error_dialogs
 from config_manager import ConfigManager
 from utils.dirty_guard import DirtyGuard
+
+
+def _build_orders_filters(parent, on_changed):
+    """
+    Buduje pasek filtrów: typy (ZW/ZN/ZM) + status (dynamicznie).
+    Wywołuje on_changed(state) przy każdej zmianie.
+    state = {
+      "ZW": bool, "ZN": bool, "ZM": bool,
+      "status": str|None
+    }
+    """
+    frame = ttk.Frame(parent)
+    frame.pack(fill="x", pady=(0, 6))
+
+    state = {
+        "ZW": tk.BooleanVar(value=True),
+        "ZN": tk.BooleanVar(value=True),
+        "ZM": tk.BooleanVar(value=True),
+        "status": tk.StringVar(value=""),
+    }
+
+    def _emit():
+        on_changed(
+            {
+                "ZW": state["ZW"].get(),
+                "ZN": state["ZN"].get(),
+                "ZM": state["ZM"].get(),
+                "status": state["status"].get() or None,
+            }
+        )
+
+    for kind, label in (("ZW", "ZW"), ("ZN", "ZN"), ("ZM", "ZM")):
+        cb = ttk.Checkbutton(frame, text=label, variable=state[kind], command=_emit)
+        cb.pack(side="left", padx=(0, 8))
+
+    ttk.Label(frame, text="Status:").pack(side="left", padx=(8, 4))
+    combo = ttk.Combobox(frame, width=24, state="readonly")
+    combo.pack(side="left")
+
+    def _refresh_statuses(*_):
+        active = [k for k in ("ZW", "ZN", "ZM") if state[k].get()]
+        st = []
+        for k in active:
+            st += statuses_for(k)
+        seen = set()
+        merged = [x for x in st if not (x in seen or seen.add(x))]
+        combo["values"] = [""] + merged
+        if state["status"].get() not in merged:
+            state["status"].set("")
+        _emit()
+
+    combo.bind("<<ComboboxSelected>>", lambda e: (_emit()))
+    state["ZW"].trace_add("write", _refresh_statuses)
+    state["ZN"].trace_add("write", _refresh_statuses)
+    state["ZM"].trace_add("write", _refresh_statuses)
+    _refresh_statuses()
+
+    return frame
+
+
+# frame = ttk.Frame(parent, padding=8, style="WM.TFrame"); frame.pack(fill="both", expand=True)
+# def _on_filters_changed(fstate):
+#     print("[WM-DBG][ZLECENIA] Filtr:", fstate)
+#     # TODO: zawęź dataset listy (rodzaj + status) i odśwież tabelę
+# _build_orders_filters(frame, _on_filters_changed)
 
 logger = logging.getLogger(__name__)
 

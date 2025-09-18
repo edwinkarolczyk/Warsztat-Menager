@@ -82,6 +82,87 @@
       }
     }
   },
+  "orders": {
+    "type": "object",
+    "title": "Ustawienia zleceń",
+    "properties": {
+      "id_width": { "type": "integer", "default": 4, "minimum": 3, "maximum": 6 },
+      "types": {
+        "type": "object",
+        "properties": {
+          "ZW": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean", "default": true },
+              "label": { "type": "string", "default": "Zlecenie wewnętrzne" },
+              "prefix": { "type": "string", "default": "ZW-" },
+              "reserve_by_default": { "type": "boolean", "default": false },
+              "requires_approval": { "type": "boolean", "default": false },
+              "wizard": { "type": "boolean", "default": false },
+              "statuses": {
+                "type": "array",
+                "items": { "type": "string" },
+                "default": ["nowe", "w trakcie", "zakończone", "anulowane"]
+              }
+            },
+            "required": ["enabled", "label", "prefix", "statuses"]
+          },
+          "ZN": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean", "default": true },
+              "label": { "type": "string", "default": "Zlecenie na narzędzie" },
+              "prefix": { "type": "string", "default": "ZN-" },
+              "reserve_by_default": { "type": "boolean", "default": true },
+              "requires_approval": { "type": "boolean", "default": false },
+              "wizard": { "type": "boolean", "default": true },
+              "statuses": {
+                "type": "array",
+                "items": { "type": "string" },
+                "default": [
+                  "projekt",
+                  "w budowie",
+                  "1 próba",
+                  "2 próba",
+                  "odbiór",
+                  "na produkcji",
+                  "anulowane"
+                ]
+              }
+            },
+            "required": ["enabled", "label", "prefix", "statuses"]
+          },
+          "ZM": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean", "default": true },
+              "label": { "type": "string", "default": "Naprawa/awaria maszyny" },
+              "prefix": { "type": "string", "default": "ZM-" },
+              "reserve_by_default": { "type": "boolean", "default": true },
+              "requires_approval": { "type": "boolean", "default": false },
+              "wizard": { "type": "boolean", "default": true },
+              "statuses": {
+                "type": "array",
+                "items": { "type": "string" },
+                "default": [
+                  "awaria zgłoszona",
+                  "diagnoza",
+                  "w naprawie",
+                  "test",
+                  "sprawdzona",
+                  "zakończone",
+                  "anulowane"
+                ]
+              }
+            },
+            "required": ["enabled", "label", "prefix", "statuses"]
+          }
+        },
+        "required": ["ZW", "ZN", "ZM"]
+      }
+    },
+    "required": ["id_width", "types"]
+  },
   "tabs": [
     {
       "id": "ui",
