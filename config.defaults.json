@@ -146,47 +146,51 @@
     "collections_paths": {}
   },
   "orders": {
-    "enabled": true,
-    "enabled_steps": [
-      "typ",
-      "kontekst",
-      "pozycje",
-      "dostawca",
-      "terminy_status",
-      "podsumowanie"
-    ],
-    "types": [
-      "zakup",
-      "naprawa",
-      "uzupelnienie"
-    ],
-    "statuses": [
-      "draft",
-      "oczekuje_wyslania",
-      "wyslane",
-      "w_realizacji",
-      "dostarczone",
-      "zamkniete",
-      "anulowane"
-    ],
-    "data_dir": "data/zamowienia",
-    "default_supplier": "",
-    "auto_id_format": "ORD-{YYYYMMDD}-{HHMMSS}",
-    "permissions": {
-      "create": [
-        "brygadzista",
-        "kierownik",
-        "admin"
-      ],
-      "receive": [
-        "magazynier",
-        "kierownik",
-        "admin"
-      ],
-      "cancel": [
-        "kierownik",
-        "admin"
-      ]
+    "id_width": 4,
+    "types": {
+      "ZW": {
+        "enabled": true,
+        "label": "Zlecenie wewnętrzne",
+        "prefix": "ZW-",
+        "reserve_by_default": false,
+        "requires_approval": false,
+        "wizard": false,
+        "statuses": ["nowe", "w trakcie", "zakończone", "anulowane"]
+      },
+      "ZN": {
+        "enabled": true,
+        "label": "Zlecenie na narzędzie",
+        "prefix": "ZN-",
+        "reserve_by_default": true,
+        "requires_approval": false,
+        "wizard": true,
+        "statuses": [
+          "projekt",
+          "w budowie",
+          "1 próba",
+          "2 próba",
+          "odbiór",
+          "na produkcji",
+          "anulowane"
+        ]
+      },
+      "ZM": {
+        "enabled": true,
+        "label": "Naprawa/awaria maszyny",
+        "prefix": "ZM-",
+        "reserve_by_default": true,
+        "requires_approval": false,
+        "wizard": true,
+        "statuses": [
+          "awaria zgłoszona",
+          "diagnoza",
+          "w naprawie",
+          "test",
+          "sprawdzona",
+          "zakończone",
+          "anulowane"
+        ]
+      }
     }
   },
   "szablony_zadan_narzedzia": [

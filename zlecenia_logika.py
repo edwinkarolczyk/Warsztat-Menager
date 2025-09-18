@@ -173,6 +173,8 @@ def list_zlecenia():
     _ensure_dirs()
     out = []
     for f in sorted(ZLECENIA_DIR.glob("*.json")):
+        if f.name.startswith("_"):
+            continue
         try:
             out.append(_read_json(f))
         except Exception:
