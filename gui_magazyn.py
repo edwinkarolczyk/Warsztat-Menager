@@ -1,5 +1,8 @@
 # Plik: gui_magazyn.py
-# Wersja pliku: 1.6.0
+# Wersja pliku: 1.7.0
+# Zmiany 1.7.0:
+# - Integracja z kreatorem zleceń (`open_order_creator`) zamiast lokalnego dialogu zamówień.
+# - Usunięto zależność od `gui_magazyn_order` (stary kreator zamówień).
 # Zmiany 1.6.0:
 # - Dodano filtry nad tabelą:
 #   * Combobox "Typ" (wartości dynamiczne z danych)
@@ -15,14 +18,12 @@
 
 import re
 import tkinter as tk
-import tkinter.simpledialog as simpledialog
 from tkinter import messagebox, ttk
 
 try:
-    from gui_magazyn_order import MagazynOrderDialog, open_pending_orders_window
+    from gui_zlecenia_creator import open_order_creator
 except Exception:
-    MagazynOrderDialog = None
-    open_pending_orders_window = None
+    open_order_creator = None
 import magazyn_io
 HAVE_MAG_IO = True
 
@@ -43,7 +44,7 @@ except Exception as _e:
         "[ERROR][ORDERS] Nie można zaimportować gui_orders.open_orders_window – przycisk będzie nieaktywny."
     )
 
-from logika_zakupy import add_item_to_orders, auto_order_missing
+from logika_zakupy import auto_order_missing
 
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
@@ -69,6 +70,29 @@ def _can(self, action: str) -> bool:
     required = ROLE_PERMS.get(action, "brygadzista")
     user_role = getattr(self, "user_role", "") or getattr(self, "role", "")
     return _role_rank(user_role) >= _role_rank(required)
+
+
+def _resolve_order_author(widget) -> str:
+    """Spróbuj ustalić nazwę autora dla kreatora zleceń."""
+
+    attrs = ("user_login", "user_name", "username", "login", "autor", "author")
+    for attr in attrs:
+        value = getattr(widget, attr, None)
+        if value:
+            return str(value)
+
+    try:
+        top = widget.winfo_toplevel()
+    except Exception:
+        top = None
+
+    if top and top is not widget:
+        for attr in attrs:
+            value = getattr(top, attr, None)
+            if value:
+                return str(value)
+
+    return "magazyn"
 
 
 def _load_data():
@@ -134,23 +158,6 @@ def _open_orders_for_shortages(self):
         messagebox.showinfo(
             "Zamów brakujące", "Brak pozycji poniżej progów minimalnych."
         )
-
-
-def _open_pending_orders(self):
-    if callable(open_pending_orders_window):
-        try:
-            open_pending_orders_window(self)
-        except Exception as exc:
-            messagebox.showerror(
-                "Zamówienia", f"Nie udało się otworzyć listy zamówień: {exc}"
-            )
-    else:
-        messagebox.showinfo(
-            "Zamówienia",
-            "Podgląd zamówień oczekujących jest chwilowo niedostępny.",
-        )
-
-
 def _tag_low_stock(self, node, item_dict):
     try:
         stan = float(item_dict.get("stan", 0) or 0)
@@ -183,59 +190,20 @@ def _quick_add_to_orders(self):
             "Uprawnienia", "Brak uprawnień do dodawania do zamówień."
         )
         return
-    item_id, it = _get_selected_item(self)
-    if not item_id or not isinstance(it, dict):
-        messagebox.showinfo("Magazyn", "Wybierz pozycję z listy.")
-        return
-    stan = float(it.get("stan", 0) or 0)
-    minp = float(it.get("min_poziom", 0) or 0)
-    low = minp > 0 and stan <= minp
-    try:
-        if MagazynOrderDialog:
-            def _after_save():
-                messagebox.showinfo(
-                    "Zamówienia",
-                    f"Dodano {item_id} do oczekujących zamówień.",
-                )
-
-            try:
-                MagazynOrderDialog(
-                    self,
-                    config=getattr(self, "config_obj", None),
-                    preselect_id=item_id,
-                    on_saved=_after_save,
-                )
-            except TypeError:
-                MagazynOrderDialog(self, preselect_id=item_id)
-            return
-
-        suggested = max(1.0, (minp - stan) + 1) if low else 1.0
-        qty = simpledialog.askfloat(
-            "Ilość do zamówienia",
-            f"Podaj ilość dla '{item_id}':",
-            initialvalue=suggested,
-            minvalue=0.0,
-            parent=self,
+    if not callable(open_order_creator):
+        messagebox.showinfo(
+            "Magazyn",
+            "Kreator zleceń jest chwilowo niedostępny.",
         )
-        if qty is None:
-            return
-        if qty <= 0:
-            messagebox.showwarning(
-                "Zamówienia", "Ilość musi być większa od zera."
-            )
-            return
-        if add_item_to_orders(item_id, qty, comment="Magazyn - ręcznie"):
-            messagebox.showinfo(
-                "Zamówienia",
-                f"Dodano {item_id} do oczekujących zamówień (qty={qty:g}).",
-            )
-        else:
-            messagebox.showerror(
-                "Zamówienia", "Nie udało się zapisać pozycji do zamówień."
-            )
+        return
+
+    autor = _resolve_order_author(self)
+    try:
+        open_order_creator(self, autor)
     except Exception as exc:
         messagebox.showerror(
-            "Zamówienia", f"Nie udało się dodać do zamówień: {exc}"
+            "Magazyn",
+            f"Nie udało się otworzyć kreatora zleceń: {exc}",
         )
 
 
@@ -289,18 +257,6 @@ class MagazynFrame(ttk.Frame):
                 pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
 
-        btn_pending = ttk.Button(
-            toolbar,
-            text="Zamówienia oczekujące",
-            command=lambda: _open_pending_orders(self),
-        )
-        btn_pending.pack(side="left", padx=(6, 0))
-        if not callable(open_pending_orders_window):
-            try:
-                btn_pending.state(["disabled"])
-            except Exception:
-                pass
-
         btn_orders_prefill = ttk.Button(
             toolbar,
             text="Zamów brakujące",
@@ -308,11 +264,17 @@ class MagazynFrame(ttk.Frame):
         )
         btn_orders_prefill.pack(side="left", padx=(6, 0))
 
-        ttk.Button(
+        btn_creator = ttk.Button(
             toolbar,
-            text="Do zamówień",
+            text="Dodaj zlecenie (Kreator)",
             command=self._quick_add_to_orders,
-        ).pack(side="left", padx=4)
+        )
+        btn_creator.pack(side="left", padx=4)
+        if not callable(open_order_creator):
+            try:
+                btn_creator.state(["disabled"])
+            except Exception:
+                pass
 
         # Przyciski
         ttk.Button(
@@ -368,7 +330,10 @@ class MagazynFrame(ttk.Frame):
         # Double-click → edycja
         self.tree.bind("<Double-1>", self._on_double_click)
         menu = tk.Menu(self.tree, tearoff=0)
-        menu.add_command(label="Do zamówień", command=self._quick_add_to_orders)
+        menu.add_command(
+            label="Dodaj zlecenie (Kreator)",
+            command=self._quick_add_to_orders,
+        )
         self.tree.bind("<Button-3>", lambda e: self._on_right_click(e, menu))
 
     # Logika ------------------------------------------------

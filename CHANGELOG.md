@@ -1,3 +1,13 @@
+## 2025-09-18 — Cleanup Magazynu
+- Usunięto plik `gui_magazyn_order.py` (stary kreator zamówień).
+- W `gui_magazyn.py` podłączono wyłącznie nowy kreator zleceń (`open_order_creator`).
+- Wszystkie operacje zakupowe teraz realizowane są przez moduł Zleceń (typ ZZ).
+
+## 2025-09-18 — Integracja Magazynu z Kreatorem Zleceń
+- Usunięto stary przycisk „Dodaj zamówienie” w module Magazyn.
+- Zastąpiono go przyciskiem otwierającym kreator zleceń (`open_order_creator`).
+- Dzięki temu wszystkie zamówienia/zakupy przechodzą przez jeden wspólny kreator.
+
 ## 2025-09-18 — Zlecenie Zakupu (ZZ)
 - Dodano nowy typ zlecenia: ZZ (Zlecenie zakupu).
 - Kreator ZZ: wybór materiału z katalogu magazynu albo wpisanie nowego materiału ręcznie.
