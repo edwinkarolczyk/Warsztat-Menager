@@ -151,10 +151,26 @@ class ToolsConfigDialog(tk.Toplevel):
         mid = ttk.Frame(main)
         mid.pack(side="left", fill="both", expand=True, padx=(8, 0))
         ttk.Label(mid, text="Statusy (dla kolekcji)").pack(anchor="w")
-        self.status_list = tk.Listbox(mid, height=12, exportselection=False)
-        self.status_list.pack(fill="both", expand=True, pady=(2, 4))
+        status_frame = ttk.Frame(mid)
+        status_frame.pack(fill="both", expand=True, pady=(2, 4))
+        self.status_list = tk.Listbox(status_frame, height=12, exportselection=False)
+        self.status_list.pack(side="left", fill="both", expand=True)
         self.status_list.bind("<<ListboxSelect>>", self._on_status_select)
         self.status_list.bind("<Double-Button-1>", self._on_status_edit)
+        status_arrows = ttk.Frame(status_frame)
+        status_arrows.pack(side="left", fill="y", padx=(4, 0), anchor="n")
+        ttk.Button(
+            status_arrows,
+            text="▲",
+            width=3,
+            command=lambda: self._move_status(-1),
+        ).pack(pady=(0, 4))
+        ttk.Button(
+            status_arrows,
+            text="▼",
+            width=3,
+            command=lambda: self._move_status(1),
+        ).pack()
         status_btns = ttk.Frame(mid)
         status_btns.pack(fill="x")
         ttk.Button(status_btns, text="Dodaj status", command=self._add_status).pack(
@@ -167,9 +183,25 @@ class ToolsConfigDialog(tk.Toplevel):
         right = ttk.Frame(main)
         right.pack(side="left", fill="both", expand=True, padx=(8, 0))
         ttk.Label(right, text="Zadania (dla statusu)").pack(anchor="w")
-        self.tasks_list = tk.Listbox(right, height=12, exportselection=False)
-        self.tasks_list.pack(fill="both", expand=True, pady=(2, 4))
+        tasks_frame = ttk.Frame(right)
+        tasks_frame.pack(fill="both", expand=True, pady=(2, 4))
+        self.tasks_list = tk.Listbox(tasks_frame, height=12, exportselection=False)
+        self.tasks_list.pack(side="left", fill="both", expand=True)
         self.tasks_list.bind("<Double-Button-1>", self._on_task_edit)
+        task_arrows = ttk.Frame(tasks_frame)
+        task_arrows.pack(side="left", fill="y", padx=(4, 0), anchor="n")
+        ttk.Button(
+            task_arrows,
+            text="▲",
+            width=3,
+            command=lambda: self._move_task(-1),
+        ).pack(pady=(0, 4))
+        ttk.Button(
+            task_arrows,
+            text="▼",
+            width=3,
+            command=lambda: self._move_task(1),
+        ).pack()
         task_btns = ttk.Frame(right)
         task_btns.pack(fill="x")
         ttk.Button(task_btns, text="Dodaj zadanie", command=self._add_task).pack(
@@ -488,6 +520,57 @@ class ToolsConfigDialog(tk.Toplevel):
         self._refresh_tasks()
         if self._write_through:
             self._save_now()
+
+    # ===== reorder operations (▲/▼) =====================================
+    def _move_status(self, delta: int) -> None:
+        type_idx = self._selected_type_true_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
+            return
+        statuses = self._get_statuses_for_current(type_idx)
+        target_idx = status_idx + delta
+        if not (0 <= target_idx < len(statuses)):
+            return
+        statuses[status_idx], statuses[target_idx] = (
+            statuses[target_idx],
+            statuses[status_idx],
+        )
+        self._refresh_statuses(preferred_idx=target_idx)
+        if self._write_through:
+            self._save_now()
+        _wm(
+            f"moved status type_idx={type_idx} from={status_idx} to={target_idx} "
+            f"coll={self._current_collection}"
+        )
+
+    def _move_task(self, delta: int) -> None:
+        type_idx = self._selected_type_true_index()
+        status_idx = self._selected_status_index()
+        if type_idx is None or status_idx is None:
+            return
+        statuses = self._get_statuses_for_current(type_idx)
+        if not (0 <= status_idx < len(statuses)):
+            return
+        tasks = statuses[status_idx].setdefault("tasks", [])
+        sel = self.tasks_list.curselection()
+        if not sel:
+            return
+        task_idx = sel[0]
+        target_idx = task_idx + delta
+        if not (0 <= target_idx < len(tasks)):
+            return
+        tasks[task_idx], tasks[target_idx] = tasks[target_idx], tasks[task_idx]
+        self._refresh_tasks()
+        self.tasks_list.selection_clear(0, tk.END)
+        self.tasks_list.selection_set(target_idx)
+        self.tasks_list.activate(target_idx)
+        self.tasks_list.see(target_idx)
+        if self._write_through:
+            self._save_now()
+        _wm(
+            "moved task type_idx=%s status_idx=%s from=%s to=%s"
+            % (type_idx, status_idx, task_idx, target_idx)
+        )
 
     # ===== add/remove operations =========================================
     def _add_type(self) -> None:
