@@ -1,9 +1,10 @@
 """Narzędzia pomocnicze dla modułu zleceń."""
 
-# Wersja pliku: 1.3.0
+# Wersja pliku: 1.3.1
 # Zmiany:
 # - skeleton dla ZZ
 # - zapis draftu do zamowienia_oczekujace.json
+# - poprawiona funkcja statuses_for (bezpieczne sprawdzanie typu)
 
 from __future__ import annotations
 
@@ -115,7 +116,16 @@ def next_order_id(kind: str) -> str:
 
 
 def statuses_for(kind: str) -> List[str]:
-    return _orders_types().get(kind, {}).get("statuses", []) or []
+    types = _orders_types()
+    if not isinstance(types, dict):
+        return []
+    kind_cfg = types.get(kind)
+    if not isinstance(kind_cfg, dict):
+        return []
+    statuses = kind_cfg.get("statuses", [])
+    if not isinstance(statuses, list):
+        return []
+    return statuses or []
 
 
 def is_valid_status(kind: str, status: str) -> bool:
