@@ -15,14 +15,15 @@
 
 import re
 import tkinter as tk
-from tkinter import ttk, messagebox
+import tkinter.simpledialog as simpledialog
+from tkinter import messagebox, ttk
 
 try:
-    from gui_magazyn_order import MagazynOrderDialog
+    from gui_magazyn_order import MagazynOrderDialog, open_pending_orders_window
 except Exception:
     MagazynOrderDialog = None
+    open_pending_orders_window = None
 import magazyn_io
-import json
 HAVE_MAG_IO = True
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -41,6 +42,8 @@ except Exception as _e:
     print(
         "[ERROR][ORDERS] Nie można zaimportować gui_orders.open_orders_window – przycisk będzie nieaktywny."
     )
+
+from logika_zakupy import add_item_to_orders, auto_order_missing
 
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
@@ -112,38 +115,39 @@ def _format_row(item_id: str, item: dict):
 
 
 def _open_orders_for_shortages(self):
-    """
-    Otwiera kreator Zamówień z prefill'em pozycji na podstawie braków/zaznaczenia w Magazynie.
-    Implementacja jest defensywna – bierze 'kod/nazwa/ilosc/j' jeśli są dostępne.
-    """
-    rows = []
+    """Automatycznie dodaje pozycje poniżej progu do oczekujących zamówień."""
+
     try:
-        # PRZYKŁAD 1: jeśli masz tabelę z zaznaczeniem:
-        # for item in self.tree.selection():
-        #     data = self.tree.item(item, "values")  # dopasuj do swojej struktury
-        #     rows.append({"kod": data[0], "nazwa": data[1], "ilosc": float(data[2]), "j": data[3]})
+        added = auto_order_missing()
+    except Exception as exc:
+        messagebox.showerror(
+            "Zamów brakujące", f"Nie udało się wygenerować zamówień: {exc}"
+        )
+        return
 
-        # PRZYKŁAD 2: jeśli masz listę braków uzyskaną z logiki:
-        # shortages = self.magazyn_logic.get_shortages()  # <-- Twoja funkcja, jeśli istnieje
-        # for s in shortages:
-        #     rows.append({"kod": s["kod"], "nazwa": s.get("nazwa",""), "ilosc": s["brakuje"], "j": s.get("jm","szt")})
-
-        pass
-    except Exception as e:
-        print(
-            f"[ERROR][MAGAZYN] Nie udało się zbudować listy pozycji do zamówienia: {e}"
+    if added:
+        messagebox.showinfo(
+            "Zamów brakujące",
+            f"Dodano {added} pozycji do oczekujących zamówień.",
+        )
+    else:
+        messagebox.showinfo(
+            "Zamów brakujące", "Brak pozycji poniżej progów minimalnych."
         )
 
-    context = {
-        "typ": "zakup",
-        "pozycje": rows,
-    }
-    try:
-        if open_orders_window:
-            open_orders_window(self, context=context)
-    except Exception as e:
-        print(
-            f"[ERROR][MAGAZYN] Nie udało się otworzyć kreatora Zamówień z kontekstem: {e}"
+
+def _open_pending_orders(self):
+    if callable(open_pending_orders_window):
+        try:
+            open_pending_orders_window(self)
+        except Exception as exc:
+            messagebox.showerror(
+                "Zamówienia", f"Nie udało się otworzyć listy zamówień: {exc}"
+            )
+    else:
+        messagebox.showinfo(
+            "Zamówienia",
+            "Podgląd zamówień oczekujących jest chwilowo niedostępny.",
         )
 
 
@@ -188,27 +192,50 @@ def _quick_add_to_orders(self):
     low = minp > 0 and stan <= minp
     try:
         if MagazynOrderDialog:
-            MagazynOrderDialog(self, preselected_id=item_id, low_stock_hint=low)
-        else:
-            path = "data/zamowienia_oczekujace.json"
+            def _after_save():
+                messagebox.showinfo(
+                    "Zamówienia",
+                    f"Dodano {item_id} do oczekujących zamówień.",
+                )
+
             try:
-                with open(path, "r", encoding="utf-8") as f:
-                    arr = json.load(f)
-                if not isinstance(arr, list):
-                    arr = []
-            except Exception:
-                arr = []
-            qty = max(1.0, (minp - stan) + 1) if low else 1.0
-            arr.append({"id": item_id, "qty": qty})
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(json.dumps(arr, ensure_ascii=False, indent=2) + "\n")
+                MagazynOrderDialog(
+                    self,
+                    config=getattr(self, "config_obj", None),
+                    preselect_id=item_id,
+                    on_saved=_after_save,
+                )
+            except TypeError:
+                MagazynOrderDialog(self, preselect_id=item_id)
+            return
+
+        suggested = max(1.0, (minp - stan) + 1) if low else 1.0
+        qty = simpledialog.askfloat(
+            "Ilość do zamówienia",
+            f"Podaj ilość dla '{item_id}':",
+            initialvalue=suggested,
+            minvalue=0.0,
+            parent=self,
+        )
+        if qty is None:
+            return
+        if qty <= 0:
+            messagebox.showwarning(
+                "Zamówienia", "Ilość musi być większa od zera."
+            )
+            return
+        if add_item_to_orders(item_id, qty, comment="Magazyn - ręcznie"):
             messagebox.showinfo(
                 "Zamówienia",
-                f"Dodano {item_id} do oczekujących zamówień (qty={qty}).",
+                f"Dodano {item_id} do oczekujących zamówień (qty={qty:g}).",
             )
-    except Exception as e:
+        else:
+            messagebox.showerror(
+                "Zamówienia", "Nie udało się zapisać pozycji do zamówień."
+            )
+    except Exception as exc:
         messagebox.showerror(
-            "Zamówienia", f"Nie udało się dodać do zamówień: {e}"
+            "Zamówienia", f"Nie udało się dodać do zamówień: {exc}"
         )
 
 
@@ -261,6 +288,18 @@ class MagazynFrame(ttk.Frame):
             except Exception:
                 pass
         print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
+
+        btn_pending = ttk.Button(
+            toolbar,
+            text="Zamówienia oczekujące",
+            command=lambda: _open_pending_orders(self),
+        )
+        btn_pending.pack(side="left", padx=(6, 0))
+        if not callable(open_pending_orders_window):
+            try:
+                btn_pending.state(["disabled"])
+            except Exception:
+                pass
 
         btn_orders_prefill = ttk.Button(
             toolbar,
