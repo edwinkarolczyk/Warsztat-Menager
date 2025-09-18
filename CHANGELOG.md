@@ -1,3 +1,9 @@
+## 2025-09-18 — Poprawka funkcji statuses_for
+- Naprawiono błąd w `zlecenia_utils.py`, który powodował wyjątek
+  (`'str' object has no attribute 'get'`) przy odczycie statusów z configa.
+- Funkcja `statuses_for` teraz sprawdza typ danych i bezpiecznie zwraca listę statusów
+  lub pustą listę, gdy struktura jest niepoprawna.
+
 ## 2025-09-18 — Cleanup Magazynu
 - Usunięto plik `gui_magazyn_order.py` (stary kreator zamówień).
 - W `gui_magazyn.py` podłączono wyłącznie nowy kreator zleceń (`open_order_creator`).
