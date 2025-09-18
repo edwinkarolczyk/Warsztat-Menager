@@ -24,48 +24,139 @@
     "language": "pl"
   },
   "backup": {
-    "keep_last": 10
+    "keep_last": 10,
+    "folder": "backup_wersji",
+    "cloud": {
+      "url": "",
+      "username": "",
+      "password": "",
+      "folder": ""
+    }
   },
   "orders": {
     "id_width": 4,
-    "types": {
-      "ZW": {
-        "enabled": true,
-        "label": "Zlecenie wewnętrzne",
-        "prefix": "ZW-",
-        "reserve_by_default": false,
-        "allow_products": true,
-        "bom_required": true,
-        "statuses": ["nowe","w trakcie","zakończone","anulowane"]
-      },
-      "ZN": {
-        "enabled": true,
-        "label": "Zlecenie na narzędzie",
-        "prefix": "ZN-",
-        "reserve_by_default": true,
-        "allow_old_tools": true,
-        "tools_range": [500,1000],
-        "statuses": ["projekt","w budowie","ostrzenie","naprawa","odbiór","na produkcji","anulowane"]
-      },
-      "ZM": {
-        "enabled": true,
-        "label": "Naprawa/awaria maszyny",
-        "prefix": "ZM-",
-        "reserve_by_default": true,
-        "require_description": true,
-        "urgency_colors": {
-          "wysoki": "blink_red",
-          "normalny": "yellow",
-          "niski": "green"
-        },
-        "statuses": ["awaria zgłoszona","diagnoza","w naprawie","test","sprawdzona","zakończone","anulowane"]
-      },
-      "ZZ": {
-        "enabled": true,
-        "label": "Zlecenie zakupu",
-        "prefix": "ZZ-",
-        "statuses": ["nowe","oczekuje na dostawę","zrealizowane","anulowane"]
-      }
+    "types": "{'ZW': {'enabled': True, 'label': 'Zlecenie wewnętrzne', 'prefix': 'ZW-', 'reserve_by_default': False, 'requires_approval': False, 'wizard': False, 'statuses': ['nowe', 'w trakcie', 'zakończone', 'anulowane'], 'allow_products': True, 'bom_required': True}, 'ZN': {'enabled': True, 'label': 'Zlecenie na narzędzie', 'prefix': 'ZN-', 'reserve_by_default': True, 'requires_approval': False, 'wizard': True, 'statuses': ['projekt', 'w budowie', 'ostrzenie', 'naprawa', 'odbiór', 'na produkcji', 'anulowane'], 'allow_old_tools': True, 'tools_range': [500, 1000]}, 'ZM': {'enabled': True, 'label': 'Naprawa/awaria maszyny', 'prefix': 'ZM-', 'reserve_by_default': True, 'requires_approval': False, 'wizard': True, 'statuses': ['awaria zgłoszona', 'diagnoza', 'w naprawie', 'test', 'sprawdzona', 'zakończone', 'anulowane'], 'require_description': True, 'urgency_colors': {'wysoki': 'blink_red', 'normalny': 'yellow', 'niski': 'green'}}, 'ZZ': {'enabled': True, 'label': 'Zlecenie zakupu', 'prefix': 'ZZ-', 'statuses': ['nowe', 'oczekuje na dostawę', 'zrealizowane', 'anulowane']}}",
+    "enabled": true,
+    "enabled_steps": "('typ', 'kontekst', 'pozycje', 'dostawca', 'terminy_status', 'podsumowanie')",
+    "statuses": "('draft', 'oczekuje_wyslania', 'wyslane', 'w_realizacji', 'dostarczone', 'zamkniete', 'anulowane')",
+    "data_dir": "data/zamowienia",
+    "default_supplier": "",
+    "auto_id_format": "ORD-{YYYYMMDD}-{HHMMSS}",
+    "permissions": {
+      "create": "['brygadzista', 'kierownik', 'admin']",
+      "receive": "['magazynier', 'kierownik', 'admin']",
+      "cancel": "['kierownik', 'admin']"
     }
+  },
+  "tools.collections_enabled": [
+    "NN",
+    "SN"
+  ],
+  "tools.default_collection": "NN",
+  "tools.auto_check_on_status_global": [
+    "sprawne",
+    "zakończone"
+  ],
+  "tools.collections_paths": {},
+  "orders.enabled": true,
+  "orders.enabled_steps": [
+    "typ",
+    "kontekst",
+    "pozycje",
+    "dostawca",
+    "terminy_status",
+    "podsumowanie"
+  ],
+  "orders.types": [
+    "zakup",
+    "naprawa",
+    "uzupelnienie"
+  ],
+  "orders.statuses": [
+    "draft",
+    "oczekuje_wyslania",
+    "wyslane",
+    "w_realizacji",
+    "dostarczone",
+    "zamkniete",
+    "anulowane"
+  ],
+  "orders.data_dir": "data/zamowienia",
+  "orders.default_supplier": "",
+  "orders.auto_id_format": "ORD-{YYYYMMDD}-{HHMMSS}",
+  "orders.permissions": {
+    "create": [
+      "brygadzista",
+      "kierownik",
+      "admin"
+    ],
+    "receive": [
+      "magazynier",
+      "kierownik",
+      "admin"
+    ],
+    "cancel": [
+      "kierownik",
+      "admin"
+    ]
+  },
+  "magazyn": {},
+  "tutorial_completed": true,
+  "auth": {
+    "pinless_brygadzista": true,
+    "required": true,
+    "session_timeout_min": 30
+  },
+  "secrets": {
+    "admin_pin": ""
+  },
+  "hall": {
+    "grid_size_px": 4,
+    "drag_snap_px": 20,
+    "triple_confirm_delete": false
+  },
+  "tools": {
+    "collections_enabled": [
+      "NN",
+      "SN"
+    ],
+    "default_collection": "NN",
+    "auto_check_on_status_global": [
+      "sprawne",
+      "zakończone"
+    ]
+  },
+  "progi_alertow_pct": [
+    100.0
+  ],
+  "czynnosci_technologiczne": [],
+  "updates": {
+    "auto": true,
+    "remote": "origin",
+    "branch": "Rozwiniecie",
+    "push_branch": "Rozwiniecie"
+  },
+  "profiles": {
+    "tab_enabled": true,
+    "show_name_in_header": true,
+    "avatar_dir": "",
+    "allow_pin_change": false,
+    "task_default_deadline_days": 7,
+    "fields_visible": [
+      "login",
+      "nazwa",
+      "rola",
+      "zmiana"
+    ],
+    "fields_editable_by_user": [
+      "imie",
+      "nazwisko",
+      "staz",
+      "telefon",
+      "email"
+    ]
+  },
+  "tests": {
+    "run": ""
   }
 }
