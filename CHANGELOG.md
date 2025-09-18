@@ -1,3 +1,8 @@
+## 2025-09-18 — Fallback typów ZW/ZN/ZM/ZZ w zleceniach
+- Dodano domyślne typy zleceń (ZW/ZN/ZM/ZZ) z prefixami i statusami w `zlecenia_utils.py`.
+- `_orders_types()` teraz **scala** wartości z `config.json` z domyślnymi i loguje wynik (`[WM-DBG][ZLECENIA] types=...`).
+- Dzięki temu błąd „Nieznany rodzaj: ZW” nie wystąpi nawet przy brakującym/niepełnym configu.
+
 ## 2025-09-18 — Stabilizacja kreatora zleceń (ZW/ZN/ZM/ZZ)
 - Ujednolicono przekazywanie danych z kreatora: teraz trafiają **proste pola**
   (`produkt`, `narzedzie_id`, `maszyna_id`, `material`, `ilosc`, itp.), bez

@@ -1,12 +1,9 @@
 """Narzędzia pomocnicze dla modułu zleceń."""
 
-# Wersja pliku: 1.4.0
+# Wersja pliku: 1.4.1
 # Zmiany:
-# - create_order_skeleton przyjmuje jawne pola: produkt, ilosc, narzedzie_id,
-#   maszyna_id, material, dostawca, termin, pilnosc, komentarz
-# - pole 'powiazania' staje się opcjonalnym dodatkiem (może być None); NIE jest
-#   wymagane
-# - dodatkowe walidacje typów oraz bezpieczne fallbacki
+# - dodano domyślne typy zleceń i bezpieczny merge z konfiguracją
+# - dodatkowy logging ułatwiający diagnozę problemów z konfiguracją
 
 from __future__ import annotations
 
@@ -30,6 +27,81 @@ except Exception:  # pragma: no cover - ignorujemy błędy przy starcie
 
 DATA_DIR = os.path.join("data", "zlecenia")
 
+DEFAULT_ORDER_TYPES: Dict[str, Dict[str, object]] = {
+    "ZW": {
+        "enabled": True,
+        "label": "Zlecenie wewnętrzne",
+        "prefix": "ZW-",
+        "statuses": [
+            "nowe",
+            "w przygotowaniu",
+            "w realizacji",
+            "zrealizowane",
+            "archiwum",
+        ],
+    },
+    "ZN": {
+        "enabled": True,
+        "label": "Zlecenie na narzędzie",
+        "prefix": "ZN-",
+        "statuses": [
+            "nowe",
+            "oczekuje",
+            "w naprawie",
+            "zrealizowane",
+            "archiwum",
+        ],
+    },
+    "ZM": {
+        "enabled": True,
+        "label": "Naprawa/Awaria maszyny",
+        "prefix": "ZM-",
+        "statuses": [
+            "nowe",
+            "oczekuje",
+            "w serwisie",
+            "zrealizowane",
+            "archiwum",
+        ],
+    },
+    "ZZ": {
+        "enabled": True,
+        "label": "Zlecenie zakupu",
+        "prefix": "ZZ-",
+        "statuses": [
+            "nowe",
+            "oczekuje na dostawę",
+            "zrealizowane",
+            "anulowane",
+        ],
+    },
+}
+
+
+def _base_type_defaults(kind: str) -> Dict[str, object]:
+    base = DEFAULT_ORDER_TYPES.get(kind, {})
+    if not isinstance(base, dict):
+        base = {}
+
+    raw_label = base.get("label", kind)
+    label = raw_label if isinstance(raw_label, str) and raw_label else kind
+
+    raw_prefix = base.get("prefix", f"{kind}-")
+    prefix = (
+        raw_prefix if isinstance(raw_prefix, str) and raw_prefix else f"{kind}-"
+    )
+
+    raw_statuses = base.get("statuses", ["nowe"])
+    if not isinstance(raw_statuses, list) or not raw_statuses:
+        raw_statuses = ["nowe"]
+
+    return {
+        "enabled": bool(base.get("enabled", True)),
+        "label": label,
+        "prefix": prefix,
+        "statuses": list(raw_statuses),
+    }
+
 
 def _orders_cfg() -> Dict[str, object]:
     """Zwraca konfigurację modułu zleceń."""
@@ -44,8 +116,52 @@ def _orders_cfg() -> Dict[str, object]:
 
 
 def _orders_types() -> Dict[str, Dict[str, object]]:
-    types = _orders_cfg().get("types", {})
-    return types if isinstance(types, dict) else {}
+    cfg_types = _orders_cfg().get("types", {})
+    cfg_types = cfg_types if isinstance(cfg_types, dict) else {}
+
+    merged: Dict[str, Dict[str, object]] = {**DEFAULT_ORDER_TYPES}
+    merged.update(cfg_types)
+
+    sanitized: Dict[str, Dict[str, object]] = {}
+    for key, value in merged.items():
+        base = _base_type_defaults(key)
+        if not isinstance(value, dict):
+            sanitized[key] = base
+            continue
+
+        raw_label = value.get("label", base["label"])
+        label = (
+            raw_label
+            if isinstance(raw_label, str) and raw_label
+            else base["label"]
+        )
+
+        raw_prefix = value.get("prefix", base["prefix"])
+        prefix = (
+            raw_prefix
+            if isinstance(raw_prefix, str) and raw_prefix
+            else base["prefix"]
+        )
+
+        raw_statuses = value.get("statuses", base["statuses"])
+        if not isinstance(raw_statuses, list) or not raw_statuses:
+            statuses = list(base["statuses"])
+        else:
+            statuses = list(raw_statuses)
+
+        sanitized[key] = {
+            "enabled": bool(value.get("enabled", base["enabled"])),
+            "label": label,
+            "prefix": prefix,
+            "statuses": statuses,
+        }
+
+    try:
+        print(f"[WM-DBG][ZLECENIA] types={list(sanitized.keys())}")
+    except Exception:
+        pass
+
+    return sanitized
 
 
 def _orders_id_width() -> int:
@@ -93,6 +209,14 @@ def next_order_id(kind: str) -> str:
 
     kinds = _orders_types()
     if kind not in kinds:
+        try:
+            available = list(kinds.keys())
+            print(
+                "[WM-DBG][ZLECENIA] next_order_id(): unknown kind="
+                f"'{kind}', available={available}"
+            )
+        except Exception:
+            pass
         raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
 
     kind_cfg = kinds.get(kind) if isinstance(kinds, dict) else None
