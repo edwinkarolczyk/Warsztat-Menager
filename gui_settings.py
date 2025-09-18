@@ -1,12 +1,14 @@
-# Wersja pliku: 1.5.8
+# Wersja pliku: 1.7.0
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
 from __future__ import annotations
 
+import copy
 import datetime
 import json
 import os, sys, subprocess, threading
+import re
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
@@ -29,6 +31,8 @@ import logika_zadan as LZ
 from profile_utils import SIDEBAR_MODULES
 from services import profile_service
 from logger import log_akcja
+
+from zlecenia_utils import DEFAULT_ORDER_TYPES
 
 
 MAG_DICT_PATH = "data/magazyn/slowniki.json"
@@ -256,6 +260,45 @@ class CSVListVar(tk.StringVar):
         super().set(", ".join(tokens))
 
 
+class NestedListVar(tk.StringVar):
+    """StringVar that parses "typ: status1, status2" lines into dict list."""
+
+    def get(self) -> dict[str, list[str]]:  # type: ignore[override]
+        result: dict[str, list[str]] = {}
+        for raw_line in super().get().splitlines():
+            line = raw_line.strip()
+            if not line or ":" not in line:
+                continue
+            key, values = line.split(":", 1)
+            key = key.strip()
+            if not key:
+                continue
+            tokens = [
+                token.strip()
+                for token in re.split(r"[;,]", values)
+                if token.strip()
+            ]
+            result[key] = tokens
+        return result
+
+    def set(self, value: Any) -> None:  # type: ignore[override]
+        if isinstance(value, dict):
+            lines: list[str] = []
+            for key, items in value.items():
+                key_str = str(key).strip()
+                if not key_str:
+                    continue
+                joined = ", ".join(
+                    str(item).strip()
+                    for item in items
+                    if str(item).strip()
+                )
+                lines.append(f"{key_str}: {joined}" if joined else key_str)
+            super().set("\n".join(lines))
+        else:
+            super().set("" if value is None else str(value))
+
+
 def _bind_tooltip(widget, text: str):
     import tkinter as tk
 
@@ -338,6 +381,8 @@ class SettingsPanel:
         self._defaults: Dict[str, Any] = {}
         self._options: Dict[str, dict[str, Any]] = {}
         self._fields_vars: list[tuple[tk.Variable, dict[str, Any]]] = []
+        self._orders_vars: dict[str, tk.Variable] = {}
+        self._orders_meta: dict[str, dict[str, Any]] = {}
         self._unsaved = False
         self._open_windows: dict[str, tk.Toplevel] = {}
         self._mod_vars: dict[str, tk.BooleanVar] = {}
@@ -373,10 +418,16 @@ class SettingsPanel:
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=title)
 
-            if tab.get("id") == "magazyn":
+            tab_id = tab.get("id")
+            if tab_id == "magazyn":
                 self._magazyn_frame = frame
                 self._magazyn_schema = tab
-            elif tab.get("id") == "narzedzia":
+            elif tab_id == "zlecenia":
+                grp_count, fld_count = self._build_orders_tab(frame, tab)
+                print(
+                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+                )
+            elif tab_id == "narzedzia":
                 grp_count, fld_count = self._build_tools_tab(frame, tab)
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
@@ -451,6 +502,200 @@ class SettingsPanel:
         self._defaults[key] = opt.get("default")
         self._fields_vars.append((var, opt))
         var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+
+    def _add_group(
+        self,
+        parent: tk.Widget,
+        title: str,
+        *,
+        description: str | None = None,
+        namespace: str | None = None,
+    ) -> ttk.LabelFrame:
+        """Create labeled frame for manual settings sections."""
+
+        group = ttk.LabelFrame(parent, text=title)
+        group.pack(fill="x", padx=10, pady=(10, 6))
+        group.columnconfigure(0, weight=1)
+        if namespace:
+            setattr(group, "_settings_namespace", namespace)
+        if description:
+            ttk.Label(
+                group,
+                text=description,
+                wraplength=560,
+                font=("", 9, "italic"),
+            ).pack(anchor="w", padx=8, pady=(6, 2))
+        return group
+
+    def _add_field(
+        self,
+        group: ttk.LabelFrame,
+        key: str,
+        label: str,
+        *,
+        field_type: str = "string",
+        default: Any = None,
+        description: str = "",
+    ) -> tk.Variable:
+        """Create a labeled field inside ``group`` and register variable."""
+
+        namespace = getattr(group, "_settings_namespace", None)
+        if namespace and "." not in key:
+            full_key = f"{namespace}.{key}"
+        else:
+            full_key = key
+
+        frame = ttk.Frame(group)
+        frame.pack(fill="x", padx=8, pady=4)
+        ttk.Label(frame, text=label).pack(anchor="w")
+
+        def format_list(value: Any) -> str:
+            if isinstance(value, (list, tuple, set)):
+                return "\n".join(str(item).strip() for item in value if str(item).strip())
+            if isinstance(value, str):
+                return value
+            return ""
+
+        def format_dict(value: Any) -> str:
+            if isinstance(value, dict):
+                return "\n".join(f"{k} = {v}" for k, v in value.items())
+            if isinstance(value, str):
+                return value
+            return ""
+
+        def format_nested(value: Any) -> str:
+            if isinstance(value, dict):
+                lines: list[str] = []
+                for k, vals in value.items():
+                    key_str = str(k).strip()
+                    if not key_str:
+                        continue
+                    vals_list = [str(item).strip() for item in vals if str(item).strip()]
+                    joined = ", ".join(vals_list)
+                    lines.append(f"{key_str}: {joined}" if joined else key_str)
+                return "\n".join(lines)
+            if isinstance(value, str):
+                return value
+            return ""
+
+        widget: tk.Widget
+        var: tk.Variable
+        field_def: dict[str, Any]
+
+        if field_type == "list":
+            text_value = format_list(default)
+            var = StrListVar(master=frame)
+            var.set(text_value)
+            text = tk.Text(frame, height=4, wrap="word")
+            text.insert("1.0", text_value)
+
+            def update_list(*_args: Any) -> None:
+                var.set(text.get("1.0", "end").strip())
+
+            text.bind("<KeyRelease>", update_list)
+            text.pack(fill="x", expand=True, pady=(2, 0))
+            widget = text
+            field_def = {
+                "key": full_key,
+                "type": "array",
+                "value_type": "string",
+                "default": default if isinstance(default, list) else [],
+            }
+        elif field_type == "dict_float":
+            text_value = format_dict(default)
+            var = FloatDictVar(master=frame)
+            var.set(text_value)
+            text = tk.Text(frame, height=4, wrap="word")
+            text.insert("1.0", text_value)
+
+            def update_fdict(*_args: Any) -> None:
+                var.set(text.get("1.0", "end").strip())
+
+            text.bind("<KeyRelease>", update_fdict)
+            text.pack(fill="x", expand=True, pady=(2, 0))
+            widget = text
+            field_def = {
+                "key": full_key,
+                "type": "dict",
+                "value_type": "float",
+                "default": default if isinstance(default, dict) else {},
+            }
+        elif field_type == "dict":
+            text_value = format_dict(default)
+            var = StrDictVar(master=frame)
+            var.set(text_value)
+            text = tk.Text(frame, height=4, wrap="word")
+            text.insert("1.0", text_value)
+
+            def update_dict(*_args: Any) -> None:
+                var.set(text.get("1.0", "end").strip())
+
+            text.bind("<KeyRelease>", update_dict)
+            text.pack(fill="x", expand=True, pady=(2, 0))
+            widget = text
+            field_def = {
+                "key": full_key,
+                "type": "dict",
+                "value_type": "string",
+                "default": default if isinstance(default, dict) else {},
+            }
+        elif field_type == "nested_list":
+            text_value = format_nested(default)
+            var = NestedListVar(master=frame)
+            var.set(text_value)
+            text = tk.Text(frame, height=6, wrap="word")
+            text.insert("1.0", text_value)
+
+            def update_nested(*_args: Any) -> None:
+                var.set(text.get("1.0", "end").strip())
+
+            text.bind("<KeyRelease>", update_nested)
+            text.pack(fill="x", expand=True, pady=(2, 0))
+            widget = text
+            field_def = {
+                "key": full_key,
+                "type": "dict",
+                "default": default if isinstance(default, dict) else {},
+            }
+        elif field_type == "int":
+            value = default if isinstance(default, int) else 0
+            var = tk.IntVar(master=frame, value=value)
+            spin = ttk.Spinbox(frame, from_=1, to=10, textvariable=var, width=6)
+            spin.pack(anchor="w", pady=(2, 0))
+            widget = spin
+            field_def = {"key": full_key, "type": "int", "default": value}
+        else:
+            value = "" if default is None else str(default)
+            var = tk.StringVar(master=frame, value=value)
+            entry = ttk.Entry(frame, textvariable=var)
+            entry.pack(fill="x", expand=True, pady=(2, 0))
+            widget = entry
+            field_def = {"key": full_key, "type": "string", "default": value}
+
+        if description:
+            ttk.Label(
+                frame,
+                text=description,
+                wraplength=560,
+                font=("", 9),
+                foreground="#565656",
+            ).pack(anchor="w", pady=(2, 0))
+
+        self._register_option_var(full_key, var, field_def)
+
+        if full_key.startswith("_orders."):
+            if not hasattr(self, "_orders_vars"):
+                self._orders_vars = {}
+            if not hasattr(self, "_orders_meta"):
+                self._orders_meta = {}
+            name = full_key.split(".", 1)[1]
+            self._orders_vars[name] = var
+            self._orders_meta[name] = {
+                "type": field_type,
+                "widget": widget,
+            }
+
+        return var
 
     def _populate_tab(self, parent: tk.Widget, tab: dict[str, Any]) -> tuple[int, int]:
         """Populate a single tab or subtab frame and return counts."""
@@ -543,6 +788,407 @@ class SettingsPanel:
             self._add_patch_section(parent)
 
         return grp_count, fld_count
+
+    def _build_orders_tab(
+        self, parent: tk.Widget, tab: dict[str, Any]
+    ) -> tuple[int, int]:
+        """Create advanced editor for the Orders settings tab."""
+
+        self._orders_vars = {}
+        self._orders_meta = {}
+
+        orders_cfg_raw = self.cfg.get("orders", {})
+        orders_cfg = orders_cfg_raw if isinstance(orders_cfg_raw, dict) else {}
+        orders_cfg = copy.deepcopy(orders_cfg)
+
+        types_raw = orders_cfg.get("types", {})
+        base_types: dict[str, dict[str, Any]] = {
+            code: copy.deepcopy(data) for code, data in DEFAULT_ORDER_TYPES.items()
+        }
+        if isinstance(types_raw, dict):
+            for code, data in types_raw.items():
+                if isinstance(data, dict):
+                    target = base_types.setdefault(
+                        code, copy.deepcopy(DEFAULT_ORDER_TYPES.get(code, {}))
+                    )
+                    target.update(copy.deepcopy(data))
+
+        for code, data in base_types.items():
+            data.setdefault("label", DEFAULT_ORDER_TYPES.get(code, {}).get("label", code))
+            data.setdefault(
+                "prefix", DEFAULT_ORDER_TYPES.get(code, {}).get("prefix", f"{code}-")
+            )
+            statuses_default = DEFAULT_ORDER_TYPES.get(code, {}).get("statuses", ["nowe"])
+            data.setdefault("statuses", list(statuses_default))
+            if "enabled" not in data:
+                data["enabled"] = bool(
+                    DEFAULT_ORDER_TYPES.get(code, {}).get("enabled", True)
+                )
+
+        enabled_types = [
+            code for code, data in base_types.items() if data.get("enabled", True)
+        ]
+        prefixes = {
+            code: data.get("prefix", f"{code}-") for code, data in base_types.items()
+        }
+        statuses_map = {
+            code: list(data.get("statuses", [])) for code, data in base_types.items()
+        }
+
+        id_width_raw = orders_cfg.get("id_width", 4)
+        try:
+            id_width = int(id_width_raw)
+        except (TypeError, ValueError):
+            id_width = 4
+
+        colors = orders_cfg.get("status_colors")
+        colors = colors if isinstance(colors, dict) else {}
+
+        tasks = orders_cfg.get("tasks")
+        if not isinstance(tasks, list):
+            fallback_tasks = self.cfg.get("czynnosci_technologiczne", [])
+            tasks = fallback_tasks if isinstance(fallback_tasks, list) else []
+
+        alerts_raw = orders_cfg.get("alert_thresholds_pct")
+        alerts: dict[str, float] = {}
+        if isinstance(alerts_raw, dict):
+            for key, value in alerts_raw.items():
+                try:
+                    alerts[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    continue
+        elif isinstance(alerts_raw, list):
+            codes = list(base_types.keys())
+            for idx, code in enumerate(codes):
+                try:
+                    alerts[code] = float(alerts_raw[idx])
+                except (IndexError, TypeError, ValueError):
+                    alerts[code] = 50.0
+        if not alerts:
+            alerts = {code: 50.0 for code in base_types.keys()}
+
+        links = orders_cfg.get("module_links")
+        if not isinstance(links, dict) or not links:
+            links = {
+                "ZN": "Powiąż z kartoteką narzędzi (zakres SN 500–1000)",
+                "ZM": "Powiąż z modułem Maszyny",
+                "ZZ": "Powiąż z modułem Magazyn → Zamówienia",
+            }
+
+        defaults_cfg = orders_cfg.get("defaults")
+        if isinstance(defaults_cfg, dict):
+            defaults = {
+                str(k): str(v) if not isinstance(v, (int, float)) else str(v)
+                for k, v in defaults_cfg.items()
+            }
+        else:
+            defaults = {}
+        defaults.setdefault("author", "zalogowany_uzytkownik")
+        defaults.setdefault("status", "nowe")
+        defaults.setdefault("id_width", str(id_width))
+
+        grp_count = 0
+        fld_count = 0
+
+        group = self._add_group(
+            parent,
+            "Definicje typów zleceń (ZW/ZN/ZM/ZZ)",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group,
+            "enabled_types",
+            "Typy aktywne",
+            field_type="list",
+            default=enabled_types,
+            description=(
+                "Lista aktywnych typów zleceń. Dostępne: ZW (wewnętrzne), "
+                "ZN (na narzędzie), ZM (maszyny), ZZ (zakup). Podaj jeden kod w "
+                "wierszu."
+            ),
+        )
+        fld_count += 1
+        self._add_field(
+            group,
+            "prefixes",
+            "Prefiksy ID",
+            field_type="dict",
+            default=prefixes,
+            description=(
+                "Prefiks używany w numeracji zleceń (np. ZW- lub ZN-). Wpisuj "
+                "w formacie `ZW = ZW-`."
+            ),
+        )
+        fld_count += 1
+        self._add_field(
+            group,
+            "id_width",
+            "Szerokość ID",
+            field_type="int",
+            default=id_width,
+            description="Ile cyfr ma mieć numer zlecenia. Np. 4 = ZW-0001.",
+        )
+        fld_count += 1
+
+        group_status = self._add_group(
+            parent,
+            "Statusy i kolory",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group_status,
+            "statuses",
+            "Lista statusów",
+            field_type="nested_list",
+            default=statuses_map,
+            description=(
+                "Definicje statusów dla poszczególnych typów zleceń. Każdy wiersz "
+                "w formacie `ZW: nowe, w przygotowaniu, w realizacji`."
+            ),
+        )
+        fld_count += 1
+        self._add_field(
+            group_status,
+            "colors",
+            "Kolory statusów",
+            field_type="dict",
+            default=colors,
+            description=(
+                "Kolor przypisany do statusu. Przykład: `w realizacji = #F1C40F`, "
+                "`awaria = blink_red`."
+            ),
+        )
+        fld_count += 1
+
+        group_tasks = self._add_group(
+            parent,
+            "Czynności technologiczne",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group_tasks,
+            "tasks",
+            "Lista czynności",
+            field_type="list",
+            default=tasks,
+            description=(
+                "Standardowe czynności technologiczne przypisywane do statusów "
+                "(np. Sprawdź magazyn, Zarezerwuj półprodukty). Jeden wpis na "
+                "wiersz."
+            ),
+        )
+        fld_count += 1
+
+        group_alerts = self._add_group(
+            parent,
+            "Progi alertów (%)",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group_alerts,
+            "alerts",
+            "Alerty dla typów",
+            field_type="dict_float",
+            default=alerts,
+            description=(
+                "Próg procentowy poniżej którego system zgłasza alert (osobno "
+                "dla ZW, ZN, ZM, ZZ). Format: `ZW = 75`."
+            ),
+        )
+        fld_count += 1
+
+        group_links = self._add_group(
+            parent,
+            "Powiązania modułowe",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group_links,
+            "links",
+            "Powiązania",
+            field_type="dict",
+            default=links,
+            description=(
+                "Powiązania z innymi modułami: ZN → narzędzia SN (500–1000), "
+                "ZM → maszyny, ZZ → magazyn (zamówienia)."
+            ),
+        )
+        fld_count += 1
+
+        group_defaults = self._add_group(
+            parent,
+            "Domyślne wartości",
+            namespace="_orders",
+        )
+        grp_count += 1
+        self._add_field(
+            group_defaults,
+            "defaults",
+            "Ustawienia domyślne",
+            field_type="dict",
+            default=defaults,
+            description=(
+                "Domyślny autor = zalogowany użytkownik, domyślny status = nowe, "
+                "szerokość ID = 4 cyfry. Możesz rozszerzyć o inne pola np. "
+                "`priority = normal`."
+            ),
+        )
+        fld_count += 1
+
+        return grp_count, fld_count
+
+    def _apply_orders_config(self, values: dict[str, Any]) -> None:
+        """Persist composite Orders settings based on manual fields."""
+
+        orders_cfg_raw = self.cfg.get("orders", {})
+        orders_cfg = orders_cfg_raw if isinstance(orders_cfg_raw, dict) else {}
+        orders_cfg = copy.deepcopy(orders_cfg)
+
+        types_raw = orders_cfg.get("types", {})
+        types_cfg: dict[str, dict[str, Any]] = {}
+        if isinstance(types_raw, dict):
+            for code, data in types_raw.items():
+                if isinstance(data, dict):
+                    types_cfg[code] = copy.deepcopy(data)
+                else:
+                    types_cfg[code] = {}
+
+        for code, defaults in DEFAULT_ORDER_TYPES.items():
+            base = types_cfg.setdefault(code, copy.deepcopy(defaults))
+            if not isinstance(base, dict):
+                base = copy.deepcopy(defaults)
+                types_cfg[code] = base
+            base.setdefault("label", defaults.get("label", code))
+            base.setdefault("prefix", defaults.get("prefix", f"{code}-"))
+            base.setdefault("statuses", list(defaults.get("statuses", ["nowe"])))
+            base.setdefault("enabled", bool(defaults.get("enabled", True)))
+
+        def ensure_type_entry(code: str) -> dict[str, Any]:
+            norm = code.strip().upper()
+            if not norm:
+                return {}
+            entry = types_cfg.get(norm)
+            if not isinstance(entry, dict):
+                defaults = DEFAULT_ORDER_TYPES.get(norm, {})
+                entry = copy.deepcopy(defaults) if isinstance(defaults, dict) else {}
+                entry.setdefault("label", defaults.get("label", norm) if isinstance(defaults, dict) else norm)
+                entry.setdefault("prefix", defaults.get("prefix", f"{norm}-") if isinstance(defaults, dict) else f"{norm}-")
+                entry.setdefault(
+                    "statuses",
+                    list(defaults.get("statuses", ["nowe"]))
+                    if isinstance(defaults, dict)
+                    else ["nowe"],
+                )
+                entry.setdefault("enabled", True)
+                types_cfg[norm] = entry
+            return entry
+
+        if "prefixes" in values:
+            prefixes: dict[str, Any] = values.get("prefixes", {}) or {}
+            for code, prefix in prefixes.items():
+                entry = ensure_type_entry(str(code))
+                prefix_str = str(prefix).strip()
+                if prefix_str:
+                    entry["prefix"] = prefix_str
+
+        if "statuses" in values:
+            statuses_val: dict[str, list[str]] = values.get("statuses", {}) or {}
+            for code, statuses in statuses_val.items():
+                entry = ensure_type_entry(str(code))
+                cleaned = [
+                    str(item).strip()
+                    for item in statuses
+                    if isinstance(item, str) and str(item).strip()
+                ]
+                if cleaned:
+                    entry["statuses"] = cleaned
+
+        if "enabled_types" in values:
+            enabled = {
+                str(code).strip().upper()
+                for code in values.get("enabled_types", [])
+                if str(code).strip()
+            }
+            for code in list(types_cfg.keys()):
+                types_cfg[code]["enabled"] = code in enabled if code else False
+            for code in enabled:
+                ensure_type_entry(code)["enabled"] = True
+
+        if "id_width" in values:
+            try:
+                orders_cfg["id_width"] = max(1, int(values["id_width"]))
+            except (TypeError, ValueError):
+                pass
+
+        if "colors" in values:
+            colors_src: dict[str, Any] = values.get("colors", {}) or {}
+            colors: dict[str, str] = {}
+            for key, val in colors_src.items():
+                key_str = str(key).strip()
+                val_str = str(val).strip()
+                if key_str and val_str:
+                    colors[key_str] = val_str
+            orders_cfg["status_colors"] = colors
+
+        if "tasks" in values:
+            tasks_raw = values.get("tasks", []) or []
+            tasks_list = [
+                str(item).strip()
+                for item in tasks_raw
+                if isinstance(item, str) and str(item).strip()
+            ]
+            orders_cfg["tasks"] = tasks_list
+
+        if "alerts" in values:
+            alerts_src: dict[str, Any] = values.get("alerts", {}) or {}
+            alerts_dict: dict[str, float] = {}
+            for key, val in alerts_src.items():
+                key_str = str(key).strip().upper()
+                if not key_str:
+                    continue
+                try:
+                    alerts_dict[key_str] = float(val)
+                except (TypeError, ValueError):
+                    continue
+            orders_cfg["alert_thresholds_pct"] = alerts_dict
+
+        if "links" in values:
+            links_src: dict[str, Any] = values.get("links", {}) or {}
+            links_dict: dict[str, str] = {}
+            for key, val in links_src.items():
+                key_str = str(key).strip()
+                val_str = str(val).strip()
+                if key_str and val_str:
+                    links_dict[key_str] = val_str
+            orders_cfg["module_links"] = links_dict
+
+        if "defaults" in values:
+            defaults_src: dict[str, Any] = values.get("defaults", {}) or {}
+            defaults_dict: dict[str, str] = {}
+            for key, val in defaults_src.items():
+                key_str = str(key).strip()
+                if not key_str:
+                    continue
+                defaults_dict[key_str] = str(val).strip()
+            if "id_width" in values and "id_width" not in defaults_dict:
+                defaults_dict["id_width"] = str(values["id_width"])
+            orders_cfg["defaults"] = defaults_dict
+        elif "id_width" in values:
+            defaults_existing = orders_cfg.get("defaults")
+            if isinstance(defaults_existing, dict):
+                defaults_dict = dict(defaults_existing)
+            else:
+                defaults_dict = {}
+            defaults_dict.setdefault("id_width", str(values["id_width"]))
+            orders_cfg["defaults"] = defaults_dict
+
+        orders_cfg["types"] = types_cfg
+        self.cfg.set("orders", orders_cfg)
 
     def _build_tools_tab(
         self, parent: tk.Widget, tab: dict[str, Any]
@@ -1263,7 +1909,12 @@ class SettingsPanel:
         log_akcja(f"[SETTINGS] zastosowano moduły {uid}: {', '.join(disabled)}")
 
     def save(self) -> None:
+        special_orders: dict[str, Any] = {}
         for key, var in self.vars.items():
+            if key.startswith("_orders."):
+                name = key.split(".", 1)[1]
+                special_orders[name] = var.get()
+                continue
             opt = self._options.get(key, {})
             value = var.get()
             if opt.get("type") == "bool" and isinstance(value, str):
@@ -1280,6 +1931,10 @@ class SettingsPanel:
                     value = allowed[0]
             self.cfg.set(key, value)
             self._initial[key] = value
+        if special_orders:
+            self._apply_orders_config(special_orders)
+            for name, value in special_orders.items():
+                self._initial[f"_orders.{name}"] = value
         self.cfg.save_all()
         self._unsaved = False
         if self._user_var is not None:

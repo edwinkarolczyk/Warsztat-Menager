@@ -1,3 +1,13 @@
+## 2025-09-18 — Rozbudowa ustawień zleceń
+- Zakładka „Zlecenia” w ustawieniach rozbudowana o sekcje:
+  - Definicje typów zleceń (ZW/ZN/ZM/ZZ),
+  - Statusy i kolory,
+  - Czynności technologiczne,
+  - Progi alertów (%),
+  - Powiązania modułowe,
+  - Domyślne wartości.
+- Każde pole posiada opis co oznacza i do czego służy (po polsku).
+
 ## 2025-09-18 — Fallback typów ZW/ZN/ZM/ZZ w zleceniach
 - Dodano domyślne typy zleceń (ZW/ZN/ZM/ZZ) z prefixami i statusami w `zlecenia_utils.py`.
 - `_orders_types()` teraz **scala** wartości z `config.json` z domyślnymi i loguje wynik (`[WM-DBG][ZLECENIA] types=...`).
