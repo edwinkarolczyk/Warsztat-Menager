@@ -190,6 +190,18 @@
               ]
             }
           ]
+        },
+        {
+          "key": "login",
+          "label": "Logowanie",
+          "fields": [
+            {
+              "key": "auth.pinless_brygadzista",
+              "type": "bool",
+              "label": "Logowanie brygadzisty bez PIN",
+              "description": "Dodaj przycisk logowania brygadzisty bez wpisywania PIN."
+            }
+          ]
         }
       ]
     },

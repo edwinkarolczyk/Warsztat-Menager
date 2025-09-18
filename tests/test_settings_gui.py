@@ -1,11 +1,19 @@
 import json
 import tkinter as tk
+import types
 
 import pytest
 
 import config_manager as cm
 import gui_settings
+import gui_logowanie
 from test_config_manager import make_manager  # noqa: F401
+from test_gui_logowanie import (
+    DummyElements,
+    DummyLabel,
+    DummyRoot,
+    DummyWidget,
+)
 
 
 @pytest.fixture
@@ -28,6 +36,47 @@ def _make_root():
         pytest.skip("Tkinter not available")
     root.withdraw()
     return root
+
+
+def _setup_dummy_login(monkeypatch):
+    elements = DummyElements()
+    buttons = []
+
+    def fake_label(master=None, **kwargs):
+        lbl = DummyLabel(**kwargs)
+        elements.append(lbl)
+        return lbl
+
+    def fake_button(master=None, **kwargs):
+        btn = DummyWidget(**kwargs)
+        buttons.append(btn)
+        return btn
+
+    fake_ttk = types.SimpleNamespace(
+        Frame=DummyWidget,
+        Label=fake_label,
+        Entry=DummyWidget,
+        Button=fake_button,
+        Style=DummyWidget,
+    )
+    fake_tk = types.SimpleNamespace(Canvas=DummyWidget, Label=DummyLabel)
+
+    monkeypatch.setattr(gui_logowanie, "ttk", fake_ttk)
+    monkeypatch.setattr(gui_logowanie, "tk", fake_tk)
+    monkeypatch.setattr(gui_logowanie, "apply_theme", lambda root: None)
+    monkeypatch.setattr(
+        gui_logowanie.gui_panel,
+        "_shift_progress",
+        lambda now: (0, False),
+    )
+    monkeypatch.setattr(
+        gui_logowanie.gui_panel,
+        "_shift_bounds",
+        lambda now: (now, now),
+    )
+
+    elements.buttons = buttons
+    return elements
 
 
 def test_switch_tabs(cfg_env, capsys):
@@ -83,3 +132,26 @@ def test_save_admin_pin(cfg_env):
         data = json.load(f)
     assert data["secrets"]["admin_pin"] == "4321"
     root.destroy()
+
+
+def test_enable_pinless_login_from_settings(cfg_env, monkeypatch):
+    root = _make_root()
+    panel = gui_settings.SettingsPanel(root)
+    panel.vars["auth.pinless_brygadzista"].set(True)
+    panel.save()
+    root.destroy()
+
+    with open(cm.GLOBAL_PATH, encoding="utf-8") as f:
+        stored = json.load(f)
+    assert stored["auth"]["pinless_brygadzista"] is True
+
+    cm.ConfigManager.refresh()
+
+    elements = _setup_dummy_login(monkeypatch)
+    login_root = DummyRoot()
+    gui_logowanie.ekran_logowania(root=login_root)
+
+    assert any(
+        btn.kwargs.get("text") == "Logowanie bez PIN"
+        for btn in elements.buttons
+    )

@@ -1,5 +1,8 @@
 # Changelog
 
+## [Unreleased]
+- [LOGOWANIE] Dodano przełącznik w ustawieniach systemu umożliwiający włączenie przycisku "Logowanie bez PIN" dla brygadzisty.
+
 ## 1.5.1 - 2025-09-09
 - [USTAWIENIA] Zapis plików bez znaku BOM.
 - [NARZĘDZIA] Limit typów i statusów do 8 × 8.
