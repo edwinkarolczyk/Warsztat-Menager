@@ -259,81 +259,83 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
                 qty_raw = widgets["ilosc"].get().strip()  # type: ignore[call-arg]
                 if not product:
                     raise ValueError("Wybierz produkt.")
-                if not qty_raw:
-                    raise ValueError("Podaj ilość.")
                 try:
-                    ilosc = int(qty_raw)
-                except ValueError:
+                    qty = int(qty_raw)
+                except (TypeError, ValueError):
                     raise ValueError("Ilość musi być liczbą całkowitą.") from None
-                if ilosc <= 0:
+                if qty <= 0:
                     raise ValueError("Ilość musi być dodatnia.")
+
                 data = create_order_skeleton(
                     "ZW",
                     autor,
                     f"ZW na {product}",
-                    {"produkt": product},
-                    ilosc=ilosc,
                     produkt=product,
+                    ilosc=qty,
                 )
+
             elif kind == "ZN":
                 tool = widgets["narzedzie"].get().strip()  # type: ignore[call-arg]
                 if not tool:
-                    raise ValueError("Wybierz narzędzie.")
+                    raise ValueError("Wybierz narzędzie SN.")
                 comment = widgets["komentarz"].get().strip()  # type: ignore[call-arg]
+                if not comment:
+                    raise ValueError("Dodaj komentarz co do naprawy/awarii.")
+
                 data = create_order_skeleton(
                     "ZN",
                     autor,
-                    "ZN",
-                    {"narzedzie_id": tool},
+                    f"ZN dla narzędzia {tool}",
+                    narzedzie_id=tool,
                     komentarz=comment,
                 )
+
             elif kind == "ZM":
                 machine_raw = widgets["maszyna"].get().strip()  # type: ignore[call-arg]
                 if not machine_raw:
                     raise ValueError("Wybierz maszynę.")
                 machine_id = machine_raw.split(" - ")[0]
                 description = widgets["opis"].get().strip()  # type: ignore[call-arg]
+                if not description:
+                    raise ValueError("Opis awarii jest wymagany.")
                 priority = widgets["pilnosc"].get().strip()  # type: ignore[call-arg]
-                if not priority:
-                    raise ValueError("Wybierz pilność.")
+                priority = priority or "normalny"
+
                 data = create_order_skeleton(
                     "ZM",
                     autor,
                     "ZM",
-                    {"maszyna_id": machine_id},
+                    maszyna_id=machine_id,
                     komentarz=description,
                     pilnosc=priority,
                 )
+
             elif kind == "ZZ":
                 mat_selected = widgets["zz_cbm"].get().strip()  # type: ignore[call-arg]
                 mat_new = widgets["zz_new"].get().strip()  # type: ignore[call-arg]
                 if not mat_selected and not mat_new:
-                    raise ValueError(
-                        "Podaj materiał (z katalogu lub nowy).",
-                    )
+                    raise ValueError("Podaj materiał (z katalogu lub nowy).")
                 qty_raw = widgets["zz_qty"].get().strip()  # type: ignore[call-arg]
-                if not qty_raw:
-                    raise ValueError("Podaj ilość.")
                 try:
                     qty = int(qty_raw)
-                except ValueError:
+                except (TypeError, ValueError):
                     raise ValueError("Ilość musi być liczbą całkowitą.") from None
                 if qty <= 0:
                     raise ValueError("Ilość musi być dodatnia.")
                 supplier = widgets["zz_dst"].get().strip()  # type: ignore[call-arg]
                 deadline = widgets["zz_term"].get().strip()  # type: ignore[call-arg]
-                material_name = mat_selected or mat_new
+
                 data = create_order_skeleton(
                     "ZZ",
                     autor,
                     "ZZ",
-                    {},
+                    material=(mat_selected or mat_new),
                     ilosc=qty,
-                    material=material_name,
                     dostawca=supplier,
                     termin=deadline,
                     nowy=bool(mat_new),
                 )
+
             else:
                 raise ValueError("Nie wybrano rodzaju zlecenia.")
         except ValueError as exc:

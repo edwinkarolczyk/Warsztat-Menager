@@ -1,10 +1,12 @@
 """Narzędzia pomocnicze dla modułu zleceń."""
 
-# Wersja pliku: 1.3.1
+# Wersja pliku: 1.4.0
 # Zmiany:
-# - skeleton dla ZZ
-# - zapis draftu do zamowienia_oczekujace.json
-# - poprawiona funkcja statuses_for (bezpieczne sprawdzanie typu)
+# - create_order_skeleton przyjmuje jawne pola: produkt, ilosc, narzedzie_id,
+#   maszyna_id, material, dostawca, termin, pilnosc, komentarz
+# - pole 'powiazania' staje się opcjonalnym dodatkiem (może być None); NIE jest
+#   wymagane
+# - dodatkowe walidacje typów oraz bezpieczne fallbacki
 
 from __future__ import annotations
 
@@ -16,64 +18,45 @@ from typing import Dict, List, Tuple
 from bom import compute_sr_for_pp
 from io_utils import read_json
 
-try:
+try:  # pragma: no cover - fallback dla środowisk testowych
     from config_manager import ConfigManager  # type: ignore
-except Exception:  # pragma: no cover - fallback dla środowisk testowych
+except Exception:  # pragma: no cover - ConfigManager opcjonalny w testach
     ConfigManager = None  # type: ignore
 
-try:
-    _CONFIG_MANAGER = ConfigManager() if ConfigManager else None
-except Exception:  # pragma: no cover - zabezpieczenie dla wyjątków inicjalizacji
-    _CONFIG_MANAGER = None
+try:  # pragma: no cover - zabezpieczenie inicjalizacji konfiguracji
+    _CONFIG = ConfigManager() if ConfigManager else None  # type: ignore[misc]
+except Exception:  # pragma: no cover - ignorujemy błędy przy starcie
+    _CONFIG = None
 
 DATA_DIR = os.path.join("data", "zlecenia")
 
 
-def _zamowienia_oczek_path() -> str:
-    return os.path.join("data", "zamowienia_oczekujace.json")
-
-
-def _load_oczekujace() -> List[Dict[str, object]]:
-    path = _zamowienia_oczek_path()
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except Exception:
-        return []
-
-
-def _save_oczekujace(data: List[Dict[str, object]]) -> None:
-    path = _zamowienia_oczek_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
-
-
-def _add_oczekujace(entry: Dict[str, object]) -> None:
-    data = _load_oczekujace()
-    data.append(entry)
-    _save_oczekujace(data)
-
-
 def _orders_cfg() -> Dict[str, object]:
-    """Zwraca sekcję konfiguracyjną modułu zleceń."""
+    """Zwraca konfigurację modułu zleceń."""
 
-    if _CONFIG_MANAGER:
-        try:
-            return _CONFIG_MANAGER.get("orders") or {}
-        except Exception:  # pragma: no cover - zabezpieczenie na wypadek błędnej konfiguracji
-            return {}
-    return {}
+    if not _CONFIG:
+        return {}
+    try:
+        cfg = _CONFIG.get("orders") or {}
+    except Exception:
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
 
 
 def _orders_types() -> Dict[str, Dict[str, object]]:
-    return _orders_cfg().get("types", {}) or {}
+    types = _orders_cfg().get("types", {})
+    return types if isinstance(types, dict) else {}
 
 
 def _orders_id_width() -> int:
-    return int(_orders_cfg().get("id_width", 4))
+    try:
+        width = _orders_cfg().get("id_width", 4)
+    except Exception:
+        return 4
+    try:
+        return int(width)
+    except (TypeError, ValueError):
+        return 4
 
 
 def _seq_path() -> str:
@@ -82,14 +65,21 @@ def _seq_path() -> str:
 
 def _load_seq() -> Dict[str, int]:
     defaults = {"ZW": 0, "ZN": 0, "ZM": 0, "ZZ": 0}
-    if not os.path.exists(_seq_path()):
+    path = _seq_path()
+    if not os.path.exists(path):
         return defaults.copy()
-    with open(_seq_path(), "r", encoding="utf-8") as handle:
-        try:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
-        except json.JSONDecodeError:
-            return defaults.copy()
-    return {key: int(data.get(key, 0)) for key in defaults}
+    except Exception:
+        return defaults.copy()
+    result: Dict[str, int] = {}
+    for key, value in defaults.items():
+        try:
+            result[key] = int(data.get(key, value))
+        except Exception:
+            result[key] = value
+    return result
 
 
 def _save_seq(seq: Dict[str, int]) -> None:
@@ -105,7 +95,12 @@ def next_order_id(kind: str) -> str:
     if kind not in kinds:
         raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
 
-    prefix = kinds[kind].get("prefix", f"{kind}-")
+    kind_cfg = kinds.get(kind) if isinstance(kinds, dict) else None
+    prefix = (
+        kind_cfg.get("prefix", f"{kind}-")
+        if isinstance(kind_cfg, dict)
+        else f"{kind}-"
+    )
     width = _orders_id_width()
 
     seq = _load_seq()
@@ -123,28 +118,71 @@ def statuses_for(kind: str) -> List[str]:
     if not isinstance(kind_cfg, dict):
         return []
     statuses = kind_cfg.get("statuses", [])
-    if not isinstance(statuses, list):
-        return []
-    return statuses or []
+    return statuses if isinstance(statuses, list) else []
 
 
-def is_valid_status(kind: str, status: str) -> bool:
-    return status in statuses_for(kind)
+def _calc_bom(produkt: str | None, ilosc: int | None) -> Dict[str, int]:
+    if not produkt or ilosc is None:
+        return {}
+
+    try:
+        qty = int(ilosc)
+    except (TypeError, ValueError):
+        qty = 0
+
+    if qty <= 0:
+        return {}
+
+    path = os.path.join("data", "produkty", f"{produkt}.json")
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            prod = json.load(handle)
+    except Exception:
+        return {}
+
+    bom = prod.get("bom", {}) or {}
+    if not isinstance(bom, dict):
+        return {}
+
+    result: Dict[str, int] = {}
+    for key, value in bom.items():
+        try:
+            result[str(key)] = int(value) * qty
+        except Exception:
+            continue
+    return result
+
+
+def _ensure_str(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _ensure_int(value: object) -> int | None:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 def create_order_skeleton(
     kind: str,
     autor: str,
     opis: str,
-    powiazania: Dict[str, object] | None = None,
-    ilosc: int | None = None,
+    *,
     produkt: str | None = None,
+    ilosc: int | None = None,
     komentarz: str | None = None,
     pilnosc: str | None = None,
+    narzedzie_id: str | None = None,
+    maszyna_id: str | None = None,
     material: str | None = None,
     dostawca: str | None = None,
     termin: str | None = None,
     nowy: bool = False,
+    powiazania: Dict[str, object] | None = None,
 ) -> Dict[str, object]:
     """Buduje strukturę zlecenia dla podanego rodzaju."""
 
@@ -152,10 +190,16 @@ def create_order_skeleton(
     if kind not in kinds:
         raise ValueError(f"[ERROR][ZLECENIA] Nieznany rodzaj: {kind}")
 
-    powiazania = powiazania or {}
+    if isinstance(powiazania, dict):
+        narzedzie_id = narzedzie_id or _ensure_str(powiazania.get("narzedzie_id"))
+        maszyna_id = maszyna_id or _ensure_str(powiazania.get("maszyna_id"))
+        produkt = produkt or _ensure_str(powiazania.get("produkt"))
+        material = material or _ensure_str(powiazania.get("material"))
+
     order_id = next_order_id(kind)
     ts = datetime.now().isoformat(timespec="seconds")
-    start_status = (statuses_for(kind) or ["nowe"])[0]
+    statuses = statuses_for(kind)
+    start_status = statuses[0] if statuses else "nowe"
 
     data: Dict[str, object] = {
         "id": order_id,
@@ -164,7 +208,6 @@ def create_order_skeleton(
         "utworzono": ts,
         "autor": autor,
         "opis": opis,
-        "powiazania": powiazania,
         "historia": [
             {
                 "ts": ts,
@@ -175,44 +218,85 @@ def create_order_skeleton(
         ],
     }
 
+    komentarz_val = _ensure_str(komentarz)
+    pilnosc_val = _ensure_str(pilnosc)
+
     if kind == "ZW":
-        data["produkt"] = produkt
-        data["ilosc"] = ilosc
-        data["zapotrzebowanie"] = _calc_bom(produkt or "", ilosc or 0)
+        produkt_val = _ensure_str(produkt)
+        ilosc_val = _ensure_int(ilosc)
+        data["produkt"] = produkt_val
+        data["ilosc"] = ilosc_val
+        data["zapotrzebowanie"] = _calc_bom(produkt_val, ilosc_val)
     elif kind == "ZN":
-        data["narzedzie_id"] = powiazania.get("narzedzie_id")
-        data["komentarz"] = komentarz
+        data["narzedzie_id"] = _ensure_str(narzedzie_id)
+        data["komentarz"] = komentarz_val
     elif kind == "ZM":
-        data["maszyna_id"] = powiazania.get("maszyna_id")
-        data["awaria"] = komentarz
-        data["pilnosc"] = pilnosc
+        data["maszyna_id"] = _ensure_str(maszyna_id)
+        data["awaria"] = komentarz_val
+        data["pilnosc"] = pilnosc_val
     elif kind == "ZZ":
-        data["material"] = material
-        data["ilosc"] = ilosc
-        data["dostawca"] = dostawca
-        data["termin"] = termin
+        material_val = _ensure_str(material)
+        ilosc_val = _ensure_int(ilosc)
+        data["material"] = material_val
+        data["ilosc"] = ilosc_val
+        data["dostawca"] = _ensure_str(dostawca)
+        data["termin"] = _ensure_str(termin)
         if nowy:
             data["nowy"] = True
-        draft: Dict[str, object] = {
-            "id": order_id,
-            "material": material,
-            "ilosc": ilosc,
-            "status": "oczekuje",
-            "zrodlo": "zlecenie",
-        }
-        if nowy:
-            draft["nowy"] = True
-        _add_oczekujace(draft)
+        _add_oczekujace(
+            {
+                "id": order_id,
+                "material": material_val,
+                "ilosc": ilosc_val,
+                "status": "oczekuje",
+                "zrodlo": "zlecenie",
+                "nowy": bool(nowy),
+            }
+        )
 
     return data
 
 
 def save_order(data: Dict[str, object]) -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
-    path = os.path.join(DATA_DIR, f"{data['id']}.json")
+    filename = data.get("id", "UNKNOWN")
+    path = os.path.join(DATA_DIR, f"{filename}.json")
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
-    print(f"[WM-DBG][ZLECENIA] Zapisano zlecenie {data['id']}")
+    print(f"[WM-DBG][ZLECENIA] Zapisano zlecenie {data.get('id')}")
+
+
+# --- Zamówienia oczekujące (ZZ) ---
+
+def _zamowienia_oczek_path() -> str:
+    return os.path.join("data", "zamowienia_oczekujace.json")
+
+
+def _load_oczekujace() -> List[Dict[str, object]]:
+    path = _zamowienia_oczek_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _save_oczekujace(data: List[Dict[str, object]]) -> None:
+    path = _zamowienia_oczek_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+
+
+def _add_oczekujace(entry: Dict[str, object]) -> None:
+    if not isinstance(entry, dict):
+        return
+    data = _load_oczekujace()
+    data.append(entry)
+    _save_oczekujace(data)
 
 
 def load_orders() -> List[Dict[str, object]]:
@@ -228,21 +312,6 @@ def load_orders() -> List[Dict[str, object]]:
         except Exception:
             continue
     return results
-
-
-def _calc_bom(produkt: str, ilosc: int) -> Dict[str, int]:
-    if not produkt or not ilosc:
-        return {}
-    path = os.path.join("data", "produkty", f"{produkt}.json")
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            prod = json.load(handle)
-    except Exception:
-        return {}
-    bom = prod.get("bom", {}) or {}
-    return {key: value * ilosc for key, value in bom.items()}
 
 
 # --- Funkcje zachowane dla zgodności wstecznej ---
