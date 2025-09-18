@@ -1,245 +1,310 @@
-# Wersja pliku: 1.1.0
+# Wersja: 1.2.0
 # Plik: gui_maszyny.py
-
-"""Prosty panel zarządzania maszynami.
-
-Założenia:
-- Dane o maszynach przechowywane są w pliku ``maszyny.json``.
-- Każda maszyna ma listę zadań z polami ``data`` (YYYY-MM-DD),
-  ``typ_zadania`` i opcjonalnie ``uwagi``.
-- Panel pokazuje listę maszyn w widoku tabeli z kolumnami:
-  ``nr_ewid``, ``nazwa``, ``typ`` oraz ``następne_zadanie``.
-- Najbliższe zadanie obliczane jest jako najwcześniejsza data w
-  przyszłości. W kolumnie widoczna jest data oraz typ zadania.
-- Przycisk "Szczegóły" otwiera okno dialogowe z pełną listą zadań
-  wybranej maszyny i umożliwia oznaczenie zadania jako wykonane.
-
-Zmiany w wersji 1.1.0:
-- Dodano funkcję ``load_machines`` do wczytywania danych z ``maszyny.json``.
-- Zaimplementowano widok tabeli / Treeview w panelu maszyn.
-- Obliczanie i prezentacja najbliższego zadania dla każdej maszyny.
-- Dodano okno "Szczegóły" z listą zadań i opcją oznaczania jako wykonane.
-"""
+"""Panel zarządzania maszynami wraz z podglądem hali."""
 
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, date
 import tkinter as tk
-from tkinter import ttk, messagebox
-
-from logger import log_akcja
+from tkinter import messagebox, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 
-MACHINES_FILE = os.path.join("data", "maszyny.json")
+try:
+    from widok_hali.renderer import Renderer
+except Exception as exc:  # pragma: no cover - zależy od środowiska
+    Renderer = None
+    print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
+
+DATA_PATH = os.path.join("data", "maszyny.json")
 
 
-def load_machines() -> list[dict]:
-    """Odczytuje i zwraca listę maszyn z pliku ``maszyny.json``.
+class MaszynyGUI:
+    """Prosty panel maszyn współpracujący z rendererem hali."""
 
-    Waliduje istnienie kluczy ``hala``, ``x``, ``y`` oraz ``status``.
-    Jeśli plik nie istnieje lub jest niepoprawny zwracana jest pusta lista.
-    """
+    def __init__(self, root: tk.Misc, side_menu: dict | None = None):
+        """Buduje panel we wskazanym kontenerze ``root``."""
 
-    try:
-        with open(MACHINES_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        log_akcja(f"[GUI_MASZYNY] Brak pliku {MACHINES_FILE}")
-        return []
-    except Exception as e:  # pragma: no cover - defensywne
-        log_akcja(f"[GUI_MASZYNY] Błąd odczytu {MACHINES_FILE}: {e}")
-        return []
+        self.root = root
+        self.side_menu = side_menu or {}
+        self._machines = self._load_machines()
+        self._renderer: Renderer | None = None
 
-    if not isinstance(data, list):
-        log_akcja("[GUI_MASZYNY] Nieprawidłowy format danych maszyn")
-        return []
+        self._mode_var = tk.StringVar(master=self.root, value="view")
+        self._mode_buttons: list[ttk.Radiobutton] = []
 
-    valid: list[dict] = []
-    for m in data:
-        if not isinstance(m, dict):
-            log_akcja("[GUI_MASZYNY] Pominięto rekord – nie jest dict")
-            continue
-        missing = [k for k in ("hala", "x", "y", "status") if k not in m]
-        if missing:
-            log_akcja(
-                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} brak pól {missing}"
-            )
-            continue
-        if not isinstance(m["x"], (int, float)) or not isinstance(
-            m["y"], (int, float)
-        ):
-            log_akcja(
-                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} ma nieprawidłowe "
-                "współrzędne"
-            )
-            continue
-        valid.append(m)
-    return valid
+        self._hide_hale_button_if_present()
+        self._build_ui()
 
-
-def _save_machines(data: list[dict]) -> None:
-    """Zapisuje listę maszyn do pliku danych."""
-
-    valid: list[dict] = []
-    for m in data:
-        if not isinstance(m, dict):
-            log_akcja("[GUI_MASZYNY] Nieprawidłowy rekord przy zapisie")
-            continue
-        missing = [k for k in ("hala", "x", "y", "status") if k not in m]
-        if missing:
-            log_akcja(
-                f"[GUI_MASZYNY] Maszyna {m.get('nr_ewid')} brak pól {missing}"
-            )
-            continue
-        valid.append(m)
-
-    try:
-        with open(MACHINES_FILE, "w", encoding="utf-8") as f:
-            json.dump(valid, f, indent=2, ensure_ascii=False)
-    except Exception as e:  # pragma: no cover - defensywne
-        log_akcja(f"[GUI_MASZYNY] Błąd zapisu {MACHINES_FILE}: {e}")
-
-
-def _next_task_str(maszyna: dict) -> str:
-    """Zwraca opis najbliższego zadania (data + typ) lub pusty string."""
-
-    today = date.today()
-    best_date: date | None = None
-    best_task: dict | None = None
-    for task in maszyna.get("zadania", []):
+    # ---------- dane ----------
+    def _load_machines(self) -> list[dict]:
         try:
-            d = datetime.strptime(task.get("data", ""), "%Y-%m-%d").date()
+            with open(DATA_PATH, "r", encoding="utf-8") as file:
+                data = json.load(file)
+                if isinstance(data, list):
+                    return data
+        except Exception as exc:  # pragma: no cover - operacje IO
+            print(f"[WARN][Maszyny] Nie wczytano {DATA_PATH}: {exc}")
+        return []
+
+    def _save_position(self, machine_id: str, x: int, y: int) -> None:
+        """Zapis wyłącznie współrzędnych maszyny do pliku danych."""
+
+        try:
+            data = self._machines[:]
+            for machine in data:
+                mid = str(machine.get("id") or machine.get("nr_ewid"))
+                if mid == str(machine_id):
+                    machine.setdefault("pozycja", {})
+                    machine["pozycja"]["x"] = int(x)
+                    machine["pozycja"]["y"] = int(y)
+                    break
+            with open(DATA_PATH, "w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=2)
+            self._machines = data
+            print(
+                f"[WM][Maszyny] Zapisano pozycję maszyny {machine_id} -> ({x},{y})"
+            )
+        except Exception as exc:  # pragma: no cover - operacje IO
+            print(f"[ERROR][Maszyny] Zapis pozycji nieudany: {exc}")
+
+    # ---------- UI ----------
+    def _bg_color(self, widget: tk.Misc, default: str = "#111") -> str:
+        try:
+            return widget.cget("bg")
         except Exception:
-            continue
-        if d >= today and (best_date is None or d < best_date):
-            best_date = d
-            best_task = task
-    if best_date and best_task:
-        typ = best_task.get("typ_zadania", "")
-        return f"{best_date.isoformat()} {typ}".strip()
-    return ""
+            return default
+
+    def _hide_hale_button_if_present(self) -> None:
+        """Bezpiecznie ukrywa przycisk "Hale" jeżeli jest dostępny."""
+
+        try:
+            hale_btn = None
+            if isinstance(self.side_menu, dict):
+                hale_btn = self.side_menu.get("Hale")
+            if not hale_btn and hasattr(self.root, "btn_hale"):
+                hale_btn = getattr(self.root, "btn_hale")
+            if hale_btn:
+                try:
+                    hale_btn.pack_forget()
+                except Exception:
+                    if hasattr(hale_btn, "grid_remove"):
+                        hale_btn.grid_remove()
+                print("[WM][Maszyny] Ukryto przycisk 'Hale' w menu bocznym")
+        except Exception as exc:  # pragma: no cover - defensywne
+            print(f"[WARN][Maszyny] Nie udało się ukryć 'Hale': {exc}")
+
+    def _build_ui(self) -> None:
+        main = tk.Frame(self.root, bg=self._bg_color(self.root))
+        main.pack(fill="both", expand=True)
+
+        left = tk.Frame(main, bg=self._bg_color(main))
+        left.pack(side="left", fill="both", expand=True)
+
+        tk.Label(left, text="Panel maszyn", anchor="w").pack(
+            fill="x", padx=12, pady=(10, 6)
+        )
+
+        self.tree = ttk.Treeview(
+            left,
+            columns=("id", "nazwa", "typ", "nastepne"),
+            show="headings",
+            height=16,
+        )
+        self.tree.heading("id", text="nr_ewid")
+        self.tree.heading("nazwa", text="nazwa")
+        self.tree.heading("typ", text="typ")
+        self.tree.heading("nastepne", text="nastepne_zadanie")
+        self.tree.column("id", width=90, anchor="center")
+        self.tree.column("nazwa", width=260, anchor="w")
+        self.tree.column("typ", width=140, anchor="w")
+        self.tree.column("nastepne", width=160, anchor="center")
+        self.tree.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+        btns = tk.Frame(left, bg=self._bg_color(left))
+        btns.pack(fill="x", padx=12, pady=(0, 10))
+        ttk.Button(
+            btns, text="Szczegóły", command=self._open_details_for_selected
+        ).pack(side="left")
+        ttk.Button(btns, text="Odśwież", command=self._refresh_all).pack(
+            side="left", padx=(8, 0)
+        )
+
+        self._reload_tree()
+
+        right = tk.Frame(main, width=460, bg=self._bg_color(main))
+        right.pack(side="right", fill="y")
+        right.pack_propagate(False)
+
+        hdr = tk.Frame(right, bg=self._bg_color(right))
+        hdr.pack(fill="x", padx=8, pady=(10, 6))
+        tk.Label(hdr, text="Hala (podgląd/edycja)", anchor="w").pack(side="left")
+
+        for text, value in (("Widok", "view"), ("Edycja", "edit")):
+            btn = ttk.Radiobutton(
+                hdr,
+                text=text,
+                variable=self._mode_var,
+                value=value,
+                command=lambda m=value: self._set_hala_mode(m),
+            )
+            btn.pack(side="right", padx=4)
+            self._mode_buttons.append(btn)
+
+        self._canvas = tk.Canvas(
+            right,
+            width=440,
+            height=360,
+            bg="#0f172a",
+            highlightthickness=1,
+            highlightbackground="#334155",
+        )
+        self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
+
+        if Renderer is None:
+            tk.Label(
+                self._canvas,
+                text="Brak modułu widok_hali/renderer.py",
+                fg="#fca5a5",
+                bg="#0f172a",
+            ).place(x=20, y=20)
+            for btn in self._mode_buttons:
+                btn.configure(state="disabled")
+            return
+
+        try:
+            self._renderer = Renderer(self.root, self._canvas, self._machines)
+        except Exception as exc:  # pragma: no cover - zależy od środowiska
+            print(f"[ERROR][Maszyny] Nie można zainicjalizować Renderer: {exc}")
+            tk.Label(
+                self._canvas,
+                text="Błąd inicjalizacji renderer'a hali",
+                fg="#fca5a5",
+                bg="#0f172a",
+            ).place(x=20, y=20)
+            for btn in self._mode_buttons:
+                btn.configure(state="disabled")
+            self._renderer = None
+            return
+
+        self._renderer.on_select = self._on_hala_select
+        self._renderer.on_move = self._on_hala_move
+
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        self._set_hala_mode("view")
+
+    # ---------- akcje tabeli ----------
+    def _reload_tree(self) -> None:
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
+        for machine in self._machines:
+            mid = machine.get("id") or machine.get("nr_ewid") or ""
+            nazwa = machine.get("nazwa") or machine.get("name") or ""
+            typ = machine.get("typ") or ""
+            nastepne = (
+                machine.get("nastepne_zadanie")
+                or machine.get("nastepne")
+                or ""
+            )
+            self.tree.insert(
+                "",
+                "end",
+                values=(mid, nazwa, typ, nastepne or ""),
+            )
+
+    def _selected_mid(self) -> str | None:
+        sel = self.tree.selection()
+        if not sel:
+            return None
+        values = self.tree.item(sel[0], "values")
+        return str(values[0]) if values else None
+
+    def _open_details_for_selected(self) -> None:
+        mid = self._selected_mid()
+        if not mid:
+            messagebox.showinfo("Maszyny", "Wybierz wiersz w tabeli.")
+            return
+        if not self._renderer:
+            messagebox.showwarning(
+                "Maszyny",
+                (
+                    "Brak dostępnego widoku hali – sprawdź moduł "
+                    "widok_hali/renderer.py."
+                ),
+            )
+            return
+        try:
+            self._renderer._open_details(mid)  # noqa: SLF001 - świadomie
+        except Exception as exc:  # pragma: no cover - zależy od GUI
+            messagebox.showerror("Maszyny", f"Nie można otworzyć opisu: {exc}")
+
+    def _refresh_all(self) -> None:
+        self._machines = self._load_machines()
+        self._reload_tree()
+        if self._renderer:
+            self._renderer.reload(self._machines)
+
+    # ---------- integracja: tabela ↔ hala ----------
+    def _on_tree_select(self, event=None) -> None:  # noqa: ARG002 - sygnatura Tk
+        mid = self._selected_mid()
+        if not mid or not self._renderer:
+            return
+        try:
+            if hasattr(self._renderer, "focus_machine"):
+                self._renderer.focus_machine(str(mid))
+        except Exception:  # pragma: no cover - zależy od renderer'a
+            pass
+
+    def _on_hala_select(self, machine_id: str) -> None:
+        mid = str(machine_id)
+        for iid in self.tree.get_children():
+            values = self.tree.item(iid, "values")
+            if values and str(values[0]) == mid:
+                self.tree.selection_set(iid)
+                self.tree.see(iid)
+                break
+
+    def _on_hala_move(self, machine_id: str, new_pos: dict) -> None:
+        x = int(new_pos.get("x", 0))
+        y = int(new_pos.get("y", 0))
+        self._save_position(machine_id, x, y)
+
+    def _set_hala_mode(self, mode: str) -> None:
+        if not self._renderer:
+            self._mode_var.set("view")
+            return
+        on = mode == "edit"
+        self._mode_var.set("edit" if on else "view")
+        if hasattr(self._renderer, "set_edit_mode"):
+            self._renderer.set_edit_mode(on)
+        print(f"[WM][Maszyny] Tryb hali: {'Edycja' if on else 'Widok'}")
 
 
-def panel_maszyny(root, frame, login=None, rola=None):
-    """Buduje panel maszyn w przekazanym kontenerze ``frame``."""
+def panel_maszyny(root, frame, login=None, rola=None):  # noqa: D401 - API historyczne
+    """Kompatybilna funkcja budująca panel maszyn w ``frame``."""
+
     clear_frame(frame)
     apply_theme(root)
     apply_theme(frame)
-
-    ttk.Label(
-        frame,
-        text="🛠️ Panel maszyn",
-        style="WM.H1.TLabel",
-    ).pack(pady=20, fill="x")
-
-    columns = ("nr_ewid", "nazwa", "typ", "nastepne_zadanie")
-    tree = ttk.Treeview(
-        frame, columns=columns, show="headings", height=15, style="WM.Treeview"
-    )
-    headings = {
-        "nr_ewid": "nr_ewid",
-        "nazwa": "nazwa",
-        "typ": "typ",
-        "nastepne_zadanie": "następne_zadanie",
-    }
-    for col in columns:
-        tree.heading(col, text=headings[col])
-        tree.column(col, width=150, anchor="center")
-    tree.pack(fill="both", expand=True, padx=10, pady=10)
-
-    halls_frame = ttk.Frame(frame)
-    halls_frame.pack(fill="x", padx=10, pady=(0, 10))
-    ttk.Label(halls_frame, text="Hale:", style="WM.H2.TLabel").pack(anchor="w")
-    halls_var = tk.StringVar()
-    ttk.Label(
-        halls_frame, textvariable=halls_var, style="WM.Muted.TLabel"
-    ).pack(anchor="w")
-
-    maszyny: list[dict] = []
-    maszyny_map: dict[str, dict] = {}
-
-    def _populate_halls() -> None:
-        halls = sorted({str(m.get("hala", "")) for m in maszyny if m.get("hala")})
-        halls_var.set(", ".join(halls) if halls else "—")
-
-    def _refresh() -> None:
-        nonlocal maszyny, maszyny_map
-        maszyny = load_machines()
-        maszyny_map = {str(m.get("nr_ewid")): m for m in maszyny}
-        tree.delete(*tree.get_children())
-        for m in maszyny:
-            iid = str(m.get("nr_ewid"))
-            tree.insert(
-                "",
-                "end",
-                iid=iid,
-                values=(
-                    m.get("nr_ewid", ""),
-                    m.get("nazwa", ""),
-                    m.get("typ", ""),
-                    _next_task_str(m),
-                ),
-            )
-        _populate_halls()
-
-    _refresh()
-
-    def _open_details():
-        sel = tree.selection()
-        if not sel:
-            messagebox.showinfo("Brak wyboru", "Wybierz maszynę z listy")
-            return
-        key = sel[0]
-        maszyna = maszyny_map.get(key)
-        if not maszyna:
-            return
-
-        win = tk.Toplevel(root)
-        win.title(f"Zadania – {maszyna.get('nazwa', '')}")
-        apply_theme(win)
-
-        cols = ("data", "typ_zadania", "uwagi")
-        tv = ttk.Treeview(
-            win, columns=cols, show="headings", height=10, style="WM.Treeview"
-        )
-        for c in cols:
-            tv.heading(c, text=c)
-            tv.column(c, width=120, anchor="center")
-        tv.pack(fill="both", expand=True, padx=10, pady=10)
-
-        def _refresh_tasks():
-            tv.delete(*tv.get_children())
-            for i, t in enumerate(maszyna.get("zadania", [])):
-                tv.insert("", "end", iid=str(i), values=(t.get("data", ""), t.get("typ_zadania", ""), t.get("uwagi", "")))
-
-        def _mark_done():
-            sel_task = tv.selection()
-            if not sel_task:
-                return
-            idx = int(sel_task[0])
-            if 0 <= idx < len(maszyna.get("zadania", [])):
-                del maszyna["zadania"][idx]
-                _save_machines(maszyny)
-                _refresh_tasks()
-                tree.set(key, "nastepne_zadanie", _next_task_str(maszyna))
-                _populate_halls()
-
-        btn = ttk.Button(win, text="Oznacz jako wykonane", command=_mark_done)
-        btn.pack(pady=(0, 10))
-
-        _refresh_tasks()
-
-    btn_bar = ttk.Frame(frame)
-    btn_bar.pack(pady=10)
-    ttk.Button(btn_bar, text="Szczegóły", command=_open_details).pack(
-        side="left", padx=5
-    )
-    ttk.Button(btn_bar, text="Odśwież", command=_refresh).pack(side="left", padx=5)
+    gui = MaszynyGUI(frame)
+    frame._maszyny_gui = gui  # type: ignore[attr-defined]
+    return gui
 
 
-# Koniec pliku
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Warsztat Menager — Maszyny")
 
+    side = tk.Frame(root)
+    side.pack(side="left", fill="y")
+    btn_hale = tk.Button(side, text="Hale")
+    btn_hale.pack()
+    root.btn_hale = btn_hale  # type: ignore[attr-defined]
+
+    content = tk.Frame(root)
+    content.pack(side="right", fill="both", expand=True)
+
+    app = MaszynyGUI(content, side_menu={"Hale": btn_hale})
+    root.mainloop()
