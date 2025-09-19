@@ -186,7 +186,8 @@
           "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
           "sections": []
         }
-      ]
+      ],
+      "sections": []
     },
     {
       "id": "profile",
@@ -223,7 +224,8 @@
           "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
           "sections": []
         }
-      ]
+      ],
+      "sections": []
     },
     {
       "id": "zlecenia",
@@ -244,7 +246,8 @@
           "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
           "sections": []
         }
-      ]
+      ],
+      "sections": []
     },
     {
       "id": "magazyn",
@@ -265,7 +268,8 @@
           "description": "Struktury produktów oraz powiązania półproduktów/części.",
           "sections": []
         }
-      ]
+      ],
+      "sections": []
     },
     {
       "id": "orders",
