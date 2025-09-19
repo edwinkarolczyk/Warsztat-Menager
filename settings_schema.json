@@ -159,142 +159,142 @@
     "required": ["id_width", "types"]
   },
   "tabs": [
-    {
-      "id": "system",
-      "title": "System",
-      "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
-      "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
-      "icon": "settings",
-      "sections": []
-    },
-    {
-      "id": "uzytkownicy",
-      "title": "Użytkownicy",
-      "description": "Role i uprawnienia użytkowników. (Edycja listy w subzakładce).",
-      "tooltip": "Konfiguruj dostęp do modułów i status kont.",
-      "icon": "users",
-      "subtabs": [
-        {
-          "id": "uprawnienia",
-          "title": "Uprawnienia",
-          "description": "Konfiguracja ról i dostępu do modułów.",
-          "sections": []
-        },
-        {
-          "id": "zarzadzanie_lista",
-          "title": "Zarządzanie (lista)",
-          "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
-          "sections": []
-        }
-      ],
-      "sections": []
-    },
-    {
-      "id": "profile",
-      "title": "Profile",
-      "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
-      "tooltip": "Podgląd podstawowych danych aktualnego użytkownika.",
-      "icon": "id-card",
-      "sections": []
-    },
-    {
-      "id": "hala",
-      "title": "Hala",
-      "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
-      "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
-      "icon": "layout",
-      "sections": []
-    },
-    {
-      "id": "narzedzia",
-      "title": "Narzędzia",
-      "description": "Konfiguracja typów, statusów i zadań. Nowe NN (001–499) w diagramach zaznaczamy na żółto.",
-      "tooltip": "Definiuj typy/statusy i reguły zachowania w module Narzędzia.",
-      "icon": "wrench",
-      "subtabs": [
-        {
-          "id": "typy_statusy",
-          "title": "Typy i statusy",
-          "description": "Definicje typów narzędzi, statusów i list zadań w statusach.",
-          "sections": []
-        },
-        {
-          "id": "reguly",
-          "title": "Reguły",
-          "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
-          "sections": []
-        }
-      ],
-      "sections": []
-    },
-    {
-      "id": "zlecenia",
-      "title": "Zlecenia",
-      "description": "Ustawienia modułu zleceń: statusy, kreator (osobne okno, ciemny motyw).",
-      "tooltip": "Statusy są wybierane z listy (Combobox) podczas edycji zlecenia.",
-      "icon": "clipboard-list",
-      "subtabs": [
-        {
-          "id": "statusy",
-          "title": "Statusy",
-          "description": "Predefiniowane statusy zleceń (dwuklik w edycji otwiera listę wyboru).",
-          "sections": []
-        },
-        {
-          "id": "kreator",
-          "title": "Kreator",
-          "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
-          "sections": []
-        }
-      ],
-      "sections": []
-    },
-    {
-      "id": "magazyn",
-      "title": "Magazyn",
-      "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
-      "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w katalogu data/produkty/.",
-      "icon": "boxes",
-      "subtabs": [
-        {
-          "id": "ustawienia_magazynu",
-          "title": "Ustawienia magazynu",
-          "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
-          "sections": []
-        },
-        {
-          "id": "produkty_bom",
-          "title": "Produkty (BOM)",
-          "description": "Struktury produktów oraz powiązania półproduktów/części.",
-          "sections": []
-        }
-      ],
-      "sections": []
-    },
-    {
-      "id": "zamowienia",
-      "title": "Zamówienia",
-      "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
-      "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
-      "icon": "shopping-cart",
-      "sections": []
-    },
-    {
-      "id": "aktualizacje",
-      "title": "Aktualizacje & Kopie",
-      "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
-      "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
-      "icon": "history",
-      "sections": []
-    },
-    {
-      "id": "tests",
-      "title": "[DEV] Testy",
-      "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
-      "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
-      "devOnly": true,
-      "icon": "beaker",
-      "sections": []
-    }
-  ]
+  {
+    "id": "system",
+    "title": "System",
+    "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
+    "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
+    "icon": "settings",
+    "sections": []
+  },
+  {
+    "id": "uzytkownicy",
+    "title": "Użytkownicy",
+    "description": "Role i uprawnienia użytkowników. (Edycja listy w subzakładce).",
+    "tooltip": "Konfiguruj dostęp do modułów i status kont.",
+    "icon": "users",
+    "subtabs": [
+      {
+        "id": "uprawnienia",
+        "title": "Uprawnienia",
+        "description": "Konfiguracja ról i dostępu do modułów.",
+        "sections": []
+      },
+      {
+        "id": "zarzadzanie_lista",
+        "title": "Zarządzanie (lista)",
+        "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
+        "sections": []
+      }
+    ],
+    "sections": []
+  },
+  {
+    "id": "profile",
+    "title": "Profile",
+    "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
+    "tooltip": "Podgląd podstawowych danych aktualnego użytkownika.",
+    "icon": "id-card",
+    "sections": []
+  },
+  {
+    "id": "hala",
+    "title": "Hala",
+    "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
+    "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
+    "icon": "layout",
+    "sections": []
+  },
+  {
+    "id": "narzedzia",
+    "title": "Narzędzia",
+    "description": "Konfiguracja typów, statusów i zadań. Nowe NN (001–499) w diagramach zaznaczamy na żółto.",
+    "tooltip": "Definiuj typy/statusy i reguły zachowania w module Narzędzia.",
+    "icon": "wrench",
+    "subtabs": [
+      {
+        "id": "typy_statusy",
+        "title": "Typy i statusy",
+        "description": "Definicje typów narzędzi, statusów i list zadań w statusach.",
+        "sections": []
+      },
+      {
+        "id": "reguly",
+        "title": "Reguły",
+        "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
+        "sections": []
+      }
+    ],
+    "sections": []
+  },
+  {
+    "id": "zlecenia",
+    "title": "Zlecenia",
+    "description": "Ustawienia modułu zleceń: statusy, kreator (osobne okno, ciemny motyw).",
+    "tooltip": "Statusy są wybierane z listy (Combobox) podczas edycji zlecenia.",
+    "icon": "clipboard-list",
+    "subtabs": [
+      {
+        "id": "statusy",
+        "title": "Statusy",
+        "description": "Predefiniowane statusy zleceń (dwuklik w edycji otwiera listę wyboru).",
+        "sections": []
+      },
+      {
+        "id": "kreator",
+        "title": "Kreator",
+        "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
+        "sections": []
+      }
+    ],
+    "sections": []
+  },
+  {
+    "id": "magazyn",
+    "title": "Magazyn",
+    "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
+    "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w katalogu data/produkty/.",
+    "icon": "boxes",
+    "subtabs": [
+      {
+        "id": "ustawienia_magazynu",
+        "title": "Ustawienia magazynu",
+        "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
+        "sections": []
+      },
+      {
+        "id": "produkty_bom",
+        "title": "Produkty (BOM)",
+        "description": "Struktury produktów oraz powiązania półproduktów/części.",
+        "sections": []
+      }
+    ],
+    "sections": []
+  },
+  {
+    "id": "zamowienia",
+    "title": "Zamówienia",
+    "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
+    "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
+    "icon": "shopping-cart",
+    "sections": []
+  },
+  {
+    "id": "aktualizacje",
+    "title": "Aktualizacje & Kopie",
+    "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
+    "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
+    "icon": "history",
+    "sections": []
+  },
+  {
+    "id": "tests",
+    "title": "[DEV] Testy",
+    "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
+    "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
+    "devOnly": true,
+    "icon": "beaker",
+    "sections": []
+  }
+]
 }
