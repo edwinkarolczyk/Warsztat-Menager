@@ -160,7 +160,7 @@
   },
   "tabs": [
     {
-      "id": "ui",
+      "id": "system",
       "title": "System",
       "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
       "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
@@ -201,7 +201,7 @@
       "id": "hala",
       "title": "Hala",
       "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
-      "tooltip": "Pozycje maszyn zapisywane są do pliku `maszyny.json`.",
+      "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
       "icon": "layout",
       "sections": []
     },
@@ -253,7 +253,7 @@
       "id": "magazyn",
       "title": "Magazyn",
       "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
-      "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w `data/produkty/`.",
+      "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w katalogu data/produkty/.",
       "icon": "boxes",
       "subtabs": [
         {
@@ -272,7 +272,7 @@
       "sections": []
     },
     {
-      "id": "orders",
+      "id": "zamowienia",
       "title": "Zamówienia",
       "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
       "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
@@ -280,7 +280,7 @@
       "sections": []
     },
     {
-      "id": "update",
+      "id": "aktualizacje",
       "title": "Aktualizacje & Kopie",
       "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
       "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
