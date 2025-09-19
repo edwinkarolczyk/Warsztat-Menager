@@ -20,7 +20,8 @@ except Exception as exc:  # pragma: no cover - zależne od środowiska
     Renderer = None
     print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
 
-DATA_PATH = os.path.join("data", "maszyny.json")
+PRIMARY_DATA = os.path.join("data", "maszyny.json")
+LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 
 
 class MaszynyGUI:
@@ -29,6 +30,7 @@ class MaszynyGUI:
     def __init__(self, root: tk.Tk, side_menu: dict | None = None):
         self.root = root
         self.side_menu = side_menu or {}
+        self._source = "primary"
         self._machines = self._load_machines()
         self._renderer: Renderer | None = None
         self._mode_var = tk.StringVar(value="view")
@@ -37,14 +39,32 @@ class MaszynyGUI:
         self._build_ui()
 
     # ----- dane -----
-    def _load_machines(self) -> list[dict]:
+    def _load_json_file(self, path: str) -> list[dict]:
         try:
-            with open(DATA_PATH, "r", encoding="utf-8") as source:
+            with open(path, "r", encoding="utf-8") as source:
                 data = json.load(source)
-                return data if isinstance(data, list) else []
-        except Exception as exc:  # pragma: no cover - IO
-            print(f"[WARN][Maszyny] Nie wczytano {DATA_PATH}: {exc}")
+            return data if isinstance(data, list) else []
+        except Exception:
             return []
+
+    def _load_machines(self) -> list[dict]:
+        data = self._load_json_file(PRIMARY_DATA)
+        if data:
+            self._source = "primary"
+            return data
+
+        legacy = self._load_json_file(LEGACY_DATA)
+        if legacy:
+            print(
+                "[WM][Maszyny] Załadowano z legacy: data/maszyny/maszyny.json "
+                "(zostanie zmigrowane przy zapisie)"
+            )
+            self._source = "legacy"
+            return legacy
+
+        print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
+        self._source = "primary"
+        return []
 
     def _save_position(self, machine_id: str, x: int, y: int) -> None:
         try:
@@ -56,9 +76,13 @@ class MaszynyGUI:
                     machine["pozycja"]["x"] = int(x)
                     machine["pozycja"]["y"] = int(y)
                     break
-            with open(DATA_PATH, "w", encoding="utf-8") as target:
+            os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
+            with open(PRIMARY_DATA, "w", encoding="utf-8") as target:
                 json.dump(data, target, ensure_ascii=False, indent=2)
             self._machines = data
+            if self._source == "legacy":
+                print("[WM][Maszyny] MIGRACJA: zapisano do data/maszyny.json (primary).")
+                self._source = "primary"
             print(f"[WM][Maszyny] Zapisano pozycję {machine_id} -> ({x},{y})")
         except Exception as exc:  # pragma: no cover - IO
             print(f"[ERROR][Maszyny] Zapis pozycji nieudany: {exc}")
