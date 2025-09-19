@@ -288,6 +288,7 @@
       "title": "[DEV] Testy",
       "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
       "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
+      "devOnly": true,
       "icon": "beaker",
       "sections": []
     }
