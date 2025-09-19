@@ -47,42 +47,112 @@ class MaszynyGUI:
         except Exception:
             return []
 
-    def _load_machines(self) -> list[dict]:
-        data = self._load_json_file(PRIMARY_DATA)
-        if data:
-            self._source = "primary"
-            return data
+    def _index_by_id(self, rows: list[dict]) -> dict[str, dict]:
+        result: dict[str, dict] = {}
+        for row in rows or []:
+            machine_id = str(row.get("id") or row.get("nr_ewid") or "").strip()
+            if not machine_id:
+                continue
+            result[machine_id] = row
+        return result
 
+    def _merge_unique(
+        self, primary_rows: list[dict], legacy_rows: list[dict]
+    ) -> list[dict]:
+        primary_index = self._index_by_id(primary_rows)
+        legacy_index = self._index_by_id(legacy_rows)
+        for machine_id, row in legacy_index.items():
+            if machine_id not in primary_index:
+                primary_index[machine_id] = row
+        keys = sorted(primary_index, key=lambda value: (len(value), value))
+        return [primary_index[machine_id] for machine_id in keys]
+
+    def _load_machines(self) -> list[dict]:
+        primary = self._load_json_file(PRIMARY_DATA)
         legacy = self._load_json_file(LEGACY_DATA)
-        if legacy:
+
+        count_primary, count_legacy = len(primary), len(legacy)
+
+        if count_primary == 0 and count_legacy == 0:
+            print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
+            self._source = "primary"
+            return []
+
+        if count_primary == 0 and count_legacy > 0:
+            print("[WM][Maszyny] Załadowano z LEGACY")
+            self._source = "legacy"
+            return legacy
+
+        if count_primary > 0 and count_legacy == 0:
+            print("[WM][Maszyny] Załadowano z PRIMARY")
+            self._source = "primary"
+            return primary
+
+        if count_legacy > count_primary:
             print(
-                "[WM][Maszyny] Załadowano z legacy: data/maszyny/maszyny.json "
-                "(zostanie zmigrowane przy zapisie)"
+                "[WM][Maszyny] Oba pliki istnieją. WYBRANO LEGACY "
+                f"({count_legacy}>{count_primary})."
             )
             self._source = "legacy"
             return legacy
 
-        print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
+        print(
+            "[WM][Maszyny] Oba pliki istnieją. WYBRANO PRIMARY "
+            f"({count_primary}>={count_legacy})."
+        )
         self._source = "primary"
-        return []
+        return primary
 
     def _save_position(self, machine_id: str, x: int, y: int) -> None:
         try:
-            data = self._machines[:]
-            for machine in data:
+            current = self._machines[:]
+            disk_primary = self._load_json_file(PRIMARY_DATA)
+            disk_legacy = self._load_json_file(LEGACY_DATA)
+
+            if disk_primary and disk_legacy:
+                current = self._merge_unique(disk_primary, disk_legacy)
+                print(
+                    "[WM][Maszyny] SCALENIE: primary + legacy → zapis do primary."
+                )
+
+            machine_key = str(machine_id)
+            updated = False
+            for machine in current:
                 mid = str(machine.get("id") or machine.get("nr_ewid"))
-                if mid == str(machine_id):
+                if mid == machine_key:
                     machine.setdefault("pozycja", {})
                     machine["pozycja"]["x"] = int(x)
                     machine["pozycja"]["y"] = int(y)
+                    updated = True
                     break
+
+            if not updated:
+                source_index = self._index_by_id(
+                    disk_primary if self._source == "primary" else disk_legacy
+                )
+                row = source_index.get(
+                    machine_key, {"id": machine_key, "nazwa": machine_key, "hala": 1}
+                )
+                row = dict(row)
+                row.setdefault("pozycja", {})
+                row["pozycja"]["x"] = int(x)
+                row["pozycja"]["y"] = int(y)
+                current.append(row)
+                print(f"[WM][Maszyny] Dodano brakujący wpis {machine_key} przed zapisem.")
+
+            merged = self._merge_unique(current, [])
             os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
             with open(PRIMARY_DATA, "w", encoding="utf-8") as target:
-                json.dump(data, target, ensure_ascii=False, indent=2)
-            self._machines = data
-            if self._source == "legacy":
-                print("[WM][Maszyny] MIGRACJA: zapisano do data/maszyny.json (primary).")
+                json.dump(merged, target, ensure_ascii=False, indent=2)
+
+            self._machines = merged
+            if self._source != "primary":
+                print(
+                    "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
+                    "data/maszyny.json."
+                )
                 self._source = "primary"
+
             print(f"[WM][Maszyny] Zapisano pozycję {machine_id} -> ({x},{y})")
         except Exception as exc:  # pragma: no cover - IO
             print(f"[ERROR][Maszyny] Zapis pozycji nieudany: {exc}")
