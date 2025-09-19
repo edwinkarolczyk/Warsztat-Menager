@@ -1,0 +1,73 @@
+{
+  "plik": "data/maszyny/maszyny.json",
+  "wersja_pliku": "1.0.0",
+  "wygenerowano": "2025-09-19 13:17:08",
+  "liczba_maszyn": 3,
+  "opis": "Startowy zbiór maszyn z harmonogramem 2025 (format uproszczony WM).",
+  "maszyny": [
+    {
+      "id": "1",
+      "nazwa": "Strugarka wzdłużna",
+      "typ": "42",
+      "hala": 1,
+      "pozycja": {
+        "x": 100,
+        "y": 100
+      },
+      "rozmiar": {
+        "w": 100,
+        "h": 60
+      },
+      "status": "sprawna",
+      "nastepne_zadanie": null,
+      "przeglady": [
+        "sty.25",
+        "mar.25",
+        "maj.25",
+        "wrz.25"
+      ]
+    },
+    {
+      "id": "2",
+      "nazwa": "Tokarka uniwersalna",
+      "typ": "43",
+      "hala": 1,
+      "pozycja": {
+        "x": 250,
+        "y": 100
+      },
+      "rozmiar": {
+        "w": 100,
+        "h": 60
+      },
+      "status": "sprawna",
+      "nastepne_zadanie": null,
+      "przeglady": [
+        "cze.25",
+        "sie.25",
+        "lis.25"
+      ]
+    },
+    {
+      "id": "3",
+      "nazwa": "Frezarka narzędziowa",
+      "typ": "M-1",
+      "hala": 2,
+      "pozycja": {
+        "x": 100,
+        "y": 100
+      },
+      "rozmiar": {
+        "w": 100,
+        "h": 60
+      },
+      "status": "sprawna",
+      "nastepne_zadanie": null,
+      "przeglady": [
+        "lut.25",
+        "sie.25",
+        "paź.25"
+      ]
+    }
+  ]
+}
