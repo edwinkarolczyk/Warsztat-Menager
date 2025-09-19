@@ -371,16 +371,6 @@ Plików .py: 38
 - **INFO** [GUI] presence_watcher.py:148 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
 - **INFO** [GUI] presence_watcher.py:170 – Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu
 - **WARN** [HEADER] profile_utils.py – Brak nagłówka # Wersja: ...
-- **WARN** [HEADER] profiles_settings_injector.py – Brak nagłówka # Plik: ...
-- **INFO** [GUI] profiles_settings_injector.py:91 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:92 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:93 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:95 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:96 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:97 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:105 – Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu
-- **INFO** [GUI] profiles_settings_injector.py:142 – Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu
-- **INFO** [GUI] profiles_settings_injector.py:143 – Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu
 - **WARN** [HEADER] start.py – Brak nagłówka # Plik: ...
 - **WARN** [HEADER] start.py – Brak nagłówka # Wersja: ...
 - **INFO** [GUI] start.py:135 – Wywołanie mainloop() – upewnij się, że tylko jeden raz w całej aplikacji
@@ -736,14 +726,6 @@ Plików .py: 38
 - Składnia: OK
 - Importy: json, os
 - Definicje: _load_json, _save_json, ensure_user_fields, find_user_by_pin, get_tasks_for, read_users, write_users
-
-### profiles_settings_injector.py
-- Nagłówek # Plik: BRAK
-- Nagłówek # Wersja: OK
-- Deklarowana wersja: 0.3 — szerokie wykrywanie Ustawień, logi, skrót Ctrl+Alt+U
-- Składnia: OK
-- Importy: tkinter
-- Definicje: _apply, _attach_tab, _candidate_score, _cfg_get, _cfg_set, _find_candidate_notebooks, _get_title, _iter_all_windows, _nb_has_settings_like_tabs, force_attach_to_focused, start, tick
 
 ### start.py
 - Nagłówek # Plik: BRAK

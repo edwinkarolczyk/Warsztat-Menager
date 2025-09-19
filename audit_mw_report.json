@@ -2467,76 +2467,6 @@
       "line": null
     },
     {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "WARN",
-      "kind": "HEADER",
-      "message": "Brak nagłówka # Plik: ...",
-      "line": null
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 91
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 92
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 93
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 95
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 96
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 97
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Mieszanie pack/grid/place w tym samym kontenerze może powodować błędy layoutu",
-      "line": 105
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
-      "line": 142
-    },
-    {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "severity": "INFO",
-      "kind": "GUI",
-      "message": "Użycie .after(...) – sprawdź, czy nie gubi referencji i czy czyszczone przy zamykaniu",
-      "line": 143
-    },
-    {
       "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py",
       "severity": "WARN",
       "kind": "HEADER",
@@ -4309,31 +4239,6 @@
       "imports": [
         "json",
         "os"
-      ]
-    },
-    "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py": {
-      "file": "C:\\Users\\Edwin\\Desktop\\Nowy folder\\profiles_settings_injector.py",
-      "has_header_file": false,
-      "has_header_ver": true,
-      "declared_name": null,
-      "declared_ver": "0.3 — szerokie wykrywanie Ustawień, logi, skrót Ctrl+Alt+U",
-      "syntax_ok": true,
-      "defs": [
-        "_apply",
-        "_attach_tab",
-        "_candidate_score",
-        "_cfg_get",
-        "_cfg_set",
-        "_find_candidate_notebooks",
-        "_get_title",
-        "_iter_all_windows",
-        "_nb_has_settings_like_tabs",
-        "force_attach_to_focused",
-        "start",
-        "tick"
-      ],
-      "imports": [
-        "tkinter"
       ]
     },
     "C:\\Users\\Edwin\\Desktop\\Nowy folder\\start.py": {
