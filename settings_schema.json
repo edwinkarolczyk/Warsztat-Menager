@@ -162,443 +162,124 @@
     {
       "id": "ui",
       "title": "System",
-      "groups": [
-        {
-          "key": "appearance",
-          "label": "Wygląd",
-          "fields": [
-            {
-              "key": "ui.theme",
-              "type": "enum",
-              "label": "Motyw",
-              "description": "Wybierz motyw aplikacji",
-              "tooltip": "light lub dark",
-              "values": [
-                "light",
-                "dark"
-              ]
-            },
-            {
-              "key": "ui.language",
-              "type": "enum",
-              "label": "Język interfejsu",
-              "description": "Wybierz język interfejsu",
-              "tooltip": "np. pl lub en",
-              "values": [
-                "pl",
-                "en"
-              ]
-            }
-          ]
-        },
-        {
-          "key": "login",
-          "label": "Logowanie",
-          "fields": [
-            {
-              "key": "auth.pinless_brygadzista",
-              "type": "bool",
-              "label": "Logowanie brygadzisty bez PIN",
-              "description": "Dodaj przycisk logowania brygadzisty bez wpisywania PIN."
-            }
-          ]
-        }
-      ]
+      "description": "Ustawienia ogólne programu (język, motyw, ścieżki, aktualizacje automatyczne).",
+      "icon": "settings",
+      "sections": []
     },
     {
       "id": "uzytkownicy",
       "title": "Użytkownicy",
-      "groups": [
+      "description": "Zarządzanie kontami i uprawnieniami. (Edycja użytkowników dostępna w podglądzie listy.)",
+      "icon": "users",
+      "subtabs": [
         {
-          "key": "auth",
-          "label": "Logowanie",
-          "fields": [
-            {
-              "key": "auth.required",
-              "type": "bool",
-              "label": "Wymagaj logowania"
-            },
-            {
-              "key": "auth.session_timeout_min",
-              "type": "int",
-              "label": "Limit czasu sesji (min)",
-              "min": 1,
-              "max": 240
-            }
-          ]
+          "id": "uprawnienia",
+          "title": "Uprawnienia",
+          "description": "Role i dostęp do modułów.",
+          "sections": []
         },
         {
-          "key": "security",
-          "label": "Bezpieczeństwo",
-          "fields": [
-            {
-              "key": "secrets.admin_pin",
-              "type": "string",
-              "widget": "password",
-              "label": "PIN administratora"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "hala",
-      "title": "Hala",
-      "groups": [
-        {
-          "key": "hall",
-          "label": "Ustawienia hali",
-          "fields": [
-            {
-              "key": "hall.grid_size_px",
-              "type": "int",
-              "label": "Rozmiar siatki (px)",
-              "min": 1,
-              "max": 100
-            },
-            {
-              "key": "hall.drag_snap_px",
-              "type": "int",
-              "label": "Przyciąganie (px)",
-              "min": 1,
-              "max": 100
-            },
-            {
-              "key": "hall.triple_confirm_delete",
-              "type": "bool",
-              "label": "Potrójne potwierdzanie usuwania"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "narzedzia",
-      "title": "Narzędzia",
-      "groups": [
-        {
-          "key": "narzedzia",
-          "label": "Narzędzia",
-          "fields": [
-            {
-              "key": "szablony_zadan_narzedzia",
-              "type": "array",
-              "label": "Szablony zadań",
-              "value_type": "string"
-            },
-            {
-              "key": "typy_narzedzi",
-              "type": "array",
-              "label": "Typy narzędzi",
-              "value_type": "string"
-            },
-            {
-              "key": "tools.collections_enabled",
-              "type": "array",
-              "label": "Włączone kolekcje",
-              "value_type": "string",
-              "default": [
-                "NN",
-                "SN"
-              ]
-            },
-            {
-              "key": "tools.default_collection",
-              "type": "string",
-              "label": "Domyślna kolekcja",
-              "default": "NN"
-            },
-            {
-              "key": "tools.auto_check_on_status_global",
-              "type": "array",
-              "label": "Automatyczne sprawdzanie dla statusów globalnych",
-              "value_type": "string",
-              "default": [
-                "sprawne",
-                "zakończone"
-              ]
-            },
-            {
-              "key": "tools.collections_paths",
-              "type": "dict",
-              "label": "Ścieżki kolekcji",
-              "key_type": "string",
-              "value_type": "string",
-              "default": {}
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "zlecenia",
-      "title": "Zlecenia",
-      "groups": [
-        {
-          "key": "zlecenia",
-          "label": "Zlecenia",
-          "fields": [
-            {
-              "key": "progi_alertow_pct",
-              "type": "array",
-              "label": "Progi alertów (%)",
-              "value_type": "int"
-            },
-            {
-              "key": "czynnosci_technologiczne",
-              "type": "array",
-              "label": "Czynności technologiczne",
-              "value_type": "string"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "update",
-      "title": "Aktualizacje & Kopie",
-      "groups": [
-        {
-          "key": "updates",
-          "label": "Aktualizacje",
-          "fields": [
-            {
-              "key": "updates.auto",
-              "type": "bool",
-              "label": "Automatyczne aktualizacje"
-            },
-            {
-              "key": "updates.remote",
-              "type": "string",
-              "label": "Zdalne repozytorium"
-            },
-            {
-              "key": "updates.branch",
-              "type": "string",
-              "label": "Gałąź aktualizacji"
-            },
-            {
-              "key": "updates.push_branch",
-              "type": "string",
-              "label": "Gałąź do wysyłki"
-            }
-          ]
-        },
-        {
-          "key": "backup",
-          "label": "Kopie zapasowe",
-          "fields": [
-            {
-              "key": "backup.folder",
-              "type": "path",
-              "widget": "dir",
-              "label": "Folder kopii"
-            },
-            {
-              "key": "backup.keep_last",
-              "type": "int",
-              "label": "Ilość kopii",
-              "min": 1,
-              "max": 50
-            },
-            {
-              "key": "backup.cloud.url",
-              "type": "string",
-              "label": "Adres chmury"
-            },
-            {
-              "key": "backup.cloud.username",
-              "type": "string",
-              "label": "Użytkownik"
-            },
-            {
-              "key": "backup.cloud.password",
-              "type": "string",
-              "widget": "password",
-              "label": "Hasło"
-            },
-            {
-              "key": "backup.cloud.folder",
-              "type": "string",
-              "label": "Folder w chmurze"
-            }
-          ]
+          "id": "zarzadzanie_lista",
+          "title": "Zarządzanie (lista)",
+          "description": "Lista użytkowników, aktywacja/dezaktywacja, reset haseł.",
+          "sections": []
         }
       ]
     },
     {
       "id": "profile",
       "title": "Profile",
-      "groups": [
+      "description": "Dane aktualnie zalogowanego użytkownika (wyświetlane także obok przycisku „Wyloguj”).",
+      "icon": "id-card",
+      "sections": []
+    },
+    {
+      "id": "hala",
+      "title": "Hala",
+      "description": "Widok hali: tło, siatka (co 20 cm = 4 px), numer hali na maszynie, zapis pozycji do pliku.",
+      "icon": "layout",
+      "sections": []
+    },
+    {
+      "id": "narzedzia",
+      "title": "Narzędzia",
+      "description": "Konfiguracja typów, statusów i zadań. Nowe (NN 001–499) oznaczaj na żółto w diagramach.",
+      "icon": "wrench",
+      "subtabs": [
         {
-          "key": "profiles_general",
-          "label": "Ogólne",
-          "fields": [
-            {
-              "key": "profiles.tab_enabled",
-              "type": "bool",
-              "label": "Włącz kartę profilu"
-            },
-            {
-              "key": "profiles.show_name_in_header",
-              "type": "bool",
-              "label": "Pokaż zalogowanego w nagłówku"
-            },
-            {
-              "key": "profiles.avatar_dir",
-              "type": "path",
-              "widget": "dir",
-              "label": "Folder awatarów"
-            },
-            {
-              "key": "profiles.allow_pin_change",
-              "type": "bool",
-              "label": "Pozwól na zmianę PIN"
-            },
-            {
-              "key": "profiles.task_default_deadline_days",
-              "type": "int",
-              "label": "Domyślny termin zadania (dni)"
-            }
-          ]
+          "id": "typy_statusy",
+          "title": "Typy i statusy",
+          "description": "Definicje typów narzędzi, statusów i list zadań w statusach.",
+          "sections": []
         },
         {
-          "key": "profiles_fields",
-          "label": "Widoczność pól",
-          "fields": [
-            {
-              "key": "profiles.fields_visible",
-              "type": "array",
-              "label": "Pola w profilu",
-              "value_type": "string"
-            },
-            {
-              "key": "profiles.fields_editable_by_user",
-              "type": "array",
-              "label": "Pola edytowalne przez użytkownika",
-              "value_type": "string"
-            }
-          ]
+          "id": "reguly",
+          "title": "Reguły",
+          "description": "Wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
+          "sections": []
+        }
+      ]
+    },
+    {
+      "id": "zlecenia",
+      "title": "Zlecenia",
+      "description": "Ustawienia modułu zleceń: statusy, edycja przez Combobox, ciemny motyw, kreator w osobnym oknie.",
+      "icon": "clipboard-list",
+      "subtabs": [
+        {
+          "id": "statusy",
+          "title": "Statusy",
+          "description": "Predefiniowane statusy zleceń dostępne w edycji (dwuklik otwiera Combobox).",
+          "sections": []
+        },
+        {
+          "id": "kreator",
+          "title": "Kreator",
+          "description": "Ustawienia kreatora dodawania zlecenia (osobne okno, zachowanie motywu WM).",
+          "sections": []
+        }
+      ]
+    },
+    {
+      "id": "magazyn",
+      "title": "Magazyn",
+      "description": "Ustawienia magazynu i struktury produktów (BOM). Stany aktualizowane w czasie rzeczywistym.",
+      "icon": "boxes",
+      "subtabs": [
+        {
+          "id": "ustawienia_magazynu",
+          "title": "Ustawienia magazynu",
+          "description": "Progi alertów (np. 10%), integracja ze zleceniami, lokalizacja plików danych.",
+          "sections": []
+        },
+        {
+          "id": "produkty_bom",
+          "title": "Produkty (BOM)",
+          "description": "Struktury produktów w `data/produkty/`. Powiązania półproduktów i części.",
+          "sections": []
         }
       ]
     },
     {
       "id": "orders",
       "title": "Zamówienia",
-      "groups": [
-        {
-          "label": "Konfiguracja kreatora",
-          "fields": [
-            {
-              "key": "orders.enabled",
-              "type": "bool",
-              "label": "Włącz moduł Zamówienia",
-              "default": true,
-              "help": "Pozwala uruchamiać okno Zamówień z modułów."
-            },
-            {
-              "key": "orders.enabled_steps",
-              "type": "list",
-              "label": "Aktywne kroki kreatora",
-              "default": [
-                "typ",
-                "kontekst",
-                "pozycje",
-                "dostawca",
-                "terminy_status",
-                "podsumowanie"
-              ],
-              "help": "Kolejność i widoczność kroków kreatora."
-            },
-            {
-              "key": "orders.types",
-              "type": "list",
-              "label": "Dozwolone typy zamówień",
-              "default": [
-                "zakup",
-                "naprawa",
-                "uzupelnienie"
-              ],
-              "help": "Lista typów widocznych w kroku „Typ zamówienia”."
-            },
-            {
-              "key": "orders.statuses",
-              "type": "list",
-              "label": "Statusy zamówień (kolejność)",
-              "default": [
-                "draft",
-                "oczekuje_wyslania",
-                "wyslane",
-                "w_realizacji",
-                "dostarczone",
-                "zamkniete",
-                "anulowane"
-              ],
-              "help": "Definiuje lejek statusów i ich kolejność."
-            },
-            {
-              "key": "orders.data_dir",
-              "type": "string",
-              "label": "Katalog danych zamówień",
-              "default": "data/zamowienia",
-              "help": "Ścieżka, gdzie zapisywane są pliki ORD-*.json."
-            },
-            {
-              "key": "orders.default_supplier",
-              "type": "string",
-              "label": "Domyślny dostawca",
-              "default": "",
-              "help": "Opcjonalny dostawca wpisywany domyślnie."
-            },
-            {
-              "key": "orders.auto_id_format",
-              "type": "string",
-              "label": "Format identyfikatora",
-              "default": "ORD-{YYYYMMDD}-{HHMMSS}",
-              "help": "Wzór ID zamówienia."
-            },
-            {
-              "key": "orders.permissions",
-              "type": "object",
-              "label": "Uprawnienia (role)",
-              "default": {
-                "create": [
-                  "brygadzista",
-                  "kierownik",
-                  "admin"
-                ],
-                "receive": [
-                  "magazynier",
-                  "kierownik",
-                  "admin"
-                ],
-                "cancel": [
-                  "kierownik",
-                  "admin"
-                ]
-              },
-              "help": "Role uprawnione do operacji na zamówieniach."
-            }
-          ]
-        }
-      ]
+      "description": "Tworzenie zamówień materiałów po wykryciu braków (pytaj: czy zamówić brakujący materiał?).",
+      "icon": "shopping-cart",
+      "sections": []
+    },
+    {
+      "id": "update",
+      "title": "Aktualizacje & Kopie",
+      "description": "Kopie, przywracanie i wersjonowanie. (Operacje git/zip wywoływane z osobnego modułu.)",
+      "icon": "history",
+      "sections": []
     },
     {
       "id": "tests",
-      "title": "Testy",
-      "groups": [
-        {
-          "key": "tests",
-          "label": "Testy",
-          "fields": [
-            {
-              "key": "tests.run",
-              "type": "button",
-              "label": "Uruchom testy"
-            }
-          ]
-        }
-      ]
+      "title": "[DEV] Testy",
+      "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
+      "icon": "beaker",
+      "sections": []
     }
   ]
 }
