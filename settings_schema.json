@@ -162,26 +162,28 @@
     {
       "id": "ui",
       "title": "System",
-      "description": "Ustawienia ogólne programu (język, motyw, ścieżki, aktualizacje automatyczne).",
+      "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
+      "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
       "icon": "settings",
       "sections": []
     },
     {
       "id": "uzytkownicy",
       "title": "Użytkownicy",
-      "description": "Zarządzanie kontami i uprawnieniami. (Edycja użytkowników dostępna w podglądzie listy.)",
+      "description": "Role i uprawnienia użytkowników. (Edycja listy w subzakładce).",
+      "tooltip": "Zarządzanie kontami wpływa na dostęp użytkowników w aplikacji.",
       "icon": "users",
       "subtabs": [
         {
           "id": "uprawnienia",
           "title": "Uprawnienia",
-          "description": "Role i dostęp do modułów.",
+          "description": "Konfiguracja ról i dostępu do modułów.",
           "sections": []
         },
         {
           "id": "zarzadzanie_lista",
           "title": "Zarządzanie (lista)",
-          "description": "Lista użytkowników, aktywacja/dezaktywacja, reset haseł.",
+          "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
           "sections": []
         }
       ]
@@ -189,21 +191,24 @@
     {
       "id": "profile",
       "title": "Profile",
-      "description": "Dane aktualnie zalogowanego użytkownika (wyświetlane także obok przycisku „Wyloguj”).",
+      "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
+      "tooltip": "Szybki dostęp do danych i ustawień własnego konta.",
       "icon": "id-card",
       "sections": []
     },
     {
       "id": "hala",
       "title": "Hala",
-      "description": "Widok hali: tło, siatka (co 20 cm = 4 px), numer hali na maszynie, zapis pozycji do pliku.",
+      "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
+      "tooltip": "Pozycje maszyn zapisywane są do pliku `maszyny.json`.",
       "icon": "layout",
       "sections": []
     },
     {
       "id": "narzedzia",
       "title": "Narzędzia",
-      "description": "Konfiguracja typów, statusów i zadań. Nowe (NN 001–499) oznaczaj na żółto w diagramach.",
+      "description": "Konfiguracja typów, statusów i zadań. Nowe NN (001–499) w diagramach zaznaczamy na żółto.",
+      "tooltip": "Zmiany wpływają na zachowanie modułu narzędzi w całej aplikacji.",
       "icon": "wrench",
       "subtabs": [
         {
@@ -215,7 +220,7 @@
         {
           "id": "reguly",
           "title": "Reguły",
-          "description": "Wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
+          "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
           "sections": []
         }
       ]
@@ -223,19 +228,20 @@
     {
       "id": "zlecenia",
       "title": "Zlecenia",
-      "description": "Ustawienia modułu zleceń: statusy, edycja przez Combobox, ciemny motyw, kreator w osobnym oknie.",
+      "description": "Ustawienia modułu zleceń: statusy, kreator (osobne okno, ciemny motyw).",
+      "tooltip": "Konfiguracja procesów zleceń wykorzystywana w panelu produkcyjnym.",
       "icon": "clipboard-list",
       "subtabs": [
         {
           "id": "statusy",
           "title": "Statusy",
-          "description": "Predefiniowane statusy zleceń dostępne w edycji (dwuklik otwiera Combobox).",
+          "description": "Predefiniowane statusy zleceń (dwuklik w edycji otwiera listę wyboru).",
           "sections": []
         },
         {
           "id": "kreator",
           "title": "Kreator",
-          "description": "Ustawienia kreatora dodawania zlecenia (osobne okno, zachowanie motywu WM).",
+          "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
           "sections": []
         }
       ]
@@ -243,19 +249,20 @@
     {
       "id": "magazyn",
       "title": "Magazyn",
-      "description": "Ustawienia magazynu i struktury produktów (BOM). Stany aktualizowane w czasie rzeczywistym.",
+      "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
+      "tooltip": "Parametry tutaj kontrolują stany i rezerwacje magazynu.",
       "icon": "boxes",
       "subtabs": [
         {
           "id": "ustawienia_magazynu",
           "title": "Ustawienia magazynu",
-          "description": "Progi alertów (np. 10%), integracja ze zleceniami, lokalizacja plików danych.",
+          "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
           "sections": []
         },
         {
           "id": "produkty_bom",
           "title": "Produkty (BOM)",
-          "description": "Struktury produktów w `data/produkty/`. Powiązania półproduktów i części.",
+          "description": "Struktury produktów w `data/produkty/` i powiązania półproduktów/części.",
           "sections": []
         }
       ]
@@ -263,14 +270,16 @@
     {
       "id": "orders",
       "title": "Zamówienia",
-      "description": "Tworzenie zamówień materiałów po wykryciu braków (pytaj: czy zamówić brakujący materiał?).",
+      "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
+      "tooltip": "Ustawienia generowania i obsługi zamówień materiałów.",
       "icon": "shopping-cart",
       "sections": []
     },
     {
       "id": "update",
       "title": "Aktualizacje & Kopie",
-      "description": "Kopie, przywracanie i wersjonowanie. (Operacje git/zip wywoływane z osobnego modułu.)",
+      "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
+      "tooltip": "Kopie i przywracanie nie uruchamiają się z tej zakładki — służy do konfiguracji/opisu.",
       "icon": "history",
       "sections": []
     },
@@ -278,6 +287,7 @@
       "id": "tests",
       "title": "[DEV] Testy",
       "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
+      "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
       "icon": "beaker",
       "sections": []
     }
