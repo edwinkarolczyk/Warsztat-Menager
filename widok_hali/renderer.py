@@ -16,7 +16,7 @@ import datetime as dt
 import io
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import tkinter as tk
 
@@ -130,6 +130,11 @@ def _uwaga_to_text(uwaga) -> Optional[str]:
             return f"{typ}: {opis}"
         return typ or opis or None
     return None
+
+
+def _is_url(value: str) -> bool:
+    value = value.lower().strip()
+    return value.startswith("http://") or value.startswith("https://")
 
 
 @dataclass
@@ -277,17 +282,34 @@ class Renderer:
         self._preview_cache: Dict[str, ImageTk.PhotoImage] = {}
         self._details_windows: Dict[str, tk.Toplevel] = {}
 
+        # tryb edycji i zewnętrzne callbacki
+        self.edit_mode: bool = False
+        self.on_select = None  # callable(machine_id: str)
+        self.on_move = None  # callable(machine_id: str, new_pos: dict)
+        self._drag_mid: Optional[str] = None
+        self._drag_start: Tuple[int, int] = (0, 0)
+
         self.draw_all()
         self._start_blink()
 
     # public API -----------------------------------------------------
     def reload(self, machines: List[dict]) -> None:
         self.machines = [Machine(m) for m in machines]
+        self._preview_cache.clear()
         self.draw_all()
+
+    def set_edit_mode(self, enabled: bool) -> None:
+        self.edit_mode = bool(enabled)
+
+    def focus_machine(self, machine_id: str) -> None:
+        """Prosty hook – obecnie tylko logowanie."""
+
+        print(f"[WM-DBG][HALA] Focus {machine_id}")
 
     def draw_all(self) -> None:
         self.canvas.delete("all")
         self._dot_items.clear()
+        self._drag_mid = None
         for machine in self.machines:
             self._draw_machine(machine)
 
@@ -344,8 +366,18 @@ class Renderer:
         )
         self.canvas.tag_bind(
             tag,
-            "<Button-1>",
-            lambda _event, mid=machine.id: self._on_click(mid),
+            "<ButtonPress-1>",
+            lambda event, mid=machine.id: self._on_drag_start(event, mid),
+        )
+        self.canvas.tag_bind(
+            tag,
+            "<B1-Motion>",
+            lambda event, mid=machine.id: self._on_drag_move(event, mid),
+        )
+        self.canvas.tag_bind(
+            tag,
+            "<ButtonRelease-1>",
+            lambda event, mid=machine.id: self._on_release(event, mid),
         )
 
         print(
@@ -483,9 +515,56 @@ class Renderer:
         return lines
 
     # click ----------------------------------------------------------
+    def _on_release(self, event: tk.Event, machine_id: str) -> None:
+        self._on_drag_end(event, machine_id)
+        self._on_click(machine_id)
+
     def _on_click(self, machine_id: str) -> None:
+        if callable(self.on_select):
+            try:
+                self.on_select(machine_id)
+            except Exception:
+                pass
+        if self.edit_mode:
+            return
         print(f"[WM-DBG][HALA] Klik {machine_id}")
         self._open_details(machine_id)
+
+    def _on_drag_start(self, event: tk.Event, machine_id: str) -> None:
+        if not self.edit_mode:
+            return
+        self._drag_mid = machine_id
+        self._drag_start = (event.x, event.y)
+
+    def _on_drag_move(self, event: tk.Event, machine_id: str) -> None:
+        if not self.edit_mode or self._drag_mid != machine_id:
+            return
+        dx = event.x - self._drag_start[0]
+        dy = event.y - self._drag_start[1]
+        try:
+            self.canvas.move(f"machine:{machine_id}", dx, dy)
+        except Exception:
+            return
+        self._drag_start = (event.x, event.y)
+
+    def _on_drag_end(self, event: tk.Event, machine_id: str) -> None:
+        if not self.edit_mode or self._drag_mid != machine_id:
+            return
+        self._drag_mid = None
+        bbox = self.canvas.bbox(f"machine:{machine_id}")
+        if not bbox:
+            return
+        new_pos = {"x": int(bbox[0]), "y": int(bbox[1])}
+        machine = self._by_id(machine_id)
+        if machine:
+            machine.raw.setdefault("pozycja", {})
+            machine.raw["pozycja"]["x"] = new_pos["x"]
+            machine.raw["pozycja"]["y"] = new_pos["y"]
+        if callable(self.on_move):
+            try:
+                self.on_move(machine_id, new_pos)
+            except Exception:
+                pass
 
     def _open_details(self, machine_id: str) -> None:
         machine = self._by_id(machine_id)
@@ -664,25 +743,31 @@ class Renderer:
             return self._preview_cache[machine.id]
 
         image = None
-        if machine.preview_url and _url:
+        source = (machine.preview_url or "").strip() if machine.preview_url else ""
+        if source:
             try:
-                with _url.urlopen(machine.preview_url, timeout=1) as response:
-                    data = response.read()
-                image = Image.open(io.BytesIO(data)).convert("RGB")
-                print(f"[WM-DBG][HALA] Miniatura z URL: {machine.preview_url}")
+                if _is_url(source) and _url:
+                    with _url.urlopen(source, timeout=1) as response:
+                        data = response.read()
+                    image = Image.open(io.BytesIO(data)).convert("RGB")
+                    print(f"[WM-DBG][HALA] Miniatura z URL: {source}")
+                else:
+                    local_path = self._resolve_local_path(source)
+                    if local_path:
+                        image = Image.open(local_path).convert("RGB")
+                        print(f"[WM-DBG][HALA] Miniatura FILE: {local_path}")
             except Exception as exc:
                 print(
-                    "[ERROR][HALA] Miniatura URL błąd "
-                    f"({exc}) — używam placeholdera"
+                    f"[ERROR][HALA] Miniatura błąd ({exc}) — placeholder"
                 )
 
         if image is None:
+            placeholder = self._resolve_local_path(PLACEHOLDER_PATH) or PLACEHOLDER_PATH
             try:
-                image = Image.open(PLACEHOLDER_PATH).convert("RGB")
+                image = Image.open(placeholder).convert("RGB")
             except Exception as exc:
                 print(
-                    f"[ERROR][HALA] Brak placeholdera "
-                    f"({PLACEHOLDER_PATH}): {exc}"
+                    f"[ERROR][HALA] Brak placeholdera ({placeholder}): {exc}"
                 )
                 return None
 
@@ -702,6 +787,32 @@ class Renderer:
         for machine in self.machines:
             if machine.id == machine_id:
                 return machine
+        return None
+
+    def _resolve_local_path(self, path: str) -> Optional[str]:
+        if not path:
+            return None
+
+        path = os.path.expanduser(path)
+        if os.path.isabs(path) and os.path.exists(path):
+            return path
+
+        candidates = []
+        norm = os.path.normpath(path)
+        candidates.append(os.path.join(os.getcwd(), norm))
+
+        module_dir = os.path.dirname(__file__)
+        candidates.append(os.path.join(module_dir, norm))
+        candidates.append(os.path.normpath(os.path.join(module_dir, "..", norm)))
+
+        seen = set()
+        for candidate in candidates:
+            candidate = os.path.abspath(candidate)
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            if os.path.exists(candidate):
+                return candidate
         return None
 
 
