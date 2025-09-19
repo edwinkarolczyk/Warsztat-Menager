@@ -1,14 +1,10 @@
 # widok_hali/renderer.py
-# Wersja: 1.0.2 (2025-09-18)
-# Funkcje:
-# - kropki statusu: sprawna (zielona), modyfikacja (żółta), awaria
-#   (czerwona, migająca)
-# - overlay "NIE UŻYWAĆ" dla awarii
-# - tooltip (hover) zależny od statusu + czasy (awaria / sprawna od) do minut
-# - klik → okno opisu (Toplevel, topmost, jedna instancja na maszynę)
-# - miniatura z media.preview_url (fallback: grafiki/machine_placeholder.jpg),
-#   cache obrazów
-# - logi po polsku; bez zmian w formacie danych (pola dodatkowe są opcjonalne)
+# Wersja: 1.0.3 (2025-09-19)
+# - statusy: zielona/żółta/czerwona(migająca), overlay "NIE UŻYWAĆ", tooltipy
+# - okno szczegółów (topmost) z miniaturą
+# - miniatura z URL (http/https) lub LOKALNY plik; fallback: grafiki/machine_placeholder.jpg
+# - API do docka: set_edit_mode / on_select / on_move / focus_machine
+# - drag&drop kafli w trybie Edycja + podświetlenie zaznaczenia
 
 from __future__ import annotations
 
@@ -281,6 +277,8 @@ class Renderer:
 
         self._preview_cache: Dict[str, ImageTk.PhotoImage] = {}
         self._details_windows: Dict[str, tk.Toplevel] = {}
+        self._selected_mid: Optional[str] = None
+        self._selection_item: Optional[int] = None
 
         # tryb edycji i zewnętrzne callbacki
         self.edit_mode: bool = False
@@ -302,7 +300,33 @@ class Renderer:
         self.edit_mode = bool(enabled)
 
     def focus_machine(self, machine_id: str) -> None:
-        """Prosty hook – obecnie tylko logowanie."""
+        """Zaznacz wskazaną maszynę i podnieś jej elementy."""
+
+        if not machine_id:
+            self._clear_selection()
+            print("[WM-DBG][HALA] Focus — brak identyfikatora")
+            return
+
+        machine = self._by_id(machine_id)
+        if not machine:
+            self._clear_selection()
+            print(f"[WM-DBG][HALA] Focus — nie znaleziono {machine_id}")
+            return
+
+        self._set_selected(machine_id)
+        try:
+            self.canvas.tag_raise(f"machine:{machine_id}")
+        except Exception:
+            pass
+
+        window = self._details_windows.get(machine_id)
+        if window:
+            try:
+                window.deiconify()
+                window.lift()
+                window.focus_force()
+            except Exception:
+                pass
 
         print(f"[WM-DBG][HALA] Focus {machine_id}")
 
@@ -312,6 +336,7 @@ class Renderer:
         self._drag_mid = None
         for machine in self.machines:
             self._draw_machine(machine)
+        self._redraw_selection()
 
     # rendering ------------------------------------------------------
     def _draw_machine(self, machine: Machine) -> None:
@@ -520,6 +545,7 @@ class Renderer:
         self._on_click(machine_id)
 
     def _on_click(self, machine_id: str) -> None:
+        self._set_selected(machine_id)
         if callable(self.on_select):
             try:
                 self.on_select(machine_id)
@@ -546,6 +572,8 @@ class Renderer:
         except Exception:
             return
         self._drag_start = (event.x, event.y)
+        if self._selected_mid == machine_id:
+            self._redraw_selection()
 
     def _on_drag_end(self, event: tk.Event, machine_id: str) -> None:
         if not self.edit_mode or self._drag_mid != machine_id:
@@ -565,6 +593,8 @@ class Renderer:
                 self.on_move(machine_id, new_pos)
             except Exception:
                 pass
+        if self._selected_mid == machine_id:
+            self._redraw_selection()
 
     def _open_details(self, machine_id: str) -> None:
         machine = self._by_id(machine_id)
@@ -788,6 +818,58 @@ class Renderer:
             if machine.id == machine_id:
                 return machine
         return None
+
+    def _set_selected(self, machine_id: Optional[str]) -> None:
+        if machine_id is None:
+            self._clear_selection()
+            return
+        if self._selected_mid != machine_id:
+            self._selected_mid = machine_id
+        self._redraw_selection()
+
+    def _clear_selection(self) -> None:
+        self._selected_mid = None
+        if self._selection_item is not None:
+            try:
+                self.canvas.delete(self._selection_item)
+            except Exception:
+                pass
+        self._selection_item = None
+
+    def _redraw_selection(self) -> None:
+        if self._selection_item is not None:
+            try:
+                self.canvas.delete(self._selection_item)
+            except Exception:
+                pass
+            self._selection_item = None
+
+        if not self._selected_mid:
+            return
+
+        bbox = self.canvas.bbox(f"machine:{self._selected_mid}")
+        if not bbox:
+            self._clear_selection()
+            return
+
+        x1, y1, x2, y2 = bbox
+        padding = 4
+        try:
+            self._selection_item = self.canvas.create_rectangle(
+                x1 - padding,
+                y1 - padding,
+                x2 + padding,
+                y2 + padding,
+                outline="#38BDF8",
+                width=2,
+                dash=(4, 2),
+                fill="",
+                state="disabled",
+                tags=("machine-highlight", f"machine-highlight:{self._selected_mid}"),
+            )
+            self.canvas.tag_raise(self._selection_item)
+        except Exception:
+            self._selection_item = None
 
     def _resolve_local_path(self, path: str) -> Optional[str]:
         if not path:
