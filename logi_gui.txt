@@ -2382,3 +2382,9 @@
 [2025-09-19 19:56:53] Kliknięto: Maszyny
 [2025-09-19 19:56:55] [WM-DBG] [SETTINGS] init ProductsMaterialsTab
 [2025-09-19 19:56:55] [WM-DBG] paths: {'produkty_dir': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\produkty', 'polprodukty': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\polprodukty.json', 'magazyn': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\magazyn\\magazyn.json', 'backup': 'C:\\Warsztat\\WM\\Warsztat-Menager\\backup'}
+[2025-09-19 20:13:35] Kliknięto: Zlecenia (start)
+[2025-09-19 20:13:36] Kliknięto: Maszyny
+[2025-09-19 20:13:37] Kliknięto: Magazyn
+[2025-09-19 20:13:38] [WM-DBG] [SETTINGS] init ProductsMaterialsTab
+[2025-09-19 20:13:38] [WM-DBG] paths: {'produkty_dir': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\produkty', 'polprodukty': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\polprodukty.json', 'magazyn': 'C:\\Warsztat\\WM\\Warsztat-Menager\\data\\magazyn\\magazyn.json', 'backup': 'C:\\Warsztat\\WM\\Warsztat-Menager\\backup'}
+[2025-09-19 20:13:57] Kliknięto: Zlecenia (start)
