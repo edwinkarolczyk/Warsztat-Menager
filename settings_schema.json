@@ -171,7 +171,7 @@
       "id": "uzytkownicy",
       "title": "Użytkownicy",
       "description": "Role i uprawnienia użytkowników. (Edycja listy w subzakładce).",
-      "tooltip": "Zarządzanie kontami wpływa na dostęp użytkowników w aplikacji.",
+      "tooltip": "Konfiguruj dostęp do modułów i status kont.",
       "icon": "users",
       "subtabs": [
         {
@@ -192,7 +192,7 @@
       "id": "profile",
       "title": "Profile",
       "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
-      "tooltip": "Szybki dostęp do danych i ustawień własnego konta.",
+      "tooltip": "Podgląd podstawowych danych aktualnego użytkownika.",
       "icon": "id-card",
       "sections": []
     },
@@ -208,7 +208,7 @@
       "id": "narzedzia",
       "title": "Narzędzia",
       "description": "Konfiguracja typów, statusów i zadań. Nowe NN (001–499) w diagramach zaznaczamy na żółto.",
-      "tooltip": "Zmiany wpływają na zachowanie modułu narzędzi w całej aplikacji.",
+      "tooltip": "Definiuj typy/statusy i reguły zachowania w module Narzędzia.",
       "icon": "wrench",
       "subtabs": [
         {
@@ -229,7 +229,7 @@
       "id": "zlecenia",
       "title": "Zlecenia",
       "description": "Ustawienia modułu zleceń: statusy, kreator (osobne okno, ciemny motyw).",
-      "tooltip": "Konfiguracja procesów zleceń wykorzystywana w panelu produkcyjnym.",
+      "tooltip": "Statusy są wybierane z listy (Combobox) podczas edycji zlecenia.",
       "icon": "clipboard-list",
       "subtabs": [
         {
@@ -250,7 +250,7 @@
       "id": "magazyn",
       "title": "Magazyn",
       "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
-      "tooltip": "Parametry tutaj kontrolują stany i rezerwacje magazynu.",
+      "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w `data/produkty/`.",
       "icon": "boxes",
       "subtabs": [
         {
@@ -262,7 +262,7 @@
         {
           "id": "produkty_bom",
           "title": "Produkty (BOM)",
-          "description": "Struktury produktów w `data/produkty/` i powiązania półproduktów/części.",
+          "description": "Struktury produktów oraz powiązania półproduktów/części.",
           "sections": []
         }
       ]
@@ -271,7 +271,7 @@
       "id": "orders",
       "title": "Zamówienia",
       "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
-      "tooltip": "Ustawienia generowania i obsługi zamówień materiałów.",
+      "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
       "icon": "shopping-cart",
       "sections": []
     },
@@ -279,7 +279,7 @@
       "id": "update",
       "title": "Aktualizacje & Kopie",
       "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
-      "tooltip": "Kopie i przywracanie nie uruchamiają się z tej zakładki — służy do konfiguracji/opisu.",
+      "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
       "icon": "history",
       "sections": []
     },
