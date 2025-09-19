@@ -1,46 +1,29 @@
 # -*- coding: utf-8 -*-
-"""Seed file for generating simplified machine data set from maintenance schedule."""
+# Wersja: 1.0.1 (pure-Python, bez pandas)
+# Czyta: data/import/Harmonogram przeglądów i napraw na 2025.csv
+# Tworzy: data/maszyny/maszyny.json (format WM uproszczony)
 
 import csv
 import json
 import os
 from datetime import datetime
 
-# ──────────────────────────────────────────────────────────────
-# KONFIGURACJA: ustaw ścieżki zgodnie z repo
 INPUT_CSV = "data/import/Harmonogram przeglądów i napraw na 2025.csv"
-INPUT_XLSM = "data/import/Harmonogram przeglądów i napraw na 2025.xlsm"  # opcjonalnie
 OUTPUT_DIR = "data/maszyny"
 OUTPUT_JSON = os.path.join(OUTPUT_DIR, "maszyny.json")
 
-# Auto-rozmieszczenie (jak chciałeś: luźne po różnych współrzędnych)
+# Rozmieszczenie
 START_X, START_Y = 100, 100
 STEP_X, STEP_Y = 150, 130
 COLS = 10
 SIZE_W, SIZE_H = 100, 60
-ROMAN_MONTHS = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"}
+
+MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
 
 
-# ──────────────────────────────────────────────────────────────
-def log(info):
-    """Display a short info message."""
-    print(f"[INFO] {info}")
-
-
-def dbg(info):
-    """Display a debug message."""
-    print(f"[WM-DBG] {info}")
-
-
-def err(info):
-    """Display an error message."""
-    print(f"[ERROR] {info}")
-
-
-def fix_pl(value):
-    """Replace incorrectly decoded Polish characters."""
-    if not isinstance(value, str):
-        return value
+def fix_pl(text):
+    if not isinstance(text, str):
+        return text
     replacements = {
         "¹": "ą",
         "³": "ł",
@@ -50,192 +33,142 @@ def fix_pl(value):
         "ê": "ę",
         "ñ": "ń",
         "\u008f": "ń",
-        "\u0085": "ą",
+        "\u0084": "ą",
         "\u0082": "ł",
         "\u0087": "ć",
         "\u009b": "ś",
         "\u009e": "ż",
     }
-    for src, dest in replacements.items():
-        value = value.replace(src, dest)
-    return value
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return text
 
 
-def _read_csv_without_pandas(path):
-    errors = []
-    for encoding in ("utf-8-sig", "utf-8", "latin1"):
+def read_csv_latin1_auto_delim(path):
+    with open(path, "r", encoding="latin1", newline="") as file_obj:
+        sample = file_obj.read(4096)
+        file_obj.seek(0)
         try:
-            with open(path, "r", encoding=encoding, newline="") as handle:
-                sample = handle.read(4096)
-                handle.seek(0)
-                try:
-                    dialect = csv.Sniffer().sniff(sample, delimiters=";,\t")
-                    reader = csv.reader(handle, dialect)
-                except csv.Error:
-                    reader = csv.reader(handle, delimiter=";")
-                rows = [list(row) for row in reader]
-            return rows[1:] if rows else []
-        except UnicodeDecodeError as exc:
-            errors.append(exc)
-    if errors:
-        raise errors[-1]
-    return []
+            dialect = csv.Sniffer().sniff(sample, delimiters=";,|\t")
+        except Exception:
+            class Simple(csv.Dialect):
+                delimiter = ";"
+                quotechar = '"'
+                doublequote = True
+                skipinitialspace = True
+                lineterminator = "\n"
+                quoting = csv.QUOTE_MINIMAL
+
+            dialect = Simple()
+        reader = csv.reader(file_obj, dialect)
+        rows = [[fix_pl(cell) for cell in row] for row in reader]
+    return rows
 
 
-def _read_csv_table(path):
-    try:
-        import pandas as pd
-    except ImportError:
-        return _read_csv_without_pandas(path)
+def build_machines_from_rows(rows):
+    if len(rows) < 3:
+        raise ValueError(
+            "Za mało wierszy w CSV (spodziewane: 2 wiersze nagłówka + dane)."
+        )
 
-    last_error = None
-    for encoding in ("utf-8-sig", "utf-8", "latin1"):
-        try:
-            df = pd.read_csv(path, sep=None, engine="python", encoding=encoding)
-            break
-        except UnicodeDecodeError as exc:
-            last_error = exc
-    else:
-        if last_error is not None:
-            raise last_error
-        raise RuntimeError("Nie udało się odczytać pliku CSV w żadnym z obsługiwanych kodowań.")
+    header1 = rows[0]
+    header2 = rows[1]
+    data_rows = rows[2:]
 
-    df = df.fillna("")
-    return df.astype(str).values.tolist()
+    # Docelowe kolumny: "Hala","Nr ewid.","Maszyna","Typ" + miesiące z header2 (od index 4)
+    columns = ["Hala", "Nr ewid.", "Maszyna", "Typ"] + header2[4:]
+    # Mapowanie indeks->nazwa
+    colmap = {
+        idx: (columns[idx] if idx < len(columns) and columns[idx] else f"col{idx}")
+        for idx in range(len(columns))
+    }
 
-
-def _read_xlsm_table(path):
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        raise RuntimeError("Obsługa plików XLSM wymaga zainstalowanego pakietu pandas.") from exc
-
-    workbook = pd.ExcelFile(path)
-    df = workbook.parse(workbook.sheet_names[0])
-    df = df.fillna("")
-    return df.astype(str).values.tolist()
-
-
-def _load_source():
-    """Return schedule data as a list of rows (header rows included)."""
-    if os.path.isfile(INPUT_CSV):
-        log(f"Czytam CSV: {INPUT_CSV}")
-        return _read_csv_table(INPUT_CSV)
-    if os.path.isfile(INPUT_XLSM):
-        log(f"Czytam XLSM: {INPUT_XLSM}")
-        return _read_xlsm_table(INPUT_XLSM)
-    raise FileNotFoundError(
-        "Brak pliku wejściowego. Dodaj CSV lub XLSM do repo (data/import/...).",
-    )
-
-
-def _prepare_rows(table):
-    """Return cleaned rows and header metadata."""
-    if len(table) < 2:
-        return [], []
-
-    header_row2 = table[1] if len(table) > 1 else []
-    columns = ["Hala", "Nr ewid.", "Maszyna", "Typ"] + list(header_row2[4:])
-    columns = [col if isinstance(col, str) else "" for col in columns]
-
-    # Remove duplicate columns while keeping the first occurrence
-    unique_columns = []
-    unique_indices = []
-    for idx, col in enumerate(columns):
-        if not col or col in unique_columns:
-            continue
-        unique_columns.append(col)
-        unique_indices.append(idx)
-
-    data_rows = table[2:]
-    processed_rows = []
-    max_index = max(unique_indices, default=-1)
-
+    # Forward-fill Hala: zbierz najpierw surowe rekordy
+    raw = []
     for row in data_rows:
-        row_list = list(row)
-        if len(row_list) <= max_index:
-            row_list.extend([""] * (max_index + 1 - len(row_list)))
-        record = {}
-        for col_name, col_idx in zip(unique_columns, unique_indices):
-            raw_value = row_list[col_idx] if col_idx < len(row_list) else ""
-            text_value = fix_pl(str(raw_value)).strip()
-            record[col_name] = text_value
-        processed_rows.append(record)
+        if all((cell is None or str(cell).strip() == "") for cell in row):
+            continue
+        item = {}
+        for idx, value in enumerate(row[: len(columns)]):
+            item[colmap[idx]] = (value or "").strip()
+        raw.append(item)
 
-    # Forward-fill missing hall identifiers
-    last_hall = ""
-    for record in processed_rows:
-        hall_value = record.get("Hala", "").strip()
-        if hall_value and hall_value.lower() != "nan":
-            last_hall = hall_value
+    # FFill "Hala"
+    last_hala = ""
+    for item in raw:
+        if item.get("Hala", ""):
+            last_hala = item["Hala"]
         else:
-            record["Hala"] = last_hall
+            item["Hala"] = last_hala
 
-    month_columns = [col for col in unique_columns if col.strip() in ROMAN_MONTHS]
-    return processed_rows, month_columns
-
-
-def build_machines(table):
-    """Build the machine payload using the simplified WM layout."""
-    rows, month_columns = _prepare_rows(table)
-
-    machines = []
-    per_hall_counter = {}
-
-    for index, source in enumerate(rows, start=1):
-        name = source.get("Typ", "").strip()
-        model = source.get("Maszyna", "").strip()
-        if name == "" and model == "":
+    # Wydobądź przeglądy
+    machines_rows = []
+    for item in raw:
+        name = (item.get("Typ", "") or "").strip()
+        model = (item.get("Maszyna", "") or "").strip()
+        if not name and not model:
             continue
 
-        hall_raw = source.get("Hala", "").strip()
+        # miesiące obecne w header2 od index 4
+        przeglady = []
+        for idx in range(4, len(columns)):
+            colname = columns[idx] if idx < len(columns) else None
+            if colname and colname.strip() in MONTHS:
+                raw_value = (item.get(colname, "") or "").strip()
+                if raw_value and raw_value.lower() != "nan":
+                    przeglady.append(raw_value)
+
+        # hala -> int
+        hall_raw = (item.get("Hala", "") or "").strip()
         try:
-            hall = int(float(hall_raw)) if hall_raw not in ("", "nan") else 1
+            hall = int(float(hall_raw)) if hall_raw else 1
         except Exception:
             hall = 1
 
-        przeglady = []
-        for month in month_columns:
-            value = source.get(month, "").strip()
-            if value and value.lower() != "nan":
-                przeglady.append(value)
+        machines_rows.append(
+            {
+                "nazwa": name if name else (model if model else "MASZYNA"),
+                "typ": model,
+                "hala": hall,
+                "przeglady": przeglady,
+            }
+        )
 
+    # Pozycje
+    machines = []
+    per_hall_counter = {}
+    for idx, row in enumerate(machines_rows, start=1):
+        hall = row["hala"]
         hall_index = per_hall_counter.get(hall, 0)
-        row_idx, col_idx = divmod(hall_index, COLS)
-        x_pos = START_X + col_idx * STEP_X
-        y_pos = START_Y + row_idx * STEP_Y
+        row_i, col_i = divmod(hall_index, COLS)
+        x_pos = START_X + col_i * STEP_X
+        y_pos = START_Y + row_i * STEP_Y
         per_hall_counter[hall] = hall_index + 1
 
         machines.append(
             {
-                "id": str(index),
-                "nazwa": name if name else (model if model else "MASZYNA"),
-                "typ": model,
+                "id": str(idx),
+                "nazwa": row["nazwa"],
+                "typ": row["typ"],
                 "hala": hall,
                 "pozycja": {"x": x_pos, "y": y_pos},
                 "rozmiar": {"w": SIZE_W, "h": SIZE_H},
                 "status": "sprawna",
                 "nastepne_zadanie": None,
-                "przeglady": przeglady,
-            },
+                "przeglady": row["przeglady"],
+            }
         )
-
     return machines
 
 
 def main():
-    try:
-        table = _load_source()
-    except Exception as exc:  # pragma: no cover - diagnostic output
-        err(f"Nie mogę wczytać źródła: {exc}")
-        raise
+    if not os.path.isfile(INPUT_CSV):
+        raise SystemExit(
+            f"[ERROR] Brak pliku: {INPUT_CSV} (wrzuć CSV do data/import/)"
+        )
 
-    log("Buduję listę maszyn…")
-    try:
-        machines = build_machines(table)
-    except Exception as exc:  # pragma: no cover - diagnostic output
-        err(f"Błąd budowy listy: {exc}")
-        raise
+    rows = read_csv_latin1_auto_delim(INPUT_CSV)
+    machines = build_machines_from_rows(rows)
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     payload = {
@@ -243,16 +176,18 @@ def main():
         "wersja_pliku": "1.0.0",
         "wygenerowano": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "liczba_maszyn": len(machines),
-        "opis": "Startowy zbiór maszyn z harmonogramem 2025 (format uproszczony WM).",
+        "opis": (
+            "Startowy zbiór maszyn z harmonogramem 2025 "
+            "(format WM uproszczony, seeder pure-python)."
+        ),
         "maszyny": machines,
     }
+    with open(OUTPUT_JSON, "w", encoding="utf-8", newline="\n") as file_obj:
+        json.dump(payload, file_obj, ensure_ascii=False, indent=2)
+        file_obj.write("\n")
 
-    with open(OUTPUT_JSON, "w", encoding="utf-8") as output_file:
-        json.dump(payload, output_file, ensure_ascii=False, indent=2)
-        output_file.write("\n")
-
-    log(f"Zapisano: {OUTPUT_JSON}")
-    dbg(f"Maszyny: {len(machines)}")
+    print("[INFO] Zapisano:", OUTPUT_JSON)
+    print("[INFO] Maszyny:", len(machines))
 
 
 if __name__ == "__main__":
