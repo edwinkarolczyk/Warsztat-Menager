@@ -1,303 +1,288 @@
-# Plik: ustawienia_uzytkownicy.py
-# Wersja pliku: 1.0.0
-# Zakładka zarządzania użytkownikami wydzielona z gui_uzytkownicy.py
+# -*- coding: utf-8 -*-
+"""Zakładka "Profile" w ustawieniach aplikacji."""
+
+from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
+from typing import Any
+
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
-from utils.dirty_guard import DirtyGuard
-from services.profile_service import (
-    get_all_users as _get_all_users,
-    is_logged_in as _service_is_logged_in,
-    sync_presence as _service_sync_presence,
-    write_users as _write_users,
-)
-from profile_utils import SIDEBAR_MODULES
-
-MODULES = [key for key, _ in SIDEBAR_MODULES]
-
-_USERS_FILE = "uzytkownicy.json"
-_PRESENCE_FILE = "uzytkownicy_presence.json"
+USERS_PATH = os.path.join("data", "uzytkownicy.json")
 
 
-def _load_users():
-    return _get_all_users(_USERS_FILE)
+def _load_users() -> list[dict[str, Any]]:
+    """Return the list of users stored on disk."""
+
+    if not os.path.exists(USERS_PATH):
+        return []
+    with open(USERS_PATH, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, list):  # pragma: no cover - defensive guard
+        raise ValueError("Invalid users file structure")
+    return [dict(item) for item in data if isinstance(item, dict)]
 
 
-def _save_users(data):
-    _write_users(data, _USERS_FILE)
+def _save_users(items: list[dict[str, Any]]) -> None:
+    """Persist users to disk using UTF-8 JSON with two-space indent."""
+
+    directory = os.path.dirname(USERS_PATH)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(USERS_PATH, "w", encoding="utf-8") as handle:
+        json.dump(items, handle, ensure_ascii=False, indent=2)
 
 
-def _sync_presence(users):
-    _service_sync_presence(users, _PRESENCE_FILE)
+class SettingsProfilesTab(ttk.Frame):
+    """Simple manager for user profiles within the settings window."""
 
-
-def _is_logged_in(login):
-    return _service_is_logged_in(login)
-
-
-def make_tab(parent, rola):
-    """Zwraca ramkę zarządzania użytkownikami."""
-
-    users = _load_users()
-    frame = ttk.Frame(parent)
-    frame.pack(fill="both", expand=True)
-
-    lb = tk.Listbox(frame)
-    lb.pack(side="left", fill="y")
-    for u in users:
-        lb.insert("end", u.get("login", ""))
-
-    form = ttk.Frame(frame)
-    form.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-    form.columnconfigure(1, weight=1)
-
-    login_var = tk.StringVar()
-    widok_var = tk.StringVar()
-    ttk.Label(form, text="login").grid(row=0, column=0, sticky="e")
-    entry_login = ttk.Entry(form, textvariable=login_var, state="disabled")
-    entry_login.grid(row=0, column=1, sticky="ew")
-
-    fields_entry = [
+    COLUMNS: tuple[str, ...] = (
+        "login",
         "rola",
-        "zmiana_plan",
+        "zatrudniony_od",
         "status",
-        "stanowisko",
-        "pin",
-        "imie",
-        "nazwisko",
-        "staz",
-    ]
-    text_fields = [
-        "umiejetnosci",
-        "kursy",
-        "ostrzezenia",
-        "nagrody",
-        "historia_maszyn",
-        "awarie",
-        "sugestie",
-        "preferencje",
-        "opis",
-    ]
-    vars = {}
-    text_widgets = {}
-    module_vars = {}
-
-    row = 1
-    for f in fields_entry:
-        vars[f] = tk.StringVar()
-        ttk.Label(form, text=f).grid(row=row, column=0, sticky="e")
-        ttk.Entry(form, textvariable=vars[f]).grid(row=row, column=1, sticky="ew")
-        row += 1
-
-    ttk.Label(form, text="widok_startowy").grid(row=row, column=0, sticky="e")
-    ttk.Combobox(
-        form,
-        textvariable=widok_var,
-        values=["panel", "dashboard"],
-        state="readonly",
-    ).grid(row=row, column=1, sticky="ew")
-    row += 1
-
-    ttk.Label(form, text="disabled_modules").grid(row=row, column=0, sticky="ne")
-    mods_frame = ttk.Frame(form)
-    mods_frame.grid(row=row, column=1, sticky="w")
-    for mod in MODULES:
-        var = tk.BooleanVar()
-        module_vars[mod] = var
-        ttk.Checkbutton(mods_frame, text=mod, variable=var).pack(anchor="w")
-    row += 1
-
-    for f in text_fields:
-        ttk.Label(form, text=f).grid(row=row, column=0, sticky="ne")
-        txt = tk.Text(form, height=3)
-        txt.grid(row=row, column=1, sticky="ew")
-        text_widgets[f] = txt
-        row += 1
-
-    def load_selected(_=None):
-        sel = lb.curselection()
-        if not sel:
-            return
-        idx = sel[0]
-        user = users[idx]
-        login_var.set(user.get("login", ""))
-        for f in fields_entry:
-            vars[f].set(user.get(f, ""))
-        mods = {m.strip().lower() for m in user.get("disabled_modules", [])}
-        for mod, var in module_vars.items():
-            var.set(mod in mods)
-        for f in text_fields:
-            w = text_widgets[f]
-            w.delete("1.0", "end")
-            val = user.get(f, "")
-            if f == "preferencje" and isinstance(val, dict):
-                val = dict(val)
-                val.pop("widok_startowy", None)
-            if isinstance(val, (list, dict)):
-                w.insert("1.0", json.dumps(val, ensure_ascii=False, indent=2))
-            else:
-                w.insert("1.0", val)
-        widok_var.set(user.get("preferencje", {}).get("widok_startowy", "panel"))
-        entry_login.config(state="disabled")
-
-    def save_user():
-        sel = lb.curselection()
-        if sel:
-            idx = sel[0]
-            user = users[idx]
-        else:
-            if str(rola).lower() != "admin":
-                return
-            login = login_var.get().strip()
-            if not login:
-                return
-            user = {"login": login}
-            users.append(user)
-            lb.insert("end", login)
-            lb.selection_clear(0, tk.END)
-            lb.selection_set(lb.size() - 1)
-        for f in fields_entry:
-            user[f] = vars[f].get()
-        user["disabled_modules"] = [m for m, v in module_vars.items() if v.get()]
-        defaults = {
-            "umiejetnosci": {},
-            "kursy": [],
-            "ostrzezenia": [],
-            "nagrody": [],
-            "historia_maszyn": [],
-            "awarie": [],
-            "sugestie": [],
-            "preferencje": {},
-            "opis": "",
-        }
-        for f in text_fields:
-            text = text_widgets[f].get("1.0", "end").strip()
-            if text:
-                try:
-                    val = json.loads(text)
-                    if f == "preferencje" and isinstance(val, dict):
-                        val.pop("widok_startowy", None)
-                        text_widgets[f].delete("1.0", "end")
-                        text_widgets[f].insert(
-                            "1.0", json.dumps(val, ensure_ascii=False, indent=2)
-                        )
-                    user[f] = val
-                except Exception:
-                    user[f] = text
-            else:
-                user[f] = defaults[f]
-        prefs = user.setdefault("preferencje", {})
-        prefs["widok_startowy"] = widok_var.get()
-        _save_users(users)
-        _sync_presence(users)
-        load_selected()
-
-    btn_save = ttk.Button(form, text="Zapisz")
-    btn_save.grid(row=row, column=0, columnspan=2, pady=5)
-
-    if str(rola).lower() == "admin":
-        btns = ttk.Frame(frame)
-        btns.pack(side="bottom", fill="x", pady=5)
-
-        def new_user():
-            lb.selection_clear(0, tk.END)
-            login_var.set("")
-            for f in fields_entry:
-                vars[f].set("")
-            for var in module_vars.values():
-                var.set(False)
-            for f in text_fields:
-                text_widgets[f].delete("1.0", "end")
-            widok_var.set("panel")
-            entry_login.config(state="normal")
-
-        def delete_user():
-            sel = lb.curselection()
-            if not sel:
-                return
-            idx = sel[0]
-            login = users[idx].get("login", "")
-            if _is_logged_in(login):
-                if not messagebox.askyesno(
-                    "Usuń konto", f"Użytkownik '{login}' jest zalogowany. Kontynuować?"
-                ):
-                    return
-            lb.delete(idx)
-            users.pop(idx)
-            _save_users(users)
-            _sync_presence(users)
-            new_user()
-
-        btn_new = ttk.Button(btns, text="Nowy")
-        btn_new.pack(side="left", padx=2)
-        btn_del = ttk.Button(btns, text="Usuń")
-        btn_del.pack(side="left", padx=2)
-
-    try:
-        notebook = parent.nametowidget(parent.winfo_parent())
-        if hasattr(notebook, "tab"):
-            base_title = notebook.tab(parent, "text")
-        else:
-            base_title = "Profile"
-    except Exception:
-        notebook = parent
-        base_title = "Profile"
-    guard = DirtyGuard(
-        "Użytkownicy",
-        on_save=lambda: (save_user(), guard.reset()),
-        on_reset=lambda: (load_selected(), guard.reset()),
-        on_dirty_change=lambda d: (
-            hasattr(notebook, "tab")
-            and notebook.tab(parent, text=base_title + (" •" if d else ""))
-        ),
     )
-    guard.watch(frame)
-    for var in module_vars.values():
-        var.trace_add("write", lambda *_: guard.set_dirty(True))
 
-    frame.lb = lb
-    frame.btn_save = btn_save
-    frame.module_vars = module_vars
+    HEADERS: dict[str, str] = {
+        "login": "LOGIN",
+        "rola": "ROLA",
+        "zatrudniony_od": "ZATRUDNIONY_OD",
+        "status": "STATUS",
+    }
 
-    lb.bind(
-        "<<ListboxSelect>>",
-        lambda e: guard.check_before(lambda: (load_selected(), guard.reset())),
-    )
-    btn_save.configure(command=guard.on_save)
+    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        super().__init__(master, **kwargs)
+        self.users: list[dict[str, Any]] = []
+        self.tree = self._build_ui()
+        self._load_from_storage()
 
-    if str(rola).lower() == "admin":
-        btn_new.configure(
-            command=lambda: guard.check_before(lambda: (new_user(), guard.reset()))
+    # ------------------------------------------------------------------
+    # UI helpers
+    # ------------------------------------------------------------------
+    def _build_ui(self) -> ttk.Treeview:
+        toolbar = ttk.Frame(self)
+        toolbar.pack(fill="x", pady=4)
+        ttk.Button(toolbar, text="Dodaj profil", command=self._add_profile).pack(
+            side="left"
         )
-        btn_del.configure(
-            command=lambda: guard.check_before(
-                lambda: (delete_user(), guard.reset())
+        ttk.Button(toolbar, text="Edytuj", command=self._edit_selected).pack(
+            side="left", padx=6
+        )
+        ttk.Button(toolbar, text="Zapisz", command=self._save_now).pack(side="right")
+
+        tree = ttk.Treeview(
+            self,
+            columns=self.COLUMNS,
+            show="headings",
+            height=12,
+            selectmode="browse",
+        )
+        for column in self.COLUMNS:
+            tree.heading(column, text=self.HEADERS[column])
+            tree.column(column, width=140)
+        tree.pack(fill="both", expand=True, pady=(4, 0))
+        tree.bind("<Double-1>", lambda _event: self._edit_selected())
+        return tree
+
+    def _load_from_storage(self) -> None:
+        self.users = [dict(user) for user in _load_users()]
+        self._refresh_tree()
+
+    def _refresh_tree(self) -> None:
+        self.tree.delete(*self.tree.get_children())
+        for user in self.users:
+            self.tree.insert(
+                "",
+                "end",
+                values=(
+                    user.get("login", ""),
+                    user.get("rola", "operator"),
+                    user.get("zatrudniony_od", "—"),
+                    user.get("status", "aktywny"),
+                ),
             )
+
+    def _select_login(self, login: str) -> None:
+        for item in self.tree.get_children():
+            values = self.tree.item(item).get("values", [])
+            if values and values[0] == login:
+                self.tree.selection_set(item)
+                self.tree.focus(item)
+                self.tree.see(item)
+                break
+
+    # ------------------------------------------------------------------
+    # Data helpers
+    # ------------------------------------------------------------------
+    def _get_selected_index(self) -> int | None:
+        selected = self.tree.selection()
+        if not selected:
+            return None
+        login = self.tree.item(selected[0]).get("values", [""])[0]
+        for index, user in enumerate(self.users):
+            if user.get("login") == login:
+                return index
+        return None
+
+    def _login_exists(self, login: str, *, skip_index: int | None = None) -> bool:
+        for index, user in enumerate(self.users):
+            if skip_index is not None and index == skip_index:
+                continue
+            if user.get("login") == login:
+                return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Actions
+    # ------------------------------------------------------------------
+    def _add_profile(self) -> None:
+        ProfileEditDialog(self, on_ok=self._on_added)
+
+    def _on_added(self, item: dict[str, Any]) -> bool:
+        login = item.get("login", "")
+        if self._login_exists(login):
+            messagebox.showerror("Profil", "Login już istnieje.")
+            return False
+        self.users.append(item)
+        self._refresh_tree()
+        self._select_login(login)
+        return True
+
+    def _edit_selected(self) -> None:
+        index = self._get_selected_index()
+        if index is None:
+            messagebox.showinfo("Profil", "Wybierz profil do edycji.")
+            return
+        ProfileEditDialog(
+            self,
+            seed=self.users[index],
+            on_ok=lambda item: self._on_edited(index, item),
         )
 
-    return frame
+    def _on_edited(self, index: int, item: dict[str, Any]) -> bool:
+        login = item.get("login", "")
+        if self._login_exists(login, skip_index=index):
+            messagebox.showerror("Profil", "Login już istnieje.")
+            return False
+        self.users[index] = item
+        self._refresh_tree()
+        self._select_login(login)
+        return True
+
+    def _save_now(self) -> None:
+        _save_users([dict(user) for user in self.users])
+        messagebox.showinfo("Profile", "Zapisano zmiany.")
 
 
-def cofnij_przeniesienie_do_sn(numer):
-    """Cofa oznaczenie narzędzia jako SN (is_old/kategoria)."""
-    path = os.path.join("data", "narzedzia", f"{str(numer).zfill(3)}.json")
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        if data.get("is_old"):
-            data["is_old"] = False
-            data["kategoria"] = ""
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            messagebox.showinfo("SN", f"Cofnięto przeniesienie narzędzia {numer} do SN.")
-        else:
-            messagebox.showinfo("SN", f"Narzędzie {numer} nie jest oznaczone jako SN.")
-    except Exception as e:
-        messagebox.showwarning("SN", f"Błąd podczas cofania: {e}")
+class ProfileEditDialog(tk.Toplevel):
+    """Dialog window for creating or editing a single profile entry."""
+
+    ROLES = ["operator", "serwisant", "brygadzista", "admin"]
+    STATUSES = ["aktywny", "zablokowany"]
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        seed: dict[str, Any] | None = None,
+        on_ok: Callable[[dict[str, Any]], bool | None] | None = None,
+    ) -> None:
+        super().__init__(master)
+        self.title("Profil użytkownika")
+        self.resizable(False, False)
+        self.on_ok = on_ok
+
+        defaults = {
+            "login": "",
+            "rola": "operator",
+            "zatrudniony_od": "",
+            "status": "aktywny",
+            "disabled_modules": [],
+        }
+        self.seed: dict[str, Any] = dict(defaults)
+        if seed:
+            self.seed.update(seed)
+
+        self._build()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+    def _build(self) -> None:
+        self.geometry("420x220")
+        frame = ttk.Frame(self)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        ttk.Label(frame, text="Login:").grid(row=0, column=0, sticky="w")
+        self.v_login = tk.StringVar(value=self.seed.get("login", ""))
+        ttk.Entry(frame, textvariable=self.v_login).grid(row=0, column=1, sticky="ew")
+
+        ttk.Label(frame, text="Rola:").grid(row=1, column=0, sticky="w")
+        self.v_role = tk.StringVar(value=self.seed.get("rola", "operator"))
+        ttk.Combobox(
+            frame,
+            textvariable=self.v_role,
+            values=self.ROLES,
+            state="readonly",
+        ).grid(row=1, column=1, sticky="ew")
+
+        ttk.Label(frame, text="Zatrudniony od (YYYY-MM-DD):").grid(
+            row=2, column=0, sticky="w"
+        )
+        self.v_date = tk.StringVar(value=self.seed.get("zatrudniony_od", ""))
+        ttk.Entry(frame, textvariable=self.v_date).grid(row=2, column=1, sticky="ew")
+
+        ttk.Label(frame, text="Status:").grid(row=3, column=0, sticky="w")
+        self.v_status = tk.StringVar(value=self.seed.get("status", "aktywny"))
+        ttk.Combobox(
+            frame,
+            textvariable=self.v_status,
+            values=self.STATUSES,
+            state="readonly",
+        ).grid(row=3, column=1, sticky="ew")
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 0))
+        ttk.Button(buttons, text="OK", command=self._ok).pack(side="left", padx=4)
+        ttk.Button(buttons, text="Anuluj", command=self.destroy).pack(
+            side="left", padx=4
+        )
+
+        frame.columnconfigure(1, weight=1)
+
+    def _ok(self) -> None:
+        item = dict(self.seed)
+        item.update(
+            {
+                "login": self.v_login.get().strip(),
+                "rola": self.v_role.get().strip() or "operator",
+                "zatrudniony_od": self.v_date.get().strip(),
+                "status": self.v_status.get().strip() or "aktywny",
+            }
+        )
+        item.setdefault("disabled_modules", [])
+
+        if not item["login"]:
+            messagebox.showwarning("Profil", "Login jest wymagany.")
+            return
+
+        if self.on_ok and self.on_ok(item) is False:
+            return
+        self.destroy()
 
 
-__all__ = ["make_tab", "cofnij_przeniesienie_do_sn"]
+def make_tab(parent: tk.Misc, _role: str | None = None) -> SettingsProfilesTab:
+    """Compatibility helper used by starsze testy/UI."""
 
+    tab = SettingsProfilesTab(parent)
+    tab.pack(fill="both", expand=True)
+    return tab
+
+
+__all__ = [
+    "SettingsProfilesTab",
+    "ProfileEditDialog",
+    "_load_users",
+    "_save_users",
+    "make_tab",
+]
