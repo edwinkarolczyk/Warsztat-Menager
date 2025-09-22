@@ -165,6 +165,184 @@
     "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
     "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
     "icon": "settings",
+    "groups": [
+      {
+        "id": "ui",
+        "label": "Wygląd i język",
+        "tooltip": "Konfiguracja motywu kolorystycznego oraz języka interfejsu.",
+        "fields": [
+          {
+            "key": "ui.theme",
+            "label": "Motyw interfejsu",
+            "type": "enum",
+            "enum": ["dark", "warm"],
+            "default": "dark",
+            "help": "Wybierz motyw kolorystyczny aplikacji (wartość \"dark\" mapuje na motyw domyślny)."
+          },
+          {
+            "key": "ui.accent",
+            "label": "Kolor akcentu",
+            "type": "string",
+            "default": "red",
+            "help": "Kolor akcentu stosowany w przyciskach i nagłówkach."
+          },
+          {
+            "key": "ui.language",
+            "label": "Język interfejsu",
+            "type": "enum",
+            "enum": ["pl", "en"],
+            "default": "pl",
+            "help": "Kod języka używany w interfejsie (np. pl lub en)."
+          },
+          {
+            "key": "ui.always_searchbar",
+            "label": "Zawsze pokazuj wyszukiwarkę",
+            "type": "bool",
+            "default": true,
+            "help": "Wymusza widoczność paska wyszukiwania w panelu głównym."
+          }
+        ]
+      },
+      {
+        "id": "auth",
+        "label": "Logowanie i bezpieczeństwo",
+        "tooltip": "Ustawienia sposobu logowania użytkowników do aplikacji.",
+        "fields": [
+          {
+            "key": "auth.required",
+            "label": "Wymagaj logowania",
+            "type": "bool",
+            "default": true,
+            "help": "Blokuje dostęp do aplikacji bez poprawnego logowania."
+          },
+          {
+            "key": "auth.session_timeout_min",
+            "label": "Limit bezczynności (minuty)",
+            "type": "int",
+            "min": 1,
+            "default": 30,
+            "help": "Po tylu minutach bezczynności użytkownik zostanie wylogowany."
+          },
+          {
+            "key": "auth.pin_length",
+            "label": "Długość PIN",
+            "type": "int",
+            "min": 4,
+            "max": 8,
+            "default": 4,
+            "help": "Liczba cyfr wymagana podczas logowania PIN-em."
+          },
+          {
+            "key": "auth.pinless_brygadzista",
+            "label": "Logowanie brygadzisty bez PIN",
+            "type": "bool",
+            "default": false,
+            "help": "Umożliwia brygadziście logowanie bez podawania PIN-u."
+          }
+        ]
+      },
+      {
+        "id": "backup",
+        "label": "Kopie zapasowe",
+        "tooltip": "Lokalne i zdalne kopie zapasowe konfiguracji.",
+        "fields": [
+          {
+            "key": "backup.folder",
+            "label": "Katalog kopii lokalnych",
+            "type": "string",
+            "default": "backup_wersji",
+            "help": "Ścieżka (względna lub bezwzględna) dla lokalnych kopii pliku config.json."
+          },
+          {
+            "key": "backup.keep_last",
+            "label": "Liczba kopii do zachowania",
+            "type": "int",
+            "min": 1,
+            "default": 10,
+            "help": "Maksymalna liczba ostatnich kopii przechowywanych na dysku."
+          },
+          {
+            "key": "backup.cloud.url",
+            "label": "Adres magazynu kopii (chmura)",
+            "type": "string",
+            "default": "",
+            "help": "Adres endpointu (np. WebDAV/SFTP), do którego wysyłane są kopie."
+          },
+          {
+            "key": "backup.cloud.username",
+            "label": "Login do magazynu kopii",
+            "type": "string",
+            "default": "",
+            "help": "Nazwa użytkownika używana podczas wysyłania kopii do chmury."
+          },
+          {
+            "key": "backup.cloud.password",
+            "label": "Hasło do magazynu kopii",
+            "type": "string",
+            "widget": "password",
+            "default": "",
+            "help": "Hasło uwierzytelniające połączenie z magazynem kopii."
+          },
+          {
+            "key": "backup.cloud.folder",
+            "label": "Katalog w magazynie kopii",
+            "type": "string",
+            "default": "",
+            "help": "Podkatalog w zdalnym magazynie, w którym zapisywane są kopie."
+          }
+        ]
+      },
+      {
+        "id": "updates",
+        "label": "Aktualizacje",
+        "tooltip": "Parametry automatycznego sprawdzania i wdrażania aktualizacji.",
+        "fields": [
+          {
+            "key": "updates.auto",
+            "label": "Automatycznie sprawdzaj aktualizacje",
+            "type": "bool",
+            "default": true,
+            "help": "Przy starcie aplikacji sprawdzaj dostępność nowej wersji."
+          },
+          {
+            "key": "updates.remote",
+            "label": "Repozytorium zdalne",
+            "type": "string",
+            "default": "origin",
+            "help": "Nazwa zdalnego repozytorium Git wykorzystywanego do aktualizacji."
+          },
+          {
+            "key": "updates.branch",
+            "label": "Gałąź aktualizacji",
+            "type": "string",
+            "default": "Rozwiniecie",
+            "help": "Gałąź, z której pobierane są aktualizacje programu."
+          },
+          {
+            "key": "updates.push_branch",
+            "label": "Gałąź wysyłania zmian",
+            "type": "string",
+            "default": "Rozwiniecie",
+            "help": "Gałąź używana przy wysyłaniu zmian do repozytorium."
+          }
+        ]
+      },
+      {
+        "id": "secrets",
+        "label": "Dostęp administracyjny",
+        "tooltip": "Poufne dane administratora potrzebne do resetów i awaryjnego dostępu.",
+        "fields": [
+          {
+            "key": "secrets.admin_pin",
+            "label": "PIN administratora",
+            "type": "string",
+            "widget": "password",
+            "default": "",
+            "help": "PIN wykorzystywany przy operacjach administracyjnych (np. reset haseł)."
+          }
+        ]
+      }
+    ],
     "sections": []
   },
   {
@@ -178,12 +356,97 @@
         "id": "uprawnienia",
         "title": "Uprawnienia",
         "description": "Konfiguracja ról i dostępu do modułów.",
+        "groups": [
+          {
+            "id": "profiles_access",
+            "label": "Dostęp i widoczność modułu",
+            "tooltip": "Sterowanie widocznością zakładki Profil oraz danych w nagłówku.",
+            "fields": [
+              {
+                "key": "profiles.tab_enabled",
+                "label": "Pokazuj zakładkę Profil",
+                "type": "bool",
+                "default": true,
+                "help": "Umożliwia użytkownikom dostęp do zakładki Profil w panelu ustawień."
+              },
+              {
+                "key": "profiles.show_name_in_header",
+                "label": "Wyświetlaj nazwę w nagłówku",
+                "type": "bool",
+                "default": true,
+                "help": "Pokazuje imię i nazwisko zalogowanego użytkownika obok przycisku wylogowania."
+              }
+            ]
+          },
+          {
+            "id": "profiles_permissions",
+            "label": "Uprawnienia użytkowników",
+            "tooltip": "Kontroluje możliwość samodzielnej zmiany PIN i inne akcje resetu.",
+            "fields": [
+              {
+                "key": "profiles.allow_pin_change",
+                "label": "Użytkownik może zmienić PIN",
+                "type": "bool",
+                "default": false,
+                "help": "Pozwala użytkownikom resetować własny PIN bez pomocy administratora."
+              }
+            ]
+          },
+          {
+            "id": "profiles_fields",
+            "label": "Pola na liście profili",
+            "tooltip": "Kolumny widoczne w tabeli profili oraz informacje edytowalne przez użytkowników.",
+            "fields": [
+              {
+                "key": "profiles.fields_visible",
+                "label": "Widoczne kolumny",
+                "type": "array",
+                "value_type": "string",
+                "default": ["login", "nazwa", "rola", "zmiana"],
+                "help": "Identyfikatory pól wyświetlanych na liście profili (jedna wartość na linię)."
+              },
+              {
+                "key": "profiles.fields_editable_by_user",
+                "label": "Pola edytowalne przez użytkownika",
+                "type": "array",
+                "value_type": "string",
+                "default": ["imie", "nazwisko", "staz", "telefon", "email"],
+                "help": "Lista pól, które użytkownik może samodzielnie aktualizować (jedna wartość na linię)."
+              }
+            ]
+          }
+        ],
         "sections": []
       },
       {
         "id": "zarzadzanie_lista",
         "title": "Zarządzanie (lista)",
         "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
+        "groups": [
+          {
+            "id": "profiles_storage",
+            "label": "Zarządzanie zasobami profili",
+            "tooltip": "Parametry pomocne przy pracy na liście użytkowników i przy resetach kont.",
+            "fields": [
+              {
+                "key": "profiles.avatar_dir",
+                "label": "Katalog awatarów",
+                "type": "path",
+                "widget": "dir",
+                "default": "",
+                "help": "Katalog z plikami graficznymi przypisywanymi jako awatary użytkowników."
+              },
+              {
+                "key": "profiles.task_default_deadline_days",
+                "label": "Domyślny termin zadań (dni)",
+                "type": "int",
+                "min": 1,
+                "default": 7,
+                "help": "Ile dni dawać na wykonanie nowych zadań po aktywacji użytkownika."
+              }
+            ]
+          }
+        ],
         "sections": []
       }
     ],
