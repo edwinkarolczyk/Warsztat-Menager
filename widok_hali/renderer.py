@@ -281,10 +281,15 @@ class Tooltip:
 class Renderer:
     """Renderer widoku hali."""
 
-    def __init__(self, root: tk.Tk, canvas: tk.Canvas, machines: List[dict]):
+    def __init__(
+        self,
+        root: tk.Tk,
+        canvas: tk.Canvas,
+        machines: Optional[List[dict]] = None,
+    ):
         self.root = root
         self.canvas = canvas
-        self.machines: List[Machine] = [Machine(m) for m in machines]
+        self.machines: List[Machine] = [Machine(m) for m in machines or []]
 
         self._dot_items: Dict[str, int] = {}
         self._blink_state = True
@@ -309,8 +314,8 @@ class Renderer:
         self._start_blink()
 
     # public API -----------------------------------------------------
-    def reload(self, machines: List[dict]) -> None:
-        self.machines = [Machine(m) for m in machines]
+    def reload(self, machines: Optional[List[dict]]) -> None:
+        self.machines = [Machine(m) for m in machines or []]
         self._preview_cache.clear()
         self.draw_all()
 
