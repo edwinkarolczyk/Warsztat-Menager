@@ -1,248 +1,355 @@
-# Wersja pliku: 1.5.0
-# Moduł: ui_theme
-# ⏹ KONIEC WSTĘPU
+"""Warstwa stylów Warsztat Menager.
 
-# =====================================================================
-# ui_theme.py — DOKUMENTACJA (bez zmian logiki)
-# ---------------------------------------------------------------------
-# Ten blok komentarzy wyjaśnia, co odpowiada za kolory i style w motywie.
-#
-# GŁÓWNA PALETA (typowe nazwy zmiennych w tym pliku):
-# - DARK_BG / BASE_BG         → główne tło okna (root/Toplevel)
-# - DARK_BG_2 / INPUT_BG      → tło pól edycyjnych (Entry/Combobox/Spinbox)
-# - SIDE_BG                   → tło bocznego paska (sidebar)
-# - CARD_BG                   → tło kart/paneli (ramek typu "card")
-# - FG / TEXT_FG              → podstawowy kolor tekstu (jasny)
-# - MUTED_FG                  → przygaszony tekst (opisy, hinty)
-# - BTN_BG                    → tło przycisków
-# - BTN_BG_HOVER              → tło przycisków w stanie hover
-# - BTN_BG_ACT                → tło przycisków w stanie aktywnym/klikniętym
-#
-# TTK STYLE KLASY (typowe użycie):
-# - "WM.TFrame"               → ogólne ramki na ciemnym tle
-# - "WM.Card.TFrame"          → panele/kafelki
-# - "WM.Side.TFrame"          → panel boczny (sidebar)
-#
-# - "WM.TLabel"               → zwykłe etykiety
-# - "WM.Card.TLabel"          → etykiety w kartach/panelach
-# - "WM.Muted.TLabel"         → przygaszone etykiety (np. drobne opisy)
-# - "WM.H1.TLabel"            → większe nagłówki (bold)
-#
-# - "WM.Side.TButton"         → przyciski w sidebarze (kolory BTN_*)
-# - "TEntry / TCombobox / TSpinbox"
-#                            → pola wejściowe (tło INPUT_BG, tekst FG,
-#                              w readonly/disabled używany bywa MUTED_FG)
-#
-# - "WM.Treeview"             → wiersze tabeli (tło DARK_BG, tekst FG)
-# - "WM.Treeview.Heading"     → nagłówki kolumn (BTN_BG / BTN_BG_HOVER)
-#
-# - "TNotebook" / "TNotebook.Tab"
-#                            → zakładki (taby) – zwykle BTN_BG, wybrany BTN_BG_HOVER
-#
-# KOLORY SPECJALNE (jeśli występują):
-# - COLORS['stock_ok']        → zielony (stany OK) dla Magazynu
-# - COLORS['stock_warn']      → pomarańczowy (niski stan)
-# - COLORS['stock_low']       → czerwony (bardzo niski stan)
-#
-# UWAGA: Poniżej zaczyna się NIEZMIENIONY kod Twojego pliku.
-# =====================================================================
-
-# =============================
-# FILE: ui_theme.py
-# VERSION: 1.1.3 (stable dark + magazyn colors)
-# - Spójny ciemny motyw
-# - WM.Treeview, karty, boczny panel
-# - COLORS dla modułu Magazyn (stock_ok/warn/low)
-# =============================
+Wersja 1.1.0 – dodano motyw "warm" oraz funkcje `load_theme_name` i
+`apply_theme` akceptującą nazwę motywu.
+"""
 
 from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import Any, Iterable, Mapping
+
 import tkinter as tk
 from tkinter import ttk
+
 from config_manager import ConfigManager
-import logging
 
 logger = logging.getLogger(__name__)
 
-# Palety kolorów dla motywów
-THEMES = {
-    "dark": {
-        "dark_bg": "#1b1f24",  # tło główne
-        "dark_bg_2": "#20262e",  # tło pól
-        "side_bg": "#14181d",
-        "card_bg": "#20262e",
-        "fg": "#e6e6e6",
-        "muted_fg": "#9aa0a6",
-        "btn_bg": "#2a3139",
-        "btn_bg_hover": "#343b45",
-        "btn_bg_act": "#3b434e",
-        "banner_fg": "#ff4d4d",
-        "banner_bg": "#1b1b1b",
+# -----------------------------
+# Palety kolorów (2 motywy)
+# -----------------------------
+THEMES: Mapping[str, Mapping[str, str]] = {
+    "default": {
+        # ciemny + czerwone akcenty
+        "bg": "#111214",
+        "panel": "#1a1c1f",
+        "card": "#202226",
+        "text": "#e6e6e6",
+        "muted": "#a9abb3",
+        "accent": "#d43c3c",
+        "accent_hover": "#e25353",
+        "line": "#2a2d33",
+        "success": "#29a36a",
+        "warning": "#d69d2b",
+        "error": "#e05555",
+        "entry_bg": "#181a1d",
+        "entry_fg": "#e6e6e6",
+        "entry_bd": "#2a2d33",
+        "tab_active": "#e25353",
+        "tab_inactive": "#5a5d66",
     },
-    "light": {
-        "dark_bg": "#f5f5f5",
-        "dark_bg_2": "#ffffff",
-        "side_bg": "#e0e0e0",
-        "card_bg": "#ffffff",
-        "fg": "#202124",
-        "muted_fg": "#5f6368",
-        "btn_bg": "#d6d6d6",
-        "btn_bg_hover": "#c6c6c6",
-        "btn_bg_act": "#b6b6b6",
-        "banner_fg": "#d32f2f",
-        "banner_bg": "#f5f5f5",
-    },
-    "funky": {
-        "dark_bg": "#2b2d42",
-        "dark_bg_2": "#8d99ae",
-        "side_bg": "#ef233c",
-        "card_bg": "#edf2f4",
-        "fg": "#f1f1f1",
-        "muted_fg": "#bebebe",
-        "btn_bg": "#3a86ff",
-        "btn_bg_hover": "#8338ec",
-        "btn_bg_act": "#ff006e",
-        "banner_fg": "#ffbe0b",
-        "banner_bg": "#2b2d42",
+    "warm": {
+        # grafitowe tła + bursztynowe akcenty
+        "bg": "#131416",
+        "panel": "#1b1d20",
+        "card": "#212327",
+        "text": "#f0f0f0",
+        "muted": "#b7b9bf",
+        "accent": "#ff9933",
+        "accent_hover": "#ffb255",
+        "line": "#2b2e34",
+        "success": "#2fa779",
+        "warning": "#e0a84a",
+        "error": "#e36a5a",
+        "entry_bg": "#1a1c1f",
+        "entry_fg": "#f0f0f0",
+        "entry_bd": "#2b2e34",
+        "tab_active": "#ff9933",
+        "tab_inactive": "#6a6d75",
     },
 }
 
-# Bieżące kolory (domyślnie motyw "dark")
-DARK_BG = THEMES["dark"]["dark_bg"]
-DARK_BG_2 = THEMES["dark"]["dark_bg_2"]
-SIDE_BG = THEMES["dark"]["side_bg"]
-CARD_BG = THEMES["dark"]["card_bg"]
-FG = THEMES["dark"]["fg"]
-MUTED_FG = THEMES["dark"]["muted_fg"]
-BTN_BG = THEMES["dark"]["btn_bg"]
-BTN_BG_HOVER = THEMES["dark"]["btn_bg_hover"]
-BTN_BG_ACT = THEMES["dark"]["btn_bg_act"]
-BANNER_FG = THEMES["dark"]["banner_fg"]
-BANNER_BG = THEMES["dark"]["banner_bg"]
+DEFAULT_THEME = "default"
+CONFIG_FILE = Path("config.json")
+THEME_ALIASES = {
+    "dark": "default",
+    "ciemny": "default",
+    "wm": "default",
+    "default": "default",
+    "warm": "warm",
+}
 
-_inited = False
 
-def _init_styles(root: tk.Misc | None = None) -> None:
-    global _inited, DARK_BG, DARK_BG_2, SIDE_BG, CARD_BG, FG, MUTED_FG
-    global BTN_BG, BTN_BG_HOVER, BTN_BG_ACT, BANNER_FG, BANNER_BG
-    if _inited:
-        return
-    theme_name = ConfigManager().get("ui.theme", "dark")
-    palette = THEMES.get(theme_name, THEMES["dark"])
-    DARK_BG = palette["dark_bg"]
-    DARK_BG_2 = palette["dark_bg_2"]
-    SIDE_BG = palette["side_bg"]
-    CARD_BG = palette["card_bg"]
-    FG = palette["fg"]
-    MUTED_FG = palette["muted_fg"]
-    BTN_BG = palette["btn_bg"]
-    BTN_BG_HOVER = palette["btn_bg_hover"]
-    BTN_BG_ACT = palette["btn_bg_act"]
-    BANNER_FG = palette["banner_fg"]
-    BANNER_BG = palette["banner_bg"]
-    style = ttk.Style(root)
+def _normalize_theme_name(name: str | None) -> str:
+    if not name:
+        return DEFAULT_THEME
+    candidate = THEME_ALIASES.get(name.strip().lower(), name.strip().lower())
+    if candidate in THEMES:
+        return candidate
+    logger.warning("[WM-DBG][THEME] Motyw '%s' nieznany, używam domyślnego", name)
+    return DEFAULT_THEME
+
+
+# --------------------------------
+# Odczyt nazwy motywu z config.json
+# --------------------------------
+def load_theme_name(config_path: Path | None = None) -> str:
+    """Czyta config.json i zwraca nazwę motywu. Domyślnie 'default'."""
+
+    path = config_path or CONFIG_FILE
+    try:
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            theme_name = _extract_theme_from_dict(data)
+            if theme_name:
+                normalized = _normalize_theme_name(theme_name)
+                print("[WM-DBG][THEME] Wybrany motyw z config:", normalized)
+                return normalized
+    except Exception as exc:  # pragma: no cover - log i fallback
+        print("[ERROR][THEME] Nie udało się odczytać config.json:", exc)
+
+    # Fallback do ConfigManager (stare wersje korzystały z sekcji ui.theme)
+    try:
+        raw_name = ConfigManager().get("ui.theme", DEFAULT_THEME)
+        normalized = _normalize_theme_name(raw_name if isinstance(raw_name, str) else DEFAULT_THEME)
+        print("[WM-DBG][THEME] Motyw z ConfigManager:", normalized)
+        return normalized
+    except Exception:  # pragma: no cover - log i fallback
+        logger.exception("Nie udało się pobrać motywu z ConfigManager")
+
+    print("[WM-DBG][THEME] Używam domyślnego motywu: default")
+    return DEFAULT_THEME
+
+
+def _extract_theme_from_dict(data: Any) -> str | None:
+    """Wydziel nazwę motywu z dict-a config.json."""
+
+    if not isinstance(data, dict):
+        return None
+    theme_name = data.get("theme")
+    if isinstance(theme_name, str):
+        return theme_name
+    ui_section = data.get("ui")
+    if isinstance(ui_section, dict):
+        ui_theme = ui_section.get("theme")
+        if isinstance(ui_theme, str):
+            return ui_theme
+    return None
+
+
+def _apply_palette_to_style(style: ttk.Style, palette: Mapping[str, str]) -> None:
+    """Konfiguruj style ttk w oparciu o wskazaną paletę."""
+
     try:
         if style.theme_use() != "clam":
             style.theme_use("clam")
-    except tk.TclError:
+    except tk.TclError:  # pragma: no cover - zależne od platformy
         logger.exception("Failed to set 'clam' theme")
 
-    # Bazowe style dla standardowych klas
-    style.configure("TFrame", background=DARK_BG)
-    style.configure("TLabel", background=DARK_BG, foreground=FG)
-    style.configure("TButton", background=BTN_BG, foreground=FG, padding=6)
+    bg = palette["bg"]
+    panel = palette["panel"]
+    card = palette["card"]
+    text = palette["text"]
+    muted = palette["muted"]
+    accent = palette["accent"]
+    accent_hover = palette["accent_hover"]
+    line = palette["line"]
 
-    # Frames / cards / side
-    style.configure("WM.TFrame", background=DARK_BG)
-    style.configure("WM.Card.TFrame", background=CARD_BG)
-    style.configure("WM.Side.TFrame", background=SIDE_BG)
+    style.configure(".", background=bg, foreground=text)
+
+    # Frames / cards / side panels
+    style.configure("TFrame", background=panel)
+    style.configure("Card.TFrame", background=card)
+    style.configure("WM.TFrame", background=panel)
+    style.configure("WM.Card.TFrame", background=card)
+    style.configure("WM.Side.TFrame", background=panel)
 
     # Labels
-    style.configure("WM.TLabel", background=DARK_BG, foreground=FG)
-    style.configure("WM.Card.TLabel", background=CARD_BG, foreground=FG)
-    style.configure("WM.Muted.TLabel", background=DARK_BG, foreground=MUTED_FG)
-    style.configure("WM.H1.TLabel", background=DARK_BG, foreground=FG, font=("Segoe UI", 16, "bold"))
-    style.configure("WM.Banner.TLabel", background=BANNER_BG, foreground=BANNER_FG,
-                    font=("Consolas", 11, "bold"))
+    style.configure("TLabel", background=panel, foreground=text)
+    style.configure("WM.TLabel", background=panel, foreground=text)
+    style.configure("WM.Card.TLabel", background=card, foreground=text)
+    style.configure("WM.Muted.TLabel", background=panel, foreground=muted)
+    style.configure(
+        "WM.H1.TLabel",
+        background=panel,
+        foreground=text,
+        font=("Segoe UI", 16, "bold"),
+    )
+    style.configure(
+        "WM.Banner.TLabel",
+        background=panel,
+        foreground=accent,
+        font=("Consolas", 11, "bold"),
+    )
 
-    # Buttons (w tym boczne)
-    style.configure("WM.Side.TButton", background=BTN_BG, foreground=FG, padding=6)
-    style.map("WM.Side.TButton",
-              background=[("active", BTN_BG_HOVER), ("pressed", BTN_BG_ACT)],
-              relief=[("pressed", "sunken"), ("!pressed", "flat")])
+    # Buttons
+    style.configure(
+        "TButton",
+        background=card,
+        foreground=text,
+        borderwidth=1,
+        focusthickness=3,
+        focuscolor=accent,
+        padding=(10, 6),
+    )
+    style.map(
+        "TButton",
+        background=[("active", accent_hover), ("pressed", accent)],
+        foreground=[("disabled", muted)],
+    )
+    style.configure(
+        "WM.Side.TButton",
+        background=panel,
+        foreground=text,
+        borderwidth=0,
+        padding=6,
+    )
+    style.map(
+        "WM.Side.TButton",
+        background=[("active", accent_hover), ("pressed", accent)],
+        relief=[("pressed", "sunken"), ("!pressed", "flat")],
+    )
 
-    # Inputs
+    # Inputs (Entry/Combobox/Spinbox)
+    entry_common = dict(
+        fieldbackground=palette["entry_bg"],
+        foreground=palette["entry_fg"],
+        background=panel,
+        bordercolor=palette["entry_bd"],
+        lightcolor=palette["entry_bd"],
+        darkcolor=palette["entry_bd"],
+        insertcolor=text,
+        padding=6,
+    )
     for base in ("TEntry", "TCombobox", "TSpinbox"):
-        style.configure(base,
-                        fieldbackground=DARK_BG_2,
-                        background=BTN_BG,
-                        foreground=FG)
-        style.map(base,
-                  fieldbackground=[("readonly", DARK_BG_2), ("focus", DARK_BG_2)],
-                  foreground=[("disabled", MUTED_FG)])
-
+        style.configure(base, **entry_common)
+        style.map(
+            base,
+            fieldbackground=[("readonly", palette["entry_bg"]), ("focus", palette["entry_bg"])],
+            foreground=[("disabled", muted)],
+        )
     style.configure(
         "Transparent.TEntry",
-        fieldbackground=DARK_BG,
-        background=DARK_BG,
+        fieldbackground=bg,
+        background=bg,
         borderwidth=0,
+        foreground=text,
+    )
+
+    # Notebook (zakładki)
+    style.configure("TNotebook", background=panel, borderwidth=0)
+    style.configure(
+        "TNotebook.Tab",
+        padding=(12, 6),
+        background=panel,
+        foreground=palette["tab_inactive"],
+    )
+    style.map(
+        "TNotebook.Tab",
+        foreground=[("selected", text)],
+        background=[("selected", panel)],
+        bordercolor=[("selected", palette["tab_active"])],
     )
 
     # Treeview
-    style.configure("WM.Treeview",
-                    background=DARK_BG,
-                    fieldbackground=DARK_BG,
-                    foreground=FG,
-                    borderwidth=0)
-    style.map("WM.Treeview",
-              background=[("selected", BTN_BG_HOVER)],
-              foreground=[("selected", FG)])
-    style.configure("WM.Treeview.Heading",
-                    background=BTN_BG,
-                    foreground=FG)
-    style.map("WM.Treeview.Heading",
-              background=[("active", BTN_BG_HOVER), ("pressed", BTN_BG_ACT)])
+    tree_opts = dict(
+        background=card,
+        fieldbackground=card,
+        foreground=text,
+        bordercolor=line,
+        rowheight=24,
+    )
+    style.configure("Treeview", **tree_opts)
+    style.configure("WM.Treeview", **tree_opts)
+    style.map(
+        "Treeview",
+        background=[("selected", accent)],
+        foreground=[("selected", "#000000")],
+    )
+    style.map(
+        "WM.Treeview",
+        background=[("selected", accent)],
+        foreground=[("selected", "#000000")],
+    )
+    heading_opts = dict(background=panel, foreground=text)
+    style.configure("Treeview.Heading", **heading_opts)
+    style.configure("WM.Treeview.Heading", **heading_opts)
 
-    # Notebook
-    style.configure("TNotebook", background=DARK_BG, borderwidth=0)
-    style.configure("TNotebook.Tab", background=BTN_BG, foreground=FG)
-    style.map("TNotebook.Tab",
-              background=[("selected", BTN_BG_HOVER)],
-              foreground=[("selected", FG)])
-
-    _inited = True
+    # Separator
+    style.configure("TSeparator", background=line)
 
 
-def apply_theme(widget: tk.Misc | None) -> None:
-    """Idempotentny motyw ciemny. Ustawia bg TYLKO na Tk/Toplevel."""
-    print("[WM-DBG] apply_theme()")
-    _init_styles(widget)
-    if isinstance(widget, (tk.Tk, tk.Toplevel)):
+def _resolve_style_master(style: ttk.Style) -> tk.Misc | None:
+    master = getattr(style, "master", None)
+    if isinstance(master, tk.Misc):
+        return master
+    return None
+
+
+# -----------------------
+# Aplikacja stylu do ttk i widgetów
+# -----------------------
+def apply_theme(
+    target: tk.Misc | ttk.Style | None = None,
+    name: str | None = None,
+    *,
+    config_path: Path | None = None,
+) -> None:
+    """Aplikuje motyw do ttk.Style lub bezpośrednio do widgetu."""
+
+    theme_name = _normalize_theme_name(name) if name else load_theme_name(config_path)
+    palette = THEMES[theme_name]
+
+    if isinstance(target, ttk.Style):
+        style = target
+    else:
+        style = ttk.Style(target)
+
+    _apply_palette_to_style(style, palette)
+
+    roots: Iterable[tk.Misc] = []
+    if isinstance(target, (tk.Tk, tk.Toplevel)):
+        roots = (target,)
+    elif isinstance(target, tk.Misc):
+        roots = (target.winfo_toplevel(),)
+    else:
+        master = _resolve_style_master(style)
+        if isinstance(master, (tk.Tk, tk.Toplevel)):
+            roots = (master,)
+
+    for root in roots:
         try:
-            widget.configure(bg=DARK_BG)
-        except tk.TclError:
+            root.configure(bg=palette["bg"])
+        except tk.TclError:  # pragma: no cover - zależne od platformy
             logger.exception("Failed to configure widget background")
 
 
-def apply_theme_safe(widget: tk.Misc | None) -> None:
+def apply_theme_safe(
+    target: tk.Misc | ttk.Style | None = None,
+    name: str | None = None,
+    *,
+    config_path: Path | None = None,
+) -> None:
     """Wrapper na :func:`apply_theme`, ignorujący wszelkie wyjątki."""
+
     try:
-        apply_theme(widget)
-    except Exception:
+        apply_theme(target, name=name, config_path=config_path)
+    except Exception:  # pragma: no cover - log i kontynuuj
         logger.exception("apply_theme failed")
 
 
-def apply_theme_tree(widget: tk.Misc | None) -> None:
+def apply_theme_tree(
+    widget: tk.Misc | None,
+    name: str | None = None,
+    *,
+    config_path: Path | None = None,
+) -> None:
     """Zastosuj motyw dla podanego widgetu i całego jego drzewa potomków."""
-    apply_theme_safe(widget)
+
+    apply_theme_safe(widget, name=name, config_path=config_path)
     if hasattr(widget, "winfo_children"):
         for child in widget.winfo_children():
-            apply_theme_tree(child)
+            apply_theme_tree(child, name=name, config_path=config_path)
+
 
 # ===== Kolory magazynu (używane przez gui_magazyn) =====
 COLORS = {
-    "stock_ok":   "#2d6a4f",
+    "stock_ok": "#2d6a4f",
     "stock_warn": "#d35400",
-    "stock_low":  "#c0392b",
+    "stock_low": "#c0392b",
 }
 
 # ⏹ KONIEC KODU
