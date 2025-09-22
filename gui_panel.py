@@ -96,7 +96,7 @@ def _center_container(self):
     return self
 
 
-def _open_profile_view(self):
+def _open_profile(self):
     """Wstawia nowy widok profilu do centralnego kontenera."""
     if ProfileView is None:
         print("[ERROR][PROFILE] Brak klasy ProfileView – sprawdź gui_profile.py")
@@ -143,7 +143,7 @@ def _open_profile_view(self):
         except Exception:
             view.pack(fill="both", expand=True)
 
-        print(f"[WM-DBG][PROFILE] Załadowano nowy widok profilu dla loginu: {login}")
+        print(f"[WM-DBG][PROFILE] Załadowano nowy widok profilu dla: {login}")
     except Exception as exc:
         print(f"[ERROR][PROFILE] Nie udało się otworzyć widoku profilu: {exc}")
 
@@ -606,7 +606,7 @@ def uruchom_panel(root, login, rola):
         setattr(root, "current_user", login)
         setattr(root, "username", login)
         try:
-            _open_profile_view(root)
+            _open_profile(root)
         except Exception as e:
             log_akcja(f"Błąd otwierania panelu profilu: {e}")
             clear_frame(content)
