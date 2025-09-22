@@ -33,6 +33,7 @@ class MaszynyGUI:
         self._source = "primary"
         self._machines = self._load_machines()
         self._renderer: Renderer | None = None
+        self._details_btn: ttk.Button | None = None
         self._mode_var = tk.StringVar(value="view")
 
         self._hide_hale_button_if_present()
@@ -166,8 +167,20 @@ class MaszynyGUI:
             if not hale_btn and hasattr(self.root, "btn_hale"):
                 hale_btn = getattr(self.root, "btn_hale")
             if hale_btn:
-                hale_btn.pack_forget()
-                print("[WM][Maszyny] Ukryto przycisk 'Hale'")
+                hidden = False
+                for method_name in ("pack_forget", "grid_remove", "place_forget"):
+                    try:
+                        hide_method = getattr(hale_btn, method_name)
+                    except AttributeError:
+                        continue
+                    try:
+                        hide_method()
+                        hidden = True
+                        break
+                    except Exception:
+                        continue
+                if hidden:
+                    print("[WM][Maszyny] Ukryto przycisk 'Hale'")
         except Exception as exc:  # pragma: no cover - defensywne
             print(f"[WARN][Maszyny] Nie udało się ukryć 'Hale': {exc}")
 
@@ -197,9 +210,10 @@ class MaszynyGUI:
 
         buttons = tk.Frame(left)
         buttons.pack(fill="x", padx=12, pady=(0, 10))
-        ttk.Button(buttons, text="Szczegóły", command=self._open_details_for_selected).pack(
-            side="left"
+        self._details_btn = ttk.Button(
+            buttons, text="Szczegóły", command=self._open_details_for_selected
         )
+        self._details_btn.pack(side="left")
         ttk.Button(buttons, text="Odśwież", command=self._refresh_all).pack(
             side="left", padx=(8, 0)
         )
@@ -244,13 +258,36 @@ class MaszynyGUI:
             except Exception as exc:  # pragma: no cover - zależne od renderer'a
                 self._renderer = None
                 print(f"[ERROR][Maszyny] Nie udało się zainicjalizować Renderer: {exc}")
+                self._set_details_button_enabled(False)
+                tk.Label(
+                    self._canvas,
+                    text="Błąd inicjalizacji renderer'a",
+                    fg="#fca5a5",
+                    bg="#0f172a",
+                ).place(x=20, y=20)
             else:
                 self._renderer.on_select = self._on_hala_select
                 self._renderer.on_move = self._on_hala_move
                 self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
                 self._set_hala_mode("view")
+                self._set_details_button_enabled(True)
         else:
-            tk.Label(self._canvas, text="Brak renderer.py", fg="red").place(x=20, y=20)
+            self._set_details_button_enabled(False)
+            tk.Label(
+                self._canvas,
+                text="Brak widok_hali/renderer.py",
+                fg="#fca5a5",
+                bg="#0f172a",
+            ).place(x=20, y=20)
+
+    def _set_details_button_enabled(self, enabled: bool) -> None:
+        if not self._details_btn:
+            return
+        state = "normal" if enabled else "disabled"
+        try:
+            self._details_btn.configure(state=state)
+        except Exception:  # pragma: no cover - defensywne
+            pass
 
     # ----- tabela -----
     def _reload_tree(self) -> None:
