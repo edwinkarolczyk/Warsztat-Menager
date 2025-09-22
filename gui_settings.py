@@ -598,7 +598,7 @@ class SettingsPanel:
         description: str | None = None,
         namespace: str | None = None,
     ) -> ttk.LabelFrame:
-        """Create labeled frame for manual settings sections."""
+        """Create labeled frame for manual settings groups."""
 
         group = ttk.LabelFrame(parent, text=title)
         group.pack(fill="x", padx=10, pady=(10, 6))
@@ -790,7 +790,11 @@ class SettingsPanel:
         grp_count = 0
         fld_count = 0
 
-        for group in tab.get("groups", []):
+        groups = tab.get("groups")
+        if groups is None:
+            groups = tab.get("sections", [])
+
+        for group in groups:
             if _is_deprecated(group):
                 ident = group.get("label") or group.get("id") or "group"
                 print(
@@ -1286,7 +1290,11 @@ class SettingsPanel:
             "[INFO][WM-DBG] Buduję zakładkę: Ustawienia → Narzędzia (UI-only patch)"
         )
         field_defs: dict[str, dict[str, Any]] = {}
-        for group in tab.get("groups", []):
+        groups = tab.get("groups")
+        if groups is None:
+            groups = tab.get("sections", [])
+
+        for group in groups:
             if _is_deprecated(group):
                 continue
             for field_def in group.get("fields", []):
