@@ -165,7 +165,7 @@
     "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
     "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
     "icon": "settings",
-    "sections": []
+    "groups": []
   },
   {
     "id": "uzytkownicy",
@@ -178,16 +178,16 @@
         "id": "uprawnienia",
         "title": "Uprawnienia",
         "description": "Konfiguracja ról i dostępu do modułów.",
-        "sections": []
+        "groups": []
       },
       {
         "id": "zarzadzanie_lista",
         "title": "Zarządzanie (lista)",
         "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
-        "sections": []
+        "groups": []
       }
     ],
-    "sections": []
+    "groups": []
   },
   {
     "id": "profile",
@@ -195,7 +195,7 @@
     "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
     "tooltip": "Podgląd podstawowych danych aktualnego użytkownika.",
     "icon": "id-card",
-    "sections": []
+    "groups": []
   },
   {
     "id": "hala",
@@ -203,7 +203,7 @@
     "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
     "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
     "icon": "layout",
-    "sections": []
+    "groups": []
   },
   {
     "id": "narzedzia",
@@ -216,16 +216,16 @@
         "id": "typy_statusy",
         "title": "Typy i statusy",
         "description": "Definicje typów narzędzi, statusów i list zadań w statusach.",
-        "sections": []
+        "groups": []
       },
       {
         "id": "reguly",
         "title": "Reguły",
         "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
-        "sections": []
+        "groups": []
       }
     ],
-    "sections": []
+    "groups": []
   },
   {
     "id": "zlecenia",
@@ -238,16 +238,16 @@
         "id": "statusy",
         "title": "Statusy",
         "description": "Predefiniowane statusy zleceń (dwuklik w edycji otwiera listę wyboru).",
-        "sections": []
+        "groups": []
       },
       {
         "id": "kreator",
         "title": "Kreator",
         "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
-        "sections": []
+        "groups": []
       }
     ],
-    "sections": []
+    "groups": []
   },
   {
     "id": "magazyn",
@@ -260,16 +260,16 @@
         "id": "ustawienia_magazynu",
         "title": "Ustawienia magazynu",
         "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
-        "sections": []
+        "groups": []
       },
       {
         "id": "produkty_bom",
         "title": "Produkty (BOM)",
         "description": "Struktury produktów oraz powiązania półproduktów/części.",
-        "sections": []
+        "groups": []
       }
     ],
-    "sections": []
+    "groups": []
   },
   {
     "id": "zamowienia",
@@ -277,7 +277,7 @@
     "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
     "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
     "icon": "shopping-cart",
-    "sections": []
+    "groups": []
   },
   {
     "id": "aktualizacje",
@@ -285,7 +285,7 @@
     "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
     "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
     "icon": "history",
-    "sections": []
+    "groups": []
   },
   {
     "id": "tests",
@@ -294,7 +294,7 @@
     "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
     "devOnly": true,
     "icon": "beaker",
-    "sections": []
+    "groups": []
   }
 ]
 }
