@@ -807,7 +807,7 @@ class ProfileView(ttk.Frame):
         cover = ttk.Frame(self, style="WM.Cover.TFrame")
         cover.pack(fill="x", padx=16, pady=(16, 8))
         cover.configure(height=180)
-        cover.grid_propagate(False)
+        cover.pack_propagate(False)
 
         inner = ttk.Frame(cover, style="WM.Header.TFrame")
         inner.place(
