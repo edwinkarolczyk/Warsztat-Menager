@@ -1,4 +1,5 @@
 # Warsztat Menager (WM)
+👉 Zobacz plan rozwoju: [ROADMAP.md](./ROADMAP.md)
 
 Ciemny, desktopowy system do zarządzania warsztatem (Python/Tkinter).
 Moduły: **Maszyny, Narzędzia, Zlecenia, Magazyn, Serwis, Ustawienia**.
