@@ -523,13 +523,95 @@
         "id": "ustawienia_magazynu",
         "title": "Ustawienia magazynu",
         "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
-        "sections": []
+        "groups": [
+          {
+            "label": "Rezerwacje i alerty",
+            "tooltip": "Konfiguracja progów alertów magazynu oraz automatycznych rezerwacji.",
+            "fields": [
+              {
+                "key": "magazyn_rezerwacje",
+                "label": "Włącz rezerwacje magazynowe",
+                "type": "bool",
+                "default": true,
+                "description": "Steruje tworzeniem rezerwacji pozycji na potrzeby zleceń."
+              },
+              {
+                "key": "progi_alertow_pct",
+                "label": "Progi alertów magazynowych [%]",
+                "type": "array",
+                "value_type": "float",
+                "default": [
+                  100.0
+                ],
+                "description": "Lista wartości procentowych uruchamiających alerty stanów magazynowych."
+              },
+              {
+                "key": "progi_alertow_surowce",
+                "label": "Progi alertów dla surowców",
+                "type": "dict",
+                "value_type": "float",
+                "default": {},
+                "description": "Mapowanie nazwy surowca na indywidualny próg alertu (%)."
+              }
+            ]
+          }
+        ]
       },
       {
         "id": "produkty_bom",
         "title": "Produkty (BOM)",
         "description": "Struktury produktów oraz powiązania półproduktów/części.",
-        "sections": []
+        "groups": [
+          {
+            "label": "Katalog produktów",
+            "tooltip": "Ścieżka katalogu oraz opcje automatycznego odświeżania kartotek produktów.",
+            "fields": [
+              {
+                "key": "produkty_dir",
+                "label": "Folder produktów (BOM)",
+                "type": "path",
+                "widget": "dir",
+                "default": "data/produkty/",
+                "description": "Katalog przechowujący definicje struktur produktów."
+              },
+              {
+                "key": "produkty_auto_sync",
+                "label": "Automatyczna synchronizacja produktów",
+                "type": "bool",
+                "default": false,
+                "description": "Po zaznaczeniu katalog produktów będzie automatycznie monitorowany i odświeżany."
+              }
+            ]
+          },
+          {
+            "label": "Katalog półproduktów",
+            "fields": [
+              {
+                "key": "polprodukty_dir",
+                "label": "Folder półproduktów",
+                "type": "path",
+                "widget": "dir",
+                "default": "data/polprodukty/",
+                "description": "Katalog z definicjami półproduktów wykorzystywanych w BOM."
+              },
+              {
+                "key": "polprodukty_auto_sync",
+                "label": "Automatyczna synchronizacja półproduktów",
+                "type": "bool",
+                "default": false,
+                "description": "Monitoruj katalog półproduktów i automatycznie odświeżaj listę w programie."
+              },
+              {
+                "key": "surowce_file",
+                "label": "Plik z listą surowców",
+                "type": "path",
+                "widget": "file",
+                "default": "data/magazyn/surowce.json",
+                "description": "Źródło danych o dostępnych surowcach wykorzystywanych w BOM."
+              }
+            ]
+          }
+        ]
       }
     ],
     "sections": []
@@ -540,7 +622,141 @@
     "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
     "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
     "icon": "shopping-cart",
-    "sections": []
+    "groups": [
+      {
+        "label": "Aktywacja modułu",
+        "fields": [
+          {
+            "key": "orders.enabled",
+            "label": "Włącz obsługę zamówień materiałowych",
+            "type": "bool",
+            "default": true,
+            "description": "Przełącznik główny decydujący o dostępności modułu zamówień."
+          }
+        ]
+      },
+      {
+        "label": "Parametry procesu",
+        "tooltip": "Definiuj kroki kreatora, typy i statusy wykorzystywane podczas pracy z zamówieniami.",
+        "fields": [
+          {
+            "key": "orders.enabled_steps",
+            "label": "Aktywne kroki kreatora zamówienia",
+            "type": "array",
+            "value_type": "string",
+            "default": [
+              "typ",
+              "kontekst",
+              "pozycje",
+              "dostawca",
+              "terminy_status",
+              "podsumowanie"
+            ],
+            "description": "Wpisz jeden etap na linię w kolejności wykonywania."
+          },
+          {
+            "key": "orders.types",
+            "label": "Definicje typów zamówień",
+            "type": "dict",
+            "default": {},
+            "description": "Mapa kodu typu zamówienia na jego konfigurację (prefiks, statusy, itp.)."
+          },
+          {
+            "key": "orders.statuses",
+            "label": "Statusy zamówień",
+            "type": "array",
+            "value_type": "string",
+            "default": [
+              "draft",
+              "oczekuje_wyslania",
+              "wyslane",
+              "w_realizacji",
+              "dostarczone",
+              "zamkniete",
+              "anulowane"
+            ],
+            "description": "Etapy cyklu życia zamówienia; każdy status w osobnym wierszu."
+          }
+        ]
+      },
+      {
+        "label": "Identyfikatory i lokalizacja",
+        "fields": [
+          {
+            "key": "orders.id_width",
+            "label": "Szerokość numeru zamówienia",
+            "type": "int",
+            "default": 4,
+            "min": 1,
+            "max": 8,
+            "description": "Minimalna liczba cyfr w automatycznie nadawanym identyfikatorze."
+          },
+          {
+            "key": "orders.auto_id_format",
+            "label": "Format automatycznego ID",
+            "type": "string",
+            "default": "ORD-{YYYYMMDD}-{HHMMSS}",
+            "description": "Wzorzec wykorzystywany przy generowaniu numeru zamówienia."
+          },
+          {
+            "key": "orders.data_dir",
+            "label": "Folder na zamówienia",
+            "type": "path",
+            "widget": "dir",
+            "default": "data/zamowienia",
+            "description": "Katalog, w którym zapisywane są pliki z zamówieniami."
+          },
+          {
+            "key": "orders.default_supplier",
+            "label": "Domyślny dostawca",
+            "type": "string",
+            "default": "",
+            "description": "Nazwa dostawcy proponowana automatycznie w kreatorze zamówień."
+          }
+        ]
+      },
+      {
+        "label": "Uprawnienia",
+        "tooltip": "Role, które mogą tworzyć, przyjmować i anulować zamówienia.",
+        "fields": [
+          {
+            "key": "orders.permissions.create",
+            "label": "Role uprawnione do tworzenia",
+            "type": "array",
+            "value_type": "string",
+            "default": [
+              "brygadzista",
+              "kierownik",
+              "admin"
+            ],
+            "description": "Podaj role po jednej w linii."
+          },
+          {
+            "key": "orders.permissions.receive",
+            "label": "Role uprawnione do przyjęcia dostawy",
+            "type": "array",
+            "value_type": "string",
+            "default": [
+              "magazynier",
+              "kierownik",
+              "admin"
+            ],
+            "description": "Podaj role po jednej w linii."
+          },
+          {
+            "key": "orders.permissions.cancel",
+            "label": "Role uprawnione do anulowania",
+            "type": "array",
+            "value_type": "string",
+            "default": [
+              "kierownik",
+              "admin"
+            ],
+            "description": "Podaj role po jednej w linii."
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "aktualizacje",
