@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Mapping
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import TclError, ttk
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +189,39 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
     print(f"[WM-DBG][THEME] Zastosowano motyw: {name}")
 
 
+def _set_widget_background(widget: tk.Misc, bg_color: str) -> None:
+    """Ustawia tło dla widgetu tk/ttk w sposób odporny na wyjątki."""
+
+    def _set_native_background(w: tk.Misc) -> bool:
+        try:
+            w.configure(background=bg_color)
+            return True
+        except TclError:
+            pass
+        try:
+            w.configure(bg=bg_color)
+            return True
+        except TclError:
+            return False
+
+    if _set_native_background(widget):
+        print(
+            f"[WM-DBG][THEME] BG set native for {widget.__class__.__name__} = {bg_color}"
+        )
+        return
+
+    try:
+        style = ttk.Style(widget)
+        widget_class = widget.winfo_class()
+        unique_id = str(widget).replace(".", "_")
+        style_name = f"{widget_class}.{unique_id}"
+        style.configure(style_name, background=bg_color, fieldbackground=bg_color)
+        widget.configure(style=style_name)
+        print(f"[WM-DBG][THEME] BG set via ttk.Style for {widget_class} -> {bg_color}")
+    except Exception as exc:  # pragma: no cover - jedynie log
+        print(f"[WM-DBG][THEME] Nie można ustawić tła dla {widget}: {exc}")
+
+
 def apply_theme_safe(
     target: tk.Misc | ttk.Style | None = None,
     name: str | None = None,
@@ -203,10 +236,7 @@ def apply_theme_safe(
         theme_name = name or load_theme_name(path)
         apply_theme(style, theme_name)
         if isinstance(target, tk.Misc):
-            try:
-                target.configure(bg=THEMES[theme_name]["bg"])
-            except tk.TclError:
-                logger.exception("Failed to configure widget background")
+            _set_widget_background(target, THEMES[theme_name]["bg"])
     except Exception:  # pragma: no cover - log i kontynuuj
         logger.exception("apply_theme failed")
 
