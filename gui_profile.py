@@ -27,6 +27,7 @@ import json
 import glob
 import re
 import tkinter as tk
+from contextlib import suppress
 from pathlib import Path
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
@@ -107,6 +108,17 @@ def _load_assign_tools():
 
 def _save_assign_tool(task_id, login):
     save_assign_tool(task_id, login)
+
+
+def _disable_geometry_propagation(widget: tk.Misc) -> None:
+    """Prevent geometry managers from shrinking the widget unexpectedly."""
+
+    for method_name in ("pack_propagate", "grid_propagate"):
+        method = getattr(widget, method_name, None)
+        if method is None:
+            continue
+        with suppress(tk.TclError):
+            method(False)
 
 def _login_list():
     """Zbiera loginy z profili, avatarów i plików zadań."""
@@ -807,7 +819,7 @@ class ProfileView(ttk.Frame):
         cover = ttk.Frame(self, style="WM.Cover.TFrame")
         cover.pack(fill="x", padx=16, pady=(16, 8))
         cover.configure(height=180)
-        cover.pack_propagate(False)
+        _disable_geometry_propagation(cover)
 
         inner = ttk.Frame(cover, style="WM.Header.TFrame")
         inner.place(
