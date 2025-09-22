@@ -292,6 +292,7 @@ class Renderer:
         self.machines: List[Machine] = [Machine(m) for m in machines or []]
 
         self._dot_items: Dict[str, int] = {}
+        self._machine_items: Dict[str, List[int]] = {}
         self._blink_state = True
         self._blink_job: Optional[str] = None
 
@@ -356,16 +357,24 @@ class Renderer:
     def draw_all(self) -> None:
         self.canvas.delete("all")
         self._dot_items.clear()
+        self._machine_items.clear()
         self._drag_mid = None
         for machine in self.machines:
             self._draw_machine(machine)
         self._redraw_selection()
 
+    def _register_item(self, machine_id: str, item_id: int | None) -> None:
+        if not machine_id or item_id is None:
+            return
+        bucket = self._machine_items.setdefault(machine_id, [])
+        bucket.append(item_id)
+
     # rendering ------------------------------------------------------
     def _draw_machine(self, machine: Machine) -> None:
         x, y = machine.pos["x"], machine.pos["y"]
         width, height = machine.size["w"], machine.size["h"]
-        self.canvas.create_rectangle(
+        self._machine_items[machine.id] = []
+        rect = self.canvas.create_rectangle(
             x,
             y,
             x + width,
@@ -374,7 +383,8 @@ class Renderer:
             outline="#374151",
             tags=(f"machine:{machine.id}",),
         )
-        self.canvas.create_text(
+        self._register_item(machine.id, rect)
+        hall_label = self.canvas.create_text(
             x + 8,
             y + 10,
             text=f"hala nr {machine.hall}",
@@ -383,7 +393,8 @@ class Renderer:
             font=("Segoe UI", 9),
             tags=(f"machine:{machine.id}",),
         )
-        self.canvas.create_text(
+        self._register_item(machine.id, hall_label)
+        name_label = self.canvas.create_text(
             x + 8,
             y + height / 2,
             text=machine.name,
@@ -392,6 +403,7 @@ class Renderer:
             font=("Segoe UI", 10, "bold"),
             tags=(f"machine:{machine.id}",),
         )
+        self._register_item(machine.id, name_label)
         self._draw_status_dot(machine, x, y, width, height)
         if STATUS_STYLE[machine.status]["overlay"]:
             self._draw_awaria_overlay(machine, x, y, width, height)
@@ -449,6 +461,7 @@ class Renderer:
             tags=(f"machine:{machine.id}",),
         )
         self._dot_items[machine.id] = dot
+        self._register_item(machine.id, dot)
         print(
             f"[WM-DBG][HALA] Kropka statusu {machine.status} "
             f"dla {machine.id}"
@@ -457,7 +470,7 @@ class Renderer:
     def _draw_awaria_overlay(
         self, machine: Machine, x: int, y: int, width: int, height: int
     ) -> None:
-        self.canvas.create_rectangle(
+        overlay = self.canvas.create_rectangle(
             x,
             y,
             x + width,
@@ -467,7 +480,8 @@ class Renderer:
             outline="",
             tags=(f"machine:{machine.id}",),
         )
-        self.canvas.create_text(
+        self._register_item(machine.id, overlay)
+        overlay_text = self.canvas.create_text(
             x + width / 2,
             y + height / 2,
             text="NIE UŻYWAĆ",
@@ -475,6 +489,7 @@ class Renderer:
             font=("Segoe UI", 11, "bold"),
             tags=(f"machine:{machine.id}",),
         )
+        self._register_item(machine.id, overlay_text)
         print(f"[WM-DBG][HALA] Overlay awaria dla {machine.id}")
 
     # blinking -------------------------------------------------------
@@ -590,10 +605,20 @@ class Renderer:
             return
         dx = event.x - self._drag_start[0]
         dy = event.y - self._drag_start[1]
-        try:
-            self.canvas.move(f"machine:{machine_id}", dx, dy)
-        except Exception:
-            return
+        moved = False
+        items = self._machine_items.get(machine_id)
+        if items:
+            for item in items:
+                try:
+                    self.canvas.move(item, dx, dy)
+                    moved = True
+                except Exception:
+                    continue
+        if not moved:
+            try:
+                self.canvas.move(f"machine:{machine_id}", dx, dy)
+            except Exception:
+                return
         self._drag_start = (event.x, event.y)
         if self._selected_mid == machine_id:
             self._redraw_selection()
