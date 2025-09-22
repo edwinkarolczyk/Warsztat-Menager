@@ -12,7 +12,7 @@ import datetime as dt
 import io
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import tkinter as tk
 
@@ -133,6 +133,18 @@ def _is_url(value: str) -> bool:
     return value.startswith("http://") or value.startswith("https://")
 
 
+def _to_int(value: Union[str, int, float, None], default: int = 0) -> int:
+    try:
+        if value is None:
+            raise ValueError
+        if isinstance(value, str):
+            if not value.strip():
+                raise ValueError
+        return int(value)
+    except Exception:
+        return default
+
+
 @dataclass
 class Machine:
     raw: dict
@@ -147,20 +159,26 @@ class Machine:
 
     @property
     def hall(self) -> int:
-        return int(self.raw.get("hala", 1))
+        return _to_int(self.raw.get("hala"), 1)
 
     @property
     def pos(self) -> Dict[str, int]:
+        raw_pos = self.raw.get("pozycja") or {}
+        if not isinstance(raw_pos, dict):
+            raw_pos = {}
         return {
-            "x": int(self.raw.get("pozycja", {}).get("x", 0)),
-            "y": int(self.raw.get("pozycja", {}).get("y", 0)),
+            "x": _to_int(raw_pos.get("x"), 0),
+            "y": _to_int(raw_pos.get("y"), 0),
         }
 
     @property
     def size(self) -> Dict[str, int]:
+        raw_size = self.raw.get("rozmiar") or {}
+        if not isinstance(raw_size, dict):
+            raw_size = {}
         return {
-            "w": int(self.raw.get("rozmiar", {}).get("w", 80)),
-            "h": int(self.raw.get("rozmiar", {}).get("h", 60)),
+            "w": _to_int(raw_size.get("w"), 80),
+            "h": _to_int(raw_size.get("h"), 60),
         }
 
     @property
