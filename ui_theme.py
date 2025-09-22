@@ -60,6 +60,24 @@ THEMES: Mapping[str, Mapping[str, str]] = {
         "tab_active": "#ff9933",
         "tab_inactive": "#6a6d75",
     },
+    "christmas": {
+        "bg": "#0d1a0d",  # ciemna zieleń
+        "panel": "#142414",
+        "card": "#1a2a1a",
+        "text": "#ffffff",
+        "muted": "#a8b0a8",
+        "accent": "#cc3333",  # czerwony
+        "accent_hover": "#d44d4d",
+        "line": "#223322",
+        "success": "#2fa779",
+        "warning": "#d4af37",  # złoty
+        "error": "#e05555",
+        "entry_bg": "#142414",
+        "entry_fg": "#ffffff",
+        "entry_bd": "#223322",
+        "tab_active": "#d4af37",
+        "tab_inactive": "#556655",
+    },
 }
 
 DEFAULT_THEME = "default"
