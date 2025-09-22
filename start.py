@@ -22,7 +22,7 @@ import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
-from ui_theme import apply_theme
+from ui_theme import apply_theme_safe as apply_theme
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates

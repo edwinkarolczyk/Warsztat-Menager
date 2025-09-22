@@ -15,7 +15,7 @@ from datetime import datetime
 from tkinter import messagebox, ttk
 
 try:
-    from ui_theme import apply_theme
+    from ui_theme import apply_theme_safe as apply_theme
 except Exception:
     def apply_theme(_):
         """Fallback gdy brak motywu – nie wybuchamy."""
