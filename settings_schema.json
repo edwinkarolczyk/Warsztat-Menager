@@ -177,7 +177,7 @@
             "type": "enum",
             "enum": ["dark", "warm"],
             "default": "dark",
-            "help": "Wybierz motyw kolorystyczny aplikacji (wartość \"dark\" mapuje na motyw domyślny)."
+            "help": "Wybrany motyw kolorystyczny aplikacji (default = motyw główny, warm = alternatywny, christmas = świąteczny)."
           },
           {
             "key": "ui.accent",
