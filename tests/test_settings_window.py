@@ -15,7 +15,10 @@ def _setup_schema(make_manager, monkeypatch, options=None, tabs=None):
 
         def collect_defaults(tab_list):
             for tab in tab_list:
-                for group in tab.get("groups", []):
+                groups = tab.get("groups")
+                if groups is None:
+                    groups = tab.get("sections", [])
+                for group in groups:
                     for field in group.get("fields", []):
                         defaults[field["key"]] = field.get("default")
                 collect_defaults(tab.get("subtabs", []))
@@ -215,6 +218,41 @@ def test_magazyn_tab_has_subtabs(make_manager, monkeypatch):
     ][0]
     titles = [inner_nb.tab(t, "text") for t in inner_nb.tabs()]
     assert titles == ["Ustawienia magazynu", "Produkty (BOM)"]
+    root.destroy()
+
+
+def test_legacy_sections_schema_supported(make_manager, monkeypatch):
+    tabs = [
+        {
+            "id": "legacy",
+            "title": "Legacy",
+            "sections": [
+                {
+                    "label": "Legacy group",
+                    "fields": [
+                        {"key": "legacy_value", "type": "int", "default": 7}
+                    ],
+                }
+            ],
+        }
+    ]
+    _setup_schema(make_manager, monkeypatch, tabs=tabs)
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        pytest.skip("Tkinter not available")
+    root.withdraw()
+    frame = ttk.Frame(root)
+    frame.pack()
+    ustawienia_systemu.panel_ustawien(root, frame)
+    nb = frame.winfo_children()[0]
+    tab = root.nametowidget(nb.tabs()[0])
+    group = next(child for child in tab.winfo_children() if isinstance(child, ttk.Labelframe))
+    inner = next(child for child in group.winfo_children() if isinstance(child, ttk.Frame))
+    field = inner.winfo_children()[0]
+    widget = field.winfo_children()[1]
+    var_name = widget.cget("textvariable")
+    assert int(root.getvar(var_name)) == 7
     root.destroy()
 
 

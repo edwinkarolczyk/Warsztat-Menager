@@ -54,6 +54,19 @@ def _normalize_schema(schema: dict) -> dict:
     fields.
     """
 
+    def _convert_sections(node):
+        if isinstance(node, dict):
+            if "sections" in node and "groups" not in node:
+                node["groups"] = node.pop("sections")
+            for key in ("tabs", "subtabs", "groups"):
+                for child in node.get(key, []):
+                    _convert_sections(child)
+        elif isinstance(node, list):
+            for item in node:
+                _convert_sections(item)
+
+    _convert_sections(schema)
+
     if "tabs" not in schema and schema.get("options"):
         opts = schema.pop("options")
         schema["tabs"] = [
