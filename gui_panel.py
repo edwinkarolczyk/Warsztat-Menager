@@ -27,6 +27,15 @@ import gui_changelog
 from logger import log_akcja
 from profile_utils import SIDEBAR_MODULES
 
+# --- PROFIL: nowy widok ---
+try:
+    from gui_profile import ProfileView
+except Exception as e:  # pragma: no cover - import fallback
+    print(
+        f"[ERROR][PROFILE] Nie można zaimportować ProfileView z gui_profile.py: {e}"
+    )
+    ProfileView = None
+
 
 def _get_app_version() -> str:
     """Zwróć numer wersji z ``__version__.py`` lub ``pyproject.toml``."""
@@ -65,6 +74,78 @@ def _save_last_visit(login: str, dt: datetime) -> None:
         dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     )
     save_user(user)
+
+
+def _active_login(self) -> str:
+    """Zwraca aktualny login użytkownika na potrzeby nagłówka profilu."""
+    for attr in ("active_login", "current_user", "username", "_wm_login"):
+        if hasattr(self, attr):
+            value = getattr(self, attr)
+            if value:
+                return str(value)
+    return "uzytkownik"
+
+
+def _center_container(self):
+    """Zwraca główny kontener na widoki (centralny panel)."""
+    for attr in ("content", "main_content", "content_frame", "body"):
+        if hasattr(self, attr):
+            container = getattr(self, attr)
+            if container is not None:
+                return container
+    return self
+
+
+def _open_profile_view(self):
+    """Wstawia nowy widok profilu do centralnego kontenera."""
+    if ProfileView is None:
+        print("[ERROR][PROFILE] Brak klasy ProfileView – sprawdź gui_profile.py")
+        try:
+            container = _center_container(self)
+        except Exception:
+            return
+        if container is self:
+            return
+        try:
+            for widget in container.winfo_children():
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+            ttk.Label(
+                container,
+                text="Widok profilu jest niedostępny.",
+                foreground="#e53935",
+            ).pack(pady=20)
+        except Exception:
+            pass
+        return
+    try:
+        container = _center_container(self)
+        if container is self:
+            raise RuntimeError("Nie znaleziono kontenera centralnego dla profilu")
+        try:
+            for widget in container.winfo_children():
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        login = _active_login(self)
+        view = ProfileView(container, login=login)
+        try:
+            if hasattr(self, "_show"):
+                self._show(view)
+            else:
+                view.pack(fill="both", expand=True)
+        except Exception:
+            view.pack(fill="both", expand=True)
+
+        print(f"[WM-DBG][PROFILE] Załadowano nowy widok profilu dla loginu: {login}")
+    except Exception as exc:
+        print(f"[ERROR][PROFILE] Nie udało się otworzyć widoku profilu: {exc}")
 
 
 try:
@@ -138,11 +219,6 @@ except Exception:
     def panel_uzytkownicy(root, frame, login=None, rola=None):
         clear_frame(frame)
         ttk.Label(frame, text="Panel użytkowników").pack(pady=20)
-
-try:
-    import gui_profile
-except Exception:
-    gui_profile = None
 
 # --- IMPORT MAGAZYNU ---
 from gui_magazyn import open_panel_magazyn
@@ -269,6 +345,11 @@ def uruchom_panel(root, login, rola):
     ttk.Label(header, text=f"{login} ({rola})", style="WM.Muted.TLabel").pack(side="right")
 
     content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(fill="both", expand=True, padx=12, pady=6)
+    setattr(root, "content", content)
+    setattr(root, "main_content", content)
+    setattr(root, "active_login", login)
+    setattr(root, "current_user", login)
+    setattr(root, "username", login)
 
     footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(fill="x", padx=12, pady=(6,10))
     footer_left = ttk.Frame(footer, style="WM.TFrame"); footer_left.pack(side="left")
@@ -518,16 +599,22 @@ def uruchom_panel(root, login, rola):
     def _is_admin_role(r):
         return str(r).lower() in {"admin","kierownik","brygadzista","lider"}
 
-    def _open_profil():
-        # clear content
-        clear_frame(content)
+    def _open_profile_entry():
+        setattr(root, "content", content)
+        setattr(root, "main_content", content)
+        setattr(root, "active_login", login)
+        setattr(root, "current_user", login)
+        setattr(root, "username", login)
         try:
-            if gui_profile is None:
-                raise RuntimeError("Brak modułu gui_profile")
-            gui_profile.uruchom_panel(root, content, login, rola)
+            _open_profile_view(root)
         except Exception as e:
-            log_akcja(f"Błąd otwierania panelu: {e}")
-            ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
+            log_akcja(f"Błąd otwierania panelu profilu: {e}")
+            clear_frame(content)
+            ttk.Label(
+                content,
+                text=f"Błąd otwierania panelu: {e}",
+                foreground="#e53935",
+            ).pack(pady=20)
 
     def _open_feedback():
         win = tk.Toplevel(root)
@@ -737,13 +824,16 @@ def uruchom_panel(root, login, rola):
                     start_name = f"{label} (start)"
             elif key == "profil":
                 btn = ttk.Button(
-                    side, text=label, command=_open_profil, style="WM.Side.TButton"
+                    side,
+                    text=label,
+                    command=_open_profile_entry,
+                    style="WM.Side.TButton",
                 )
                 btn.last_modified = datetime(2025, 1, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 _maybe_mark_button(btn)
                 if start_panel is None:
-                    start_panel = lambda r, f, l, ro: _open_profil()
+                    start_panel = lambda r, f, l, ro: _open_profile_entry()
                     start_name = f"{label} (start)"
 
         alerts = _load_mag_alerts() if "magazyn" not in disabled_modules else []
