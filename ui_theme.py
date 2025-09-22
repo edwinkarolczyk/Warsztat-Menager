@@ -80,13 +80,14 @@ THEMES: Mapping[str, Mapping[str, str]] = {
 
 DEFAULT_THEME = "default"
 CONFIG_FILE = Path("config.json")
-def load_theme_name(config_path: Path | None = None) -> str:
+
+
+def load_theme_name(config_path: Path) -> str:
     """Czyta config.json i zwraca nazwę motywu; fallback = 'default'."""
 
-    path = config_path or CONFIG_FILE
     try:
-        if path.is_file():
-            data = json.loads(path.read_text(encoding="utf-8"))
+        if config_path.is_file():
+            data = json.loads(config_path.read_text(encoding="utf-8"))
             name = data.get("theme", DEFAULT_THEME)
             if name in THEMES:
                 print("[WM-DBG][THEME] Wybrany motyw z config:", name)
@@ -198,7 +199,8 @@ def apply_theme_safe(
 
     try:
         style = target if isinstance(target, ttk.Style) else ttk.Style(target)
-        theme_name = name or load_theme_name(config_path)
+        path = config_path or CONFIG_FILE
+        theme_name = name or load_theme_name(path)
         apply_theme(style, theme_name)
         if isinstance(target, tk.Misc):
             try:
