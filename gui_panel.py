@@ -322,6 +322,7 @@ def uruchom_panel(root, login, rola):
     menubar = tk.Menu(root)
     actions_menu = tk.Menu(menubar, tearoff=False)
     actions_menu.add_command(label="Usuń znaczniki", command=_clear_markers)
+    actions_menu.add_command(label="Mój profil…", command=lambda: _open_profile_entry())
     menubar.add_cascade(label="Akcje", menu=actions_menu)
     settings_menu = tk.Menu(menubar, tearoff=False)
     settings_menu.add_command(
