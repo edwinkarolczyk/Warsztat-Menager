@@ -69,6 +69,16 @@ from ui_theme import apply_theme_safe as apply_theme
 # umieszczało je na końcu listy.
 DEFAULT_TASK_DEADLINE = "9999-12-31"
 
+# --- Kolory motywu (ciemny profil WM) ---
+WM_BG = "#121415"
+WM_BG_ELEV = "#1A1D1F"
+WM_BG_ELEV_2 = "#212529"
+WM_TEXT = "#E6E7E8"
+WM_TEXT_MUTED = "#A7A9AB"
+WM_ACCENT = "#FF6B1A"
+WM_ACCENT_DARK = "#2B2F31"
+WM_DIVIDER = "#2A2E31"
+
 # ====== Helpers ======
 def _load_json(path, default):
     try:
@@ -693,3 +703,391 @@ def uruchom_panel(root, frame, login=None, rola=None):
 
 # API zgodne z wcześniejszymi wersjami:
 panel_profil = uruchom_panel
+
+
+class ProfileView(ttk.Frame):
+    """Ciemny widok profilu użytkownika inspirowany projektem WM.
+
+    Układ bazuje na trzech głównych strefach: cover z avatarowym nagłówkiem,
+    pasek zakładek oraz trzy kolumny ("O mnie", oś aktywności i panel akcji).
+    Widok jest samodzielnym szkieletem UI – nie integruje się z istniejącymi
+    loaderami danych modułu :mod:`gui_profile`.
+    """
+
+    def __init__(
+        self,
+        master,
+        login: str = "edwin",
+        display_name: str = "Edwin Karolczyk",
+        rola: str = "brygadzista",
+        zatrudniony_od: str = "2022-04-01",
+        staz_lata: int = 3,
+        **kwargs,
+    ) -> None:
+        super().__init__(master, **kwargs)
+        self.configure(style="WM.Container.TFrame")
+        self.login = login
+        self.display_name = display_name
+        self.rola = rola
+        self.zatrudniony_od = zatrudniony_od
+        self.staz_lata = staz_lata
+        self.active_tab = tk.StringVar(value="Oś")
+        self._tab_widgets: dict[str, ttk.Frame] = {}
+
+        self._init_styles()
+        self._build_cover_header()
+        self._build_tabs()
+        self._build_columns()
+        log_akcja("[WM-DBG][PROFILE] Widok profilu zainicjalizowany.")
+
+    # ---------- STYLES ----------
+    def _init_styles(self) -> None:
+        style = ttk.Style(self)
+        try:
+            current = style.theme_use()
+        except tk.TclError:
+            current = ""
+        if current != "clam" and "clam" in style.theme_names():
+            try:
+                style.theme_use("clam")
+            except tk.TclError:
+                pass
+
+        style.configure("WM.Container.TFrame", background=WM_BG)
+        style.configure("WM.Card.TFrame", background=WM_BG_ELEV, relief="flat")
+        style.configure("WM.Header.TFrame", background=WM_BG, relief="flat")
+        style.configure("WM.Cover.TFrame", background=WM_ACCENT_DARK)
+        style.configure("WM.Label", background=WM_BG, foreground=WM_TEXT)
+        style.configure(
+            "WM.Muted.TLabel", background=WM_BG, foreground=WM_TEXT_MUTED
+        )
+        style.configure(
+            "WM.CardLabel.TLabel", background=WM_BG_ELEV, foreground=WM_TEXT
+        )
+        style.configure(
+            "WM.CardMuted.TLabel",
+            background=WM_BG_ELEV,
+            foreground=WM_TEXT_MUTED,
+        )
+        style.configure(
+            "WM.Button.TButton",
+            background=WM_BG_ELEV_2,
+            foreground=WM_TEXT,
+            borderwidth=0,
+            padding=(14, 8),
+        )
+        style.map("WM.Button.TButton", background=[("active", WM_ACCENT_DARK)])
+        style.configure(
+            "WM.Outline.TButton",
+            background=WM_BG,
+            foreground=WM_TEXT,
+            borderwidth=1,
+        )
+        style.configure(
+            "WM.Tag.TLabel", background=WM_BG_ELEV_2, foreground=WM_TEXT, padding=(6, 2)
+        )
+        style.configure(
+            "WM.Section.TLabelframe",
+            background=WM_BG_ELEV,
+            foreground=WM_TEXT,
+        )
+        style.configure(
+            "WM.Section.TLabelframe.Label",
+            background=WM_BG_ELEV,
+            foreground=WM_TEXT_MUTED,
+        )
+
+    # ---------- COVER + AVATAR + INFO + PRZYCISKI ----------
+    def _build_cover_header(self) -> None:
+        cover = ttk.Frame(self, style="WM.Cover.TFrame")
+        cover.pack(fill="x", padx=16, pady=(16, 8))
+        cover.configure(height=180)
+        cover.grid_propagate(False)
+
+        inner = ttk.Frame(cover, style="WM.Header.TFrame")
+        inner.place(relx=0, rely=1.0, x=0, y=-20, relwidth=1.0, anchor="sw")
+        inner.grid_columnconfigure(1, weight=1)
+
+        avatar_holder = ttk.Frame(inner, style="WM.Header.TFrame")
+        avatar_holder.grid(row=0, column=0, rowspan=2, padx=(16, 12), pady=6, sticky="w")
+        avatar_widget = self._make_avatar(avatar_holder)
+        avatar_widget.pack()
+
+        info = ttk.Frame(inner, style="WM.Header.TFrame")
+        info.grid(row=0, column=1, sticky="w")
+        ttk.Label(
+            info,
+            text=self.display_name,
+            style="WM.Label",
+            font=("Segoe UI", 18, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(info, text=f"@{self.login}", style="WM.Muted.TLabel").pack(
+            anchor="w", pady=(2, 6)
+        )
+        ttk.Label(
+            info,
+            text=(
+                f"Rola: {self.rola}    Staż: {self.staz_lata} lata "
+                f"(od {self.zatrudniony_od})"
+            ),
+            style="WM.Muted.TLabel",
+        ).pack(anchor="w")
+
+        actions = ttk.Frame(inner, style="WM.Header.TFrame")
+        actions.grid(row=0, column=2, rowspan=2, sticky="e", padx=16)
+        for idx, (text, callback) in enumerate(
+            (
+                ("Wyślij PW", self._on_send_pw),
+                ("Kto ma najmniej zadań?", self._on_least_tasks),
+                ("Przejdź do Ustawienia", self._on_open_settings),
+            )
+        ):
+            btn = ttk.Button(actions, text=text, style="WM.Button.TButton", command=callback)
+            btn.grid(row=0, column=idx, padx=6)
+
+        separator = tk.Frame(self, height=1, bg=WM_DIVIDER)
+        separator.pack(fill="x", padx=16, pady=(8, 0))
+
+    def _make_avatar(self, parent: tk.Widget) -> tk.Widget:
+        widget = _load_avatar(parent, self.login)
+        if getattr(widget, "image", None):
+            try:
+                widget.configure(background=WM_BG)
+            except tk.TclError:
+                pass
+            return widget
+        widget.destroy()
+        return self._avatar_placeholder(parent)
+
+    def _avatar_placeholder(self, parent: tk.Widget) -> tk.Canvas:
+        canvas = tk.Canvas(parent, width=96, height=96, highlightthickness=0, bg=WM_BG)
+        canvas.create_oval(2, 2, 94, 94, fill="#2E3236", outline=WM_DIVIDER, width=2)
+        canvas.create_text(
+            48,
+            48,
+            text=self._initials(),
+            fill=WM_TEXT,
+            font=("Segoe UI", 20, "bold"),
+        )
+        return canvas
+
+    def _initials(self) -> str:
+        parts = re.split(r"\s+", self.display_name.strip()) if self.display_name else []
+        if not parts:
+            return (self.login or "?")[:2].upper()
+        letters = [p[0] for p in parts if p]
+        return "".join(letters[:2]).upper() or (self.login or "?")[:2].upper()
+
+    # ---------- ZAKŁADKI ----------
+    def _build_tabs(self) -> None:
+        tabs = ttk.Frame(self, style="WM.Header.TFrame")
+        tabs.pack(fill="x", padx=16)
+
+        def make_tab(name: str) -> ttk.Frame:
+            container = ttk.Frame(tabs, style="WM.Header.TFrame")
+            label = ttk.Label(container, text=name, style="WM.Label")
+            label.pack(padx=8, pady=10)
+            underline = tk.Frame(
+                container,
+                height=3,
+                bg=WM_ACCENT if self.active_tab.get() == name else WM_BG,
+            )
+            underline.pack(fill="x")
+            container.bind("<Button-1>", lambda _e, tab=name: self._activate_tab(tab))
+            label.bind("<Button-1>", lambda _e, tab=name: self._activate_tab(tab))
+            return container
+
+        for tab_name in ("Oś", "O mnie", "Zadania", "Narzędzia", "PW"):
+            frame = make_tab(tab_name)
+            frame.pack(side="left")
+            self._tab_widgets[tab_name] = frame
+
+        separator = tk.Frame(self, height=1, bg=WM_DIVIDER)
+        separator.pack(fill="x", padx=16, pady=(0, 8))
+
+    def _activate_tab(self, name: str) -> None:
+        self.active_tab.set(name)
+        for tab_name, frame in self._tab_widgets.items():
+            underline = frame.winfo_children()[1]
+            underline.configure(bg=WM_ACCENT if tab_name == name else WM_BG)
+        log_akcja(f"[WM-DBG][PROFILE] Aktywowano zakładkę: {name}")
+
+    # ---------- TRZY KOLUMNy ----------
+    def _build_columns(self) -> None:
+        content = ttk.Frame(self, style="WM.Container.TFrame")
+        content.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+
+        content.columnconfigure(0, weight=1)
+        content.columnconfigure(1, weight=2)
+        content.columnconfigure(2, weight=1)
+        content.rowconfigure(0, weight=1)
+
+        left = ttk.Frame(content, style="WM.Card.TFrame")
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        self._build_about(left)
+
+        center = ttk.Frame(content, style="WM.Card.TFrame")
+        center.grid(row=0, column=1, sticky="nsew", padx=8)
+        self._build_timeline(center)
+
+        right = ttk.Frame(content, style="WM.Card.TFrame")
+        right.grid(row=0, column=2, sticky="nsew", padx=(8, 0))
+        self._build_shortcuts(right)
+
+    # --- sekcja: O MNIE (lewa) ---
+    def _build_about(self, parent: ttk.Frame) -> None:
+        parent.pack_propagate(False)
+        wrapper = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrapper.pack(fill="both", expand=True)
+
+        title = ttk.Label(
+            wrapper,
+            text="O MNIE",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        )
+        title.pack(anchor="w", pady=(0, 8))
+
+        def row(label_text: str, value_text: str) -> None:
+            row_frame = ttk.Frame(wrapper, style="WM.Card.TFrame")
+            row_frame.pack(fill="x", pady=4)
+            ttk.Label(row_frame, text=label_text, style="WM.CardMuted.TLabel").pack(
+                side="left"
+            )
+            ttk.Label(row_frame, text=value_text, style="WM.CardLabel.TLabel").pack(
+                side="right"
+            )
+
+        row("Login:", self.login)
+        row("Rola:", self.rola)
+        row("Zatrudniony od:", self.zatrudniony_od or "—")
+        row("Status:", "aktywny")
+        row("Kontakt:", "—")
+        row("Umiejętności:", "spawanie")
+
+    # --- sekcja: OŚ AKTYWNOŚCI (środek) ---
+    def _build_timeline(self, parent: ttk.Frame) -> None:
+        parent.pack_propagate(False)
+        wrapper = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrapper.pack(fill="both", expand=True)
+
+        title = ttk.Label(
+            wrapper,
+            text="OŚ AKTYWNOŚCI",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        )
+        title.pack(anchor="w", pady=(0, 8))
+
+        self._timeline_item(
+            wrapper,
+            "12:41 — Otrzymano PW od Dawid",
+            refs=[("Zadanie", "ZAD-0148"), ("Narzędzie", "NN-508")],
+        )
+        self._timeline_item(
+            wrapper,
+            "10:05 — Przegląd NN-508   Status: W TOKU",
+        )
+        self._timeline_item(
+            wrapper,
+            "09:10 — Narzędzie NN-508 przypisane do @edwin",
+        )
+
+    def _timeline_item(
+        self, parent: ttk.Frame, text: str, refs: list[tuple[str, str]] | None = None
+    ) -> None:
+        box = ttk.Frame(parent, style="WM.Card.TFrame")
+        box.pack(fill="x", pady=6)
+
+        dot = tk.Canvas(box, width=10, height=10, bg=WM_BG_ELEV, highlightthickness=0)
+        dot.create_oval(2, 2, 8, 8, fill=WM_ACCENT, outline=WM_ACCENT)
+        dot.pack(side="left", padx=(0, 8), pady=4)
+
+        body = ttk.Frame(box, style="WM.Card.TFrame")
+        body.pack(side="left", fill="x", expand=True)
+
+        ttk.Label(body, text=text, style="WM.CardLabel.TLabel").pack(anchor="w")
+
+        if refs:
+            pillbar = ttk.Frame(body, style="WM.Card.TFrame")
+            pillbar.pack(anchor="w", pady=4)
+            for label, ref_id in refs:
+                tag_label = ttk.Label(pillbar, text=label, style="WM.Tag.TLabel")
+                tag_label.pack(side="left", padx=(0, 6))
+                value_label = ttk.Label(pillbar, text=ref_id, style="WM.Tag.TLabel")
+                value_label.pack(side="left", padx=(0, 12))
+
+    # --- sekcja: PRAWA kolumna ---
+    def _build_shortcuts(self, parent: ttk.Frame) -> None:
+        parent.pack_propagate(False)
+        wrapper = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrapper.pack(fill="both", expand=True)
+
+        title = ttk.Label(
+            wrapper,
+            text="SKRÓTY",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        )
+        title.pack(anchor="w", pady=(0, 8))
+
+        for text in (
+            "Dzisiejsze zadania (3)",
+            "Narzędzia przypisane (2)",
+            "Ostatnie PW (5)",
+        ):
+            row = ttk.Frame(wrapper, style="WM.Card.TFrame")
+            row.pack(fill="x", pady=4)
+            ttk.Label(row, text=text, style="WM.CardLabel.TLabel").pack(anchor="w")
+
+        separator = tk.Frame(wrapper, height=1, bg=WM_DIVIDER)
+        separator.pack(fill="x", pady=8)
+
+        title_actions = ttk.Label(
+            wrapper,
+            text="SZYBKIE AKCJE",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        )
+        title_actions.pack(anchor="w", pady=(0, 8))
+
+        for text, callback in (
+            ("Nowa wiadomość (PW)", self._on_send_pw),
+            ("Symuluj zdarzenie awarii", self._on_sim_event),
+            ("Podgląd mojego grafiku", self._on_open_schedule),
+        ):
+            btn = ttk.Button(wrapper, text=text, style="WM.Button.TButton", command=callback)
+            btn.pack(fill="x", pady=4)
+
+    # ---------- Handlery (szkielet) ----------
+    def _on_send_pw(self) -> None:
+        log_akcja("[WM-DBG][PROFILE] Klik: Wyślij PW (do spięcia z modułem PW).")
+
+    def _on_least_tasks(self) -> None:
+        log_akcja("[WM-DBG][PROFILE] Klik: Kto ma najmniej zadań? (do spięcia z rankingiem).")
+
+    def _on_open_settings(self) -> None:
+        log_akcja(
+            "[WM-DBG][PROFILE] Klik: Przejdź do Ustawienia → Profile (hook do okna ustawień)."
+        )
+
+    def _on_sim_event(self) -> None:
+        log_akcja("[WM-DBG][PROFILE] Klik: Symuluj zdarzenie awarii (placeholder).")
+
+    def _on_open_schedule(self) -> None:
+        log_akcja("[WM-DBG][PROFILE] Klik: Podgląd grafiku (placeholder).")
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("WM – PROFIL (podgląd)")
+    root.configure(bg=WM_BG)
+
+    container = ttk.Frame(root, style="WM.Container.TFrame")
+    container.pack(fill="both", expand=True)
+
+    view = ProfileView(container)
+    view.pack(fill="both", expand=True)
+
+    root.geometry("1100x720")
+    root.mainloop()
