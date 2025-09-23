@@ -413,14 +413,14 @@
     "sections": []
   },
   {
-    "id": "hala",
+    "id": "maszyny",
     "title": "Maszyny",
-    "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
-    "tooltip": "Ustawienia siatki, tła i zaznaczania maszyn w widoku hali.",
     "icon": "layout",
+    "description": "Ustawienia widoku i pracy z rozmieszczeniem maszyn.",
+    "tooltip": "Siatka, tło, numeracja oraz zaznaczanie.",
     "groups": [
       {
-        "title": "Widok hali",
+        "title": "Widok i siatka",
         "fields": [
           {
             "type": "number",
