@@ -609,14 +609,14 @@
   {
     "id": "magazyn",
     "title": "Magazyn",
-    "description": "Ustawienia magazynu i BOM. Stany aktualizowane w czasie rzeczywistym.",
-    "tooltip": "Definiuj progi alertów i struktury produktów (BOM) w katalogu data/produkty/.",
     "icon": "boxes",
+    "description": "Parametry magazynu oraz BOM/produkty.",
+    "tooltip": "Progi, katalogi, źródła stanów.",
     "subtabs": [
       {
         "id": "ustawienia_magazynu",
         "title": "Ustawienia magazynu",
-        "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
+        "description": "Parametry działania magazynu.",
         "groups": [
           {
             "title": "Parametry magazynu",
@@ -662,61 +662,12 @@
       {
         "id": "produkty_bom",
         "title": "Produkty (BOM)",
-        "description": "Struktury produktów oraz powiązania półproduktów/części.",
+        "description": "Struktury produktów i komponenty.",
         "groups": [
-          {
-            "label": "Katalog produktów",
-            "tooltip": "Ścieżka katalogu oraz opcje automatycznego odświeżania kartotek produktów.",
-            "fields": [
-              {
-                "key": "produkty_dir",
-                "label": "Folder produktów (BOM)",
-                "type": "path",
-                "widget": "dir",
-                "default": "data/produkty/",
-                "description": "Katalog przechowujący definicje struktur produktów."
-              },
-              {
-                "key": "produkty_auto_sync",
-                "label": "Automatyczna synchronizacja produktów",
-                "type": "bool",
-                "default": false,
-                "description": "Po zaznaczeniu katalog produktów będzie automatycznie monitorowany i odświeżany."
-              }
-            ]
-          },
-          {
-            "label": "Katalog półproduktów",
-            "fields": [
-              {
-                "key": "polprodukty_dir",
-                "label": "Folder półproduktów",
-                "type": "path",
-                "widget": "dir",
-                "default": "data/polprodukty/",
-                "description": "Katalog z definicjami półproduktów wykorzystywanych w BOM."
-              },
-              {
-                "key": "polprodukty_auto_sync",
-                "label": "Automatyczna synchronizacja półproduktów",
-                "type": "bool",
-                "default": false,
-                "description": "Monitoruj katalog półproduktów i automatycznie odświeżaj listę w programie."
-              },
-              {
-                "key": "surowce_file",
-                "label": "Plik z listą surowców",
-                "type": "path",
-                "widget": "file",
-                "default": "data/magazyn/surowce.json",
-                "description": "Źródło danych o dostępnych surowcach wykorzystywanych w BOM."
-              }
-            ]
-          }
+          { "title": "BOM", "fields": [] }
         ]
       }
-    ],
-    "sections": []
+    ]
   },
   {
     "id": "zamowienia",
