@@ -371,111 +371,45 @@
     "icon": "users",
     "subtabs": [
       {
-        "id": "uprawnienia",
-        "title": "Uprawnienia",
-        "description": "Konfiguracja ról i dostępu do modułów.",
+        "id": "moj_profil",
+        "title": "Mój profil",
+        "description": "Podgląd danych zalogowanego użytkownika.",
         "groups": [
           {
-            "id": "profiles_access",
-            "label": "Dostęp i widoczność modułu",
-            "tooltip": "Sterowanie widocznością zakładki Profil oraz danych w nagłówku.",
+            "title": "Informacje",
             "fields": [
               {
-                "key": "profiles.tab_enabled",
-                "label": "Pokazuj zakładkę Profil",
-                "type": "bool",
-                "default": true,
-                "help": "Umożliwia użytkownikom dostęp do zakładki Profil w panelu ustawień."
-              },
-              {
-                "key": "profiles.show_name_in_header",
-                "label": "Wyświetlaj nazwę w nagłówku",
-                "type": "bool",
-                "default": true,
-                "help": "Pokazuje imię i nazwisko zalogowanego użytkownika obok przycisku wylogowania."
-              }
-            ]
-          },
-          {
-            "id": "profiles_permissions",
-            "label": "Uprawnienia użytkowników",
-            "tooltip": "Kontroluje możliwość samodzielnej zmiany PIN i inne akcje resetu.",
-            "fields": [
-              {
-                "key": "profiles.allow_pin_change",
-                "label": "Użytkownik może zmienić PIN",
-                "type": "bool",
-                "default": false,
-                "help": "Pozwala użytkownikom resetować własny PIN bez pomocy administratora."
-              }
-            ]
-          },
-          {
-            "id": "profiles_fields",
-            "label": "Pola na liście profili",
-            "tooltip": "Kolumny widoczne w tabeli profili oraz informacje edytowalne przez użytkowników.",
-            "fields": [
-              {
-                "key": "profiles.fields_visible",
-                "label": "Widoczne kolumny",
-                "type": "array",
-                "value_type": "string",
-                "default": ["login", "nazwa", "rola", "zmiana"],
-                "help": "Identyfikatory pól wyświetlanych na liście profili (jedna wartość na linię)."
-              },
-              {
-                "key": "profiles.fields_editable_by_user",
-                "label": "Pola edytowalne przez użytkownika",
-                "type": "array",
-                "value_type": "string",
-                "default": ["imie", "nazwisko", "staz", "telefon", "email"],
-                "help": "Lista pól, które użytkownik może samodzielnie aktualizować (jedna wartość na linię)."
+                "type": "info",
+                "key": "profile.info",
+                "text": "Dane z bieżącej sesji. Edycje w 'Zarządzanie (lista)'."
               }
             ]
           }
-        ],
-        "sections": []
+        ]
+      },
+      {
+        "id": "uprawnienia",
+        "title": "Uprawnienia",
+        "description": "Konfiguracja ról i dostępu.",
+        "groups": [
+          {
+            "title": "Role i dostęp",
+            "fields": []
+          }
+        ]
       },
       {
         "id": "zarzadzanie_lista",
         "title": "Zarządzanie (lista)",
-        "description": "Przegląd i edycja użytkowników (aktywacja, reset hasła).",
+        "description": "Lista użytkowników.",
         "groups": [
           {
-            "id": "profiles_storage",
-            "label": "Zarządzanie zasobami profili",
-            "tooltip": "Parametry pomocne przy pracy na liście użytkowników i przy resetach kont.",
-            "fields": [
-              {
-                "key": "profiles.avatar_dir",
-                "label": "Katalog awatarów",
-                "type": "path",
-                "widget": "dir",
-                "default": "",
-                "help": "Katalog z plikami graficznymi przypisywanymi jako awatary użytkowników."
-              },
-              {
-                "key": "profiles.task_default_deadline_days",
-                "label": "Domyślny termin zadań (dni)",
-                "type": "int",
-                "min": 1,
-                "default": 7,
-                "help": "Ile dni dawać na wykonanie nowych zadań po aktywacji użytkownika."
-              }
-            ]
+            "title": "Lista kont",
+            "fields": []
           }
-        ],
-        "sections": []
+        ]
       }
     ],
-    "sections": []
-  },
-  {
-    "id": "profile",
-    "title": "Profile",
-    "description": "Dane zalogowanego użytkownika (nazwa również obok „Wyloguj”).",
-    "tooltip": "Podgląd podstawowych danych aktualnego użytkownika.",
-    "icon": "id-card",
     "sections": []
   },
   {
