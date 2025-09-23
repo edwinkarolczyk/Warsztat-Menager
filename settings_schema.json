@@ -718,135 +718,24 @@
     "icon": "shopping-cart",
     "groups": [
       {
-        "label": "Aktywacja modułu",
+        "title": "Parametry zamówień",
         "fields": [
           {
-            "key": "orders.enabled",
-            "label": "Włącz obsługę zamówień materiałowych",
-            "type": "bool",
-            "default": true,
-            "description": "Przełącznik główny decydujący o dostępności modułu zamówień."
-          }
-        ]
-      },
-      {
-        "label": "Parametry procesu",
-        "tooltip": "Definiuj kroki kreatora, typy i statusy wykorzystywane podczas pracy z zamówieniami.",
-        "fields": [
-          {
-            "key": "orders.enabled_steps",
-            "label": "Aktywne kroki kreatora zamówienia",
-            "type": "array",
-            "value_type": "string",
-            "default": [
-              "typ",
-              "kontekst",
-              "pozycje",
-              "dostawca",
-              "terminy_status",
-              "podsumowanie"
-            ],
-            "description": "Wpisz jeden etap na linię w kolejności wykonywania."
+            "type": "boolean",
+            "key": "orders.ask_to_order_shortage",
+            "label": "Pytaj o zamówienie braków automatycznie",
+            "default": true
           },
           {
-            "key": "orders.types",
-            "label": "Definicje typów zamówień",
-            "type": "dict",
-            "default": {},
-            "description": "Mapa kodu typu zamówienia na jego konfigurację (prefiks, statusy, itp.)."
-          },
-          {
-            "key": "orders.statuses",
-            "label": "Statusy zamówień",
-            "type": "array",
-            "value_type": "string",
-            "default": [
-              "draft",
-              "oczekuje_wyslania",
-              "wyslane",
-              "w_realizacji",
-              "dostarczone",
-              "zamkniete",
-              "anulowane"
-            ],
-            "description": "Etapy cyklu życia zamówienia; każdy status w osobnym wierszu."
-          }
-        ]
-      },
-      {
-        "label": "Identyfikatory i lokalizacja",
-        "fields": [
-          {
-            "key": "orders.id_width",
-            "label": "Szerokość numeru zamówienia",
-            "type": "int",
-            "default": 4,
-            "min": 1,
-            "max": 8,
-            "description": "Minimalna liczba cyfr w automatycznie nadawanym identyfikatorze."
-          },
-          {
-            "key": "orders.auto_id_format",
-            "label": "Format automatycznego ID",
-            "type": "string",
-            "default": "ORD-{YYYYMMDD}-{HHMMSS}",
-            "description": "Wzorzec wykorzystywany przy generowaniu numeru zamówienia."
-          },
-          {
-            "key": "orders.data_dir",
-            "label": "Folder na zamówienia",
-            "type": "path",
-            "widget": "dir",
-            "default": "data/zamowienia",
-            "description": "Katalog, w którym zapisywane są pliki z zamówieniami."
-          },
-          {
+            "type": "text",
             "key": "orders.default_supplier",
-            "label": "Domyślny dostawca",
-            "type": "string",
-            "default": "",
-            "description": "Nazwa dostawcy proponowana automatycznie w kreatorze zamówień."
-          }
-        ]
-      },
-      {
-        "label": "Uprawnienia",
-        "tooltip": "Role, które mogą tworzyć, przyjmować i anulować zamówienia.",
-        "fields": [
-          {
-            "key": "orders.permissions.create",
-            "label": "Role uprawnione do tworzenia",
-            "type": "array",
-            "value_type": "string",
-            "default": [
-              "brygadzista",
-              "kierownik",
-              "admin"
-            ],
-            "description": "Podaj role po jednej w linii."
+            "label": "Domyślny dostawca"
           },
           {
-            "key": "orders.permissions.receive",
-            "label": "Role uprawnione do przyjęcia dostawy",
-            "type": "array",
-            "value_type": "string",
-            "default": [
-              "magazynier",
-              "kierownik",
-              "admin"
-            ],
-            "description": "Podaj role po jednej w linii."
-          },
-          {
-            "key": "orders.permissions.cancel",
-            "label": "Role uprawnione do anulowania",
-            "type": "array",
-            "value_type": "string",
-            "default": [
-              "kierownik",
-              "admin"
-            ],
-            "description": "Podaj role po jednej w linii."
+            "type": "text",
+            "key": "orders.min_order_threshold",
+            "label": "Próg minimalny (szt. lub %)",
+            "placeholder": "np. 5 lub 10%"
           }
         ]
       }
