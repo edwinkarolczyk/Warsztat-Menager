@@ -153,14 +153,131 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
         background=c["panel"],
     )
 
+    # --- Motywy przestrzeni WM ---
+    style.configure("WM.TFrame", background=c["panel"])
+    style.configure("WM.Side.TFrame", background=c["panel"])
+    style.configure("WM.Container.TFrame", background=c["bg"])
     style.configure(
-        "TButton", background=c["card"], foreground=c["text"], padding=(10, 6)
+        "WM.Card.TFrame",
+        background=c["card"],
+        relief="flat",
+        borderwidth=0,
     )
-    style.map(
+    style.configure(
+        "WM.Header.TFrame",
+        background=c["panel"],
+        relief="flat",
+        borderwidth=0,
+    )
+    style.configure(
+        "WM.Cover.TFrame",
+        background=c["accent"],
+        relief="flat",
+        borderwidth=0,
+    )
+
+    style.configure("WM.TLabel", background=c["panel"], foreground=c["text"])
+    style.configure("WM.Muted.TLabel", background=c["panel"], foreground=c["muted"])
+    style.configure(
+        "WM.H1.TLabel",
+        background=c["panel"],
+        foreground=c["text"],
+        font=("Segoe UI", 16, "bold"),
+    )
+    style.configure(
+        "WM.H2.TLabel",
+        background=c["panel"],
+        foreground=c["text"],
+        font=("Segoe UI", 13, "bold"),
+    )
+    style.configure(
+        "WM.Card.TLabel",
+        background=c["card"],
+        foreground=c["text"],
+        font=("Segoe UI", 11, "bold"),
+    )
+    style.configure(
+        "WM.CardLabel.TLabel",
+        background=c["card"],
+        foreground=c["text"],
+    )
+    style.configure(
+        "WM.CardMuted.TLabel",
+        background=c["card"],
+        foreground=c["muted"],
+    )
+    style.configure(
+        "WM.KPI.TLabel",
+        background=c["card"],
+        foreground=c["accent"],
+        font=("Segoe UI", 18, "bold"),
+    )
+    style.configure(
+        "WM.Tag.TLabel",
+        background=c["card"],
+        foreground=c["text"],
+        padding=(6, 2),
+    )
+    style.configure(
+        "WM.Label", background=c["bg"], foreground=c["text"]
+    )
+    style.configure(
+        "WM.Banner.TLabel",
+        background=c["accent"],
+        foreground=c["text"],
+        padding=(12, 8),
+    )
+
+    style.configure(
+        "WM.Search.TEntry",
+        fieldbackground=c["entry_bg"],
+        foreground=c["entry_fg"],
+        bordercolor=c["entry_bd"],
+        insertcolor=c["text"],
+        padding=6,
+    )
+
+    style.configure(
         "TButton",
-        background=[("active", c["accent_hover"]), ("pressed", c["accent"])],
-        foreground=[("disabled", c["muted"])],
+        background=c["card"],
+        foreground=c["text"],
+        padding=(10, 6),
     )
+    button_map = {
+        "background": [("active", c["accent_hover"]), ("pressed", c["accent"])],
+        "foreground": [("disabled", c["muted"])],
+    }
+    style.map("TButton", **button_map)
+
+    style.configure(
+        "WM.Side.TButton",
+        background=c["panel"],
+        foreground=c["text"],
+        padding=(12, 8),
+        borderwidth=0,
+        relief="flat",
+    )
+    style.map("WM.Side.TButton", **button_map)
+
+    style.configure(
+        "WM.Button.TButton",
+        background=c["accent"],
+        foreground=c["text"],
+        padding=(12, 8),
+        borderwidth=0,
+    )
+    style.map("WM.Button.TButton", **button_map)
+
+    style.configure(
+        "WM.Outline.TButton",
+        background=c["panel"],
+        foreground=c["text"],
+        padding=(12, 8),
+        borderwidth=1,
+        relief="solid",
+        bordercolor=c["accent"],
+    )
+    style.map("WM.Outline.TButton", **button_map)
 
     style.configure(
         "TEntry",
@@ -201,11 +318,47 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
         bordercolor=c["line"],
         rowheight=24,
     )
-    style.configure("Treeview.Heading", background=c["panel"], foreground=c["text"])
+    style.configure(
+        "Treeview.Heading", background=c["panel"], foreground=c["text"]
+    )
     style.map(
         "Treeview",
         background=[("selected", c["accent"])],
         foreground=[("selected", "#000000")],
+    )
+
+    style.configure(
+        "WM.Treeview",
+        background=c["card"],
+        fieldbackground=c["card"],
+        foreground=c["text"],
+        bordercolor=c["line"],
+        rowheight=24,
+    )
+    style.configure(
+        "WM.Treeview.Heading",
+        background=c["panel"],
+        foreground=c["text"],
+        bordercolor=c["line"],
+    )
+    style.map(
+        "WM.Treeview",
+        background=[("selected", c["accent"])],
+        foreground=[("selected", "#000000")],
+    )
+
+    style.configure(
+        "WM.Section.TLabelframe",
+        background=c["card"],
+        foreground=c["text"],
+        bordercolor=c["line"],
+        labelmargins=(8, 4, 8, 4),
+    )
+    style.configure(
+        "WM.Section.TLabelframe.Label",
+        background=c["card"],
+        foreground=c["text"],
+        font=("Segoe UI", 11, "bold"),
     )
 
     style.configure("TSeparator", background=c["line"])
