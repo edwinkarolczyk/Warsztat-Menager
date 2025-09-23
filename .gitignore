@@ -57,6 +57,7 @@ config.json
 *.apk
 *.png
 !grafiki/login_bg.png
+!grafiki/machine_placeholder.png
 *.jpg
 !grafiki/machine_placeholder.jpg
 *.jpeg
