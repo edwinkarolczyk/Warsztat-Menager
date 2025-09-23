@@ -88,10 +88,28 @@ def load_theme_name(config_path: Path) -> str:
     try:
         if config_path.is_file():
             data = json.loads(config_path.read_text(encoding="utf-8"))
-            name = data.get("theme", DEFAULT_THEME)
-            if name in THEMES:
+            name: str | None = None
+
+            ui_section = data.get("ui")
+            if isinstance(ui_section, dict):
+                ui_theme = ui_section.get("theme")
+                if isinstance(ui_theme, str):
+                    name = ui_theme
+
+            if name is None:
+                legacy_theme = data.get("theme")
+                if isinstance(legacy_theme, str):
+                    name = legacy_theme
+
+            if isinstance(name, str) and name in THEMES:
                 print("[WM-DBG][THEME] Wybrany motyw z config:", name)
                 return name
+
+            if name is not None:
+                print(
+                    f"[WM-DBG][THEME] Motyw '{name}' z config nieznany, "
+                    "przełączam na 'default'"
+                )
     except Exception as ex:
         print("[ERROR][THEME] Nie udało się odczytać config.json:", ex)
     print("[WM-DBG][THEME] Używam domyślnego motywu: default")
