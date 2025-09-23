@@ -16,10 +16,11 @@ _YM_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 def _anchor_date_from_ym(ym: str) -> date | None:
-    """Konwertuje 'YYYY-MM' -> date(YYYY, MM, 1); toleruje też 'YYYY-MM-01'."""
+    """Konwertuje 'YYYY-MM' -> date(YYYY, MM, 1); toleruje też 'YYYY-MM-DD'."""
 
     if not ym:
         return None
+    ym = ym.strip()
     if _YM_RE.match(ym):
         y, m = map(int, ym.split("-"))
         return date(y, m, 1)
@@ -34,7 +35,19 @@ def _anchor_date_from_ym(ym: str) -> date | None:
 def staz_days_for_login(login: str) -> int:
     """Zwraca staż w dniach od 'zatrudniony_od' do dzisiaj (UTC). Brak daty => 0."""
 
-    u = get_user(login) or {}
+    try:
+        from services.profile_service import get_user as svc_get_user
+    except Exception:
+        svc_get_user = None
+
+    try:
+        fetch_user = svc_get_user or get_user
+        user = fetch_user(login)
+    except Exception:
+        # W razie problemów z warstwą serwisową wróć do lokalnego odczytu
+        user = get_user(login)
+
+    u = user or {}
     ym = (u.get("zatrudniony_od") or "").strip()
     anchor = _anchor_date_from_ym(ym)
     if not anchor:
