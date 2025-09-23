@@ -478,14 +478,101 @@
       {
         "id": "typy_statusy",
         "title": "Typy i statusy",
-        "description": "Definicje typów narzędzi, statusów i list zadań w statusach.",
-        "sections": []
+        "description": "Konfiguracja typów narzędzi, statusów oraz zadań.",
+        "groups": [
+          {
+            "title": "Typy narzędzi",
+            "fields": [
+              {
+                "type": "array",
+                "key": "tools.types",
+                "label": "Typy narzędzi",
+                "default": [
+                  "Tłoczące",
+                  "Wykrawające",
+                  "Postępowe",
+                  "Giętarka"
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Statusy narzędzi",
+            "fields": [
+              {
+                "type": "array",
+                "key": "tools.statuses",
+                "label": "Lista statusów",
+                "default": [
+                  "awaria zgłoszona",
+                  "diagnoza",
+                  "w naprawie",
+                  "test",
+                  "sprawdzona",
+                  "zakończone",
+                  "anulowane"
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Szablony zadań",
+            "fields": [
+              {
+                "type": "array",
+                "key": "tools.task_templates",
+                "label": "Lista zadań",
+                "default": [
+                  "Przegląd wizualny",
+                  "Czyszczenie i smarowanie",
+                  "Pomiar luzów",
+                  "Wymiana elementu roboczego",
+                  "Test na prasie"
+                ]
+              }
+            ]
+          }
+        ]
       },
       {
         "id": "reguly",
         "title": "Reguły",
-        "description": "Automatyczne wymuszenia (np. zmiana na „sprawne” zaznacza [x] istniejące zadania).",
-        "sections": []
+        "description": "Reguły automatycznego oznaczania zadań.",
+        "groups": [
+          {
+            "title": "Automatyczne odhaczanie",
+            "fields": [
+              {
+                "type": "array",
+                "key": "tools.auto_check_on_status",
+                "label": "Statusy oznaczające wykonane zadania",
+                "default": [
+                  "sprawne",
+                  "zakończone"
+                ]
+              },
+              {
+                "type": "boolean",
+                "key": "tools.auto_check_on_last_status",
+                "label": "Odhaczaj zadania przy ostatnim statusie",
+                "default": true
+              }
+            ]
+          },
+          {
+            "title": "Podgląd NN/SN",
+            "fields": [
+              {
+                "type": "number",
+                "key": "tools.nn_sn_preview_rows",
+                "label": "Podgląd – liczba wierszy",
+                "default": 2,
+                "min": 1,
+                "max": 6
+              }
+            ]
+          }
+        ]
       }
     ],
     "sections": []
