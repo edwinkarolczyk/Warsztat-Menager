@@ -39,6 +39,50 @@ def get_user(login: str, file_path: Optional[str] = None) -> Optional[Dict]:
         _pu.USERS_FILE = original
 
 
+def get_tasks_for(login: str, file_path: Optional[str] = None) -> List[Dict]:
+    """Return list of task dictionaries assigned to ``login``."""
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                tasks = _pu.get_tasks_for(login) or []
+        else:
+            tasks = _pu.get_tasks_for(login) or []
+        return list(tasks)
+    finally:
+        _pu.USERS_FILE = original
+
+
+def workload_for(logins: List[str], file_path: Optional[str] = None) -> List[tuple[str, int]]:
+    """Return workload ranking for provided ``logins`` (lower = better)."""
+
+    def _compute(users: List[str]) -> List[tuple[str, int]]:
+        ranking: List[tuple[str, int]] = []
+        for login in users:
+            if not login:
+                continue
+            try:
+                tasks = _pu.get_tasks_for(login) or []
+            except Exception:
+                tasks = []
+            ranking.append((login, len(tasks)))
+        ranking.sort(key=lambda item: (item[1], item[0]))
+        return ranking
+
+    cleaned = [str(l) for l in logins if l]
+    if not cleaned:
+        return []
+
+    original = _pu.USERS_FILE
+    try:
+        if file_path:
+            with _use_users_file(file_path):
+                return _compute(cleaned)
+        return _compute(cleaned)
+    finally:
+        _pu.USERS_FILE = original
+
+
 def save_user(user: Dict, file_path: Optional[str] = None) -> None:
     """Persist ``user`` profile data."""
     original = _pu.USERS_FILE
@@ -256,6 +300,7 @@ def count_presence(login: str, presence_file: str = "presence.json") -> int:
 
 __all__ = [
     "get_user",
+    "get_tasks_for",
     "save_user",
     "get_all_users",
     "write_users",
@@ -269,6 +314,7 @@ __all__ = [
     "save_assign_order",
     "load_assign_tools",
     "save_assign_tool",
+    "workload_for",
     "count_presence",
     "DEFAULT_USER",
 ]

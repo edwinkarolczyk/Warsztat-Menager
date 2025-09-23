@@ -30,6 +30,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt
+from datetime import datetime
 from config_manager import ConfigManager
 try:
     from PIL import Image, ImageTk, UnidentifiedImageError
@@ -42,6 +43,7 @@ from services.profile_service import (
     DEFAULT_USER,
     count_presence,
     get_all_users,
+    get_tasks_for,
     get_user,
     load_assign_orders,
     load_assign_tools,
@@ -50,7 +52,9 @@ from services.profile_service import (
     save_assign_tool,
     save_status_override,
     save_user,
+    workload_for,
 )
+from services.messages_service import send_message, list_inbox, list_sent
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
 from grafiki.shifts_schedule import (
@@ -59,6 +63,7 @@ from grafiki.shifts_schedule import (
     _slot_for_mode,
     _shift_times,
 )
+from profile_utils import staz_days_for_login, staz_years_floor_for_login
 
 # Maksymalne wymiary avatara (szerokość, wysokość)
 _MAX_AVATAR_SIZE = (250, 313)
@@ -731,13 +736,26 @@ class ProfileView(ttk.Frame):
         self.rola = rola
         self.zatrudniony_od = zatrudniony_od
         self.staz_lata = staz_lata
+        self._user: dict[str, object] = get_user(self.login) or {}
+        if self._user:
+            self.display_name = (
+                self._user.get("display_name") or self.display_name or self.login
+            )
+            self.rola = self._user.get("rola") or self.rola
+            self.zatrudniony_od = self._user.get("zatrudniony_od") or self.zatrudniony_od
+        years = staz_years_floor_for_login(self.login)
+        self.staz_lata = years if years is not None else self.staz_lata
+        days = staz_days_for_login(self.login)
+        self._staz_days = days if days is not None else 0
         self.active_tab = tk.StringVar(value="Oś")
         self._tab_widgets: dict[str, ttk.Frame] = {}
 
         self._init_styles()
         self._build_cover_header()
         self._build_tabs()
-        self._build_columns()
+        self._content_area = ttk.Frame(self, style="WM.Container.TFrame")
+        self._content_area.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+        self._render_tab(self.active_tab.get())
         log_akcja("[WM-DBG][PROFILE] Widok profilu zainicjalizowany.")
 
     # ---------- STYLES ----------
@@ -815,23 +833,42 @@ class ProfileView(ttk.Frame):
 
         info = ttk.Frame(inner, style="WM.Header.TFrame")
         info.grid(row=0, column=1, sticky="w")
-        ttk.Label(
+        lbl_name = ttk.Label(
             info,
             text=self.display_name,
             style="WM.Label",
             font=("Segoe UI", 18, "bold"),
-        ).pack(anchor="w")
-        ttk.Label(info, text=f"@{self.login}", style="WM.Muted.TLabel").pack(
-            anchor="w", pady=(2, 6)
         )
-        ttk.Label(
+        lbl_name.pack(anchor="w")
+        lbl_login = ttk.Label(info, text=f"@{self.login}", style="WM.Muted.TLabel")
+        lbl_login.pack(anchor="w", pady=(2, 6))
+        lbl_role = ttk.Label(
             info,
             text=(
                 f"Rola: {self.rola}    Staż: {self.staz_lata} lata "
                 f"(od {self.zatrudniony_od})"
             ),
             style="WM.Muted.TLabel",
-        ).pack(anchor="w")
+        )
+        lbl_role.pack(anchor="w")
+
+        u = get_user(self.login) or {}
+        display = u.get("display_name") or self.display_name or self.login
+        years = staz_years_floor_for_login(self.login)
+        years = years if years is not None else 0
+        ym = u.get("zatrudniony_od") or "—"
+        lbl_name.config(text=display)
+        lbl_role.config(text=f"Rola: {u.get('rola', '—')}    Staż: {years} lat (od {ym})")
+        self.display_name = display
+        self.rola = u.get("rola") or self.rola
+        if ym != "—":
+            self.zatrudniony_od = ym
+        self.staz_lata = years
+        self._user = u
+        lbl_login.config(text=f"@{self.login}")
+        days_val = staz_days_for_login(self.login)
+        if days_val is not None:
+            self._staz_days = days_val
 
         actions = ttk.Frame(inner, style="WM.Header.TFrame")
         actions.grid(row=0, column=2, rowspan=2, sticky="e", padx=16)
@@ -911,11 +948,32 @@ class ProfileView(ttk.Frame):
             underline = frame.winfo_children()[1]
             underline.configure(bg=WM_ACCENT if tab_name == name else WM_BG)
         log_akcja(f"[WM-DBG][PROFILE] Aktywowano zakładkę: {name}")
+        if hasattr(self, "_content_area"):
+            self._render_tab(name)
+
+    def _render_tab(self, name: str) -> None:
+        clear_frame(self._content_area)
+        builders = {
+            "Oś": self._build_axis_tab,
+            "O mnie": self._build_about_tab,
+            "Zadania": self._build_tasks_tab,
+            "Narzędzia": self._build_tools_tab,
+            "PW": self._build_pw_tab,
+        }
+        builder = builders.get(name)
+        if builder is None:
+            ttk.Label(
+                self._content_area,
+                text="Brak danych",
+                style="WM.CardLabel.TLabel",
+            ).pack(anchor="center", pady=24)
+            return
+        builder(self._content_area)
 
     # ---------- TRZY KOLUMNy ----------
-    def _build_columns(self) -> None:
-        content = ttk.Frame(self, style="WM.Container.TFrame")
-        content.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+    def _build_axis_tab(self, parent: ttk.Frame) -> None:
+        content = ttk.Frame(parent, style="WM.Container.TFrame")
+        content.pack(fill="both", expand=True)
 
         content.columnconfigure(0, weight=1)
         content.columnconfigure(1, weight=2)
@@ -934,6 +992,112 @@ class ProfileView(ttk.Frame):
         right.grid(row=0, column=2, sticky="nsew", padx=(8, 0))
         self._build_shortcuts(right)
 
+    def _build_about_tab(self, parent: ttk.Frame) -> None:
+        self._build_about(parent)
+
+    def _build_tools_tab(self, parent: ttk.Frame) -> None:
+        wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrap.pack(fill="both", expand=True)
+        ttk.Label(
+            wrap,
+            text="Sekcja narzędzi w przygotowaniu.",
+            style="WM.CardLabel.TLabel",
+        ).pack(anchor="w", pady=4)
+
+    def _build_tasks_tab(self, parent: ttk.Frame) -> None:
+        wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrap.pack(fill="both", expand=True)
+        ttk.Label(
+            wrap,
+            text="ZADANIA",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 8))
+        rows = get_tasks_for(self.login) or []
+        if not rows:
+            ttk.Label(
+                wrap,
+                text="Brak przypisanych zadań.",
+                style="WM.CardLabel.TLabel",
+            ).pack(anchor="w")
+            return
+        for r in rows[:50]:
+            t = r.get("title") or r.get("nazwa") or r.get("opis") or "Zadanie"
+            st = r.get("status") or r.get("stan") or "?"
+            dl = r.get("deadline") or r.get("termin") or ""
+            if isinstance(dl, (int, float)):
+                try:
+                    dl = datetime.fromtimestamp(dl).strftime("%Y-%m-%d")
+                except (ValueError, OSError, OverflowError):
+                    dl = str(dl)
+            t = str(t)
+            st = str(st)
+            dl = str(dl)
+            ident = r.get("id") or r.get("kod") or ""
+            prefix = f"{ident} — " if ident else ""
+            line = f"{prefix}{t}   Status: {st}   Termin: {dl}".strip()
+            ttk.Label(wrap, text=line, style="WM.CardLabel.TLabel").pack(
+                anchor="w", pady=2
+            )
+
+    def _build_pw_tab(self, parent: ttk.Frame) -> None:
+        wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrap.pack(fill="both", expand=True)
+        ttk.Label(
+            wrap,
+            text="WIADOMOŚCI (PW)",
+            style="WM.CardMuted.TLabel",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", pady=(0, 8))
+        try:
+            inbox = list_inbox(self.login) or []
+        except Exception as exc:
+            inbox = []
+            ttk.Label(
+                wrap,
+                text=f"Błąd pobierania inboxu: {exc}",
+                style="WM.CardLabel.TLabel",
+                foreground="#e53935",
+            ).pack(anchor="w")
+        try:
+            sent = list_sent(self.login) or []
+        except Exception as exc:
+            sent = []
+            ttk.Label(
+                wrap,
+                text=f"Błąd pobierania wysłanych: {exc}",
+                style="WM.CardLabel.TLabel",
+                foreground="#e53935",
+            ).pack(anchor="w")
+        ttk.Label(
+            wrap,
+            text=f"Inbox ({len(inbox)}):",
+            style="WM.CardLabel.TLabel",
+        ).pack(anchor="w")
+        for m in inbox[:10]:
+            frm = m.get("from") or "—"
+            to_user = m.get("to") or "—"
+            subject = m.get("subject") or "—"
+            text = (
+                f"• {self._format_ts(m.get('ts'))}  "
+                f"{frm} → {to_user}  {subject}"
+            )
+            ttk.Label(wrap, text=text, style="WM.CardLabel.TLabel").pack(anchor="w")
+        ttk.Label(
+            wrap,
+            text=f"\nWysłane ({len(sent)}):",
+            style="WM.CardLabel.TLabel",
+        ).pack(anchor="w")
+        for m in sent[:10]:
+            frm = m.get("from") or "—"
+            to_user = m.get("to") or "—"
+            subject = m.get("subject") or "—"
+            text = (
+                f"• {self._format_ts(m.get('ts'))}  "
+                f"{frm} → {to_user}  {subject}"
+            )
+            ttk.Label(wrap, text=text, style="WM.CardLabel.TLabel").pack(anchor="w")
+
     # --- sekcja: O MNIE (lewa) ---
     def _build_about(self, parent: ttk.Frame) -> None:
         parent.pack_propagate(False)
@@ -948,22 +1112,43 @@ class ProfileView(ttk.Frame):
         )
         title.pack(anchor="w", pady=(0, 8))
 
-        def row(label_text: str, value_text: str) -> None:
+        def row(label_text: str, value_text: object) -> None:
             row_frame = ttk.Frame(wrapper, style="WM.Card.TFrame")
             row_frame.pack(fill="x", pady=4)
             ttk.Label(row_frame, text=label_text, style="WM.CardMuted.TLabel").pack(
                 side="left"
             )
-            ttk.Label(row_frame, text=value_text, style="WM.CardLabel.TLabel").pack(
+            ttk.Label(
+                row_frame,
+                text=str(value_text),
+                style="WM.CardLabel.TLabel",
+            ).pack(
                 side="right"
             )
 
-        row("Login:", self.login)
-        row("Rola:", self.rola)
-        row("Zatrudniony od:", self.zatrudniony_od or "—")
-        row("Status:", "aktywny")
-        row("Kontakt:", "—")
-        row("Umiejętności:", "spawanie")
+        user = getattr(self, "_user", {}) or {}
+        row("Login:", user.get("login") or self.login or "—")
+        row("Rola:", user.get("rola") or self.rola or "—")
+        start = user.get("zatrudniony_od") or self.zatrudniony_od or "—"
+        row("Zatrudniony od:", start)
+        days = getattr(self, "_staz_days", None)
+        row("Staż (dni):", days if days else "—")
+        row("Status:", user.get("status") or "aktywny")
+        contact = (
+            user.get("kontakt")
+            or user.get("telefon")
+            or user.get("email")
+            or "—"
+        )
+        row("Kontakt:", contact)
+        skills = user.get("umiejetnosci") or user.get("skills")
+        if isinstance(skills, dict):
+            skills_text = ", ".join(str(k) for k in skills.keys() if k) or "—"
+        elif isinstance(skills, (list, tuple, set)):
+            skills_text = ", ".join(str(k) for k in skills if k) or "—"
+        else:
+            skills_text = str(skills) if skills else "—"
+        row("Umiejętności:", skills_text)
 
     # --- sekcja: OŚ AKTYWNOŚCI (środek) ---
     def _build_timeline(self, parent: ttk.Frame) -> None:
@@ -1059,12 +1244,98 @@ class ProfileView(ttk.Frame):
             btn = ttk.Button(wrapper, text=text, style="WM.Button.TButton", command=callback)
             btn.pack(fill="x", pady=4)
 
+    def _format_ts(self, value: object) -> str:
+        if value in (None, "", "—"):
+            return "—"
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M")
+            except (ValueError, OSError, OverflowError):
+                return str(value)
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                return "—"
+            try:
+                return datetime.fromisoformat(cleaned.replace("Z", "+00:00")).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
+            except ValueError:
+                return cleaned
+        return str(value)
+
     # ---------- Handlery (szkielet) ----------
     def _on_send_pw(self) -> None:
-        log_akcja("[WM-DBG][PROFILE] Klik: Wyślij PW (do spięcia z modułem PW).")
+        u = get_user(self.login) or {}
+        if not u.get("allow_pw", True):
+            messagebox.showwarning("PW", "Ten użytkownik ma wyłączone PW.")
+            return
+        win = tk.Toplevel(self)
+        win.title("Nowa wiadomość (PW)")
+        win.transient(self.winfo_toplevel())
+        ttk.Label(win, text="Do (login):").grid(row=0, column=0, sticky="w", padx=8, pady=6)
+        to_var = tk.StringVar(value=self.login)
+        ttk.Entry(win, textvariable=to_var, width=28).grid(row=0, column=1, padx=8, pady=6)
+        ttk.Label(win, text="Temat:").grid(row=1, column=0, sticky="w", padx=8, pady=6)
+        sub_var = tk.StringVar()
+        ttk.Entry(win, textvariable=sub_var, width=42).grid(row=1, column=1, padx=8, pady=6)
+        ttk.Label(win, text="Treść:").grid(row=2, column=0, sticky="nw", padx=8, pady=6)
+        txt = tk.Text(win, width=60, height=8)
+        txt.grid(row=2, column=1, padx=8, pady=6)
+
+        def _do_send() -> None:
+            try:
+                msg = send_message(
+                    sender=self.login,
+                    to=to_var.get().strip(),
+                    subject=sub_var.get().strip(),
+                    body=txt.get("1.0", "end").strip(),
+                    refs=[],
+                )
+            except Exception as exc:
+                messagebox.showerror("PW", f"Nie udało się wysłać wiadomości: {exc}")
+                return
+            messagebox.showinfo("PW", f"Wysłano (id: {msg['id']})")
+            if self.active_tab.get() == "PW":
+                self._render_tab("PW")
+            win.destroy()
+
+        ttk.Button(win, text="Wyślij", command=_do_send).grid(
+            row=3, column=1, sticky="e", padx=8, pady=8
+        )
+        win.grab_set()
 
     def _on_least_tasks(self) -> None:
-        log_akcja("[WM-DBG][PROFILE] Klik: Kto ma najmniej zadań? (do spięcia z rankingiem).")
+        users = []
+        try:
+            with open(os.path.join("data", "uzytkownicy.json"), encoding="utf-8") as fh:
+                data = json.load(fh)
+            if isinstance(data, dict):
+                users = [rec.get("login") for rec in data.values() if isinstance(rec, dict)]
+            elif isinstance(data, list):
+                users = [rec.get("login") for rec in data if isinstance(rec, dict)]
+        except Exception:
+            users = []
+        users = [u for u in users if u] or [self.login]
+        ranking = workload_for(users)
+        win = tk.Toplevel(self)
+        win.title("Kto ma najmniej zadań?")
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+        ttk.Label(win, text="Ranking obciążenia (mniej = lepiej):").pack(
+            anchor="w", padx=8, pady=8
+        )
+        if not ranking:
+            ttk.Label(
+                win,
+                text="Brak danych o zadaniach.",
+                foreground="#e53935",
+            ).pack(anchor="w", padx=8, pady=(0, 8))
+            return
+        for (user_login, count) in ranking[:10]:
+            ttk.Label(win, text=f"{user_login:15s}  —  {count}").pack(
+                anchor="w", padx=14
+            )
 
     def _on_open_settings(self) -> None:
         log_akcja(

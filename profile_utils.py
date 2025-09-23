@@ -3,6 +3,7 @@
 # Plik: profile_utils.py
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
+from datetime import date, datetime
 from pathlib import Path
 
 from io_utils import read_json, write_json
@@ -134,6 +135,51 @@ def get_user(login: str):
             return u
     return None
 
+
+def staz_days_for_login(login: str) -> int:
+    """Zwraca liczbę dni stażu dla wskazanego loginu."""
+
+    user = get_user(login)
+    if not user:
+        return 0
+
+    start_raw = user.get("zatrudniony_od") or user.get("data_zatrudnienia")
+    if start_raw:
+        start = _parse_date_value(start_raw)
+        if start:
+            diff = (date.today() - start).days
+            return diff if diff > 0 else 0
+
+    staz_val = user.get("staz")
+    try:
+        if isinstance(staz_val, (int, float)):
+            return max(int(staz_val * 365), 0)
+        if isinstance(staz_val, str) and staz_val.strip():
+            return max(int(float(staz_val) * 365), 0)
+    except Exception:
+        pass
+    return 0
+
+
+def staz_years_floor_for_login(login: str) -> int:
+    """Zwraca staż w pełnych latach dla loginu."""
+
+    days = staz_days_for_login(login)
+    if days:
+        return days // 365
+    user = get_user(login)
+    if not user:
+        return 0
+    staz_val = user.get("staz")
+    try:
+        if isinstance(staz_val, (int, float)):
+            return max(int(staz_val), 0)
+        if isinstance(staz_val, str) and staz_val.strip():
+            return max(int(float(staz_val)), 0)
+    except Exception:
+        pass
+    return 0
+
 def save_user(user: dict):
     """Aktualizuje lub dodaje użytkownika w pliku konfiguracyjnym."""
     users = read_users()
@@ -170,6 +216,24 @@ def ensure_user_fields(users):
     return users
 
 
+def _parse_date_value(value) -> date | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 __all__ = [
     "USERS_FILE",
     "SIDEBAR_MODULES",
@@ -180,6 +244,8 @@ __all__ = [
     "find_user_by_pin",
     "get_tasks_for",
     "get_user",
+    "staz_days_for_login",
+    "staz_years_floor_for_login",
     "save_user",
     "ensure_user_fields",
 ]
