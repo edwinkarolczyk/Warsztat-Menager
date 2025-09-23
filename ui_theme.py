@@ -88,10 +88,10 @@ def load_theme_name(config_path: Path) -> str:
     try:
         if config_path.is_file():
             data = json.loads(config_path.read_text(encoding="utf-8"))
-            name: str | None = None
 
             ui_section = data.get("ui")
-            if isinstance(ui_section, dict):
+            name: str | None = None
+            if isinstance(ui_section, Mapping):
                 ui_theme = ui_section.get("theme")
                 if isinstance(ui_theme, str):
                     name = ui_theme
