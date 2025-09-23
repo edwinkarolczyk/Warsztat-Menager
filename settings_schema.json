@@ -630,33 +630,41 @@
         "description": "Progi alertów (np. 10%), lokalizacja danych, integracja ze zleceniami.",
         "groups": [
           {
-            "label": "Rezerwacje i alerty",
-            "tooltip": "Konfiguracja progów alertów magazynu oraz automatycznych rezerwacji.",
+            "title": "Parametry magazynu",
             "fields": [
               {
-                "key": "magazyn_rezerwacje",
-                "label": "Włącz rezerwacje magazynowe",
-                "type": "bool",
-                "default": true,
-                "description": "Steruje tworzeniem rezerwacji pozycji na potrzeby zleceń."
+                "type": "text",
+                "key": "warehouse.bom_dir",
+                "label": "Katalog BOM",
+                "default": "C:\\wm\\data\\produkty\\"
               },
               {
-                "key": "progi_alertow_pct",
-                "label": "Progi alertów magazynowych [%]",
-                "type": "array",
-                "value_type": "float",
-                "default": [
-                  100.0
-                ],
-                "description": "Lista wartości procentowych uruchamiających alerty stanów magazynowych."
+                "type": "number",
+                "key": "warehouse.low_stock_threshold",
+                "label": "Próg alertu stanu (%)",
+                "default": 10,
+                "min": 0,
+                "max": 100
               },
               {
-                "key": "progi_alertow_surowce",
-                "label": "Progi alertów dla surowców",
-                "type": "dict",
-                "value_type": "float",
-                "default": {},
-                "description": "Mapowanie nazwy surowca na indywidualny próg alertu (%)."
+                "type": "boolean",
+                "key": "warehouse.reserve_on_order",
+                "label": "Rezerwuj materiał przy zleceniu",
+                "default": true
+              },
+              {
+                "type": "text",
+                "key": "warehouse.stock_source",
+                "label": "Źródło stanów",
+                "default": "C:\\wm\\data\\magazyn.json"
+              },
+              {
+                "type": "number",
+                "key": "warehouse.target_stock_percent",
+                "label": "Stan docelowy (%)",
+                "default": 100,
+                "min": 10,
+                "max": 300
               }
             ]
           }
