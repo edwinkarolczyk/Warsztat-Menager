@@ -119,17 +119,17 @@ def load_theme_name(config_path: Path) -> str:
 def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
     """Aplikuje motyw do ttk.Style."""
 
+    try:
+        style.theme_use("clam")
+    except TclError:
+        logger.debug("Styl 'clam' jest niedostępny – pozostawiam bieżący motyw ttk")
+
     if name not in THEMES:
         print(
             f"[WM-DBG][THEME] Motyw '{name}' nieznany, przełączam na 'default'"
         )
         name = DEFAULT_THEME
     c = THEMES[name]
-
-    try:
-        style.theme_use("clam")
-    except TclError:
-        logger.debug("Styl 'clam' jest niedostępny – pozostawiam bieżący motyw ttk")
 
     root = style.master if hasattr(style, "master") else None
     if isinstance(root, tk.Tk):
