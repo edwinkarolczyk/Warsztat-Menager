@@ -755,7 +755,44 @@
     "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
     "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
     "icon": "history",
-    "sections": []
+    "groups": [
+      {
+        "title": "Operacje",
+        "fields": [
+          {
+            "type": "text",
+            "key": "updates.branch_name",
+            "label": "Gałąź do pobrania",
+            "default": "Rozwiniecie"
+          },
+          {
+            "type": "button",
+            "key": "updates.btn_git_pull",
+            "label": "Git Pull (domyślny)",
+            "action": "updater.git_pull"
+          },
+          {
+            "type": "button",
+            "key": "updates.btn_pull_branch",
+            "label": "Pobierz z gałęzi",
+            "action": "updater.pull_branch",
+            "params": { "branch_key": "updates.branch_name" }
+          },
+          {
+            "type": "button",
+            "key": "updates.btn_backup_zip",
+            "label": "Wykonaj kopię ZIP",
+            "action": "updater.backup_zip"
+          },
+          {
+            "type": "button",
+            "key": "updates.btn_restore",
+            "label": "Przywróć z pliku…",
+            "action": "updater.restore_dialog"
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "tests",
