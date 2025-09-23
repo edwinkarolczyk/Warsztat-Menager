@@ -929,14 +929,46 @@ def _generate_dxf_preview(dxf_path: str) -> str | None:
 
 # ===================== STATUSY / NORMALIZACJA =====================
 def _statusy_for_mode(mode):
+    """
+    Zwraca listę statusów. Preferuje config['tools']['statuses'] (kolejność
+    globalna). Fallback: definicje dla typu/trybu oraz stare klucze/stałe.
+    Gwarantuje obecność 'sprawne' bez naruszania kolejności.
+    """
+
+    # 1) nowe ustawienia – globalna kolejność
+    try:
+        cfg_mgr = ConfigManager()
+        statuses = cfg_mgr.get("tools.statuses", None)
+        if isinstance(statuses, list) and statuses:
+            ordered = [str(s).strip() for s in statuses if str(s).strip()]
+        else:
+            ordered = []
+    except Exception:
+        ordered = []
+
+    if ordered:
+        # dopnij 'sprawne' jeśli brak
+        if "sprawne" not in [x.lower() for x in ordered]:
+            ordered.append("sprawne")
+        return ordered
+
+    # 2) fallback: stare klucze/tryby
     cfg = _load_config()
     if mode == "NOWE":
-        lst = _clean_list(cfg.get("statusy_narzedzi_nowe")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_NOWE_DEFAULT[:]
+        statuses = (
+            _clean_list(cfg.get("statusy_narzedzi_nowe"))
+            or _clean_list(cfg.get("statusy_narzedzi"))
+            or STATUSY_NOWE_DEFAULT[:]
+        )
     else:
-        lst = _clean_list(cfg.get("statusy_narzedzi_stare")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_STARE_DEFAULT[:]
-    if "sprawne" not in [x.lower() for x in lst]:
-        lst = lst + ["sprawne"]
-    return lst
+        statuses = (
+            _clean_list(cfg.get("statusy_narzedzi_stare"))
+            or _clean_list(cfg.get("statusy_narzedzi"))
+            or STATUSY_STARE_DEFAULT[:]
+        )
+    if "sprawne" not in [x.lower() for x in statuses]:
+        statuses.append("sprawne")
+    return statuses
 
 def _normalize_status(s: str) -> str:
     sl = (s or "").strip().lower()
