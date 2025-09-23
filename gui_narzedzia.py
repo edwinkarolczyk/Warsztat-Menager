@@ -360,11 +360,28 @@ def _task_templates_from_config():
         return TASK_TEMPLATES_DEFAULT
 
 def _stare_convert_templates_from_config():
+    """
+    Zwraca alternatywne szablony (tryb 'stare').
+    Preferuje tools.task_templates, a jeśli pusto – stary klucz lub stałą
+    STARE_CONVERT_TEMPLATES_DEFAULT.
+    """
+
     try:
+        cfg_mgr = ConfigManager()
+        templates = cfg_mgr.get("tools.task_templates", None)
+        if isinstance(templates, list) and templates:
+            clean = [str(x).strip() for x in templates if str(x).strip()]
+            out, seen = [], set()
+            for t in clean:
+                tl = t.lower()
+                if tl not in seen:
+                    seen.add(tl)
+                    out.append(t)
+            return out
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
         return lst or STARE_CONVERT_TEMPLATES_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
 def _types_from_config():
