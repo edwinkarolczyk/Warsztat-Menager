@@ -242,6 +242,24 @@
         ]
       },
       {
+        "title": "Ścieżki i start",
+        "fields": [
+          {
+            "type": "text",
+            "key": "system.data_path",
+            "label": "Ścieżka danych",
+            "default": "C:\\\\wm\\\\data",
+            "placeholder": "np. C:\\\\wm\\\\data"
+          },
+          {
+            "type": "boolean",
+            "key": "system.start_on_dashboard",
+            "label": "Startuj na panel główny",
+            "default": true
+          }
+        ]
+      },
+      {
         "id": "backup",
         "label": "Kopie zapasowe",
         "tooltip": "Lokalne i zdalne kopie zapasowe konfiguracji.",
