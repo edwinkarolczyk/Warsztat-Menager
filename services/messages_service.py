@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List
 
 MESSAGES_FILE = os.path.join("data", "messages_pw.json")
@@ -52,6 +52,11 @@ def _sort_messages(messages: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 parsed = None
         else:
             parsed = None
+        if parsed and parsed.tzinfo is not None:
+            try:
+                parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            except Exception:
+                parsed = None
         try:
             ident = int(msg.get("id", 0))
         except Exception:
