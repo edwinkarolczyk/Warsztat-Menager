@@ -126,6 +126,11 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
         name = DEFAULT_THEME
     c = THEMES[name]
 
+    try:
+        style.theme_use("clam")
+    except TclError:
+        logger.debug("Styl 'clam' jest niedostępny – pozostawiam bieżący motyw ttk")
+
     root = style.master if hasattr(style, "master") else None
     if isinstance(root, tk.Tk):
         root.configure(bg=c["bg"])
