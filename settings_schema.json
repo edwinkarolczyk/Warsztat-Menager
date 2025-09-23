@@ -414,9 +414,9 @@
   },
   {
     "id": "hala",
-    "title": "Hala",
+    "title": "Maszyny",
     "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
-    "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
+    "tooltip": "Ustawienia siatki, tła i zaznaczania maszyn w widoku hali.",
     "icon": "layout",
     "groups": [
       {
