@@ -159,600 +159,463 @@
     "required": ["id_width", "types"]
   },
   "tabs": [
-  {
-    "id": "system",
-    "title": "System",
-    "description": "Ustawienia ogólne programu (język, motyw, ścieżki, auto-aktualizacje).",
-    "tooltip": "Zmiany w tym dziale wpływają globalnie na cały program.",
-    "icon": "settings",
-    "groups": [
-      {
-        "id": "ui",
-        "label": "Wygląd i język",
-        "tooltip": "Konfiguracja motywu kolorystycznego oraz języka interfejsu.",
-        "fields": [
-          {
-            "key": "ui.theme",
-            "label": "Motyw interfejsu",
-            "type": "enum",
-            "enum": ["dark", "warm"],
-            "default": "dark",
-            "help": "Wybrany motyw kolorystyczny aplikacji (default = motyw główny, warm = alternatywny, christmas = świąteczny)."
-          },
-          {
-            "key": "ui.accent",
-            "label": "Kolor akcentu",
-            "type": "string",
-            "default": "red",
-            "help": "Kolor akcentu stosowany w przyciskach i nagłówkach."
-          },
-          {
-            "key": "ui.language",
-            "label": "Język interfejsu",
-            "type": "enum",
-            "enum": ["pl", "en"],
-            "default": "pl",
-            "help": "Kod języka używany w interfejsie (np. pl lub en)."
-          },
-          {
-            "key": "ui.always_searchbar",
-            "label": "Zawsze pokazuj wyszukiwarkę",
-            "type": "bool",
-            "default": true,
-            "help": "Wymusza widoczność paska wyszukiwania w panelu głównym."
-          }
-        ]
-      },
-      {
-        "id": "auth",
-        "label": "Logowanie i bezpieczeństwo",
-        "tooltip": "Ustawienia sposobu logowania użytkowników do aplikacji.",
-        "fields": [
-          {
-            "key": "auth.required",
-            "label": "Wymagaj logowania",
-            "type": "bool",
-            "default": true,
-            "help": "Blokuje dostęp do aplikacji bez poprawnego logowania."
-          },
-          {
-            "key": "auth.session_timeout_min",
-            "label": "Limit bezczynności (minuty)",
-            "type": "int",
-            "min": 1,
-            "default": 30,
-            "help": "Po tylu minutach bezczynności użytkownik zostanie wylogowany."
-          },
-          {
-            "key": "auth.pin_length",
-            "label": "Długość PIN",
-            "type": "int",
-            "min": 4,
-            "max": 8,
-            "default": 4,
-            "help": "Liczba cyfr wymagana podczas logowania PIN-em."
-          },
-          {
-            "key": "auth.pinless_brygadzista",
-            "label": "Logowanie brygadzisty bez PIN",
-            "type": "bool",
-            "default": false,
-            "help": "Umożliwia brygadziście logowanie bez podawania PIN-u."
-          }
-        ]
-      },
-      {
-        "title": "Ścieżki i start",
-        "fields": [
-          {
-            "type": "text",
-            "key": "system.data_path",
-            "label": "Ścieżka danych",
-            "default": "C:\\\\wm\\\\data",
-            "placeholder": "np. C:\\\\wm\\\\data"
-          },
-          {
-            "type": "boolean",
-            "key": "system.start_on_dashboard",
-            "label": "Startuj na panel główny",
-            "default": true
-          }
-        ]
-      },
-      {
-        "id": "backup",
-        "label": "Kopie zapasowe",
-        "tooltip": "Lokalne i zdalne kopie zapasowe konfiguracji.",
-        "fields": [
-          {
-            "key": "backup.folder",
-            "label": "Katalog kopii lokalnych",
-            "type": "string",
-            "default": "backup_wersji",
-            "help": "Ścieżka (względna lub bezwzględna) dla lokalnych kopii pliku config.json."
-          },
-          {
-            "key": "backup.keep_last",
-            "label": "Liczba kopii do zachowania",
-            "type": "int",
-            "min": 1,
-            "default": 10,
-            "help": "Maksymalna liczba ostatnich kopii przechowywanych na dysku."
-          },
-          {
-            "key": "backup.cloud.url",
-            "label": "Adres magazynu kopii (chmura)",
-            "type": "string",
-            "default": "",
-            "help": "Adres endpointu (np. WebDAV/SFTP), do którego wysyłane są kopie."
-          },
-          {
-            "key": "backup.cloud.username",
-            "label": "Login do magazynu kopii",
-            "type": "string",
-            "default": "",
-            "help": "Nazwa użytkownika używana podczas wysyłania kopii do chmury."
-          },
-          {
-            "key": "backup.cloud.password",
-            "label": "Hasło do magazynu kopii",
-            "type": "string",
-            "widget": "password",
-            "default": "",
-            "help": "Hasło uwierzytelniające połączenie z magazynem kopii."
-          },
-          {
-            "key": "backup.cloud.folder",
-            "label": "Katalog w magazynie kopii",
-            "type": "string",
-            "default": "",
-            "help": "Podkatalog w zdalnym magazynie, w którym zapisywane są kopie."
-          }
-        ]
-      },
-      {
-        "id": "updates",
-        "label": "Aktualizacje",
-        "tooltip": "Parametry automatycznego sprawdzania i wdrażania aktualizacji.",
-        "fields": [
-          {
-            "key": "updates.auto",
-            "label": "Automatycznie sprawdzaj aktualizacje",
-            "type": "bool",
-            "default": true,
-            "help": "Przy starcie aplikacji sprawdzaj dostępność nowej wersji."
-          },
-          {
-            "key": "updates.remote",
-            "label": "Repozytorium zdalne",
-            "type": "string",
-            "default": "origin",
-            "help": "Nazwa zdalnego repozytorium Git wykorzystywanego do aktualizacji."
-          },
-          {
-            "key": "updates.branch",
-            "label": "Gałąź aktualizacji",
-            "type": "string",
-            "default": "Rozwiniecie",
-            "help": "Gałąź, z której pobierane są aktualizacje programu."
-          },
-          {
-            "key": "updates.push_branch",
-            "label": "Gałąź wysyłania zmian",
-            "type": "string",
-            "default": "Rozwiniecie",
-            "help": "Gałąź używana przy wysyłaniu zmian do repozytorium."
-          }
-        ]
-      },
-      {
-        "id": "secrets",
-        "label": "Dostęp administracyjny",
-        "tooltip": "Poufne dane administratora potrzebne do resetów i awaryjnego dostępu.",
-        "fields": [
-          {
-            "key": "secrets.admin_pin",
-            "label": "PIN administratora",
-            "type": "string",
-            "widget": "password",
-            "default": "",
-            "help": "PIN wykorzystywany przy operacjach administracyjnych (np. reset haseł)."
-          }
-        ]
-      }
-    ],
-    "sections": []
-  },
-  {
-    "id": "uzytkownicy",
-    "title": "Użytkownicy",
-    "description": "Role i uprawnienia użytkowników. (Edycja listy w subzakładce).",
-    "tooltip": "Konfiguruj dostęp do modułów i status kont.",
-    "icon": "users",
-    "subtabs": [
-      {
-        "id": "moj_profil",
-        "title": "Mój profil",
-        "description": "Podgląd danych zalogowanego użytkownika.",
-        "groups": [
-          {
-            "title": "Informacje",
-            "fields": [
-              {
-                "type": "info",
-                "key": "profile.info",
-                "text": "Dane z bieżącej sesji. Edycje w 'Zarządzanie (lista)'."
+    {
+      "id": "system",
+      "title": "System",
+      "icon": "settings",
+      "description": "Ogólne ustawienia systemowe.",
+      "groups": [
+        {
+          "title": "Wygląd i logowanie",
+          "fields": []
+        },
+        {
+          "title": "Ścieżki i start",
+          "fields": [
+            {
+              "type": "text",
+              "key": "system.data_path",
+              "label": "Ścieżka danych",
+              "default": "C:\\\\wm\\\\data",
+              "placeholder": "np. C:\\\\wm\\\\data"
+            },
+            {
+              "type": "boolean",
+              "key": "system.start_on_dashboard",
+              "label": "Startuj na panel główny",
+              "default": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uzytkownicy",
+      "title": "Użytkownicy",
+      "icon": "users",
+      "description": "Zarządzanie użytkownikami i rolami.",
+      "subtabs": [
+        {
+          "id": "moj_profil",
+          "title": "Mój profil",
+          "description": "Podgląd danych zalogowanego użytkownika.",
+          "groups": [
+            {
+              "title": "Informacje",
+              "fields": [
+                {
+                  "type": "info",
+                  "key": "profile.info",
+                  "text": "Dane z bieżącej sesji. Edycje w 'Zarządzanie (lista)'."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "uprawnienia",
+          "title": "Uprawnienia",
+          "description": "Konfiguracja ról i dostępu.",
+          "groups": [
+            {
+              "title": "Role i dostęp",
+              "fields": []
+            }
+          ]
+        },
+        {
+          "id": "zarzadzanie_lista",
+          "title": "Zarządzanie (lista)",
+          "description": "Lista użytkowników.",
+          "groups": [
+            {
+              "title": "Lista kont",
+              "fields": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "maszyny",
+      "title": "Maszyny",
+      "icon": "layout",
+      "description": "Ustawienia widoku i pracy z rozmieszczeniem maszyn.",
+      "tooltip": "Siatka, tło, numeracja oraz zaznaczanie.",
+      "groups": [
+        {
+          "title": "Widok i siatka",
+          "fields": [
+            {
+              "type": "number",
+              "key": "hall.grid_size_px",
+              "label": "Rozmiar kratki (px)",
+              "default": 4,
+              "min": 1,
+              "max": 20
+            },
+            {
+              "type": "boolean",
+              "key": "hall.snap_to_grid",
+              "label": "Przyciągaj do siatki",
+              "default": true
+            },
+            {
+              "type": "text",
+              "key": "hall.background_image",
+              "label": "Tło (plik JPEG/PNG)",
+              "placeholder": "np. C:\\\\wm\\\\data\\\\hala_bg.jpg"
+            },
+            {
+              "type": "boolean",
+              "key": "hall.show_numbers",
+              "label": "Pokaż numery hal na maszynach",
+              "default": true
+            }
+          ]
+        },
+        {
+          "title": "Zaznaczanie",
+          "fields": [
+            {
+              "type": "boolean",
+              "key": "hall.enable_selection",
+              "label": "Włącz zaznaczanie obiektów",
+              "default": true
+            },
+            {
+              "type": "boolean",
+              "key": "hall.multi_select",
+              "label": "Zaznaczanie wielokrotne (Shift)",
+              "default": true
+            },
+            {
+              "type": "boolean",
+              "key": "hall.lasso_select",
+              "label": "Zaznaczanie obszarem (lasso)",
+              "default": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "narzedzia",
+      "title": "Narzędzia",
+      "icon": "wrench",
+      "description": "Konfiguracja narzędzi.",
+      "subtabs": [
+        {
+          "id": "typy_statusy",
+          "title": "Typy i statusy",
+          "groups": [
+            {
+              "title": "Typy narzędzi",
+              "fields": [
+                {
+                  "type": "array",
+                  "key": "tools.types",
+                  "label": "Typy narzędzi",
+                  "default": [
+                    "Tłoczące",
+                    "Wykrawające",
+                    "Postępowe",
+                    "Giętarka"
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Statusy narzędzi",
+              "fields": [
+                {
+                  "type": "array",
+                  "key": "tools.statuses",
+                  "label": "Lista statusów",
+                  "default": [
+                    "awaria zgłoszona",
+                    "diagnoza",
+                    "w naprawie",
+                    "test",
+                    "sprawdzona",
+                    "zakończone",
+                    "anulowane"
+                  ]
+                }
+              ]
+            },
+            {
+              "title": "Szablony zadań",
+              "fields": [
+                {
+                  "type": "array",
+                  "key": "tools.task_templates",
+                  "label": "Lista zadań",
+                  "default": [
+                    "Przegląd wizualny",
+                    "Czyszczenie i smarowanie",
+                    "Pomiar luzów",
+                    "Wymiana elementu roboczego",
+                    "Test na prasie"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "reguly",
+          "title": "Reguły",
+          "groups": [
+            {
+              "title": "Automatyczne odhaczanie",
+              "fields": [
+                {
+                  "type": "array",
+                  "key": "tools.auto_check_on_status",
+                  "label": "Statusy oznaczające wykonane zadania",
+                  "default": [
+                    "sprawne",
+                    "zakończone"
+                  ]
+                },
+                {
+                  "type": "boolean",
+                  "key": "tools.auto_check_on_last_status",
+                  "label": "Odhaczaj zadania przy ostatnim statusie",
+                  "default": true
+                }
+              ]
+            },
+            {
+              "title": "Podgląd NN/SN",
+              "fields": [
+                {
+                  "type": "number",
+                  "key": "tools.nn_sn_preview_rows",
+                  "label": "Podgląd – liczba wierszy",
+                  "default": 2,
+                  "min": 1,
+                  "max": 6
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zlecenia",
+      "title": "Zlecenia",
+      "icon": "clipboard",
+      "description": "Ustawienia zleceń.",
+      "subtabs": [
+        {
+          "id": "statusy",
+          "title": "Statusy",
+          "groups": [
+            {
+              "title": "Statusy zleceń",
+              "fields": [
+                {
+                  "type": "array",
+                  "key": "orders.statuses",
+                  "label": "Lista statusów",
+                  "default": [
+                    "nowe",
+                    "w toku",
+                    "wstrzymane",
+                    "do odbioru",
+                    "zakończone",
+                    "anulowane"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "kreator",
+          "title": "Kreator",
+          "groups": [
+            {
+              "title": "Opcje kreatora",
+              "fields": [
+                {
+                  "type": "boolean",
+                  "key": "orders.wizard_dark",
+                  "label": "Ciemny motyw",
+                  "default": true
+                },
+                {
+                  "type": "boolean",
+                  "key": "orders.wizard_separate_window",
+                  "label": "Osobne okno",
+                  "default": true
+                },
+                {
+                  "type": "array",
+                  "key": "orders.required_fields",
+                  "label": "Pola wymagane",
+                  "default": [
+                    "klient",
+                    "opis",
+                    "termin"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "magazyn",
+      "title": "Magazyn",
+      "icon": "boxes",
+      "description": "Parametry magazynu oraz BOM/produkty.",
+      "tooltip": "Progi, katalogi, źródła stanów.",
+      "subtabs": [
+        {
+          "id": "ustawienia_magazynu",
+          "title": "Ustawienia magazynu",
+          "groups": [
+            {
+              "title": "Parametry magazynu",
+              "fields": [
+                {
+                  "type": "text",
+                  "key": "warehouse.bom_dir",
+                  "label": "Katalog BOM",
+                  "default": "C:\\\\wm\\\\data\\\\produkty\\\\"
+                },
+                {
+                  "type": "number",
+                  "key": "warehouse.low_stock_threshold",
+                  "label": "Próg alertu stanu (%)",
+                  "default": 10,
+                  "min": 0,
+                  "max": 100
+                },
+                {
+                  "type": "boolean",
+                  "key": "warehouse.reserve_on_order",
+                  "label": "Rezerwuj materiał przy zleceniu",
+                  "default": true
+                },
+                {
+                  "type": "text",
+                  "key": "warehouse.stock_source",
+                  "label": "Źródło stanów",
+                  "default": "C:\\\\wm\\\\data\\\\magazyn.json"
+                },
+                {
+                  "type": "number",
+                  "key": "warehouse.target_stock_percent",
+                  "label": "Stan docelowy (%)",
+                  "default": 100,
+                  "min": 10,
+                  "max": 300
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "produkty_bom",
+          "title": "Produkty (BOM)",
+          "groups": [
+            {
+              "title": "BOM",
+              "fields": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zamowienia",
+      "title": "Zamówienia",
+      "icon": "shopping-cart",
+      "description": "Parametry zamówień materiałów.",
+      "groups": [
+        {
+          "title": "Parametry zamówień",
+          "fields": [
+            {
+              "type": "boolean",
+              "key": "orders.ask_to_order_shortage",
+              "label": "Pytaj o zamówienie braków automatycznie",
+              "default": true
+            },
+            {
+              "type": "text",
+              "key": "orders.default_supplier",
+              "label": "Domyślny dostawca"
+            },
+            {
+              "type": "text",
+              "key": "orders.min_order_threshold",
+              "label": "Próg minimalny (szt. lub %)",
+              "placeholder": "np. 5 lub 10%"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aktualizacje",
+      "title": "Aktualizacje & Kopie",
+      "icon": "refresh",
+      "description": "Aktualizacja z repozytorium i kopie zapasowe.",
+      "groups": [
+        {
+          "title": "Operacje",
+          "fields": [
+            {
+              "type": "text",
+              "key": "updates.branch_name",
+              "label": "Gałąź do pobrania",
+              "default": "Rozwiniecie"
+            },
+            {
+              "type": "button",
+              "key": "updates.btn_git_pull",
+              "label": "Git Pull (domyślny)",
+              "action": "updater.git_pull"
+            },
+            {
+              "type": "button",
+              "key": "updates.btn_pull_branch",
+              "label": "Pobierz z gałęzi",
+              "action": "updater.pull_branch",
+              "params": {
+                "branch_key": "updates.branch_name"
               }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "uprawnienia",
-        "title": "Uprawnienia",
-        "description": "Konfiguracja ról i dostępu.",
-        "groups": [
-          {
-            "title": "Role i dostęp",
-            "fields": []
-          }
-        ]
-      },
-      {
-        "id": "zarzadzanie_lista",
-        "title": "Zarządzanie (lista)",
-        "description": "Lista użytkowników.",
-        "groups": [
-          {
-            "title": "Lista kont",
-            "fields": []
-          }
-        ]
-      }
-    ],
-    "sections": []
-  },
-  {
-    "id": "maszyny",
-    "title": "Maszyny",
-    "icon": "layout",
-    "description": "Ustawienia widoku i pracy z rozmieszczeniem maszyn.",
-    "tooltip": "Siatka, tło, numeracja oraz zaznaczanie.",
-    "groups": [
-      {
-        "title": "Widok i siatka",
-        "fields": [
-          {
-            "type": "number",
-            "key": "hall.grid_size_px",
-            "label": "Rozmiar kratki (px)",
-            "default": 4,
-            "min": 1,
-            "max": 20
-          },
-          {
-            "type": "boolean",
-            "key": "hall.snap_to_grid",
-            "label": "Przyciągaj do siatki",
-            "default": true
-          },
-          {
-            "type": "text",
-            "key": "hall.background_image",
-            "label": "Tło (plik JPEG/PNG)",
-            "placeholder": "np. C:\\wm\\data\\hala_bg.jpg"
-          },
-          {
-            "type": "boolean",
-            "key": "hall.show_numbers",
-            "label": "Pokaż numery hal na maszynach",
-            "default": true
-          }
-        ]
-      },
-      {
-        "title": "Zaznaczanie",
-        "fields": [
-          {
-            "type": "boolean",
-            "key": "hall.enable_selection",
-            "label": "Włącz zaznaczanie obiektów",
-            "default": true
-          },
-          {
-            "type": "boolean",
-            "key": "hall.multi_select",
-            "label": "Zaznaczanie wielokrotne (Shift)",
-            "default": true
-          },
-          {
-            "type": "boolean",
-            "key": "hall.lasso_select",
-            "label": "Zaznaczanie obszarem (lasso)",
-            "default": true
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "narzedzia",
-    "title": "Narzędzia",
-    "description": "Konfiguracja typów, statusów i zadań. Nowe NN (001–499) w diagramach zaznaczamy na żółto.",
-    "tooltip": "Definiuj typy/statusy i reguły zachowania w module Narzędzia.",
-    "icon": "wrench",
-    "subtabs": [
-      {
-        "id": "typy_statusy",
-        "title": "Typy i statusy",
-        "description": "Konfiguracja typów narzędzi, statusów oraz zadań.",
-        "groups": [
-          {
-            "title": "Typy narzędzi",
-            "fields": [
-              {
-                "type": "array",
-                "key": "tools.types",
-                "label": "Typy narzędzi",
-                "default": [
-                  "Tłoczące",
-                  "Wykrawające",
-                  "Postępowe",
-                  "Giętarka"
-                ]
-              }
-            ]
-          },
-          {
-            "title": "Statusy narzędzi",
-            "fields": [
-              {
-                "type": "array",
-                "key": "tools.statuses",
-                "label": "Lista statusów",
-                "default": [
-                  "awaria zgłoszona",
-                  "diagnoza",
-                  "w naprawie",
-                  "test",
-                  "sprawdzona",
-                  "zakończone",
-                  "anulowane"
-                ]
-              }
-            ]
-          },
-          {
-            "title": "Szablony zadań",
-            "fields": [
-              {
-                "type": "array",
-                "key": "tools.task_templates",
-                "label": "Lista zadań",
-                "default": [
-                  "Przegląd wizualny",
-                  "Czyszczenie i smarowanie",
-                  "Pomiar luzów",
-                  "Wymiana elementu roboczego",
-                  "Test na prasie"
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "reguly",
-        "title": "Reguły",
-        "description": "Reguły automatycznego oznaczania zadań.",
-        "groups": [
-          {
-            "title": "Automatyczne odhaczanie",
-            "fields": [
-              {
-                "type": "array",
-                "key": "tools.auto_check_on_status",
-                "label": "Statusy oznaczające wykonane zadania",
-                "default": [
-                  "sprawne",
-                  "zakończone"
-                ]
-              },
-              {
-                "type": "boolean",
-                "key": "tools.auto_check_on_last_status",
-                "label": "Odhaczaj zadania przy ostatnim statusie",
-                "default": true
-              }
-            ]
-          },
-          {
-            "title": "Podgląd NN/SN",
-            "fields": [
-              {
-                "type": "number",
-                "key": "tools.nn_sn_preview_rows",
-                "label": "Podgląd – liczba wierszy",
-                "default": 2,
-                "min": 1,
-                "max": 6
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "sections": []
-  },
-  {
-    "id": "zlecenia",
-    "title": "Zlecenia",
-    "description": "Ustawienia modułu zleceń: statusy, kreator (osobne okno, ciemny motyw).",
-    "tooltip": "Statusy są wybierane z listy (Combobox) podczas edycji zlecenia.",
-    "icon": "clipboard-list",
-    "subtabs": [
-      {
-        "id": "statusy",
-        "title": "Statusy",
-        "description": "Predefiniowane statusy zleceń (dwuklik w edycji otwiera listę wyboru).",
-        "sections": []
-      },
-      {
-        "id": "kreator",
-        "title": "Kreator",
-        "description": "Opcje kreatora dodawania zlecenia (Toplevel, zgodny motyw WM).",
-        "sections": []
-      }
-    ],
-    "sections": []
-  },
-  {
-    "id": "magazyn",
-    "title": "Magazyn",
-    "icon": "boxes",
-    "description": "Parametry magazynu oraz BOM/produkty.",
-    "tooltip": "Progi, katalogi, źródła stanów.",
-    "subtabs": [
-      {
-        "id": "ustawienia_magazynu",
-        "title": "Ustawienia magazynu",
-        "description": "Parametry działania magazynu.",
-        "groups": [
-          {
-            "title": "Parametry magazynu",
-            "fields": [
-              {
-                "type": "text",
-                "key": "warehouse.bom_dir",
-                "label": "Katalog BOM",
-                "default": "C:\\wm\\data\\produkty\\"
-              },
-              {
-                "type": "number",
-                "key": "warehouse.low_stock_threshold",
-                "label": "Próg alertu stanu (%)",
-                "default": 10,
-                "min": 0,
-                "max": 100
-              },
-              {
-                "type": "boolean",
-                "key": "warehouse.reserve_on_order",
-                "label": "Rezerwuj materiał przy zleceniu",
-                "default": true
-              },
-              {
-                "type": "text",
-                "key": "warehouse.stock_source",
-                "label": "Źródło stanów",
-                "default": "C:\\wm\\data\\magazyn.json"
-              },
-              {
-                "type": "number",
-                "key": "warehouse.target_stock_percent",
-                "label": "Stan docelowy (%)",
-                "default": 100,
-                "min": 10,
-                "max": 300
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "produkty_bom",
-        "title": "Produkty (BOM)",
-        "description": "Struktury produktów i komponenty.",
-        "groups": [
-          { "title": "BOM", "fields": [] }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "zamowienia",
-    "title": "Zamówienia",
-    "description": "Obsługa braków materiałowych: po wykryciu braku zapytać „Czy zamówić brakujący materiał?”.",
-    "tooltip": "Twórz zamówienia materiałów po detekcji braków.",
-    "icon": "shopping-cart",
-    "groups": [
-      {
-        "title": "Parametry zamówień",
-        "fields": [
-          {
-            "type": "boolean",
-            "key": "orders.ask_to_order_shortage",
-            "label": "Pytaj o zamówienie braków automatycznie",
-            "default": true
-          },
-          {
-            "type": "text",
-            "key": "orders.default_supplier",
-            "label": "Domyślny dostawca"
-          },
-          {
-            "type": "text",
-            "key": "orders.min_order_threshold",
-            "label": "Próg minimalny (szt. lub %)",
-            "placeholder": "np. 5 lub 10%"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "aktualizacje",
-    "title": "Aktualizacje & Kopie",
-    "description": "Kopie zapasowe, przywracanie i wersjonowanie. Operacje wykonywane z dedykowanego modułu.",
-    "tooltip": "Konfiguracja/Opis – same operacje uruchamiane są poza tym panelem.",
-    "icon": "history",
-    "groups": [
-      {
-        "title": "Operacje",
-        "fields": [
-          {
-            "type": "text",
-            "key": "updates.branch_name",
-            "label": "Gałąź do pobrania",
-            "default": "Rozwiniecie"
-          },
-          {
-            "type": "button",
-            "key": "updates.btn_git_pull",
-            "label": "Git Pull (domyślny)",
-            "action": "updater.git_pull"
-          },
-          {
-            "type": "button",
-            "key": "updates.btn_pull_branch",
-            "label": "Pobierz z gałęzi",
-            "action": "updater.pull_branch",
-            "params": { "branch_key": "updates.branch_name" }
-          },
-          {
-            "type": "button",
-            "key": "updates.btn_backup_zip",
-            "label": "Wykonaj kopię ZIP",
-            "action": "updater.backup_zip"
-          },
-          {
-            "type": "button",
-            "key": "updates.btn_restore",
-            "label": "Przywróć z pliku…",
-            "action": "updater.restore_dialog"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "tests",
-    "title": "[DEV] Testy",
-    "description": "Zakładka testowa – tylko do użytku deweloperskiego.",
-    "devOnly": true,
-    "tooltip": "Opcje techniczne używane tylko podczas prac deweloperskich.",
-    "icon": "beaker",
-    "sections": []
-  }
-]
+            },
+            {
+              "type": "button",
+              "key": "updates.btn_backup_zip",
+              "label": "Wykonaj kopię ZIP",
+              "action": "updater.backup_zip"
+            },
+            {
+              "type": "button",
+              "key": "updates.btn_restore",
+              "label": "Przywróć z pliku…",
+              "action": "updater.restore_dialog"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tests",
+      "title": "Testy",
+      "icon": "beaker",
+      "description": "Panel testowy (tylko DEV).",
+      "devOnly": true,
+      "groups": []
+    }
+  ]
 }
