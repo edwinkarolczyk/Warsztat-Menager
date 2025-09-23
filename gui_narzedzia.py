@@ -352,11 +352,28 @@ def _clean_list(lst):
     return out
 
 def _task_templates_from_config():
+    """
+    Zwraca listę szablonów zadań. Preferuje config['tools']['task_templates'].
+    Zgodność wsteczna: stare klucze w configu oraz domyślne stałe.
+    """
     try:
+        cfg_mgr = ConfigManager()
+        templates = cfg_mgr.get("tools.task_templates", None)
+        if isinstance(templates, list) and templates:
+            clean = [str(x).strip() for x in templates if str(x).strip()]
+            # usuwamy duplikaty z zachowaniem kolejności
+            out, seen = [], set()
+            for t in clean:
+                tl = t.lower()
+                if tl not in seen:
+                    seen.add(tl)
+                    out.append(t)
+            return out
+        # fallback: stary config
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
         return lst or TASK_TEMPLATES_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return TASK_TEMPLATES_DEFAULT
 
 def _stare_convert_templates_from_config():
