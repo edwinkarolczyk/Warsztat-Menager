@@ -1,25 +1,20 @@
 # gui_tool_editor.py
-# Wersja pliku: 1.0.0
-# Zmiany:
-# - [NOWE] Edytor narzędzia oparty o definicje z Ustawień (one source of truth)
-# - [NOWE] Usunięta możliwość dodawania typu z poziomu edytora
-# - [NOWE] Comboboxy (Typ, Status) + lista zadań tylko-do-odczytu z konfiguracji
-# - [NOWE] Walidacje statusów: "w serwisie" (wymagane zadania + komentarz), "sprawne" (auto-odhacz zadania)
-# - [NOWE] Lokalizacja PL + ciemny motyw (ui_theme.apply_theme)
-#
-# ⏹ KONIEC KODU – stopka dodana na końcu pliku
+# Wersja pliku: 1.1.0
+# Moduł: Narzędzia – Edytor (one source of truth z Ustawień)
+# Logi: [WM-DBG] / [INFO] / [ERROR]
+# Język: PL (UI i komentarze)
+# Linia max ~100 znaków
 
 import json
 import tkinter as tk
 from datetime import datetime
-from tkinter import messagebox, ttk
+from tkinter import ttk, messagebox
 
 try:
     from ui_theme import apply_theme_safe as apply_theme
 except Exception:
-    def apply_theme(_):
-        """Fallback gdy brak motywu – nie wybuchamy."""
-
+    def apply_theme(_root):
+        # Fallback, gdy motyw nie jest dostępny – brak awarii okna
         pass
 
 from logger import get_logger
@@ -29,18 +24,23 @@ log = get_logger(__name__)
 
 
 class ToolEditorDialog(tk.Toplevel):
-    """Okno edycji narzędzia spięte z definicjami z Ustawień (Typ/Status/Zadania)."""
+    """
+    Okno edycji narzędzia. Definicje typ/status/zadania wczytywane z Ustawień.
+    Brak możliwości dodawania nowych typów w tym oknie (tylko wybór).
+    Auto-odhaczanie następuje przy zmianie na OSTATNI status (wg konfiguracji).
+    """
 
     def __init__(self, master, tool_path: str, current_user: str = "unknown"):
         super().__init__(master)
         self.title("Edycja narzędzia")
         self.resizable(True, True)
-        apply_theme(self)
+        apply_theme(self)  # ciemny motyw WM
         self.current_user = current_user
 
         self.tool_path = tool_path
         self.tool_data = self._load_tool_file(tool_path)
         self.defs = self._load_tool_definitions_from_settings()
+        # defs: { "typ": { "status": [zadania...] } }
 
         ttk.Label(self, text="Typ narzędzia:").grid(
             row=0, column=0, sticky="w", padx=8, pady=(10, 4)
@@ -50,17 +50,16 @@ class ToolEditorDialog(tk.Toplevel):
         self.cb_typ["values"] = sorted(self.defs.keys())
         self.cb_typ.grid(row=0, column=1, sticky="ew", padx=8, pady=(10, 4))
 
-        ttk.Label(self, text="Status:").grid(row=1, column=0, sticky="w", padx=8, pady=4)
-        self.var_status = tk.StringVar()
-        self.cb_status = ttk.Combobox(
-            self, textvariable=self.var_status, state="readonly"
+        ttk.Label(self, text="Status:").grid(
+            row=1, column=0, sticky="w", padx=8, pady=4
         )
+        self.var_status = tk.StringVar()
+        self.cb_status = ttk.Combobox(self, textvariable=self.var_status, state="readonly")
         self.cb_status.grid(row=1, column=1, sticky="ew", padx=8, pady=4)
 
-        ttk.Label(
-            self,
-            text="Zadania (zdefiniowane w Ustawieniach):",
-        ).grid(row=2, column=0, sticky="w", padx=8, pady=(8, 4))
+        ttk.Label(self, text="Zadania (z Ustawień):").grid(
+            row=2, column=0, sticky="w", padx=8, pady=(8, 4)
+        )
         self.tasks_list = tk.Listbox(self, height=6)
         self.tasks_list.grid(row=2, column=1, sticky="nsew", padx=8, pady=(8, 4))
 
@@ -85,49 +84,57 @@ class ToolEditorDialog(tk.Toplevel):
 
         self._init_from_tool()
         self.cb_typ.bind("<<ComboboxSelected>>", lambda e: self._refresh_status_values())
-        self.cb_status.bind(
-            "<<ComboboxSelected>>", lambda e: self._refresh_tasks_list()
-        )
+        self.cb_status.bind("<<ComboboxSelected>>", lambda e: self._refresh_tasks_list())
 
         log.info(
-            "[WM-DBG][TOOLS-EDITOR] Okno edycji uruchomione; definicje z Ustawień wczytane."
+            "[WM-DBG][TOOLS-EDITOR] Okno edycji uruchomione; "
+            "definicje z Ustawień wczytane."
         )
+
+    # ---------- I/O narzędzia ----------
 
     def _load_tool_file(self, path: str) -> dict:
         try:
-            with open(path, "r", encoding="utf-8") as file:
-                data = json.load(file)
-            return data
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
         except Exception as exc:
             log.error(
-                "[WM-DBG][TOOLS-EDITOR] Nie udało się wczytać pliku narzędzia: %s -> %s",
-                path,
-                exc,
+                f"[ERROR][TOOLS-EDITOR] Błąd wczytywania pliku narzędzia: "
+                f"{path} -> {exc}"
             )
             return {}
 
     def _save_tool_file(self, path: str, data: dict):
         try:
-            with open(path, "w", encoding="utf-8") as file:
-                json.dump(data, file, ensure_ascii=False, indent=2)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as exc:
             log.error(
-                "[WM-DBG][TOOLS-EDITOR] Błąd zapisu pliku narzędzia: %s -> %s",
-                path,
-                exc,
+                f"[ERROR][TOOLS-EDITOR] Błąd zapisu pliku narzędzia: "
+                f"{path} -> {exc}"
             )
             raise
 
+    # ---------- Definicje z Ustawień ----------
+
     def _load_tool_definitions_from_settings(self) -> dict:
+        """
+        Czyta ConfigManager().config['tools']['definitions'] i zwraca:
+        { typ: { status: [zadania] } }. Gdy brak, zwraca pusty dict.
+        """
+
         cfg = ConfigManager().config or {}
         tools = cfg.get("tools", {})
         definitions = tools.get("definitions", {})
-
+        if not isinstance(definitions, dict):
+            definitions = {}
         if not definitions:
             log.warning(
-                "[WM-DBG][TOOLS-EDITOR] Brak config['tools']['definitions']; używam pustych."
+                "[WM-DBG][TOOLS-EDITOR] Brak config['tools']['definitions'] – pusto."
             )
         return definitions
+
+    # ---------- Inicjalizacja UI ----------
 
     def _init_from_tool(self):
         typ = self.tool_data.get("typ", "")
@@ -142,17 +149,18 @@ class ToolEditorDialog(tk.Toplevel):
         self._refresh_status_values()
         if status and status in self.cb_status["values"]:
             self.var_status.set(status)
-
         self._refresh_tasks_list()
 
     def _refresh_status_values(self):
         typ = self.var_typ.get()
         statuses = []
         if typ and typ in self.defs:
-            statuses = sorted(self.defs[typ].keys())
-        self.cb_status["values"] = statuses
-        if statuses and self.var_status.get() not in statuses:
-            self.var_status.set(statuses[0])
+            statuses = list(self.defs[typ].keys())
+        # Jeśli globalnie zdefiniowano kolejność statusów – użyjmy jej
+        ordered = self._ordered_statuses_for_type(typ, statuses)
+        self.cb_status["values"] = ordered
+        if ordered and self.var_status.get() not in ordered:
+            self.var_status.set(ordered[0])
         self._refresh_tasks_list()
 
     def _refresh_tasks_list(self):
@@ -196,7 +204,8 @@ class ToolEditorDialog(tk.Toplevel):
                 )
                 return
 
-        if status.lower() == "sprawne":
+        # Auto-odhaczanie: tylko jeśli to OSTATNI status i flaga w configu = True
+        if self._is_last_status(typ, status):
             self._auto_check_all_tasks_if_exist()
 
         self.tool_data["typ"] = typ
@@ -205,14 +214,14 @@ class ToolEditorDialog(tk.Toplevel):
 
         try:
             self._save_tool_file(self.tool_path, self.tool_data)
-            log.info(
-                "[WM-DBG][TOOLS-EDITOR] Zapisano narzędzie z definicji Ustawień."
-            )
+            log.info("[INFO][TOOLS-EDITOR] Zapisano narzędzie z definicji Ustawień.")
             self.destroy()
         except Exception as exc:
             messagebox.showerror(
                 "Błąd zapisu", f"Nie udało się zapisać zmian:\n{exc}"
             )
+
+    # ---------- Pomocnicze ----------
 
     def _get_tasks_for_current(self):
         typ = self.var_typ.get()
@@ -221,22 +230,60 @@ class ToolEditorDialog(tk.Toplevel):
             return self.defs[typ][status] or []
         return []
 
+    def _ordered_statuses_for_type(self, typ: str, fallback: list[str]) -> list[str]:
+        """
+        Zwraca listę statusów w kolejności:
+        1) z configu (tools.statuses), jeśli istnieje i niepusta,
+        2) w przeciwnym razie kolejność z definicji typu (keys),
+        3) w przeciwnym razie przekazany fallback.
+        """
+
+        cfg = ConfigManager().config or {}
+        tools = cfg.get("tools", {})
+        statuses = tools.get("statuses")
+        if isinstance(statuses, list) and statuses:
+            clean = [str(s).strip() for s in statuses if str(s).strip()]
+            # przefiltruj do statusów istniejących dla danego typu (jeśli podano)
+            if typ in self.defs:
+                allowed = set(self.defs[typ].keys())
+                clean = [s for s in clean if s in allowed]
+            if clean:
+                return clean
+        if typ in self.defs:
+            return list(self.defs[typ].keys())
+        return list(fallback or [])
+
+    def _is_last_status(self, typ: str, status: str) -> bool:
+        """
+        Zwraca True, gdy:
+        - flaga tools.auto_check_on_last_status w configu jest True (domyślnie),
+        - podany status jest ostatni w kolejności (patrz _ordered_statuses_for_type).
+        """
+
+        cfg = ConfigManager().config or {}
+        tools = cfg.get("tools", {})
+        if tools.get("auto_check_on_last_status", True) is not True:
+            return False
+        ordered = self._ordered_statuses_for_type(typ, [])
+        return bool(ordered) and status == ordered[-1]
+
     def _auto_check_all_tasks_if_exist(self):
         tasks = self._get_tasks_for_current()
         if not tasks:
             return
 
-        tool_tasks = self.tool_data.setdefault("zadania", {})
-        status_bucket = tool_tasks.setdefault(self.var_status.get(), {})
-        for task in tasks:
-            status_bucket[task] = True
+        z = self.tool_data.setdefault("zadania", {})
+        st = self.var_status.get()
+        bucket = z.setdefault(st, {})
+        for t in tasks:
+            bucket[t] = True
         log.info(
-            "[WM-DBG][TOOLS-EDITOR] Auto-odhaczono zadania dla statusu 'sprawne' (jeśli istniały)."
+            "[WM-DBG][TOOLS-EDITOR] Auto-odhaczono zadania dla ostatniego statusu."
         )
 
     def _append_history_entry(self, new_status: str, comment: str):
-        history = self.tool_data.setdefault("historia", [])
-        history.append(
+        hist = self.tool_data.setdefault("historia", [])
+        hist.append(
             {
                 "data": datetime.now().isoformat(timespec="seconds"),
                 "uzytkownik": self.current_user,
