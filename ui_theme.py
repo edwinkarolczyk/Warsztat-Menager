@@ -79,7 +79,32 @@ THEMES: Mapping[str, Mapping[str, str]] = {
 }
 
 DEFAULT_THEME = "default"
+THEME_ALIASES: Mapping[str, str] = {
+    "dark": DEFAULT_THEME,
+    "ciemny": DEFAULT_THEME,
+}
 CONFIG_FILE = Path("config.json")
+
+
+def resolve_theme_name(name: str) -> str:
+    """Mapuje aliasy motywów na rzeczywiste nazwy i normalizuje zapis."""
+
+    stripped = name.strip()
+    key = stripped.lower()
+    alias = THEME_ALIASES.get(key)
+    if alias is not None:
+        if stripped != alias:
+            print(
+                f"[WM-DBG][THEME] Alias motywu '{stripped}' zamieniony na '{alias}'"
+            )
+        return alias
+    if key in THEMES:
+        if stripped != key:
+            print(
+                f"[WM-DBG][THEME] Normalizuję nazwę motywu '{stripped}' -> '{key}'"
+            )
+        return key
+    return stripped
 
 
 def load_theme_name(config_path: Path) -> str:
@@ -101,11 +126,12 @@ def load_theme_name(config_path: Path) -> str:
                 if isinstance(legacy_theme, str):
                     name = legacy_theme
 
-            if isinstance(name, str) and name in THEMES:
-                print("[WM-DBG][THEME] Wybrany motyw z config:", name)
-                return name
+            if isinstance(name, str):
+                resolved_name = resolve_theme_name(name)
+                if resolved_name in THEMES:
+                    print("[WM-DBG][THEME] Wybrany motyw z config:", resolved_name)
+                    return resolved_name
 
-            if name is not None:
                 print(
                     f"[WM-DBG][THEME] Motyw '{name}' z config nieznany, "
                     "przełączam na 'default'"
@@ -123,6 +149,8 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
         style.theme_use("clam")
     except TclError:
         logger.debug("Styl 'clam' jest niedostępny – pozostawiam bieżący motyw ttk")
+
+    name = resolve_theme_name(name)
 
     if name not in THEMES:
         print(
@@ -410,6 +438,7 @@ def apply_theme_safe(
         style = target if isinstance(target, ttk.Style) else ttk.Style(target)
         path = config_path or CONFIG_FILE
         theme_name = name or load_theme_name(path)
+        theme_name = resolve_theme_name(theme_name)
         apply_theme(style, theme_name)
         if isinstance(target, tk.Misc):
             _set_widget_background(target, THEMES[theme_name]["bg"])
