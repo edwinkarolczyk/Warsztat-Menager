@@ -484,7 +484,62 @@
     "description": "Widok hali: tło JPEG, siatka 20 cm = 4 px (1 kratka = 0,05 m), numer hali wyświetlany na maszynie.",
     "tooltip": "Pozycje maszyn zapisywane są do pliku maszyn.json.",
     "icon": "layout",
-    "sections": []
+    "groups": [
+      {
+        "title": "Widok hali",
+        "fields": [
+          {
+            "type": "number",
+            "key": "hall.grid_size_px",
+            "label": "Rozmiar kratki (px)",
+            "default": 4,
+            "min": 1,
+            "max": 20
+          },
+          {
+            "type": "boolean",
+            "key": "hall.snap_to_grid",
+            "label": "Przyciągaj do siatki",
+            "default": true
+          },
+          {
+            "type": "text",
+            "key": "hall.background_image",
+            "label": "Tło (plik JPEG/PNG)",
+            "placeholder": "np. C:\\wm\\data\\hala_bg.jpg"
+          },
+          {
+            "type": "boolean",
+            "key": "hall.show_numbers",
+            "label": "Pokaż numery hal na maszynach",
+            "default": true
+          }
+        ]
+      },
+      {
+        "title": "Zaznaczanie",
+        "fields": [
+          {
+            "type": "boolean",
+            "key": "hall.enable_selection",
+            "label": "Włącz zaznaczanie obiektów",
+            "default": true
+          },
+          {
+            "type": "boolean",
+            "key": "hall.multi_select",
+            "label": "Zaznaczanie wielokrotne (Shift)",
+            "default": true
+          },
+          {
+            "type": "boolean",
+            "key": "hall.lasso_select",
+            "label": "Zaznaczanie obszarem (lasso)",
+            "default": true
+          }
+        ]
+      }
+    ]
   },
   {
     "id": "narzedzia",
