@@ -385,6 +385,20 @@ def _stare_convert_templates_from_config():
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
 def _types_from_config():
+    """
+    Zwraca listę typów narzędzi. Preferuje config['tools']['types'].
+    Fallback: kolekcja domyślna/loader, następnie stare klucze, na końcu stała.
+    """
+    # 1) nowe ustawienia
+    try:
+        cfg_mgr = ConfigManager()
+        types = cfg_mgr.get("tools.types", None)
+        if isinstance(types, list) and types:
+            clean = [str(x).strip() for x in types if str(x).strip()]
+            return clean
+    except Exception:
+        pass
+    # 2) loader kolekcji (jeśli istnieje)
     try:
         cfg_mgr = ConfigManager()
         default_collection = cfg_mgr.get("tools.default_collection", "NN") or "NN"
@@ -393,11 +407,12 @@ def _types_from_config():
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
+    # 3) stare klucze w configu
     try:
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
         return lst or TYPY_NARZEDZI_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return TYPY_NARZEDZI_DEFAULT
 
 def _append_type_to_config(new_type: str) -> bool:
