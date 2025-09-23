@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 
 import profile_utils as _pu
 from profile_utils import DEFAULT_USER
+from profile_tasks import get_tasks_for as _get_tasks_for, workload_for as _workload_for
 from logger import log_akcja
 from utils.path_utils import cfg_path
 
@@ -254,6 +255,18 @@ def count_presence(login: str, presence_file: str = "presence.json") -> int:
     return cnt
 
 
+def get_tasks_for(login: str, **kwargs):
+    """Proxy to :func:`profile_tasks.get_tasks_for`."""
+
+    return _get_tasks_for(login, **kwargs)
+
+
+def workload_for(users, **kwargs):
+    """Proxy to :func:`profile_tasks.workload_for`."""
+
+    return _workload_for(users, **kwargs)
+
+
 __all__ = [
     "get_user",
     "save_user",
@@ -271,4 +284,6 @@ __all__ = [
     "save_assign_tool",
     "count_presence",
     "DEFAULT_USER",
+    "get_tasks_for",
+    "workload_for",
 ]
