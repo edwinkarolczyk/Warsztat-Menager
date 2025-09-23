@@ -2,7 +2,7 @@
 # Wersja: 1.0.3 (2025-09-19)
 # - statusy: zielona/żółta/czerwona(migająca), overlay "NIE UŻYWAĆ", tooltipy
 # - okno szczegółów (topmost) z miniaturą
-# - miniatura z URL (http/https) lub LOKALNY plik; fallback: grafiki/machine_placeholder.jpg
+# - miniatura z URL (http/https) lub LOKALNY plik; fallback: grafiki/machine_placeholder.png
 # - API do docka: set_edit_mode / on_select / on_move / focus_machine
 # - drag&drop kafli w trybie Edycja + podświetlenie zaznaczenia
 
@@ -15,9 +15,32 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
 import tkinter as tk
+from tkinter import messagebox, ttk
 
 from .const import BG_GRID_COLOR, GRID_STEP, HALL_OUTLINE
 from .models import Machine as ModelMachine, WallSegment
+
+try:
+    from utils_maszyny import PLACEHOLDER_PATH, apply_machine_updates
+except Exception:  # pragma: no cover - fallback gdy moduł niedostępny
+    PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
+
+    def apply_machine_updates(machine: dict, updates: dict) -> bool:  # type: ignore
+        if not isinstance(machine, dict):
+            return False
+        changed = False
+        for key in ("nazwa", "opis", "status"):
+            if key in updates and machine.get(key) != updates[key]:
+                machine[key] = updates[key]
+                changed = True
+        if "hala" in updates:
+            machine["hala"] = updates["hala"]
+            changed = True
+        if "miniatura" in updates:
+            media = machine.setdefault("media", {})
+            media["preview_url"] = updates["miniatura"]
+            changed = True
+        return changed
 
 try:
     from PIL import Image, ImageTk
@@ -63,8 +86,6 @@ BLINK_MS = 500
 TOOLTIP_DELAY_MS = 200
 TOOLTIP_OFFSET = 16
 DOT_RADIUS = 5
-
-PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.jpg")
 
 BG_DARK = "#121212"
 FG_LIGHT = "#DDDDDD"
@@ -158,6 +179,14 @@ class Machine:
         return str(self.raw.get("nazwa", self.id or "Nieznana maszyna"))
 
     @property
+    def type(self) -> str:
+        return str(self.raw.get("typ") or self.raw.get("type") or "")
+
+    @property
+    def description(self) -> str:
+        return str(self.raw.get("opis") or "")
+
+    @property
     def hall(self) -> int:
         return _to_int(self.raw.get("hala"), 1)
 
@@ -189,6 +218,10 @@ class Machine:
     @property
     def time_since_status(self) -> Optional[dt.datetime]:
         return _parse_iso(_safe(self.raw, ["czas", "status_since"]))
+
+    @property
+    def status_changed_at(self) -> Optional[dt.datetime]:
+        return self.time_since_status
 
     @property
     def awaria_start(self) -> Optional[dt.datetime]:
@@ -301,6 +334,7 @@ class Renderer:
 
         self._preview_cache: Dict[str, ImageTk.PhotoImage] = {}
         self._details_windows: Dict[str, tk.Toplevel] = {}
+        self._details_forms: Dict[str, dict] = {}
         self._selected_mid: Optional[str] = None
         self._selection_item: Optional[int] = None
 
@@ -308,6 +342,7 @@ class Renderer:
         self.edit_mode: bool = False
         self.on_select = None  # callable(machine_id: str)
         self.on_move = None  # callable(machine_id: str, new_pos: dict)
+        self.on_update = None  # callable(machine_id: str, row: dict)
         self._drag_mid: Optional[str] = None
         self._drag_start: Tuple[int, int] = (0, 0)
 
@@ -319,6 +354,12 @@ class Renderer:
         self.machines = [Machine(m) for m in machines or []]
         self._preview_cache.clear()
         self.draw_all()
+        for machine_id in list(self._details_windows.keys()):
+            machine = self._by_id(machine_id)
+            if machine:
+                self._populate_details_form(machine_id, machine)
+            else:
+                self._close_details(machine_id)
 
     def set_edit_mode(self, enabled: bool) -> None:
         self.edit_mode = bool(enabled)
@@ -548,32 +589,33 @@ class Renderer:
             machine.status,
             STATUS_STYLE[DEFAULT_STATUS],
         )
+        type_label = machine.type or "brak typu"
         lines = [
-            f"{machine.name}  ({machine.id})",
-            f"Hala: {machine.hall}",
+            f"{machine.name} ({type_label})",
+            f"ID: {machine.id} • Hala: {machine.hall}",
             f"Status: {status_cfg['label']}",
         ]
 
+        duration_source = machine.awaria_start or machine.status_changed_at
+        if duration_source:
+            lines.append(f"Od zmiany: {_fmt_duration(duration_source)}")
+
         if machine.status == "awaria":
-            duration = _fmt_duration(
-                machine.awaria_start or machine.time_since_status
-            )
-            if duration:
-                lines.append(f"Awaria: {duration}")
             lines.append("NIE UŻYWAĆ")
+            if machine.awaria_comment:
+                lines.append(f"Powód: {machine.awaria_comment}")
         elif machine.status == "modyfikacja":
             uwaga = machine.uwaga_text
             if uwaga:
                 lines.append(f"Do zrobienia: {uwaga}")
-            if machine.last_awaria_end:
-                lines.append(
-                    f"Sprawna od: {_fmt_duration(machine.last_awaria_end)}"
-                )
         else:
             if machine.last_awaria_end:
                 lines.append(
                     f"Sprawna od: {_fmt_duration(machine.last_awaria_end)}"
                 )
+
+        if machine.description:
+            lines.append(machine.description)
 
         return lines
 
@@ -651,6 +693,7 @@ class Renderer:
 
         if machine_id in self._details_windows:
             window = self._details_windows[machine_id]
+            self._populate_details_form(machine_id, machine)
             try:
                 window.deiconify()
                 window.lift()
@@ -677,30 +720,33 @@ class Renderer:
             "<Escape>",
             lambda _event, mid=machine_id: self._close_details(mid),
         )
+        window.bind(
+            "<Control-s>",
+            lambda _event, mid=machine_id: self._save_details(mid),
+        )
 
         wrapper = tk.Frame(window, bg=BG_DARK)
         wrapper.pack(fill="both", expand=True, padx=12, pady=12)
 
         header = tk.Frame(wrapper, bg=BG_DARK)
         header.pack(fill="x")
-        tk.Label(
+        header_label = tk.Label(
             header,
-            text=f"{machine.name}  ({machine.id})",
+            text="",
             bg=BG_DARK,
             fg=FG_LIGHT,
             font=("Segoe UI", 12, "bold"),
-        ).pack(side="left")
+        )
+        header_label.pack(side="left")
 
-        status_color = STATUS_STYLE[machine.status]["color"]
-        dot = tk.Canvas(
+        status_canvas = tk.Canvas(
             header,
             width=12,
             height=12,
             bg=BG_DARK,
             highlightthickness=0,
         )
-        dot.create_oval(2, 2, 10, 10, fill=status_color, outline="")
-        dot.pack(side="left", padx=8, pady=2)
+        status_canvas.pack(side="left", padx=8, pady=2)
 
         main = tk.Frame(wrapper, bg=BG_DARK)
         main.pack(fill="x", pady=8)
@@ -708,106 +754,270 @@ class Renderer:
         preview_frame = tk.Frame(
             main,
             bg=BG_DARK,
-            highlightbackground=status_color,
+            highlightbackground="#333",
             highlightthickness=2,
         )
         preview_frame.pack(side="left", padx=(0, 12))
-        preview_label = tk.Label(preview_frame, bg=BG_DARK)
+        preview_label = tk.Label(preview_frame, bg=BG_DARK, fg=FG_MUTED)
         preview_label.pack(padx=4, pady=4)
-
-        image = self._get_preview(machine)
-        if image:
-            preview_label.configure(image=image)
-            preview_label.image = image
 
         info = tk.Frame(main, bg=BG_DARK)
         info.pack(side="left", fill="both", expand=True)
 
-        label = STATUS_STYLE[machine.status]["label"]
-        tk.Label(
+        info_label = tk.Label(
             info,
-            text=f"Hala: {machine.hall}",
+            text="",
             bg=BG_DARK,
             fg=FG_LIGHT,
-        ).pack(anchor="w")
-        tk.Label(
-            info,
-            text=f"Status: {label}",
-            bg=BG_DARK,
-            fg=FG_LIGHT,
-        ).pack(anchor="w")
+            justify="left",
+            anchor="w",
+        )
+        info_label.pack(fill="x")
 
-        if machine.status == "awaria":
-            duration = _fmt_duration(
-                machine.awaria_start or machine.time_since_status
-            )
-            if duration:
-                tk.Label(
-                    info,
-                    text=f"Awaria: {duration}",
-                    bg=BG_DARK,
-                    fg="#FFD1D1",
-                ).pack(anchor="w")
-            tk.Label(
-                info,
-                text="NIE UŻYWAĆ",
-                bg=BG_DARK,
-                fg="#FFC7C7",
-                font=("Segoe UI", 10, "bold"),
-            ).pack(anchor="w")
-            if machine.awaria_comment:
-                tk.Label(
-                    info,
-                    text=f"Powód awarii: {machine.awaria_comment}",
-                    bg=BG_DARK,
-                    fg=FG_LIGHT,
-                ).pack(anchor="w")
-        elif machine.status == "modyfikacja":
-            uwaga = machine.uwaga_text
-            if uwaga:
-                tk.Label(
-                    info,
-                    text=f"Do zrobienia: {uwaga}",
-                    bg=BG_DARK,
-                    fg=FG_LIGHT,
-                ).pack(anchor="w")
-            if machine.last_awaria_end:
-                tk.Label(
-                    info,
-                    text=(
-                        "Sprawna od: "
-                        f"{_fmt_duration(machine.last_awaria_end)}"
-                    ),
-                    bg=BG_DARK,
-                    fg=FG_LIGHT,
-                ).pack(anchor="w")
-        else:
-            if machine.last_awaria_end:
-                tk.Label(
-                    info,
-                    text=(
-                        "Sprawna od: "
-                        f"{_fmt_duration(machine.last_awaria_end)}"
-                    ),
-                    bg=BG_DARK,
-                    fg=FG_LIGHT,
-                ).pack(anchor="w")
+        tk.Label(
+            info,
+            text="Edycja danych",
+            bg=BG_DARK,
+            fg=FG_LIGHT,
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", pady=(10, 4))
+
+        form = tk.Frame(info, bg=BG_DARK)
+        form.pack(fill="x")
+        form.columnconfigure(1, weight=1)
+
+        name_var = tk.StringVar(value=machine.name)
+        tk.Label(form, text="Nazwa", bg=BG_DARK, fg=FG_LIGHT).grid(
+            row=0, column=0, sticky="w"
+        )
+        name_entry = ttk.Entry(form, textvariable=name_var)
+        name_entry.grid(row=0, column=1, sticky="ew", padx=(8, 0), pady=(0, 4))
+
+        tk.Label(form, text="Opis", bg=BG_DARK, fg=FG_LIGHT).grid(
+            row=1, column=0, sticky="nw"
+        )
+        opis_widget = tk.Text(
+            form,
+            height=4,
+            bg=BG_DARK,
+            fg=FG_LIGHT,
+            insertbackground=FG_LIGHT,
+            wrap="word",
+        )
+        opis_widget.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(0, 4))
+
+        hall_var = tk.StringVar(value=str(machine.hall))
+        tk.Label(form, text="Hala", bg=BG_DARK, fg=FG_LIGHT).grid(
+            row=2, column=0, sticky="w"
+        )
+        hall_entry = ttk.Entry(form, textvariable=hall_var, width=8)
+        hall_entry.grid(row=2, column=1, sticky="w", padx=(8, 0), pady=(0, 4))
+
+        status_var = tk.StringVar(value=machine.status)
+        tk.Label(form, text="Status", bg=BG_DARK, fg=FG_LIGHT).grid(
+            row=3, column=0, sticky="w"
+        )
+        status_combo = ttk.Combobox(
+            form,
+            textvariable=status_var,
+            values=tuple(STATUS_STYLE.keys()),
+            state="readonly",
+        )
+        status_combo.grid(row=3, column=1, sticky="w", padx=(8, 0), pady=(0, 4))
+
+        mini_var = tk.StringVar(value=machine.preview_url or "")
+        tk.Label(form, text="Miniatura", bg=BG_DARK, fg=FG_LIGHT).grid(
+            row=4, column=0, sticky="w"
+        )
+        mini_entry = ttk.Entry(form, textvariable=mini_var)
+        mini_entry.grid(row=4, column=1, sticky="ew", padx=(8, 0), pady=(0, 4))
+
+        status_msg = tk.StringVar(value="")
+        tk.Label(
+            info,
+            textvariable=status_msg,
+            bg=BG_DARK,
+            fg=FG_MUTED,
+            anchor="w",
+        ).pack(fill="x", pady=(6, 0))
 
         footer = tk.Frame(wrapper, bg=BG_DARK)
         footer.pack(fill="x", pady=(8, 0))
-        tk.Button(
+        ttk.Button(
+            footer,
+            text="Zapisz",
+            command=lambda mid=machine_id: self._save_details(mid),
+        ).pack(side="right")
+        ttk.Button(
             footer,
             text="Zamknij",
             command=lambda mid=machine_id: self._close_details(mid),
-        ).pack(side="right")
+        ).pack(side="right", padx=(0, 8))
+
+        self._details_forms[machine_id] = {
+            "name": name_var,
+            "hall": hall_var,
+            "status": status_var,
+            "status_combo": status_combo,
+            "mini": mini_var,
+            "opis": opis_widget,
+            "status_msg": status_msg,
+            "preview_label": preview_label,
+            "preview_frame": preview_frame,
+            "header_label": header_label,
+            "status_dot": status_canvas,
+            "info_label": info_label,
+        }
+
+        self._populate_details_form(machine_id, machine)
+        name_entry.focus_set()
 
         print(f"[WM-DBG][HALA] Okno opisu {machine_id} gotowe")
 
     def _close_details(self, machine_id: str) -> None:
         window = self._details_windows.pop(machine_id, None)
+        self._details_forms.pop(machine_id, None)
         if window:
             try:
                 window.destroy()
+            except Exception:
+                pass
+
+    def _populate_details_form(self, machine_id: str, machine: Machine) -> None:
+        form = self._details_forms.get(machine_id)
+        if not form:
+            return
+
+        form["name"].set(machine.name)
+        form["hall"].set(str(machine.hall))
+
+        status_value = machine.status
+        status_values = list(STATUS_STYLE.keys())
+        if status_value not in STATUS_STYLE:
+            status_values.append(status_value)
+        status_combo = form.get("status_combo")
+        if status_combo:
+            status_combo.configure(values=tuple(status_values))
+            status_combo.set(status_value)
+        form["status"].set(status_value)
+
+        preview_value = machine.preview_url or ""
+        form["mini"].set(preview_value)
+
+        opis_widget: tk.Text = form["opis"]
+        opis_widget.delete("1.0", "end")
+        if machine.description:
+            opis_widget.insert("1.0", machine.description)
+
+        form["status_msg"].set("")
+
+        header_label: tk.Label = form["header_label"]
+        header_label.configure(text=f"{machine.name}  ({machine.id})")
+
+        status_cfg = STATUS_STYLE.get(status_value, STATUS_STYLE[DEFAULT_STATUS])
+        color = status_cfg["color"]
+        status_dot: tk.Canvas = form["status_dot"]
+        status_dot.delete("all")
+        status_dot.create_oval(2, 2, 10, 10, fill=color, outline="")
+
+        preview_frame = form.get("preview_frame")
+        if isinstance(preview_frame, tk.Frame):
+            preview_frame.configure(highlightbackground=color)
+
+        preview_label: tk.Label = form["preview_label"]
+        image = self._get_preview(machine)
+        if image:
+            preview_label.configure(image=image, text="")
+            preview_label.image = image
+        else:
+            preview_label.configure(image="", text="Brak miniatury", fg=FG_MUTED)
+            preview_label.image = None
+
+        info_lines = [
+            f"Typ: {machine.type or 'brak'}",
+            f"Hala: {machine.hall}",
+            f"Status: {status_cfg['label']}",
+        ]
+        duration_source = machine.awaria_start or machine.status_changed_at
+        if duration_source:
+            duration = _fmt_duration(duration_source)
+            if duration:
+                info_lines.append(f"Od zmiany: {duration}")
+        if machine.status == "awaria":
+            info_lines.append("NIE UŻYWAĆ")
+            if machine.awaria_comment:
+                info_lines.append(f"Powód awarii: {machine.awaria_comment}")
+        elif machine.status == "modyfikacja":
+            uwaga = machine.uwaga_text
+            if uwaga:
+                info_lines.append(f"Do zrobienia: {uwaga}")
+        if machine.last_awaria_end:
+            duration = _fmt_duration(machine.last_awaria_end)
+            if duration:
+                info_lines.append(f"Sprawna od: {duration}")
+
+        info_label: tk.Label = form["info_label"]
+        info_label.configure(text="\n".join(info_lines))
+
+    def _save_details(self, machine_id: str) -> None:
+        machine = self._by_id(machine_id)
+        form = self._details_forms.get(machine_id)
+        if not machine or not form:
+            return
+
+        name = form["name"].get().strip()
+        opis_widget: tk.Text = form["opis"]
+        description = opis_widget.get("1.0", "end-1c").strip()
+        hall_text = form["hall"].get().strip()
+        status_value = form["status"].get().strip().lower()
+        mini_value = form["mini"].get().strip()
+
+        if not status_value:
+            status_value = DEFAULT_STATUS
+        if status_value not in STATUS_STYLE:
+            messagebox.showerror(
+                "Maszyny",
+                "Nieznany status maszyny. Dostępne: "
+                + ", ".join(STATUS_STYLE.keys()),
+            )
+            return
+
+        try:
+            hall_value = int(hall_text or machine.hall)
+        except ValueError:
+            messagebox.showerror(
+                "Maszyny", "Numer hali musi być liczbą całkowitą."
+            )
+            return
+
+        updates = {
+            "nazwa": name,
+            "opis": description,
+            "hala": hall_value,
+            "status": status_value,
+            "miniatura": mini_value,
+        }
+
+        try:
+            changed = apply_machine_updates(machine.raw, updates)
+        except ValueError as exc:
+            messagebox.showerror("Maszyny", str(exc))
+            return
+
+        if not changed:
+            form["status_msg"].set("Brak zmian.")
+            return
+
+        self._preview_cache.pop(machine.id, None)
+        form["status_msg"].set("Zapisano zmiany.")
+        self._notify_machine_update(machine_id, machine.raw)
+        self.draw_all()
+        self._populate_details_form(machine_id, machine)
+
+    def _notify_machine_update(self, machine_id: str, row: dict) -> None:
+        if callable(self.on_update):
+            try:
+                self.on_update(machine_id, row)
             except Exception:
                 pass
 

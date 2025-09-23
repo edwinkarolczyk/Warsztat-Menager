@@ -6,13 +6,20 @@
 
 from __future__ import annotations
 
-import json
-import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+from utils_maszyny import (
+    LEGACY_DATA,
+    PRIMARY_DATA,
+    SOURCE_MODES,
+    index_by_id,
+    load_machines,
+    save_machines,
+    sort_machines,
+)
 
 try:
     from widok_hali.renderer import Renderer
@@ -20,17 +27,16 @@ except Exception as exc:  # pragma: no cover - zależne od środowiska
     Renderer = None
     print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
 
-PRIMARY_DATA = os.path.join("data", "maszyny.json")
-LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
-
-
 class MaszynyGUI:
     """Panel zarządzania maszynami z podglądem hali."""
 
     def __init__(self, root: tk.Tk, side_menu: dict | None = None):
         self.root = root
         self.side_menu = side_menu or {}
-        self._source = "primary"
+        self._source_var = tk.StringVar(value="auto")
+        self._source_info = tk.StringVar(value="")
+        self._active_source = "auto"
+        self._counts: tuple[int, int] = (0, 0)
         self._machines = self._load_machines()
         self._renderer: Renderer | None = None
         self._details_btn: ttk.Button | None = None
@@ -40,119 +46,88 @@ class MaszynyGUI:
         self._build_ui()
 
     # ----- dane -----
-    def _load_json_file(self, path: str) -> list[dict]:
-        try:
-            with open(path, "r", encoding="utf-8") as source:
-                data = json.load(source)
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
-
-    def _index_by_id(self, rows: list[dict]) -> dict[str, dict]:
-        result: dict[str, dict] = {}
-        for row in rows or []:
-            machine_id = str(row.get("id") or row.get("nr_ewid") or "").strip()
-            if not machine_id:
-                continue
-            result[machine_id] = row
-        return result
-
-    def _merge_unique(
-        self, primary_rows: list[dict], legacy_rows: list[dict]
-    ) -> list[dict]:
-        primary_index = self._index_by_id(primary_rows)
-        legacy_index = self._index_by_id(legacy_rows)
-        for machine_id, row in legacy_index.items():
-            if machine_id not in primary_index:
-                primary_index[machine_id] = row
-        keys = sorted(primary_index, key=lambda value: (len(value), value))
-        return [primary_index[machine_id] for machine_id in keys]
-
     def _load_machines(self) -> list[dict]:
-        primary = self._load_json_file(PRIMARY_DATA)
-        legacy = self._load_json_file(LEGACY_DATA)
+        requested = self._source_var.get()
+        prev_counts = getattr(self, "_counts", None)
+        prev_active = getattr(self, "_active_source", None)
 
-        count_primary, count_legacy = len(primary), len(legacy)
+        machines, active, count_primary, count_legacy = load_machines(requested)
+
+        self._active_source = active
+        self._counts = (count_primary, count_legacy)
+
+        summary = (
+            f"Tryb: {requested.upper()}  →  aktywny: {active.upper()}  |  "
+            f"PRIMARY: {count_primary}  |  LEGACY: {count_legacy}"
+        )
+        self._source_info.set(summary)
 
         if count_primary == 0 and count_legacy == 0:
             print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
-            self._source = "primary"
-            return []
+        else:
+            if requested == "auto":
+                if active == "auto" and (prev_counts != self._counts):
+                    print(
+                        "[WM][Maszyny] AUTO: scalono primary "
+                        f"({count_primary}) + legacy ({count_legacy})."
+                    )
+                elif active != "auto" and (prev_active != active or prev_counts != self._counts):
+                    print(
+                        f"[WM][Maszyny] AUTO: użyto {active.upper()} "
+                        f"({count_primary}/{count_legacy})."
+                    )
+            elif requested == "primary" and (prev_counts != self._counts or prev_active != active):
+                print(f"[WM][Maszyny] Załadowano z PRIMARY ({count_primary})")
+            elif requested == "legacy" and (prev_counts != self._counts or prev_active != active):
+                print(f"[WM][Maszyny] Załadowano z LEGACY ({count_legacy})")
 
-        if count_primary == 0 and count_legacy > 0:
-            print("[WM][Maszyny] Załadowano z LEGACY")
-            self._source = "legacy"
-            return legacy
-
-        if count_primary > 0 and count_legacy == 0:
-            print("[WM][Maszyny] Załadowano z PRIMARY")
-            self._source = "primary"
-            return primary
-
-        if count_legacy > count_primary:
-            print(
-                "[WM][Maszyny] Oba pliki istnieją. WYBRANO LEGACY "
-                f"({count_legacy}>{count_primary})."
-            )
-            self._source = "legacy"
-            return legacy
-
-        print(
-            "[WM][Maszyny] Oba pliki istnieją. WYBRANO PRIMARY "
-            f"({count_primary}>={count_legacy})."
-        )
-        self._source = "primary"
-        return primary
+        return machines
 
     def _save_position(self, machine_id: str, x: int, y: int) -> None:
         try:
-            current = self._machines[:]
-            disk_primary = self._load_json_file(PRIMARY_DATA)
-            disk_legacy = self._load_json_file(LEGACY_DATA)
-
-            if disk_primary and disk_legacy:
-                current = self._merge_unique(disk_primary, disk_legacy)
-                print(
-                    "[WM][Maszyny] SCALENIE: primary + legacy → zapis do primary."
-                )
-
             machine_key = str(machine_id)
-            updated = False
-            for machine in current:
-                mid = str(machine.get("id") or machine.get("nr_ewid"))
-                if mid == machine_key:
-                    machine.setdefault("pozycja", {})
-                    machine["pozycja"]["x"] = int(x)
-                    machine["pozycja"]["y"] = int(y)
-                    updated = True
-                    break
+            if not machine_key:
+                return
 
-            if not updated:
-                source_index = self._index_by_id(
-                    disk_primary if self._source == "primary" else disk_legacy
+            data, _, count_primary, count_legacy = load_machines("auto")
+            registry = index_by_id(data)
+            row = registry.get(machine_key)
+            if not row:
+                row = {"id": machine_key, "nazwa": machine_key, "hala": 1}
+                row["pozycja"] = {"x": int(x), "y": int(y)}
+                data.append(row)
+                print(
+                    f"[WM][Maszyny] Dodano brakujący wpis {machine_key} przed zapisem."
                 )
-                row = source_index.get(
-                    machine_key, {"id": machine_key, "nazwa": machine_key, "hala": 1}
-                )
-                row = dict(row)
+            else:
                 row.setdefault("pozycja", {})
                 row["pozycja"]["x"] = int(x)
                 row["pozycja"]["y"] = int(y)
-                current.append(row)
-                print(f"[WM][Maszyny] Dodano brakujący wpis {machine_key} przed zapisem.")
 
-            merged = self._merge_unique(current, [])
-            os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
-            with open(PRIMARY_DATA, "w", encoding="utf-8") as target:
-                json.dump(merged, target, ensure_ascii=False, indent=2)
+            save_machines(data)
 
-            self._machines = merged
-            if self._source != "primary":
+            local_registry = index_by_id(self._machines)
+            local_row = local_registry.get(machine_key)
+            if local_row is None:
+                self._machines.append(row)
+            else:
+                local_row.setdefault("pozycja", {})
+                local_row["pozycja"]["x"] = int(x)
+                local_row["pozycja"]["y"] = int(y)
+
+            new_count_primary = len(data)
+            self._counts = (new_count_primary, count_legacy)
+            if self._active_source != "primary":
                 print(
                     "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
                     "data/maszyny.json."
                 )
-                self._source = "primary"
+            self._active_source = "primary"
+            summary = (
+                f"Tryb: {self._source_var.get().upper()}  →  aktywny: PRIMARY  |  "
+                f"PRIMARY: {new_count_primary}  |  LEGACY: {count_legacy}"
+            )
+            self._source_info.set(summary)
 
             print(f"[WM][Maszyny] Zapisano pozycję {machine_id} -> ({x},{y})")
         except Exception as exc:  # pragma: no cover - IO
@@ -191,11 +166,34 @@ class MaszynyGUI:
         left = tk.Frame(main)
         left.pack(side="left", fill="both", expand=True)
 
+        source_frame = tk.Frame(left)
+        source_frame.pack(fill="x", padx=12, pady=(10, 6))
+        tk.Label(source_frame, text="Źródło danych:").pack(side="left")
+        for mode in SOURCE_MODES:
+            ttk.Radiobutton(
+                source_frame,
+                text=mode.capitalize(),
+                value=mode,
+                variable=self._source_var,
+                command=self._on_source_change,
+            ).pack(side="left", padx=(8, 0))
+
+        info_frame = tk.Frame(left)
+        info_frame.pack(fill="x", padx=12, pady=(0, 6))
+        tk.Label(
+            info_frame,
+            textvariable=self._source_info,
+            anchor="w",
+            justify="left",
+        ).pack(fill="x")
+
+        tree_container = tk.Frame(left)
+        tree_container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
         self.tree = ttk.Treeview(
-            left,
+            tree_container,
             columns=("id", "nazwa", "typ", "nastepne"),
             show="headings",
-            height=16,
+            height=18,
         )
         for column, label, width in (
             ("id", "nr_ewid", 90),
@@ -206,7 +204,12 @@ class MaszynyGUI:
             self.tree.heading(column, text=label)
             anchor = "center" if column in ("id", "nastepne") else "w"
             self.tree.column(column, width=width, anchor=anchor)
-        self.tree.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        scrollbar = ttk.Scrollbar(
+            tree_container, orient="vertical", command=self.tree.yview
+        )
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         buttons = tk.Frame(left)
         buttons.pack(fill="x", padx=12, pady=(0, 10))
@@ -268,6 +271,8 @@ class MaszynyGUI:
             else:
                 self._renderer.on_select = self._on_hala_select
                 self._renderer.on_move = self._on_hala_move
+                if hasattr(self._renderer, "on_update"):
+                    self._renderer.on_update = self._on_machine_update
                 self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
                 self._set_hala_mode("view")
                 self._set_details_button_enabled(True)
@@ -279,6 +284,12 @@ class MaszynyGUI:
                 fg="#fca5a5",
                 bg="#0f172a",
             ).place(x=20, y=20)
+
+    def _on_source_change(self) -> None:
+        self._machines = self._load_machines()
+        self._reload_tree()
+        if self._renderer:
+            self._renderer.reload(self._machines)
 
     def _set_details_button_enabled(self, enabled: bool) -> None:
         if not self._details_btn:
@@ -357,6 +368,35 @@ class MaszynyGUI:
 
     def _on_hala_move(self, machine_id: str, new_pos: dict) -> None:
         self._save_position(machine_id, new_pos.get("x", 0), new_pos.get("y", 0))
+
+    def _on_machine_update(self, machine_id: str, _updated: dict | None = None) -> None:
+        if not machine_id:
+            return
+
+        previous_source = self._active_source
+        legacy_count = self._counts[1] if self._counts else 0
+
+        sorted_rows = sort_machines(self._machines)
+        self._machines[:] = sorted_rows
+        save_machines(self._machines)
+
+        if previous_source != "primary":
+            print(
+                "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
+                "data/maszyny.json."
+            )
+        self._active_source = "primary"
+
+        primary_count = len(self._machines)
+        self._counts = (primary_count, legacy_count)
+        summary = (
+            f"Tryb: {self._source_var.get().upper()}  →  aktywny: PRIMARY  |  "
+            f"PRIMARY: {primary_count}  |  LEGACY: {legacy_count}"
+        )
+        self._source_info.set(summary)
+
+        self._reload_tree()
+        print(f"[WM][Maszyny] Zapisano zmiany w danych maszyny {machine_id}")
 
     def _set_hala_mode(self, mode: str) -> None:
         if not self._renderer:
