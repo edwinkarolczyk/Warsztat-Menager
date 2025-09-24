@@ -163,42 +163,212 @@
       "id": "system",
       "title": "System",
       "icon": "settings",
-      "description": "Ogólne ustawienia systemowe.",
-      "groups": [
+      "description": "Ustawienia systemowe i ścieżki danych.",
+      "subtabs": [
         {
-          "title": "Wygląd i logowanie",
-          "fields": []
-        },
-        {
-          "title": "Ścieżki i start",
-          "fields": [
+          "id": "sciezki_danych",
+          "title": "Ścieżki danych",
+          "description": "Centralne ścieżki plików i katalogów.",
+          "groups": [
             {
-              "type": "text",
-              "key": "system.data_path",
-              "label": "Ścieżka danych",
-              "default": "C:\\\\wm\\\\data",
-              "placeholder": "np. C:\\\\wm\\\\data"
+              "title": "Katalogi główne",
+              "fields": [
+                {
+                  "type": "text",
+                  "key": "paths.data_root",
+                  "label": "Katalog danych",
+                  "default": "C:\\wm\\data"
+                },
+                {
+                  "type": "button",
+                  "key": "paths.data_root_pick",
+                  "label": "Wybierz katalog danych…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.data_root" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.logs_dir",
+                  "label": "Katalog logów",
+                  "default": "C:\\wm\\data\\logs"
+                },
+                {
+                  "type": "button",
+                  "key": "paths.logs_dir_pick",
+                  "label": "Wybierz katalog logów…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.logs_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.backup_dir",
+                  "label": "Katalog kopii",
+                  "default": "C:\\wm\\data\\backup"
+                },
+                {
+                  "type": "button",
+                  "key": "paths.backup_dir_pick",
+                  "label": "Wybierz katalog kopii…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.backup_dir" }
+                }
+              ]
             },
             {
-              "type": "boolean",
-              "key": "system.start_on_dashboard",
-              "label": "Startuj na panel główny",
-              "default": true
+              "title": "Pliki i źródła danych",
+              "fields": [
+                {
+                  "type": "text",
+                  "key": "warehouse.bom_dir",
+                  "label": "Katalog BOM",
+                  "default": "C:\\wm\\data\\produkty"
+                },
+                {
+                  "type": "button",
+                  "key": "warehouse.bom_dir_pick",
+                  "label": "Wybierz katalog BOM…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "warehouse.bom_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "warehouse.stock_source",
+                  "label": "Źródło stanów magazynu",
+                  "default": "C:\\wm\\data\\magazyn.json"
+                },
+                {
+                  "type": "button",
+                  "key": "warehouse.stock_source_pick",
+                  "label": "Wybierz plik stanów…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "warehouse.stock_source"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "bom.file",
+                  "label": "Plik BOM",
+                  "default": "C:\\wm\\data\\bom.json"
+                },
+                {
+                  "type": "button",
+                  "key": "bom.file_pick",
+                  "label": "Wybierz plik BOM…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json","*.csv","*.xlsx"],
+                    "write_to_key": "bom.file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "hall.background_image",
+                  "label": "Tło hali (obraz)",
+                  "default": ""
+                },
+                {
+                  "type": "button",
+                  "key": "hall.background_image_pick",
+                  "label": "Wybierz tło…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.png","*.jpg","*.jpeg"],
+                    "write_to_key": "hall.background_image"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ustawienia_startowe",
+          "title": "Ustawienia startowe",
+          "groups": [
+            {
+              "title": "Start",
+              "fields": [
+                {
+                  "type": "boolean",
+                  "key": "system.start_on_dashboard",
+                  "label": "Startuj na panel główny",
+                  "default": true
+                },
+                {
+                  "type": "boolean",
+                  "key": "system.auto_check_updates",
+                  "label": "Sprawdzaj aktualizacje przy starcie",
+                  "default": true
+                },
+                {
+                  "type": "text",
+                  "key": "system.data_path",
+                  "label": "Ścieżka danych (legacy)",
+                  "default": "C:\\wm\\data"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "interfejs",
+          "title": "Interfejs",
+          "groups": [
+            {
+              "title": "Wygląd i logowanie",
+              "fields": [
+                {
+                  "type": "select",
+                  "key": "system.theme",
+                  "label": "Motyw",
+                  "options": [
+                    { "label": "Auto", "value": "auto" },
+                    { "label": "Ciemny", "value": "dark" },
+                    { "label": "Jasny", "value": "light" }
+                  ],
+                  "default": "dark"
+                },
+                {
+                  "type": "select",
+                  "key": "system.language",
+                  "label": "Język",
+                  "options": [
+                    { "label": "Polski", "value": "pl" },
+                    { "label": "English", "value": "en" }
+                  ],
+                  "default": "pl"
+                },
+                {
+                  "type": "boolean",
+                  "key": "auth.require_login",
+                  "label": "Wymagaj logowania",
+                  "default": true
+                },
+                {
+                  "type": "number",
+                  "key": "auth.session_timeout_min",
+                  "label": "Timeout sesji (min)",
+                  "default": 30,
+                  "min": 5,
+                  "max": 240
+                }
+              ]
             }
           ]
         }
       ]
     },
+
     {
       "id": "uzytkownicy",
       "title": "Użytkownicy",
       "icon": "users",
-      "description": "Zarządzanie użytkownikami i rolami.",
+      "description": "Role, konta i profil.",
       "subtabs": [
         {
           "id": "moj_profil",
           "title": "Mój profil",
-          "description": "Podgląd danych zalogowanego użytkownika.",
           "groups": [
             {
               "title": "Informacje",
@@ -206,7 +376,7 @@
                 {
                   "type": "info",
                   "key": "profile.info",
-                  "text": "Dane z bieżącej sesji. Edycje w 'Zarządzanie (lista)'."
+                  "text": "Podgląd bieżącego użytkownika."
                 }
               ]
             }
@@ -215,70 +385,30 @@
         {
           "id": "uprawnienia",
           "title": "Uprawnienia",
-          "description": "Konfiguracja ról i dostępu.",
-          "groups": [
-            {
-              "title": "Role i dostęp",
-              "fields": []
-            }
-          ]
+          "groups": [ { "title": "Role i dostęp", "fields": [] } ]
         },
         {
           "id": "zarzadzanie_lista",
           "title": "Zarządzanie (lista)",
-          "description": "Lista użytkowników.",
-          "groups": [
-            {
-              "title": "Lista kont",
-              "fields": []
-            }
-          ]
+          "groups": [ { "title": "Lista użytkowników", "fields": [] } ]
         }
       ]
     },
+
     {
       "id": "maszyny",
       "title": "Maszyny",
       "icon": "layout",
-      "description": "Ustawienia widoku i pracy z rozmieszczeniem maszyn.",
-      "tooltip": "Siatka, tło, numeracja oraz zaznaczanie.",
+      "description": "Widok hali, siatka i zaznaczanie.",
       "groups": [
         {
           "title": "Widok i siatka",
           "fields": [
-            {
-              "type": "number",
-              "key": "hall.grid_size_px",
-              "label": "Rozmiar kratki (px)",
-              "default": 4,
-              "min": 1,
-              "max": 20
-            },
-            {
-              "type": "boolean",
-              "key": "hall.snap_to_grid",
-              "label": "Przyciągaj do siatki",
-              "default": true
-            },
-            {
-              "type": "text",
-              "key": "hall.background_image",
-              "label": "Tło (plik JPEG/PNG)",
-              "placeholder": "np. C:\\\\wm\\\\data\\\\hala_bg.jpg"
-            },
-            {
-              "type": "button",
-              "key": "hall.background_image_pick",
-              "label": "Wybierz z dysku…",
-              "action": "dialog.open_file",
-              "params": {
-                "filters": ["*.png","*.jpg","*.jpeg"],
-                "write_to_key": "hall.background_image"
-              }
-            },
-            {
-              "type": "select",
-              "key": "hall.background_fit",
+            { "type": "number", "key": "hall.grid_size_px",
+              "label": "Rozmiar kratki (px)", "default": 4, "min": 1, "max": 20 },
+            { "type": "boolean", "key": "hall.snap_to_grid",
+              "label": "Przyciągaj do siatki", "default": true },
+            { "type": "select", "key": "hall.background_fit",
               "label": "Dopasowanie tła",
               "options": [
                 {"label":"Dopasuj (contain)","value":"contain"},
@@ -288,85 +418,46 @@
               ],
               "default": "contain"
             },
-            {
-              "type": "number",
-              "key": "hall.background_opacity",
-              "label": "Przezroczystość tła (%)",
-              "default": 100,
-              "min": 0,
-              "max": 100
-            },
-            {
-              "type": "boolean",
-              "key": "hall.show_numbers",
-              "label": "Pokaż numery hal na maszynach",
-              "default": true
-            }
+            { "type": "number", "key": "hall.background_opacity",
+              "label": "Przezroczystość tła (%)", "default": 100, "min": 0, "max": 100 },
+            { "type": "boolean", "key": "hall.show_numbers",
+              "label": "Pokaż numery hal na maszynach", "default": true }
           ]
         },
         {
           "title": "Zaznaczanie",
           "fields": [
-            {
-              "type": "boolean",
-              "key": "hall.enable_selection",
-              "label": "Włącz zaznaczanie obiektów",
-              "default": true
-            },
-            {
-              "type": "boolean",
-              "key": "hall.multi_select",
-              "label": "Zaznaczanie wielokrotne (Shift)",
-              "default": true
-            },
-            {
-              "type": "boolean",
-              "key": "hall.lasso_select",
-              "label": "Zaznaczanie obszarem (lasso)",
-              "default": true
-            }
+            { "type": "boolean", "key": "hall.enable_selection",
+              "label": "Włącz zaznaczanie obiektów", "default": true },
+            { "type": "boolean", "key": "hall.multi_select",
+              "label": "Zaznaczanie wielokrotne (Shift)", "default": true },
+            { "type": "boolean", "key": "hall.lasso_select",
+              "label": "Zaznaczanie obszarem (lasso)", "default": true }
           ]
         },
         {
           "title": "Pomieszczenia i ściany (ustawienia)",
           "fields": [
-            {
-              "type": "boolean",
-              "key": "hall.rooms_enabled",
-              "label": "Włącz warstwę pomieszczeń",
-              "default": true
-            },
-            {
-              "type": "number",
-              "key": "hall.rooms_limit",
-              "label": "Maks. liczba pomieszczeń",
-              "default": 10,
-              "min": 1,
-              "max": 50
-            },
-            {
-              "type": "array",
-              "key": "hall.room_types",
+            { "type": "boolean", "key": "hall.rooms_enabled",
+              "label": "Włącz warstwę pomieszczeń", "default": true },
+            { "type": "number", "key": "hall.rooms_limit",
+              "label": "Maks. liczba pomieszczeń", "default": 10, "min": 1, "max": 50 },
+            { "type": "array", "key": "hall.room_types",
               "label": "Typy pomieszczeń",
-              "default": ["Biuro","Magazyn","Produkcja","Kontrola","Komunikacja"]
-            },
-            {
-              "type": "number",
-              "key": "hall.default_wall_thickness_mm",
+              "default": ["Biuro","Magazyn","Produkcja","Kontrola","Komunikacja"] },
+            { "type": "number", "key": "hall.default_wall_thickness_mm",
               "label": "Domyślna grubość ściany (mm)",
-              "default": 120,
-              "min": 50,
-              "max": 500
-            }
+              "default": 120, "min": 50, "max": 500 }
           ]
         }
       ]
     },
+
     {
       "id": "narzedzia",
       "title": "Narzędzia",
       "icon": "wrench",
-      "description": "Konfiguracja narzędzi.",
+      "description": "Typy, statusy i reguły.",
       "subtabs": [
         {
           "id": "typy_statusy",
@@ -375,53 +466,27 @@
             {
               "title": "Typy narzędzi",
               "fields": [
-                {
-                  "type": "array",
-                  "key": "tools.types",
+                { "type": "array", "key": "tools.types",
                   "label": "Typy narzędzi",
-                  "default": [
-                    "Tłoczące",
-                    "Wykrawające",
-                    "Postępowe",
-                    "Giętarka"
-                  ]
-                }
+                  "default": ["Tłoczące","Wykrawające","Postępowe","Giętarka"] }
               ]
             },
             {
               "title": "Statusy narzędzi",
               "fields": [
-                {
-                  "type": "array",
-                  "key": "tools.statuses",
+                { "type": "array", "key": "tools.statuses",
                   "label": "Lista statusów",
-                  "default": [
-                    "awaria zgłoszona",
-                    "diagnoza",
-                    "w naprawie",
-                    "test",
-                    "sprawdzona",
-                    "zakończone",
-                    "anulowane"
-                  ]
-                }
+                  "default": ["awaria zgłoszona","diagnoza","w naprawie",
+                              "test","sprawdzona","zakończone","anulowane"] }
               ]
             },
             {
               "title": "Szablony zadań",
               "fields": [
-                {
-                  "type": "array",
-                  "key": "tools.task_templates",
+                { "type": "array", "key": "tools.task_templates",
                   "label": "Lista zadań",
-                  "default": [
-                    "Przegląd wizualny",
-                    "Czyszczenie i smarowanie",
-                    "Pomiar luzów",
-                    "Wymiana elementu roboczego",
-                    "Test na prasie"
-                  ]
-                }
+                  "default": ["Przegląd wizualny","Czyszczenie i smarowanie",
+                              "Pomiar luzów","Wymiana elementu roboczego","Test na prasie"] }
               ]
             }
           ]
@@ -433,50 +498,34 @@
             {
               "title": "Automatyczne odhaczanie",
               "fields": [
-                {
-                  "type": "array",
-                  "key": "tools.auto_check_on_status",
+                { "type": "array", "key": "tools.auto_check_on_status",
                   "label": "Statusy oznaczające wykonane zadania",
-                  "default": [
-                    "sprawne",
-                    "zakończone"
-                  ]
-                },
-                {
-                  "type": "boolean",
-                  "key": "tools.auto_check_on_last_status",
+                  "default": ["sprawne","zakończone"] },
+                { "type": "boolean", "key": "tools.auto_check_on_last_status",
                   "label": "Odhaczaj zadania przy ostatnim statusie",
-                  "default": true
-                },
-                {
-                  "type": "info",
-                  "key": "tools.auto_check_hint",
-                  "text": "Jeśli włączone: po ustawieniu ostatniego statusu z listy 'Statusy narzędzi' wszystkie zadania zostaną oznaczone jako wykonane."
-                }
+                  "default": true },
+                { "type": "info", "key": "tools.auto_check_hint",
+                  "text": "Jeśli włączone i ustawisz ostatni status z listy, wszystkie zadania zostaną odhaczone." }
               ]
             },
             {
               "title": "Podgląd NN/SN",
               "fields": [
-                {
-                  "type": "number",
-                  "key": "tools.nn_sn_preview_rows",
+                { "type": "number", "key": "tools.nn_sn_preview_rows",
                   "label": "Podgląd – liczba wierszy",
-                  "default": 2,
-                  "min": 1,
-                  "max": 6
-                }
+                  "default": 2, "min": 1, "max": 6 }
               ]
             }
           ]
         }
       ]
     },
+
     {
       "id": "zlecenia",
       "title": "Zlecenia",
       "icon": "clipboard",
-      "description": "Ustawienia zleceń.",
+      "description": "Statusy i kreator ZN/ZM/ZZ/ZW.",
       "subtabs": [
         {
           "id": "statusy",
@@ -485,51 +534,37 @@
             {
               "title": "Statusy zleceń",
               "fields": [
-                {
-                  "type": "array",
-                  "key": "orders.statuses",
+                { "type": "array", "key": "orders.statuses",
                   "label": "Lista statusów",
-                  "default": [
-                    "nowe",
-                    "w toku",
-                    "wstrzymane",
-                    "do odbioru",
-                    "zakończone",
-                    "anulowane"
-                  ]
-                }
+                  "default": ["nowe","w toku","wstrzymane","do odbioru",
+                              "zakończone","anulowane"] }
               ]
             }
           ]
         },
         {
           "id": "kreator",
-          "title": "Kreator",
+          "title": "Kreator ZN/ZM/ZZ/ZW",
           "groups": [
             {
               "title": "Opcje kreatora",
               "fields": [
-                {
-                  "type": "boolean",
-                  "key": "orders.wizard_dark",
-                  "label": "Ciemny motyw",
-                  "default": true
-                },
-                {
-                  "type": "boolean",
-                  "key": "orders.wizard_separate_window",
-                  "label": "Osobne okno",
-                  "default": true
-                },
-                {
-                  "type": "array",
-                  "key": "orders.required_fields",
+                { "type": "boolean", "key": "orders.wizard_dark",
+                  "label": "Ciemny motyw", "default": true },
+                { "type": "boolean", "key": "orders.wizard_separate_window",
+                  "label": "Osobne okno", "default": true },
+                { "type": "array", "key": "orders.required_fields",
                   "label": "Pola wymagane",
-                  "default": [
-                    "klient",
-                    "opis",
-                    "termin"
-                  ]
+                  "default": ["klient","opis","termin"] },
+                { "type": "select", "key": "orders.default_type",
+                  "label": "Domyślny typ zlecenia",
+                  "options": [
+                    {"label":"ZN – nowe","value":"ZN"},
+                    {"label":"ZM – modernizacja","value":"ZM"},
+                    {"label":"ZZ – zaplanowane","value":"ZZ"},
+                    {"label":"ZW – wewnętrzne","value":"ZW"}
+                  ],
+                  "default": "ZN"
                 }
               ]
             }
@@ -537,12 +572,12 @@
         }
       ]
     },
+
     {
       "id": "magazyn",
       "title": "Magazyn",
       "icon": "boxes",
-      "description": "Parametry magazynu oraz BOM/produkty.",
-      "tooltip": "Progi, katalogi, źródła stanów.",
+      "description": "Parametry magazynu i BOM.",
       "subtabs": [
         {
           "id": "ustawienia_magazynu",
@@ -551,40 +586,12 @@
             {
               "title": "Parametry magazynu",
               "fields": [
-                {
-                  "type": "text",
-                  "key": "warehouse.bom_dir",
-                  "label": "Katalog BOM",
-                  "default": "C:\\\\wm\\\\data\\\\produkty\\\\"
-                },
-                {
-                  "type": "number",
-                  "key": "warehouse.low_stock_threshold",
-                  "label": "Próg alertu stanu (%)",
-                  "default": 10,
-                  "min": 0,
-                  "max": 100
-                },
-                {
-                  "type": "boolean",
-                  "key": "warehouse.reserve_on_order",
-                  "label": "Rezerwuj materiał przy zleceniu",
-                  "default": true
-                },
-                {
-                  "type": "text",
-                  "key": "warehouse.stock_source",
-                  "label": "Źródło stanów",
-                  "default": "C:\\\\wm\\\\data\\\\magazyn.json"
-                },
-                {
-                  "type": "number",
-                  "key": "warehouse.target_stock_percent",
-                  "label": "Stan docelowy (%)",
-                  "default": 100,
-                  "min": 10,
-                  "max": 300
-                }
+                { "type": "number", "key": "warehouse.low_stock_threshold",
+                  "label": "Próg alertu stanu (%)", "default": 10, "min": 0, "max": 100 },
+                { "type": "boolean", "key": "warehouse.reserve_on_order",
+                  "label": "Rezerwuj materiał przy zleceniu", "default": true },
+                { "type": "number", "key": "warehouse.target_stock_percent",
+                  "label": "Stan docelowy (%)", "default": 100, "min": 10, "max": 300 }
               ]
             }
           ]
@@ -594,94 +601,151 @@
           "title": "Produkty (BOM)",
           "groups": [
             {
-              "title": "BOM",
-              "fields": []
+              "title": "Źródło i format",
+              "fields": [
+                { "type": "select", "key": "bom.default_format",
+                  "label": "Format BOM",
+                  "options": [
+                    {"label":"JSON","value":"json"},
+                    {"label":"CSV","value":"csv"},
+                    {"label":"XLSX","value":"xlsx"}
+                  ],
+                  "default": "json"
+                },
+                { "type": "boolean", "key": "bom.validation_enabled",
+                  "label": "Walidacja przy imporcie", "default": true }
+              ]
+            },
+            {
+              "title": "Zamienniki i widoki",
+              "fields": [
+                { "type": "boolean", "key": "bom.allow_partial_subst",
+                  "label": "Zezwól na częściowe zamienniki", "default": false },
+                { "type": "array", "key": "bom.columns_visible",
+                  "label": "Widoczne kolumny",
+                  "default": ["kod","nazwa","ilość","jedn","zamiennik"] }
+              ]
+            },
+            {
+              "title": "Import/Eksport",
+              "fields": [
+                { "type": "button", "key": "bom.btn_import",
+                  "label": "Importuj BOM…", "action": "bom.import_dialog",
+                  "params": { "write_to_key": "bom.file",
+                    "filters": ["*.json","*.csv","*.xlsx"] } },
+                { "type": "button", "key": "bom.btn_export",
+                  "label": "Eksportuj BOM", "action": "bom.export_current" }
+              ]
             }
           ]
         }
       ]
     },
+
     {
       "id": "zamowienia",
       "title": "Zamówienia",
       "icon": "shopping-cart",
-      "description": "Parametry zamówień materiałów.",
+      "description": "Parametry procesu zakupowego.",
       "groups": [
         {
           "title": "Parametry zamówień",
           "fields": [
-            {
-              "type": "boolean",
-              "key": "orders.ask_to_order_shortage",
-              "label": "Pytaj o zamówienie braków automatycznie",
-              "default": true
-            },
-            {
-              "type": "text",
-              "key": "orders.default_supplier",
-              "label": "Domyślny dostawca"
-            },
-            {
-              "type": "text",
-              "key": "orders.min_order_threshold",
-              "label": "Próg minimalny (szt. lub %)",
-              "placeholder": "np. 5 lub 10%"
-            }
+            { "type": "boolean", "key": "orders.ask_to_order_shortage",
+              "label": "Pytaj o zamówienie braków", "default": true },
+            { "type": "text", "key": "orders.default_supplier",
+              "label": "Domyślny dostawca", "default": "" },
+            { "type": "text", "key": "orders.min_order_threshold",
+              "label": "Próg minimalny (szt. lub %)", "default": "" }
           ]
         }
       ]
     },
+
     {
       "id": "aktualizacje",
       "title": "Aktualizacje & Kopie",
       "icon": "refresh",
-      "description": "Aktualizacja z repozytorium i kopie zapasowe.",
+      "description": "Pobieranie zmian i kopie zapasowe.",
       "groups": [
         {
           "title": "Operacje",
           "fields": [
+            { "type": "text", "key": "updates.branch_name",
+              "label": "Gałąź do pobrania", "default": "Rozwiniecie" },
+            { "type": "button", "key": "updates.btn_git_pull",
+              "label": "Git Pull (domyślny)", "action": "updater.git_pull" },
+            { "type": "button", "key": "updates.btn_pull_branch",
+              "label": "Pobierz z gałęzi", "action": "updater.pull_branch",
+              "params": { "branch_key": "updates.branch_name" } },
+            { "type": "button", "key": "updates.btn_backup_zip",
+              "label": "Wykonaj kopię ZIP", "action": "updater.backup_zip" },
+            { "type": "button", "key": "updates.btn_restore",
+              "label": "Przywróć z pliku…", "action": "updater.restore_dialog" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "testy_audyt",
+      "title": "Testy/Audyt",
+      "icon": "beaker",
+      "description": "Narzędzia deweloperskie i audyt WM.",
+      "devOnly": true,
+      "subtabs": [
+        {
+          "id": "testy",
+          "title": "Testy WM",
+          "groups": [ { "title": "Narzędzia testowe", "fields": [] } ]
+        },
+        {
+          "id": "audyt",
+          "title": "Audyt WM",
+          "groups": [
             {
-              "type": "text",
-              "key": "updates.branch_name",
-              "label": "Gałąź do pobrania",
-              "default": "Rozwiniecie"
-            },
-            {
-              "type": "button",
-              "key": "updates.btn_git_pull",
-              "label": "Git Pull (domyślny)",
-              "action": "updater.git_pull"
-            },
-            {
-              "type": "button",
-              "key": "updates.btn_pull_branch",
-              "label": "Pobierz z gałęzi",
-              "action": "updater.pull_branch",
-              "params": { "branch_key": "updates.branch_name" }
-            },
-            {
-              "type": "button",
-              "key": "updates.btn_backup_zip",
-              "label": "Wykonaj kopię ZIP",
-              "action": "updater.backup_zip"
-            },
-            {
-              "type": "button",
-              "key": "updates.btn_restore",
-              "label": "Przywróć z pliku…",
-              "action": "updater.restore_dialog"
+              "title": "Raport audytu",
+              "fields": [
+                { "type": "button", "key": "audit.run",
+                  "label": "Uruchom audyt", "action": "wm_audit.run" },
+                { "type": "info", "key": "audit.info",
+                  "text": "Wymaga modułu backend: wm_audit_runtime." }
+              ]
             }
           ]
         }
       ]
     },
+
     {
-      "id": "tests",
-      "title": "Testy",
-      "icon": "beaker",
-      "description": "Panel testowy (tylko DEV).",
-      "devOnly": true,
-      "groups": []
+      "id": "produkty",
+      "title": "Produkty i surowce",
+      "icon": "package",
+      "description": "Konfiguracja danych produktowych.",
+      "subtabs": [
+        {
+          "id": "produkty_def",
+          "title": "Produkty",
+          "groups": [ { "title": "Definicje produktów", "fields": [] } ]
+        },
+        {
+          "id": "surowce",
+          "title": "Surowce",
+          "groups": [
+            {
+              "title": "Parametry surowców",
+              "fields": [
+                { "type": "array", "key": "materials.units",
+                  "label": "Jednostki surowców",
+                  "default": ["szt","kg","m","m2"] },
+                { "type": "boolean", "key": "materials.allow_subst",
+                  "label": "Zezwól na zamienniki surowców",
+                  "default": true }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
