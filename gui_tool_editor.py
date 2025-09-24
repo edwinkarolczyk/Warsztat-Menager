@@ -1,5 +1,5 @@
 # gui_tool_editor.py
-# Wersja pliku: 1.1.0
+# Wersja pliku: 1.2.0
 # Moduł: Narzędzia – Edytor (one source of truth z Ustawień)
 # Logi: [WM-DBG] / [INFO] / [ERROR]
 # Język: PL (UI i komentarze)
@@ -40,6 +40,8 @@ class ToolEditorDialog(tk.Toplevel):
         self.tool_path = tool_path
         self.tool_data = self._load_tool_file(tool_path)
         self.defs = self._load_tool_definitions_from_settings()
+        # poprzedni status do obsługi Anuluj
+        self._prev_status = str(self.tool_data.get("status", "")).strip()
         # defs: { "typ": { "status": [zadania...] } }
 
         ttk.Label(self, text="Typ narzędzia:").grid(
@@ -84,7 +86,10 @@ class ToolEditorDialog(tk.Toplevel):
 
         self._init_from_tool()
         self.cb_typ.bind("<<ComboboxSelected>>", lambda e: self._refresh_status_values())
-        self.cb_status.bind("<<ComboboxSelected>>", lambda e: self._refresh_tasks_list())
+        self.cb_status.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self._on_status_selected()
+        )
 
         log.info(
             "[WM-DBG][TOOLS-EDITOR] Okno edycji uruchomione; "
@@ -150,6 +155,7 @@ class ToolEditorDialog(tk.Toplevel):
         if status and status in self.cb_status["values"]:
             self.var_status.set(status)
         self._refresh_tasks_list()
+        self._prev_status = str(self.var_status.get()).strip()
 
     def _refresh_status_values(self):
         typ = self.var_typ.get()
@@ -162,6 +168,7 @@ class ToolEditorDialog(tk.Toplevel):
         if ordered and self.var_status.get() not in ordered:
             self.var_status.set(ordered[0])
         self._refresh_tasks_list()
+        self._prev_status = str(self.var_status.get()).strip()
 
     def _refresh_tasks_list(self):
         self.tasks_list.delete(0, tk.END)
@@ -172,6 +179,71 @@ class ToolEditorDialog(tk.Toplevel):
             tasks = self.defs[typ][status] or []
         for task in tasks:
             self.tasks_list.insert(tk.END, f"• {task}")
+
+    def _on_status_selected(self):
+        """
+        Po zmianie statusu: zapytaj, czy dodać brakujące zadania z definicji
+        do puli zadań dla nowego statusu. Obsługa: Dodaj/Pomiń/Anuluj.
+        Flaga config: tools.prompt_add_tasks_on_status_change (domyślnie True).
+        """
+
+        new_status = str(self.var_status.get()).strip()
+        old_status = str(self._prev_status).strip()
+        if new_status == old_status:
+            self._refresh_tasks_list()
+            return
+
+        cfg = ConfigManager().config or {}
+        tools = cfg.get("tools", {})
+        prompt_on = tools.get("prompt_add_tasks_on_status_change", True)
+        if not prompt_on:
+            self._prev_status = new_status
+            self._refresh_tasks_list()
+            return
+
+        typ = self.var_typ.get()
+        tasks_def = self.defs.get(typ, {}).get(new_status, []) or []
+        bucket = self.tool_data.setdefault("zadania", {}).setdefault(new_status, {})
+        candidates = [task for task in tasks_def if task not in bucket]
+        if not candidates:
+            self._prev_status = new_status
+            self._refresh_tasks_list()
+            return
+
+        log.info(
+            f"[WM-DBG][TOOLS_UI] prompt add tasks status='{new_status}' "
+            f"candidates={len(candidates)}"
+        )
+
+        ans = messagebox.askyesnocancel(
+            "Zadania",
+            (
+                f"Dodać {len(candidates)} zadań dla statusu „{new_status}” "
+                "do puli?\n(Dodaj = Tak, Pomiń = Nie, Anuluj = Anuluj)"
+            ),
+        )
+        if ans is None:
+            self.var_status.set(old_status)
+            self._refresh_tasks_list()
+            log.info(
+                f"[INFO][TOOLS_UI] tasks prompt cancelled status='{new_status}'"
+            )
+            return
+
+        if ans is True:
+            for task in candidates:
+                bucket[task] = False
+            log.info(
+                f"[INFO][TOOLS_UI] tasks added status='{new_status}' "
+                f"added={len(candidates)}"
+            )
+        else:
+            log.info(
+                f"[INFO][TOOLS_UI] tasks skipped status='{new_status}'"
+            )
+
+        self._prev_status = new_status
+        self._refresh_tasks_list()
 
     def _on_save(self):
         typ = self.var_typ.get().strip()
