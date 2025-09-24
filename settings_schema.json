@@ -281,10 +281,22 @@
               "key": "hall.background_fit",
               "label": "Dopasowanie tła",
               "options": [
-                {"label":"Dopasuj (contain)","value":"contain"},
-                {"label":"Wypełnij (cover)","value":"cover"},
-                {"label":"Rozciągnij","value":"stretch"},
-                {"label":"Oryginalny rozmiar","value":"none"}
+                {
+                  "label": "Dopasuj (contain)",
+                  "value": "contain"
+                },
+                {
+                  "label": "Wypełnij (cover)",
+                  "value": "cover"
+                },
+                {
+                  "label": "Rozciągnij",
+                  "value": "stretch"
+                },
+                {
+                  "label": "Oryginalny rozmiar",
+                  "value": "none"
+                }
               ],
               "default": "contain"
             },
