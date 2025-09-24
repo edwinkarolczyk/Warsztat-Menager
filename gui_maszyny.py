@@ -18,6 +18,7 @@ from widok_hali.renderer import Renderer
 
 PRIMARY_DATA = os.path.join("data", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
+MIGRATION_FLAG = os.path.join("data", ".machines_migrated.flag")
 
 
 def _load_json_file(path: str) -> list:
@@ -51,7 +52,7 @@ def _merge_unique(primary_rows: list, legacy_rows: list) -> list:
     return [pi[k] for k in sorted(pi.keys(), key=_key)]
 
 
-def _save_all_to_primary(rows: list):
+def _save_primary(rows: list):
     os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
     with open(PRIMARY_DATA, "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
@@ -66,6 +67,7 @@ class MaszynyGUI:
         self._source_info = tk.StringVar(value="")
         self._active_source = "auto"
         self._source = "auto"
+        self._data_source_mode = "AUTO"
         self._counts: tuple[int, int] = (0, 0)
         self._machines = self._load_machines()
         self._renderer: Renderer | None = None
@@ -80,6 +82,8 @@ class MaszynyGUI:
         requested = (self._source_var.get() or "auto").strip().lower()
         if requested not in SOURCE_MODES:
             requested = "auto"
+
+        self._data_source_mode = requested.upper()
 
         if requested == "auto":
             machines = self._load_machines_pick_best()
@@ -119,55 +123,64 @@ class MaszynyGUI:
 
     def _load_machines_pick_best(self) -> list:
         """
-        AUTO: porównuje oba pliki; jeśli oba istnieją, scala i ZAPISUJE wynik do PRIMARY.
-        Dzięki temu GUI zawsze korzysta z pełnej listy. Wybieramy zestaw o większej liczbie rekordów.
+        AUTO:
+          - czyta oba pliki
+          - wybiera większy lub scala
+          - JEDNORAZOWO zapisuje wynik do PRIMARY (flaga migration)
+        PRIMARY/LEGACY (wymuszone radiem) – czyta odpowiedni plik bez migracji.
         """
+        mode = getattr(self, "_data_source_mode", "AUTO").upper()
         primary = _load_json_file(PRIMARY_DATA)
         legacy = _load_json_file(LEGACY_DATA)
         n_p, n_l = len(primary), len(legacy)
 
+        # diagnostyka
+        print(f"[DIAG][Maszyny] primary={n_p} file={PRIMARY_DATA} | legacy={n_l} file={LEGACY_DATA}")
+
+        if mode == "PRIMARY":
+            self._source = "primary"
+            self._active_source = "primary"
+            self._counts = (n_p, n_l)
+            return primary
+        if mode == "LEGACY":
+            self._source = "legacy"
+            self._active_source = "legacy"
+            self._counts = (n_p, n_l)
+            return legacy
+
+        # AUTO
         if n_p == 0 and n_l == 0:
-            print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
             self._source = "primary"
             self._active_source = "primary"
             self._counts = (0, 0)
             return []
 
-        if n_p > 0 and n_l == 0:
+        # jeżeli mamy flagę migracji – czytaj tylko PRIMARY (już scalone)
+        if os.path.exists(MIGRATION_FLAG):
             self._source = "primary"
             self._active_source = "primary"
-            self._counts = (n_p, 0)
-            print(f"[WM][Maszyny] Załadowano z PRIMARY ({n_p})")
+            self._counts = (n_p, n_l)
             return primary
-        if n_l > 0 and n_p == 0:
-            self._source = "legacy"
-            self._active_source = "legacy"
-            print(f"[WM][Maszyny] Załadowano z LEGACY ({n_l})")
-            _save_all_to_primary(legacy)
-            self._source = "primary"
-            self._active_source = "primary"
-            self._counts = (len(legacy), n_l)
-            print("[WM][Maszyny] Migracja: LEGACY → PRIMARY (zapisana pełna lista).")
-            return legacy
 
-        merged = None
-        if n_l != n_p:
+        # różne wielkości → scala i zapisuje do PRIMARY
+        if n_p != n_l:
             merged = _merge_unique(primary, legacy)
-            _save_all_to_primary(merged)
+            _save_primary(merged)
+            open(MIGRATION_FLAG, "w").close()
             self._source = "primary"
             self._active_source = "primary"
             self._counts = (len(merged), n_l)
-            print(
-                f"[WM][Maszyny] AUTO: scalono primary ({n_p}) + legacy ({n_l}) → zapis do PRIMARY ({len(merged)})."
-            )
+            print(f"[WM][Maszyny] MIGRACJA: primary({n_p}) + legacy({n_l}) → primary({len(merged)}).")
             return merged
 
+        # takie same ilości → i tak scala (dla unifikacji)
         merged = _merge_unique(primary, legacy)
-        _save_all_to_primary(merged)
+        _save_primary(merged)
+        open(MIGRATION_FLAG, "w").close()
         self._source = "primary"
         self._active_source = "primary"
         self._counts = (len(merged), n_l)
-        print(f"[WM][Maszyny] AUTO: liczba równa ({n_p}); scalam i zapisuję do PRIMARY ({len(merged)}).")
+        print(f"[WM][Maszyny] MIGRACJA: liczby równe ({n_p}); zapis primary({len(merged)}).")
         return merged
 
     def _save_position(self, machine_id: str, x: int, y: int) -> None:
@@ -195,7 +208,7 @@ class MaszynyGUI:
                 row["pozycja"]["y"] = int(y)
 
             sorted_rows = sort_machines(data)
-            _save_all_to_primary(sorted_rows)
+            _save_primary(sorted_rows)
 
             local_registry = index_by_id(self._machines)
             local_row = local_registry.get(machine_key)
@@ -317,8 +330,8 @@ class MaszynyGUI:
         self._reload_tree()
 
         # RIGHT: hala
-        right = tk.Frame(main, width=600, bg=main["bg"])
-        right.pack(side="right", fill="y")
+        right = tk.Frame(main, width=640, bg=main["bg"])
+        right.pack(side="right", fill="both")
         right.pack_propagate(False)
 
         hdr = tk.Frame(right, bg=right["bg"]); hdr.pack(fill="x", padx=8, pady=(10, 6))
@@ -331,14 +344,15 @@ class MaszynyGUI:
 
         self._canvas = tk.Canvas(
             right,
-            width=600,
-            height=520,
+            width=640,
+            height=540,
             bg="#0f172a",
             highlightthickness=1,
             highlightbackground="#334155"
         )
         self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
+        # tylko Renderer (bez starych funkcji)
         self._renderer = Renderer(self.root, self._canvas, self._machines)
 
         self._renderer.on_select = self._on_hala_select
