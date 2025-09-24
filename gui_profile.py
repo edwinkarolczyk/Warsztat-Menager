@@ -28,6 +28,7 @@ import glob
 import re
 import tkinter as tk
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt, datetime
 from config_manager import ConfigManager
@@ -54,7 +55,14 @@ from services.profile_service import (
     save_user,
     workload_for,
 )
-from services.messages_service import send_message, list_inbox, list_sent, mark_read
+from services.activity_service import log_activity, list_activity_filtered
+from services.messages_service import (
+    send_message,
+    list_inbox,
+    list_sent,
+    mark_read,
+    last_inbox_ts,
+)
 from profile_utils import staz_days_for_login, staz_years_floor_for_login
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
@@ -180,16 +188,29 @@ def _map_status_generic(raw):
     if s in ("zrobione","done","zamkniete","zamknięte","finished","close","closed"): return "Zrobione"
     return raw or "Nowe"
 
-def _parse_date(s):
+def _parse_date(value: Any) -> Optional[datetime]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if len(text) == 10:
+        text = f"{text}T00:00:00"
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
     try:
-        return _dt.strptime(s, "%Y-%m-%d").date()
-    except (ValueError, TypeError):
+        return datetime.fromisoformat(text)
+    except ValueError:
         return None
 
 def _is_overdue(task):
-    if str(task.get("status","")).lower()=="zrobione": return False
-    d=_parse_date(task.get("termin",""))
-    return bool(d and d<_dt.now().date())
+    if str(task.get("status", "")).lower() == "zrobione":
+        return False
+    parsed = _parse_date(task.get("termin", ""))
+    if not parsed:
+        return False
+    try:
+        return parsed.date() < _dt.now().date()
+    except Exception:
+        return False
 
 # ====== Converters ======
 def _convert_order_to_task(order):
@@ -751,6 +772,15 @@ class ProfileView(ttk.Frame):
         self._center_container = None
         self._header_container = None
         self.btn_send_pw = None
+        self._pw_poll_id: Optional[str] = None
+        self._last_inbox_ts_cache: Optional[str] = None
+        self._pw_q: Optional[tk.StringVar] = None
+        self._task_status_var: Optional[tk.StringVar] = None
+        self._task_deadline_var: Optional[tk.StringVar] = None
+        self._task_sort_var: Optional[tk.StringVar] = None
+        self._act_type_var: Optional[tk.StringVar] = None
+        self._act_from_var: Optional[tk.StringVar] = None
+        self._act_to_var: Optional[tk.StringVar] = None
 
         self._reload_profile_data()
 
@@ -759,6 +789,10 @@ class ProfileView(ttk.Frame):
         self._build_tabs()
         self._build_columns()
         log_akcja("[WM-DBG][PROFILE] Widok profilu zainicjalizowany.")
+
+    def destroy(self) -> None:  # type: ignore[override]
+        self._cancel_pw_poll()
+        super().destroy()
 
     # ---------- STYLES ----------
     def _init_styles(self) -> None:
@@ -867,7 +901,7 @@ class ProfileView(ttk.Frame):
         actions.pack(anchor="w", pady=(8, 0))
         self.btn_send_pw = ttk.Button(
             actions,
-            text="Wyślij PW",
+            text="Nowa wiadomość (PW)",
             command=self._on_send_pw,
             style="WM.Side.TButton",
             takefocus=False,
@@ -888,6 +922,14 @@ class ProfileView(ttk.Frame):
                 style="WM.Side.TButton",
                 takefocus=False,
             ).pack(side="left")
+
+    def _cancel_pw_poll(self) -> None:
+        if self._pw_poll_id is not None:
+            try:
+                self.after_cancel(self._pw_poll_id)
+            except Exception:
+                pass
+            self._pw_poll_id = None
 
     # ---------- COVER + AVATAR + INFO + PRZYCISKI ----------
     def _build_cover_header(self) -> None:
@@ -1204,7 +1246,7 @@ class ProfileView(ttk.Frame):
         self._center_container = center
 
         for tab_name, builder in (
-            ("Oś", self._build_timeline),
+            ("Oś", self._build_activity_tab),
             ("Zadania", self._build_tasks_tab),
             ("PW", self._build_pw_tab),
         ):
@@ -1293,7 +1335,7 @@ class ProfileView(ttk.Frame):
         row("Umiejętności:", skill_text)
 
     # --- sekcja: OŚ AKTYWNOŚCI (środek) ---
-    def _build_timeline(self, parent: ttk.Frame) -> None:
+    def _build_activity_tab(self, parent: ttk.Frame) -> None:
         parent.grid_propagate(False)
         wrapper = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrapper.pack(fill="both", expand=True)
@@ -1305,43 +1347,115 @@ class ProfileView(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
         ).pack(anchor="w", pady=(0, 8))
 
-        messages = sorted(
-            self._inbox_cache + self._sent_cache,
-            key=lambda msg: self._parse_timestamp(msg.get("ts")) or datetime.min,
-            reverse=True,
-        )[:5]
-        upcoming_tasks = sorted(
-            self._tasks_cache,
-            key=lambda task: self._parse_deadline(task) or datetime.max,
-        )[:5]
+        tools = ttk.Frame(wrapper, style="WM.TFrame")
+        tools.pack(fill="x", pady=(0, 6))
 
-        if not messages and not upcoming_tasks:
-            ttk.Label(
-                wrapper,
-                text="Brak aktywności do wyświetlenia.",
-                style="WM.CardLabel.TLabel",
-            ).pack(anchor="w")
-            return
+        if self._act_type_var is None:
+            self._act_type_var = tk.StringVar(value="(wszystkie)")
+        if self._act_from_var is None:
+            self._act_from_var = tk.StringVar(value="")
+        if self._act_to_var is None:
+            self._act_to_var = tk.StringVar(value="")
 
-        for message in messages:
-            self._timeline_item(
-                wrapper,
-                self._format_message_event(message),
-                refs=self._message_refs(message),
-            )
+        ttk.Label(tools, text="Typ:").pack(side="left", padx=(0, 4))
+        ttk.Combobox(
+            tools,
+            textvariable=self._act_type_var,
+            state="readonly",
+            values=[
+                "(wszystkie)",
+                "pw_sent",
+                "pw_received",
+                "pw_read",
+                "task_opened",
+                "tool_opened",
+                "machine_opened",
+                "task_status_change",
+                "task_assigned",
+            ],
+        ).pack(side="left")
 
-        if upcoming_tasks:
-            ttk.Label(
-                wrapper,
-                text="Nadchodzące zadania:",
-                style="WM.CardMuted.TLabel",
-            ).pack(anchor="w", pady=(12, 4))
-            for task in upcoming_tasks:
-                self._timeline_item(
-                    wrapper,
-                    self._format_task_event(task),
-                    refs=self._task_refs(task),
+        ttk.Label(tools, text="Od (ISO):").pack(side="left", padx=(8, 4))
+        ttk.Entry(tools, textvariable=self._act_from_var, width=18).pack(side="left")
+        ttk.Label(tools, text="Do (ISO):").pack(side="left", padx=(8, 4))
+        ttk.Entry(tools, textvariable=self._act_to_var, width=18).pack(side="left")
+
+        lst = ttk.Frame(wrapper, style="WM.TFrame")
+        lst.pack(fill="both", expand=True)
+
+        def _refresh() -> None:
+            for child in list(lst.winfo_children()):
+                child.destroy()
+
+            ev_value = self._act_type_var.get() if self._act_type_var else ""
+            ev_filter = None if ev_value == "(wszystkie)" else ev_value
+            start_value = self._act_from_var.get().strip() if self._act_from_var else ""
+            end_value = self._act_to_var.get().strip() if self._act_to_var else ""
+            start_filter = start_value or None
+            end_filter = end_value or None
+
+            try:
+                records = list_activity_filtered(
+                    self.login,
+                    ev_type=ev_filter,
+                    date_from=start_filter,
+                    date_to=end_filter,
+                    limit=500,
                 )
+            except Exception as exc:  # pragma: no cover - defensive UI
+                ttk.Label(
+                    lst,
+                    text=f"Nie udało się wczytać aktywności: {exc}",
+                    style="WM.Muted.TLabel",
+                    justify="left",
+                    wraplength=560,
+                ).pack(anchor="w")
+                return
+
+            if not records:
+                if ev_filter or start_filter or end_filter:
+                    message = "Brak zdarzeń dla wybranych filtrów."
+                else:
+                    message = (
+                        "Brak aktywności. Wykonaj akcję w aplikacji, aby zobaczyć historię."
+                    )
+                ttk.Label(
+                    lst,
+                    text=message,
+                    style="WM.Muted.TLabel",
+                    justify="left",
+                    wraplength=560,
+                ).pack(anchor="w")
+                return
+
+            for record in records:
+                ts_text = self._format_timestamp(record.get("ts"))
+                event = record.get("event") or "(zdarzenie)"
+                payload = record.get("payload")
+                if isinstance(payload, dict) and payload:
+                    details = ", ".join(
+                        f"{key}={value}" for key, value in payload.items()
+                    )
+                    line = f"{ts_text} • {event} — {details}"
+                else:
+                    line = f"{ts_text} • {event}"
+                ttk.Label(
+                    lst,
+                    text=line,
+                    style="WM.CardLabel.TLabel",
+                    justify="left",
+                    wraplength=560,
+                ).pack(anchor="w", pady=1)
+
+        ttk.Button(
+            tools,
+            text="Filtruj",
+            style="WM.Side.TButton",
+            takefocus=False,
+            command=_refresh,
+        ).pack(side="left", padx=(8, 0))
+
+        _refresh()
 
     def _build_tasks_tab(self, parent: ttk.Frame) -> None:
         wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
@@ -1352,56 +1466,141 @@ class ProfileView(ttk.Frame):
 
         ok, src, count = tasks_data_status()
         if not ok:
-            msg = (
-                "Brak źródła zadań. Utwórz plik data/zadania.json lub data/zlecenia.json."
+            message = (
+                "Brak źródła zadań. Utwórz data/zadania.json lub data/zlecenia.json."
             )
             if src:
-                msg = (
-                    f"Nie można odczytać źródła zadań: {src}\nSprawdź format JSON."
-                )
-            ttk.Label(
-                wrap, text=msg, style="WM.Muted.TLabel", justify="left"
-            ).pack(anchor="w")
+                message = f"Nie można odczytać: {src}"
+            ttk.Label(wrap, text=message, style="WM.Muted.TLabel").pack(anchor="w")
             return
 
-        rows = get_tasks_for(self.login)
-        if not rows:
-            ttk.Label(
-                wrap,
-                text=(
-                    f"Źródło: {src} (rekordów: {count}). "
-                    "Brak zadań przypisanych do użytkownika."
-                ),
-                style="WM.Muted.TLabel",
-                justify="left",
-            ).pack(anchor="w")
-            return
+        if self._task_status_var is None:
+            self._task_status_var = tk.StringVar(value="(wszystkie)")
+        if self._task_deadline_var is None:
+            self._task_deadline_var = tk.StringVar(value="")
+        if self._task_sort_var is None:
+            self._task_sort_var = tk.StringVar(value="termin ↑")
 
-        ttk.Label(
-            wrap,
-            text=f"Źródło: {src} • Wszystkich rekordów: {count}",
-            style="WM.Muted.TLabel",
-        ).pack(anchor="w", pady=(0, 6))
+        tools = ttk.Frame(wrap, style="WM.TFrame")
+        tools.pack(fill="x", pady=(0, 6))
+        ttk.Label(tools, text="Status:").pack(side="left", padx=(0, 4))
+        ttk.Combobox(
+            tools,
+            textvariable=self._task_status_var,
+            state="readonly",
+            values=[
+                "(wszystkie)",
+                "nowe",
+                "w_toku",
+                "otwarte",
+                "open",
+                "in_progress",
+                "zakończone",
+            ],
+        ).pack(side="left")
 
-        for row_data in rows[:300]:
-            rid = row_data.get("id") or row_data.get("kod") or ""
-            title = (
-                row_data.get("title")
-                or row_data.get("nazwa")
-                or row_data.get("opis")
-                or "Zadanie"
+        ttk.Label(tools, text="Termin do (YYYY-MM-DD):").pack(side="left", padx=(8, 4))
+        ttk.Entry(tools, textvariable=self._task_deadline_var, width=12).pack(side="left")
+
+        ttk.Label(tools, text="Sort:").pack(side="left", padx=(8, 4))
+        ttk.Combobox(
+            tools,
+            textvariable=self._task_sort_var,
+            state="readonly",
+            values=["termin ↑", "termin ↓"],
+        ).pack(side="left", padx=(0, 8))
+
+        lst = ttk.Frame(wrap, style="WM.TFrame")
+        lst.pack(fill="both", expand=True)
+
+        def _refresh() -> None:
+            for child in list(lst.winfo_children()):
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+
+            status_value = self._task_status_var.get() if self._task_status_var else ""
+            status_filter = None if status_value == "(wszystkie)" else [status_value]
+            deadline_text = self._task_deadline_var.get().strip() if self._task_deadline_var else ""
+            deadline_value = _parse_date(deadline_text) if deadline_text else None
+            if deadline_text and deadline_value is None:
+                ttk.Label(
+                    lst,
+                    text="Niepoprawny format daty. Użyj YYYY-MM-DD.",
+                    style="WM.Muted.TLabel",
+                ).pack(anchor="w")
+                return
+
+            rows = get_tasks_for(
+                self.login,
+                statusy=status_filter,
+                do_deadline=deadline_value,
             )
-            status = row_data.get("status") or row_data.get("stan") or "?"
-            deadline = row_data.get("deadline") or row_data.get("termin") or ""
-            row = ttk.Frame(wrap, style="WM.TFrame")
-            row.pack(fill="x", anchor="w", pady=2)
+
+            def _deadline_key(record: Dict[str, Any]) -> datetime:
+                raw = record.get("deadline") or record.get("termin")
+                parsed = _parse_date(raw)
+                return parsed or datetime.fromisoformat(f"{DEFAULT_TASK_DEADLINE}T00:00:00")
+
+            reverse_sort = self._task_sort_var.get() == "termin ↓" if self._task_sort_var else False
+            rows.sort(key=_deadline_key, reverse=reverse_sort)
+
+            if not rows:
+                ttk.Label(
+                    lst,
+                    text=(
+                        f"Źródło: {src} (rekordów: {count}). Brak zadań po filtrach."
+                    ),
+                    style="WM.Muted.TLabel",
+                    justify="left",
+                    wraplength=560,
+                ).pack(anchor="w")
+                return
+
             ttk.Label(
-                row,
-                text=f"{rid} — {title} • Status: {status} • Termin: {deadline}",
-                style="WM.CardLabel.TLabel",
-            ).pack(side="left")
+                lst,
+                text=f"Źródło: {src} • Wszystkich rekordów: {count}",
+                style="WM.Muted.TLabel",
+            ).pack(anchor="w", pady=(0, 6))
+
+            for row_data in rows[:300]:
+                rid = row_data.get("id") or row_data.get("kod") or ""
+                title = (
+                    row_data.get("title")
+                    or row_data.get("nazwa")
+                    or row_data.get("opis")
+                    or "Zadanie"
+                )
+                status = row_data.get("status") or row_data.get("stan") or "?"
+                deadline = row_data.get("deadline") or row_data.get("termin") or ""
+                row = ttk.Frame(lst, style="WM.TFrame")
+                row.pack(fill="x", anchor="w", pady=2)
+                ttk.Label(
+                    row,
+                    text=f"{rid} — {title} • Status: {status} • Termin: {deadline}",
+                    style="WM.CardLabel.TLabel",
+                ).pack(side="left")
+                ttk.Button(
+                    row,
+                    text="Otwórz",
+                    style="WM.Side.TButton",
+                    takefocus=False,
+                    command=lambda ref={"type": "zlecenie", "id": rid}: self._open_ref_in_app(ref),
+                ).pack(side="right", padx=(6, 0))
+
+        ttk.Button(
+            tools,
+            text="Filtruj",
+            style="WM.Side.TButton",
+            takefocus=False,
+            command=_refresh,
+        ).pack(side="left")
+
+        _refresh()
 
     def _build_pw_tab(self, parent: ttk.Frame) -> None:
+        self._cancel_pw_poll()
         self._pw_tab_root = wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrap.pack(fill="both", expand=True)
 
@@ -1411,20 +1610,20 @@ class ProfileView(ttk.Frame):
             side="left"
         )
 
-        btns = ttk.Frame(top, style="WM.TFrame")
-        btns.pack(side="right")
+        if self._pw_q is None:
+            self._pw_q = tk.StringVar(value="")
+
+        search_fr = ttk.Frame(top, style="WM.TFrame")
+        search_fr.pack(side="right")
+        ttk.Label(search_fr, text="Szukaj:").pack(side="left", padx=(0, 4))
+        ttk.Entry(search_fr, textvariable=self._pw_q, width=24).pack(side="left")
         ttk.Button(
-            btns,
-            text="Odśwież",
+            search_fr,
+            text="Filtruj",
             command=self._refresh_pw_tab,
             style="WM.Side.TButton",
-        ).pack(side="left", padx=(0, 6))
-        ttk.Button(
-            btns,
-            text="Oznacz zaznaczone jako przeczytane",
-            command=self._on_mark_read,
-            style="WM.Side.TButton",
-        ).pack(side="left")
+            takefocus=False,
+        ).pack(side="left", padx=(6, 0))
 
         body = ttk.Frame(wrap, style="WM.TFrame")
         body.pack(fill="both", expand=True, pady=(8, 0))
@@ -1444,26 +1643,110 @@ class ProfileView(ttk.Frame):
             style="WM.CardLabel.TLabel",
         ).pack(anchor="w", padx=8, pady=(8, 4))
 
-        self._pw_checks: dict[str, tk.IntVar] = {}
+        controls = ttk.Frame(wrap, style="WM.TFrame")
+        controls.pack(fill="x", pady=(8, 0))
+        ttk.Button(
+            controls,
+            text="Oznacz zaznaczone jako przeczytane",
+            command=self._on_mark_read,
+            style="WM.Side.TButton",
+            takefocus=False,
+        ).pack(anchor="e")
+
+        self._pw_checks = {}
         self._refresh_pw_tab()
 
-    def _refresh_pw_tab(self) -> None:
-        print(
-            f"[WM-DBG][PROFILE][PW] Odświeżam skrzynkę użytkownika: {self.login}"
+        def _poll() -> None:
+            if not hasattr(self, "_pw_tab_root") or not self._pw_tab_root.winfo_exists():
+                self._pw_poll_id = None
+                return
+            try:
+                ts = last_inbox_ts(self.login)
+            except Exception:
+                ts = None
+            if ts and ts != self._last_inbox_ts_cache:
+                self._refresh_pw_tab()
+            self._pw_poll_id = self.after(10_000, _poll)
+
+        self._pw_poll_id = self.after(10_000, _poll)
+
+    def _render_msg_row(
+        self, parent: ttk.Frame, message: Dict[str, Any], show_checkbox: bool
+    ) -> None:
+        row = ttk.Frame(parent, style="WM.TFrame")
+        row.pack(fill="x", anchor="w", padx=8, pady=2)
+
+        if show_checkbox:
+            var = tk.IntVar(value=0)
+            msg_id = str(message.get("id") or "")
+            if msg_id:
+                self._pw_checks[msg_id] = var
+            tk.Checkbutton(
+                row,
+                variable=var,
+                borderwidth=0,
+                highlightthickness=0,
+            ).pack(side="left")
+            label_pad = (6, 8)
+        else:
+            label_pad = (0, 8)
+
+        read_marker = "" if message.get("read") else " ●"
+        label_text = (
+            f"{message.get('ts', '')}  {message.get('from', '?')} → "
+            f"{message.get('to', '?')}   {message.get('subject', '')}{read_marker}"
         )
+        ttk.Label(row, text=label_text, style="WM.CardLabel.TLabel").pack(
+            side="left", padx=label_pad
+        )
+
+        for ref in (message.get("refs") or [])[:4]:
+            if not isinstance(ref, dict):
+                continue
+            ref_type = str(ref.get("type", "")).strip() or "ref"
+            ref_id = ref.get("id")
+            suffix = f":{ref_id}" if ref_id not in (None, "") else ""
+            title = f"{ref_type}{suffix}".strip(":")
+            ttk.Button(
+                row,
+                text=f"Otwórz {title}",
+                style="WM.Side.TButton",
+                takefocus=False,
+                command=lambda ref_data=ref: self._open_ref_in_app(ref_data),
+            ).pack(side="left", padx=(2, 2))
+
+    def _open_ref_in_app(self, ref: Dict[str, Any]) -> None:
+        ref_type = str((ref or {}).get("type", "")).strip() or "obiekt"
+        ref_id = str((ref or {}).get("id", "")).strip()
+        event_name = f"{ref_type}_opened"
+        payload = {"id": ref_id} if ref_id else {"type": ref_type}
+        log_activity(self.login, event_name, payload)
+        info = ref_type if not ref_id else f"{ref_type} {ref_id}"
+        messagebox.showinfo(
+            "Odnośnik",
+            f"Integracja otwierania odnośników jest w przygotowaniu ({info}).",
+        )
+
+    def _refresh_pw_tab(self) -> None:
+        query = self._pw_q.get().strip() if self._pw_q else ""
+        inbox = list_inbox(self.login, q=query) or []
+        sent = list_sent(self.login, q=query) or []
+
+        try:
+            self._last_inbox_ts_cache = last_inbox_ts(self.login)
+        except Exception:
+            self._last_inbox_ts_cache = None
+
         for frame in (self._pw_inbox_frame, self._pw_sent_frame):
-            children = list(frame.winfo_children())
-            for widget in children[1:]:
+            for widget in frame.winfo_children()[1:]:
                 try:
                     widget.destroy()
                 except Exception:
                     pass
 
-        inbox = list_inbox(self.login) or []
-        sent = list_sent(self.login) or []
+        self._pw_checks.clear()
         self._inbox_cache = list(inbox)
         self._sent_cache = list(sent)
-        self._pw_checks.clear()
 
         if not inbox:
             ttk.Label(
@@ -1473,24 +1756,7 @@ class ProfileView(ttk.Frame):
             ).pack(anchor="w", padx=12, pady=(0, 8))
         else:
             for message in inbox[:200]:
-                row = ttk.Frame(self._pw_inbox_frame, style="WM.TFrame")
-                row.pack(fill="x", anchor="w", padx=8, pady=2)
-                var = tk.IntVar(value=0)
-                msg_id = message.get("id")
-                if msg_id is not None:
-                    self._pw_checks[msg_id] = var
-                tk.Checkbutton(row, variable=var, borderwidth=0, highlightthickness=0).pack(
-                    side="left"
-                )
-                read_marker = "" if message.get("read") else " ●"
-                label_text = (
-                    f"{message.get('ts', '')}  {message.get('from', '?')} → "
-                    f"{message.get('to', '?')}   "
-                    f"{message.get('subject', '')}{read_marker}"
-                )
-                ttk.Label(row, text=label_text, style="WM.CardLabel.TLabel").pack(
-                    side="left", padx=(6, 0)
-                )
+                self._render_msg_row(self._pw_inbox_frame, message, show_checkbox=True)
 
         if not sent:
             ttk.Label(
@@ -1500,29 +1766,31 @@ class ProfileView(ttk.Frame):
             ).pack(anchor="w", padx=12, pady=(0, 8))
         else:
             for message in sent[:200]:
-                row = ttk.Frame(self._pw_sent_frame, style="WM.TFrame")
-                row.pack(fill="x", anchor="w", padx=8, pady=2)
-                label_text = (
-                    f"{message.get('ts', '')}  {message.get('from', '?')} → "
-                    f"{message.get('to', '?')}   "
-                    f"{message.get('subject', '')}"
-                )
-                ttk.Label(row, text=label_text, style="WM.CardLabel.TLabel").pack(
-                    side="left"
-                )
+                self._render_msg_row(self._pw_sent_frame, message, show_checkbox=False)
+
+        if self._shortcuts_container is not None:
+            for child in list(self._shortcuts_container.winfo_children()):
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+            self._build_shortcuts(self._shortcuts_container)
 
     def _on_mark_read(self) -> None:
         changed = 0
         for msg_id, var in list(self._pw_checks.items()):
-            if var.get():
-                try:
-                    if mark_read(self.login, msg_id, True):
-                        changed += 1
-                except Exception:
-                    pass
-        print(f"[WM-DBG][PROFILE][PW] mark_read changed={changed}")
+            if not var.get():
+                continue
+            try:
+                if mark_read(self.login, msg_id, True):
+                    changed += 1
+                    log_activity(self.login, "pw_read", {"id": msg_id})
+            except Exception:
+                continue
         if changed:
             messagebox.showinfo("PW", f"Oznaczono jako przeczytane: {changed}")
+        else:
+            messagebox.showinfo("PW", "Zaznacz wiadomości, aby je oznaczyć.")
         self._refresh_pw_tab()
 
     def _build_placeholder_tab(self, parent: ttk.Frame, tab_name: str) -> None:
@@ -1646,43 +1914,43 @@ class ProfileView(ttk.Frame):
         except Exception:
             trigger_widget = None
 
-        print(
-            f"[WM-DBG][PROFILE][PW] Otwieram modal wysyłki PW dla: {self.login}"
-        )
         win = tk.Toplevel(self)
         win.title("Nowa wiadomość (PW)")
-        win.configure(bg="#111214")
         win.transient(self.winfo_toplevel())
         apply_theme(win)
         win.grab_set()
         win.focus_set()
+        win.columnconfigure(1, weight=1)
 
-        ttk.Label(win, text="Do (login):").pack(anchor="w", padx=10, pady=(10, 0))
-        to_entry = ttk.Entry(win)
-        to_entry.pack(fill="x", padx=10, pady=4)
-        to_entry.focus_set()
-
-        ttk.Label(win, text="Temat:").pack(anchor="w", padx=10, pady=(6, 0))
-        subj_entry = ttk.Entry(win)
-        subj_entry.pack(fill="x", padx=10, pady=4)
-
-        ttk.Label(win, text="Treść:").pack(anchor="w", padx=10, pady=(6, 0))
-        body_txt = tk.Text(win, width=60, height=10)
-        body_txt.pack(fill="both", padx=10, pady=6)
+        ttk.Label(win, text="Do (login):").grid(
+            row=0, column=0, sticky="w", padx=8, pady=6
+        )
+        to_var = tk.StringVar(value=self.login)
+        ttk.Entry(win, textvariable=to_var, width=26).grid(
+            row=0, column=1, padx=8, pady=6
+        )
+        ttk.Label(win, text="Temat:").grid(
+            row=1, column=0, sticky="w", padx=8, pady=6
+        )
+        subject_var = tk.StringVar()
+        ttk.Entry(win, textvariable=subject_var, width=42).grid(
+            row=1, column=1, padx=8, pady=6
+        )
+        ttk.Label(win, text="Treść:").grid(
+            row=2, column=0, sticky="nw", padx=8, pady=6
+        )
+        body_txt = tk.Text(win, width=60, height=8)
+        body_txt.grid(row=2, column=1, padx=8, pady=6)
 
         def _submit() -> None:
-            to_login = to_entry.get().strip()
-            subject = subj_entry.get().strip()
+            to_login = to_var.get().strip()
+            subject = subject_var.get().strip()
             body = body_txt.get("1.0", "end").strip()
 
-            if not to_login:
-                messagebox.showwarning("Błąd", "Podaj login odbiorcy.")
-                return
-            if not subject:
-                messagebox.showwarning("Błąd", "Temat nie może być pusty.")
-                return
-            if not body:
-                messagebox.showwarning("Błąd", "Treść nie może być pusta.")
+            if not to_login or not subject or not body:
+                messagebox.showwarning(
+                    "PW", "Uzupełnij: odbiorca, temat i treść."
+                )
                 return
 
             try:
@@ -1691,29 +1959,32 @@ class ProfileView(ttk.Frame):
                     to=to_login,
                     subject=subject,
                     body=body,
+                    refs=[],
                 )
             except Exception as exc:  # pragma: no cover - defensive UI
-                messagebox.showerror("Błąd", f"Nie udało się wysłać: {exc}")
+                messagebox.showerror("PW", f"Nie udało się wysłać: {exc}")
                 return
 
-            print(
-                f"[WM-DBG][PROFILE][PW] Wysłano wiadomość {msg['id']} "
-                f"od {self.login} do {to_login}"
+            log_activity(
+                self.login,
+                "pw_sent",
+                {"to": to_login, "subject": subject, "id": msg["id"]},
             )
-            messagebox.showinfo("Sukces", "Wiadomość wysłana.")
+            log_activity(
+                to_login,
+                "pw_received",
+                {"from": self.login, "subject": subject, "id": msg["id"]},
+            )
+            messagebox.showinfo("PW", f"Wysłano (id: {msg['id']})")
             try:
                 win.grab_release()
             except Exception:
                 pass
             win.destroy()
-            if hasattr(self, "_refresh_pw_tab"):
-                try:
-                    self._refresh_pw_tab()
-                except Exception:
-                    pass
+            self._refresh_pw_tab()
 
-        ttk.Button(win, text="Wyślij", command=_submit, takefocus=False).pack(
-            pady=(0, 10)
+        ttk.Button(win, text="Wyślij", command=_submit, takefocus=False).grid(
+            row=3, column=1, sticky="e", padx=8, pady=8
         )
 
         for btn in (getattr(self, "btn_send_pw", None), trigger_widget):
@@ -1724,9 +1995,9 @@ class ProfileView(ttk.Frame):
                 pass
 
     def _on_least_tasks(self) -> None:
-        users = self._load_users_list() or [self.login]
-
-        print(f"[WM-DBG][RANK] Start rankingu; użytkownicy={len(users)}")
+        users = self._load_users_list()
+        if not users:
+            users = [{"login": self.login, "rola": "", "brygada": ""}]
 
         win = tk.Toplevel(self)
         win.title("Kto ma najmniej zadań?")
@@ -1737,65 +2008,186 @@ class ProfileView(ttk.Frame):
 
         frame = ttk.Frame(win, style="WM.Card.TFrame", padding=10)
         frame.pack(fill="both", expand=True)
+        frame.grid_columnconfigure(1, weight=1)
+        frame.grid_columnconfigure(3, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
 
         ttk.Label(
             frame,
             text="Ranking obciążenia (mniej = lepiej):",
             style="WM.CardLabel.TLabel",
-        ).grid(row=0, column=0, columnspan=2, sticky="w")
+        ).grid(row=0, column=0, columnspan=4, sticky="w")
 
         ttk.Label(
             frame,
-            text="Filtr do terminu (YYYY-MM-DD):",
+            text="Filtr rola/brygada:",
             style="WM.CardMuted.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(6, 6))
+
+        roles = sorted({(u.get("rola") or "").strip() or "uzytkownik" for u in users})
+        teams = sorted({(u.get("brygada") or "").strip() for u in users if u.get("brygada")})
+
+        role_var = tk.StringVar(value="(wszystkie)")
+        ttk.Combobox(
+            frame,
+            textvariable=role_var,
+            state="readonly",
+            values=["(wszystkie)"] + roles,
+        ).grid(row=1, column=1, sticky="w", pady=(6, 6))
+
+        ttk.Label(
+            frame,
+            text="Brygada/zmiana:",
+            style="WM.CardMuted.TLabel",
+        ).grid(row=1, column=2, sticky="w", pady=(6, 6))
+
+        team_var = tk.StringVar(value="(wszystkie)")
+        ttk.Combobox(
+            frame,
+            textvariable=team_var,
+            state="readonly",
+            values=["(wszystkie)"] + teams,
+        ).grid(row=1, column=3, sticky="w", pady=(6, 6))
+
+        ttk.Label(
+            frame,
+            text="Do terminu (YYYY-MM-DD):",
+            style="WM.CardMuted.TLabel",
+        ).grid(row=2, column=0, sticky="w")
         date_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=date_var, width=16).grid(
-            row=1, column=1, sticky="w", pady=(6, 6)
+        ttk.Entry(frame, textvariable=date_var, width=14).grid(
+            row=2, column=1, sticky="w"
         )
 
-        out_box = tk.Listbox(frame, width=48, height=12)
-        out_box.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(6, 0))
-        frame.grid_rowconfigure(2, weight=1)
-        frame.grid_columnconfigure(1, weight=1)
+        out_box = tk.Listbox(frame, width=56, height=12)
+        out_box.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=(6, 0))
+
+        def _filtered_logins() -> List[str]:
+            role = role_var.get()
+            team = team_var.get()
+            result: List[str] = []
+            for item in users:
+                login = item.get("login")
+                if not login:
+                    continue
+                if role != "(wszystkie)" and (item.get("rola") or "").strip() != role:
+                    continue
+                if team != "(wszystkie)" and (item.get("brygada") or "").strip() != team:
+                    continue
+                result.append(login)
+            return result
 
         def _refresh() -> None:
-            deadline = self._parse_date(date_var.get().strip())
-            data = (
-                workload_for(users, do_deadline=deadline)
-                if deadline
-                else workload_for(users)
-            )
-            print(f"[WM-DBG][RANK] Wynik={data[:5]} ...")
             out_box.delete(0, "end")
-            if not data:
-                out_box.insert("end", "Brak danych o zadaniach.")
+            selected_logins = _filtered_logins()
+            if not selected_logins:
+                out_box.insert("end", "Brak użytkowników dla wybranych filtrów.")
                 return
-            for login, count in data[:50]:
+            deadline_text = date_var.get().strip()
+            deadline_value = _parse_date(deadline_text) if deadline_text else None
+            if deadline_text and deadline_value is None:
+                out_box.insert("end", "Niepoprawna data. Użyj YYYY-MM-DD.")
+                return
+            data = (
+                workload_for(selected_logins, do_deadline=deadline_value)
+                if deadline_value
+                else workload_for(selected_logins)
+            )
+            if not data:
+                out_box.insert("end", "Brak danych.")
+                return
+            for login, count in data[:200]:
                 out_box.insert("end", f"{login:15s} — {count}")
+
+        def _send_pw_to_selected() -> None:
+            selection = out_box.curselection()
+            if not selection:
+                messagebox.showinfo("PW", "Wybierz użytkownika z listy.")
+                return
+            to_login = out_box.get(selection[0]).split("—", 1)[0].strip()
+            modal = tk.Toplevel(win)
+            modal.title(f"PW do {to_login}")
+            modal.transient(win)
+            apply_theme(modal)
+            modal.grab_set()
+            modal.focus_set()
+            modal.columnconfigure(1, weight=1)
+
+            ttk.Label(modal, text=f"Do: {to_login}").grid(
+                row=0, column=0, sticky="w", padx=8, pady=6
+            )
+            ttk.Label(modal, text="Temat:").grid(
+                row=1, column=0, sticky="w", padx=8, pady=6
+            )
+            subject_var = tk.StringVar(value="Propozycja / przypisanie")
+            ttk.Entry(modal, textvariable=subject_var, width=42).grid(
+                row=1, column=1, padx=8, pady=6
+            )
+            ttk.Label(modal, text="Treść:").grid(
+                row=2, column=0, sticky="nw", padx=8, pady=6
+            )
+            body_widget = tk.Text(modal, width=58, height=6)
+            body_widget.grid(row=2, column=1, padx=8, pady=6)
+
+            def _send() -> None:
+                subject = subject_var.get().strip()
+                body = body_widget.get("1.0", "end").strip()
+                if not subject or not body:
+                    messagebox.showwarning("PW", "Uzupełnij temat i treść.")
+                    return
+                try:
+                    msg = send_message(
+                        sender=self.login,
+                        to=to_login,
+                        subject=subject,
+                        body=body,
+                        refs=[],
+                    )
+                except Exception as exc:  # pragma: no cover - defensive UI
+                    messagebox.showerror("PW", f"Nie udało się wysłać: {exc}")
+                    return
+                log_activity(
+                    self.login,
+                    "pw_sent",
+                    {"to": to_login, "subject": subject, "id": msg["id"]},
+                )
+                log_activity(
+                    to_login,
+                    "pw_received",
+                    {"from": self.login, "subject": subject, "id": msg["id"]},
+                )
+                messagebox.showinfo("PW", "Wysłano.")
+                try:
+                    modal.grab_release()
+                except Exception:
+                    pass
+                modal.destroy()
+                self._refresh_pw_tab()
+
+            ttk.Button(
+                modal,
+                text="Wyślij",
+                command=_send,
+                takefocus=False,
+            ).grid(row=3, column=1, sticky="e", padx=8, pady=8)
 
         ttk.Button(
             frame,
-            text="Pokaż ranking",
+            text="Pokaż",
             command=_refresh,
             style="WM.Side.TButton",
             takefocus=False,
-        ).grid(row=3, column=1, sticky="e", pady=(8, 0))
+        ).grid(row=4, column=2, sticky="e", pady=(8, 0))
+        ttk.Button(
+            frame,
+            text="Wyślij PW do zaznaczonego",
+            command=_send_pw_to_selected,
+            style="WM.Side.TButton",
+            takefocus=False,
+        ).grid(row=4, column=3, sticky="e", pady=(8, 0))
         _refresh()
 
-    def _parse_date(self, value: str) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            messagebox.showwarning(
-                "Data",
-                "Wpisz datę w formacie YYYY-MM-DD (np. 2025-09-23).",
-            )
-            return None
-
-    def _load_users_list(self) -> list[str]:
+    def _load_users_list(self) -> List[Dict[str, str]]:
         try:
             with open(
                 os.path.join("data", "uzytkownicy.json"), encoding="utf-8"
@@ -1803,19 +2195,23 @@ class ProfileView(ttk.Frame):
                 data = json.load(fh)
         except Exception:
             return []
+        records: List[Dict[str, str]] = []
         if isinstance(data, dict):
-            return [
-                rec.get("login")
-                for rec in data.values()
-                if isinstance(rec, dict) and rec.get("login")
-            ]
-        if isinstance(data, list):
-            return [
-                rec.get("login")
-                for rec in data
-                if isinstance(rec, dict) and rec.get("login")
-            ]
-        return []
+            iterable = data.values()
+        elif isinstance(data, list):
+            iterable = data
+        else:
+            return []
+        for rec in iterable:
+            if not isinstance(rec, dict):
+                continue
+            login = str(rec.get("login") or "").strip()
+            if not login:
+                continue
+            rola = str(rec.get("rola") or "").strip()
+            brygada = str(rec.get("brygada") or rec.get("zmiana_plan") or "").strip()
+            records.append({"login": login, "rola": rola, "brygada": brygada})
+        return records
 
     def _on_open_settings(self) -> None:
         log_akcja(
