@@ -615,8 +615,9 @@ def uruchom_panel(root, frame, login=None, rola=None):
     clear_frame(frame)
 
     # Nagłówek
-    head = ttk.Frame(frame, style="WM.TFrame"); head.pack(fill="x", padx=12, pady=10)
-    _load_avatar(head, login).pack(side="left", padx=(0,12))
+    head = ttk.Frame(frame, style="WM.TFrame")
+    head.pack(fill="x", padx=12, pady=(8, 6))
+    _load_avatar(head, login).pack(side="left", padx=(0, 12), pady=(0, 6))
     info = ttk.Frame(head, style="WM.TFrame"); info.pack(side="left")
     ttk.Label(info, text=str(login or "-"), font=("TkDefaultFont", 14, "bold"), style="WM.TLabel").pack(anchor="w")
     ttk.Label(info, text=f"Rola: {rola or '-'}", style="WM.Muted.TLabel").pack(anchor="w")
@@ -748,6 +749,7 @@ class ProfileView(ttk.Frame):
         self._shortcuts_container = None
         self._center_container = None
         self._header_container = None
+        self.btn_send_pw = None
 
         self._reload_profile_data()
 
@@ -821,6 +823,8 @@ class ProfileView(ttk.Frame):
         )
 
     def _build_header(self, parent: ttk.Frame) -> None:
+        self.btn_send_pw = None
+
         wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrap.pack(fill="x")
 
@@ -832,7 +836,7 @@ class ProfileView(ttk.Frame):
                     avatar_row,
                     image=self.avatar_image,
                     anchor="center",
-                ).pack()
+                ).pack(pady=(0, 6))
         except Exception:
             pass
 
@@ -860,13 +864,14 @@ class ProfileView(ttk.Frame):
 
         actions = ttk.Frame(wrap, style="WM.TFrame")
         actions.pack(anchor="w", pady=(8, 0))
-        ttk.Button(
+        self.btn_send_pw = ttk.Button(
             actions,
             text="Wyślij PW",
             command=self._on_send_pw,
             style="WM.Side.TButton",
             takefocus=False,
-        ).pack(side="left", padx=(0, 6))
+        )
+        self.btn_send_pw.pack(side="left", padx=(0, 6))
         ttk.Button(
             actions,
             text="Kto ma najmniej zadań?",
@@ -901,7 +906,7 @@ class ProfileView(ttk.Frame):
         avatar_wrap = ttk.Frame(avatar_holder, style="WM.Header.TFrame")
         avatar_wrap.pack(fill="x", pady=(8, 6))
         avatar_widget = self._make_avatar(avatar_wrap)
-        avatar_widget.pack()
+        avatar_widget.pack(pady=(0, 6))
 
         info = ttk.Frame(inner, style="WM.Header.TFrame")
         info.grid(row=0, column=1, sticky="nsew")
@@ -1425,7 +1430,9 @@ class ProfileView(ttk.Frame):
         self._refresh_pw_tab()
 
     def _refresh_pw_tab(self) -> None:
-        print(f"[WM-DBG][PW] Odświeżam skrzynkę użytkownika: {self.login}")
+        print(
+            f"[WM-DBG][PROFILE][PW] Odświeżam skrzynkę użytkownika: {self.login}"
+        )
         for frame in (self._pw_inbox_frame, self._pw_sent_frame):
             children = list(frame.winfo_children())
             for widget in children[1:]:
@@ -1495,7 +1502,7 @@ class ProfileView(ttk.Frame):
                         changed += 1
                 except Exception:
                     pass
-        print(f"[WM-DBG][PW] mark_read changed={changed}")
+        print(f"[WM-DBG][PROFILE][PW] mark_read changed={changed}")
         if changed:
             messagebox.showinfo("PW", f"Oznaczono jako przeczytane: {changed}")
         self._refresh_pw_tab()
@@ -1616,62 +1623,66 @@ class ProfileView(ttk.Frame):
             messagebox.showwarning("PW", "Ten użytkownik ma wyłączone PW.")
             return
 
-        print(f"[WM-DBG][PW] Otwieram modal wysyłki PW dla: {self.login}")
+        try:
+            trigger_widget = self.focus_get()
+        except Exception:
+            trigger_widget = None
+
+        print(
+            f"[WM-DBG][PROFILE][PW] Otwieram modal wysyłki PW dla: {self.login}"
+        )
         win = tk.Toplevel(self)
         win.title("Nowa wiadomość (PW)")
+        win.configure(bg="#111214")
         win.transient(self.winfo_toplevel())
         apply_theme(win)
         win.grab_set()
         win.focus_set()
 
-        ttk.Label(win, text="Do (login):").grid(
-            row=0, column=0, sticky="w", padx=8, pady=6
-        )
-        to_var = tk.StringVar(value=self.login)
-        ttk.Entry(win, textvariable=to_var, width=28).grid(
-            row=0, column=1, padx=8, pady=6
-        )
-        ttk.Label(win, text="Temat:").grid(
-            row=1, column=0, sticky="w", padx=8, pady=6
-        )
-        sub_var = tk.StringVar()
-        ttk.Entry(win, textvariable=sub_var, width=42).grid(
-            row=1, column=1, padx=8, pady=6
-        )
-        ttk.Label(win, text="Treść:").grid(
-            row=2, column=0, sticky="nw", padx=8, pady=6
-        )
-        txt = tk.Text(win, width=60, height=8)
-        txt.grid(row=2, column=1, padx=8, pady=6)
-        txt.focus_set()
+        ttk.Label(win, text="Do (login):").pack(anchor="w", padx=10, pady=(10, 0))
+        to_entry = ttk.Entry(win)
+        to_entry.pack(fill="x", padx=10, pady=4)
+        to_entry.focus_set()
 
-        def _do_send() -> None:
-            to_login = to_var.get().strip()
-            subject = sub_var.get().strip()
-            body = txt.get("1.0", "end").strip()
+        ttk.Label(win, text="Temat:").pack(anchor="w", padx=10, pady=(6, 0))
+        subj_entry = ttk.Entry(win)
+        subj_entry.pack(fill="x", padx=10, pady=4)
+
+        ttk.Label(win, text="Treść:").pack(anchor="w", padx=10, pady=(6, 0))
+        body_txt = tk.Text(win, width=60, height=10)
+        body_txt.pack(fill="both", padx=10, pady=6)
+
+        def _submit() -> None:
+            to_login = to_entry.get().strip()
+            subject = subj_entry.get().strip()
+            body = body_txt.get("1.0", "end").strip()
 
             if not to_login:
-                messagebox.showwarning("PW", "Wpisz login odbiorcy.")
+                messagebox.showwarning("Błąd", "Podaj login odbiorcy.")
+                return
+            if not subject:
+                messagebox.showwarning("Błąd", "Temat nie może być pusty.")
                 return
             if not body:
-                messagebox.showwarning("PW", "Wpisz treść wiadomości.")
+                messagebox.showwarning("Błąd", "Treść nie może być pusta.")
                 return
+
             try:
                 msg = send_message(
                     sender=self.login,
                     to=to_login,
                     subject=subject,
                     body=body,
-                    refs=[],
                 )
             except Exception as exc:  # pragma: no cover - defensive UI
-                messagebox.showerror("PW", f"Błąd wysyłki: {exc}")
+                messagebox.showerror("Błąd", f"Nie udało się wysłać: {exc}")
                 return
+
             print(
-                "[WM-DBG][PW] Wysłano PW id="
-                f"{msg['id']}  from={self.login} to={to_login} subject={subject!r}"
+                f"[WM-DBG][PROFILE][PW] Wysłano wiadomość {msg['id']} "
+                f"od {self.login} do {to_login}"
             )
-            messagebox.showinfo("PW", f"Wysłano (id: {msg['id']})")
+            messagebox.showinfo("Sukces", "Wiadomość wysłana.")
             try:
                 win.grab_release()
             except Exception:
@@ -1683,9 +1694,16 @@ class ProfileView(ttk.Frame):
                 except Exception:
                     pass
 
-        ttk.Button(win, text="Wyślij", command=_do_send, takefocus=False).grid(
-            row=3, column=1, sticky="e", padx=8, pady=8
+        ttk.Button(win, text="Wyślij", command=_submit, takefocus=False).pack(
+            pady=(0, 10)
         )
+
+        for btn in (getattr(self, "btn_send_pw", None), trigger_widget):
+            try:
+                if btn and hasattr(btn, "state"):
+                    btn.state(["!pressed", "!active"])
+            except Exception:
+                pass
 
     def _on_least_tasks(self) -> None:
         users = self._load_users_list() or [self.login]
