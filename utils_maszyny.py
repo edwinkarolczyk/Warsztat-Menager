@@ -4,30 +4,96 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
-from typing import Dict, Iterable, List, Tuple
+import re
+import time
+from typing import Any, Dict, Iterable, List, Tuple
 
 PRIMARY_DATA = os.path.join("data", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
 
 SOURCE_MODES = ("auto", "primary", "legacy")
+DEFAULT_SOURCE = os.environ.get("WM_MACHINES_SOURCE", "auto").strip().lower()
 
 
 def _normalize_machine_id(value: object) -> str:
     return str(value or "").strip()
 
 
-def load_json_file(path: str) -> List[dict]:
+def _coerce_rows(data: Any) -> List[dict]:
+    """Przekształć różne formy danych na listę słowników."""
+
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if isinstance(data, dict):
+        if isinstance(data.get("maszyny"), list):
+            return [row for row in data["maszyny"] if isinstance(row, dict)]
+        values = list(data.values())
+        if values and all(isinstance(value, dict) for value in values):
+            return values
+    return []
+
+
+def _explain_rows(rows: List[dict], label: str) -> None:
+    count_all = len(rows)
+    with_id = [
+        row
+        for row in rows
+        if _normalize_machine_id(
+            row.get("id") or row.get("nr_ewid") or row.get("nr")
+        )
+    ]
+    count_with_id = len(with_id)
+    if count_all == 0:
+        print(f"[DIAG][Maszyny] {label}: 0 rekordów po parsowaniu.")
+    else:
+        print(
+            "[DIAG][Maszyny] "
+            f"{label}: {count_all} rekordów po parsowaniu, z ID/nr_ewid: {count_with_id}"
+        )
+
+
+def _load_json_file(path: str) -> List[dict]:
+    """Wczytaj plik JSON tolerując drobne błędy formatu."""
+
     try:
-        with open(path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
-        return data if isinstance(data, list) else []
-    except Exception:
+        with open(path, "rb") as handle:
+            raw = handle.read()
+        if not raw:
+            _explain_rows([], os.path.abspath(path))
+            return []
+        if raw.startswith(b"\xef\xbb\xbf"):
+            raw = raw[3:]
+        text = raw.decode("utf-8", errors="replace")
+        try:
+            data = json.loads(text)
+        except Exception:
+            softened = re.sub(r",(\s*[]})", r"\1", text)
+            data = json.loads(softened)
+        rows = _coerce_rows(data)
+        _explain_rows(rows, os.path.abspath(path))
+        return rows
+    except FileNotFoundError:
+        print(f"[DIAG][Maszyny] Brak pliku: {os.path.abspath(path)}")
+        return []
+    except Exception as exc:  # pragma: no cover - defensywne logowanie
+        print(f"[DIAG][Maszyny] Nie mogę wczytać {os.path.abspath(path)}: {exc}")
         return []
 
 
-def index_by_id(rows: Iterable[dict]) -> Dict[str, dict]:
+def load_json_file(path: str) -> List[dict]:
+    """Zachowana dla kompatybilności publiczna wersja loadera."""
+
+    return _load_json_file(path)
+
+
+def _save_json_file(path: str, rows: List[dict]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(rows, handle, ensure_ascii=False, indent=2)
+
+
+def _index_by_id(rows: Iterable[dict]) -> Dict[str, dict]:
     result: Dict[str, dict] = {}
     for row in rows or []:
         machine_id = _normalize_machine_id(
@@ -39,53 +105,138 @@ def index_by_id(rows: Iterable[dict]) -> Dict[str, dict]:
     return result
 
 
+def index_by_id(rows: Iterable[dict]) -> Dict[str, dict]:
+    return _index_by_id(rows)
+
+
 def sort_machines(rows: Iterable[dict]) -> List[dict]:
-    indexed = index_by_id(rows)
+    indexed = _index_by_id(rows)
     keys = sorted(indexed, key=lambda value: (len(value), value))
     return [indexed[key] for key in keys]
 
 
 def merge_unique(primary_rows: Iterable[dict], legacy_rows: Iterable[dict]) -> List[dict]:
-    primary_index = index_by_id(primary_rows)
-    legacy_index = index_by_id(legacy_rows)
+    return _merge_unique(primary_rows, legacy_rows)
+
+
+def _merge_unique(primary_rows: Iterable[dict], legacy_rows: Iterable[dict]) -> List[dict]:
+    primary_index = _index_by_id(primary_rows)
+    legacy_index = _index_by_id(legacy_rows)
+    duplicates = set(primary_index) & set(legacy_index)
+    if duplicates:
+        preview = sorted(list(duplicates))
+        shown = ", ".join(preview[:10])
+        suffix = " ..." if len(preview) > 10 else ""
+        print(
+            "[DIAG][Maszyny] Duplikaty ID między źródłami (zostaje PRIMARY): "
+            f"{shown}{suffix}"
+        )
     for machine_id, row in legacy_index.items():
         if machine_id not in primary_index:
             primary_index[machine_id] = row
-    return sort_machines(primary_index.values())
+    keys = sorted(primary_index, key=lambda value: (len(value), value))
+    return [primary_index[key] for key in keys]
+
+
+def _ids_preview(rows: Iterable[dict], limit: int = 5) -> str:
+    preview: List[str] = []
+    for row in rows or []:
+        if len(preview) >= limit:
+            break
+        machine_id = _normalize_machine_id(
+            row.get("id") or row.get("nr_ewid") or row.get("nr")
+        )
+        preview.append(machine_id or "?")
+    return ", ".join(preview)
+
+
+def _pick_source(
+    ui_choice: str | None = None,
+    primary_rows: List[dict] | None = None,
+    legacy_rows: List[dict] | None = None,
+) -> Tuple[List[dict], str, str]:
+    choice = (ui_choice or DEFAULT_SOURCE or "auto").lower()
+    if choice not in SOURCE_MODES:
+        choice = "auto"
+
+    primary_rows = primary_rows if primary_rows is not None else _load_json_file(PRIMARY_DATA)
+    legacy_rows = legacy_rows if legacy_rows is not None else _load_json_file(LEGACY_DATA)
+    count_primary, count_legacy = len(primary_rows), len(legacy_rows)
+
+    if choice == "legacy":
+        if count_legacy == 0:
+            print(
+                "[WM][Maszyny] Wybrano LEGACY, ale po parsowaniu 0 rekordów → "
+                "fallback na PRIMARY."
+            )
+            choice = "primary"
+        else:
+            print(
+                "[WM][Maszyny] source=LEGACY "
+                f"file={os.path.abspath(LEGACY_DATA)} "
+                f"cnt={count_legacy} ids[{_ids_preview(legacy_rows)}]"
+            )
+            return sort_machines(legacy_rows), "legacy", LEGACY_DATA
+
+    if choice == "primary":
+        print(
+            "[WM][Maszyny] source=PRIMARY "
+            f"file={os.path.abspath(PRIMARY_DATA)} "
+            f"cnt={count_primary} ids[{_ids_preview(primary_rows)}]"
+        )
+        return sort_machines(primary_rows), "primary", PRIMARY_DATA
+
+    if count_primary and count_legacy:
+        merged = _merge_unique(primary_rows, legacy_rows)
+        print(
+            "[WM][Maszyny] source=AUTO→MERGE "
+            f"primary={count_primary} legacy={count_legacy} "
+            f"ids[{_ids_preview(merged)}]"
+        )
+        return merged, "auto", f"{PRIMARY_DATA}+{LEGACY_DATA}"
+
+    if count_legacy:
+        print(
+            "[WM][Maszyny] source=AUTO→LEGACY "
+            f"file={os.path.abspath(LEGACY_DATA)} "
+            f"cnt={count_legacy} ids[{_ids_preview(legacy_rows)}]"
+        )
+        return sort_machines(legacy_rows), "legacy", LEGACY_DATA
+
+    if count_primary:
+        print(
+            "[WM][Maszyny] source=AUTO→PRIMARY "
+            f"file={os.path.abspath(PRIMARY_DATA)} "
+            f"cnt={count_primary} ids[{_ids_preview(primary_rows)}]"
+        )
+        return sort_machines(primary_rows), "primary", PRIMARY_DATA
+
+    print(
+        "[WM][Maszyny] source=EMPTY (oba pliki puste lub błędne) "
+        f"primary={PRIMARY_DATA} legacy={LEGACY_DATA}"
+    )
+    return [], "primary", PRIMARY_DATA
 
 
 def load_machines(mode: str = "auto") -> Tuple[List[dict], str, int, int]:
-    mode = mode if mode in SOURCE_MODES else "auto"
-    primary = load_json_file(PRIMARY_DATA)
-    legacy = load_json_file(LEGACY_DATA)
+    choice = (mode or DEFAULT_SOURCE or "auto").lower()
+    if choice not in SOURCE_MODES:
+        choice = "auto"
 
-    count_primary, count_legacy = len(primary), len(legacy)
+    primary_rows = _load_json_file(PRIMARY_DATA)
+    legacy_rows = _load_json_file(LEGACY_DATA)
+    count_primary, count_legacy = len(primary_rows), len(legacy_rows)
 
-    if mode == "primary":
-        chosen = sort_machines(primary)
-        active_mode = "primary"
-    elif mode == "legacy":
-        chosen = sort_machines(legacy)
-        active_mode = "legacy"
-    else:
-        active_mode = "auto"
-        if primary and legacy:
-            chosen = merge_unique(primary, legacy)
-        elif primary:
-            chosen = sort_machines(primary)
-            active_mode = "primary"
-        elif legacy:
-            chosen = sort_machines(legacy)
-            active_mode = "legacy"
-        else:
-            chosen = []
-            active_mode = "primary"
-
-    return chosen, active_mode, count_primary, count_legacy
+    selected, active_mode, _ = _pick_source(choice, primary_rows, legacy_rows)
+    return selected, active_mode, count_primary, count_legacy
 
 
 def _timestamp() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return now_iso()
+
+
+def now_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def apply_machine_updates(machine: dict, updates: dict) -> bool:
@@ -169,6 +320,4 @@ def apply_machine_updates(machine: dict, updates: dict) -> bool:
 
 def save_machines(rows: Iterable[dict]) -> None:
     data = sort_machines(rows)
-    os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
-    with open(PRIMARY_DATA, "w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
+    _save_json_file(PRIMARY_DATA, data)
