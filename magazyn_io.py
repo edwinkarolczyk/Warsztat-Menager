@@ -104,7 +104,7 @@ def append_history(
     user: str,
     op: str,
     qty: float,
-    comment: str = "",
+    comment: str | None = "",
     ts: str | None = None,
     *,
     komentarz: str | None = None,
@@ -117,7 +117,8 @@ def append_history(
         user: Name of the user performing the operation.
         op: Operation type. Must be one of :data:`ALLOWED_OPS`.
         qty: Positive quantity of the operation.
-        comment: Optional comment stored with the entry.
+        comment: Optional comment stored with the entry. ``None`` is normalized
+            to an empty string.
         ts: Optional timestamp (ISO 8601). Generated when missing.
         komentarz: Polish alias for ``comment``. Overrides ``comment`` when
             provided.
@@ -141,6 +142,8 @@ def append_history(
 
     if komentarz is not None:
         comment = komentarz
+
+    comment = "" if comment is None else str(comment)
 
     entry = {
         "ts": ts,
