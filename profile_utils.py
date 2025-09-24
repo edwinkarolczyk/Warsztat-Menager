@@ -3,10 +3,64 @@
 # Plik: profile_utils.py
 # Pomocnicze: odczyt/zapis uzytkownicy.json + bezpieczne rozszerzanie pól.
 
+from datetime import date, datetime, timezone
+import re
 from pathlib import Path
 
 from io_utils import read_json, write_json
 from utils.path_utils import cfg_path
+
+
+# --- [PROFILE] helpers stażu z zatrudniony_od (YYYY-MM) ---
+_YM_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
+def _anchor_date_from_ym(ym: str) -> date | None:
+    """Konwertuje 'YYYY-MM' -> date(YYYY, MM, 1); toleruje też 'YYYY-MM-DD'."""
+
+    if not ym:
+        return None
+    ym = ym.strip()
+    if _YM_RE.match(ym):
+        y, m = map(int, ym.split("-"))
+        return date(y, m, 1)
+    # tolerancyjnie przyjmij 'YYYY-MM-DD' i zetnij do pierwszego dnia
+    try:
+        dt = datetime.fromisoformat(ym.replace("Z", "+00:00")).date()
+        return date(dt.year, dt.month, 1)
+    except Exception:
+        return None
+
+
+def staz_days_for_login(login: str) -> int:
+    """Zwraca staż w dniach od 'zatrudniony_od' do dzisiaj (UTC). Brak daty => 0."""
+
+    try:
+        from services.profile_service import get_user as svc_get_user
+    except Exception:
+        svc_get_user = None
+
+    try:
+        fetch_user = svc_get_user or get_user
+        user = fetch_user(login)
+    except Exception:
+        # W razie problemów z warstwą serwisową wróć do lokalnego odczytu
+        user = get_user(login)
+
+    u = user or {}
+    ym = (u.get("zatrudniony_od") or "").strip()
+    anchor = _anchor_date_from_ym(ym)
+    if not anchor:
+        return 0
+    today = datetime.now(timezone.utc).date()
+    delta = (today - anchor).days
+    return max(0, delta)
+
+
+def staz_years_floor_for_login(login: str) -> int:
+    """Pełne lata stażu (floor)."""
+
+    return staz_days_for_login(login) // 365
 
 USERS_FILE = cfg_path("data/uzytkownicy.json")
 _DEFAULT_USERS_FILE = USERS_FILE
@@ -182,4 +236,6 @@ __all__ = [
     "get_user",
     "save_user",
     "ensure_user_fields",
+    "staz_days_for_login",
+    "staz_years_floor_for_login",
 ]

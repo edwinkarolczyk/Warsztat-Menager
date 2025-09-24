@@ -8,10 +8,11 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import profile_utils as _pu
 from profile_utils import DEFAULT_USER
+from profile_tasks import get_tasks_for as _get_tasks_for, workload_for as _workload_for
 from logger import log_akcja
 from utils.path_utils import cfg_path
 
@@ -254,6 +255,66 @@ def count_presence(login: str, presence_file: str = "presence.json") -> int:
     return cnt
 
 
+def get_tasks_for(login: str, **kwargs):
+    """Proxy to :func:`profile_tasks.get_tasks_for`."""
+
+    return _get_tasks_for(login, **kwargs)
+
+
+def workload_for(users, **kwargs):
+    """Proxy to :func:`profile_tasks.workload_for`."""
+
+    return _workload_for(users, **kwargs)
+
+
+try:
+    _TASK_FILES  # type: ignore[name-defined]
+except NameError:
+    _TASK_FILES: List[str] = [
+        os.path.join("data", "zlecenia.json"),
+        os.path.join("data", "zadania.json"),
+    ]
+
+
+try:
+    _load_tasks_raw  # type: ignore[name-defined]
+except NameError:
+
+    def _load_tasks_raw() -> List[Dict[str, Any]]:
+        for fp in _TASK_FILES:
+            if os.path.exists(fp):
+                try:
+                    with open(fp, encoding="utf-8") as fh:
+                        data = json.load(fh)
+                except Exception:
+                    continue
+                if isinstance(data, dict):
+                    return [v for v in data.values() if isinstance(v, dict)]
+                if isinstance(data, list):
+                    return [v for v in data if isinstance(v, dict)]
+        return []
+
+
+def tasks_data_status() -> Tuple[bool, Optional[str], int]:
+    """Return information about the availability of task data sources."""
+
+    for fp in _TASK_FILES:
+        if os.path.exists(fp):
+            try:
+                with open(fp, encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except Exception:
+                return False, fp, 0
+            if isinstance(data, dict):
+                count = len([v for v in data.values() if isinstance(v, dict)])
+            elif isinstance(data, list):
+                count = len([v for v in data if isinstance(v, dict)])
+            else:
+                count = 0
+            return True, fp, count
+    return False, None, 0
+
+
 __all__ = [
     "get_user",
     "save_user",
@@ -271,4 +332,7 @@ __all__ = [
     "save_assign_tool",
     "count_presence",
     "DEFAULT_USER",
+    "get_tasks_for",
+    "tasks_data_status",
+    "workload_for",
 ]

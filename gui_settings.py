@@ -22,6 +22,8 @@ class ScrollableFrame(ttk.Frame):
     def __init__(self, parent: tk.Misc, *args: object, **kwargs: object) -> None:
         super().__init__(parent, *args, **kwargs)
         self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self._canvas_alive = True
+        self.canvas.bind("<Destroy>", lambda e: setattr(self, "_canvas_alive", False))
         self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vsb.set)
 
@@ -39,9 +41,11 @@ class ScrollableFrame(ttk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.inner.bind_all("<MouseWheel>", self._on_mousewheel)
-        self.inner.bind_all("<Button-4>", lambda event: self._scroll(-120))
-        self.inner.bind_all("<Button-5>", lambda event: self._scroll(120))
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", lambda event: self._scroll(-120))
+        self.canvas.bind_all("<Button-5>", lambda event: self._scroll(120))
+        top = self.winfo_toplevel()
+        top.bind("<Destroy>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
 
     def _on_canvas_configure(self, event: tk.Event) -> None:
         """Ensure the inner frame matches the canvas width."""
@@ -51,16 +55,30 @@ class ScrollableFrame(ttk.Frame):
     def _on_mousewheel(self, event: tk.Event) -> None:
         """Scroll canvas when mouse wheel is used (Windows/Linux)."""
 
-        delta = getattr(event, "delta", 0)
-        if delta:
-            self._scroll(-int(delta / 120) * 30)
+        delta = getattr(event, "delta", 0) or 0
+        try:
+            step = -int(delta / 120) * 30
+        except Exception:
+            step = 0
+        if step:
+            self._scroll(step)
 
-    def _scroll(self, pixels: int) -> None:
-        """Perform vertical scrolling by the given pixel delta."""
+    def _scroll(self, units: int) -> None:
+        """Perform vertical scrolling by the given unit delta, handling widget teardown."""
 
-        units = int(pixels / 10) if pixels else 0
-        if units:
-            self.canvas.yview_scroll(units, "units")
+        c = getattr(self, "canvas", None)
+        if not c or not self._canvas_alive:
+            print("[WM-DBG][SETTINGS] Scroll przerwany: canvas nie istnieje/already destroyed")
+            return
+        try:
+            if c.winfo_exists():
+                c.yview_scroll(units, "units")
+            else:
+                print("[WM-DBG][SETTINGS] Scroll przerwany: winfo_exists=False")
+        except tk.TclError:
+            # Canvas został zniszczony w trakcie callbacku – ignorujemy
+            self._canvas_alive = False
+            print("[WM-DBG][SETTINGS] Ignoruję scroll po zniszczeniu canvas (TclError)")
 
 # A-2e: alias do edytora advanced (wyszukiwarka, limity, kolekcje NN/SN)
 try:

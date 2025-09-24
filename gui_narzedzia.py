@@ -352,22 +352,70 @@ def _clean_list(lst):
     return out
 
 def _task_templates_from_config():
+    """
+    Zwraca listę szablonów zadań. Preferuje config['tools']['task_templates'].
+    Zgodność wsteczna: stare klucze w configu oraz domyślne stałe.
+    """
     try:
+        cfg_mgr = ConfigManager()
+        templates = cfg_mgr.get("tools.task_templates", None)
+        if isinstance(templates, list) and templates:
+            clean = [str(x).strip() for x in templates if str(x).strip()]
+            # usuwamy duplikaty z zachowaniem kolejności
+            out, seen = [], set()
+            for t in clean:
+                tl = t.lower()
+                if tl not in seen:
+                    seen.add(tl)
+                    out.append(t)
+            return out
+        # fallback: stary config
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
         return lst or TASK_TEMPLATES_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return TASK_TEMPLATES_DEFAULT
 
 def _stare_convert_templates_from_config():
+    """
+    Zwraca alternatywne szablony (tryb 'stare').
+    Preferuje tools.task_templates, a jeśli pusto – stary klucz lub stałą
+    STARE_CONVERT_TEMPLATES_DEFAULT.
+    """
+
     try:
+        cfg_mgr = ConfigManager()
+        templates = cfg_mgr.get("tools.task_templates", None)
+        if isinstance(templates, list) and templates:
+            clean = [str(x).strip() for x in templates if str(x).strip()]
+            out, seen = [], set()
+            for t in clean:
+                tl = t.lower()
+                if tl not in seen:
+                    seen.add(tl)
+                    out.append(t)
+            return out
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
         return lst or STARE_CONVERT_TEMPLATES_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
 def _types_from_config():
+    """
+    Zwraca listę typów narzędzi. Preferuje config['tools']['types'].
+    Fallback: kolekcja domyślna/loader, następnie stare klucze, na końcu stała.
+    """
+    # 1) nowe ustawienia
+    try:
+        cfg_mgr = ConfigManager()
+        types = cfg_mgr.get("tools.types", None)
+        if isinstance(types, list) and types:
+            clean = [str(x).strip() for x in types if str(x).strip()]
+            return clean
+    except Exception:
+        pass
+    # 2) loader kolekcji (jeśli istnieje)
     try:
         cfg_mgr = ConfigManager()
         default_collection = cfg_mgr.get("tools.default_collection", "NN") or "NN"
@@ -376,11 +424,12 @@ def _types_from_config():
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
+    # 3) stare klucze w configu
     try:
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
         return lst or TYPY_NARZEDZI_DEFAULT
-    except (OSError, json.JSONDecodeError, TypeError):
+    except Exception:
         return TYPY_NARZEDZI_DEFAULT
 
 def _append_type_to_config(new_type: str) -> bool:
@@ -929,14 +978,46 @@ def _generate_dxf_preview(dxf_path: str) -> str | None:
 
 # ===================== STATUSY / NORMALIZACJA =====================
 def _statusy_for_mode(mode):
+    """
+    Zwraca listę statusów. Preferuje config['tools']['statuses'] (kolejność
+    globalna). Fallback: definicje dla typu/trybu oraz stare klucze/stałe.
+    Gwarantuje obecność 'sprawne' bez naruszania kolejności.
+    """
+
+    # 1) nowe ustawienia – globalna kolejność
+    try:
+        cfg_mgr = ConfigManager()
+        statuses = cfg_mgr.get("tools.statuses", None)
+        if isinstance(statuses, list) and statuses:
+            ordered = [str(s).strip() for s in statuses if str(s).strip()]
+        else:
+            ordered = []
+    except Exception:
+        ordered = []
+
+    if ordered:
+        # dopnij 'sprawne' jeśli brak
+        if "sprawne" not in [x.lower() for x in ordered]:
+            ordered.append("sprawne")
+        return ordered
+
+    # 2) fallback: stare klucze/tryby
     cfg = _load_config()
     if mode == "NOWE":
-        lst = _clean_list(cfg.get("statusy_narzedzi_nowe")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_NOWE_DEFAULT[:]
+        statuses = (
+            _clean_list(cfg.get("statusy_narzedzi_nowe"))
+            or _clean_list(cfg.get("statusy_narzedzi"))
+            or STATUSY_NOWE_DEFAULT[:]
+        )
     else:
-        lst = _clean_list(cfg.get("statusy_narzedzi_stare")) or _clean_list(cfg.get("statusy_narzedzi")) or STATUSY_STARE_DEFAULT[:]
-    if "sprawne" not in [x.lower() for x in lst]:
-        lst = lst + ["sprawne"]
-    return lst
+        statuses = (
+            _clean_list(cfg.get("statusy_narzedzi_stare"))
+            or _clean_list(cfg.get("statusy_narzedzi"))
+            or STATUSY_STARE_DEFAULT[:]
+        )
+    if "sprawne" not in [x.lower() for x in statuses]:
+        statuses.append("sprawne")
+    return statuses
 
 def _normalize_status(s: str) -> str:
     sl = (s or "").strip().lower()
