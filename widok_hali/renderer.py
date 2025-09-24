@@ -3,7 +3,50 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-__all__ = ["Renderer", "draw_background"]
+# upewnij się, że eksportujemy nazwy funkcyjne używane przez stary kod
+try:
+    __all__
+except NameError:
+    __all__ = []
+for _name in ("Renderer", "draw_background", "draw_grid"):
+    if _name not in __all__:
+        __all__.append(_name)
+
+
+def draw_grid(*args, grid_size: int = 24, line: str = "#1e293b") -> None:
+    """
+    Kompatybilna wstecznie funkcja rysująca samą SIATKĘ.
+    Akceptuje oba warianty wywołania spotykane w projekcie:
+      - draw_grid(canvas, ...)
+      - draw_grid(root, canvas, ...)
+    """
+
+    if not args:
+        return
+
+    # wariant (canvas, ...)
+    if isinstance(args[0], tk.Canvas):
+        canvas = args[0]
+    # wariant (root, canvas, ...)
+    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
+        canvas = args[1]
+    else:
+        return
+
+    try:
+        w = int(canvas.winfo_width() or canvas["width"])
+        h = int(canvas.winfo_height() or canvas["height"])
+    except Exception:
+        # fallback – jeśli jeszcze nie zrealizowany layout
+        w = int(canvas["width"]) if "width" in str(canvas.keys()) else 700
+        h = int(canvas["height"]) if "height" in str(canvas.keys()) else 520
+
+    # siatka
+    if grid_size and grid_size > 0:
+        for x in range(0, w, grid_size):
+            canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
+        for y in range(0, h, grid_size):
+            canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
 
 
 def draw_background(
