@@ -1,5 +1,5 @@
-import math
 import os
+
 import tkinter as tk
 from tkinter import messagebox
 
@@ -8,45 +8,15 @@ try:
     __all__
 except NameError:
     __all__ = []
-for _name in ("Renderer", "draw_background", "draw_grid", "draw_machine"):
+for _name in (
+    "Renderer",
+    "draw_background",
+    "draw_grid",
+    "draw_machine",
+    "draw_status_overlay",
+):
     if _name not in __all__:
         __all__.append(_name)
-
-
-def draw_grid(*args, grid_size: int = 24, line: str = "#1e293b") -> None:
-    """
-    Kompatybilna wstecznie funkcja rysująca samą SIATKĘ.
-    Akceptuje oba warianty wywołania spotykane w projekcie:
-      - draw_grid(canvas, ...)
-      - draw_grid(root, canvas, ...)
-    """
-
-    if not args:
-        return
-
-    # wariant (canvas, ...)
-    if isinstance(args[0], tk.Canvas):
-        canvas = args[0]
-    # wariant (root, canvas, ...)
-    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
-        canvas = args[1]
-    else:
-        return
-
-    try:
-        w = int(canvas.winfo_width() or canvas["width"])
-        h = int(canvas.winfo_height() or canvas["height"])
-    except Exception:
-        # fallback – jeśli jeszcze nie zrealizowany layout
-        w = int(canvas["width"]) if "width" in str(canvas.keys()) else 700
-        h = int(canvas["height"]) if "height" in str(canvas.keys()) else 520
-
-    # siatka
-    if grid_size and grid_size > 0:
-        for x in range(0, w, grid_size):
-            canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
-        for y in range(0, h, grid_size):
-            canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
 
 
 def draw_background(
@@ -54,22 +24,15 @@ def draw_background(
     grid_size: int = 24,
     bg: str = "#0f172a",
     line: str = "#1e293b",
+    **kwargs,
 ) -> None:
-    """
-    Kompatybilna wstecznie funkcja tła Hali.
-    Akceptuje oba warianty wywołania spotykane w projekcie:
-      - draw_background(canvas, ...)
-      - draw_background(root, canvas, ...)
-    Rysuje jednolite tło i siatkę co 'grid_size' px.
-    """
+    """Rysuje tło i siatkę (kompatybilność legacy)."""
 
     if not args:
         return
 
-    # wariant (canvas, ...)
     if isinstance(args[0], tk.Canvas):
         canvas = args[0]
-    # wariant (root, canvas, ...)
     elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
         canvas = args[1]
     else:
@@ -79,53 +42,61 @@ def draw_background(
         w = int(canvas.winfo_width() or canvas["width"])
         h = int(canvas.winfo_height() or canvas["height"])
     except Exception:
-        # fallback – jeśli jeszcze nie zrealizowany layout
-        w = int(canvas["width"]) if "width" in str(canvas.keys()) else 700
-        h = int(canvas["height"]) if "height" in str(canvas.keys()) else 520
+        w, h = 700, 520
 
-    # tło
     canvas.create_rectangle(0, 0, w, h, fill=bg, outline=bg, tags=("background",))
-
-    # siatka
-    if grid_size and grid_size > 0:
+    if grid_size > 0:
         for x in range(0, w, grid_size):
             canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
         for y in range(0, h, grid_size):
             canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
 
-def draw_machine(*args, **kwargs) -> None:
-    """
-    Kompatybilna wstecznie funkcja rysująca maszynę.
-    Starszy kod GUI importuje draw_machine, więc musi istnieć.
-    Obecnie przekierowuje do Renderer (nowa logika).
-    """
+
+def draw_grid(*args, grid_size: int = 24, line: str = "#1e293b", **kwargs) -> None:
+    """Rysuje samą siatkę (kompatybilność legacy)."""
+
+    if not args:
+        return
+
+    if isinstance(args[0], tk.Canvas):
+        canvas = args[0]
+    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
+        canvas = args[1]
+    else:
+        return
 
     try:
-        # próba odczytu parametrów
+        w = int(canvas.winfo_width() or canvas["width"])
+        h = int(canvas.winfo_height() or canvas["height"])
+    except Exception:
+        w, h = 700, 520
+
+    for x in range(0, w, grid_size):
+        canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
+    for y in range(0, h, grid_size):
+        canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
+
+def draw_machine(*args, **kwargs) -> None:
+    """Rysuje pojedynczą maszynę jako kropkę z numerem ewidencyjnym (kompatybilność legacy)."""
+
+    try:
         if "canvas" in kwargs and "machine" in kwargs:
-            canvas = kwargs["canvas"]
-            machine = kwargs["machine"]
+            canvas, machine = kwargs["canvas"], kwargs["machine"]
         elif len(args) >= 2:
             canvas, machine = args[0], args[1]
         else:
             return
 
-        # wyciągamy numer ewidencyjny
         mid = str(machine.get("id") or machine.get("nr_ewid") or "?")
         status = machine.get("status", "sprawna")
-
-        # kolor wg statusu
-        color = {
-            "sprawna": "green",
-            "modyfikacja": "yellow",
-            "awaria": "red",
-        }.get(status, "gray")
-
-        # pozycja
+        color = {"sprawna": "green", "modyfikacja": "yellow", "awaria": "red"}.get(
+            status,
+            "gray",
+        )
         x = int(machine.get("pozycja", {}).get("x", 50))
         y = int(machine.get("pozycja", {}).get("y", 50))
 
-        r = 14  # promień kropki
+        r = 14
         canvas.create_oval(
             x - r,
             y - r,
@@ -144,8 +115,40 @@ def draw_machine(*args, **kwargs) -> None:
             font=("TkDefaultFont", 8, "bold"),
             tags=("machine_label", mid),
         )
-    except Exception as e:  # pragma: no cover - funkcja awaryjna
-        print(f"[WARN][Renderer] draw_machine fallback error: {e}")
+    except Exception as e:
+        print(f"[WARN][Renderer] draw_machine error: {e}")
+
+
+def draw_status_overlay(*args, **kwargs) -> None:
+    """Rysuje dodatkową nakładkę statusu (np. migająca czerwona awaria)."""
+
+    try:
+        if "canvas" in kwargs and "machine" in kwargs:
+            canvas, machine = kwargs["canvas"], kwargs["machine"]
+        elif len(args) >= 2:
+            canvas, machine = args[0], args[1]
+        else:
+            return
+
+        mid = str(machine.get("id") or machine.get("nr_ewid") or "?")
+        status = machine.get("status", "sprawna")
+
+        if status == "awaria":
+            x = int(machine.get("pozycja", {}).get("x", 50))
+            y = int(machine.get("pozycja", {}).get("y", 50))
+            r = 20
+            canvas.create_oval(
+                x - r,
+                y - r,
+                x + r,
+                y + r,
+                outline="red",
+                width=2,
+                dash=(3, 2),
+                tags=("overlay", mid),
+            )
+    except Exception as e:
+        print(f"[WARN][Renderer] draw_status_overlay error: {e}")
 
 
 try:
