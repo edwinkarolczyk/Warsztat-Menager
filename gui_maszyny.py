@@ -222,68 +222,43 @@ class MaszynyGUI:
         )
         self._reload_tree()
 
-        right = tk.Frame(main, width=460)
+        # RIGHT: hala
+        right = tk.Frame(main, width=720, bg=main["bg"])   # było ~480
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
 
-        header = tk.Frame(right)
-        header.pack(fill="x", padx=8, pady=(10, 6))
-        tk.Label(header, text="Hala (podgląd/edycja)").pack(side="left")
+        hdr = tk.Frame(right, bg=right["bg"]); hdr.pack(fill="x", padx=8, pady=(10, 6))
+        tk.Label(hdr, text="Hala (podgląd/edycja)", anchor="w").pack(side="left")
+        self._mode_var = tk.StringVar(value="view")
+        ttk.Radiobutton(hdr, text="Widok", variable=self._mode_var, value="view",
+                        command=lambda: self._set_hala_mode("view")).pack(side="right", padx=4)
+        ttk.Radiobutton(hdr, text="Edycja", variable=self._mode_var, value="edit",
+                        command=lambda: self._set_hala_mode("edit")).pack(side="right", padx=4)
 
-        ttk.Radiobutton(
-            header,
-            text="Widok",
-            variable=self._mode_var,
-            value="view",
-            command=lambda: self._set_hala_mode("view"),
-        ).pack(side="right", padx=4)
-        ttk.Radiobutton(
-            header,
-            text="Edycja",
-            variable=self._mode_var,
-            value="edit",
-            command=lambda: self._set_hala_mode("edit"),
-        ).pack(side="right", padx=4)
-
+        # większy obszar rysowania – ~110 kropek bez ścisku
         self._canvas = tk.Canvas(
             right,
-            width=440,
-            height=360,
+            width=700,     # było ~460
+            height=520,    # było ~380
             bg="#0f172a",
             highlightthickness=1,
-            highlightbackground="#334155",
+            highlightbackground="#334155"
         )
         self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
-        if Renderer:
-            try:
-                self._renderer = Renderer(self.root, self._canvas, self._machines)
-            except Exception as exc:  # pragma: no cover - zależne od renderer'a
-                self._renderer = None
-                print(f"[ERROR][Maszyny] Nie udało się zainicjalizować Renderer: {exc}")
-                self._set_details_button_enabled(False)
-                tk.Label(
-                    self._canvas,
-                    text="Błąd inicjalizacji renderer'a",
-                    fg="#fca5a5",
-                    bg="#0f172a",
-                ).place(x=20, y=20)
-            else:
-                self._renderer.on_select = self._on_hala_select
-                self._renderer.on_move = self._on_hala_move
-                if hasattr(self._renderer, "on_update"):
-                    self._renderer.on_update = self._on_machine_update
-                self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
-                self._set_hala_mode("view")
-                self._set_details_button_enabled(True)
-        else:
-            self._set_details_button_enabled(False)
-            tk.Label(
-                self._canvas,
-                text="Brak widok_hali/renderer.py",
-                fg="#fca5a5",
-                bg="#0f172a",
-            ).place(x=20, y=20)
+        if Renderer is None:
+            tk.Label(self._canvas, text="Brak widok_hali/renderer.py", fg="#fca5a5", bg="#0f172a").place(x=20, y=20)
+            return
+
+        self._renderer = Renderer(self.root, self._canvas, self._machines)
+
+        self._renderer.on_select = self._on_hala_select
+        self._renderer.on_move = self._on_hala_move
+        if hasattr(self._renderer, "on_update"):
+            self._renderer.on_update = self._on_machine_update
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+        self._set_hala_mode("view")
+        self._set_details_button_enabled(True)
 
     def _on_source_change(self) -> None:
         self._machines = self._load_machines()
