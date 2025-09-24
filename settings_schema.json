@@ -657,9 +657,7 @@
               "key": "updates.btn_pull_branch",
               "label": "Pobierz z gałęzi",
               "action": "updater.pull_branch",
-              "params": {
-                "branch_key": "updates.branch_name"
-              }
+              "params": { "branch_key": "updates.branch_name" }
             },
             {
               "type": "button",
