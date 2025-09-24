@@ -2,6 +2,9 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
+ENABLE_TOOLTIP_IMAGE = False
+HOVER_DELAY_MS = 150
+
 try:
     from PIL import Image, ImageTk
 except Exception:
@@ -163,6 +166,9 @@ class Renderer:
 
         self._tooltip_win: tk.Toplevel | None = None
         self._tooltip_img = None
+        self._hover_job = None
+        self._hover_mid = None
+        self._hover_event = None
 
         self._draw_all()
         self._start_blink()
@@ -343,6 +349,19 @@ class Renderer:
         mid = self._mid_from_event(event)
         if not mid:
             return
+
+        if hasattr(self, "_hover_job") and self._hover_job:
+            self.canvas.after_cancel(self._hover_job)
+        self._hover_mid = mid
+        self._hover_event = event
+        self._hover_job = self.canvas.after(HOVER_DELAY_MS, self._show_tooltip)
+
+    def _show_tooltip(self):
+        mid = getattr(self, "_hover_mid", None)
+        event = getattr(self, "_hover_event", None)
+        if not mid or not event:
+            return
+        self._hover_job = None
         m = None
         for r in self.machines:
             if str(r.get("id") or r.get("nr_ewid")) == str(mid):
@@ -353,6 +372,7 @@ class Renderer:
         if self._tooltip_win:
             try: self._tooltip_win.destroy()
             except: pass
+
         win = tk.Toplevel(self.canvas)
         win.wm_overrideredirect(True)
         win.attributes("-topmost", True)
@@ -366,13 +386,20 @@ class Renderer:
         tk.Label(frm, bg="#111827", fg="#e5e7eb", justify="left",
                  text=text, font=("Segoe UI", 9)).pack(padx=8, pady=6, side="left")
 
-        img = self._load_thumb(m)
-        if img:
-            self._tooltip_img = img
-            tk.Label(frm, image=img, bg="#111827").pack(padx=8, pady=6, side="right")
+        if ENABLE_TOOLTIP_IMAGE:
+            img = self._load_thumb(m)
+            if img:
+                self._tooltip_img = img
+                tk.Label(frm, image=img, bg="#111827").pack(padx=8, pady=6, side="right")
+
         self._tooltip_win = win
 
     def _on_hover_leave(self, event):
+        if hasattr(self, "_hover_job") and self._hover_job:
+            self.canvas.after_cancel(self._hover_job)
+            self._hover_job = None
+        self._hover_mid = None
+        self._hover_event = None
         if self._tooltip_win:
             try: self._tooltip_win.destroy()
             except: pass
