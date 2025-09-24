@@ -267,6 +267,36 @@
               "placeholder": "np. C:\\\\wm\\\\data\\\\hala_bg.jpg"
             },
             {
+              "type": "button",
+              "key": "hall.background_image_pick",
+              "label": "Wybierz z dysku…",
+              "action": "dialog.open_file",
+              "params": {
+                "filters": ["*.png","*.jpg","*.jpeg"],
+                "write_to_key": "hall.background_image"
+              }
+            },
+            {
+              "type": "select",
+              "key": "hall.background_fit",
+              "label": "Dopasowanie tła",
+              "options": [
+                {"label":"Dopasuj (contain)","value":"contain"},
+                {"label":"Wypełnij (cover)","value":"cover"},
+                {"label":"Rozciągnij","value":"stretch"},
+                {"label":"Oryginalny rozmiar","value":"none"}
+              ],
+              "default": "contain"
+            },
+            {
+              "type": "number",
+              "key": "hall.background_opacity",
+              "label": "Przezroczystość tła (%)",
+              "default": 100,
+              "min": 0,
+              "max": 100
+            },
+            {
               "type": "boolean",
               "key": "hall.show_numbers",
               "label": "Pokaż numery hal na maszynach",
