@@ -8,7 +8,7 @@ try:
     __all__
 except NameError:
     __all__ = []
-for _name in ("Renderer", "draw_background", "draw_grid"):
+for _name in ("Renderer", "draw_background", "draw_grid", "draw_machine"):
     if _name not in __all__:
         __all__.append(_name)
 
@@ -92,6 +92,61 @@ def draw_background(
             canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
         for y in range(0, h, grid_size):
             canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
+
+def draw_machine(*args, **kwargs) -> None:
+    """
+    Kompatybilna wstecznie funkcja rysująca maszynę.
+    Starszy kod GUI importuje draw_machine, więc musi istnieć.
+    Obecnie przekierowuje do Renderer (nowa logika).
+    """
+
+    try:
+        # próba odczytu parametrów
+        if "canvas" in kwargs and "machine" in kwargs:
+            canvas = kwargs["canvas"]
+            machine = kwargs["machine"]
+        elif len(args) >= 2:
+            canvas, machine = args[0], args[1]
+        else:
+            return
+
+        # wyciągamy numer ewidencyjny
+        mid = str(machine.get("id") or machine.get("nr_ewid") or "?")
+        status = machine.get("status", "sprawna")
+
+        # kolor wg statusu
+        color = {
+            "sprawna": "green",
+            "modyfikacja": "yellow",
+            "awaria": "red",
+        }.get(status, "gray")
+
+        # pozycja
+        x = int(machine.get("pozycja", {}).get("x", 50))
+        y = int(machine.get("pozycja", {}).get("y", 50))
+
+        r = 14  # promień kropki
+        canvas.create_oval(
+            x - r,
+            y - r,
+            x + r,
+            y + r,
+            fill=color,
+            outline="black",
+            width=1,
+            tags=("machine", mid),
+        )
+        canvas.create_text(
+            x,
+            y,
+            text=mid,
+            fill="white",
+            font=("TkDefaultFont", 8, "bold"),
+            tags=("machine_label", mid),
+        )
+    except Exception as e:  # pragma: no cover - funkcja awaryjna
+        print(f"[WARN][Renderer] draw_machine fallback error: {e}")
+
 
 try:
     from PIL import Image, ImageTk
