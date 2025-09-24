@@ -459,6 +459,11 @@
                   "key": "tools.auto_check_on_last_status",
                   "label": "Odhaczaj zadania przy ostatnim statusie",
                   "default": true
+                },
+                {
+                  "type": "info",
+                  "key": "tools.auto_check_hint",
+                  "text": "Jeśli włączone: po ustawieniu ostatniego statusu z listy 'Statusy narzędzi' wszystkie zadania zostaną oznaczone jako wykonane."
                 }
               ]
             },
