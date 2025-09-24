@@ -1,5 +1,54 @@
-import os, tkinter as tk
+import math
+import os
+import tkinter as tk
 from tkinter import messagebox
+
+__all__ = ["Renderer", "draw_background"]
+
+
+def draw_background(
+    *args,
+    grid_size: int = 24,
+    bg: str = "#0f172a",
+    line: str = "#1e293b",
+) -> None:
+    """
+    Kompatybilna wstecznie funkcja tła Hali.
+    Akceptuje oba warianty wywołania spotykane w projekcie:
+      - draw_background(canvas, ...)
+      - draw_background(root, canvas, ...)
+    Rysuje jednolite tło i siatkę co 'grid_size' px.
+    """
+
+    if not args:
+        return
+
+    # wariant (canvas, ...)
+    if isinstance(args[0], tk.Canvas):
+        canvas = args[0]
+    # wariant (root, canvas, ...)
+    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
+        canvas = args[1]
+    else:
+        return
+
+    try:
+        w = int(canvas.winfo_width() or canvas["width"])
+        h = int(canvas.winfo_height() or canvas["height"])
+    except Exception:
+        # fallback – jeśli jeszcze nie zrealizowany layout
+        w = int(canvas["width"]) if "width" in str(canvas.keys()) else 700
+        h = int(canvas["height"]) if "height" in str(canvas.keys()) else 520
+
+    # tło
+    canvas.create_rectangle(0, 0, w, h, fill=bg, outline=bg, tags=("background",))
+
+    # siatka
+    if grid_size and grid_size > 0:
+        for x in range(0, w, grid_size):
+            canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
+        for y in range(0, h, grid_size):
+            canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
 
 try:
     from PIL import Image, ImageTk
