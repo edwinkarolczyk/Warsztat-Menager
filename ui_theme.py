@@ -285,7 +285,16 @@ def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
         borderwidth=0,
         relief="flat",
     )
-    style.map("WM.Side.TButton", **button_map)
+    side_active = c.get("line", "#2c2d31")
+    style.map(
+        "WM.Side.TButton",
+        background=[("active", side_active), ("pressed", side_active)],
+        foreground=[
+            ("active", c["text"]),
+            ("pressed", c["text"]),
+            ("disabled", c["muted"]),
+        ],
+    )
 
     style.configure(
         "WM.Button.TButton",
