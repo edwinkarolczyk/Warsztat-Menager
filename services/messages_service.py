@@ -6,7 +6,7 @@ import os
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, Iterable, List, Optional
 
 BASE_DIR = os.path.join("data", "messages")
 os.makedirs(BASE_DIR, exist_ok=True)
@@ -57,11 +57,30 @@ def send_message(
     _append(to, dict(msg, folder="inbox"))
     return msg
 
-def list_inbox(login: str) -> List[Dict[str, Any]]:
-    return [m for m in _read_all(login) if m.get("folder") == "inbox"]
+def _matches_query(message: Dict[str, Any], query: Optional[str]) -> bool:
+    if not query:
+        return True
+    text = str(query).strip().lower()
+    if not text:
+        return True
+    for key in ("subject", "body", "from", "to"):
+        value = str(message.get(key, "")).lower()
+        if text in value:
+            return True
+    return False
 
-def list_sent(login: str) -> List[Dict[str, Any]]:
-    return [m for m in _read_all(login) if m.get("folder") == "sent"]
+def _filter_messages(messages: Iterable[Dict[str, Any]], query: Optional[str]) -> List[Dict[str, Any]]:
+    return [m for m in messages if _matches_query(m, query)]
+
+
+def list_inbox(login: str, q: Optional[str] = None) -> List[Dict[str, Any]]:
+    messages = (m for m in _read_all(login) if m.get("folder") == "inbox")
+    return _filter_messages(messages, q)
+
+
+def list_sent(login: str, q: Optional[str] = None) -> List[Dict[str, Any]]:
+    messages = (m for m in _read_all(login) if m.get("folder") == "sent")
+    return _filter_messages(messages, q)
 
 def mark_read(login: str, msg_id: str, read: bool = True) -> bool:
     """Prosta implementacja: przepisuje plik ustawiając 'read' dla danego id w Inbox."""
@@ -78,3 +97,18 @@ def mark_read(login: str, msg_id: str, read: bool = True) -> bool:
             fh.write(json.dumps(m, ensure_ascii=False) + "\n")
     os.replace(tmp, p)
     return changed
+
+
+def last_inbox_ts(login: str) -> Optional[str]:
+    """Return timestamp of the newest inbox message for ``login``."""
+
+    latest: Optional[str] = None
+    for message in _read_all(login):
+        if message.get("folder") != "inbox":
+            continue
+        ts = message.get("ts")
+        if not isinstance(ts, str):
+            continue
+        if latest is None or str(ts) > str(latest):
+            latest = str(ts)
+    return latest
