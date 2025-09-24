@@ -338,6 +338,39 @@
               "default": true
             }
           ]
+        },
+        {
+          "title": "Pomieszczenia i ściany (ustawienia)",
+          "fields": [
+            {
+              "type": "boolean",
+              "key": "hall.rooms_enabled",
+              "label": "Włącz warstwę pomieszczeń",
+              "default": true
+            },
+            {
+              "type": "number",
+              "key": "hall.rooms_limit",
+              "label": "Maks. liczba pomieszczeń",
+              "default": 10,
+              "min": 1,
+              "max": 50
+            },
+            {
+              "type": "array",
+              "key": "hall.room_types",
+              "label": "Typy pomieszczeń",
+              "default": ["Biuro","Magazyn","Produkcja","Kontrola","Komunikacja"]
+            },
+            {
+              "type": "number",
+              "key": "hall.default_wall_thickness_mm",
+              "label": "Domyślna grubość ściany (mm)",
+              "default": 120,
+              "min": 50,
+              "max": 500
+            }
+          ]
         }
       ]
     },
