@@ -44,6 +44,7 @@ from services.profile_service import (
     get_all_users,
     get_user,
     get_tasks_for,
+    tasks_data_status,
     load_assign_orders,
     load_assign_tools,
     load_status_overrides,
@@ -1345,43 +1346,60 @@ class ProfileView(ttk.Frame):
     def _build_tasks_tab(self, parent: ttk.Frame) -> None:
         wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrap.pack(fill="both", expand=True)
-        ttk.Label(
-            wrap,
-            text="ZADANIA",
-            style="WM.CardMuted.TLabel",
-        ).pack(anchor="w", pady=(0, 8))
-
-        rows = get_tasks_for(self.login) or []
-        print(
-            f"[WM-DBG][TASKS] get_tasks_for('{self.login}') -> {len(rows)} rekordów"
+        ttk.Label(wrap, text="ZADANIA", style="WM.CardMuted.TLabel").pack(
+            anchor="w", pady=(0, 8)
         )
-        if not rows:
+
+        ok, src, count = tasks_data_status()
+        if not ok:
+            msg = (
+                "Brak źródła zadań. Utwórz plik data/zadania.json lub data/zlecenia.json."
+            )
+            if src:
+                msg = (
+                    f"Nie można odczytać źródła zadań: {src}\nSprawdź format JSON."
+                )
             ttk.Label(
-                wrap,
-                text="Brak przypisanych zadań.",
-                style="WM.CardLabel.TLabel",
+                wrap, text=msg, style="WM.Muted.TLabel", justify="left"
             ).pack(anchor="w")
             return
 
-        for task in rows[:200]:
+        rows = get_tasks_for(self.login)
+        if not rows:
+            ttk.Label(
+                wrap,
+                text=(
+                    f"Źródło: {src} (rekordów: {count}). "
+                    "Brak zadań przypisanych do użytkownika."
+                ),
+                style="WM.Muted.TLabel",
+                justify="left",
+            ).pack(anchor="w")
+            return
+
+        ttk.Label(
+            wrap,
+            text=f"Źródło: {src} • Wszystkich rekordów: {count}",
+            style="WM.Muted.TLabel",
+        ).pack(anchor="w", pady=(0, 6))
+
+        for row_data in rows[:300]:
+            rid = row_data.get("id") or row_data.get("kod") or ""
             title = (
-                task.get("title")
-                or task.get("tytul")
-                or task.get("nazwa")
-                or task.get("opis")
+                row_data.get("title")
+                or row_data.get("nazwa")
+                or row_data.get("opis")
                 or "Zadanie"
             )
-            status = task.get("status") or task.get("stan") or "?"
-            deadline = task.get("deadline") or task.get("termin") or ""
-            ident = task.get("id") or task.get("kod") or ""
-            line = (
-                f"{ident} — {title}   • Status: {status}   • Termin: {deadline}"
-                if ident
-                else f"{title}   • Status: {status}   • Termin: {deadline}"
-            )
-            ttk.Label(wrap, text=line, style="WM.CardLabel.TLabel").pack(
-                anchor="w", pady=2
-            )
+            status = row_data.get("status") or row_data.get("stan") or "?"
+            deadline = row_data.get("deadline") or row_data.get("termin") or ""
+            row = ttk.Frame(wrap, style="WM.TFrame")
+            row.pack(fill="x", anchor="w", pady=2)
+            ttk.Label(
+                row,
+                text=f"{rid} — {title} • Status: {status} • Termin: {deadline}",
+                style="WM.CardLabel.TLabel",
+            ).pack(side="left")
 
     def _build_pw_tab(self, parent: ttk.Frame) -> None:
         self._pw_tab_root = wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
