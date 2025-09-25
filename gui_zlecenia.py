@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
+from config.paths import join_path
 from zlecenia_utils import load_orders
 
 try:  # pragma: no cover - środowiska testowe nie wymagają motywu
@@ -62,7 +63,7 @@ def panel_zlecenia(parent: tk.Widget) -> ttk.Frame:
         if not selection:
             return
         order_id = selection[0]
-        path = os.path.join("data", "zlecenia", f"{order_id}.json")
+        path = join_path("paths.orders_dir", f"{order_id}.json")
         if not os.path.exists(path):
             return
         try:
