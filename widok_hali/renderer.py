@@ -1,5 +1,9 @@
 from __future__ import annotations
+
+import json
 import tkinter as tk
+
+from config.paths import get_path
 
 __all__ = [
     "Renderer",
@@ -96,14 +100,19 @@ class Renderer:
       - on_move(mid: str, new_pos: {"x": int, "y": int})
     """
 
-    def __init__(self, root: tk.Tk, canvas: tk.Canvas, machines: list):
+    def __init__(
+        self,
+        root: tk.Tk,
+        canvas: tk.Canvas,
+        machines: list | None = None,
+    ):
         self.root = root
         self.canvas = canvas
-        self.machines = machines or []
 
         self.on_select = None
         self.on_move   = None
 
+        self.machines: list[dict] = []
         self._items_by_id: dict[str, dict] = {}   # mid -> {"dot": id, "label": id, "r": int}
         self._blink_job = None
         self._blink_on  = True
@@ -112,8 +121,71 @@ class Renderer:
         self._drag_mid: str | None = None
         self._drag_off = (0, 0)
 
+        self._bg_image: tk.PhotoImage | None = None
+        self._bg_image_path: str = ""
+        self._bg_image_loaded_from: str = ""
+        self._machines_path: str = ""
+
+        self._configure_data_sources(machines)
+
         self._draw_all()
         self._start_blink()
+
+    # ---------- konfiguracja źródeł danych ----------
+    def _configure_data_sources(self, machines: list | None) -> None:
+        self._update_paths_from_config()
+        self._load_config_background()
+        if machines is None:
+            machines = self._load_machines_from_config()
+        self.machines = self._normalize_machines(machines)
+
+    def _update_paths_from_config(self) -> None:
+        self._bg_image_path = get_path("hall.background_image", "").strip()
+        self._machines_path = get_path("hall.machines_file", "").strip()
+
+    def _load_config_background(self) -> None:
+        if not self._bg_image_path:
+            self._bg_image = None
+            self._bg_image_loaded_from = ""
+            return
+        if (
+            self._bg_image_loaded_from == self._bg_image_path
+            and self._bg_image is not None
+        ):
+            return
+        if self._load_bg_image(self._bg_image_path):
+            self._bg_image_loaded_from = self._bg_image_path
+        else:
+            self._bg_image_loaded_from = ""
+
+    def _load_bg_image(self, path: str) -> bool:
+        try:
+            self._bg_image = tk.PhotoImage(file=path)
+        except Exception:
+            self._bg_image = None
+            return False
+        return True
+
+    def _load_machines_from_config(self) -> list[dict]:
+        if not self._machines_path:
+            return []
+        try:
+            with open(self._machines_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return []
+        except json.JSONDecodeError:
+            return []
+        except Exception:
+            return []
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+        return []
+
+    def _normalize_machines(self, machines: list | None) -> list[dict]:
+        if not machines:
+            return []
+        return [m for m in machines if isinstance(m, dict)]
 
     # ---------- rysowanie ----------
     def _dot_radius(self) -> int:
@@ -129,7 +201,17 @@ class Renderer:
         self._items_by_id.clear()
 
         # tło + siatka
-        draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
+        if self._bg_image is not None:
+            self.canvas.create_image(
+                0,
+                0,
+                image=self._bg_image,
+                anchor="nw",
+                tags=("background", "background-image"),
+            )
+            draw_grid(self.canvas, grid_size=24, line="#1e293b")
+        else:
+            draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
 
         # maszyny
         for m in self.machines:
@@ -198,8 +280,8 @@ class Renderer:
     def set_edit_mode(self, on: bool):
         self._edit_mode = bool(on)
 
-    def reload(self, machines: list):
-        self.machines = machines or []
+    def reload(self, machines: list | None = None):
+        self._configure_data_sources(machines)
         self._draw_all()
 
     def focus_machine(self, mid: str):
