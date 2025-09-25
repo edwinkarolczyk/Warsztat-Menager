@@ -14,7 +14,11 @@ from tkinter import messagebox, ttk
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils_maszyny import SOURCE_MODES, index_by_id, save_machines, sort_machines
-from widok_hali.renderer import Renderer
+try:
+    from widok_hali.renderer import Renderer
+except Exception as exc:  # pragma: no cover - zależności opcjonalne
+    Renderer = None  # type: ignore[assignment]
+    print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
 
 PRIMARY_DATA = os.path.join("data", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
@@ -352,14 +356,24 @@ class MaszynyGUI:
         )
         self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
-        # tylko Renderer (bez starych funkcji)
-        self._renderer = Renderer(self.root, self._canvas, self._machines)
+        if Renderer is not None:
+            # tylko Renderer (bez starych funkcji)
+            self._renderer = Renderer(self.root, self._canvas, self._machines)
 
-        self._renderer.on_select = self._on_hala_select
-        self._renderer.on_move = self._on_hala_move
-        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
-        self._set_hala_mode("view")
-        self._set_details_button_enabled(True)
+            self._renderer.on_select = self._on_hala_select
+            self._renderer.on_move = self._on_hala_move
+            self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+            self._set_hala_mode("view")
+            self._set_details_button_enabled(True)
+        else:
+            self._renderer = None
+            self._set_details_button_enabled(False)
+            self._canvas.create_text(
+                320,
+                260,
+                text="Brak modułu widoku hali",
+                fill="#94a3b8",
+            )
 
     def _on_source_change(self) -> None:
         self._machines = self._load_machines()
