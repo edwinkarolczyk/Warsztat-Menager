@@ -445,7 +445,7 @@ class SettingsPanel:
             )
         else:
             self.cfg = ConfigManager()
-        self.settings_state: dict[str, Any] = {}
+        self.settings_state = self._load_settings_state()
         settings_actions_bind(self.settings_state, on_change=self.on_setting_changed)
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
@@ -476,6 +476,43 @@ class SettingsPanel:
         self.btns.grid(row=0, column=0, sticky="ew")
 
         self._build_ui()
+
+    # ------------------------------------------------------------------
+    def _load_settings_state(self) -> dict[str, Any]:
+        """Return mapping of config keys to their current values."""
+
+        try:
+            cfg = getattr(self, "cfg", None)
+            if cfg is None:
+                return {}
+
+            schema = self._get_schema() or {}
+            state: dict[str, Any] = {}
+
+            def _iter_fields(node: dict[str, Any]):
+                for field in node.get("fields", []):
+                    if field.get("deprecated"):
+                        continue
+                    key = field.get("key")
+                    if key:
+                        yield key, field
+                for child_key in ("tabs", "groups", "subtabs"):
+                    for child in node.get(child_key, []):
+                        yield from _iter_fields(child)
+
+            for key, field in _iter_fields(schema):
+                state[key] = cfg.get(key, field.get("default"))
+
+            for option in schema.get("options", []):
+                if option.get("deprecated"):
+                    continue
+                key = option.get("key")
+                if key:
+                    state[key] = cfg.get(key, option.get("default"))
+
+            return state
+        except Exception:
+            return {}
 
     # ------------------------------------------------------------------
     def _build_ui(self) -> None:
@@ -661,11 +698,19 @@ class SettingsPanel:
                 str(exc),
                 parent=self.master,
             )
+            return
         except Exception as exc:
             messagebox.showerror(
                 "Błąd akcji ustawień",
                 f"Nie udało się wykonać akcji: {exc}",
                 parent=self.master,
+            )
+            return
+
+        write_to_key = params.get("write_to_key")
+        if write_to_key:
+            self.on_setting_changed(
+                write_to_key, self.settings_state.get(write_to_key)
             )
 
     def on_setting_changed(self, key: str, value: Any) -> None:
