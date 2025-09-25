@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
@@ -33,6 +34,7 @@ import ui_hover
 import zadania_assign_io
 import profile_utils
 from config_manager import ConfigManager
+from config.paths import get_path
 from tools_config_loader import (
     load_config,
     get_status_names_for_type,
@@ -351,6 +353,71 @@ def _clean_list(lst):
                 seen.add(sl); out.append(s)
     return out
 
+
+def _load_tools_list_from_file(
+    path_key: str,
+    candidate_keys: Iterable[str] = (),
+    *,
+    dict_value_keys: Iterable[str] = ("name", "title", "label", "value", "id"),
+) -> list[str]:
+    """Load a list of strings from a JSON file resolved via :func:`get_path`."""
+
+    path = get_path(path_key)
+    if not path:
+        return []
+
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        _dbg("Błąd odczytu pliku listy narzędzi:", path, exc)
+        return []
+
+    collected: list[str] = []
+
+    def _append_from(value: object) -> None:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                collected.append(stripped)
+            return
+        if isinstance(value, list):
+            for item in value:
+                _append_from(item)
+            return
+        if isinstance(value, dict):
+            for key in dict_value_keys:
+                candidate = value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    collected.append(candidate.strip())
+                    return
+            for inner in value.values():
+                _append_from(inner)
+
+    if isinstance(data, dict):
+        matched_specific = False
+        for key in candidate_keys:
+            if key is None:
+                continue
+            if key in data:
+                matched_specific = True
+                _append_from(data.get(key))
+                if collected:
+                    break
+        if not collected and not matched_specific:
+            for generic_key in ("values", "items", "list"):
+                if generic_key in data:
+                    _append_from(data.get(generic_key))
+                    if collected:
+                        break
+        if not collected and not matched_specific:
+            for value in data.values():
+                _append_from(value)
+    else:
+        _append_from(data)
+
+    return collected
+
 def _task_templates_from_config():
     """
     Zwraca listę szablonów zadań. Preferuje config['tools']['task_templates'].
@@ -369,10 +436,18 @@ def _task_templates_from_config():
                     seen.add(tl)
                     out.append(t)
             return out
-        # fallback: stary config
+        # fallback: stary config + plik zewnętrzny
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
-        return lst or TASK_TEMPLATES_DEFAULT
+        if lst:
+            return lst
+        file_templates = _clean_list(
+            _load_tools_list_from_file(
+                "tools.task_templates_file",
+                ("NOWE", "nowe", "templates", "zadania", "tasks", "list"),
+            )
+        )
+        return file_templates or TASK_TEMPLATES_DEFAULT
     except Exception:
         return TASK_TEMPLATES_DEFAULT
 
@@ -397,7 +472,15 @@ def _stare_convert_templates_from_config():
             return out
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
-        return lst or STARE_CONVERT_TEMPLATES_DEFAULT
+        if lst:
+            return lst
+        file_templates = _clean_list(
+            _load_tools_list_from_file(
+                "tools.task_templates_file",
+                ("STARE", "stare", "templates", "zadania", "tasks", "list"),
+            )
+        )
+        return file_templates or STARE_CONVERT_TEMPLATES_DEFAULT
     except Exception:
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
@@ -424,7 +507,17 @@ def _types_from_config():
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
-    # 3) stare klucze w configu
+    # 3) plik typów narzędzi
+    file_types = _clean_list(
+        _load_tools_list_from_file(
+            "tools.types_file",
+            ("types", "typy", "list", "items"),
+            dict_value_keys=("name", "title", "label", "value", "id"),
+        )
+    )
+    if file_types:
+        return file_types
+    # 4) stare klucze w configu
     try:
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
@@ -1001,20 +1094,32 @@ def _statusy_for_mode(mode):
             ordered.append("sprawne")
         return ordered
 
-    # 2) fallback: stare klucze/tryby
+    # 2) fallback: stare klucze/tryby + plik konfiguracyjny
     cfg = _load_config()
     if mode == "NOWE":
-        statuses = (
-            _clean_list(cfg.get("statusy_narzedzi_nowe"))
-            or _clean_list(cfg.get("statusy_narzedzi"))
-            or STATUSY_NOWE_DEFAULT[:]
+        statuses = _clean_list(cfg.get("statusy_narzedzi_nowe")) or _clean_list(
+            cfg.get("statusy_narzedzi")
         )
+        if not statuses:
+            statuses = _clean_list(
+                _load_tools_list_from_file(
+                    "tools.statuses_file",
+                    ("NOWE", "nowe", "statusy", "statuses", "list"),
+                )
+            )
+        statuses = statuses or STATUSY_NOWE_DEFAULT[:]
     else:
-        statuses = (
-            _clean_list(cfg.get("statusy_narzedzi_stare"))
-            or _clean_list(cfg.get("statusy_narzedzi"))
-            or STATUSY_STARE_DEFAULT[:]
+        statuses = _clean_list(cfg.get("statusy_narzedzi_stare")) or _clean_list(
+            cfg.get("statusy_narzedzi")
         )
+        if not statuses:
+            statuses = _clean_list(
+                _load_tools_list_from_file(
+                    "tools.statuses_file",
+                    ("STARE", "stare", "statusy", "statuses", "list"),
+                )
+            )
+        statuses = statuses or STATUSY_STARE_DEFAULT[:]
     if "sprawne" not in [x.lower() for x in statuses]:
         statuses.append("sprawne")
     return statuses
