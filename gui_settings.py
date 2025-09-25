@@ -15,6 +15,10 @@ from typing import Any, Dict
 from tkinter import colorchooser, filedialog
 from tkinter import ttk, messagebox
 
+from gui.settings_action_handlers import (
+    bind as settings_actions_bind,
+    execute as settings_action_exec,
+)
 
 class ScrollableFrame(ttk.Frame):
     """Generic vertically scrollable frame with mouse wheel support."""
@@ -441,6 +445,8 @@ class SettingsPanel:
             )
         else:
             self.cfg = ConfigManager()
+        self.settings_state: dict[str, Any] = {}
+        settings_actions_bind(self.settings_state, on_change=self.on_setting_changed)
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
@@ -477,6 +483,7 @@ class SettingsPanel:
 
         self._unsaved = False
         self._fields_vars = []
+        self.settings_state.clear()
         content_parent = getattr(self, "_content_area", self.master)
         for child in content_parent.winfo_children():
             child.destroy()
@@ -606,7 +613,87 @@ class SettingsPanel:
         self._initial[key] = var.get()
         self._defaults[key] = opt.get("default")
         self._fields_vars.append((var, opt))
-        var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+        self.settings_state[key] = var.get()
+        var.trace_add("write", lambda *_: self._on_var_write(key, var))
+
+    def _create_button_field(
+        self, parent: tk.Widget, field_def: dict[str, Any]
+    ) -> ttk.Button:
+        """Return ttk button configured for schema action field."""
+
+        text = (
+            field_def.get("label_pl")
+            or field_def.get("label")
+            or field_def.get("key")
+            or "Akcja"
+        )
+        btn = ttk.Button(
+            parent,
+            text=text,
+            command=lambda f=field_def: self._on_button_field_clicked(f),
+        )
+        tip = field_def.get("help_pl") or field_def.get("help")
+        if tip:
+            _bind_tooltip(btn, tip)
+        return btn
+
+    def _on_var_write(self, key: str, var: tk.Variable) -> None:
+        """Handle Tk variable updates by tracking unsaved state and cache."""
+
+        setattr(self, "_unsaved", True)
+        try:
+            self.settings_state[key] = var.get()
+        except Exception:
+            pass
+
+    def _on_button_field_clicked(self, field: dict[str, Any]) -> None:
+        """Execute configured action for schema button field."""
+
+        action = field.get("action")
+        if not action:
+            return
+        params = field.get("params", {}) or {}
+        try:
+            settings_action_exec(action, params)
+        except RuntimeError as exc:
+            messagebox.showerror(
+                "Błąd akcji ustawień",
+                str(exc),
+                parent=self.master,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Błąd akcji ustawień",
+                f"Nie udało się wykonać akcji: {exc}",
+                parent=self.master,
+            )
+
+    def on_setting_changed(self, key: str, value: Any) -> None:
+        """Callback invoked by action handlers when config value changes."""
+
+        self.settings_state[key] = value
+        var = self.vars.get(key)
+        if var is None:
+            return
+        opt = self._options.get(key, {"key": key})
+        try:
+            coerced = self._coerce_default_for_var(opt, value)
+        except Exception:
+            coerced = value
+        try:
+            if isinstance(var, tk.BooleanVar):
+                var.set(bool(value))
+            elif isinstance(var, tk.IntVar):
+                var.set(int(value))
+            elif isinstance(var, tk.DoubleVar):
+                var.set(float(value))
+            else:
+                var.set(coerced)
+        except Exception:
+            try:
+                var.set(value)
+            except Exception:
+                pass
 
     def _add_group(
         self,
@@ -830,9 +917,15 @@ class SettingsPanel:
                         f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
                     )
                     continue
+                key = field_def.get("key")
+                if not key:
+                    continue
                 fld_count += 1
-                key = field_def["key"]
                 self._options[key] = field_def
+                if field_def.get("type") == "button":
+                    btn = self._create_button_field(inner, field_def)
+                    btn.pack(fill="x", padx=5, pady=2)
+                    continue
                 current = self.cfg.get(key, field_def.get("default"))
                 opt_copy = dict(field_def)
                 opt_copy["default"] = current
@@ -842,7 +935,8 @@ class SettingsPanel:
                 self._initial[key] = current
                 self._defaults[key] = field_def.get("default")
                 self._fields_vars.append((var, field_def))
-                var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+                self.settings_state[key] = current
+                var.trace_add("write", lambda *_: self._on_var_write(key, var))
 
             if tab.get("id") == "narzedzia" and group.get("key") == "narzedzia":
                 ttk.Button(
