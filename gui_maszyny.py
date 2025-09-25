@@ -1,7 +1,7 @@
 # gui_maszyny.py
 # Wersja: 1.0.1 (2025-09-19)
 # - Stały panel "Hala" po prawej (Widok/Edycja)
-# - Drag&drop → zapis pozycji TYLKO do data/maszyny.json
+# - Drag&drop → zapis pozycji TYLKO do pliku z ustawień (domyślnie data/maszyny.json)
 # - Ukrycie przycisku "Hale" w menu bocznym (jeśli istnieje)
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from config.paths import get_path
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils_maszyny import SOURCE_MODES, index_by_id, save_machines, sort_machines
@@ -20,9 +21,26 @@ except Exception as exc:  # pragma: no cover - zależności opcjonalne
     Renderer = None  # type: ignore[assignment]
     print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
 
-PRIMARY_DATA = os.path.join("data", "maszyny.json")
-LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
-MIGRATION_FLAG = os.path.join("data", ".machines_migrated.flag")
+PRIMARY_DATA_FALLBACK = os.path.join("data", "maszyny.json")
+LEGACY_DATA_FALLBACK = os.path.join("data", "maszyny", "maszyny.json")
+MIGRATION_FLAG_FALLBACK = os.path.join("data", ".machines_migrated.flag")
+
+
+def _primary_data_path() -> str:
+    path = get_path("hall.machines_file", PRIMARY_DATA_FALLBACK)
+    return path or PRIMARY_DATA_FALLBACK
+
+
+def _legacy_data_path() -> str:
+    return LEGACY_DATA_FALLBACK
+
+
+def _migration_flag_path(primary_path: str | None = None) -> str:
+    primary = primary_path or _primary_data_path()
+    base_dir = os.path.dirname(primary)
+    if not base_dir:
+        base_dir = os.path.dirname(MIGRATION_FLAG_FALLBACK) or "."
+    return os.path.join(base_dir, os.path.basename(MIGRATION_FLAG_FALLBACK))
 
 
 def _load_json_file(path: str) -> list:
@@ -57,8 +75,9 @@ def _merge_unique(primary_rows: list, legacy_rows: list) -> list:
 
 
 def _save_primary(rows: list):
-    os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
-    with open(PRIMARY_DATA, "w", encoding="utf-8") as f:
+    path = _primary_data_path()
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
 
 class MaszynyGUI:
@@ -77,6 +96,7 @@ class MaszynyGUI:
         self._renderer: Renderer | None = None
         self._details_btn: ttk.Button | None = None
         self._mode_var = tk.StringVar(value="view")
+        self._background_path = ""
 
         self._hide_hale_button_if_present()
         self._build_ui()
@@ -92,8 +112,10 @@ class MaszynyGUI:
         if requested == "auto":
             machines = self._load_machines_pick_best()
         else:
-            primary_rows = _load_json_file(PRIMARY_DATA)
-            legacy_rows = _load_json_file(LEGACY_DATA)
+            primary_path = _primary_data_path()
+            legacy_path = _legacy_data_path()
+            primary_rows = _load_json_file(primary_path)
+            legacy_rows = _load_json_file(legacy_path)
             count_primary, count_legacy = len(primary_rows), len(legacy_rows)
             self._counts = (count_primary, count_legacy)
 
@@ -106,12 +128,18 @@ class MaszynyGUI:
                     self._active_source = "primary"
                     self._source = "primary"
                 else:
-                    print(f"[WM][Maszyny] Załadowano z LEGACY ({count_legacy})")
+                    print(
+                        "[WM][Maszyny] Załadowano z LEGACY "
+                        f"({count_legacy}) file={os.path.abspath(legacy_path)}"
+                    )
                     machines = legacy_rows
                     self._active_source = "legacy"
                     self._source = "legacy"
             else:
-                print(f"[WM][Maszyny] Załadowano z PRIMARY ({count_primary})")
+                print(
+                    "[WM][Maszyny] Załadowano z PRIMARY "
+                    f"({count_primary}) file={os.path.abspath(primary_path)}"
+                )
                 machines = primary_rows
                 self._active_source = "primary"
                 self._source = "primary"
@@ -134,12 +162,19 @@ class MaszynyGUI:
         PRIMARY/LEGACY (wymuszone radiem) – czyta odpowiedni plik bez migracji.
         """
         mode = getattr(self, "_data_source_mode", "AUTO").upper()
-        primary = _load_json_file(PRIMARY_DATA)
-        legacy = _load_json_file(LEGACY_DATA)
+        primary_path = _primary_data_path()
+        legacy_path = _legacy_data_path()
+        migration_flag = _migration_flag_path(primary_path)
+        primary = _load_json_file(primary_path)
+        legacy = _load_json_file(legacy_path)
         n_p, n_l = len(primary), len(legacy)
 
         # diagnostyka
-        print(f"[DIAG][Maszyny] primary={n_p} file={PRIMARY_DATA} | legacy={n_l} file={LEGACY_DATA}")
+        print(
+            "[DIAG][Maszyny] primary="
+            f"{n_p} file={os.path.abspath(primary_path)} | "
+            f"legacy={n_l} file={os.path.abspath(legacy_path)}"
+        )
 
         if mode == "PRIMARY":
             self._source = "primary"
@@ -160,7 +195,7 @@ class MaszynyGUI:
             return []
 
         # jeżeli mamy flagę migracji – czytaj tylko PRIMARY (już scalone)
-        if os.path.exists(MIGRATION_FLAG):
+        if os.path.exists(migration_flag):
             self._source = "primary"
             self._active_source = "primary"
             self._counts = (n_p, n_l)
@@ -170,7 +205,7 @@ class MaszynyGUI:
         if n_p != n_l:
             merged = _merge_unique(primary, legacy)
             _save_primary(merged)
-            open(MIGRATION_FLAG, "w").close()
+            open(migration_flag, "w").close()
             self._source = "primary"
             self._active_source = "primary"
             self._counts = (len(merged), n_l)
@@ -180,7 +215,7 @@ class MaszynyGUI:
         # takie same ilości → i tak scala (dla unifikacji)
         merged = _merge_unique(primary, legacy)
         _save_primary(merged)
-        open(MIGRATION_FLAG, "w").close()
+        open(migration_flag, "w").close()
         self._source = "primary"
         self._active_source = "primary"
         self._counts = (len(merged), n_l)
@@ -193,8 +228,10 @@ class MaszynyGUI:
             if not machine_key:
                 return
 
-            data = _load_json_file(PRIMARY_DATA)
-            legacy_rows = _load_json_file(LEGACY_DATA)
+            primary_path = _primary_data_path()
+            legacy_path = _legacy_data_path()
+            data = _load_json_file(primary_path)
+            legacy_rows = _load_json_file(legacy_path)
             count_legacy = len(legacy_rows)
 
             registry = index_by_id(data)
@@ -230,7 +267,7 @@ class MaszynyGUI:
             if self._active_source != "primary":
                 print(
                     "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
-                    "data/maszyny.json."
+                    f"{os.path.abspath(primary_path)}."
                 )
             self._active_source = "primary"
             self._source = "primary"
@@ -359,7 +396,7 @@ class MaszynyGUI:
         if Renderer is not None:
             # tylko Renderer (bez starych funkcji)
             self._renderer = Renderer(self.root, self._canvas, self._machines)
-
+            self._reload_background(force=True)
             self._renderer.on_select = self._on_hala_select
             self._renderer.on_move = self._on_hala_move
             self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
@@ -378,6 +415,7 @@ class MaszynyGUI:
     def _on_source_change(self) -> None:
         self._machines = self._load_machines()
         self._reload_tree()
+        self._reload_background()
         if self._renderer:
             self._renderer.reload(self._machines)
 
@@ -389,6 +427,23 @@ class MaszynyGUI:
             self._details_btn.configure(state=state)
         except Exception:  # pragma: no cover - defensywne
             pass
+
+    def _reload_background(self, force: bool = False) -> None:
+        if not self._renderer:
+            return
+        background_path = get_path("hall.background_image", "") or ""
+        if not force and background_path == self._background_path:
+            return
+        self._background_path = background_path
+        if not background_path:
+            return
+        loader = getattr(self._renderer, "load_background", None)
+        if not callable(loader):
+            return
+        try:
+            loader(background_path)
+        except Exception as exc:  # pragma: no cover - defensywne IO/GUI
+            print(f"[WARN][Maszyny] Nie udało się załadować tła hali: {exc}")
 
     # ----- tabela -----
     def _reload_tree(self) -> None:
@@ -435,6 +490,7 @@ class MaszynyGUI:
     def _refresh_all(self) -> None:
         self._machines = self._load_machines()
         self._reload_tree()
+        self._reload_background()
         if self._renderer:
             self._renderer.reload(self._machines)
 
@@ -465,6 +521,7 @@ class MaszynyGUI:
 
         previous_source = self._active_source
         legacy_count = self._counts[1] if self._counts else 0
+        primary_path = os.path.abspath(_primary_data_path())
 
         sorted_rows = sort_machines(self._machines)
         self._machines[:] = sorted_rows
@@ -473,7 +530,7 @@ class MaszynyGUI:
         if previous_source != "primary":
             print(
                 "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
-                "data/maszyny.json."
+                f"{primary_path}."
             )
         self._active_source = "primary"
 
