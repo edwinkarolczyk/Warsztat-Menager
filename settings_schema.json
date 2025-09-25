@@ -275,6 +275,25 @@
                   "readonly": true,
                   "tooltip": "Ścieżka do wybranego pliku tła hali.",
                   "default": ""
+                },
+                {
+                  "type": "button",
+                  "key": "hall.machines_file_pick",
+                  "label": "Wybierz plik maszyn…",
+                  "tooltip": "Plik JSON z definicjami maszyn/rozmieszczeń.",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "hall.machines_file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "hall.machines_file",
+                  "label": "Aktualny plik maszyn",
+                  "readonly": true,
+                  "tooltip": "Ścieżka do pliku maszyn (layout).",
+                  "default": "C:\\wm\\data\\layout\\maszyny.json"
                 }
               ]
             },
