@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple
 
 from bom import compute_sr_for_pp
 from io_utils import read_json
+from config.paths import get_path, join_path
 
 try:  # pragma: no cover - fallback dla środowisk testowych
     from config_manager import ConfigManager  # type: ignore
@@ -25,7 +26,16 @@ try:  # pragma: no cover - zabezpieczenie inicjalizacji konfiguracji
 except Exception:  # pragma: no cover - ignorujemy błędy przy starcie
     _CONFIG = None
 
-DATA_DIR = os.path.join("data", "zlecenia")
+ORDERS_DIR_KEY = "paths.orders_dir"
+
+
+def _ensure_orders_dir() -> str:
+    """Zwraca katalog zleceń, tworząc go jeśli nie istnieje."""
+
+    directory = get_path(ORDERS_DIR_KEY)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    return directory
 
 DEFAULT_ORDER_TYPES: Dict[str, Dict[str, object]] = {
     "ZW": {
@@ -176,7 +186,7 @@ def _orders_id_width() -> int:
 
 
 def _seq_path() -> str:
-    return os.path.join(DATA_DIR, "_seq.json")
+    return join_path(ORDERS_DIR_KEY, "_seq.json")
 
 
 def _load_seq() -> Dict[str, int]:
@@ -199,7 +209,7 @@ def _load_seq() -> Dict[str, int]:
 
 
 def _save_seq(seq: Dict[str, int]) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
+    _ensure_orders_dir()
     with open(_seq_path(), "w", encoding="utf-8") as handle:
         json.dump(seq, handle, ensure_ascii=False, indent=2)
 
@@ -382,9 +392,11 @@ def create_order_skeleton(
 
 
 def save_order(data: Dict[str, object]) -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
     filename = data.get("id", "UNKNOWN")
-    path = os.path.join(DATA_DIR, f"{filename}.json")
+    directory = _ensure_orders_dir()
+    if not directory:
+        raise RuntimeError("[ERROR][ZLECENIA] Brak katalogu zleceń w konfiguracji")
+    path = join_path(ORDERS_DIR_KEY, f"{filename}.json")
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     print(f"[WM-DBG][ZLECENIA] Zapisano zlecenie {data.get('id')}")
@@ -424,12 +436,14 @@ def _add_oczekujace(entry: Dict[str, object]) -> None:
 
 
 def load_orders() -> List[Dict[str, object]]:
-    os.makedirs(DATA_DIR, exist_ok=True)
+    directory = _ensure_orders_dir()
+    if not directory:
+        return []
     results: List[Dict[str, object]] = []
-    for filename in os.listdir(DATA_DIR):
+    for filename in os.listdir(directory):
         if filename.startswith("_") or not filename.endswith(".json"):
             continue
-        path = os.path.join(DATA_DIR, filename)
+        path = os.path.join(directory, filename)
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 results.append(json.load(handle))
