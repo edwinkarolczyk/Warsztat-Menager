@@ -16,6 +16,7 @@
 #
 # Zasada: minimalne modyfikacje, bez naruszania istniejących API.
 
+import json
 import re
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -25,6 +26,7 @@ try:
 except Exception:
     open_order_creator = None
 import magazyn_io
+from config.paths import get_path
 HAVE_MAG_IO = True
 
 from ui_theme import apply_theme_safe as apply_theme
@@ -97,9 +99,16 @@ def _resolve_order_author(widget) -> str:
 
 def _load_data():
     """Czyta magazyn; preferuj magazyn_io.load(), fallback do LM.load_magazyn()."""
+    path = get_path("warehouse.stock_source")
     try:
         if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
-            data = magazyn_io.load()
+            if path:
+                try:
+                    data = magazyn_io.load(path)
+                except TypeError:
+                    data = magazyn_io.load()
+            else:
+                data = magazyn_io.load()
         else:
             data = LM.load_magazyn()
     except Exception:
@@ -107,6 +116,12 @@ def _load_data():
             data = LM.load_magazyn()
         except Exception:
             data = {}
+            if path:
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    data = {}
     items = data.get("items", {})
     order = (data.get("meta", {}) or {}).get("order", [])
     return items, order
