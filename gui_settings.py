@@ -19,6 +19,7 @@ from gui.settings_action_handlers import (
     bind as settings_actions_bind,
     execute as settings_action_exec,
 )
+from config.paths import bind_settings, ensure_core_tree
 
 class ScrollableFrame(ttk.Frame):
     """Generic vertically scrollable frame with mouse wheel support."""
@@ -446,6 +447,8 @@ class SettingsPanel:
         else:
             self.cfg = ConfigManager()
         self.settings_state = self._load_settings_state()
+        bind_settings(self.settings_state)
+        ensure_core_tree()
         settings_actions_bind(self.settings_state, on_change=self.on_setting_changed)
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
