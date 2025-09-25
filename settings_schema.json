@@ -457,6 +457,28 @@
                   "default": "C:\\wm\\data\\narzedzia\\szablony_zadan.json"
                 }
               ]
+            },
+
+            {
+              "title": "Zlecenia (katalog)",
+              "fields": [
+                {
+                  "type": "button",
+                  "key": "paths.orders_dir_pick",
+                  "label": "Wybierz katalog zleceń…",
+                  "tooltip": "Katalog, w którym zapisywane są pliki zleceń.",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.orders_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.orders_dir",
+                  "label": "Aktualny katalog zleceń",
+                  "readonly": true,
+                  "tooltip": "Ścieżka do katalogu zleceń.",
+                  "default": "C:\\wm\\data\\zlecenia"
+                }
+              ]
             }
           ]
         },
