@@ -5,8 +5,11 @@ import os
 import unicodedata
 from typing import Any, Dict, List, Set
 
-CATALOG_PATH = "data/magazyn/katalog.json"
-STANY_PATH = "data/magazyn/stany.json"
+from domain.magazyn import states_file_path, warehouse_dir
+
+_WAREHOUSE_DIR = warehouse_dir()
+CATALOG_PATH = str(_WAREHOUSE_DIR / "katalog.json")
+STANY_PATH = states_file_path()
 
 
 def _ensure_dirs(path: str) -> None:

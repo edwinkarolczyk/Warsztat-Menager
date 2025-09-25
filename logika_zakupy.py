@@ -3,9 +3,11 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from domain.magazyn import states_file_path
+
 ZAMOWIENIA_DIR = Path("data") / "zamowienia"
 PENDING_ORDERS_PATH = Path("data") / "zamowienia_oczekujace.json"
-STANY_PATH = Path("data") / "magazyn" / "stany.json"
+STANY_PATH = Path(states_file_path())
 PENDING_TYPE = "magazyn_item"
 
 

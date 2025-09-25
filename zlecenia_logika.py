@@ -10,11 +10,18 @@ from pathlib import Path
 from datetime import datetime
 
 import bom
+from domain.magazyn import states_file_path, warehouse_dir
 from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
 DATA_DIR = Path("data")
 BOM_DIR = DATA_DIR / "produkty"
-MAG_DIR = DATA_DIR / "magazyn"
+MAG_DIR = warehouse_dir()
+
+
+def _stany_path() -> Path:
+    return Path(states_file_path(base_dir=MAG_DIR))
+
+
 ZLECENIA_DIR = DATA_DIR / "zlecenia"
 
 def _ensure_dirs():
@@ -40,7 +47,7 @@ def read_bom(kod):
     return _read_json(p)
 
 def read_magazyn():
-    p = MAG_DIR / "stany.json"
+    p = _stany_path()
     if not p.exists():
         return {}
     return _read_json(p)
@@ -53,7 +60,7 @@ def check_materials(bom, ilosc=1):
     ``ilosc`` oznacza liczbę sztuk produktu, dla której należy
     sprawdzić zapotrzebowanie.
     """
-    mag_path = MAG_DIR / "stany.json"
+    mag_path = _stany_path()
     mag = _read_json(mag_path) if mag_path.exists() else {}
     braki = []
     for kod, data in bom.items():
@@ -100,7 +107,7 @@ def reserve_materials(bom, ilosc=1):
     Informacja ta jest wykorzystywana przez GUI do zasilenia kolumny
     "dostępne po".
     """
-    mag_path = MAG_DIR / "stany.json"
+    mag_path = _stany_path()
     default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
 
     mag = _read_json(mag_path) if mag_path.exists() else {}

@@ -13,6 +13,8 @@ from threading import RLock
 import logging
 import re
 
+from domain.magazyn import save_states, stock_file_path
+
 if not logging.getLogger().handlers:
     logging.basicConfig(
         level=logging.DEBUG if os.getenv("WM_DEBUG") else logging.INFO,
@@ -83,8 +85,8 @@ except Exception:
 
 _CFG = ConfigManager()
 
-
-MAGAZYN_PATH = "data/magazyn/magazyn.json"
+# Domyślna lokalizacja pliku magazynu może być nadpisana w ustawieniach.
+MAGAZYN_PATH = stock_file_path()
 OLD_MAGAZYN_PATH = "data/magazyn.json"
 """Ścieżki do pliku magazynu (nowa i stara lokalizacja)."""
 
@@ -388,9 +390,7 @@ def zapisz_stan_magazynu(mag=None):
             "stan": float(it.get("stan", 0)),
             "prog_alert": float(it.get("min_poziom", 0)),
         }
-    p = os.path.join(_magazyn_dir(), "stany.json")
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
+    save_states(out, base_dir=_magazyn_dir())
 
 
 def get_item(item_id):

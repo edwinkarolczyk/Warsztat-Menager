@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 import logging
 
+from domain.magazyn import states_file_path, stock_file_path, warehouse_dir
+
 try:
     import logger
 
@@ -30,12 +32,13 @@ ALLOWED_OPS = {
     "UNRESERVE",
 }
 
-MAGAZYN_PATH = Path("data/magazyn/magazyn.json")
-PRZYJECIA_PATH = "data/magazyn/przyjecia.json"
-STANY_PATH = "data/magazyn/stany.json"
-KATALOG_PATH = "data/magazyn/katalog.json"
-SEQ_PZ_PATH = "data/magazyn/_seq_pz.json"
-HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json")
+MAGAZYN_PATH = Path(stock_file_path())
+WAREHOUSE_DIR = warehouse_dir()
+PRZYJECIA_PATH = str(WAREHOUSE_DIR / "przyjecia.json")
+STANY_PATH = states_file_path()
+KATALOG_PATH = str(WAREHOUSE_DIR / "katalog.json")
+SEQ_PZ_PATH = str(WAREHOUSE_DIR / "_seq_pz.json")
+HISTORY_PATH = str(WAREHOUSE_DIR / "magazyn_history.json")
 
 
 def _ensure_dirs(path: str | os.PathLike[str]) -> None:
