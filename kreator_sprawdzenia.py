@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+r"""
 Kreator sprawdzania plikow i wersji – Warsztat Menager
 Wersja narzedzia: 1.3.0 (ASCII-only output)
 
