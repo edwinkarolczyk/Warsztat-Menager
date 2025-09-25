@@ -163,22 +163,16 @@
       "id": "system",
       "title": "System",
       "icon": "settings",
-      "description": "Ustawienia systemowe i ścieżki danych.",
+      "description": "Ustawienia systemowe i centralne ścieżki danych.",
       "subtabs": [
         {
           "id": "sciezki_danych",
           "title": "Ścieżki danych",
-          "description": "Centralne ścieżki plików i katalogów.",
+          "description": "Wszystkie pliki i katalogi w jednym miejscu. Wybierane z dysku.",
           "groups": [
             {
-              "title": "Katalogi główne",
+              "title": "Katalog główny danych",
               "fields": [
-                {
-                  "type": "text",
-                  "key": "paths.data_root",
-                  "label": "Katalog danych",
-                  "default": "C:\\wm\\data"
-                },
                 {
                   "type": "button",
                   "key": "paths.data_root_pick",
@@ -188,10 +182,23 @@
                 },
                 {
                   "type": "text",
-                  "key": "paths.logs_dir",
-                  "label": "Katalog logów",
-                  "default": "C:\\wm\\data\\logs"
+                  "key": "paths.data_root",
+                  "label": "Aktualny katalog danych",
+                  "readonly": true,
+                  "default": "C:\\wm\\data"
                 },
+                {
+                  "type": "button",
+                  "key": "paths.data_root_open",
+                  "label": "Otwórz w Explorerze",
+                  "action": "os.open_path",
+                  "params": { "path_key": "paths.data_root" }
+                }
+              ]
+            },
+            {
+              "title": "Katalogi systemowe",
+              "fields": [
                 {
                   "type": "button",
                   "key": "paths.logs_dir_pick",
@@ -201,9 +208,10 @@
                 },
                 {
                   "type": "text",
-                  "key": "paths.backup_dir",
-                  "label": "Katalog kopii",
-                  "default": "C:\\wm\\data\\backup"
+                  "key": "paths.logs_dir",
+                  "label": "Aktualny katalog logów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\logs"
                 },
                 {
                   "type": "button",
@@ -211,30 +219,68 @@
                   "label": "Wybierz katalog kopii…",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.backup_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.backup_dir",
+                  "label": "Aktualny katalog kopii",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\backup"
                 }
               ]
             },
             {
-              "title": "Pliki i źródła danych",
+              "title": "Layout/Maszyny (hala)",
               "fields": [
                 {
+                  "type": "button",
+                  "key": "paths.layout_dir_pick",
+                  "label": "Wybierz katalog layoutu…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.layout_dir" }
+                },
+                {
                   "type": "text",
-                  "key": "warehouse.bom_dir",
-                  "label": "Katalog BOM",
-                  "default": "C:\\wm\\data\\produkty"
+                  "key": "paths.layout_dir",
+                  "label": "Aktualny katalog layoutu",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\layout"
                 },
                 {
                   "type": "button",
-                  "key": "warehouse.bom_dir_pick",
-                  "label": "Wybierz katalog BOM…",
-                  "action": "dialog.open_dir",
-                  "params": { "write_to_key": "warehouse.bom_dir" }
+                  "key": "hall.background_image_pick",
+                  "label": "Wybierz tło hali…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.png","*.jpg","*.jpeg"],
+                    "write_to_key": "hall.background_image"
+                  }
                 },
                 {
                   "type": "text",
-                  "key": "warehouse.stock_source",
-                  "label": "Źródło stanów magazynu",
-                  "default": "C:\\wm\\data\\magazyn.json"
+                  "key": "hall.background_image",
+                  "label": "Aktualne tło hali",
+                  "readonly": true,
+                  "default": ""
+                }
+              ]
+            },
+            {
+              "title": "Magazyn (pliki i katalog)",
+              "fields": [
+                {
+                  "type": "button",
+                  "key": "paths.warehouse_dir_pick",
+                  "label": "Wybierz katalog magazynu…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.warehouse_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.warehouse_dir",
+                  "label": "Aktualny katalog magazynu",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\magazyn"
                 },
                 {
                   "type": "button",
@@ -248,9 +294,46 @@
                 },
                 {
                   "type": "text",
-                  "key": "bom.file",
-                  "label": "Plik BOM",
-                  "default": "C:\\wm\\data\\bom.json"
+                  "key": "warehouse.stock_source",
+                  "label": "Aktualny plik stanów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\magazyn\\magazyn.json"
+                },
+                {
+                  "type": "button",
+                  "key": "warehouse.reservations_file_pick",
+                  "label": "Wybierz plik rezerwacji…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "warehouse.reservations_file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "warehouse.reservations_file",
+                  "label": "Aktualny plik rezerwacji",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\magazyn\\rezerwacje.json"
+                }
+              ]
+            },
+            {
+              "title": "Produkty/BOM",
+              "fields": [
+                {
+                  "type": "button",
+                  "key": "paths.products_dir_pick",
+                  "label": "Wybierz katalog produktów…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.products_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.products_dir",
+                  "label": "Aktualny katalog produktów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\produkty"
                 },
                 {
                   "type": "button",
@@ -264,19 +347,80 @@
                 },
                 {
                   "type": "text",
-                  "key": "hall.background_image",
-                  "label": "Tło hali (obraz)",
-                  "default": ""
+                  "key": "bom.file",
+                  "label": "Aktualny plik BOM",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\produkty\\bom.json"
+                }
+              ]
+            },
+            {
+              "title": "Narzędzia (słowniki)",
+              "fields": [
+                {
+                  "type": "button",
+                  "key": "paths.tools_dir_pick",
+                  "label": "Wybierz katalog narzędzi…",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.tools_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.tools_dir",
+                  "label": "Aktualny katalog narzędzi",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\narzedzia"
                 },
                 {
                   "type": "button",
-                  "key": "hall.background_image_pick",
-                  "label": "Wybierz tło…",
+                  "key": "tools.types_file_pick",
+                  "label": "Wybierz plik typów narzędzi…",
                   "action": "dialog.open_file",
                   "params": {
-                    "filters": ["*.png","*.jpg","*.jpeg"],
-                    "write_to_key": "hall.background_image"
+                    "filters": ["*.json"],
+                    "write_to_key": "tools.types_file"
                   }
+                },
+                {
+                  "type": "text",
+                  "key": "tools.types_file",
+                  "label": "Aktualny plik typów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json"
+                },
+                {
+                  "type": "button",
+                  "key": "tools.statuses_file_pick",
+                  "label": "Wybierz plik statusów narzędzi…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "tools.statuses_file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "tools.statuses_file",
+                  "label": "Aktualny plik statusów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json"
+                },
+                {
+                  "type": "button",
+                  "key": "tools.task_templates_file_pick",
+                  "label": "Wybierz plik szablonów zadań…",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "tools.task_templates_file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "tools.task_templates_file",
+                  "label": "Aktualny plik szablonów",
+                  "readonly": true,
+                  "default": "C:\\wm\\data\\narzedzia\\szablony_zadan.json"
                 }
               ]
             }
@@ -300,12 +444,6 @@
                   "key": "system.auto_check_updates",
                   "label": "Sprawdzaj aktualizacje przy starcie",
                   "default": true
-                },
-                {
-                  "type": "text",
-                  "key": "system.data_path",
-                  "label": "Ścieżka danych (legacy)",
-                  "default": "C:\\wm\\data"
                 }
               ]
             }
