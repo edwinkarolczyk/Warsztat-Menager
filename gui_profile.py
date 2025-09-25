@@ -30,6 +30,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
 from datetime import datetime as _dt, datetime
+from typing import Optional
 from config_manager import ConfigManager
 try:
     from PIL import Image, ImageTk, UnidentifiedImageError
@@ -54,7 +55,13 @@ from services.profile_service import (
     save_user,
     workload_for,
 )
-from services.messages_service import send_message, list_inbox, list_sent, mark_read
+from services.messages_service import (
+    send_message,
+    list_inbox,
+    list_sent,
+    mark_read,
+    last_inbox_ts,
+)
 from profile_utils import staz_days_for_login, staz_years_floor_for_login
 from logger import log_akcja
 from utils.gui_helpers import clear_frame
@@ -1445,7 +1452,31 @@ class ProfileView(ttk.Frame):
         ).pack(anchor="w", padx=8, pady=(8, 4))
 
         self._pw_checks: dict[str, tk.IntVar] = {}
+        self._last_inbox_ts_cache: Optional[str] = None
+        self._pw_poll_job = {"id": None}
+
         self._refresh_pw_tab()
+
+        def _poll():
+            if not hasattr(self, "_pw_tab_root") or not self._pw_tab_root.winfo_exists():
+                self._pw_poll_job["id"] = None
+                return
+            ts = last_inbox_ts(self.login)
+            if ts and ts != self._last_inbox_ts_cache:
+                self._refresh_pw_tab()
+            self._pw_poll_job["id"] = self.after(10_000, _poll)
+
+        self._pw_poll_job["id"] = self.after(10_000, _poll)
+
+        def _on_destroy(_e=None):
+            if self._pw_poll_job.get("id"):
+                try:
+                    self.after_cancel(self._pw_poll_job["id"])
+                except Exception:
+                    pass
+                self._pw_poll_job["id"] = None
+
+        wrap.bind("<Destroy>", _on_destroy, add="+")
 
     def _refresh_pw_tab(self) -> None:
         print(
@@ -1464,6 +1495,11 @@ class ProfileView(ttk.Frame):
         self._inbox_cache = list(inbox)
         self._sent_cache = list(sent)
         self._pw_checks.clear()
+
+        try:
+            self._last_inbox_ts_cache = last_inbox_ts(self.login)
+        except Exception:
+            self._last_inbox_ts_cache = None
 
         if not inbox:
             ttk.Label(

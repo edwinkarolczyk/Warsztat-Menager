@@ -6,26 +6,56 @@
 
 from __future__ import annotations
 
+import json
+import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
-from utils_maszyny import (
-    LEGACY_DATA,
-    PRIMARY_DATA,
-    SOURCE_MODES,
-    index_by_id,
-    load_machines,
-    save_machines,
-    sort_machines,
-)
+from utils_maszyny import SOURCE_MODES, index_by_id, save_machines, sort_machines
+from widok_hali.renderer import Renderer
 
-try:
-    from widok_hali.renderer import Renderer
-except Exception as exc:  # pragma: no cover - zależne od środowiska
-    Renderer = None
-    print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
+PRIMARY_DATA = os.path.join("data", "maszyny.json")
+LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
+MIGRATION_FLAG = os.path.join("data", ".machines_migrated.flag")
+
+
+def _load_json_file(path: str) -> list:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _index_by_id(rows: list) -> dict:
+    out = {}
+    for r in rows or []:
+        mid = str(r.get("id") or r.get("nr_ewid") or "").strip()
+        if mid:
+            out[mid] = r
+    return out
+
+
+def _merge_unique(primary_rows: list, legacy_rows: list) -> list:
+    pi = _index_by_id(primary_rows)
+    li = _index_by_id(legacy_rows)
+    for mid, row in li.items():
+        if mid not in pi:
+            pi[mid] = row
+    # sort po numeric/len
+    def _key(s):
+        return (len(s), s)
+
+    return [pi[k] for k in sorted(pi.keys(), key=_key)]
+
+
+def _save_primary(rows: list):
+    os.makedirs(os.path.dirname(PRIMARY_DATA), exist_ok=True)
+    with open(PRIMARY_DATA, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=2)
 
 class MaszynyGUI:
     """Panel zarządzania maszynami z podglądem hali."""
@@ -36,6 +66,8 @@ class MaszynyGUI:
         self._source_var = tk.StringVar(value="auto")
         self._source_info = tk.StringVar(value="")
         self._active_source = "auto"
+        self._source = "auto"
+        self._data_source_mode = "AUTO"
         self._counts: tuple[int, int] = (0, 0)
         self._machines = self._load_machines()
         self._renderer: Renderer | None = None
@@ -47,41 +79,109 @@ class MaszynyGUI:
 
     # ----- dane -----
     def _load_machines(self) -> list[dict]:
-        requested = self._source_var.get()
-        prev_counts = getattr(self, "_counts", None)
-        prev_active = getattr(self, "_active_source", None)
+        requested = (self._source_var.get() or "auto").strip().lower()
+        if requested not in SOURCE_MODES:
+            requested = "auto"
 
-        machines, active, count_primary, count_legacy = load_machines(requested)
+        self._data_source_mode = requested.upper()
 
-        self._active_source = active
-        self._counts = (count_primary, count_legacy)
+        if requested == "auto":
+            machines = self._load_machines_pick_best()
+        else:
+            primary_rows = _load_json_file(PRIMARY_DATA)
+            legacy_rows = _load_json_file(LEGACY_DATA)
+            count_primary, count_legacy = len(primary_rows), len(legacy_rows)
+            self._counts = (count_primary, count_legacy)
+
+            if requested == "legacy":
+                if count_legacy == 0:
+                    print(
+                        f"[WM][Maszyny] Wybrano LEGACY, ale brak danych → przełączam na PRIMARY ({count_primary})."
+                    )
+                    machines = primary_rows
+                    self._active_source = "primary"
+                    self._source = "primary"
+                else:
+                    print(f"[WM][Maszyny] Załadowano z LEGACY ({count_legacy})")
+                    machines = legacy_rows
+                    self._active_source = "legacy"
+                    self._source = "legacy"
+            else:
+                print(f"[WM][Maszyny] Załadowano z PRIMARY ({count_primary})")
+                machines = primary_rows
+                self._active_source = "primary"
+                self._source = "primary"
+
+        machines = sort_machines(machines)
 
         summary = (
-            f"Tryb: {requested.upper()}  →  aktywny: {active.upper()}  |  "
-            f"PRIMARY: {count_primary}  |  LEGACY: {count_legacy}"
+            f"Tryb: {requested.upper()}  →  aktywny: {self._active_source.upper()}  |  "
+            f"PRIMARY: {self._counts[0]}  |  LEGACY: {self._counts[1]}"
         )
         self._source_info.set(summary)
-
-        if count_primary == 0 and count_legacy == 0:
-            print(f"[WARN][Maszyny] Brak danych w {PRIMARY_DATA} i {LEGACY_DATA}")
-        else:
-            if requested == "auto":
-                if active == "auto" and (prev_counts != self._counts):
-                    print(
-                        "[WM][Maszyny] AUTO: scalono primary "
-                        f"({count_primary}) + legacy ({count_legacy})."
-                    )
-                elif active != "auto" and (prev_active != active or prev_counts != self._counts):
-                    print(
-                        f"[WM][Maszyny] AUTO: użyto {active.upper()} "
-                        f"({count_primary}/{count_legacy})."
-                    )
-            elif requested == "primary" and (prev_counts != self._counts or prev_active != active):
-                print(f"[WM][Maszyny] Załadowano z PRIMARY ({count_primary})")
-            elif requested == "legacy" and (prev_counts != self._counts or prev_active != active):
-                print(f"[WM][Maszyny] Załadowano z LEGACY ({count_legacy})")
-
         return machines
+
+    def _load_machines_pick_best(self) -> list:
+        """
+        AUTO:
+          - czyta oba pliki
+          - wybiera większy lub scala
+          - JEDNORAZOWO zapisuje wynik do PRIMARY (flaga migration)
+        PRIMARY/LEGACY (wymuszone radiem) – czyta odpowiedni plik bez migracji.
+        """
+        mode = getattr(self, "_data_source_mode", "AUTO").upper()
+        primary = _load_json_file(PRIMARY_DATA)
+        legacy = _load_json_file(LEGACY_DATA)
+        n_p, n_l = len(primary), len(legacy)
+
+        # diagnostyka
+        print(f"[DIAG][Maszyny] primary={n_p} file={PRIMARY_DATA} | legacy={n_l} file={LEGACY_DATA}")
+
+        if mode == "PRIMARY":
+            self._source = "primary"
+            self._active_source = "primary"
+            self._counts = (n_p, n_l)
+            return primary
+        if mode == "LEGACY":
+            self._source = "legacy"
+            self._active_source = "legacy"
+            self._counts = (n_p, n_l)
+            return legacy
+
+        # AUTO
+        if n_p == 0 and n_l == 0:
+            self._source = "primary"
+            self._active_source = "primary"
+            self._counts = (0, 0)
+            return []
+
+        # jeżeli mamy flagę migracji – czytaj tylko PRIMARY (już scalone)
+        if os.path.exists(MIGRATION_FLAG):
+            self._source = "primary"
+            self._active_source = "primary"
+            self._counts = (n_p, n_l)
+            return primary
+
+        # różne wielkości → scala i zapisuje do PRIMARY
+        if n_p != n_l:
+            merged = _merge_unique(primary, legacy)
+            _save_primary(merged)
+            open(MIGRATION_FLAG, "w").close()
+            self._source = "primary"
+            self._active_source = "primary"
+            self._counts = (len(merged), n_l)
+            print(f"[WM][Maszyny] MIGRACJA: primary({n_p}) + legacy({n_l}) → primary({len(merged)}).")
+            return merged
+
+        # takie same ilości → i tak scala (dla unifikacji)
+        merged = _merge_unique(primary, legacy)
+        _save_primary(merged)
+        open(MIGRATION_FLAG, "w").close()
+        self._source = "primary"
+        self._active_source = "primary"
+        self._counts = (len(merged), n_l)
+        print(f"[WM][Maszyny] MIGRACJA: liczby równe ({n_p}); zapis primary({len(merged)}).")
+        return merged
 
     def _save_position(self, machine_id: str, x: int, y: int) -> None:
         try:
@@ -89,7 +189,10 @@ class MaszynyGUI:
             if not machine_key:
                 return
 
-            data, _, count_primary, count_legacy = load_machines("auto")
+            data = _load_json_file(PRIMARY_DATA)
+            legacy_rows = _load_json_file(LEGACY_DATA)
+            count_legacy = len(legacy_rows)
+
             registry = index_by_id(data)
             row = registry.get(machine_key)
             if not row:
@@ -104,7 +207,8 @@ class MaszynyGUI:
                 row["pozycja"]["x"] = int(x)
                 row["pozycja"]["y"] = int(y)
 
-            save_machines(data)
+            sorted_rows = sort_machines(data)
+            _save_primary(sorted_rows)
 
             local_registry = index_by_id(self._machines)
             local_row = local_registry.get(machine_key)
@@ -115,7 +219,9 @@ class MaszynyGUI:
                 local_row["pozycja"]["x"] = int(x)
                 local_row["pozycja"]["y"] = int(y)
 
-            new_count_primary = len(data)
+            self._machines = sort_machines(self._machines)
+
+            new_count_primary = len(sorted_rows)
             self._counts = (new_count_primary, count_legacy)
             if self._active_source != "primary":
                 print(
@@ -123,6 +229,7 @@ class MaszynyGUI:
                     "data/maszyny.json."
                 )
             self._active_source = "primary"
+            self._source = "primary"
             summary = (
                 f"Tryb: {self._source_var.get().upper()}  →  aktywny: PRIMARY  |  "
                 f"PRIMARY: {new_count_primary}  |  LEGACY: {count_legacy}"
@@ -223,8 +330,8 @@ class MaszynyGUI:
         self._reload_tree()
 
         # RIGHT: hala
-        right = tk.Frame(main, width=720, bg=main["bg"])   # było ~480
-        right.pack(side="right", fill="y")
+        right = tk.Frame(main, width=640, bg=main["bg"])
+        right.pack(side="right", fill="both")
         right.pack_propagate(False)
 
         hdr = tk.Frame(right, bg=right["bg"]); hdr.pack(fill="x", padx=8, pady=(10, 6))
@@ -235,27 +342,21 @@ class MaszynyGUI:
         ttk.Radiobutton(hdr, text="Edycja", variable=self._mode_var, value="edit",
                         command=lambda: self._set_hala_mode("edit")).pack(side="right", padx=4)
 
-        # większy obszar rysowania – ~110 kropek bez ścisku
         self._canvas = tk.Canvas(
             right,
-            width=700,     # było ~460
-            height=520,    # było ~380
+            width=640,
+            height=540,
             bg="#0f172a",
             highlightthickness=1,
             highlightbackground="#334155"
         )
         self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
-        if Renderer is None:
-            tk.Label(self._canvas, text="Brak widok_hali/renderer.py", fg="#fca5a5", bg="#0f172a").place(x=20, y=20)
-            return
-
+        # tylko Renderer (bez starych funkcji)
         self._renderer = Renderer(self.root, self._canvas, self._machines)
 
         self._renderer.on_select = self._on_hala_select
         self._renderer.on_move = self._on_hala_move
-        if hasattr(self._renderer, "on_update"):
-            self._renderer.on_update = self._on_machine_update
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
         self._set_hala_mode("view")
         self._set_details_button_enabled(True)
