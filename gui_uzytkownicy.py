@@ -51,6 +51,12 @@ except Exception:  # pragma: no cover - brak nowego widoku profilu
 _YM_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
+def _validate_date_ym(value: str) -> bool:
+    if not value:
+        return True
+    return bool(_YM_RE.fullmatch(value.strip()))
+
+
 def _load_all_users() -> list[dict]:
     """Zwraca listę użytkowników z pliku ``data/uzytkownicy.json``."""
     path = os.path.join("data", "uzytkownicy.json")
@@ -121,15 +127,43 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
             pass
 
     left = ttk.Frame(frame)
-    left.pack(side="left", fill="y", padx=(8, 6), pady=8)
+    left.pack(side="left", fill="both", padx=(8, 6), pady=8)
     right = ttk.Frame(frame)
     right.pack(side="left", fill="both", expand=True, padx=(6, 8), pady=8)
 
     ttk.Label(left, text="Użytkownicy", font=("Segoe UI", 10, "bold")).pack(
         anchor="w", pady=(0, 6)
     )
-    users_listbox = tk.Listbox(left, height=20, width=28)
-    users_listbox.pack(fill="y")
+    cols = [
+        "login",
+        "rola",
+        "display_name",
+        "zatrudniony_od",
+        "avatar_path",
+        "cover_image",
+        "allow_pw",
+    ]
+    tree_container = ttk.Frame(left)
+    tree_container.pack(fill="both", expand=True)
+    users_tree = ttk.Treeview(
+        tree_container,
+        columns=cols,
+        show="headings",
+        selectmode="browse",
+        height=16,
+    )
+    vsb = ttk.Scrollbar(tree_container, orient="vertical", command=users_tree.yview)
+    users_tree.configure(yscrollcommand=vsb.set)
+    users_tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    tree_container.grid_rowconfigure(0, weight=1)
+    tree_container.grid_columnconfigure(0, weight=1)
+    for col in cols:
+        users_tree.heading(col, text=col)
+        users_tree.column(col, anchor="w", width=120, stretch=True)
+
+    buttons_frame = ttk.Frame(left)
+    buttons_frame.pack(fill="x", pady=(6, 0))
 
     ttk.Label(right, text="Edycja profilu", font=("Segoe UI", 10, "bold")).grid(
         row=0, column=0, columnspan=4, sticky="w", pady=(0, 8)
@@ -193,7 +227,7 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
         rl = (rola_var.get() or "").strip() or "uzytkownik"
 
         ym_disp = (ym_var.get() or "").strip()
-        if ym_disp and not _YM_RE.match(ym_disp):
+        if ym_disp and not _validate_date_ym(ym_disp):
             messagebox.showwarning(
                 "Walidacja",
                 "Pole 'Zatrudniony od' musi być w formacie YYYY-MM (np. 2024-09).",
@@ -223,7 +257,7 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
         try:
             save_user(user)
             messagebox.showinfo("Zapisano", f"Profil '{lg}' zapisany.")
-            _reload_users()
+            _reload_users(select_login=lg)
         except Exception as exc:  # pragma: no cover - IO issues
             messagebox.showerror("Błąd zapisu", str(exc))
 
@@ -294,29 +328,181 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
         allow_var.set(1 if user.get("allow_pw", True) else 0)
 
     users_cache: list[dict] = []
+    tree_users: dict[str, dict] = {}
 
-    def _reload_users():
-        nonlocal users_cache
+    def _reload_users(select_login: str | None = None):
+        nonlocal users_cache, tree_users
         users_cache = _load_all_users()
-        users_listbox.delete(0, "end")
-        for rec in users_cache:
-            label = f"{rec.get('login', '?')}  ({rec.get('rola', '?')})"
-            users_listbox.insert("end", label)
+        tree_users = {}
+        for item in users_tree.get_children():
+            users_tree.delete(item)
+        for idx, rec in enumerate(users_cache):
+            iid = rec.get("login") or f"row-{idx}"
+            if iid in tree_users:
+                iid = f"{iid}-{idx}"
+            tree_users[iid] = rec
+            values: list[str] = []
+            for col in cols:
+                if col == "allow_pw":
+                    values.append("tak" if rec.get(col, True) else "nie")
+                elif col == "zatrudniony_od":
+                    values.append(_iso_to_ym_display(rec.get(col, "")))
+                else:
+                    val = rec.get(col, "")
+                    values.append("" if val is None else str(val))
+            users_tree.insert("", "end", iid=iid, values=values)
+        if select_login:
+            _select_user(select_login)
 
     def _on_select(_event=None):
-        sel = users_listbox.curselection()
+        sel = users_tree.selection()
         if not sel:
             _fill_form(None)
             return
-        idx = sel[0]
-        user = users_cache[idx] if 0 <= idx < len(users_cache) else None
+        user = tree_users.get(sel[0])
         _fill_form(user)
 
-    users_listbox.bind("<<ListboxSelect>>", _on_select)
+    def _select_user(login_value: str):
+        for iid, rec in tree_users.items():
+            if rec.get("login") == login_value:
+                users_tree.selection_set(iid)
+                users_tree.focus(iid)
+                users_tree.see(iid)
+                _on_select()
+                return
+
+    def _edit_user(user: dict | None = None):
+        data = dict(user or {})
+        win = tk.Toplevel(frame)
+        title_login = data.get("login") or "nowy"
+        win.title(f"Edytuj {title_login}")
+        win.transient(frame.winfo_toplevel())
+        win.columnconfigure(1, weight=1)
+
+        vars_map: dict[str, tk.Variable] = {}
+        row = 0
+        for col in cols:
+            ttk.Label(win, text=col).grid(
+                row=row, column=0, sticky="w", padx=8, pady=4
+            )
+            if col == "allow_pw":
+                var = tk.BooleanVar(value=bool(data.get(col, True)))
+                ttk.Checkbutton(
+                    win,
+                    text="Pozwól na PW",
+                    variable=var,
+                    onvalue=True,
+                    offvalue=False,
+                ).grid(row=row, column=1, sticky="w", padx=8, pady=4)
+            else:
+                default = data.get(col, "")
+                if default is None:
+                    default = ""
+                if col == "zatrudniony_od":
+                    default = _iso_to_ym_display(str(default))
+                var = tk.StringVar(value=str(default))
+                ttk.Entry(win, textvariable=var, width=32).grid(
+                    row=row, column=1, sticky="we", padx=8, pady=4
+                )
+            vars_map[col] = var
+            row += 1
+
+        def _save_from_editor():
+            login_value = vars_map["login"].get().strip()
+            if not login_value:
+                messagebox.showerror("Błąd", "Login jest wymagany.", parent=win)
+                return
+            rola_value = vars_map["rola"].get().strip() or "uzytkownik"
+            ym_value = vars_map["zatrudniony_od"].get().strip()
+            if ym_value and not _validate_date_ym(ym_value):
+                messagebox.showerror(
+                    "Błąd",
+                    "Pole 'zatrudniony_od' musi mieć format YYYY-MM.",
+                    parent=win,
+                )
+                return
+            user_data = get_user(login_value) or {"login": login_value}
+            user_data["rola"] = rola_value
+            display_value = vars_map["display_name"].get().strip()
+            if display_value:
+                user_data["display_name"] = display_value
+            else:
+                user_data.pop("display_name", None)
+            if ym_value:
+                user_data["zatrudniony_od"] = ym_value
+            else:
+                user_data.pop("zatrudniony_od", None)
+            avatar_value = vars_map["avatar_path"].get().strip()
+            if avatar_value:
+                user_data["avatar_path"] = avatar_value
+            else:
+                user_data.pop("avatar_path", None)
+            cover_value = vars_map["cover_image"].get().strip()
+            if cover_value:
+                user_data["cover_image"] = cover_value
+            else:
+                user_data.pop("cover_image", None)
+            user_data["allow_pw"] = bool(vars_map["allow_pw"].get())
+            try:
+                save_user(user_data)
+            except Exception as exc:  # pragma: no cover - IO issues
+                messagebox.showerror("Błąd zapisu", str(exc), parent=win)
+                return
+            win.destroy()
+            _reload_users(select_login=login_value)
+            _fill_form(user_data)
+
+        def _open_profile_from_editor():
+            login_value = vars_map["login"].get().strip()
+            if not login_value:
+                messagebox.showwarning(
+                    "Profil",
+                    "Najpierw uzupełnij login użytkownika.",
+                    parent=win,
+                )
+                return
+            _open_profile_in_main(root, login_value)
+
+        actions = ttk.Frame(win)
+        actions.grid(row=row, column=0, columnspan=2, sticky="e", padx=8, pady=(8, 8))
+        ttk.Button(actions, text="Otwórz profil", command=_open_profile_from_editor).pack(
+            side="left"
+        )
+        ttk.Button(actions, text="Zapisz", command=_save_from_editor).pack(
+            side="right", padx=(6, 0)
+        )
+
+    def _edit_selected_user(_event=None):
+        sel = users_tree.selection()
+        if not sel:
+            messagebox.showinfo("Edycja", "Najpierw wybierz użytkownika z listy.")
+            return
+        user = tree_users.get(sel[0])
+        if not user:
+            messagebox.showerror("Edycja", "Nie udało się wczytać użytkownika.")
+            return
+        _edit_user(user)
+
+    ttk.Button(
+        buttons_frame,
+        text="Edytuj zaznaczonego",
+        command=_edit_selected_user,
+    ).pack(fill="x")
+    ttk.Button(
+        buttons_frame,
+        text="Nowy użytkownik",
+        command=lambda: _edit_user({"allow_pw": True, "rola": "uzytkownik"}),
+    ).pack(fill="x", pady=(4, 0))
+
+    users_tree.bind("<<TreeviewSelect>>", _on_select)
+    users_tree.bind("<Double-1>", _edit_selected_user)
     _reload_users()
     if users_cache:
-        users_listbox.selection_set(0)
-        _on_select()
+        first = next(iter(users_tree.get_children()), None)
+        if first:
+            users_tree.selection_set(first)
+            users_tree.focus(first)
+            _on_select()
 
     for col in range(4):
         right.grid_columnconfigure(col, weight=1)
