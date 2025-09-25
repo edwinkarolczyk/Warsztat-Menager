@@ -298,6 +298,7 @@ def _append_history(*args, **kwargs):
 
     items, item_id, uzytkownik, op, ilosc, *rest = args
     kontekst = rest[0] if rest else kwargs.get("kontekst")
+    comment = "" if kontekst is None else str(kontekst)
 
     append_history(
         items,
@@ -305,7 +306,7 @@ def _append_history(*args, **kwargs):
         user=uzytkownik,
         op=op,
         qty=ilosc,
-        comment=kontekst or "",
+        comment=comment,
     )
 
     mapping = {
@@ -321,6 +322,9 @@ def _append_history(*args, **kwargs):
         "operacja": mapping.get(op, op.lower()),
         "ilosc": float(ilosc),
     }
+
+    entry["kontekst"] = comment
+    entry["comment"] = comment
 
     try:
         items[item_id]["historia"][-1] = entry
