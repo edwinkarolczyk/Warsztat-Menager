@@ -31,8 +31,6 @@ from pathlib import Path
 
 try:
     CONFIG_MANAGER = ConfigManager()
-    import rc1_hotfix_actions  # RC1: rejestracja brakujących akcji BOM/audytu
-    import rc1_theme_fix  # RC1: poprawa kontrastu przycisków motywu
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
@@ -529,6 +527,9 @@ def main():
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+        # RC1 hotfixy: rejestracja akcji i poprawa motywu po załadowaniu configu/motywu
+        import rc1_hotfix_actions  # noqa: F401  # RC1: akcje BOM + Audyt
+        import rc1_theme_fix  # noqa: F401  # RC1: kontrast napisów
 
         _show_tutorial_if_first_run(root)
 
