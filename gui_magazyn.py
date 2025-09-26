@@ -39,6 +39,11 @@ from wm_log import dbg as wm_dbg, err as wm_err
 
 from ui_theme import apply_theme_safe as apply_theme
 
+from rc1_magazyn_fix import (
+    build_orders_command,
+    should_disable_orders_button,
+)
+
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
 from gui_magazyn_rezerwacje import (
@@ -283,10 +288,10 @@ class MagazynFrame(ttk.Frame):
         btn_orders = ttk.Button(
             toolbar,
             text="Zamówienia",
-            command=lambda: open_orders_window(self) if open_orders_window else None,
+            command=build_orders_command(self, open_orders_window, _can),
         )
         btn_orders.pack(side="left", padx=(6, 0))
-        if open_orders_window is None:
+        if should_disable_orders_button(self, open_orders_window, _can):
             try:
                 btn_orders.state(["disabled"])
             except Exception:

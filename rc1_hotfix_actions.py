@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import traceback
+from pathlib import Path
 from typing import Any, Dict
 
 # -- Pomocnicze: lekkie logowanie
@@ -18,7 +19,20 @@ def _log(msg: str) -> None:
     print(f"WM|RC1|hotfix|{msg}")
 
 # -- Bezpieczny dostęp do configu (czytamy i zapisujemy config.json)
-CONFIG_PATH = os.path.join(os.getcwd(), "config.json")
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_DEFAULT_CONFIG_PATH = _SCRIPT_DIR / "config.json"
+
+
+def _resolve_config_path() -> Path:
+    """Zwraca możliwie najbardziej prawdopodobną ścieżkę do config.json."""
+
+    if _DEFAULT_CONFIG_PATH.exists():
+        return _DEFAULT_CONFIG_PATH
+    cwd_path = Path(os.getcwd()) / "config.json"
+    return cwd_path if cwd_path.exists() else _DEFAULT_CONFIG_PATH
+
+
+CONFIG_PATH = _resolve_config_path()
 
 
 def _config_load() -> Dict[str, Any]:

@@ -22,6 +22,9 @@ import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
+import rc1_theme_fix  # noqa: F401 - instalacja hotfixa motywu przy imporcie
+
+rc1_theme_fix.install()
 from ui_theme import apply_theme_safe as apply_theme
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
@@ -32,6 +35,7 @@ from pathlib import Path
 try:
     CONFIG_MANAGER = ConfigManager()
     import rc1_hotfix_actions  # RC1: rejestracja brakujących akcji BOM/audytu
+    import rc1_magazyn_fix  # noqa: F401 - zapewnia dostępność strażnika Zamówień
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
