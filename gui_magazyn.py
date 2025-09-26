@@ -21,6 +21,8 @@ import re
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from rc1_magazyn_fix import ensure_magazyn_toolbar_once
+
 try:
     from gui_zlecenia_creator import open_order_creator
 except Exception:
@@ -68,6 +70,23 @@ ROLE_PERMS = {
     "unreserve": "brygadzista",
     "to_orders": "brygadzista",
 }
+
+
+@ensure_magazyn_toolbar_once
+def _add_orders_button(toolbar: ttk.Frame, owner):
+    btn_orders = ttk.Button(
+        toolbar,
+        text="Zamówienia",
+        command=lambda: open_orders_window(owner) if open_orders_window else None,
+    )
+    btn_orders.pack(side="left", padx=(6, 0))
+    if open_orders_window is None:
+        try:
+            btn_orders.state(["disabled"])
+        except Exception:
+            pass
+    print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
+    return btn_orders
 
 
 def _role_rank(role: str) -> int:
@@ -280,18 +299,7 @@ class MagazynFrame(ttk.Frame):
         self.ent_q.pack(side="left", padx=(0, 6))
         self.ent_q.bind("<KeyRelease>", lambda _e: self._apply_filters())
 
-        btn_orders = ttk.Button(
-            toolbar,
-            text="Zamówienia",
-            command=lambda: open_orders_window(self) if open_orders_window else None,
-        )
-        btn_orders.pack(side="left", padx=(6, 0))
-        if open_orders_window is None:
-            try:
-                btn_orders.state(["disabled"])
-            except Exception:
-                pass
-        print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
+        btn_orders = _add_orders_button(toolbar, self)
 
         btn_orders_prefill = ttk.Button(
             toolbar,
