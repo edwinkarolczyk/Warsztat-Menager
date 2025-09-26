@@ -32,6 +32,7 @@ from pathlib import Path
 try:
     CONFIG_MANAGER = ConfigManager()
     import rc1_hotfix_actions  # RC1: rejestracja brakujących akcji BOM/audytu
+    import rc1_theme_fix  # RC1: poprawa kontrastu przycisków motywu
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
