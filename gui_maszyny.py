@@ -43,6 +43,19 @@ def _migration_flag_path(primary_path: str | None = None) -> str:
     return os.path.join(base_dir, os.path.basename(MIGRATION_FLAG_FALLBACK))
 
 
+def _touch_migration_flag(primary_path: str | None = None) -> None:
+    """Ensure that the migration flag file exists next to the primary data file."""
+
+    flag_path = _migration_flag_path(primary_path)
+    directory = os.path.dirname(flag_path) or "."
+    try:
+        os.makedirs(directory, exist_ok=True)
+        with open(flag_path, "w", encoding="utf-8") as handle:
+            handle.write("")
+    except OSError as exc:  # pragma: no cover - filesystem dependent
+        print(f"[WARN][Maszyny] Nie można utworzyć flagi migracji: {exc}")
+
+
 def _load_json_file(path: str) -> list:
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -205,7 +218,7 @@ class MaszynyGUI:
         if n_p != n_l:
             merged = _merge_unique(primary, legacy)
             _save_primary(merged)
-            open(migration_flag, "w").close()
+            _touch_migration_flag(primary_path)
             self._source = "primary"
             self._active_source = "primary"
             self._counts = (len(merged), n_l)
@@ -215,7 +228,7 @@ class MaszynyGUI:
         # takie same ilości → i tak scala (dla unifikacji)
         merged = _merge_unique(primary, legacy)
         _save_primary(merged)
-        open(migration_flag, "w").close()
+        _touch_migration_flag(primary_path)
         self._source = "primary"
         self._active_source = "primary"
         self._counts = (len(merged), n_l)
@@ -250,6 +263,7 @@ class MaszynyGUI:
 
             sorted_rows = sort_machines(data)
             _save_primary(sorted_rows)
+            _touch_migration_flag(primary_path)
 
             local_registry = index_by_id(self._machines)
             local_row = local_registry.get(machine_key)
