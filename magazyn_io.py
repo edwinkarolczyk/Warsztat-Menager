@@ -39,7 +39,18 @@ HISTORY_PATH = os.path.join(os.path.dirname(MAGAZYN_PATH), "magazyn_history.json
 
 
 def _ensure_dirs(path: str | os.PathLike[str]) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    """Ensure parent directory for *path* exists.
+
+    When *path* points to a file in the current working directory the parent
+    directory is an empty string. ``os.makedirs('')`` raises ``FileNotFoundError``
+    so we skip directory creation in that case.  This keeps behaviour correct
+    for relative filenames while still creating nested directories when needed.
+    """
+
+    directory = os.path.dirname(os.fspath(path))
+    if not directory:
+        return
+    os.makedirs(directory, exist_ok=True)
 
 
 def _load_json(path: str | os.PathLike[str], default):
