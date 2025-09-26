@@ -21,6 +21,29 @@ from gui.settings_action_handlers import (
 )
 from config.paths import bind_settings, ensure_core_tree
 
+try:
+    from wm_log import (
+        bind_settings_getter as wm_bind_settings_getter,
+        dbg as wm_dbg,
+        err as wm_err,
+        info as wm_info,
+    )
+except ImportError:  # pragma: no cover - fallback for environments without wm_log
+    def wm_bind_settings_getter(_getter):
+        return None
+
+
+    def wm_dbg(*_args, **_kwargs):
+        return None
+
+
+    def wm_err(*_args, **_kwargs):
+        return None
+
+
+    def wm_info(*_args, **_kwargs):
+        return None
+
 class ScrollableFrame(ttk.Frame):
     """Generic vertically scrollable frame with mouse wheel support."""
 
@@ -447,6 +470,7 @@ class SettingsPanel:
         else:
             self.cfg = ConfigManager()
         self.settings_state = self._load_settings_state()
+        wm_bind_settings_getter(lambda k: self.settings_state.get(k))
         bind_settings(self.settings_state)
         ensure_core_tree()
         settings_actions_bind(self.settings_state, on_change=self.on_setting_changed)
@@ -670,7 +694,9 @@ class SettingsPanel:
         btn = ttk.Button(
             parent,
             text=text,
-            command=lambda f=field_def: self._on_button_field_clicked(f),
+            command=lambda f=field_def, lbl=text: self._on_button_field_clicked(
+                f, lbl
+            ),
         )
         tip = field_def.get("help_pl") or field_def.get("help")
         if tip:
@@ -686,16 +712,36 @@ class SettingsPanel:
         except Exception:
             pass
 
-    def _on_button_field_clicked(self, field: dict[str, Any]) -> None:
+    def _on_button_field_clicked(self, field: dict[str, Any], label: str) -> None:
         """Execute configured action for schema button field."""
 
         action = field.get("action")
+        params = field.get("params", {}) or {}
+        wm_dbg("ui.button", "click", label=label, action=action, params=params)
         if not action:
             return
-        params = field.get("params", {}) or {}
         try:
-            settings_action_exec(action, params)
+            result = settings_action_exec(action, params)
+            ok = True
+            if isinstance(result, dict) and "ok" in result:
+                ok = bool(result["ok"])
+            wm_info(
+                "ui.button",
+                "done",
+                label=label,
+                action=action,
+                ok=ok,
+                result=result,
+            )
         except RuntimeError as exc:
+            wm_err(
+                "ui.button",
+                "action failed",
+                exc,
+                label=label,
+                action=action,
+                params=params,
+            )
             messagebox.showerror(
                 "Błąd akcji ustawień",
                 str(exc),
@@ -703,6 +749,14 @@ class SettingsPanel:
             )
             return
         except Exception as exc:
+            wm_err(
+                "ui.button",
+                "action failed",
+                exc,
+                label=label,
+                action=action,
+                params=params,
+            )
             messagebox.showerror(
                 "Błąd akcji ustawień",
                 f"Nie udało się wykonać akcji: {exc}",
@@ -719,6 +773,7 @@ class SettingsPanel:
     def on_setting_changed(self, key: str, value: Any) -> None:
         """Callback invoked by action handlers when config value changes."""
 
+        wm_info("ui.settings.change", "value updated", key=key, value=value)
         self.settings_state[key] = value
         var = self.vars.get(key)
         if var is None:
@@ -726,7 +781,14 @@ class SettingsPanel:
         opt = self._options.get(key, {"key": key})
         try:
             coerced = self._coerce_default_for_var(opt, value)
-        except Exception:
+        except Exception as exc:
+            wm_err(
+                "ui.settings.change",
+                "coerce failed",
+                exc,
+                key=key,
+                value=value,
+            )
             coerced = value
         try:
             if isinstance(var, tk.BooleanVar):
@@ -737,11 +799,24 @@ class SettingsPanel:
                 var.set(float(value))
             else:
                 var.set(coerced)
-        except Exception:
+        except Exception as exc:
+            wm_err(
+                "ui.settings.change",
+                "var set failed",
+                exc,
+                key=key,
+                value=value,
+            )
             try:
                 var.set(value)
-            except Exception:
-                pass
+            except Exception as fallback_exc:
+                wm_err(
+                    "ui.settings.change",
+                    "var fallback set failed",
+                    fallback_exc,
+                    key=key,
+                    value=value,
+                )
 
     def _add_group(
         self,
