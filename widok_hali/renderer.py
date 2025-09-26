@@ -4,6 +4,7 @@ import json
 import tkinter as tk
 
 from config.paths import get_path
+from wm_log import dbg as wm_dbg, err as wm_err
 
 __all__ = [
     "Renderer",
@@ -228,8 +229,25 @@ class Renderer:
         self.machines = self._normalize_machines(machines)
 
     def _update_paths_from_config(self) -> None:
-        self._bg_image_path = get_path("hall.background_image", "").strip()
-        self._machines_path = get_path("hall.machines_file", "").strip()
+        try:
+            machines_path = get_path("hall.machines_file")
+        except Exception as exc:
+            self._machines_path = ""
+            wm_err("hala.renderer", "machines path resolve failed", exc)
+        else:
+            self._machines_path = machines_path.strip()
+            if self._machines_path:
+                wm_dbg("hala.renderer", "machines path resolved", path=self._machines_path)
+
+        try:
+            bg_path = get_path("hall.background_image", "")
+        except Exception as exc:
+            self._bg_image_path = ""
+            wm_err("hala.renderer", "bg path resolve failed", exc)
+        else:
+            self._bg_image_path = bg_path.strip()
+            if self._bg_image_path:
+                wm_dbg("hala.renderer", "bg path resolved", bg=self._bg_image_path)
 
     def _load_config_background(self) -> None:
         if not self._bg_image_path:
@@ -249,9 +267,11 @@ class Renderer:
     def _load_bg_image(self, path: str) -> bool:
         try:
             self._bg_image = tk.PhotoImage(file=path)
-        except Exception:
+        except Exception as exc:
             self._bg_image = None
+            wm_err("hala.renderer", "bg load failed", exc, bg=path)
             return False
+        wm_dbg("hala.renderer", "bg loaded", bg=path)
         return True
 
     def _load_machines_from_config(self) -> list[dict]:
@@ -260,14 +280,19 @@ class Renderer:
         try:
             with open(self._machines_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
             return []
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
             return []
-        except Exception:
+        except Exception as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
             return []
         if isinstance(data, list):
-            return [item for item in data if isinstance(item, dict)]
+            machines = [item for item in data if isinstance(item, dict)]
+            wm_dbg("hala.renderer", "machines loaded", path=self._machines_path, count=len(machines))
+            return machines
         return []
 
     def _normalize_machines(self, machines: list | None) -> list[dict]:
