@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional
+from typing import Any, Dict, List, MutableMapping, Optional
 
 from config.paths import get_path, join_path
 
@@ -63,22 +63,30 @@ def load_order(order_id: str) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) else None
 
 
-def _iter_order_filenames() -> Iterable[str]:
+def list_order_files(*, include_hidden: bool = False) -> List[str]:
+    """Zwraca posortowaną listę plików ze zleceniami."""
+
     directory = ensure_orders_dir()
     try:
-        for name in sorted(os.listdir(directory)):
-            if not name.endswith(_ORDER_EXTENSION) or name.startswith("_"):
-                continue
-            yield name
+        names = sorted(os.listdir(directory))
     except FileNotFoundError:
-        return
+        return []
+
+    items: List[str] = []
+    for name in names:
+        if not name.endswith(_ORDER_EXTENSION):
+            continue
+        if not include_hidden and name.startswith("_"):
+            continue
+        items.append(name)
+    return items
 
 
 def load_orders() -> List[Dict[str, Any]]:
     """Zwraca listę wszystkich zleceń zapisanych w katalogu."""
 
     items: List[Dict[str, Any]] = []
-    for filename in _iter_order_filenames():
+    for filename in list_order_files():
         path = join_path(ORDERS_DIR_KEY, filename)
         try:
             with open(path, "r", encoding="utf-8") as handle:
