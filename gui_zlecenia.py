@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import os
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
-from config.paths import join_path
-from zlecenia_utils import load_orders
+from domain.orders import load_order, load_orders
 
 try:  # pragma: no cover - środowiska testowe nie wymagają motywu
     from gui_zlecenia_creator import open_order_creator  # type: ignore
@@ -63,13 +60,11 @@ def panel_zlecenia(parent: tk.Widget) -> ttk.Frame:
         if not selection:
             return
         order_id = selection[0]
-        path = join_path("paths.orders_dir", f"{order_id}.json")
-        if not os.path.exists(path):
-            return
         try:
-            with open(path, "r", encoding="utf-8") as handle:
-                order_data = json.load(handle)
+            order_data = load_order(order_id)
         except Exception:
+            return
+        if not order_data:
             return
         open_order_detail(frame, order_data)
 
