@@ -23,61 +23,149 @@ STATUS_COLORS = {
 }
 DOT_TEXT = "#ffffff"
 
+# Helpers for legacy compatibility -------------------------------------------------
+
+def _coerce_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _canvas_size(canvas: tk.Canvas) -> tuple[int, int]:
+    try:
+        width = int(canvas.winfo_width() or canvas["width"])
+        height = int(canvas.winfo_height() or canvas["height"])
+    except Exception:
+        width, height = 640, 540
+    return width, height
+
+
+def _machine_attr(machine, key, default=None):
+    if isinstance(machine, dict):
+        return machine.get(key, default)
+    return getattr(machine, key, default)
+
+
+def _machine_position(machine) -> tuple[int, int]:
+    pos = None
+    if isinstance(machine, dict):
+        pos = machine.get("pozycja")
+    else:
+        pos = getattr(machine, "pozycja", None)
+    if isinstance(pos, dict):
+        x = pos.get("x")
+        y = pos.get("y")
+    else:
+        x = _machine_attr(machine, "x")
+        y = _machine_attr(machine, "y")
+    return _coerce_int(x, 50), _coerce_int(y, 50)
+
 # ===========================
 # Legacy: funkcje stubujące
 # ===========================
 def draw_background(canvas: tk.Canvas, grid_size: int = 24, bg: str = "#0f172a", line: str = "#1e293b", **_):
-    """Rysuje jednolite tło + lekką siatkę."""
-    try:
-        w = int(canvas.winfo_width() or canvas["width"])
-        h = int(canvas.winfo_height() or canvas["height"])
-    except Exception:
-        # fallback
-        w, h = 640, 540
-    canvas.create_rectangle(0, 0, w, h, fill=bg, outline=bg, tags=("background",))
-    # lekka siatka (wydajność lepsza niż gęsta co 4 px)
-    for x in range(0, w, grid_size):
-        canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
-    for y in range(0, h, grid_size):
-        canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
+    """Rysuje jednolite tło + lekką siatkę (kompatybilnie z legacy API)."""
+
+    width_override = _coerce_int(bg)
+    height_override = _coerce_int(line)
+    grid = _coerce_int(grid_size, default=24)
+    if not grid or grid <= 0:
+        grid = 24
+
+    width, height = _canvas_size(canvas)
+    if width_override is not None:
+        width = width_override
+        bg_color = "#0f172a"
+    else:
+        bg_color = bg
+    if height_override is not None:
+        height = height_override
+        line_color = "#1e293b"
+    else:
+        line_color = line
+
+    canvas.create_rectangle(0, 0, width, height, fill=bg_color, outline=bg_color, tags=("background",))
+    for x in range(0, width, grid):
+        canvas.create_line(x, 0, x, height, fill=line_color, width=1, tags=("grid",))
+    for y in range(0, height, grid):
+        canvas.create_line(0, y, width, y, fill=line_color, width=1, tags=("grid",))
 
 def draw_grid(canvas: tk.Canvas, grid_size: int = 24, line: str = "#1e293b", **_):
-    # dla kompatybilności — rysuje tylko siatkę na istniejącym tle
-    try:
-        w = int(canvas.winfo_width() or canvas["width"])
-        h = int(canvas.winfo_height() or canvas["height"])
-    except Exception:
-        w, h = 640, 540
-    for x in range(0, w, grid_size):
-        canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
-    for y in range(0, h, grid_size):
-        canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
+    """Rysuje samą siatkę – wspiera stare wywołania (canvas, width, height)."""
 
-def draw_machine(canvas: tk.Canvas, machine: dict, **_):
-    """
-    Legacy: narysuj pojedynczą maszynę (kropka + nr ewid.)
-    Używane przez starsze miejsca, nie koliduje z klasą Renderer.
-    """
-    mid = str(machine.get("id") or machine.get("nr_ewid") or "?")
-    status = (machine.get("status") or "sprawna").lower()
+    height_override = _coerce_int(line)
+    if height_override is not None:
+        width_override = _coerce_int(grid_size)
+        grid = 24
+        line_color = "#1e293b"
+    else:
+        width_override = None
+        grid = _coerce_int(grid_size, default=24)
+        if not grid or grid <= 0:
+            grid = 24
+        line_color = line
+
+    width, height = _canvas_size(canvas)
+    if width_override is not None:
+        width = width_override
+    if height_override is not None:
+        height = height_override
+
+    for x in range(0, width, grid):
+        canvas.create_line(x, 0, x, height, fill=line_color, width=1, tags=("grid",))
+    for y in range(0, height, grid):
+        canvas.create_line(0, y, width, y, fill=line_color, width=1, tags=("grid",))
+
+def draw_machine(canvas: tk.Canvas, machine, **_):
+    """Legacy: narysuj pojedynczą maszynę (kropka + nr ewid.)."""
+
+    mid = str(
+        _machine_attr(machine, "id")
+        or _machine_attr(machine, "nr_ewid")
+        or "?"
+    )
+    status = str(_machine_attr(machine, "status", "sprawna")).lower()
     color = STATUS_COLORS.get(status, STATUS_COLORS["sprawna"])
-    x = int(machine.get("pozycja", {}).get("x", 50))
-    y = int(machine.get("pozycja", {}).get("y", 50))
+    x, y = _machine_position(machine)
     r = 14
-    canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="#0b1220", width=1,
-                       tags=("machine", f"m:{mid}", f"status:{status}", "dot"))
-    canvas.create_text(x, y, text=mid, fill=DOT_TEXT, font=("Segoe UI", 9, "bold"),
-                       tags=("machine", f"m:{mid}", "label"))
+    canvas.create_oval(
+        x - r,
+        y - r,
+        x + r,
+        y + r,
+        fill=color,
+        outline="#0b1220",
+        width=1,
+        tags=("machine", f"m:{mid}", f"status:{status}", "dot"),
+    )
+    canvas.create_text(
+        x,
+        y,
+        text=mid,
+        fill=DOT_TEXT,
+        font=("Segoe UI", 9, "bold"),
+        tags=("machine", f"m:{mid}", "label"),
+    )
 
-def draw_status_overlay(canvas: tk.Canvas, machine: dict, **_):
+
+def draw_status_overlay(canvas: tk.Canvas, machine, **_):
     """Legacy: dodatkowy obrys przy awarii (wizualny akcent)."""
-    if (machine.get("status") or "").lower() != "awaria":
+
+    if str(_machine_attr(machine, "status", "")).lower() != "awaria":
         return
-    x = int(machine.get("pozycja", {}).get("x", 50))
-    y = int(machine.get("pozycja", {}).get("y", 50))
+    x, y = _machine_position(machine)
     r = 20
-    canvas.create_oval(x - r, y - r, x + r, y + r, outline="#ef4444", width=2, dash=(3, 2),
-                       tags=("overlay",))
+    canvas.create_oval(
+        x - r,
+        y - r,
+        x + r,
+        y + r,
+        outline="#ef4444",
+        width=2,
+        dash=(3, 2),
+        tags=("overlay",),
+    )
 
 def draw_walls(*_, **__):
     """Stub warstwy pomieszczeń/ścian — celowo puste (do implementacji)."""
