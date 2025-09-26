@@ -1,39 +1,33 @@
-# RC1 Stabilization Roadmap
+# WM – Roadmapa stabilizacji RC1
 
-## Cel
-Zabezpieczenie wydania RC1 poprzez kontrolę jakości, monitoring oraz komunikację z interesariuszami.
+Dokument śledzący etapy stabilizacji RC1 wraz z kluczowymi kamieniami milowymi.
 
-## Fazy Stabilizacji
-1. **Przegląd otwartych zgłoszeń**
-   - Priorytetyzacja krytycznych błędów.
-   - Weryfikacja regresji.
-2. **Implementacja poprawek**
-   - Przydzielenie właścicieli do zgłoszeń.
-   - Śledzenie statusów wdrożeń poprawek.
-3. **Testy regresyjne**
-   - Smoke tests dla funkcji krytycznych.
-   - Testy automatyczne i manualne według planu QA.
-4. **Przygotowanie do releasu**
-   - Finalna walidacja kryteriów wyjścia.
-   - Przygotowanie notatek releasowych.
+## Założenia
+- RC1 to wydanie kandydujące do publikacji produkcyjnej.
+- Każda faza musi mieć przypisaną osobę odpowiedzialną.
+- Raportujemy status raz w tygodniu podczas spotkania stabilizacyjnego.
 
-## Harmonogram (przykład)
-| Tydzień | Kluczowe aktywności |
-|---------|---------------------|
-| T1      | Zbiórka zgłoszeń, priorytetyzacja, plan testów |
-| T2      | Implementacja poprawek, testy smoke |
-| T3      | Testy regresyjne, analiza ryzyk |
-| T4      | Finalizacja dokumentacji, zgoda na releas |
+## Fazy
+1. **Analiza zgłoszeń** – przegląd rejestru błędów, priorytetyzacja i plan działania.
+2. **Implementacja poprawek** – development, code review, smoke testy modułowe.
+3. **Regresja** – testy automatyczne/manualne, sanity check środowisk.
+4. **Przygotowanie releasu** – komplet dokumentacji, komunikacja z interesariuszami.
+5. **Go/No-Go** – decyzja o publikacji lub kolejnym cyklu poprawek.
 
-## Monitorowanie Ryzyk
-- Lista ryzyk wraz z planami mitigacji.
-- Sygnały alarmowe i metryki jakości.
+## Harmonogram przykładowy
+| Tydzień | Zadania | Odpowiedzialny |
+|---------|---------|----------------|
+| T1 | Analiza backlogu, aktualizacja TICKETS_RC1 | ... |
+| T2 | Poprawki krytyczne, review planu testów | ... |
+| T3 | Pełna regresja, walidacja kryteriów wyjścia | ... |
+| T4 | Przygotowanie releasu, komunikacja | ... |
 
-## Komunikacja
-- Cotygodniowe statusy do zarządu.
-- Kanał incident-response dla krytycznych zgłoszeń.
+## Ryzyka i mitigacje
+- **Brak zasobów QA** – rotacja testerów, priorytetyzacja smoke testów.
+- **Niestabilne środowisko testowe** – automatyczne healthchecki, monitoring.
+- **Nowe zgłoszenia P0** – szybka triage, dedykowany kanał incident-response.
 
-## Materiały uzupełniające
-- Link do TICKETS_RC1.md.
-- Plan testów QA.
-- Lista właścicieli modułów.
+## Materiały powiązane
+- `docs/TICKETS_RC1.md`
+- Plan testów QA
+- Lista właścicieli modułów oraz kontaktów awaryjnych

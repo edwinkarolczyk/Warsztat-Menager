@@ -1,0 +1,12 @@
+WM RC1 PACK – Healthcheck raport
+Data: 2025-09-26 10:41
+
+Kontrole:
+- [OK] Repozytorium – README: plik istnieje (/workspace/Warsztat-Menager/README.md, 1585 B)
+- [OK] Konfiguracja domyślna: plik istnieje (/workspace/Warsztat-Menager/config.defaults.json, 4334 B)
+- [OK] Konfiguracja aktywna: plik istnieje (/workspace/Warsztat-Menager/config.json, 10541 B)
+- [OK] Katalog danych: katalog istnieje (/workspace/Warsztat-Menager/data)
+- [OK] Główny skrypt aplikacji: plik istnieje (/workspace/Warsztat-Menager/start.py, 17999 B)
+- [OK] Moduł logiki zleceń: plik istnieje (/workspace/Warsztat-Menager/zlecenia_logika.py, 7219 B)
+- [OK] Logi aplikacji: katalog istnieje (/workspace/Warsztat-Menager/logi)
+- [OK] Dokumentacja RC1 – tickets: plik istnieje (/workspace/Warsztat-Menager/docs/TICKETS_RC1.md, 1049 B)

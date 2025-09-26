@@ -1,30 +1,49 @@
-# RC1 Stabilization Ticket Log
+# WM – Stabilizacja RC1 (tickets)
 
-## Overview
-- **Release Candidate:** RC1
-- **Stabilization Window:** _<wprowadź daty>_
-- **Release Owner:** _<imię i nazwisko>_
+Tutaj zapisujemy zgłoszenia błędów oraz zadań do wykonania w ramach wersji RC1.
+Każdy błąd = osobna sekcja.
 
-## Ticket Intake Checklist
-1. Zgłoszenie posiada opis problemu oraz kroki reprodukcji.
-2. Priorytet został nadany (P0/P1/P2/P3).
-3. Dodano wymagane załączniki (logi, zrzuty ekranu).
-4. Potwierdzono wersję aplikacji, w której wystąpił błąd.
+---
 
-## Ticket Register
-| ID | Priorytet | Moduł | Opis | Status | Właściciel | Uwagi |
-|----|-----------|-------|------|--------|------------|-------|
-|    |           |       |      |        |            |       |
+## Szablon wpisu
 
-## Decision Log
-- _<data>_: _<krótkie podsumowanie decyzji>_
+### [MODUŁ] Krótki opis
+**Kroki do odtworzenia:**
+1. …
+2. …
+3. …
 
-## Stabilization Exit Criteria
-- [ ] Brak otwartych zgłoszeń o priorytecie P0/P1.
-- [ ] Zakończone testy regresyjne dla krytycznych modułów.
-- [ ] Wszystkie poprawki posiadają plan wdrożenia i rollbacku.
+**Oczekiwane:**
+- …
 
-## Retro Notes
+**Rzeczywiste:**
+- …
+
+**Log (max 3 linie):**
+```
+...
+```
+
+**Status / właściciel:** …
+**Notatki dodatkowe:** …
+
+---
+
+## Lista zgłoszeń RC1
+
+| ID | Priorytet | Moduł | Skrót opisu | Status | Owner | Link do logów |
+|----|-----------|-------|-------------|--------|-------|----------------|
+|    |           |       |             |        |       |                |
+
+---
+
+## Checklist przed zamknięciem RC1
+- [ ] Brak zgłoszeń P0/P1 w statusie innym niż "Gotowe".
+- [ ] Wykonane testy regresyjne dla krytycznych ścieżek.
+- [ ] Zweryfikowane plany wdrożenia i rollbacku.
+- [ ] Aktualne logi i notatki w repozytorium.
+
+## Notatki po stabilizacji
 - Co zadziałało dobrze?
-- Co wymaga poprawy przed kolejną RC?
-- Propozycje usprawnień procesu.
+- Co należy poprawić w kolejnym cyklu?
+- Lista usprawnień dla narzędzi / procesów.
