@@ -1,39 +1,40 @@
-# RC1 Stabilization Roadmap
+# WM – Roadmapa RC1
 
-## Cel
-Zabezpieczenie wydania RC1 poprzez kontrolę jakości, monitoring oraz komunikację z interesariuszami.
+Celem jest stworzenie stabilnej wersji **Release Candidate 1**, która "po prostu działa".
+Brak nowych ficzerów – tylko naprawy i stabilizacja.
 
-## Fazy Stabilizacji
-1. **Przegląd otwartych zgłoszeń**
-   - Priorytetyzacja krytycznych błędów.
-   - Weryfikacja regresji.
-2. **Implementacja poprawek**
-   - Przydzielenie właścicieli do zgłoszeń.
-   - Śledzenie statusów wdrożeń poprawek.
-3. **Testy regresyjne**
-   - Smoke tests dla funkcji krytycznych.
-   - Testy automatyczne i manualne według planu QA.
-4. **Przygotowanie do releasu**
-   - Finalna walidacja kryteriów wyjścia.
-   - Przygotowanie notatek releasowych.
+---
 
-## Harmonogram (przykład)
-| Tydzień | Kluczowe aktywności |
-|---------|---------------------|
-| T1      | Zbiórka zgłoszeń, priorytetyzacja, plan testów |
-| T2      | Implementacja poprawek, testy smoke |
-| T3      | Testy regresyjne, analiza ryzyk |
-| T4      | Finalizacja dokumentacji, zgoda na releas |
+## Kryteria „działa”
+- Start programu bez wyjątków.
+- Zamknięcie programu bez wyjątków.
+- Moduły: Ustawienia, Profile, Narzędzia, Zlecenia, Maszyny → działają poprawnie w podstawowym zakresie.
 
-## Monitorowanie Ryzyk
-- Lista ryzyk wraz z planami mitigacji.
-- Sygnały alarmowe i metryki jakości.
+---
 
-## Komunikacja
-- Cotygodniowe statusy do zarządu.
-- Kanał incident-response dla krytycznych zgłoszeń.
+## Priorytety napraw
+1. **ScrollableFrame / TclError** – Ustawienia (KRYTYCZNY)
+2. **Niewidoczne napisy na przyciskach** – Theme/UI (KRYTYCZNY)
+3. **Maszyny – jedno źródło danych** (KRYTYCZNY)
+4. **Widoczność przycisku „Profil”** – Profile (ŚREDNI)
+5. **Zlecenia – niespójne typy/statusy** (ŚREDNI)
+6. **Narzędzia – usunięcie możliwości dodawania typu w edycji** (ŚREDNI)
+7. **Motywy dodatkowe (Warm, Holiday)** – stabilizacja stylów (NISKI)
+8. **Magazyn – niejasne etykiety (tooltipy)** (NISKI)
+9. **Hala – renderer opcjonalny** (NISKI)
+10. **Git/Auto-update – czytelne komunikaty przy dirty** (NISKI)
 
-## Materiały uzupełniające
-- Link do TICKETS_RC1.md.
-- Plan testów QA.
-- Lista właścicieli modułów.
+---
+
+## Harmonogram (7 dni sprint)
+- **Dzień 1–2:** Naprawa krytycznych (1–3).
+- **Dzień 3–4:** Naprawa średnich (4–6).
+- **Dzień 5–6:** Naprawa niskich (7–10).
+- **Dzień 7:** Testy smoke, raport RC1, ewentualne poprawki.
+
+---
+
+## Definicja ukończenia (DoD)
+- Brak błędów krytycznych w logach.
+- Moduły działają w podstawowym zakresie.
+- Dokumentacja uzupełniona (`FILES_UNUSED.md`, `TICKETS_RC1.md`, `ROADMAP_RC1.md`).
