@@ -7,6 +7,8 @@ from typing import List
 from config.paths import get_path, join_path, ensure_core_tree
 from wm_log import dbg as wm_dbg, info as wm_info, err as wm_err
 
+__all__ = ["run", "run_audit"]
+
 def _exists(path: str) -> bool:
     return bool(path) and os.path.exists(path)
 
@@ -89,3 +91,31 @@ def run() -> dict:
     except Exception as e:  # pragma: no cover - logowanie błędów
         wm_err("audit.run", "exception", e)
         return {"ok": False, "msg": "Błąd audytu – szczegóły w logu."}
+
+
+def run_audit() -> str:
+    """Uruchamia audyt i zwraca treść raportu jako tekst."""
+    result = run()
+    report_path = result.get("path") if isinstance(result, dict) else None
+    if report_path and os.path.exists(report_path):
+        try:
+            with open(report_path, "r", encoding="utf-8") as handle:
+                report = handle.read()
+        except Exception as exc:  # pragma: no cover - logowanie błędów
+            wm_err("audit.run_audit", "read_failed", exc, path=report_path)
+        else:
+            wm_info("audit.run_audit", "report_ready", path=report_path)
+            return report
+
+    summary = ""
+    if isinstance(result, dict):
+        summary = result.get("msg") or ""
+        try:
+            serialized = json.dumps(result, ensure_ascii=False, indent=2)
+        except Exception:
+            serialized = summary or str(result)
+    else:
+        serialized = str(result)
+
+    wm_info("audit.run_audit", "fallback", summary=summary)
+    return serialized
