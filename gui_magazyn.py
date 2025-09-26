@@ -39,6 +39,8 @@ from wm_log import dbg as wm_dbg, err as wm_err
 
 from ui_theme import apply_theme_safe as apply_theme
 
+import rc1_magazyn_fix  # RC1: poprawki toolbaru magazynu
+
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
 from gui_magazyn_rezerwacje import (
@@ -311,6 +313,8 @@ class MagazynFrame(ttk.Frame):
                 btn_creator.state(["disabled"])
             except Exception:
                 pass
+
+        rc1_magazyn_fix.style_toolbar(toolbar)
 
         # Przyciski
         ttk.Button(
