@@ -7,6 +7,7 @@ import time
 from typing import Optional
 
 from config.paths import get_path
+from wm_log import dbg as wm_dbg, err as wm_err, info as wm_info
 
 # USTAWIENIA DOMYŚLNE:
 # - repo_dir: katalog repozytorium z Git (domyślnie: bieżący katalog aplikacji)
@@ -35,12 +36,17 @@ def git_pull() -> dict:
     Zwraca dict: {ok: bool, msg: str}
     """
     cwd = repo_git_dir()
+    wm_dbg("updater.git_pull", "enter", cwd=cwd)
     if not os.path.isdir(os.path.join(cwd, ".git")):
-        return {"ok": False, "msg": f"Nie znaleziono repozytorium .git w: {cwd}"}
+        msg = f"Nie znaleziono repozytorium .git w: {cwd}"
+        wm_err("updater.git_pull", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
 
     rc, out, err = _run(["git", "pull"], cwd=cwd)
     if rc == 0:
+        wm_info("updater.git_pull", "ok", out=out)
         return {"ok": True, "msg": f"git pull OK\n{out}"}
+    wm_err("updater.git_pull", "error", None, err=err or out)
     return {"ok": False, "msg": f"git pull ERROR\n{err or out}"}
 
 def pull_branch(branch: str) -> dict:
@@ -48,29 +54,38 @@ def pull_branch(branch: str) -> dict:
     Pobierz wskazaną gałąź (fetch + checkout + pull).
     """
     if not branch:
-        return {"ok": False, "msg": "Brak nazwy gałęzi."}
+        msg = "Brak nazwy gałęzi."
+        wm_err("updater.pull_branch", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
 
     cwd = repo_git_dir()
+    wm_dbg("updater.pull_branch", "enter", branch=branch, cwd=cwd)
     if not os.path.isdir(os.path.join(cwd, ".git")):
-        return {"ok": False, "msg": f"Nie znaleziono repozytorium .git w: {cwd}"}
+        msg = f"Nie znaleziono repozytorium .git w: {cwd}"
+        wm_err("updater.pull_branch", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
 
     steps = []
 
     rc, out, err = _run(["git", "fetch", "origin", branch], cwd=cwd)
     steps.append(("fetch", rc, out, err))
     if rc != 0:
+        wm_err("updater.pull_branch", "step_error", None, step="fetch", err=err or out)
         return {"ok": False, "msg": f"git fetch ERROR\n{err or out}"}
 
     rc, out, err = _run(["git", "checkout", branch], cwd=cwd)
     steps.append(("checkout", rc, out, err))
     if rc != 0:
+        wm_err("updater.pull_branch", "step_error", None, step="checkout", err=err or out)
         return {"ok": False, "msg": f"git checkout '{branch}' ERROR\n{err or out}"}
 
     rc, out, err = _run(["git", "pull", "origin", branch], cwd=cwd)
     steps.append(("pull", rc, out, err))
     if rc != 0:
+        wm_err("updater.pull_branch", "step_error", None, step="pull", err=err or out)
         return {"ok": False, "msg": f"git pull origin '{branch}' ERROR\n{err or out}"}
 
+    wm_info("updater.pull_branch", "ok", steps="fetch→checkout→pull")
     return {"ok": True, "msg": "OK: " + " → ".join([s for s, r, _, _ in steps])}
 
 def backup_zip() -> dict:
@@ -79,9 +94,12 @@ def backup_zip() -> dict:
     Plik: backup-{timestamp}.zip
     """
     data_root = get_path("paths.data_root")
+    wm_dbg("updater.backup_zip", "enter", data_root=data_root)
     backup_dir = get_path("paths.backup_dir")
     if not data_root or not os.path.isdir(data_root):
-        return {"ok": False, "msg": f"Brak katalogu danych: {data_root!r}"}
+        msg = f"Brak katalogu danych: {data_root!r}"
+        wm_err("updater.backup_zip", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
 
     os.makedirs(backup_dir, exist_ok=True)
     out_zip = os.path.join(backup_dir, f"backup-{_timestamp()}.zip")
@@ -111,7 +129,7 @@ def backup_zip() -> dict:
                             zf.write(full, arc)
         else:
             shutil.make_archive(out_zip[:-4], "zip", root_dir=data_root)
-
+    wm_info("updater.backup_zip", "ok", path=out_zip)
     return {"ok": True, "msg": f"Utworzono backup: {out_zip}", "path": out_zip}
 
 def _extract_zip_to_dir(zip_path: str, target_dir: str) -> None:
@@ -124,10 +142,15 @@ def restore_from_zip(zip_path: str) -> dict:
     Przywraca zawartość ZIP do data_root (nadpisuje istniejące pliki).
     """
     data_root = get_path("paths.data_root")
+    wm_dbg("updater.restore_from_zip", "enter", zip=zip_path, target=data_root)
     if not os.path.isfile(zip_path):
-        return {"ok": False, "msg": f"Nie znaleziono pliku: {zip_path}"}
+        msg = f"Nie znaleziono pliku: {zip_path}"
+        wm_err("updater.restore_from_zip", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
     if not data_root:
-        return {"ok": False, "msg": "Brak skonfigurowanego katalogu data_root."}
+        msg = "Brak skonfigurowanego katalogu data_root."
+        wm_err("updater.restore_from_zip", "error", None, err=msg)
+        return {"ok": False, "msg": msg}
 
     # Ostrożność: wypakuj do katalogu tymczasowego i skopiuj, aby zminimalizować ryzyko
     with tempfile.TemporaryDirectory() as tmp:
@@ -142,7 +165,7 @@ def restore_from_zip(zip_path: str) -> dict:
                 src = os.path.join(root, f)
                 dst = os.path.join(dst_root, f)
                 shutil.copy2(src, dst)
-
+    wm_info("updater.restore_from_zip", "ok", zip=zip_path)
     return {"ok": True, "msg": f"Przywrócono z: {zip_path}"}
 
 # restore_dialog wywołujemy z UI przez settings_action_handlers (otwiera filedialog)
