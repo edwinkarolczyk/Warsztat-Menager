@@ -11,17 +11,41 @@ from wm_log import dbg as wm_dbg, err as wm_err
 
 
 def _read_json_list(path: str) -> list:
+    """Load machines JSON and normalise it to a list of rows."""
+
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if isinstance(data, list):
-            _read_json_list.last_error = None
-            return data
-        raise ValueError(f"Plik {path} nie zawiera listy, tylko {type(data).__name__}")
     except Exception as e:
         _read_json_list.last_error = e
         print(f"[ERROR][Maszyny] Nie można wczytać {path}: {e}")
         return []
+
+    rows: list | None = None
+    if isinstance(data, list):
+        rows = data
+    elif isinstance(data, dict):
+        for key in ("maszyny", "machines", "rows", "items", "data"):
+            value = data.get(key)
+            if isinstance(value, list):
+                rows = value
+                break
+            if isinstance(value, dict):
+                rows = list(value.values())
+                break
+        if rows is None:
+            potential = list(data.values())
+            if potential and all(isinstance(item, dict) for item in potential):
+                rows = potential
+
+    if rows is not None:
+        _read_json_list.last_error = None
+        return rows
+
+    err = ValueError(f"Plik {path} nie zawiera listy, tylko {type(data).__name__}")
+    _read_json_list.last_error = err
+    print(f"[ERROR][Maszyny] Nie można wczytać {path}: {err}")
+    return []
 
 
 _read_json_list.last_error = None
