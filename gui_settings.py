@@ -58,10 +58,7 @@ class ScrollableFrame(ttk.Frame):
         self.inner = ttk.Frame(self.canvas)
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
-        self.inner.bind(
-            "<Configure>",
-            lambda event: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
-        )
+        self.inner.bind("<Configure>", self._on_inner_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
         self.canvas.grid(row=0, column=0, sticky="nsew")
@@ -73,12 +70,41 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.bind_all("<Button-4>", lambda event: self._scroll(-120))
         self.canvas.bind_all("<Button-5>", lambda event: self._scroll(120))
         top = self.winfo_toplevel()
-        top.bind("<Destroy>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+        top.bind("<Destroy>", self._on_toplevel_destroy, add="+")
 
     def _on_canvas_configure(self, event: tk.Event) -> None:
         """Ensure the inner frame matches the canvas width."""
 
-        self.canvas.itemconfigure(self._window, width=event.width)
+        if not self._canvas_alive:
+            return
+        try:
+            if self.canvas.winfo_exists():
+                self.canvas.itemconfigure(self._window, width=event.width)
+        except tk.TclError:
+            self._canvas_alive = False
+            print("[WM-DBG][SETTINGS] Ignoruję configure po zniszczeniu canvas (TclError)")
+
+    def _on_inner_configure(self, _event: tk.Event) -> None:
+        """Update the scrollregion when the inner frame changes size."""
+
+        if not self._canvas_alive:
+            return
+        try:
+            if self.canvas.winfo_exists():
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        except tk.TclError:
+            self._canvas_alive = False
+            print("[WM-DBG][SETTINGS] Ignoruję update scrollregion po zniszczeniu canvas (TclError)")
+
+    def _on_toplevel_destroy(self, _event: tk.Event) -> None:
+        """Unbind global scroll handlers when the settings window is closed."""
+
+        try:
+            self.canvas.unbind_all("<MouseWheel>")
+            self.canvas.unbind_all("<Button-4>")
+            self.canvas.unbind_all("<Button-5>")
+        except tk.TclError:
+            pass
 
     def _on_mousewheel(self, event: tk.Event) -> None:
         """Scroll canvas when mouse wheel is used (Windows/Linux)."""
