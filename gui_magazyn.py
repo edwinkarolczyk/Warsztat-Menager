@@ -25,9 +25,17 @@ try:
     from gui_zlecenia_creator import open_order_creator
 except Exception:
     open_order_creator = None
-import magazyn_io
+
+try:
+    import magazyn_io  # type: ignore[attr-defined]
+
+    HAVE_MAG_IO = True
+except Exception:  # pragma: no cover - optional dependency
+    magazyn_io = None
+    HAVE_MAG_IO = False
+
 from config.paths import get_path
-HAVE_MAG_IO = True
+from wm_log import dbg as wm_dbg, err as wm_err
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -97,11 +105,24 @@ def _resolve_order_author(widget) -> str:
     return "magazyn"
 
 
-def _load_data():
-    """Czyta magazyn; preferuj magazyn_io.load(), fallback do LM.load_magazyn()."""
+def load_stock():
     path = get_path("warehouse.stock_source")
     try:
-        if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        wm_dbg("gui.magazyn", "stock loaded", path=path)
+        return data
+    except Exception as e:  # pragma: no cover - log + fallback handled below
+        wm_err("gui.magazyn", "stock load failed", e, path=path)
+        return {}
+
+
+def _load_data():
+    """Czyta magazyn; preferuje ``magazyn_io`` z fallbackiem na plik."""
+    path = get_path("warehouse.stock_source")
+    data = {}
+    if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
+        try:
             if path:
                 try:
                     data = magazyn_io.load(path)
@@ -109,21 +130,21 @@ def _load_data():
                     data = magazyn_io.load()
             else:
                 data = magazyn_io.load()
-        else:
-            data = LM.load_magazyn()
-    except Exception:
+        except Exception:
+            data = {}
+
+    if not isinstance(data, dict) or not data:
+        data = load_stock()
+
+    if not isinstance(data, dict) or not data:
         try:
             data = LM.load_magazyn()
         except Exception:
             data = {}
-            if path:
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                except Exception:
-                    data = {}
-    items = data.get("items", {})
-    order = (data.get("meta", {}) or {}).get("order", [])
+
+    items = data.get("items") if isinstance(data.get("items"), dict) else {}
+    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    order = meta.get("order") if isinstance(meta.get("order"), list) else []
     return items, order
 
 
