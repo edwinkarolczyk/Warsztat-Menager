@@ -3,6 +3,14 @@ import tkinter as tk
 from tkinter import filedialog
 from typing import Dict, Any, Optional
 
+from backend import updater
+
+try:
+    # audyt jest w podkatalogu
+    from backend.audit import wm_audit_runtime as wm_audit
+except Exception:
+    wm_audit = None
+
 
 class ActionHandlers:
     """
@@ -104,12 +112,49 @@ class ActionHandlers:
 
     def execute(self, action: str, params: Optional[Dict[str, Any]] = None):
         params = params or {}
+        # akcje dialogów i OS:
         if action == "dialog.open_file":
             return self.dialog_open_file(params)
         if action == "dialog.open_dir":
             return self.dialog_open_dir(params)
         if action == "os.open_path":
             return self.os_open_path(params)
+
+        # --- NOWE: akcje updatera -----------------------------------
+        if action == "updater.git_pull":
+            res = updater.git_pull()
+            # możesz pokazać notyfikację w UI na podstawie res
+            return res
+
+        if action == "updater.pull_branch":
+            # gałąź bierzemy ze stanu przez klucz podany w params
+            branch_key = params.get("branch_key")
+            branch = self.state.get(branch_key) if branch_key else None
+            res = updater.pull_branch(branch or "")
+            return res
+
+        if action == "updater.backup_zip":
+            res = updater.backup_zip()
+            return res
+
+        if action == "updater.restore_dialog":
+            # otwórz okno wyboru ZIP i przywróć
+            # (używamy istniejącego mechanizmu dialogu plików)
+            # tymczasowo wybór pliku tutaj:
+            self.dialog_open_file({"filters": ["*.zip"], "write_to_key": "__tmp_restore_zip"})
+            zip_path = self.state.get("__tmp_restore_zip")
+            if zip_path:
+                res = updater.restore_from_zip(zip_path)
+                return res
+            return {"ok": False, "msg": "Anulowano wybór pliku ZIP."}
+
+        # --- NOWE: audyt WM ------------------------------------------
+        if action == "wm_audit.run":
+            if wm_audit is None:
+                return {"ok": False, "msg": "Moduł audytu nie jest dostępny."}
+            res = wm_audit.run()
+            return res
+
         # nieznana akcja -> no-op
 
 
