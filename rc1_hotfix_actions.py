@@ -1,25 +1,17 @@
 # -*- coding: utf-8 -*-
-# rc1_hotfix_actions.py
-# Minimalny hotfix RC1: rejestruje brakujące akcje dla BOM i audytu
-# Nie zmienia istniejącej architektury – tylko delikatnie "wstrzykuje" akcje.
-# Jeśli dispatcher ma ACTIONS lub register() – użyje ich.
-# Jeśli nie – opakuje dispatch.execute() i doda swoje.
+# rc1_hotfix_actions.py – RC1: hotfix dispatcher (BOM export/import + Audyt)
 
 from __future__ import annotations
 
 import json
 import os
 import shutil
-import traceback
 from typing import Any, Dict
 
-# -- Pomocnicze: lekkie logowanie
 def _log(msg: str) -> None:
-    print(f"WM|RC1|hotfix|{msg}")
+    print(f"[RC1][hotfix] {msg}")
 
-# -- Bezpieczny dostęp do configu (czytamy i zapisujemy config.json)
 CONFIG_PATH = os.path.join(os.getcwd(), "config.json")
-
 
 def _config_load() -> Dict[str, Any]:
     try:
@@ -28,16 +20,13 @@ def _config_load() -> Dict[str, Any]:
     except Exception:
         return {}
 
-
 def _config_save(cfg: Dict[str, Any]) -> None:
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        _log(f"config.save.error: {e.__class__.__name__}: {e}")
+        _log(f"config.save.error: {e}")
 
-
-# -- GUI helpery (tk filedialog / messagebox – importowane leniwie)
 def _ask_open_file(filters=None) -> str | None:
     try:
         import tkinter as tk
@@ -45,16 +34,13 @@ def _ask_open_file(filters=None) -> str | None:
 
         root = tk.Tk()
         root.withdraw()
-        types = [("Wszystkie pliki", "*.*")]
-        if filters:
-            types = [(f, f) for f in filters]
+        types = [(f, f) for f in (filters or ["*.json", "*.csv", "*.xlsx"])]
         path = filedialog.askopenfilename(filetypes=types)
         root.destroy()
         return path or None
     except Exception as e:
         _log(f"filedialog.open.error: {e}")
         return None
-
 
 def _ask_save_file(default_name="bom.json") -> str | None:
     try:
@@ -72,7 +58,6 @@ def _ask_save_file(default_name="bom.json") -> str | None:
         _log(f"filedialog.save.error: {e}")
         return None
 
-
 def _info(title: str, msg: str) -> None:
     try:
         import tkinter as tk
@@ -84,7 +69,6 @@ def _info(title: str, msg: str) -> None:
         root.destroy()
     except Exception:
         _log(f"INFO: {title}: {msg}")
-
 
 def _warn(title: str, msg: str) -> None:
     try:
@@ -98,7 +82,6 @@ def _warn(title: str, msg: str) -> None:
     except Exception:
         _log(f"WARN: {title}: {msg}")
 
-
 def _error(title: str, msg: str) -> None:
     try:
         import tkinter as tk
@@ -111,29 +94,15 @@ def _error(title: str, msg: str) -> None:
     except Exception:
         _log(f"ERROR: {title}: {msg}")
 
-
-# === Implementacje akcji ===
-
 def action_bom_export_current(params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """
-    Eksport BOM:
-    - Szuka ścieżki źródłowej w config['bom.file']
-    - Pyta gdzie zapisać
-    - Kopiuje plik 1:1 (nie przetwarza zawartości)
-    """
     cfg = _config_load()
     src = cfg.get("bom", {}).get("file") or cfg.get("bom.file")
     if not src or not os.path.exists(src):
-        _warn(
-            "Eksport BOM",
-            "Nie znaleziono ścieżki BOM w ustawieniach (bom.file) lub plik nie istnieje.",
-        )
-        return {"ok": False, "msg": "BOM source missing"}
-
-    dst = _ask_save_file(os.path.basename(src) if isinstance(src, str) else "bom.json")
+        _warn("Eksport BOM", "Brak pliku BOM w ustawieniach (bom.file).")
+        return {"ok": False}
+    dst = _ask_save_file(os.path.basename(src))
     if not dst:
         return {"ok": False, "msg": "cancelled"}
-
     try:
         shutil.copyfile(src, dst)
         _info("Eksport BOM", f"Zapisano do:\n{dst}")
@@ -142,114 +111,71 @@ def action_bom_export_current(params: Dict[str, Any] | None = None) -> Dict[str,
         _error("Eksport BOM", f"Błąd zapisu:\n{e}")
         return {"ok": False, "msg": str(e)}
 
-
 def action_bom_import_dialog(params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """
-    Import BOM (tylko ustawienie ścieżki w configu):
-    - Otwiera dialog wyboru pliku (json/csv/xlsx – filtr symboliczny)
-    - Zapisuje do config['bom.file'] oraz do struktury z kluczem 'bom':{'file':...} (kompat).
-    """
-    filters = (params or {}).get("filters") or ["*.json", "*.csv", "*.xlsx"]
-    sel = _ask_open_file(filters)
+    sel = _ask_open_file((params or {}).get("filters"))
     if not sel:
         return {"ok": False, "msg": "cancelled"}
-
     cfg = _config_load()
     cfg.setdefault("bom", {})
     cfg["bom"]["file"] = sel
-    cfg["bom.file"] = sel  # kompatybilność z logami
+    cfg["bom.file"] = sel
     _config_save(cfg)
-
     _info("Import BOM", f"Ustawiono plik BOM:\n{sel}")
     return {"ok": True, "path": sel}
 
-
 def action_wm_audit_run(params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """
-    Wywołuje audyt jeśli moduł `audit` udostępnia funkcję run().
-    Pokazuje wynik w info/warn.
-    """
     try:
         import audit
     except Exception as e:
         _error("Audyt WM", f"Brak modułu audit: {e}")
-        return {"ok": False, "msg": "audit module missing"}
-
+        return {"ok": False, "msg": "audit missing"}
     try:
         res = getattr(audit, "run", None)
         if callable(res):
             out = res()
             ok = bool(out.get("ok")) if isinstance(out, dict) else True
             msg = out.get("msg", str(out)) if isinstance(out, dict) else str(out)
-            title = "Audyt WM – wynik"
-            if ok:
-                _info(title, msg or "OK")
-            else:
-                _warn(title, msg or "Problemy wykryte")
-            return {"ok": ok, "msg": msg}
+            path = out.get("path") if isinstance(out, dict) else None
+            (_info if ok else _warn)("Audyt WM", msg or "Brak informacji")
+            return {"ok": ok, "msg": msg, "path": path}
         else:
             _error("Audyt WM", "Brak funkcji audit.run()")
-            return {"ok": False, "msg": "audit.run not callable"}
+            return {"ok": False, "msg": "audit.run missing"}
     except Exception as e:
-        _error("Audyt WM", f"Błąd uruchomienia audytu:\n{e}")
+        _error("Audyt WM", f"Błąd audytu:\n{e}")
         return {"ok": False, "msg": str(e)}
 
-
-# Zestaw akcji do rejestracji
 _HOTFIX_ACTIONS: Dict[str, Any] = {
     "bom.export_current": action_bom_export_current,
     "bom.import_dialog": action_bom_import_dialog,
     "wm_audit.run": action_wm_audit_run,
 }
 
-
-# === Rejestracja w istniejącym dispatcherze ===
-def _install_into_dispatch() -> None:
+def _install_into_dispatch():
     try:
-        import dispatch  # oczekiwany moduł wg logów: dispatch.execute|...
+        import dispatch
     except Exception as e:
         _log(f"dispatch.import.error: {e}")
         return
-
-    # Przypadek A: dispatch ma ACTIONS (dict-like)
     try:
         actions = getattr(dispatch, "ACTIONS", None)
         if isinstance(actions, dict):
             actions.update({k: v for k, v in _HOTFIX_ACTIONS.items() if k not in actions})
             _log("registered via ACTIONS.update")
             return
-    except Exception as e:
-        _log(f"dispatch.ACTIONS.update.error: {e}")
-
-    # Przypadek B: dispatch ma funkcję register(name, func)
-    try:
-        register = getattr(dispatch, "register", None)
-        if callable(register):
-            for k, v in _HOTFIX_ACTIONS.items():
-                register(k, v)
-            _log("registered via dispatch.register()")
-            return
-    except Exception as e:
-        _log(f"dispatch.register.error: {e}")
-
-    # Przypadek C: brak publicznej rejestracji – zawijamy execute
+    except Exception:
+        pass
     try:
         orig_execute = getattr(dispatch, "execute", None)
         if callable(orig_execute):
-
-            def wrapped(action: str, params: Dict[str, Any] | None = None) -> Any:
+            def wrapped(action: str, params: Dict[str, Any] | None = None):
                 if action in _HOTFIX_ACTIONS:
-                    _log(f"execute.hotfix:{action}")
                     return _HOTFIX_ACTIONS[action](params or {})
                 return orig_execute(action, params)
-
             setattr(dispatch, "execute", wrapped)
             _log("wrapped dispatch.execute")
-        else:
-            _log("dispatch.execute missing – nie udało się zainstalować hotfixa")
-    except Exception:
-        _log("execute.wrap.error: " + traceback.format_exc().splitlines()[-1])
-
+    except Exception as e:
+        _log(f"execute.wrap.error: {e}")
 
 _install_into_dispatch()
 _log("ready")
