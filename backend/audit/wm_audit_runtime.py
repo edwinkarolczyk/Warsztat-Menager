@@ -1,103 +1,79 @@
-"""Narzędzia runtime audytu WM zapisujące logi i raport w katalogu logów."""
-
 from __future__ import annotations
-
-import logging
 import os
-from datetime import datetime
+import json
+import time
 from typing import List
 
-from config.paths import join_path
+from config.paths import get_path, join_path, ensure_core_tree
 
-LOG_FILENAME = "audyt_wm.log"
-REPORT_FILENAME = "audyt_wm.txt"
+def _exists(path: str) -> bool:
+    return bool(path) and os.path.exists(path)
 
+def run() -> dict:
+    """
+    Wykonuje prosty audyt środowiska WM:
+      - sprawdza istnienie podstawowych katalogów/plików,
+      - zapisuje raport do logs/audyt_wm-{timestamp}.txt,
+      - zwraca {ok, msg, path}.
+    """
+    ensure_core_tree()
 
-def _ensure_logs_dir() -> str:
-    """Zwraca istniejący katalog logów (paths.logs_dir)."""
-    logs_dir = join_path("paths.logs_dir")
-    if not logs_dir:
-        raise RuntimeError("Brak ustawionej ścieżki paths.logs_dir.")
-    logs_dir = logs_dir.replace("\\", os.sep)
-    os.makedirs(logs_dir, exist_ok=True)
-    return logs_dir
+    checks = []
+    def add(name: str, ok: bool, detail: str = ""):
+        checks.append({"name": name, "ok": ok, "detail": detail})
 
+    # Katalogi kluczowe
+    data_root = get_path("paths.data_root")
+    logs_dir  = get_path("paths.logs_dir")
+    backup_dir= get_path("paths.backup_dir")
+    add("data_root", _exists(data_root), data_root)
+    add("logs_dir",  _exists(logs_dir),  logs_dir)
+    add("backup_dir",_exists(backup_dir),backup_dir)
 
-def _setup_logger(log_path: str) -> logging.Logger:
-    """Konfiguruje logger zapisujący do podanej ścieżki."""
-    logger = logging.getLogger("wm_audit_runtime")
-    while logger.handlers:
-        handler = logger.handlers.pop()
-        try:
-            handler.close()
-        except Exception:
-            pass
-    logger.setLevel(logging.INFO)
-    handler = logging.FileHandler(log_path, encoding="utf-8")
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.propagate = False
-    return logger
+    # Pliki i źródła
+    stock_src = get_path("warehouse.stock_source")
+    bom_file  = get_path("bom.file")
+    types_f   = get_path("tools.types_file")
+    statuses_f= get_path("tools.statuses_file")
+    tasks_f   = get_path("tools.task_templates_file")
+    machines_f= get_path("hall.machines_file")
+    bg_img    = get_path("hall.background_image", "")
 
+    add("warehouse.stock_source", _exists(stock_src), stock_src)
+    add("bom.file",               _exists(bom_file),  bom_file)
+    add("tools.types_file",       _exists(types_f),   types_f)
+    add("tools.statuses_file",    _exists(statuses_f),statuses_f)
+    add("tools.task_templates_file", _exists(tasks_f),tasks_f)
+    add("hall.machines_file",     _exists(machines_f),machines_f)
+    if bg_img:
+        add("hall.background_image", _exists(bg_img), bg_img)
+    else:
+        add("hall.background_image", True, "(nie ustawiono — opcjonalne)")
 
-def _collect_basic_stats(root: str, logger: logging.Logger) -> List[str]:
-    """Zwraca proste statystyki o projekcie wykorzystywane w raporcie."""
-    py_files = 0
-    json_files = 0
-    for dirpath, dirnames, filenames in os.walk(root):
-        parts = dirpath.split(os.sep)
-        if any(part.startswith(".") for part in parts if part):
-            continue
-        if "__pycache__" in parts:
-            continue
-        for filename in filenames:
-            if filename.endswith(".py"):
-                py_files += 1
-            elif filename.endswith(".json"):
-                json_files += 1
-    logger.info(
-        "Zebrane statystyki plików: %s plików .py, %s plików .json.",
-        py_files,
-        json_files,
-    )
-    return [
-        f"Liczba plików .py: {py_files}",
-        f"Liczba plików .json: {json_files}",
+    # Podsumowanie
+    failed = [c for c in checks if not c["ok"]]
+    ok_all = len(failed) == 0
+    summary = f"OK: {len(checks)-len(failed)} / {len(checks)}; FAIL: {len(failed)}"
+
+    # Zapis raportu
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    out_path = join_path("paths.logs_dir", f"audyt_wm-{ts}.txt")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+    lines: List[str] = [
+        f"Audyt WM — {ts}",
+        "=" * 40,
+        f"data_root: {data_root}",
+        f"logs_dir : {logs_dir}",
+        f"backup_dir: {backup_dir}",
+        "-" * 40,
     ]
+    for c in checks:
+        lines.append(f"[{ 'OK' if c['ok'] else 'FAIL' }] {c['name']}: {c['detail']}")
+    lines.append("-" * 40)
+    lines.append(summary)
 
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
 
-def make_report(logger: logging.Logger) -> str:
-    """Buduje tekstowy raport audytu."""
-    timestamp = datetime.now().isoformat(timespec="seconds")
-    logger.info("Rozpoczynam generowanie raportu audytu WM.")
-    stats = _collect_basic_stats(os.getcwd(), logger)
-    report_lines: List[str] = [
-        "=== Raport audytu Warsztat Menager ===",
-        f"Czas wygenerowania: {timestamp}",
-        "",
-    ]
-    report_lines.extend(stats)
-    report_lines.append("")
-    report_lines.append(f"Logi audytu: {LOG_FILENAME}")
-    logger.info("Raport audytu WM wygenerowany.")
-    return "\n".join(report_lines)
-
-
-def run_audit() -> str:
-    """Generuje raport audytu i zapisuje logi oraz raport w katalogu logów."""
-    logs_dir = _ensure_logs_dir()
-    log_path = os.path.join(logs_dir, LOG_FILENAME)
-    report_path = os.path.join(logs_dir, REPORT_FILENAME)
-
-    logger = _setup_logger(log_path)
-    logger.info("Uruchomiono audyt WM.")
-
-    report = make_report(logger)
-
-    os.makedirs(os.path.dirname(report_path), exist_ok=True)
-    with open(report_path, "w", encoding="utf-8") as report_file:
-        report_file.write(report)
-    logger.info("Raport audytu zapisano do %s.", report_path)
-
-    return report
+    return {"ok": ok_all, "msg": summary, "path": out_path}
