@@ -15,9 +15,27 @@ from tkinter import messagebox, ttk
 from config.paths import get_path
 from config_manager import ConfigManager
 from ui_utils import _msg_error
+from wm_log import dbg as wm_dbg, err as wm_err
 
 # Paths
 DATA_DIR = Path("data")
+
+
+def load_bom():
+    path = get_path("bom.file")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            bom = json.load(f)
+        wm_dbg(
+            "gui.bom",
+            "bom loaded",
+            path=path,
+            items=len(bom) if isinstance(bom, list) else 1,
+        )
+        return bom
+    except Exception as e:  # pragma: no cover - logowanie błędów
+        wm_err("gui.bom", "bom load failed", e, path=path)
+        return []
 
 
 def _load_json(path: Path, default):
@@ -89,12 +107,8 @@ class WarehouseModel:
         if not path_str:
             return
         bom_path = Path(path_str)
-        if not bom_path.exists() or bom_path.is_dir():
-            return
-        try:
-            with open(bom_path, "r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except Exception:
+        payload = load_bom()
+        if not payload:
             return
 
         for record in self._normalise_bom_payload(payload, bom_path):
