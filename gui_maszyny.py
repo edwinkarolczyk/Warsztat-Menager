@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -42,7 +43,7 @@ def _read_machines_from_file(path: str) -> list:
 
 
 def _load_machines_from_config() -> tuple[list, str]:
-    machines_file = get_path("hall.machines_file", "").strip()
+    machines_file = _resolve_machines_path()
     machines = _read_machines_from_file(machines_file)
     return machines, machines_file
 
@@ -179,6 +180,7 @@ class MaszynyGUI:
         self._renderer = None
         try:
             from widok_hala.renderer import Renderer
+
             # wczytany – uruchom
             self._renderer = Renderer(root, self._canvas, self._machines)
             if hasattr(self._renderer, "set_edit_mode"):
@@ -195,6 +197,33 @@ class MaszynyGUI:
                 fill="#fca5a5",
                 font=("Arial", 9),
             )
+
+
+# --- Fallback resolver dla ścieżki maszyn -------------------------------
+def _resolve_machines_path() -> str:
+    """Zwraca najlepszą możliwą ścieżkę do pliku maszyn."""
+
+    p = get_path("hall.machines_file", "").strip()
+    if p and os.path.isfile(p):
+        return p
+
+    # 1) Spróbuj wzgl. data_root (gdy ktoś wpisał ścieżkę względną)
+    if p and os.path.isfile(os.path.join(os.getcwd(), p)):
+        return os.path.join(os.getcwd(), p)
+
+    # 2) Spróbuj z sekcji 'machines.relative_path' (jeśli jest)
+    rel = get_path("machines.relative_path", "").strip()
+    if rel:
+        candidate = rel if os.path.isabs(rel) else os.path.join(os.getcwd(), "data", rel)
+        if os.path.isfile(candidate):
+            return candidate
+
+    # 3) Domyślka z config.paths (_default_paths)
+    fallback = get_path(
+        "hall.machines_file",
+        os.path.join(get_path("paths.layout_dir", ""), "maszyny.json"),
+    )
+    return fallback
 
 # ---------- uruchomienie solo (dev) ----------
 if __name__ == "__main__":
