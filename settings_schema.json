@@ -670,6 +670,25 @@
               "label": "Domyślna grubość ściany (mm)",
               "default": 120, "min": 50, "max": 500 }
           ]
+        },
+        {
+          "title": "Źródło danych (jedno źródło prawdy)",
+          "fields": [
+            {
+              "type": "folder",
+              "key": "system.data_root",
+              "label": "Folder danych (root)",
+              "default": "C:\\Warsztat\\WM\\Warsztat-Menager\\data",
+              "help": "Wskaż katalog 'data' – plik maszyn będzie liczony relatywnie."
+            },
+            {
+              "type": "text",
+              "key": "machines.relative_path",
+              "label": "Relatywna ścieżka pliku maszyn",
+              "default": "maszyny/maszyny.json",
+              "help": "Ścieżka względem 'system.data_root'. Domyślnie: maszyny/maszyny.json"
+            }
+          ]
         }
       ]
     },
