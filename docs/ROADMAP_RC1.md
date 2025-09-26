@@ -23,6 +23,7 @@ Brak nowych ficzerów – tylko naprawy i stabilizacja.
 8. **Magazyn – niejasne etykiety (tooltipy)** (NISKI)
 9. **Hala – renderer opcjonalny** (NISKI)
 10. **Git/Auto-update – czytelne komunikaty przy dirty** (NISKI)
+11. **Ścieżki danych w audycie** – brakujące pliki w katalogu `C:\wm\data` (KRYTYCZNY)
 
 ---
 
@@ -31,6 +32,7 @@ Brak nowych ficzerów – tylko naprawy i stabilizacja.
 - **Dzień 3–4:** Naprawa średnich (4–6).
 - **Dzień 5–6:** Naprawa niskich (7–10).
 - **Dzień 7:** Testy smoke, raport RC1, ewentualne poprawki.
+- **Codziennie:** Weryfikacja audytu RC1 i uzupełnianie brakujących plików w danych.
 
 ---
 

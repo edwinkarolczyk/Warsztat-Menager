@@ -11,7 +11,7 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime, time
+import json, os, shutil, datetime, time, threading
 import logging
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -240,6 +240,12 @@ class ConfigManager:
             "autosave_draft_interval_sec", 15
         )
 
+        self._save_debounce_seconds = 10.0
+        self._last_save_ts = 0.0
+        self._pending_save = False
+        self._save_lock = threading.Lock()
+        self._debounce_timer: threading.Timer | None = None
+
         logger.info("ConfigManager initialized")
         self.__class__._initialized = True
 
@@ -397,6 +403,43 @@ class ConfigManager:
         self._audit_change(key, before_val=before_val, after_val=value, who=who)
 
     def save_all(self):
+        now = time.monotonic()
+        perform_now = False
+        remaining = self._save_debounce_seconds
+        with self._save_lock:
+            elapsed = now - self._last_save_ts
+            if self._last_save_ts == 0.0 or elapsed >= self._save_debounce_seconds:
+                self._last_save_ts = now
+                self._pending_save = False
+                perform_now = True
+            else:
+                remaining = max(self._save_debounce_seconds - elapsed, 0.1)
+                self._pending_save = True
+                timer = self._debounce_timer
+                if timer is None or not timer.is_alive():
+                    self._debounce_timer = threading.Timer(
+                        remaining, self._flush_debounced_save
+                    )
+                    self._debounce_timer.daemon = True
+                    self._debounce_timer.start()
+        if perform_now:
+            self._perform_save_all()
+        else:
+            print(
+                f"[WM-DBG] save_all debounced; ponowny zapis za ~{remaining:.1f}s"
+            )
+
+    def _flush_debounced_save(self) -> None:
+        with self._save_lock:
+            if not self._pending_save:
+                self._debounce_timer = None
+                return
+            self._pending_save = False
+            self._debounce_timer = None
+            self._last_save_ts = time.monotonic()
+        self._perform_save_all()
+
+    def _perform_save_all(self) -> None:
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = Path(BACKUP_DIR)
         backup_dir.mkdir(parents=True, exist_ok=True)
