@@ -3,6 +3,17 @@ import tkinter as tk
 from tkinter import filedialog
 from typing import Dict, Any, Optional
 
+try:
+    from wm_log import dbg as wm_dbg, info as wm_info, err as wm_err
+except ImportError:  # pragma: no cover - środowiska testowe bez wm_log
+    def wm_dbg(*args, **kwargs):
+        return None
+
+    def wm_info(*args, **kwargs):
+        return None
+
+    def wm_err(*args, **kwargs):
+        return None
 from backend import updater
 
 try:
@@ -50,8 +61,10 @@ class ActionHandlers:
     # -------- actions --------
 
     def dialog_open_file(self, params: Dict[str, Any]):
+        wm_dbg("dispatch.dialog_open_file", "enter", params=params)
         write_key = params.get("write_to_key")
         if not write_key:
+            wm_err("dispatch.dialog_open_file", "missing write_to_key")
             return
         filters = params.get("filters") or []
         if filters:
@@ -71,10 +84,13 @@ class ActionHandlers:
 
         if path:
             self._set_key(write_key, path)
+            wm_info("dispatch.dialog_open_file", "picked", key=write_key, path=path)
 
     def dialog_open_dir(self, params: Dict[str, Any]):
+        wm_dbg("dispatch.dialog_open_dir", "enter", params=params)
         write_key = params.get("write_to_key")
         if not write_key:
+            wm_err("dispatch.dialog_open_dir", "missing write_to_key")
             return
 
         initialdir = self._initial_dir(params)
@@ -89,6 +105,7 @@ class ActionHandlers:
 
         if path:
             self._set_key(write_key, path)
+            wm_info("dispatch.dialog_open_dir", "picked", key=write_key, path=path)
             # Autotworzenie podkatalogów, jeśli podane:
             for sub in params.get("autocreate_subdirs", []) or []:
                 try:
@@ -97,8 +114,10 @@ class ActionHandlers:
                     pass
 
     def os_open_path(self, params: Dict[str, Any]):
+        wm_dbg("dispatch.os_open_path", "enter", params=params)
         key = params.get("path_key")
         if not key:
+            wm_err("dispatch.os_open_path", "missing path_key")
             return
         path = self.state.get(key)
         if not path:
@@ -107,55 +126,68 @@ class ActionHandlers:
             os.startfile(path)  # Windows
         except Exception:
             pass
+        else:
+            wm_info("dispatch.os_open_path", "opened", key=key)
 
     # -------- dispatcher --------
 
     def execute(self, action: str, params: Optional[Dict[str, Any]] = None):
+        wm_dbg("dispatch.execute", "enter", action=action, params=params or {})
         params = params or {}
-        # akcje dialogów i OS:
-        if action == "dialog.open_file":
-            return self.dialog_open_file(params)
-        if action == "dialog.open_dir":
-            return self.dialog_open_dir(params)
-        if action == "os.open_path":
-            return self.os_open_path(params)
+        try:
+            # akcje dialogów i OS:
+            if action == "dialog.open_file":
+                return self.dialog_open_file(params)
+            if action == "dialog.open_dir":
+                return self.dialog_open_dir(params)
+            if action == "os.open_path":
+                return self.os_open_path(params)
 
-        # --- NOWE: akcje updatera -----------------------------------
-        if action == "updater.git_pull":
-            res = updater.git_pull()
-            # możesz pokazać notyfikację w UI na podstawie res
-            return res
-
-        if action == "updater.pull_branch":
-            # gałąź bierzemy ze stanu przez klucz podany w params
-            branch_key = params.get("branch_key")
-            branch = self.state.get(branch_key) if branch_key else None
-            res = updater.pull_branch(branch or "")
-            return res
-
-        if action == "updater.backup_zip":
-            res = updater.backup_zip()
-            return res
-
-        if action == "updater.restore_dialog":
-            # otwórz okno wyboru ZIP i przywróć
-            # (używamy istniejącego mechanizmu dialogu plików)
-            # tymczasowo wybór pliku tutaj:
-            self.dialog_open_file({"filters": ["*.zip"], "write_to_key": "__tmp_restore_zip"})
-            zip_path = self.state.get("__tmp_restore_zip")
-            if zip_path:
-                res = updater.restore_from_zip(zip_path)
+            # --- NOWE: akcje updatera -----------------------------------
+            if action == "updater.git_pull":
+                res = updater.git_pull()
+                # możesz pokazać notyfikację w UI na podstawie res
+                wm_info("dispatch.execute", "updater.git_pull", result=res)
                 return res
-            return {"ok": False, "msg": "Anulowano wybór pliku ZIP."}
 
-        # --- NOWE: audyt WM ------------------------------------------
-        if action == "wm_audit.run":
-            if wm_audit is None:
-                return {"ok": False, "msg": "Moduł audytu nie jest dostępny."}
-            res = wm_audit.run()
-            return res
+            if action == "updater.pull_branch":
+                # gałąź bierzemy ze stanu przez klucz podany w params
+                branch_key = params.get("branch_key")
+                branch = self.state.get(branch_key) if branch_key else None
+                res = updater.pull_branch(branch or "")
+                wm_info("dispatch.execute", "updater.pull_branch", branch=branch, result=res)
+                return res
 
-        # nieznana akcja -> no-op
+            if action == "updater.backup_zip":
+                res = updater.backup_zip()
+                wm_info("dispatch.execute", "updater.backup_zip", result=res)
+                return res
+
+            if action == "updater.restore_dialog":
+                # otwórz okno wyboru ZIP i przywróć
+                # (używamy istniejącego mechanizmu dialogu plików)
+                # tymczasowo wybór pliku tutaj:
+                self.dialog_open_file({"filters": ["*.zip"], "write_to_key": "__tmp_restore_zip"})
+                zip_path = self.state.get("__tmp_restore_zip")
+                if zip_path:
+                    res = updater.restore_from_zip(zip_path)
+                    wm_info("dispatch.execute", "updater.restore_from_zip", zip=zip_path, result=res)
+                    return res
+                wm_info("dispatch.execute", "restore_cancelled")
+                return {"ok": False, "msg": "Anulowano wybór pliku ZIP."}
+
+            # --- NOWE: audyt WM ------------------------------------------
+            if action == "wm_audit.run":
+                if wm_audit is None:
+                    wm_err("dispatch.execute", "wm_audit missing")
+                    return {"ok": False, "msg": "Moduł audytu nie jest dostępny."}
+                res = wm_audit.run()
+                wm_info("dispatch.execute", "wm_audit.run", result=res)
+                return res
+
+            wm_dbg("dispatch.execute", "unknown action", action=action)
+        except Exception as e:
+            wm_err("dispatch.execute", "exception", e, action=action, params=params)
 
 
 # Wygodny singleton do prostego wpięcia w GUI:
