@@ -10,35 +10,44 @@ from config.paths import get_path
 from wm_log import dbg as wm_dbg, err as wm_err
 
 
+def _read_json_list(path: str) -> list:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            _read_json_list.last_error = None
+            return data
+        raise ValueError(f"Plik {path} nie zawiera listy, tylko {type(data).__name__}")
+    except Exception as e:
+        _read_json_list.last_error = e
+        print(f"[ERROR][Maszyny] Nie można wczytać {path}: {e}")
+        return []
+
+
+_read_json_list.last_error = None
+
+
 def _read_machines_from_file(path: str) -> list:
     """Bezpiecznie czyta listę maszyn z pliku JSON."""
     if not path:
         wm_err("gui.maszyny", "machines file missing", path=path)
         return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError as err:
-        wm_err("gui.maszyny", "machines file not found", err, path=path)
+    if not os.path.isfile(path):
+        wm_err("gui.maszyny", "machines file not found", path=path)
         return []
-    except Exception as err:  # pragma: no cover - log + fallback
-        wm_err("gui.maszyny", "machines load failed", err, path=path)
-        traceback.print_exc()
-        return []
-    if isinstance(data, list):
+    machines = _read_json_list(path)
+    if _read_json_list.last_error is None:
         wm_dbg(
             "gui.maszyny",
             "machines loaded",
             path=path,
-            count=len(data),
+            count=len(machines),
         )
-        return data
-    wm_err(
-        "gui.maszyny",
-        "machines json not a list",
-        path=path,
-        type=type(data).__name__,
-    )
+        return machines
+    err = _read_json_list.last_error
+    wm_err("gui.maszyny", "machines load failed", err, path=path)
+    if isinstance(err, Exception) and err.__traceback__:
+        traceback.print_exception(err.__class__, err, err.__traceback__)
     return []
 
 
@@ -67,10 +76,10 @@ class MaszynyGUI:
         self.left = tk.Frame(root, bg=bg)
         self.left.pack(side="left", fill="both", expand=True)
 
-        top = tk.Frame(self.left, bg=bg)
-        top.pack(fill="x", padx=12, pady=(10, 6))
+        bar = tk.Frame(self.left, bg=bg)
+        bar.pack(fill="x", padx=12, pady=(10, 6))
         lbl = tk.Label(
-            top,
+            bar,
             text=f"Źródło maszyn: {self._path or 'brak'}  •  (hall.machines_file)",
             anchor="w",
             fg="#cbd5e1",
@@ -80,9 +89,9 @@ class MaszynyGUI:
 
         if not self._machines:
             tk.Label(
-                top,
-                text="Brak danych — sprawdź Ustawienia ➝ Hala ➝ hall.machines_file",
-                fg="#fca5a5",
+                bar,
+                text=f"Brak danych w {self._path or 'brak'}",
+                fg="red",
                 bg=bg,
             ).pack(side="right")
 
