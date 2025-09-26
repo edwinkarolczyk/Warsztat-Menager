@@ -1,9 +1,3 @@
-# gui_maszyny.py
-# Wersja: 1.0.1 (2025-09-19)
-# - Stały panel "Hala" po prawej (Widok/Edycja)
-# - Drag&drop → zapis pozycji TYLKO do pliku z ustawień (domyślnie data/maszyny.json)
-# - Ukrycie przycisku "Hale" w menu bocznym (jeśli istnieje)
-
 from __future__ import annotations
 
 import json
@@ -11,49 +5,16 @@ import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from config.paths import get_path
-from ui_theme import apply_theme_safe as apply_theme
-from utils.gui_helpers import clear_frame
-from utils_maszyny import SOURCE_MODES, index_by_id, save_machines, sort_machines
+# nowość: konfiguracja
 try:
-    from widok_hali.renderer import Renderer
-except Exception as exc:  # pragma: no cover - zależności opcjonalne
-    Renderer = None  # type: ignore[assignment]
-    print(f"[ERROR][Maszyny] Brak renderer'a hali: {exc}")
+    from config_manager import ConfigManager
+except Exception:
+    ConfigManager = None
 
-PRIMARY_DATA_FALLBACK = os.path.join("data", "maszyny.json")
-LEGACY_DATA_FALLBACK = os.path.join("data", "maszyny", "maszyny.json")
-MIGRATION_FLAG_FALLBACK = os.path.join("data", ".machines_migrated.flag")
-
-
-def _primary_data_path() -> str:
-    path = get_path("hall.machines_file", PRIMARY_DATA_FALLBACK)
-    return path or PRIMARY_DATA_FALLBACK
-
-
-def _legacy_data_path() -> str:
-    return LEGACY_DATA_FALLBACK
-
-
-def _migration_flag_path(primary_path: str | None = None) -> str:
-    primary = primary_path or _primary_data_path()
-    base_dir = os.path.dirname(primary)
-    if not base_dir:
-        base_dir = os.path.dirname(MIGRATION_FLAG_FALLBACK) or "."
-    return os.path.join(base_dir, os.path.basename(MIGRATION_FLAG_FALLBACK))
-
-
-def _touch_migration_flag(primary_path: str | None = None) -> None:
-    """Ensure that the migration flag file exists next to the primary data file."""
-
-    flag_path = _migration_flag_path(primary_path)
-    directory = os.path.dirname(flag_path) or "."
-    try:
-        os.makedirs(directory, exist_ok=True)
-        with open(flag_path, "w", encoding="utf-8") as handle:
-            handle.write("")
-    except OSError as exc:  # pragma: no cover - filesystem dependent
-        print(f"[WARN][Maszyny] Nie można utworzyć flagi migracji: {exc}")
+# domyślne, gdy brak ustawień
+DEFAULT_PRIMARY = os.path.join("data", "maszyny.json")
+DEFAULT_LEGACY = os.path.join("data", "maszyny", "maszyny.json")
+MIGRATION_FLAG = os.path.join("data", ".machines_migrated.flag")
 
 
 def _load_json_file(path: str) -> list:
@@ -66,237 +27,233 @@ def _load_json_file(path: str) -> list:
 
 
 def _index_by_id(rows: list) -> dict:
-    out = {}
-    for r in rows or []:
-        mid = str(r.get("id") or r.get("nr_ewid") or "").strip()
-        if mid:
-            out[mid] = r
+    out: dict[str, dict] = {}
+    for row in rows or []:
+        machine_id = str(row.get("id") or row.get("nr_ewid") or "").strip()
+        if machine_id:
+            out[machine_id] = row
     return out
 
 
-def _merge_unique(primary_rows: list, legacy_rows: list) -> list:
-    pi = _index_by_id(primary_rows)
-    li = _index_by_id(legacy_rows)
-    for mid, row in li.items():
-        if mid not in pi:
-            pi[mid] = row
-    # sort po numeric/len
-    def _key(s):
-        return (len(s), s)
+def _merge_unique(first: list, second: list) -> list:
+    first_index = _index_by_id(first)
+    second_index = _index_by_id(second)
+    for machine_id, row in second_index.items():
+        if machine_id not in first_index:
+            first_index[machine_id] = row
+    return [
+        first_index[key]
+        for key in sorted(first_index.keys(), key=lambda value: (len(value), value))
+    ]
 
-    return [pi[k] for k in sorted(pi.keys(), key=_key)]
-
-
-def _save_primary(rows: list):
-    path = _primary_data_path()
+def _save_list(path: str, rows: list) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(rows, f, ensure_ascii=False, indent=2)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(rows, handle, ensure_ascii=False, indent=2)
+
+def _exists_nonempty(path: str) -> bool:
+    try:
+        return os.path.isfile(path) and os.path.getsize(path) > 0
+    except Exception:
+        return False
+
+
+def _count_items(path: str) -> int:
+    try:
+        return len(_load_json_file(path))
+    except Exception:
+        return 0
+
+# --------- NOWE: rozpoznanie ścieżek z ustawień ----------
+def _candidates_from_settings() -> dict:
+    """Zbierz potencjalne ścieżki plików PRIMARY i LEGACY."""
+
+    cfg = None
+    if ConfigManager:
+        try:
+            cfg = ConfigManager()
+        except Exception:
+            cfg = None
+
+    def get_value(key, default=None):
+        return cfg.get(key, default) if cfg else default
+
+    primary_candidates: list[str] = []
+    legacy_candidates: list[str] = []
+
+    # 1) wskazany plik
+    for key in ("hall.machines_file", "machines.file", "maszyny.file"):
+        value = get_value(key)
+        if value and isinstance(value, str):
+            primary_candidates.append(value)
+
+    # 2) wskazany katalog
+    machines_dir = get_value("hall.machines_dir")
+    if machines_dir and isinstance(machines_dir, str):
+        primary_candidates.append(os.path.join(machines_dir, "maszyny.json"))
+        legacy_candidates.append(
+            os.path.join(machines_dir, "maszyny", "maszyny.json")
+        )
+
+    # 3) system.data_path
+    data_path = get_value("system.data_path")
+    if data_path and isinstance(data_path, str):
+        primary_candidates.append(os.path.join(data_path, "maszyny.json"))
+        legacy_candidates.append(
+            os.path.join(data_path, "maszyny", "maszyny.json")
+        )
+
+    # 4) fallback repo (bieżący projekt)
+    primary_candidates.append(DEFAULT_PRIMARY)
+    legacy_candidates.append(DEFAULT_LEGACY)
+
+    def dedupe(seq):
+        out, seen = [], set()
+        for candidate in seq:
+            candidate = os.path.abspath(candidate)
+            if candidate not in seen:
+                seen.add(candidate)
+                out.append(candidate)
+        return out
+
+    return {
+        "primary_candidates": dedupe(primary_candidates),
+        "legacy_candidates": dedupe(legacy_candidates),
+    }
+
+def _pick_best_paths() -> tuple[str, str]:
+    candidates = _candidates_from_settings()
+    primaries = candidates["primary_candidates"]
+    legacies = candidates["legacy_candidates"]
+
+    # wybierz PRIMARY: najpierw istniejący z największą liczbą rekordów
+    best_primary = None
+    best_count = -1
+    for path in primaries:
+        if _exists_nonempty(path):
+            count = _count_items(path)
+            print(f"[DIAG][Maszyny] PRIMARY kandydat: {path} → {count} rek.")
+            if count > best_count:
+                best_count = count
+                best_primary = path
+    if not best_primary:
+        # jeśli żaden nie istnieje, bierz pierwszy z listy (utworzymy później)
+        best_primary = primaries[0]
+        print(
+            "[WARN][Maszyny] Brak istniejącego PRIMARY, używam domyślnego: "
+            f"{best_primary}"
+        )
+
+    # wybierz LEGACY: pierwszy istniejący i nie ten sam co PRIMARY
+    best_legacy = None
+    for path in legacies:
+        if os.path.abspath(path) == os.path.abspath(best_primary):
+            continue
+        if _exists_nonempty(path):
+            best_legacy = path
+            print(
+                f"[DIAG][Maszyny] LEGACY kandydat: {path} → {_count_items(path)} rek."
+            )
+            break
+
+    if not best_legacy:
+        # ostateczny fallback
+        best_legacy = DEFAULT_LEGACY
+
+    return best_primary, best_legacy
+
+# ---------------------------------------------------------
+
+try:
+    from widok_hala.renderer import Renderer
+except Exception as e:
+    Renderer = None
+    print(f"[ERROR][Maszyny] Brak renderer'a hali: {e}")
 
 class MaszynyGUI:
-    """Panel zarządzania maszynami z podglądem hali."""
-
     def __init__(self, root: tk.Tk, side_menu: dict | None = None):
         self.root = root
         self.side_menu = side_menu or {}
-        self._source_var = tk.StringVar(value="auto")
-        self._source_info = tk.StringVar(value="")
-        self._active_source = "auto"
-        self._source = "auto"
-        self._data_source_mode = "AUTO"
-        self._counts: tuple[int, int] = (0, 0)
-        self._machines = self._load_machines()
-        self._renderer: Renderer | None = None
-        self._details_btn: ttk.Button | None = None
-        self._mode_var = tk.StringVar(value="view")
-        self._background_path = ""
 
+        # wyznacz ścieżki z ustawień
+        self.PRIMARY_DATA, self.LEGACY_DATA = _pick_best_paths()
+        print(f"[WM][Maszyny] PRIMARY path = {self.PRIMARY_DATA}")
+        print(f"[WM][Maszyny] LEGACY  path = {self.LEGACY_DATA}")
+
+        self._source = "AUTO"
+        self._machines = self._load_and_migrate()
         self._hide_hale_button_if_present()
         self._build_ui()
 
-    # ----- dane -----
-    def _load_machines(self) -> list[dict]:
-        requested = (self._source_var.get() or "auto").strip().lower()
-        if requested not in SOURCE_MODES:
-            requested = "auto"
-
-        self._data_source_mode = requested.upper()
-
-        if requested == "auto":
-            machines = self._load_machines_pick_best()
-        else:
-            primary_path = _primary_data_path()
-            legacy_path = _legacy_data_path()
-            primary_rows = _load_json_file(primary_path)
-            legacy_rows = _load_json_file(legacy_path)
-            count_primary, count_legacy = len(primary_rows), len(legacy_rows)
-            self._counts = (count_primary, count_legacy)
-
-            if requested == "legacy":
-                if count_legacy == 0:
-                    print(
-                        f"[WM][Maszyny] Wybrano LEGACY, ale brak danych → przełączam na PRIMARY ({count_primary})."
-                    )
-                    machines = primary_rows
-                    self._active_source = "primary"
-                    self._source = "primary"
-                else:
-                    print(
-                        "[WM][Maszyny] Załadowano z LEGACY "
-                        f"({count_legacy}) file={os.path.abspath(legacy_path)}"
-                    )
-                    machines = legacy_rows
-                    self._active_source = "legacy"
-                    self._source = "legacy"
-            else:
-                print(
-                    "[WM][Maszyny] Załadowano z PRIMARY "
-                    f"({count_primary}) file={os.path.abspath(primary_path)}"
-                )
-                machines = primary_rows
-                self._active_source = "primary"
-                self._source = "primary"
-
-        machines = sort_machines(machines)
-
-        summary = (
-            f"Tryb: {requested.upper()}  →  aktywny: {self._active_source.upper()}  |  "
-            f"PRIMARY: {self._counts[0]}  |  LEGACY: {self._counts[1]}"
-        )
-        self._source_info.set(summary)
-        return machines
-
-    def _load_machines_pick_best(self) -> list:
-        """
-        AUTO:
-          - czyta oba pliki
-          - wybiera większy lub scala
-          - JEDNORAZOWO zapisuje wynik do PRIMARY (flaga migration)
-        PRIMARY/LEGACY (wymuszone radiem) – czyta odpowiedni plik bez migracji.
-        """
-        mode = getattr(self, "_data_source_mode", "AUTO").upper()
-        primary_path = _primary_data_path()
-        legacy_path = _legacy_data_path()
-        migration_flag = _migration_flag_path(primary_path)
-        primary = _load_json_file(primary_path)
-        legacy = _load_json_file(legacy_path)
+    def _load_and_migrate(self) -> list:
+        primary = _load_json_file(self.PRIMARY_DATA)
+        legacy = _load_json_file(self.LEGACY_DATA)
         n_p, n_l = len(primary), len(legacy)
 
-        # diagnostyka
-        print(
-            "[DIAG][Maszyny] primary="
-            f"{n_p} file={os.path.abspath(primary_path)} | "
-            f"legacy={n_l} file={os.path.abspath(legacy_path)}"
-        )
+        print(f"[DIAG][Maszyny] {self.PRIMARY_DATA}: {n_p} rekordów")
+        print(f"[DIAG][Maszyny] {self.LEGACY_DATA}: {n_l} rekordów")
 
-        if mode == "PRIMARY":
-            self._source = "primary"
-            self._active_source = "primary"
-            self._counts = (n_p, n_l)
-            return primary
-        if mode == "LEGACY":
-            self._source = "legacy"
-            self._active_source = "legacy"
-            self._counts = (n_p, n_l)
-            return legacy
+        # po migracji trzymajmy się PRIMARY
+        flag_dir = os.path.dirname(self.PRIMARY_DATA) or "."
+        migration_flag = os.path.join(flag_dir, ".machines_migrated.flag")
 
-        # AUTO
-        if n_p == 0 and n_l == 0:
-            self._source = "primary"
-            self._active_source = "primary"
-            self._counts = (0, 0)
-            return []
-
-        # jeżeli mamy flagę migracji – czytaj tylko PRIMARY (już scalone)
         if os.path.exists(migration_flag):
             self._source = "primary"
-            self._active_source = "primary"
-            self._counts = (n_p, n_l)
+            print(f"[WM][Maszyny] source=PRIMARY file={self.PRIMARY_DATA} cnt={n_p}")
             return primary
 
-        # różne wielkości → scala i zapisuje do PRIMARY
-        if n_p != n_l:
-            merged = _merge_unique(primary, legacy)
-            _save_primary(merged)
-            _touch_migration_flag(primary_path)
-            self._source = "primary"
-            self._active_source = "primary"
-            self._counts = (len(merged), n_l)
-            print(f"[WM][Maszyny] MIGRACJA: primary({n_p}) + legacy({n_l}) → primary({len(merged)}).")
-            return merged
+        # AUTO→MERGE: bierz większy zbiór jako bazę i dołącz unikalne z drugiego
+        base = legacy if n_l > n_p else primary
+        merged = _merge_unique(base, primary if base is legacy else legacy)
+        # zapis do WYBRANEGO PRIMARY (z ustawieñ!)
+        _save_list(self.PRIMARY_DATA, merged)
+        open(migration_flag, "w").close()
 
-        # takie same ilości → i tak scala (dla unifikacji)
-        merged = _merge_unique(primary, legacy)
-        _save_primary(merged)
-        _touch_migration_flag(primary_path)
         self._source = "primary"
-        self._active_source = "primary"
-        self._counts = (len(merged), n_l)
-        print(f"[WM][Maszyny] MIGRACJA: liczby równe ({n_p}); zapis primary({len(merged)}).")
+        print(
+            "[WM][Maszyny] AUTO→MERGE "
+            f"primary={n_p} legacy={n_l} → save PRIMARY={len(merged)} "
+            f"@ {self.PRIMARY_DATA}"
+        )
         return merged
 
-    def _save_position(self, machine_id: str, x: int, y: int) -> None:
+    def _save_position(self, machine_id: str, x: int, y: int):
         try:
-            machine_key = str(machine_id)
-            if not machine_key:
-                return
-
-            primary_path = _primary_data_path()
-            legacy_path = _legacy_data_path()
-            data = _load_json_file(primary_path)
-            legacy_rows = _load_json_file(legacy_path)
-            count_legacy = len(legacy_rows)
-
-            registry = index_by_id(data)
-            row = registry.get(machine_key)
-            if not row:
-                row = {"id": machine_key, "nazwa": machine_key, "hala": 1}
-                row["pozycja"] = {"x": int(x), "y": int(y)}
-                data.append(row)
-                print(
-                    f"[WM][Maszyny] Dodano brakujący wpis {machine_key} przed zapisem."
+            disk = _load_json_file(self.PRIMARY_DATA)
+            if not disk:
+                disk = _merge_unique(
+                    _load_json_file(self.PRIMARY_DATA),
+                    _load_json_file(self.LEGACY_DATA),
                 )
-            else:
-                row.setdefault("pozycja", {})
-                row["pozycja"]["x"] = int(x)
-                row["pozycja"]["y"] = int(y)
-
-            sorted_rows = sort_machines(data)
-            _save_primary(sorted_rows)
-            _touch_migration_flag(primary_path)
-
-            local_registry = index_by_id(self._machines)
-            local_row = local_registry.get(machine_key)
-            if local_row is None:
-                self._machines.append(row)
-            else:
-                local_row.setdefault("pozycja", {})
-                local_row["pozycja"]["x"] = int(x)
-                local_row["pozycja"]["y"] = int(y)
-
-            self._machines = sort_machines(self._machines)
-
-            new_count_primary = len(sorted_rows)
-            self._counts = (new_count_primary, count_legacy)
-            if self._active_source != "primary":
-                print(
-                    "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
-                    f"{os.path.abspath(primary_path)}."
+            mid = str(machine_id)
+            found = False
+            for m in disk:
+                if str(m.get("id") or m.get("nr_ewid")) == mid:
+                    m.setdefault("pozycja", {})
+                    m["pozycja"]["x"] = int(x)
+                    m["pozycja"]["y"] = int(y)
+                    found = True
+                    break
+            if not found:
+                disk.append(
+                    {
+                        "id": mid,
+                        "nazwa": mid,
+                        "hala": 1,
+                        "pozycja": {"x": int(x), "y": int(y)},
+                    }
                 )
-            self._active_source = "primary"
+            _save_list(self.PRIMARY_DATA, _merge_unique(disk, []))
+            self._machines = _load_json_file(self.PRIMARY_DATA)
             self._source = "primary"
-            summary = (
-                f"Tryb: {self._source_var.get().upper()}  →  aktywny: PRIMARY  |  "
-                f"PRIMARY: {new_count_primary}  |  LEGACY: {count_legacy}"
+            print(
+                "[WM][Maszyny] Zapisano pozycję "
+                f"{mid} → ({x},{y}) do PRIMARY: {self.PRIMARY_DATA}"
             )
-            self._source_info.set(summary)
+        except Exception as e:
+            print(f"[ERROR][Maszyny] Zapis pozycji nieudany: {e}")
 
-            print(f"[WM][Maszyny] Zapisano pozycję {machine_id} -> ({x},{y})")
-        except Exception as exc:  # pragma: no cover - IO
-            print(f"[ERROR][Maszyny] Zapis pozycji nieudany: {exc}")
-
-    # ----- UI -----
-    def _hide_hale_button_if_present(self) -> None:
+    def _hide_hale_button_if_present(self):
         try:
             hale_btn = None
             if isinstance(self.side_menu, dict):
@@ -304,167 +261,115 @@ class MaszynyGUI:
             if not hale_btn and hasattr(self.root, "btn_hale"):
                 hale_btn = getattr(self.root, "btn_hale")
             if hale_btn:
-                hidden = False
-                for method_name in ("pack_forget", "grid_remove", "place_forget"):
+                try:
+                    hale_btn.pack_forget()
+                except Exception:
                     try:
-                        hide_method = getattr(hale_btn, method_name)
-                    except AttributeError:
-                        continue
-                    try:
-                        hide_method()
-                        hidden = True
-                        break
+                        hale_btn.grid_remove()
                     except Exception:
-                        continue
-                if hidden:
-                    print("[WM][Maszyny] Ukryto przycisk 'Hale'")
-        except Exception as exc:  # pragma: no cover - defensywne
-            print(f"[WARN][Maszyny] Nie udało się ukryć 'Hale': {exc}")
+                        pass
+        except Exception:
+            pass
 
-    def _build_ui(self) -> None:
-        main = tk.Frame(self.root)
+    def _build_ui(self):
+        background = self.root.cget("bg") if "bg" in self.root.keys() else "#111214"
+        main = tk.Frame(self.root, bg=background)
         main.pack(fill="both", expand=True)
 
-        left = tk.Frame(main)
+        # lewy panel (lista)
+        left = tk.Frame(main, bg=background)
         left.pack(side="left", fill="both", expand=True)
 
-        source_frame = tk.Frame(left)
-        source_frame.pack(fill="x", padx=12, pady=(10, 6))
-        tk.Label(source_frame, text="Źródło danych:").pack(side="left")
-        for mode in SOURCE_MODES:
-            ttk.Radiobutton(
-                source_frame,
-                text=mode.capitalize(),
-                value=mode,
-                variable=self._source_var,
-                command=self._on_source_change,
-            ).pack(side="left", padx=(8, 0))
-
-        info_frame = tk.Frame(left)
-        info_frame.pack(fill="x", padx=12, pady=(0, 6))
-        tk.Label(
-            info_frame,
-            textvariable=self._source_info,
-            anchor="w",
-            justify="left",
-        ).pack(fill="x")
-
-        tree_container = tk.Frame(left)
-        tree_container.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        tk.Label(left, text="Panel maszyn", anchor="w").pack(
+            fill="x", padx=12, pady=(10, 6)
+        )
         self.tree = ttk.Treeview(
-            tree_container,
+            left,
             columns=("id", "nazwa", "typ", "nastepne"),
             show="headings",
             height=18,
         )
-        for column, label, width in (
-            ("id", "nr_ewid", 90),
-            ("nazwa", "nazwa", 260),
-            ("typ", "typ", 140),
-            ("nastepne", "nastepne_zadanie", 160),
-        ):
-            self.tree.heading(column, text=label)
-            anchor = "center" if column in ("id", "nastepne") else "w"
-            self.tree.column(column, width=width, anchor=anchor)
-        scrollbar = ttk.Scrollbar(
-            tree_container, orient="vertical", command=self.tree.yview
-        )
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.tree.heading("id", text="nr_ewid")
+        self.tree.column("id", width=90, anchor="center")
+        self.tree.heading("nazwa", text="nazwa")
+        self.tree.column("nazwa", width=260, anchor="w")
+        self.tree.heading("typ", text="typ")
+        self.tree.column("typ", width=140, anchor="w")
+        self.tree.heading("nastepne", text="nastepne_zadanie")
+        self.tree.column("nastepne", width=160, anchor="center")
+        self.tree.pack(fill="both", expand=True, padx=12, pady=(0, 8))
 
-        buttons = tk.Frame(left)
+        buttons = tk.Frame(left, bg=background)
         buttons.pack(fill="x", padx=12, pady=(0, 10))
-        self._details_btn = ttk.Button(
-            buttons, text="Szczegóły", command=self._open_details_for_selected
-        )
-        self._details_btn.pack(side="left")
-        ttk.Button(buttons, text="Odśwież", command=self._refresh_all).pack(
-            side="left", padx=(8, 0)
-        )
+        ttk.Button(
+            buttons,
+            text="Szczegóły",
+            command=self._open_details_for_selected,
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Odśwież",
+            command=self._refresh_all,
+        ).pack(side="left", padx=(8, 0))
+
         self._reload_tree()
 
-        # RIGHT: hala
-        right = tk.Frame(main, width=640, bg=main["bg"])
+        # prawy panel (hala) — szeroki
+        right = tk.Frame(main, width=720, bg=background)
         right.pack(side="right", fill="both")
         right.pack_propagate(False)
 
-        hdr = tk.Frame(right, bg=right["bg"]); hdr.pack(fill="x", padx=8, pady=(10, 6))
-        tk.Label(hdr, text="Hala (podgląd/edycja)", anchor="w").pack(side="left")
+        header = tk.Frame(right, bg=background)
+        header.pack(fill="x", padx=8, pady=(10, 6))
+        tk.Label(header, text="Hala (podgląd/edycja)", anchor="w").pack(side="left")
+
         self._mode_var = tk.StringVar(value="view")
-        ttk.Radiobutton(hdr, text="Widok", variable=self._mode_var, value="view",
-                        command=lambda: self._set_hala_mode("view")).pack(side="right", padx=4)
-        ttk.Radiobutton(hdr, text="Edycja", variable=self._mode_var, value="edit",
-                        command=lambda: self._set_hala_mode("edit")).pack(side="right", padx=4)
+        ttk.Radiobutton(
+            header,
+            text="Widok",
+            variable=self._mode_var,
+            value="view",
+            command=lambda: self._set_hala_mode("view"),
+        ).pack(side="right", padx=4)
+        ttk.Radiobutton(
+            header,
+            text="Edycja",
+            variable=self._mode_var,
+            value="edit",
+            command=lambda: self._set_hala_mode("edit"),
+        ).pack(side="right", padx=4)
 
         self._canvas = tk.Canvas(
             right,
-            width=640,
-            height=540,
+            width=700,
+            height=520,
             bg="#0f172a",
             highlightthickness=1,
-            highlightbackground="#334155"
+            highlightbackground="#334155",
         )
         self._canvas.pack(fill="both", expand=True, padx=8, pady=(0, 10))
 
-        if Renderer is not None:
-            # tylko Renderer (bez starych funkcji)
+        try:
+            from widok_hala.renderer import Renderer
+
             self._renderer = Renderer(self.root, self._canvas, self._machines)
-            self._reload_background(force=True)
             self._renderer.on_select = self._on_hala_select
             self._renderer.on_move = self._on_hala_move
             self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
             self._set_hala_mode("view")
-            self._set_details_button_enabled(True)
-        else:
-            self._renderer = None
-            self._set_details_button_enabled(False)
-            self._canvas.create_text(
-                320,
-                260,
-                text="Brak modułu widoku hali",
-                fill="#94a3b8",
-            )
+        except Exception as e:
+            tk.Label(
+                self._canvas,
+                text=f"Brak widok_hala/renderer.py: {e}",
+                fg="#fca5a5",
+                bg="#0f172a",
+            ).place(x=20, y=20)
 
-    def _on_source_change(self) -> None:
-        self._machines = self._load_machines()
-        self._reload_tree()
-        self._reload_background()
-        if self._renderer:
-            self._renderer.reload(self._machines)
-
-    def _set_details_button_enabled(self, enabled: bool) -> None:
-        if not self._details_btn:
-            return
-        state = "normal" if enabled else "disabled"
-        try:
-            self._details_btn.configure(state=state)
-        except Exception:  # pragma: no cover - defensywne
-            pass
-
-    def _reload_background(self, force: bool = False) -> None:
-        if not self._renderer:
-            return
-        background_path = get_path("hall.background_image", "") or ""
-        if not force and background_path == self._background_path:
-            return
-        self._background_path = background_path
-        if not background_path:
-            return
-        loader = getattr(self._renderer, "load_background", None)
-        if not callable(loader):
-            return
-        try:
-            loader(background_path)
-        except Exception as exc:  # pragma: no cover - defensywne IO/GUI
-            print(f"[WARN][Maszyny] Nie udało się załadować tła hali: {exc}")
-
-    # ----- tabela -----
-    def _reload_tree(self) -> None:
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+    def _reload_tree(self):
+        for iid in self.tree.get_children():
+            self.tree.delete(iid)
         for machine in self._machines:
-            mid = machine.get("id") or machine.get("nr_ewid") or ""
+            machine_id = machine.get("id") or machine.get("nr_ewid") or ""
             nazwa = machine.get("nazwa") or machine.get("name") or ""
             typ = machine.get("typ") or ""
             nastepne = (
@@ -472,11 +377,7 @@ class MaszynyGUI:
                 or machine.get("nastepne")
                 or ""
             )
-            self.tree.insert(
-                "",
-                "end",
-                values=(mid, nazwa, typ, nastepne or ""),
-            )
+            self.tree.insert("", "end", values=(machine_id, nazwa, typ, nastepne))
 
     def _selected_mid(self) -> str | None:
         selection = self.tree.selection()
@@ -485,117 +386,56 @@ class MaszynyGUI:
         values = self.tree.item(selection[0], "values")
         return str(values[0]) if values else None
 
-    def _open_details_for_selected(self) -> None:
+    def _open_details_for_selected(self):
         machine_id = self._selected_mid()
         if not machine_id:
-            messagebox.showinfo("Maszyny", "Wybierz maszynę z listy.")
-            return
-        if not self._renderer:
-            messagebox.showwarning(
-                "Maszyny",
-                "Brak modułu widoku hali (widok_hali/renderer.py).",
-            )
+            messagebox.showinfo("Maszyny", "Wybierz wiersz w tabeli.")
             return
         try:
-            self._renderer._open_details(machine_id)  # noqa: SLF001 - API renderer'a
-        except Exception as exc:  # pragma: no cover - zależne od renderer'a
-            messagebox.showerror("Maszyny", f"Nie można otworzyć szczegółów: {exc}")
+            if hasattr(self._renderer, "_open_details"):
+                self._renderer._open_details(machine_id)
+        except Exception as e:
+            messagebox.showerror("Maszyny", f"Nie można otworzyć opisu: {e}")
 
-    def _refresh_all(self) -> None:
-        self._machines = self._load_machines()
+    def _refresh_all(self):
+        # ponownie odczytaj ścieżki (gdyby użytkownik zmienił w Ustawieniach)
+        self.PRIMARY_DATA, self.LEGACY_DATA = _pick_best_paths()
+        print(f"[WM][Maszyny] REFRESH PRIMARY = {self.PRIMARY_DATA}")
+        print(f"[WM][Maszyny] REFRESH LEGACY  = {self.LEGACY_DATA}")
+        self._machines = self._load_and_migrate()
         self._reload_tree()
-        self._reload_background()
-        if self._renderer:
+        if hasattr(self, "_renderer"):
             self._renderer.reload(self._machines)
 
-    # ----- synchronizacja z halą -----
-    def _on_tree_select(self, _event=None) -> None:  # noqa: D401,ARG002 - sygnatura Tk
-        machine_id = self._selected_mid()
-        if machine_id and self._renderer and hasattr(self._renderer, "focus_machine"):
-            try:
-                self._renderer.focus_machine(machine_id)
-            except Exception:  # pragma: no cover - zależne od renderer'a
-                pass
+    def _on_tree_select(self, _=None):
+        mid = self._selected_mid()
+        if mid and hasattr(self, "_renderer") and hasattr(self._renderer, "focus_machine"):
+            self._renderer.focus_machine(str(mid))
 
-    def _on_hala_select(self, machine_id: str) -> None:
-        mid = str(machine_id)
-        for item in self.tree.get_children():
-            values = self.tree.item(item, "values")
-            if values and str(values[0]) == mid:
-                self.tree.selection_set(item)
-                self.tree.see(item)
+    def _on_hala_select(self, mid: str):
+        mid = str(mid)
+        for iid in self.tree.get_children():
+            vals = self.tree.item(iid, "values")
+            if vals and str(vals[0]) == mid:
+                self.tree.selection_set(iid)
+                self.tree.see(iid)
                 break
 
-    def _on_hala_move(self, machine_id: str, new_pos: dict) -> None:
-        self._save_position(machine_id, new_pos.get("x", 0), new_pos.get("y", 0))
-
-    def _on_machine_update(self, machine_id: str, _updated: dict | None = None) -> None:
-        if not machine_id:
-            return
-
-        previous_source = self._active_source
-        legacy_count = self._counts[1] if self._counts else 0
-        primary_path = os.path.abspath(_primary_data_path())
-
-        sorted_rows = sort_machines(self._machines)
-        self._machines[:] = sorted_rows
-        save_machines(self._machines)
-
-        if previous_source != "primary":
-            print(
-                "[WM][Maszyny] MIGRACJA ZAKOŃCZONA → teraz źródłem jest "
-                f"{primary_path}."
-            )
-        self._active_source = "primary"
-
-        primary_count = len(self._machines)
-        self._counts = (primary_count, legacy_count)
-        summary = (
-            f"Tryb: {self._source_var.get().upper()}  →  aktywny: PRIMARY  |  "
-            f"PRIMARY: {primary_count}  |  LEGACY: {legacy_count}"
+    def _on_hala_move(self, machine_id: str, pos: dict):
+        self._save_position(
+            str(machine_id),
+            int(pos.get("x", 0)),
+            int(pos.get("y", 0)),
         )
-        self._source_info.set(summary)
 
-        self._reload_tree()
-        print(f"[WM][Maszyny] Zapisano zmiany w danych maszyny {machine_id}")
+    def _set_hala_mode(self, mode: str):
+        if hasattr(self, "_renderer") and hasattr(self._renderer, "set_edit_mode"):
+            self._renderer.set_edit_mode(mode == "edit")
 
-    def _set_hala_mode(self, mode: str) -> None:
-        if not self._renderer:
-            self._mode_var.set("view")
-            return
-        edit = mode == "edit"
-        self._mode_var.set("edit" if edit else "view")
-        if hasattr(self._renderer, "set_edit_mode"):
-            try:
-                self._renderer.set_edit_mode(edit)
-            except Exception:  # pragma: no cover - zależne od renderer'a
-                pass
-
-
-# ----- API zgodne wstecz -----
-def panel_maszyny(root, frame, login=None, rola=None):  # noqa: D401 - API historyczne
-    """Buduje panel maszyn we wskazanym kontenerze ``frame``."""
-
-    clear_frame(frame)
-    apply_theme(root)
-    apply_theme(frame)
-    gui = MaszynyGUI(frame)
-    frame._maszyny_gui = gui  # type: ignore[attr-defined]
-    return gui
-
-
-if __name__ == "__main__":  # pragma: no cover - uruchomienie testowe
+if __name__ == "__main__":
     root = tk.Tk()
     root.title("Warsztat Menager — Maszyny")
-
-    sidebar = tk.Frame(root)
-    sidebar.pack(side="left", fill="y")
-    btn_hale = tk.Button(sidebar, text="Hale")
-    btn_hale.pack()
-    root.btn_hale = btn_hale  # type: ignore[attr-defined]
-
     content = tk.Frame(root)
-    content.pack(side="right", fill="both", expand=True)
-
-    MaszynyGUI(content, side_menu={"Hale": btn_hale})
+    content.pack(fill="both", expand=True)
+    MaszynyGUI(content)
     root.mainloop()
