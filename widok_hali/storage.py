@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 from utils.path_utils import cfg_path
 from .const import HALLS_FILE as HALLS_NAME
 from .models import Hala, Machine, WallSegment
+
+try:
+    # centralne pobieranie ścieżek z konfiguracji
+    from config.paths import get_path
+except Exception:  # pragma: no cover - fallback kiedy brak konfiguracji
+
+    def get_path(key: str, default: str = "") -> str:
+        """Awaryjnie zwróć wartość domyślną."""
+
+        return default
+
 
 HALLS_FILE = cfg_path(os.path.join("data", HALLS_NAME))
 MACHINES_FILE = cfg_path(os.path.join("data", "maszyny.json"))
@@ -19,8 +30,69 @@ CONFIG_FILE = cfg_path("config.json")
 try:  # pragma: no cover - logger may not exist in tests
     from logger import log_akcja as _log
 except Exception:  # pragma: no cover - fallback for logger
+
     def _log(msg: str) -> None:
         print(msg)
+
+
+# ---------- helpers ----------
+
+def _read_json_list(path: str | None) -> List[Dict[str, Any]]:
+    """Bezpiecznie wczytaj listę obiektów z pliku JSON."""
+
+    if not path:
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    except FileNotFoundError:
+        return []
+    except Exception as exc:  # pragma: no cover - defensywnie logujemy błąd
+        _log(f"[HALA][IO] Błąd odczytu {path}: {exc}")
+    return []
+
+
+def resolve_machines_file() -> Tuple[str | None, str]:
+    """Ustal plik maszyn wraz z etykietą wariantu źródła."""
+
+    explicit = get_path("hall.machines_file", "")
+    layout_dir = get_path("paths.layout_dir", "")
+    layout_default = os.path.join(layout_dir, "maszyny.json") if layout_dir else ""
+
+    repo_97 = os.path.join(os.getcwd(), "data", "maszyny", "maszyny.json")
+    repo_11 = os.path.join(os.getcwd(), "data", "maszyny.json")
+
+    candidates = [
+        ("hall.machines_file", explicit),
+        ("paths.layout_dir/maszyny.json", layout_default),
+        ("data/maszyny/maszyny.json", repo_97),
+        ("data/maszyny.json", repo_11),
+    ]
+    for label, candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate, label
+    return None, "missing"
+
+
+def _resolve_machines_save_path() -> str:
+    """Wybierz docelowy plik zapisu maszyn."""
+
+    path, _ = resolve_machines_file()
+    if path:
+        return path
+
+    explicit = get_path("hall.machines_file", "")
+    if explicit:
+        return explicit
+
+    layout_dir = get_path("paths.layout_dir", "")
+    if layout_dir:
+        return os.path.join(layout_dir, "maszyny.json")
+
+    # na końcu wracamy do repozytoryjnego domyślnego pliku
+    return MACHINES_FILE
 
 
 def load_hale() -> List[Hala]:
@@ -65,36 +137,33 @@ def save_hale(hale: List[Hala]) -> None:
         _log(f"[HALA][WARN] Błąd zapisu {HALLS_FILE}: {e}")
 
 
-def load_machines() -> List[Machine]:
-    """Wczytaj listę maszyn z pliku ``maszyny.json``."""
+def load_machines() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Wczytaj listę maszyn oraz meta-dane źródła."""
 
-    try:
-        with open(MACHINES_FILE, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-    except FileNotFoundError:
-        _log(f"[HALA][IO] Brak pliku {MACHINES_FILE}; zwracam pustą listę")
-        return []
-    except Exception as e:  # pragma: no cover - defensive
-        _log(f"[HALA][IO] Błąd odczytu {MACHINES_FILE}: {e}")
-        return []
+    path, label = resolve_machines_file()
+    rows = _read_json_list(path)
+    meta: Dict[str, Any] = {"path": path, "label": label, "count": len(rows)}
+    if not path:
+        _log("[HALA][IO] Nie znaleziono pliku z maszynami")
+    return rows, meta
 
+
+def load_machines_models() -> List[Machine]:
+    """Zwróć listę modeli :class:`Machine` na podstawie danych JSON."""
+
+    rows, meta = load_machines()
     machines: List[Machine] = []
-    if not isinstance(data, list):
-        _log(f"[HALA][IO] {MACHINES_FILE} nie zawiera listy")
-        return machines
-    for item in data:
-        if not isinstance(item, dict):
-            _log("[HALA][IO] Pominięto rekord maszyny – nie jest dict")
-            continue
-        machine_id = str(item.get("id") or item.get("nr_ewid"))
+    source = meta.get("path") or MACHINES_FILE
+    for item in rows:
+        machine_id = str(item.get("id") or item.get("nr_ewid") or "").strip()
         missing = [
-            k
-            for k in ("nazwa", "hala", "x", "y", "status")
-            if k not in item
+            key
+            for key in ("nazwa", "hala", "x", "y", "status")
+            if key not in item
         ]
         if missing or not machine_id:
             _log(
-                f"[HALA][IO] Maszyna {item!r} brak pól {missing} lub id"
+                f"[HALA][IO] Maszyna {item!r} brak pól {missing} lub id w {source}"
             )
             continue
         try:
@@ -108,51 +177,46 @@ def load_machines() -> List[Machine]:
                     status=str(item.get("status", "")),
                 )
             )
-        except Exception as e:  # pragma: no cover - defensive
-            _log(f"[HALA][IO] Błąd tworzenia maszyny {machine_id}: {e}")
+        except Exception as exc:  # pragma: no cover - defensywnie
+            _log(f"[HALA][IO] Błąd tworzenia maszyny {machine_id}: {exc}")
     return machines
 
 
 def save_machines(machines: Iterable[Machine]) -> None:
     """Zapisz listę maszyn do pliku ``maszyny.json``."""
 
-    try:
-        if os.path.exists(MACHINES_FILE):
-            with open(MACHINES_FILE, "r", encoding="utf-8") as fh:
-                existing = json.load(fh)
-            if not isinstance(existing, list):
-                existing = []
-        else:
-            existing = []
-    except Exception:
-        existing = []
-
+    target = _resolve_machines_save_path()
+    existing = _read_json_list(target)
     existing_map = {
-        str(item.get("id") or item.get("nr_ewid")): item for item in existing
+        str(item.get("id") or item.get("nr_ewid")): dict(item)
+        for item in existing
         if isinstance(item, dict)
     }
 
-    for m in machines:
-        item = existing_map.get(m.id, {})
+    for machine in machines:
+        item = existing_map.get(machine.id, {})
         item.update(
             {
-                "id": m.id,
-                "nazwa": m.nazwa,
-                "hala": m.hala,
-                "x": m.x,
-                "y": m.y,
-                "status": m.status,
+                "id": machine.id,
+                "nazwa": machine.nazwa,
+                "hala": machine.hala,
+                "x": machine.x,
+                "y": machine.y,
+                "status": machine.status,
             }
         )
-        existing_map[m.id] = item
+        existing_map[machine.id] = item
 
+    directory = os.path.dirname(target)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
     data = list(existing_map.values())
     try:
-        with open(MACHINES_FILE, "w", encoding="utf-8") as fh:
+        with open(target, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=2, ensure_ascii=False)
-        _log(f"[HALA][IO] Zapisano {len(data)} maszyn")
-    except Exception as e:  # pragma: no cover - defensive
-        _log(f"[HALA][IO] Błąd zapisu {MACHINES_FILE}: {e}")
+        _log(f"[HALA][IO] Zapisano {len(data)} maszyn do {target}")
+    except Exception as exc:  # pragma: no cover - defensive
+        _log(f"[HALA][IO] Błąd zapisu {target}: {exc}")
 
 
 def load_walls() -> List[WallSegment]:
@@ -235,3 +299,9 @@ def save_awarie(entries: Iterable[dict]) -> None:
         _log(f"[HALA][IO] Zapisano {len(data)} awarii")
     except Exception as e:  # pragma: no cover - defensive
         _log(f"[HALA][IO] Błąd zapisu {AWARIE_FILE}: {e}")
+
+
+def get_machines() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Zachowaj kompatybilność ze starszym API."""
+
+    return load_machines()

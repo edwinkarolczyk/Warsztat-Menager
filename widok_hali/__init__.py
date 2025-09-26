@@ -6,7 +6,8 @@ from .storage import (
     load_awarie,
     load_config_hala,
     load_hale,
-    load_machines,
+    load_machines as load_machines_raw,
+    load_machines_models,
     load_walls,
     save_awarie,
     save_hale,
@@ -23,6 +24,12 @@ from .controller import HalaController
 from .animator import RouteAnimator
 from .a_star import a_star, find_path
 
+
+def load_machines() -> list[Machine]:
+    """Zachowaj zgodność z poprzednim API zwracając modele ``Machine``."""
+
+    return load_machines_models()
+
 __all__ = [
     "GRID_STEP",
     "HALLS_FILE",
@@ -36,6 +43,8 @@ __all__ = [
     "load_hale",
     "save_hale",
     "load_machines",
+    "load_machines_models",
+    "load_machines_raw",
     "save_machines",
     "load_walls",
     "load_config_hala",
