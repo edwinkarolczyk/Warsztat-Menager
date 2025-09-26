@@ -7,68 +7,56 @@ from tkinter import ttk
 
 try:
     from config_manager import ConfigManager
-except Exception:  # pragma: no cover - diagnostyka środowiska
+except Exception:
     class _DummyCfg(dict):
-        def get(self, key, default=None):
-            return default
+        def get(self, k, d=None):
+            return d
 
-    ConfigManager = lambda: _DummyCfg()  # type: ignore[misc]
-
+    ConfigManager = lambda: _DummyCfg()
 
 _CFG = ConfigManager()
 
-# Stała — względna ścieżka pliku maszyn w katalogu data
 MACHINES_REL_PATH = os.path.join("maszyny", "maszyny.json")
 
 
-# --- helpers ------------------------------------------------------------------
+# ---------- helpers ----------
 
 
 def _read_json_list(path: str) -> list:
     try:
-        with open(path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
         if isinstance(data, list):
             return data
-        print(
-            f"[ERROR][Maszyny] {path} nie zawiera listy (typ={type(data).__name__})."
-        )
+        print(f"[ERROR][Maszyny] {path} nie zawiera listy (typ={type(data).__name__}).")
         return []
-    except Exception as exc:  # pragma: no cover - diagnostyka
-        print(f"[ERROR][Maszyny] Nie można wczytać {path}: {exc}")
+    except Exception as e:
+        print(f"[ERROR][Maszyny] Nie można wczytać {path}: {e}")
         return []
 
 
-def _get_data_root() -> str:
+def _get_data_root() -> tuple[str, str]:
     """
-    Jedno źródło prawdy: 'system.data_dir'.
-    Dla zgodności wstecznej honorujemy też 'system.data_path' i 'system.data_root'.
+    Priorytet:
+      1) paths.data_root   <-- docelowy, jeden klucz
+      2) system.data_dir   <-- zgodność wsteczna
+      3) system.data_path  <-- zgodność wsteczna
+      4) system.data_root  <-- zgodność wsteczna
+      5) ./data            <-- fallback w repo
+    Zwraca (root, picked_key).
     """
 
-    value = _CFG.get("system.data_dir", None)
-    if value:
-        return str(value)
-
-    for legacy_key in ("system.data_path", "system.data_root"):
-        value = _CFG.get(legacy_key, None)
-        if value:
-            print(
-                "[WARN][Maszyny] Brak system.data_dir — używam "
-                f"{legacy_key}='{value}' (legacy)."
-            )
-            return str(value)
-
-    fallback = os.path.join(os.getcwd(), "data")
-    print(
-        "[WARN][Maszyny] Brak ustawień katalogu danych — fallback: "
-        f"{fallback}"
-    )
-    return fallback
+    for key in ("paths.data_root", "system.data_dir", "system.data_path", "system.data_root"):
+        v = _CFG.get(key, None)
+        if v:
+            return str(v), key
+    return os.path.join(os.getcwd(), "data"), "fallback:cwd/data"
 
 
-def _machines_path() -> str:
-    root = _get_data_root()
-    return os.path.join(root, MACHINES_REL_PATH)
+def _machines_path() -> tuple[str, dict]:
+    root, picked = _get_data_root()
+    path = os.path.join(root, MACHINES_REL_PATH)
+    return path, {"root": root, "picked_key": picked, "rel": MACHINES_REL_PATH}
 
 
 # --- GUI ----------------------------------------------------------------------
@@ -77,10 +65,14 @@ def _machines_path() -> str:
 class MaszynyGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self._path = _machines_path()
+        self._path, self._meta = _machines_path()
         self._machines = _read_json_list(self._path)
 
-        print(f"[WM][Maszyny] źródło: {self._path} | rekordy: {len(self._machines)}")
+        print(
+            "[WM][Maszyny] źródło: "
+            f"{self._path} (root={self._meta['root']} via {self._meta['picked_key']}) "
+            f"| rekordy: {len(self._machines)}"
+        )
 
         self._build_ui()
 
@@ -92,13 +84,20 @@ class MaszynyGUI:
         # Pasek informacyjny z aktywną ścieżką
         bar = tk.Frame(main, bg=background)
         bar.pack(fill="x", padx=12, pady=(10, 6))
-        tk.Label(bar, text=f"Źródło maszyn: {self._path}", anchor="w").pack(
-            side="left", fill="x", expand=True
-        )
+        tk.Label(
+            bar,
+            text=(
+                "Źródło maszyn: "
+                f"{self._path}  •  ({self._meta['picked_key']})"
+            ),
+            anchor="w",
+        ).pack(side="left", fill="x", expand=True)
         if not self._machines:
             tk.Label(
                 bar,
-                text="Brak danych — sprawdź Ustawienia ➝ System ➝ system.data_dir",
+                text=(
+                    "Brak danych — sprawdź Ustawienia ➝ System ➝ paths.data_root"
+                ),
                 fg="#fca5a5",
                 bg=background,
             ).pack(side="right")
