@@ -560,6 +560,25 @@
                 },
                 {
                   "type": "boolean",
+                  "key": "system.debug_enabled",
+                  "label": "Włącz logi debug (WM)",
+                  "default": true,
+                  "tooltip": "Gęstsze logi w konsoli: kliknięcia, parametry, wejścia/wyjścia."
+                },
+                {
+                  "type": "select",
+                  "key": "system.log_level",
+                  "label": "Poziom logów (WM)",
+                  "default": "debug",
+                  "options": [
+                    { "label": "debug", "value": "debug" },
+                    { "label": "info", "value": "info" },
+                    { "label": "error", "value": "error" }
+                  ],
+                  "tooltip": "Minimalny poziom emitowanych logów."
+                },
+                {
+                  "type": "boolean",
                   "key": "auth.require_login",
                   "label": "Wymagaj logowania",
                   "tooltip": "Włącz ekran logowania przy starcie.",
