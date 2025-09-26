@@ -177,6 +177,7 @@
                   "type": "button",
                   "key": "paths.data_root_pick",
                   "label": "Wybierz katalog danych…",
+                  "tooltip": "Wskaż katalog główny WM (np. C:\\wm\\data).",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.data_root" }
                 },
@@ -185,17 +186,20 @@
                   "key": "paths.data_root",
                   "label": "Aktualny katalog danych",
                   "readonly": true,
+                  "tooltip": "Bieżący katalog główny danych Warsztat Menager.",
                   "default": "C:\\wm\\data"
                 },
                 {
                   "type": "button",
                   "key": "paths.data_root_open",
                   "label": "Otwórz w Explorerze",
+                  "tooltip": "Otwórz katalog danych w Eksploratorze Windows.",
                   "action": "os.open_path",
                   "params": { "path_key": "paths.data_root" }
                 }
               ]
             },
+
             {
               "title": "Katalogi systemowe",
               "fields": [
@@ -203,6 +207,7 @@
                   "type": "button",
                   "key": "paths.logs_dir_pick",
                   "label": "Wybierz katalog logów…",
+                  "tooltip": "Miejsce zapisu plików logów aplikacji.",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.logs_dir" }
                 },
@@ -211,12 +216,14 @@
                   "key": "paths.logs_dir",
                   "label": "Aktualny katalog logów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu logów.",
                   "default": "C:\\wm\\data\\logs"
                 },
                 {
                   "type": "button",
                   "key": "paths.backup_dir_pick",
                   "label": "Wybierz katalog kopii…",
+                  "tooltip": "Katalog do zapisu kopii zapasowych (ZIP).",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.backup_dir" }
                 },
@@ -225,17 +232,20 @@
                   "key": "paths.backup_dir",
                   "label": "Aktualny katalog kopii",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu kopii zapasowych.",
                   "default": "C:\\wm\\data\\backup"
                 }
               ]
             },
+
             {
-              "title": "Layout/Maszyny (hala)",
+              "title": "Layout / Maszyny (hala)",
               "fields": [
                 {
                   "type": "button",
                   "key": "paths.layout_dir_pick",
                   "label": "Wybierz katalog layoutu…",
+                  "tooltip": "Katalog na pliki layoutu hali (tła, warstwy).",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.layout_dir" }
                 },
@@ -244,12 +254,14 @@
                   "key": "paths.layout_dir",
                   "label": "Aktualny katalog layoutu",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu layoutu hali.",
                   "default": "C:\\wm\\data\\layout"
                 },
                 {
                   "type": "button",
                   "key": "hall.background_image_pick",
                   "label": "Wybierz tło hali…",
+                  "tooltip": "Wybierz obrazek tła (PNG/JPG) dla widoku maszyn.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.png","*.jpg","*.jpeg"],
@@ -261,10 +273,31 @@
                   "key": "hall.background_image",
                   "label": "Aktualne tło hali",
                   "readonly": true,
+                  "tooltip": "Ścieżka do wybranego pliku tła hali.",
                   "default": ""
+                },
+                {
+                  "type": "button",
+                  "key": "hall.machines_file_pick",
+                  "label": "Wybierz plik maszyn…",
+                  "tooltip": "Plik JSON z definicjami maszyn/rozmieszczeń.",
+                  "action": "dialog.open_file",
+                  "params": {
+                    "filters": ["*.json"],
+                    "write_to_key": "hall.machines_file"
+                  }
+                },
+                {
+                  "type": "text",
+                  "key": "hall.machines_file",
+                  "label": "Aktualny plik maszyn",
+                  "readonly": true,
+                  "tooltip": "Ścieżka do pliku maszyn (layout).",
+                  "default": "C:\\wm\\data\\layout\\maszyny.json"
                 }
               ]
             },
+
             {
               "title": "Magazyn (pliki i katalog)",
               "fields": [
@@ -272,6 +305,7 @@
                   "type": "button",
                   "key": "paths.warehouse_dir_pick",
                   "label": "Wybierz katalog magazynu…",
+                  "tooltip": "Katalog danych magazynowych (stany, rezerwacje).",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.warehouse_dir" }
                 },
@@ -280,12 +314,14 @@
                   "key": "paths.warehouse_dir",
                   "label": "Aktualny katalog magazynu",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu danych magazynu.",
                   "default": "C:\\wm\\data\\magazyn"
                 },
                 {
                   "type": "button",
                   "key": "warehouse.stock_source_pick",
                   "label": "Wybierz plik stanów…",
+                  "tooltip": "Plik JSON ze stanami magazynowymi.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json"],
@@ -297,12 +333,14 @@
                   "key": "warehouse.stock_source",
                   "label": "Aktualny plik stanów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do pliku stanów magazynowych.",
                   "default": "C:\\wm\\data\\magazyn\\magazyn.json"
                 },
                 {
                   "type": "button",
                   "key": "warehouse.reservations_file_pick",
                   "label": "Wybierz plik rezerwacji…",
+                  "tooltip": "Plik JSON z rezerwacjami materiału.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json"],
@@ -314,17 +352,20 @@
                   "key": "warehouse.reservations_file",
                   "label": "Aktualny plik rezerwacji",
                   "readonly": true,
+                  "tooltip": "Ścieżka do pliku rezerwacji.",
                   "default": "C:\\wm\\data\\magazyn\\rezerwacje.json"
                 }
               ]
             },
+
             {
-              "title": "Produkty/BOM",
+              "title": "Produkty / BOM",
               "fields": [
                 {
                   "type": "button",
                   "key": "paths.products_dir_pick",
                   "label": "Wybierz katalog produktów…",
+                  "tooltip": "Katalog dla plików produktów i BOM.",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.products_dir" }
                 },
@@ -333,12 +374,14 @@
                   "key": "paths.products_dir",
                   "label": "Aktualny katalog produktów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu produktów/BOM.",
                   "default": "C:\\wm\\data\\produkty"
                 },
                 {
                   "type": "button",
                   "key": "bom.file_pick",
                   "label": "Wybierz plik BOM…",
+                  "tooltip": "Plik definicji BOM (JSON/CSV/XLSX).",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json","*.csv","*.xlsx"],
@@ -350,10 +393,12 @@
                   "key": "bom.file",
                   "label": "Aktualny plik BOM",
                   "readonly": true,
+                  "tooltip": "Ścieżka do wybranego pliku BOM.",
                   "default": "C:\\wm\\data\\produkty\\bom.json"
                 }
               ]
             },
+
             {
               "title": "Narzędzia (słowniki)",
               "fields": [
@@ -361,6 +406,7 @@
                   "type": "button",
                   "key": "paths.tools_dir_pick",
                   "label": "Wybierz katalog narzędzi…",
+                  "tooltip": "Katalog słowników narzędzi (typy, statusy, szablony).",
                   "action": "dialog.open_dir",
                   "params": { "write_to_key": "paths.tools_dir" }
                 },
@@ -369,12 +415,14 @@
                   "key": "paths.tools_dir",
                   "label": "Aktualny katalog narzędzi",
                   "readonly": true,
+                  "tooltip": "Ścieżka do katalogu słowników narzędzi.",
                   "default": "C:\\wm\\data\\narzedzia"
                 },
                 {
                   "type": "button",
                   "key": "tools.types_file_pick",
                   "label": "Wybierz plik typów narzędzi…",
+                  "tooltip": "Plik JSON z listą typów narzędzi.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json"],
@@ -386,12 +434,14 @@
                   "key": "tools.types_file",
                   "label": "Aktualny plik typów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do pliku typów narzędzi.",
                   "default": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json"
                 },
                 {
                   "type": "button",
                   "key": "tools.statuses_file_pick",
                   "label": "Wybierz plik statusów narzędzi…",
+                  "tooltip": "Plik JSON z listą statusów narzędzi.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json"],
@@ -403,12 +453,14 @@
                   "key": "tools.statuses_file",
                   "label": "Aktualny plik statusów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do pliku statusów narzędzi.",
                   "default": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json"
                 },
                 {
                   "type": "button",
                   "key": "tools.task_templates_file_pick",
                   "label": "Wybierz plik szablonów zadań…",
+                  "tooltip": "Plik JSON z listą szablonów zadań dla narzędzi.",
                   "action": "dialog.open_file",
                   "params": {
                     "filters": ["*.json"],
@@ -420,12 +472,36 @@
                   "key": "tools.task_templates_file",
                   "label": "Aktualny plik szablonów",
                   "readonly": true,
+                  "tooltip": "Ścieżka do pliku szablonów zadań.",
                   "default": "C:\\wm\\data\\narzedzia\\szablony_zadan.json"
+                }
+              ]
+            },
+
+            {
+              "title": "Zlecenia (katalog)",
+              "fields": [
+                {
+                  "type": "button",
+                  "key": "paths.orders_dir_pick",
+                  "label": "Wybierz katalog zleceń…",
+                  "tooltip": "Katalog, w którym zapisywane są pliki zleceń.",
+                  "action": "dialog.open_dir",
+                  "params": { "write_to_key": "paths.orders_dir" }
+                },
+                {
+                  "type": "text",
+                  "key": "paths.orders_dir",
+                  "label": "Aktualny katalog zleceń",
+                  "readonly": true,
+                  "tooltip": "Ścieżka do katalogu zleceń.",
+                  "default": "C:\\wm\\data\\zlecenia"
                 }
               ]
             }
           ]
         },
+
         {
           "id": "ustawienia_startowe",
           "title": "Ustawienia startowe",
@@ -437,18 +513,21 @@
                   "type": "boolean",
                   "key": "system.start_on_dashboard",
                   "label": "Startuj na panel główny",
-                  "default": true
+                  "default": true,
+                  "tooltip": "Po uruchomieniu otwieraj od razu główny panel."
                 },
                 {
                   "type": "boolean",
                   "key": "system.auto_check_updates",
                   "label": "Sprawdzaj aktualizacje przy starcie",
-                  "default": true
+                  "default": true,
+                  "tooltip": "Automatycznie sprawdzaj dostępność aktualizacji."
                 }
               ]
             }
           ]
         },
+
         {
           "id": "interfejs",
           "title": "Interfejs",
@@ -460,6 +539,7 @@
                   "type": "select",
                   "key": "system.theme",
                   "label": "Motyw",
+                  "tooltip": "Wybierz motyw: auto/ciemny/jasny.",
                   "options": [
                     { "label": "Auto", "value": "auto" },
                     { "label": "Ciemny", "value": "dark" },
@@ -471,6 +551,7 @@
                   "type": "select",
                   "key": "system.language",
                   "label": "Język",
+                  "tooltip": "Język interfejsu użytkownika.",
                   "options": [
                     { "label": "Polski", "value": "pl" },
                     { "label": "English", "value": "en" }
@@ -479,14 +560,35 @@
                 },
                 {
                   "type": "boolean",
+                  "key": "system.debug_enabled",
+                  "label": "Włącz logi debug (WM)",
+                  "default": true,
+                  "tooltip": "Gęstsze logi w konsoli: kliknięcia, parametry, wejścia/wyjścia."
+                },
+                {
+                  "type": "select",
+                  "key": "system.log_level",
+                  "label": "Poziom logów (WM)",
+                  "default": "debug",
+                  "options": [
+                    { "label": "debug", "value": "debug" },
+                    { "label": "info", "value": "info" },
+                    { "label": "error", "value": "error" }
+                  ],
+                  "tooltip": "Minimalny poziom emitowanych logów."
+                },
+                {
+                  "type": "boolean",
                   "key": "auth.require_login",
                   "label": "Wymagaj logowania",
+                  "tooltip": "Włącz ekran logowania przy starcie.",
                   "default": true
                 },
                 {
                   "type": "number",
                   "key": "auth.session_timeout_min",
                   "label": "Timeout sesji (min)",
+                  "tooltip": "Automatyczne wylogowanie po bezczynności.",
                   "default": 30,
                   "min": 5,
                   "max": 240
@@ -586,6 +688,25 @@
             { "type": "number", "key": "hall.default_wall_thickness_mm",
               "label": "Domyślna grubość ściany (mm)",
               "default": 120, "min": 50, "max": 500 }
+          ]
+        },
+        {
+          "title": "Źródło danych (jedno źródło prawdy)",
+          "fields": [
+            {
+              "type": "folder",
+              "key": "system.data_root",
+              "label": "Folder danych (root)",
+              "default": "C:\\Warsztat\\WM\\Warsztat-Menager\\data",
+              "help": "Wskaż katalog 'data' – plik maszyn będzie liczony relatywnie."
+            },
+            {
+              "type": "text",
+              "key": "machines.relative_path",
+              "label": "Relatywna ścieżka pliku maszyn",
+              "default": "maszyny/maszyny.json",
+              "help": "Ścieżka względem 'system.data_root'. Domyślnie: maszyny/maszyny.json"
+            }
           ]
         }
       ]

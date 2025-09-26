@@ -12,11 +12,30 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from config.paths import get_path
 from config_manager import ConfigManager
 from ui_utils import _msg_error
+from wm_log import dbg as wm_dbg, err as wm_err
 
 # Paths
 DATA_DIR = Path("data")
+
+
+def load_bom():
+    path = get_path("bom.file")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            bom = json.load(f)
+        wm_dbg(
+            "gui.bom",
+            "bom loaded",
+            path=path,
+            items=len(bom) if isinstance(bom, list) else 1,
+        )
+        return bom
+    except Exception as e:  # pragma: no cover - logowanie błędów
+        wm_err("gui.bom", "bom load failed", e, path=path)
+        return []
 
 
 def _load_json(path: Path, default):
@@ -68,6 +87,7 @@ class WarehouseModel:
             self.surowce = {}
         self.polprodukty = self._load_dir(self.pol_dir)
         self.produkty = self._load_dir(self.prd_dir)
+        self._load_bom_file()
 
     @staticmethod
     def _load_dir(folder: Path) -> dict:
@@ -78,6 +98,113 @@ class WarehouseModel:
                 key = data.get("kod") or data.get("symbol") or pth.stem
                 out[key] = data
         return out
+
+    # ------------------------------------------------------------------
+    def _load_bom_file(self) -> None:
+        """Augment product definitions with entries from the configured BOM file."""
+
+        path_str = get_path("bom.file")
+        if not path_str:
+            return
+        bom_path = Path(path_str)
+        payload = load_bom()
+        if not payload:
+            return
+
+        for record in self._normalise_bom_payload(payload, bom_path):
+            symbol = record.get("symbol")
+            if not symbol:
+                continue
+            current = self.produkty.get(symbol, {})
+            merged = {**current, **record}
+            merged.setdefault("_path", str(bom_path))
+            self.produkty[symbol] = merged
+
+    # ------------------------------------------------------------------
+    def _normalise_bom_payload(self, payload, source: Path) -> list[dict]:
+        """Return list of product dicts parsed from ``payload``."""
+
+        def _iter_records(data):
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict):
+                        yield item
+                return
+            if isinstance(data, dict):
+                for key in ("produkty", "products", "items", "data"):
+                    value = data.get(key)
+                    if isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict):
+                                yield item
+                        return
+                yield data
+
+        records: list[dict] = []
+        for raw in _iter_records(payload):
+            symbol = raw.get("symbol") or raw.get("kod")
+            if not symbol:
+                continue
+            record = {
+                "symbol": symbol,
+                "nazwa": raw.get("nazwa") or raw.get("name") or symbol,
+                "polprodukty": self._normalise_polprodukty(raw.get("polprodukty")),
+                "czynnosci": list(raw.get("czynnosci") or raw.get("operations") or []),
+                "_path": str(source),
+            }
+            records.append(record)
+        return records
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalise_polprodukty(data) -> list[dict]:
+        """Normalise various BOM formats to list of dict entries."""
+
+        def _coerce_qty(raw):
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                return raw
+
+        if isinstance(data, dict):
+            items = []
+            for kod, value in data.items():
+                entry = {"kod": kod, "ilosc_na_szt": _coerce_qty(value)}
+                items.append(entry)
+            return items
+        if not isinstance(data, list):
+            return []
+
+        normalised: list[dict] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            kod = item.get("kod") or item.get("id") or item.get("symbol")
+            if not kod:
+                continue
+            qty = (
+                item.get("ilosc_na_szt")
+                or item.get("ilosc")
+                or item.get("ilosc_na_sztuke")
+                or item.get("qty")
+                or item.get("quantity")
+                or 0
+            )
+            entry: dict = {
+                "kod": kod,
+                "ilosc_na_szt": _coerce_qty(qty),
+                "czynnosci": list(item.get("czynnosci") or item.get("operations") or []),
+            }
+            surowiec = item.get("surowiec") or item.get("material") or {}
+            if isinstance(surowiec, dict):
+                entry["surowiec"] = {
+                    "typ": surowiec.get("typ") or surowiec.get("material"),
+                    "dlugosc": surowiec.get("dlugosc") or surowiec.get("length"),
+                    "jednostka": surowiec.get("jednostka") or surowiec.get("unit"),
+                    "kod": surowiec.get("kod"),
+                }
+            normalised.append(entry)
+        return normalised
 
     # Surowce
     def add_or_update_surowiec(self, record: dict) -> None:

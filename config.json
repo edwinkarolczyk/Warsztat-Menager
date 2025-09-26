@@ -145,6 +145,26 @@
         "kierownik",
         "admin"
       ]
+    },
+    "ask_to_order_shortage": "1",
+    "min_order_threshold": "",
+    "status_colors": {},
+    "tasks": [],
+    "alert_thresholds_pct": {
+      "ZW": 50.0,
+      "ZN": 50.0,
+      "ZM": 50.0,
+      "ZZ": 50.0
+    },
+    "module_links": {
+      "ZN": "Powiąż z kartoteką narzędzi (zakres SN 500–1000)",
+      "ZM": "Powiąż z modułem Maszyny",
+      "ZZ": "Powiąż z modułem Magazyn → Zamówienia"
+    },
+    "defaults": {
+      "author": "zalogowany_uzytkownik",
+      "status": "nowe",
+      "id_width": "4"
     }
   },
   "tools.collections_enabled": [
@@ -204,15 +224,35 @@
   "auth": {
     "pinless_brygadzista": true,
     "required": true,
-    "session_timeout_min": 30
+    "session_timeout_min": "30",
+    "require_login": "1"
   },
   "secrets": {
     "admin_pin": ""
   },
   "hall": {
-    "grid_size_px": 4,
+    "grid_size_px": "4",
     "drag_snap_px": 20,
-    "triple_confirm_delete": false
+    "triple_confirm_delete": false,
+    "background_image": "",
+    "machines_file": "C:\\wm\\data\\layout\\maszyny.json",
+    "snap_to_grid": "1",
+    "background_fit": "contain",
+    "background_opacity": "100",
+    "show_numbers": "1",
+    "enable_selection": "1",
+    "multi_select": "1",
+    "lasso_select": "1",
+    "rooms_enabled": "1",
+    "rooms_limit": "10",
+    "room_types": [
+      "Biuro",
+      "Magazyn",
+      "Produkcja",
+      "Kontrola",
+      "Komunikacja"
+    ],
+    "default_wall_thickness_mm": "120"
   },
   "tools": {
     "collections_enabled": [
@@ -223,7 +263,10 @@
     "auto_check_on_status_global": [
       "sprawne",
       "zakończone"
-    ]
+    ],
+    "types_file": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json",
+    "statuses_file": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json",
+    "task_templates_file": "C:\\wm\\data\\narzedzia\\szablony_zadan.json"
   },
   "progi_alertow_pct": [
     100.0
@@ -233,7 +276,8 @@
     "auto": true,
     "remote": "origin",
     "branch": "Rozwiniecie",
-    "push_branch": "Rozwiniecie"
+    "push_branch": "Rozwiniecie",
+    "branch_name": "Rozwiniecie"
   },
   "profiles": {
     "tab_enabled": true,
@@ -260,5 +304,152 @@
   },
   "changelog": {
     "last_viewed": "2025-09-19T18:54:03"
+  },
+  "paths.data_root": "C:\\wm\\data",
+  "paths.logs_dir": "C:\\wm\\data\\logs",
+  "paths.backup_dir": "C:\\wm\\data\\backup",
+  "paths.layout_dir": "C:\\wm\\data\\layout",
+  "hall.background_image": "",
+  "hall.machines_file": "C:\\wm\\data\\layout\\maszyny.json",
+  "paths.warehouse_dir": "C:\\wm\\data\\magazyn",
+  "warehouse.stock_source": "C:\\wm\\data\\magazyn\\magazyn.json",
+  "warehouse.reservations_file": "C:\\wm\\data\\magazyn\\rezerwacje.json",
+  "paths.products_dir": "C:\\wm\\data\\produkty",
+  "bom.file": "C:\\wm\\data\\produkty\\bom.json",
+  "paths.tools_dir": "C:\\wm\\data\\narzedzia",
+  "tools.types_file": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json",
+  "tools.statuses_file": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json",
+  "tools.task_templates_file": "C:\\wm\\data\\narzedzia\\szablony_zadan.json",
+  "paths.orders_dir": "C:\\wm\\data\\zlecenia",
+  "system.start_on_dashboard": true,
+  "system.auto_check_updates": true,
+  "system.theme": null,
+  "system.language": null,
+  "system.debug_enabled": true,
+  "system.log_level": null,
+  "auth.require_login": true,
+  "auth.session_timeout_min": 30,
+  "hall.grid_size_px": 4,
+  "hall.snap_to_grid": true,
+  "hall.background_fit": null,
+  "hall.background_opacity": 100,
+  "hall.show_numbers": true,
+  "hall.enable_selection": true,
+  "hall.multi_select": true,
+  "hall.lasso_select": true,
+  "hall.rooms_enabled": true,
+  "hall.rooms_limit": 10,
+  "hall.room_types": [
+    "Biuro",
+    "Magazyn",
+    "Produkcja",
+    "Kontrola",
+    "Komunikacja"
+  ],
+  "hall.default_wall_thickness_mm": 120,
+  "system.data_root": "C:\\Warsztat\\WM\\Warsztat-Menager\\data",
+  "machines.relative_path": "maszyny/maszyny.json",
+  "tools.types": [
+    "Tłoczące",
+    "Wykrawające",
+    "Postępowe",
+    "Giętarka"
+  ],
+  "tools.statuses": [
+    "awaria zgłoszona",
+    "diagnoza",
+    "w naprawie",
+    "test",
+    "sprawdzona",
+    "zakończone",
+    "anulowane"
+  ],
+  "tools.task_templates": [
+    "Przegląd wizualny",
+    "Czyszczenie i smarowanie",
+    "Pomiar luzów",
+    "Wymiana elementu roboczego",
+    "Test na prasie"
+  ],
+  "tools.auto_check_on_status": [
+    "sprawne",
+    "zakończone"
+  ],
+  "tools.auto_check_on_last_status": true,
+  "tools.nn_sn_preview_rows": 2,
+  "orders.wizard_dark": true,
+  "orders.wizard_separate_window": true,
+  "orders.required_fields": [
+    "klient",
+    "opis",
+    "termin"
+  ],
+  "orders.default_type": null,
+  "warehouse.low_stock_threshold": 10,
+  "warehouse.reserve_on_order": true,
+  "warehouse.target_stock_percent": 100,
+  "bom.default_format": null,
+  "bom.validation_enabled": true,
+  "bom.allow_partial_subst": false,
+  "bom.columns_visible": [
+    "kod",
+    "nazwa",
+    "ilość",
+    "jedn",
+    "zamiennik"
+  ],
+  "orders.ask_to_order_shortage": true,
+  "orders.min_order_threshold": "",
+  "updates.branch_name": "Rozwiniecie",
+  "materials.units": [
+    "szt",
+    "kg",
+    "m",
+    "m2"
+  ],
+  "materials.allow_subst": true,
+  "paths": {
+    "data_root": "C:\\wm\\data",
+    "logs_dir": "C:\\wm\\data\\logs",
+    "backup_dir": "C:\\wm\\data\\backup",
+    "layout_dir": "C:\\wm\\data\\layout",
+    "warehouse_dir": "C:\\wm\\data\\magazyn",
+    "products_dir": "C:\\wm\\data\\produkty",
+    "tools_dir": "C:/WM/data/narzedzia",
+    "orders_dir": "C:\\wm\\data\\zlecenia"
+  },
+  "warehouse": {
+    "stock_source": "C:\\wm\\data\\magazyn\\magazyn.json",
+    "reservations_file": "C:\\wm\\data\\magazyn\\rezerwacje.json"
+  },
+  "bom": {
+    "file": "C:\\wm\\data\\produkty\\bom.json"
+  },
+  "system": {
+    "start_on_dashboard": "1",
+    "auto_check_updates": "1",
+    "theme": "dark",
+    "language": "pl",
+    "debug_enabled": "1",
+    "log_level": "debug",
+    "data_root": "C:\\Warsztat\\WM\\Warsztat-Menager\\data"
+  },
+  "profile": {
+    "info": ""
+  },
+  "machines": {
+    "relative_path": "maszyny/maszyny.json"
+  },
+  "audit": {
+    "info": ""
+  },
+  "materials": {
+    "units": [
+      "szt",
+      "kg",
+      "m",
+      "m2"
+    ],
+    "allow_subst": "1"
   }
 }

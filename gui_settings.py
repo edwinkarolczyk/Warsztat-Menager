@@ -15,6 +15,34 @@ from typing import Any, Dict
 from tkinter import colorchooser, filedialog
 from tkinter import ttk, messagebox
 
+from gui.settings_action_handlers import (
+    bind as settings_actions_bind,
+    execute as settings_action_exec,
+)
+from config.paths import bind_settings, ensure_core_tree
+
+try:
+    from wm_log import (
+        bind_settings_getter as wm_bind_settings_getter,
+        dbg as wm_dbg,
+        err as wm_err,
+        info as wm_info,
+    )
+except ImportError:  # pragma: no cover - fallback for environments without wm_log
+    def wm_bind_settings_getter(_getter):
+        return None
+
+
+    def wm_dbg(*_args, **_kwargs):
+        return None
+
+
+    def wm_err(*_args, **_kwargs):
+        return None
+
+
+    def wm_info(*_args, **_kwargs):
+        return None
 
 class ScrollableFrame(ttk.Frame):
     """Generic vertically scrollable frame with mouse wheel support."""
@@ -30,10 +58,7 @@ class ScrollableFrame(ttk.Frame):
         self.inner = ttk.Frame(self.canvas)
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
-        self.inner.bind(
-            "<Configure>",
-            lambda event: self.canvas.configure(scrollregion=self.canvas.bbox("all")),
-        )
+        self.inner.bind("<Configure>", self._on_inner_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
         self.canvas.grid(row=0, column=0, sticky="nsew")
@@ -45,12 +70,41 @@ class ScrollableFrame(ttk.Frame):
         self.canvas.bind_all("<Button-4>", lambda event: self._scroll(-120))
         self.canvas.bind_all("<Button-5>", lambda event: self._scroll(120))
         top = self.winfo_toplevel()
-        top.bind("<Destroy>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+        top.bind("<Destroy>", self._on_toplevel_destroy, add="+")
 
     def _on_canvas_configure(self, event: tk.Event) -> None:
         """Ensure the inner frame matches the canvas width."""
 
-        self.canvas.itemconfigure(self._window, width=event.width)
+        if not self._canvas_alive:
+            return
+        try:
+            if self.canvas.winfo_exists():
+                self.canvas.itemconfigure(self._window, width=event.width)
+        except tk.TclError:
+            self._canvas_alive = False
+            print("[WM-DBG][SETTINGS] Ignoruję configure po zniszczeniu canvas (TclError)")
+
+    def _on_inner_configure(self, _event: tk.Event) -> None:
+        """Update the scrollregion when the inner frame changes size."""
+
+        if not self._canvas_alive:
+            return
+        try:
+            if self.canvas.winfo_exists():
+                self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        except tk.TclError:
+            self._canvas_alive = False
+            print("[WM-DBG][SETTINGS] Ignoruję update scrollregion po zniszczeniu canvas (TclError)")
+
+    def _on_toplevel_destroy(self, _event: tk.Event) -> None:
+        """Unbind global scroll handlers when the settings window is closed."""
+
+        try:
+            self.canvas.unbind_all("<MouseWheel>")
+            self.canvas.unbind_all("<Button-4>")
+            self.canvas.unbind_all("<Button-5>")
+        except tk.TclError:
+            pass
 
     def _on_mousewheel(self, event: tk.Event) -> None:
         """Scroll canvas when mouse wheel is used (Windows/Linux)."""
@@ -441,6 +495,11 @@ class SettingsPanel:
             )
         else:
             self.cfg = ConfigManager()
+        self.settings_state = self._load_settings_state()
+        wm_bind_settings_getter(lambda k: self.settings_state.get(k))
+        bind_settings(self.settings_state)
+        ensure_core_tree()
+        settings_actions_bind(self.settings_state, on_change=self.on_setting_changed)
         self.vars: Dict[str, tk.Variable] = {}
         self._initial: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
@@ -472,11 +531,49 @@ class SettingsPanel:
         self._build_ui()
 
     # ------------------------------------------------------------------
+    def _load_settings_state(self) -> dict[str, Any]:
+        """Return mapping of config keys to their current values."""
+
+        try:
+            cfg = getattr(self, "cfg", None)
+            if cfg is None:
+                return {}
+
+            schema = self._get_schema() or {}
+            state: dict[str, Any] = {}
+
+            def _iter_fields(node: dict[str, Any]):
+                for field in node.get("fields", []):
+                    if field.get("deprecated"):
+                        continue
+                    key = field.get("key")
+                    if key:
+                        yield key, field
+                for child_key in ("tabs", "groups", "subtabs"):
+                    for child in node.get(child_key, []):
+                        yield from _iter_fields(child)
+
+            for key, field in _iter_fields(schema):
+                state[key] = cfg.get(key, field.get("default"))
+
+            for option in schema.get("options", []):
+                if option.get("deprecated"):
+                    continue
+                key = option.get("key")
+                if key:
+                    state[key] = cfg.get(key, option.get("default"))
+
+            return state
+        except Exception:
+            return {}
+
+    # ------------------------------------------------------------------
     def _build_ui(self) -> None:
         """Create notebook tabs and widgets based on current schema."""
 
         self._unsaved = False
         self._fields_vars = []
+        self.settings_state.clear()
         content_parent = getattr(self, "_content_area", self.master)
         for child in content_parent.winfo_children():
             child.destroy()
@@ -606,7 +703,146 @@ class SettingsPanel:
         self._initial[key] = var.get()
         self._defaults[key] = opt.get("default")
         self._fields_vars.append((var, opt))
-        var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+        self.settings_state[key] = var.get()
+        var.trace_add("write", lambda *_: self._on_var_write(key, var))
+
+    def _create_button_field(
+        self, parent: tk.Widget, field_def: dict[str, Any]
+    ) -> ttk.Button:
+        """Return ttk button configured for schema action field."""
+
+        text = (
+            field_def.get("label_pl")
+            or field_def.get("label")
+            or field_def.get("key")
+            or "Akcja"
+        )
+        btn = ttk.Button(
+            parent,
+            text=text,
+            command=lambda f=field_def, lbl=text: self._on_button_field_clicked(
+                f, lbl
+            ),
+        )
+        tip = field_def.get("help_pl") or field_def.get("help")
+        if tip:
+            _bind_tooltip(btn, tip)
+        return btn
+
+    def _on_var_write(self, key: str, var: tk.Variable) -> None:
+        """Handle Tk variable updates by tracking unsaved state and cache."""
+
+        setattr(self, "_unsaved", True)
+        try:
+            self.settings_state[key] = var.get()
+        except Exception:
+            pass
+
+    def _on_button_field_clicked(self, field: dict[str, Any], label: str) -> None:
+        """Execute configured action for schema button field."""
+
+        action = field.get("action")
+        params = field.get("params", {}) or {}
+        wm_dbg("ui.button", "click", label=label, action=action, params=params)
+        if not action:
+            return
+        try:
+            result = settings_action_exec(action, params)
+            ok = True
+            if isinstance(result, dict) and "ok" in result:
+                ok = bool(result["ok"])
+            wm_info(
+                "ui.button",
+                "done",
+                label=label,
+                action=action,
+                ok=ok,
+                result=result,
+            )
+        except RuntimeError as exc:
+            wm_err(
+                "ui.button",
+                "action failed",
+                exc,
+                label=label,
+                action=action,
+                params=params,
+            )
+            messagebox.showerror(
+                "Błąd akcji ustawień",
+                str(exc),
+                parent=self.master,
+            )
+            return
+        except Exception as exc:
+            wm_err(
+                "ui.button",
+                "action failed",
+                exc,
+                label=label,
+                action=action,
+                params=params,
+            )
+            messagebox.showerror(
+                "Błąd akcji ustawień",
+                f"Nie udało się wykonać akcji: {exc}",
+                parent=self.master,
+            )
+            return
+
+        write_to_key = params.get("write_to_key")
+        if write_to_key:
+            self.on_setting_changed(
+                write_to_key, self.settings_state.get(write_to_key)
+            )
+
+    def on_setting_changed(self, key: str, value: Any) -> None:
+        """Callback invoked by action handlers when config value changes."""
+
+        wm_info("ui.settings.change", "value updated", key=key, value=value)
+        self.settings_state[key] = value
+        var = self.vars.get(key)
+        if var is None:
+            return
+        opt = self._options.get(key, {"key": key})
+        try:
+            coerced = self._coerce_default_for_var(opt, value)
+        except Exception as exc:
+            wm_err(
+                "ui.settings.change",
+                "coerce failed",
+                exc,
+                key=key,
+                value=value,
+            )
+            coerced = value
+        try:
+            if isinstance(var, tk.BooleanVar):
+                var.set(bool(value))
+            elif isinstance(var, tk.IntVar):
+                var.set(int(value))
+            elif isinstance(var, tk.DoubleVar):
+                var.set(float(value))
+            else:
+                var.set(coerced)
+        except Exception as exc:
+            wm_err(
+                "ui.settings.change",
+                "var set failed",
+                exc,
+                key=key,
+                value=value,
+            )
+            try:
+                var.set(value)
+            except Exception as fallback_exc:
+                wm_err(
+                    "ui.settings.change",
+                    "var fallback set failed",
+                    fallback_exc,
+                    key=key,
+                    value=value,
+                )
 
     def _add_group(
         self,
@@ -830,9 +1066,15 @@ class SettingsPanel:
                         f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
                     )
                     continue
+                key = field_def.get("key")
+                if not key:
+                    continue
                 fld_count += 1
-                key = field_def["key"]
                 self._options[key] = field_def
+                if field_def.get("type") == "button":
+                    btn = self._create_button_field(inner, field_def)
+                    btn.pack(fill="x", padx=5, pady=2)
+                    continue
                 current = self.cfg.get(key, field_def.get("default"))
                 opt_copy = dict(field_def)
                 opt_copy["default"] = current
@@ -842,7 +1084,8 @@ class SettingsPanel:
                 self._initial[key] = current
                 self._defaults[key] = field_def.get("default")
                 self._fields_vars.append((var, field_def))
-                var.trace_add("write", lambda *_: setattr(self, "_unsaved", True))
+                self.settings_state[key] = current
+                var.trace_add("write", lambda *_: self._on_var_write(key, var))
 
             if tab.get("id") == "narzedzia" and group.get("key") == "narzedzia":
                 ttk.Button(

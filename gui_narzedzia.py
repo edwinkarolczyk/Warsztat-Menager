@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterable
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
@@ -33,6 +34,7 @@ import ui_hover
 import zadania_assign_io
 import profile_utils
 from config_manager import ConfigManager
+from config.paths import get_path
 from tools_config_loader import (
     load_config,
     get_status_names_for_type,
@@ -92,6 +94,30 @@ _cmb_user_var: tk.StringVar | None = None
 _var_filter_mine: tk.BooleanVar | None = None
 
 
+def _resolve_path_candidate(path: str | None, default: str) -> str:
+    """Return an absolute filesystem path for *path* with *default* fallback."""
+
+    candidate = str(path or "").strip()
+    if not candidate:
+        candidate = default
+    if not os.path.isabs(candidate):
+        try:
+            candidate = cfg_path(candidate)
+        except Exception:
+            candidate = default
+    return candidate
+
+
+def _default_tools_tasks_file() -> str:
+    """Return the default path to ``zadania_narzedzia.json`` using settings."""
+
+    default = cfg_path("data/zadania_narzedzia.json")
+    return _resolve_path_candidate(
+        get_path("tools.definitions_path", default),
+        default,
+    )
+
+
 def _profiles_usernames(cmb_user=None) -> list[str]:
     """Return list of all usernames from profiles.
 
@@ -148,8 +174,18 @@ def _tools_editor_user_choices() -> list[str]:
     except Exception:
         pass
 
-    # 2) profiles.json (prefer data/ subdir, fallback to repo root)
-    for path in ("data/profiles.json", "profiles.json"):
+    # 2) profiles.json (prefer ścieżkę z konfiguracji, następnie fallbacki)
+    profile_candidates: list[str] = []
+    for candidate in (
+        get_path("profiles.file", cfg_path("data/profiles.json")),
+        cfg_path("profiles.json"),
+        "profiles.json",
+    ):
+        candidate = str(candidate or "").strip()
+        if candidate and candidate not in profile_candidates:
+            profile_candidates.append(candidate)
+
+    for path in profile_candidates:
         if not os.path.exists(path):
             continue
         try:
@@ -185,14 +221,25 @@ def _tools_editor_user_choices() -> list[str]:
                 else:
                     add(str(value))
 
-    # 3) data/uzytkownicy.json
-    path_users = os.path.join("data", "uzytkownicy.json")
-    if os.path.exists(path_users):
+    # 3) uzytkownicy.json (prefer ścieżkę z konfiguracji + fallbacki)
+    users_candidates: list[str] = []
+    for candidate in (
+        get_path("profiles.users_file", cfg_path("data/uzytkownicy.json")),
+        cfg_path("uzytkownicy.json"),
+        "uzytkownicy.json",
+    ):
+        candidate = str(candidate or "").strip()
+        if candidate and candidate not in users_candidates:
+            users_candidates.append(candidate)
+
+    for path_users in users_candidates:
+        if not os.path.exists(path_users):
+            continue
         try:
             with open(path_users, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
         except Exception:
-            data = None
+            continue
 
         if isinstance(data, list):
             for value in data:
@@ -205,6 +252,7 @@ def _tools_editor_user_choices() -> list[str]:
                     )
                 else:
                     add(str(value))
+            break
         elif isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
@@ -216,6 +264,7 @@ def _tools_editor_user_choices() -> list[str]:
                     )
                 else:
                     add(str(key))
+            break
 
     # 4) Legacy fallback – ensure previous behaviour still works
     if not users:
@@ -351,6 +400,71 @@ def _clean_list(lst):
                 seen.add(sl); out.append(s)
     return out
 
+
+def _load_tools_list_from_file(
+    path_key: str,
+    candidate_keys: Iterable[str] = (),
+    *,
+    dict_value_keys: Iterable[str] = ("name", "title", "label", "value", "id"),
+) -> list[str]:
+    """Load a list of strings from a JSON file resolved via :func:`get_path`."""
+
+    path = get_path(path_key)
+    if not path:
+        return []
+
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        _dbg("Błąd odczytu pliku listy narzędzi:", path, exc)
+        return []
+
+    collected: list[str] = []
+
+    def _append_from(value: object) -> None:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                collected.append(stripped)
+            return
+        if isinstance(value, list):
+            for item in value:
+                _append_from(item)
+            return
+        if isinstance(value, dict):
+            for key in dict_value_keys:
+                candidate = value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    collected.append(candidate.strip())
+                    return
+            for inner in value.values():
+                _append_from(inner)
+
+    if isinstance(data, dict):
+        matched_specific = False
+        for key in candidate_keys:
+            if key is None:
+                continue
+            if key in data:
+                matched_specific = True
+                _append_from(data.get(key))
+                if collected:
+                    break
+        if not collected and not matched_specific:
+            for generic_key in ("values", "items", "list"):
+                if generic_key in data:
+                    _append_from(data.get(generic_key))
+                    if collected:
+                        break
+        if not collected and not matched_specific:
+            for value in data.values():
+                _append_from(value)
+    else:
+        _append_from(data)
+
+    return collected
+
 def _task_templates_from_config():
     """
     Zwraca listę szablonów zadań. Preferuje config['tools']['task_templates'].
@@ -369,10 +483,18 @@ def _task_templates_from_config():
                     seen.add(tl)
                     out.append(t)
             return out
-        # fallback: stary config
+        # fallback: stary config + plik zewnętrzny
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia"))
-        return lst or TASK_TEMPLATES_DEFAULT
+        if lst:
+            return lst
+        file_templates = _clean_list(
+            _load_tools_list_from_file(
+                "tools.task_templates_file",
+                ("NOWE", "nowe", "templates", "zadania", "tasks", "list"),
+            )
+        )
+        return file_templates or TASK_TEMPLATES_DEFAULT
     except Exception:
         return TASK_TEMPLATES_DEFAULT
 
@@ -397,7 +519,15 @@ def _stare_convert_templates_from_config():
             return out
         cfg = _load_config()
         lst = _clean_list(cfg.get("szablony_zadan_narzedzia_stare"))
-        return lst or STARE_CONVERT_TEMPLATES_DEFAULT
+        if lst:
+            return lst
+        file_templates = _clean_list(
+            _load_tools_list_from_file(
+                "tools.task_templates_file",
+                ("STARE", "stare", "templates", "zadania", "tasks", "list"),
+            )
+        )
+        return file_templates or STARE_CONVERT_TEMPLATES_DEFAULT
     except Exception:
         return STARE_CONVERT_TEMPLATES_DEFAULT
 
@@ -424,7 +554,17 @@ def _types_from_config():
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
-    # 3) stare klucze w configu
+    # 3) plik typów narzędzi
+    file_types = _clean_list(
+        _load_tools_list_from_file(
+            "tools.types_file",
+            ("types", "typy", "list", "items"),
+            dict_value_keys=("name", "title", "label", "value", "id"),
+        )
+    )
+    if file_types:
+        return file_types
+    # 4) stare klucze w configu
     try:
         cfg = _load_config()
         lst = _clean_list(cfg.get("typy_narzedzi"))
@@ -468,11 +608,10 @@ def _definitions_path_for_collection(collection_id: str) -> str:
     except Exception:
         candidate = None
 
-    fallback = getattr(LZ, "TOOL_TASKS_PATH", "data/zadania_narzedzia.json")
-    candidate = str(candidate or fallback or "data/zadania_narzedzia.json").strip()
-    if not candidate:
-        candidate = "data/zadania_narzedzia.json"
-    return cfg_path(candidate)
+    default_path = _default_tools_tasks_file()
+    fallback = getattr(LZ, "TOOL_TASKS_PATH", None)
+    chosen = candidate or fallback
+    return _resolve_path_candidate(chosen, default_path)
 
 
 def _invalidate_tools_definitions_cache() -> None:
@@ -1001,20 +1140,32 @@ def _statusy_for_mode(mode):
             ordered.append("sprawne")
         return ordered
 
-    # 2) fallback: stare klucze/tryby
+    # 2) fallback: stare klucze/tryby + plik konfiguracyjny
     cfg = _load_config()
     if mode == "NOWE":
-        statuses = (
-            _clean_list(cfg.get("statusy_narzedzi_nowe"))
-            or _clean_list(cfg.get("statusy_narzedzi"))
-            or STATUSY_NOWE_DEFAULT[:]
+        statuses = _clean_list(cfg.get("statusy_narzedzi_nowe")) or _clean_list(
+            cfg.get("statusy_narzedzi")
         )
+        if not statuses:
+            statuses = _clean_list(
+                _load_tools_list_from_file(
+                    "tools.statuses_file",
+                    ("NOWE", "nowe", "statusy", "statuses", "list"),
+                )
+            )
+        statuses = statuses or STATUSY_NOWE_DEFAULT[:]
     else:
-        statuses = (
-            _clean_list(cfg.get("statusy_narzedzi_stare"))
-            or _clean_list(cfg.get("statusy_narzedzi"))
-            or STATUSY_STARE_DEFAULT[:]
+        statuses = _clean_list(cfg.get("statusy_narzedzi_stare")) or _clean_list(
+            cfg.get("statusy_narzedzi")
         )
+        if not statuses:
+            statuses = _clean_list(
+                _load_tools_list_from_file(
+                    "tools.statuses_file",
+                    ("STARE", "stare", "statusy", "statuses", "list"),
+                )
+            )
+        statuses = statuses or STATUSY_STARE_DEFAULT[:]
     if "sprawne" not in [x.lower() for x in statuses]:
         statuses.append("sprawne")
     return statuses
@@ -1411,23 +1562,16 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         except Exception:
             candidate = None
         if not candidate:
-            candidate = getattr(LZ, "TOOL_TASKS_PATH", os.path.join("data", "zadania_narzedzia.json"))
-        candidate = str(candidate or "").strip()
-        if not candidate:
-            return None
-        if not os.path.isabs(candidate):
-            try:
-                candidate = cfg_path(candidate)
-            except Exception:
-                candidate = os.path.join("data", "zadania_narzedzia.json")
-        return candidate
+            candidate = getattr(LZ, "TOOL_TASKS_PATH", None)
+        resolved = _resolve_path_candidate(candidate, _default_tools_tasks_file())
+        return resolved or None
 
     def _definitions_mtime(path: str | None) -> float | None:
         if not path:
             return None
         try:
             return os.path.getmtime(path)
-        except OSError:
+        except (OSError, AttributeError):
             return None
 
     def _reload_definitions_from_disk(path: str | None) -> None:
@@ -2257,7 +2401,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             self_ref = locals().get("self")
             if self_ref is not None and getattr(self_ref, "global_tasks", None) is None:
                 self_ref.global_tasks = []
-            path = os.path.join("data", "zadania_narzedzia.json")
+            path = _resolve_path_candidate(
+                getattr(LZ, "TOOL_TASKS_PATH", None),
+                _default_tools_tasks_file(),
+            )
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)

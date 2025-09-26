@@ -1,19 +1,14 @@
-import os
+from __future__ import annotations
+
+import json
 import tkinter as tk
-from tkinter import messagebox
 
-ENABLE_TOOLTIP_IMAGE = False
-HOVER_DELAY_MS = 150
+from config.paths import get_path
+from wm_log import dbg as wm_dbg, err as wm_err
 
-try:
-    from PIL import Image, ImageTk
-except Exception:
-    Image = None
-    ImageTk = None
-
-# --- eksport kompatybilny (stare importy nie wybuchną) ---
 __all__ = [
     "Renderer",
+    # legacy stubs — dla zgodności ze starymi importami
     "draw_background",
     "draw_grid",
     "draw_machine",
@@ -21,174 +16,321 @@ __all__ = [
     "draw_walls",
 ]
 
-# --- konfiguracja kolorów statusów ---
+# Kolory statusów
 STATUS_COLORS = {
-    "sprawna":     "#22c55e",  # green
-    "modyfikacja": "#eab308",  # yellow
-    "awaria":      "#ef4444",  # red
+    "sprawna":     "#22c55e",  # zielony
+    "modyfikacja": "#eab308",  # żółty
+    "awaria":      "#ef4444",  # czerwony (miga)
 }
-
 DOT_TEXT = "#ffffff"
 
+# Helpers for legacy compatibility -------------------------------------------------
 
-def _canvas_wh(canvas: tk.Canvas) -> tuple[int, int]:
+def _coerce_int(value, default=None):
     try:
-        w = int(canvas.winfo_width() or canvas["width"])
-        h = int(canvas.winfo_height() or canvas["height"])
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _canvas_size(canvas: tk.Canvas) -> tuple[int, int]:
+    try:
+        width = int(canvas.winfo_width() or canvas["width"])
+        height = int(canvas.winfo_height() or canvas["height"])
     except Exception:
-        w, h = 700, 520
-    return w, h
+        width, height = 640, 540
+    return width, height
 
 
-# ------------------------
-# Funkcje LEGACY (stuby)
-# ------------------------
-def draw_background(*args, grid_size: int = 24, bg: str = "#0f172a", line: str = "#1e293b", **kwargs) -> None:
-    """
-    Legacy: rysuje tło i siatkę. Akceptuje:
-      draw_background(canvas, ...)
-      draw_background(root, canvas, ...)
-    """
-    canvas = None
-    if args and isinstance(args[0], tk.Canvas):
-        canvas = args[0]
-    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
-        canvas = args[1]
-    if not canvas:
+def _machine_attr(machine, key, default=None):
+    if isinstance(machine, dict):
+        return machine.get(key, default)
+    return getattr(machine, key, default)
+
+
+def _machine_position(machine) -> tuple[int, int]:
+    pos = None
+    if isinstance(machine, dict):
+        pos = machine.get("pozycja")
+    else:
+        pos = getattr(machine, "pozycja", None)
+    if isinstance(pos, dict):
+        x = pos.get("x")
+        y = pos.get("y")
+    else:
+        x = _machine_attr(machine, "x")
+        y = _machine_attr(machine, "y")
+    return _coerce_int(x, 50), _coerce_int(y, 50)
+
+# ===========================
+# Legacy: funkcje stubujące
+# ===========================
+def draw_background(canvas: tk.Canvas, grid_size: int = 24, bg: str = "#0f172a", line: str = "#1e293b", **_):
+    """Rysuje jednolite tło + lekką siatkę (kompatybilnie z legacy API)."""
+
+    width_override = _coerce_int(bg)
+    height_override = _coerce_int(line)
+    grid = _coerce_int(grid_size, default=24)
+    if not grid or grid <= 0:
+        grid = 24
+
+    width, height = _canvas_size(canvas)
+    if width_override is not None:
+        width = width_override
+        bg_color = "#0f172a"
+    else:
+        bg_color = bg
+    if height_override is not None:
+        height = height_override
+        line_color = "#1e293b"
+    else:
+        line_color = line
+
+    canvas.create_rectangle(0, 0, width, height, fill=bg_color, outline=bg_color, tags=("background",))
+    for x in range(0, width, grid):
+        canvas.create_line(x, 0, x, height, fill=line_color, width=1, tags=("grid",))
+    for y in range(0, height, grid):
+        canvas.create_line(0, y, width, y, fill=line_color, width=1, tags=("grid",))
+
+def draw_grid(canvas: tk.Canvas, grid_size: int = 24, line: str = "#1e293b", **_):
+    """Rysuje samą siatkę – wspiera stare wywołania (canvas, width, height)."""
+
+    height_override = _coerce_int(line)
+    if height_override is not None:
+        width_override = _coerce_int(grid_size)
+        grid = 24
+        line_color = "#1e293b"
+    else:
+        width_override = None
+        grid = _coerce_int(grid_size, default=24)
+        if not grid or grid <= 0:
+            grid = 24
+        line_color = line
+
+    width, height = _canvas_size(canvas)
+    if width_override is not None:
+        width = width_override
+    if height_override is not None:
+        height = height_override
+
+    for x in range(0, width, grid):
+        canvas.create_line(x, 0, x, height, fill=line_color, width=1, tags=("grid",))
+    for y in range(0, height, grid):
+        canvas.create_line(0, y, width, y, fill=line_color, width=1, tags=("grid",))
+
+def draw_machine(canvas: tk.Canvas, machine, **_):
+    """Legacy: narysuj pojedynczą maszynę (kropka + nr ewid.)."""
+
+    mid = str(
+        _machine_attr(machine, "id")
+        or _machine_attr(machine, "nr_ewid")
+        or "?"
+    )
+    status = str(_machine_attr(machine, "status", "sprawna")).lower()
+    color = STATUS_COLORS.get(status, STATUS_COLORS["sprawna"])
+    x, y = _machine_position(machine)
+    r = 14
+    canvas.create_oval(
+        x - r,
+        y - r,
+        x + r,
+        y + r,
+        fill=color,
+        outline="#0b1220",
+        width=1,
+        tags=("machine", f"m:{mid}", f"status:{status}", "dot"),
+    )
+    canvas.create_text(
+        x,
+        y,
+        text=mid,
+        fill=DOT_TEXT,
+        font=("Segoe UI", 9, "bold"),
+        tags=("machine", f"m:{mid}", "label"),
+    )
+
+
+def draw_status_overlay(canvas: tk.Canvas, machine, **_):
+    """Legacy: dodatkowy obrys przy awarii (wizualny akcent)."""
+
+    if str(_machine_attr(machine, "status", "")).lower() != "awaria":
         return
-    w, h = _canvas_wh(canvas)
-    canvas.create_rectangle(0, 0, w, h, fill=bg, outline=bg, tags=("background",))
-    if grid_size > 0:
-        for x in range(0, w, grid_size):
-            canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
-        for y in range(0, h, grid_size):
-            canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
+    x, y = _machine_position(machine)
+    r = 20
+    canvas.create_oval(
+        x - r,
+        y - r,
+        x + r,
+        y + r,
+        outline="#ef4444",
+        width=2,
+        dash=(3, 2),
+        tags=("overlay",),
+    )
 
-
-def draw_grid(*args, grid_size: int = 24, line: str = "#1e293b", **kwargs) -> None:
-    """Legacy: rysuje samą siatkę."""
-    canvas = None
-    if args and isinstance(args[0], tk.Canvas):
-        canvas = args[0]
-    elif len(args) >= 2 and isinstance(args[1], tk.Canvas):
-        canvas = args[1]
-    if not canvas:
-        return
-    w, h = _canvas_wh(canvas)
-    for x in range(0, w, grid_size):
-        canvas.create_line(x, 0, x, h, fill=line, width=1, tags=("grid",))
-    for y in range(0, h, grid_size):
-        canvas.create_line(0, y, w, y, fill=line, width=1, tags=("grid",))
-
-
-def draw_machine(*args, **kwargs) -> None:
-    """
-    Legacy: rysuje pojedynczą maszynę jako kropkę z nr_ewid.
-    W nowych ekranach i tak używamy klasy Renderer.
-    """
-    try:
-        if "canvas" in kwargs and "machine" in kwargs:
-            canvas, m = kwargs["canvas"], kwargs["machine"]
-        elif len(args) >= 2:
-            canvas, m = args[0], args[1]
-        else:
-            return
-        mid = str(m.get("id") or m.get("nr_ewid") or "?")
-        status = (m.get("status") or "sprawna").lower()
-        color = STATUS_COLORS.get(status, STATUS_COLORS["sprawna"])
-        x = int(m.get("pozycja", {}).get("x", 50))
-        y = int(m.get("pozycja", {}).get("y", 50))
-        # promień dopasowany do rozmiaru canvas (~110 kropek)
-        w, _ = _canvas_wh(canvas)
-        r = max(10, min(16, w // 70))
-        canvas.create_oval(x - r, y - r, x + r, y + r, fill=color, outline="#0b1220", width=1,
-                           tags=("machine", f"m:{mid}", f"status:{status}"))
-        canvas.create_text(x, y, text=mid, fill=DOT_TEXT, font=("Segoe UI", 9, "bold"),
-                           tags=("machine", f"m:{mid}", "label"))
-    except Exception as e:
-        print(f"[WARN][Renderer] draw_machine error: {e}")
-
-
-def draw_status_overlay(*args, **kwargs) -> None:
-    """Legacy: prosta nakładka statusu (np. awaria – czerwony obrys)."""
-    try:
-        if "canvas" in kwargs and "machine" in kwargs:
-            canvas, m = kwargs["canvas"], kwargs["machine"]
-        elif len(args) >= 2:
-            canvas, m = args[0], args[1]
-        else:
-            return
-        if (m.get("status") or "").lower() != "awaria":
-            return
-        x = int(m.get("pozycja", {}).get("x", 50))
-        y = int(m.get("pozycja", {}).get("y", 50))
-        r = 22
-        canvas.create_oval(x - r, y - r, x + r, y + r, outline="#ef4444", width=2, dash=(3, 2),
-                           tags=("overlay",))
-    except Exception as e:
-        print(f"[WARN][Renderer] draw_status_overlay error: {e}")
-
-
-def draw_walls(*args, **kwargs) -> None:
-    """
-    Legacy: stub. Obsługa ścian/pomieszczeń dojdzie później.
-    Funkcja celowo nic nie rysuje, ale istnieje żeby importy nie wybuchały.
-    """
+def draw_walls(*_, **__):
+    """Stub warstwy pomieszczeń/ścian — celowo puste (do implementacji)."""
     return
 
 
-# ------------------------
-# Nowy Renderer — dot view
-# ------------------------
+# ===========================
+# Nowy renderer (zalecany)
+# ===========================
 class Renderer:
     """
-    Hala jako kropki:
-      • maszyna = kropka (kolor wg statusu) + nr_ewid NA KROPCE (max 3 cyfry)
-      • do ~110 kropek na powiększonym canvasie
-      • tryb Edycja: drag zapisuje środek kropki
-      • awaria miga
+    Renderer rysujący hale:
+      - maszyny jako kropki z numerem ewidencyjnym na środku,
+      - kolor kropki = status,
+      - mruganie dla 'awaria',
+      - focus/select, drag&drop (w trybie edycji),
+      - lekkie tło + siatka.
+    Callbacki:
+      - on_select(mid: str)
+      - on_move(mid: str, new_pos: {"x": int, "y": int})
     """
-    def __init__(self, root: tk.Tk, canvas: tk.Canvas, machines: list[dict]):
+
+    def __init__(
+        self,
+        root: tk.Tk,
+        canvas: tk.Canvas,
+        machines: list | None = None,
+    ):
         self.root = root
         self.canvas = canvas
-        self.machines = machines or []
+
         self.on_select = None
-        self.on_move = None
-        self._edit_mode = False
+        self.on_move   = None
 
-        self._items_by_id: dict[str, dict] = {}
+        self.machines: list[dict] = []
+        self._items_by_id: dict[str, dict] = {}   # mid -> {"dot": id, "label": id, "r": int}
         self._blink_job = None
-        self._blink_on = True
+        self._blink_on  = True
 
-        # drag state
-        self._drag_mid = None
+        self._edit_mode = False
+        self._drag_mid: str | None = None
         self._drag_off = (0, 0)
 
-        self._tooltip_win: tk.Toplevel | None = None
-        self._tooltip_img = None
-        self._hover_job = None
-        self._hover_mid = None
-        self._hover_event = None
+        self._bg_image: tk.PhotoImage | None = None
+        self._bg_image_path: str = ""
+        self._bg_image_loaded_from: str = ""
+        self._machines_path: str = ""
+
+        self._configure_data_sources(machines)
 
         self._draw_all()
         self._start_blink()
 
-    # --- rysowanie ---
+    # ---------- konfiguracja źródeł danych ----------
+    def _configure_data_sources(self, machines: list | None) -> None:
+        self._update_paths_from_config()
+        self._load_config_background()
+        if machines is None:
+            machines = self._load_machines_from_config()
+        self.machines = self._normalize_machines(machines)
+
+    def _update_paths_from_config(self) -> None:
+        try:
+            machines_path = get_path("hall.machines_file")
+        except Exception as exc:
+            self._machines_path = ""
+            wm_err("hala.renderer", "machines path resolve failed", exc)
+        else:
+            self._machines_path = machines_path.strip()
+            if self._machines_path:
+                wm_dbg("hala.renderer", "machines path resolved", path=self._machines_path)
+
+        try:
+            bg_path = get_path("hall.background_image", "")
+        except Exception as exc:
+            self._bg_image_path = ""
+            wm_err("hala.renderer", "bg path resolve failed", exc)
+        else:
+            self._bg_image_path = bg_path.strip()
+            if self._bg_image_path:
+                wm_dbg("hala.renderer", "bg path resolved", bg=self._bg_image_path)
+
+    def _load_config_background(self) -> None:
+        if not self._bg_image_path:
+            self._bg_image = None
+            self._bg_image_loaded_from = ""
+            return
+        if (
+            self._bg_image_loaded_from == self._bg_image_path
+            and self._bg_image is not None
+        ):
+            return
+        if self._load_bg_image(self._bg_image_path):
+            self._bg_image_loaded_from = self._bg_image_path
+        else:
+            self._bg_image_loaded_from = ""
+
+    def _load_bg_image(self, path: str) -> bool:
+        try:
+            self._bg_image = tk.PhotoImage(file=path)
+        except Exception as exc:
+            self._bg_image = None
+            wm_err("hala.renderer", "bg load failed", exc, bg=path)
+            return False
+        wm_dbg("hala.renderer", "bg loaded", bg=path)
+        return True
+
+    def _load_machines_from_config(self) -> list[dict]:
+        if not self._machines_path:
+            return []
+        try:
+            with open(self._machines_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
+            return []
+        except json.JSONDecodeError as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
+            return []
+        except Exception as exc:
+            wm_err("hala.renderer", "machines load failed", exc, path=self._machines_path)
+            return []
+        if isinstance(data, list):
+            machines = [item for item in data if isinstance(item, dict)]
+            wm_dbg("hala.renderer", "machines loaded", path=self._machines_path, count=len(machines))
+            return machines
+        return []
+
+    def _normalize_machines(self, machines: list | None) -> list[dict]:
+        if not machines:
+            return []
+        return [m for m in machines if isinstance(m, dict)]
+
+    # ---------- rysowanie ----------
     def _dot_radius(self) -> int:
-        w, _ = _canvas_wh(self.canvas)
-        return max(10, min(16, w // 70))  # ~110 kropek na płótnie 700px
+        """Promień kropki skalowany do szerokości canvasa (~110 kropek)."""
+        try:
+            w = int(self.canvas.winfo_width() or self.canvas["width"])
+        except Exception:
+            w = 640
+        return max(10, min(16, w // 70))
 
     def _draw_all(self):
         self.canvas.delete("all")
         self._items_by_id.clear()
 
-        # tło + siatka subtelna
-        draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
+        # tło + siatka
+        if self._bg_image is not None:
+            self.canvas.create_image(
+                0,
+                0,
+                image=self._bg_image,
+                anchor="nw",
+                tags=("background", "background-image"),
+            )
+            draw_grid(self.canvas, grid_size=24, line="#1e293b")
+        else:
+            draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
 
+        # maszyny
         for m in self.machines:
             self._draw_machine(m)
 
-        # bindy
+        # interakcje
         self.canvas.tag_bind("machine", "<Enter>", self._on_hover_enter)
         self.canvas.tag_bind("machine", "<Leave>", self._on_hover_leave)
         self.canvas.tag_bind("machine", "<Button-1>", self._on_click)
@@ -196,31 +338,39 @@ class Renderer:
         self.canvas.tag_bind("machine", "<ButtonRelease-1>", self._on_drop)
 
     def _draw_machine(self, m: dict):
-        mid = str(m.get("id") or m.get("nr_ewid") or "")
+        mid = str(m.get("id") or m.get("nr_ewid") or "").strip()
         if not mid:
             return
-        pos = m.get("pozycja") or {}
-        cx, cy = int(pos.get("x", 50)), int(pos.get("y", 50))
+        x = int(m.get("pozycja", {}).get("x", 50))
+        y = int(m.get("pozycja", {}).get("y", 50))
         r = self._dot_radius()
-
         status = (m.get("status") or "sprawna").lower()
         color = STATUS_COLORS.get(status, STATUS_COLORS["sprawna"])
 
-        dot = self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r,
-                                      fill=color, outline="#0b1220", width=1,
-                                      tags=("machine", f"m:{mid}", f"status:{status}", "dot"))
-        label = self.canvas.create_text(cx, cy, text=mid, fill=DOT_TEXT,
-                                        font=("Segoe UI", 9, "bold"),
-                                        tags=("machine", f"m:{mid}", "label"))
+        dot = self.canvas.create_oval(
+            x - r, y - r, x + r, y + r,
+            fill=color, outline="#0b1220", width=1,
+            tags=("machine", f"m:{mid}", f"status:{status}", "dot")
+        )
+        label = self.canvas.create_text(
+            x, y,
+            text=mid,
+            fill=DOT_TEXT,
+            font=("Segoe UI", 9, "bold"),
+            tags=("machine", f"m:{mid}", "label")
+        )
         self._items_by_id[mid] = {"dot": dot, "label": label, "r": r}
 
-        # ewentualny overlay
+        # akcent awarii
         draw_status_overlay(self.canvas, m)
 
-    # --- mruganie awarii ---
+    # ---------- animacja mrugania awarii ----------
     def _start_blink(self):
         if self._blink_job:
-            self.canvas.after_cancel(self._blink_job)
+            try:
+                self.canvas.after_cancel(self._blink_job)
+            except Exception:
+                pass
         self._blink_job = self.canvas.after(500, self._blink_tick)
 
     def _blink_tick(self):
@@ -229,8 +379,9 @@ class Renderer:
             dot = it.get("dot")
             if not dot:
                 continue
-            tags = self.canvas.gettags(dot) or ()
-            if "status:awaria" in tags:
+            tags = self.canvas.gettags(dot)
+            # miga tylko awaria
+            if tags and "status:awaria" in tags:
                 state = "normal" if self._blink_on else "hidden"
                 self.canvas.itemconfigure(dot, state=state)
                 lbl = it.get("label")
@@ -238,59 +389,26 @@ class Renderer:
                     self.canvas.itemconfigure(lbl, state=state)
         self._start_blink()
 
-    # --- API publiczne ---
+    # ---------- API publiczne ----------
     def set_edit_mode(self, on: bool):
         self._edit_mode = bool(on)
 
-    def reload(self, machines: list[dict]):
-        self.machines = machines or []
+    def reload(self, machines: list | None = None):
+        self._configure_data_sources(machines)
         self._draw_all()
 
     def focus_machine(self, mid: str):
+        """Wyróżnij maszynę i wywołaj on_select."""
         it = self._items_by_id.get(str(mid))
         if not it:
             return
         dot = it.get("dot")
         if dot:
             self.canvas.itemconfigure(dot, width=3, outline="#93c5fd")
-        if callable(getattr(self, "on_select", None)):
+        if callable(self.on_select):
             self.on_select(str(mid))
 
-    def _open_details(self, mid: str):
-        m = None
-        for r in self.machines:
-            rid = str(r.get("id") or r.get("nr_ewid"))
-            if rid == str(mid):
-                m = r
-                break
-        if not m:
-            messagebox.showerror("Maszyny", f"Nie znaleziono {mid}.")
-            return
-        win = tk.Toplevel(self.root)
-        win.title(f"Maszyna {mid}")
-        win.attributes("-topmost", True)
-        txt = tk.Text(win, width=60, height=16)
-        lines = []
-        lines.append(f"ID: {mid}")
-        lines.append(f"Nazwa: {m.get('nazwa','')}")
-        lines.append(f"Typ: {m.get('typ','')}")
-        lines.append(f"Hala: {m.get('hala','')}")
-        lines.append(f"Status: {m.get('status','')}")
-        if m.get("status_since"):
-            lines.append(f"Status od: {m.get('status_since')}")
-        if m.get("link"):
-            lines.append(f"Link: {m.get('link')}")
-        if m.get("miniatura_url"):
-            lines.append(f"Miniatura: {m.get('miniatura_url')}")
-        if m.get("opis"):
-            lines.append("")
-            lines.append("Opis:")
-            lines.append(m.get("opis",""))
-        txt.insert("1.0", "\n".join(lines))
-        txt.config(state="disabled")
-        txt.pack(fill="both", expand=True)
-
-    # --- interakcje ---
+    # ---------- interakcje ----------
     def _mid_from_event(self, event) -> str | None:
         item = self.canvas.find_closest(event.x, event.y)
         if not item:
@@ -302,16 +420,15 @@ class Renderer:
 
     def _oval_center(self, oid):
         x1, y1, x2, y2 = self.canvas.coords(oid)
-        return ( (x1 + x2) / 2.0, (y1 + y2) / 2.0 )
+        return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
 
     def _on_click(self, event):
         mid = self._mid_from_event(event)
         if not mid:
             return
-        if callable(getattr(self, "on_select", None)):
+        if callable(self.on_select):
             self.on_select(mid)
         if not self._edit_mode:
-            self._open_details(mid)
             return
         it = self._items_by_id.get(mid)
         if not it:
@@ -339,29 +456,16 @@ class Renderer:
         if not it:
             return
         cx, cy = self._oval_center(it["dot"])
-        if callable(getattr(self, "on_move", None)):
+        if callable(self.on_move):
             self.on_move(self._drag_mid, {"x": int(cx), "y": int(cy)})
         self._drag_mid = None
         self._drag_off = (0, 0)
 
-    # --- tooltip (lekki) ---
+    # prosty tooltip tekstowy (bez miniatur, dla wydajności)
     def _on_hover_enter(self, event):
         mid = self._mid_from_event(event)
         if not mid:
             return
-
-        if hasattr(self, "_hover_job") and self._hover_job:
-            self.canvas.after_cancel(self._hover_job)
-        self._hover_mid = mid
-        self._hover_event = event
-        self._hover_job = self.canvas.after(HOVER_DELAY_MS, self._show_tooltip)
-
-    def _show_tooltip(self):
-        mid = getattr(self, "_hover_mid", None)
-        event = getattr(self, "_hover_event", None)
-        if not mid or not event:
-            return
-        self._hover_job = None
         m = None
         for r in self.machines:
             if str(r.get("id") or r.get("nr_ewid")) == str(mid):
@@ -369,68 +473,37 @@ class Renderer:
                 break
         if not m:
             return
-        if self._tooltip_win:
-            try: self._tooltip_win.destroy()
-            except: pass
-
+        # zamknij stary tooltip
+        if hasattr(self, "_tooltip_win") and self._tooltip_win:
+            try:
+                self._tooltip_win.destroy()
+            except Exception:
+                pass
         win = tk.Toplevel(self.canvas)
         win.wm_overrideredirect(True)
-        win.attributes("-topmost", True)
+        try:
+            win.attributes("-topmost", True)
+        except Exception:
+            pass
         x = self.canvas.winfo_rootx() + event.x + 16
         y = self.canvas.winfo_rooty() + event.y + 16
         win.wm_geometry(f"+{x}+{y}")
-
-        frm = tk.Frame(win, bg="#111827", bd=1, relief="solid")
-        frm.pack()
-        text = self._tooltip_text(m)
-        tk.Label(frm, bg="#111827", fg="#e5e7eb", justify="left",
-                 text=text, font=("Segoe UI", 9)).pack(padx=8, pady=6, side="left")
-
-        if ENABLE_TOOLTIP_IMAGE:
-            img = self._load_thumb(m)
-            if img:
-                self._tooltip_img = img
-                tk.Label(frm, image=img, bg="#111827").pack(padx=8, pady=6, side="right")
-
+        lines = [
+            f"nr ewid.: {mid}",
+            f"Nazwa: {m.get('nazwa', '')}",
+            f"Typ: {m.get('typ', '')}",
+            f"Status: {m.get('status','')}",
+            f"Od: {m.get('status_since','-')}",
+        ]
+        lbl = tk.Label(win, text="\n".join(lines), bg="#111827", fg="#e5e7eb",
+                       font=("Segoe UI", 9), justify="left", bd=1, relief="solid")
+        lbl.pack()
         self._tooltip_win = win
 
-    def _on_hover_leave(self, event):
-        if hasattr(self, "_hover_job") and self._hover_job:
-            self.canvas.after_cancel(self._hover_job)
-            self._hover_job = None
-        self._hover_mid = None
-        self._hover_event = None
-        if self._tooltip_win:
-            try: self._tooltip_win.destroy()
-            except: pass
+    def _on_hover_leave(self, _event):
+        if hasattr(self, "_tooltip_win") and self._tooltip_win:
+            try:
+                self._tooltip_win.destroy()
+            except Exception:
+                pass
             self._tooltip_win = None
-            self._tooltip_img = None
-
-    def _tooltip_text(self, m: dict) -> str:
-        nr = str(m.get("id") or m.get("nr_ewid") or "")
-        st = (m.get("status") or "sprawna").lower()
-        since = m.get("status_since") or "-"
-        return f"nr ewid.: {nr}\nNazwa: {m.get('nazwa','')}\nTyp: {m.get('typ','')}\nStatus: {st}\nOd: {since}"
-
-    def _load_thumb(self, m: dict):
-        path = m.get("miniatura_url") or (m.get("media", {}) or {}).get("preview_url") or ""
-        fallback_png = os.path.join("grafiki", "machine_placeholder.png")
-        for p in (path, fallback_png):
-            if not p or not os.path.exists(p):
-                continue
-            # prefer PNG przez PhotoImage (mniej zależności)
-            if p.lower().endswith(".png"):
-                try:
-                    img = tk.PhotoImage(file=p)
-                    # pomniejsz do tooltips
-                    scale = max(1, img.width() // 48)
-                    return img.subsample(scale, scale)
-                except Exception:
-                    continue
-            if Image and ImageTk:
-                try:
-                    im = Image.open(p); im.thumbnail((48, 48))
-                    return ImageTk.PhotoImage(im)
-                except Exception:
-                    continue
-        return None

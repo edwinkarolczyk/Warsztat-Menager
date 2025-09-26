@@ -31,6 +31,7 @@ from pathlib import Path
 
 try:
     CONFIG_MANAGER = ConfigManager()
+    import rc1_hotfix_actions  # RC1: rejestracja brakujących akcji BOM/audytu
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
