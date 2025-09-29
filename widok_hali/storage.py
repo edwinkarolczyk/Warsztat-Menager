@@ -148,13 +148,24 @@ def load_machines() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     return rows, meta
 
 
-def load_machines_models() -> List[Machine]:
+def load_machines_models(
+    rows: Iterable[Dict[str, Any]] | None = None,
+    *,
+    source: str | None = None,
+) -> List[Machine]:
     """Zwróć listę modeli :class:`Machine` na podstawie danych JSON."""
 
-    rows, meta = load_machines()
+    meta_path = source
+    if rows is None:
+        loaded_rows, meta = load_machines()
+        rows = loaded_rows
+        meta_path = meta.get("path")
+
     machines: List[Machine] = []
-    source = meta.get("path") or MACHINES_FILE
+    source_path = meta_path or MACHINES_FILE
     for item in rows:
+        if not isinstance(item, dict):
+            continue
         machine_id = str(item.get("id") or item.get("nr_ewid") or "").strip()
         missing = [
             key
@@ -163,7 +174,7 @@ def load_machines_models() -> List[Machine]:
         ]
         if missing or not machine_id:
             _log(
-                f"[HALA][IO] Maszyna {item!r} brak pól {missing} lub id w {source}"
+                f"[HALA][IO] Maszyna {item!r} brak pól {missing} lub id w {source_path}"
             )
             continue
         try:

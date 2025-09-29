@@ -27,7 +27,13 @@ from .storage import (
 class HalaController:
     """Zarządza kanwą i interakcją użytkownika."""
 
-    def __init__(self, canvas: tk.Canvas, style: ttk.Style) -> None:
+    def __init__(
+        self,
+        canvas: tk.Canvas,
+        style: ttk.Style,
+        *,
+        machines: Optional[List[Machine]] = None,
+    ) -> None:
         self.canvas = canvas
         self.style = style
         self.cfg = load_config_hala()
@@ -38,7 +44,9 @@ class HalaController:
         self.workshop_start = tuple(self.cfg.get("workshop_start", [0, 0]))
         self.anim_interval_ms = int(self.cfg.get("anim_interval_ms", 20))
 
-        self.machines: List[Machine] = load_machines_models()
+        if machines is None:
+            machines = load_machines_models()
+        self.machines = list(machines)
         self.walls: List[WallSegment] = load_walls()
         self.active_hala: Optional[str] = (
             self.machines[0].hala if self.machines else None
