@@ -528,7 +528,7 @@ def main():
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
         try:
-            import rc1_audit_hook       # RC1: podmiana audit.run na Audit+
+            import rc1_audit_hook
         except Exception:
             pass
         try:
