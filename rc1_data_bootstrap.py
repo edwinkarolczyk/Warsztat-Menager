@@ -1,81 +1,287 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 import os, json
+
 ROOT = os.getcwd()
 CONFIG_PATH = os.path.join(ROOT, "config.json")
+
+# Minimalne payloady (bezpieczne, "puste")
 PAYLOADS = {
-    "warehouse.stock_source": [], "bom.file": [],
-    "tools.types_file": [], "tools.statuses_file": [], "tools.task_templates_file": []
+    "warehouse.stock_source":        [],  # magazyn: lista pozycji
+    "bom.file":                      [],  # BOM: lista pozycji
+    "tools.types_file":              [],  # lista stringów
+    "tools.statuses_file":           [],  # lista stringów
+    "tools.task_templates_file":     [],  # lista dictów lub stringów
+    "hall.machines_file":            [],  # lista maszyn
 }
-def _load(): 
-    try: return json.load(open(CONFIG_PATH,"r",encoding="utf-8"))
-    except: return {}
-def _save(cfg): 
-    try: json.dump(cfg, open(CONFIG_PATH,"w",encoding="utf-8"), ensure_ascii=False, indent=2)
-    except Exception as e: print(f"[RC1][bootstrap] config save error: {e}")
-def _n(p): 
-    return os.path.normpath(str(p).strip().strip('"').strip("'")) if p else None
-def _mkdirs(path): os.makedirs(os.path.dirname(path), exist_ok=True)
-def _write_if_missing(path, payload):
-    if not os.path.exists(path):
-        _mkdirs(path); json.dump(payload, open(path,"w",encoding="utf-8"), ensure_ascii=False, indent=2); return True
-    return False
-def _ask(title,msg):
+
+# Podpowiedzi katalogów (tylko z paths.* — żadnych repo fallbacków)
+KEY_TO_PATHDIR = {
+    "warehouse.stock_source":        "warehouse_dir",
+    "bom.file":                      "products_dir",
+    "tools.types_file":              "tools_dir",
+    "tools.statuses_file":           "tools_dir",
+    "tools.task_templates_file":     "tools_dir",
+    "hall.machines_file":            "machines_dir",
+}
+
+# Sugerowane nazwy plików oraz filtry
+KEY_TO_FILENAME = {
+    "warehouse.stock_source":        "magazyn.json",
+    "bom.file":                      "bom.json",
+    "tools.types_file":              "typy_narzedzi.json",
+    "tools.statuses_file":           "statusy_narzedzi.json",
+    "tools.task_templates_file":     "szablony_zadan.json",
+    "hall.machines_file":            "maszyny.json",
+}
+KEY_TO_FILTERS = {
+    "warehouse.stock_source":        [("Plik JSON", "*.json")],
+    "bom.file":                      [("Plik JSON", "*.json")],
+    "tools.types_file":              [("Plik JSON", "*.json")],
+    "tools.statuses_file":           [("Plik JSON", "*.json")],
+    "tools.task_templates_file":     [("Plik JSON", "*.json")],
+    "hall.machines_file":            [("Plik JSON", "*.json")],
+}
+
+def _load_config() -> dict:
     try:
-        import tkinter as tk; from tkinter import messagebox
-        r=tk.Tk(); r.withdraw(); a=messagebox.askyesno(title,msg); r.destroy(); return bool(a)
-    except: return True
-def _get(d, dotted):
-    cur=d
-    for part in dotted.split("."):
-        if not isinstance(cur,dict) or part not in cur: return None
-        cur=cur[part]
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_config(cfg: dict) -> None:
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[RC1][bootstrap] config save error: {e}")
+
+
+def _norm(p: str | None) -> str | None:
+    if not p:
+        return None
+    return os.path.normpath(str(p).strip().strip('"').strip("'"))
+
+
+def _ensure_dir_for(path: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+
+def _write_if_missing(path: str, payload) -> bool:
+    if not os.path.exists(path):
+        _ensure_dir_for(path)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        return True
+    return False
+
+
+def _ask_yesno(title: str, message: str) -> bool:
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        ans = messagebox.askyesno(title, message)
+        root.destroy()
+        return bool(ans)
+    except Exception:
+        # headless → nie blokujemy pracy
+        return True
+
+
+def _ask_open_file(initialdir: str | None, filters) -> str | None:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        path = filedialog.askopenfilename(initialdir=initialdir or "", filetypes=filters)
+        root.destroy()
+        return path or None
+    except Exception:
+        return None
+
+
+def _ask_save_file(initialdir: str | None, initialfile: str, filters) -> str | None:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        path = filedialog.asksaveasfilename(
+            initialdir=initialdir or "",
+            initialfile=initialfile,
+            defaultextension=".json",
+            filetypes=filters
+        )
+        root.destroy()
+        return path or None
+    except Exception:
+        return None
+
+
+def _get(cfg: dict, dotted: str):
+    parts = dotted.split(".")
+    cur = cfg
+    for p in parts:
+        if not isinstance(cur, dict) or p not in cur:
+            return None
+        cur = cur[p]
     return cur
-def _set(d, dotted, val):
-    cur=d
-    parts=dotted.split(".")
-    for p in parts[:-1]: cur=cur.setdefault(p,{})
-    cur[parts[-1]]=val
-def _set_bom_aliases(cfg, path):
-    _set(cfg,"bom.file",path); cfg.setdefault("bom",{})["file"]=path; cfg["bom.file"]=path
-def _paths_base(cfg):
-    paths = cfg.get("paths") if isinstance(cfg.get("paths"),dict) else {}
-    data_root = _n(paths.get("data_root")) or _n(cfg.get("data_root"))
-    wh = _n(paths.get("warehouse_dir")) or (os.path.join(data_root,"magazyn") if data_root else None)
-    pr = _n(paths.get("products_dir"))  or (os.path.join(data_root,"produkty") if data_root else None)
-    tl = _n(paths.get("tools_dir"))     or (os.path.join(data_root,"narzedzia") if data_root else None)
+
+
+def _set(cfg: dict, dotted: str, value):
+    parts = dotted.split(".")
+    cur = cfg
+    for p in parts[:-1]:
+        cur = cur.setdefault(p, {})
+    cur[parts[-1]] = value
+
+
+def _set_aliases_for_bom(cfg: dict, path: str):
+    _set(cfg, "bom.file", path)
+    cfg.setdefault("bom", {})["file"] = path
+    cfg["bom.file"] = path
+
+
+def _paths_from_settings(cfg: dict) -> dict:
+    paths = cfg.get("paths", {}) if isinstance(cfg.get("paths"), dict) else {}
     return {
-        "warehouse_dir": wh or os.path.join(ROOT,"data","magazyn"),
-        "products_dir":  pr or os.path.join(ROOT,"data","produkty"),
-        "tools_dir":     tl or os.path.join(ROOT,"data","narzedzia"),
+        "data_root":     _norm(paths.get("data_root") or cfg.get("data_root")),
+        "warehouse_dir": _norm(paths.get("warehouse_dir")),
+        "products_dir":  _norm(paths.get("products_dir")),
+        "tools_dir":     _norm(paths.get("tools_dir")),
+        "machines_dir":  _norm(paths.get("machines_dir") or paths.get("hall_dir")),
     }
-def ensure_data_files():
-    cfg=_load(); base=_paths_base(cfg); changed=False; created=[]
-    want={
-        "warehouse.stock_source": os.path.join(base["warehouse_dir"],"magazyn.json"),
-        "bom.file":               os.path.join(base["products_dir"],"bom.json"),
-        "tools.types_file":       os.path.join(base["tools_dir"],"typy_narzedzi.json"),
-        "tools.statuses_file":    os.path.join(base["tools_dir"],"statusy_narzedzi.json"),
-        "tools.task_templates_file": os.path.join(base["tools_dir"],"szablony_zadan.json"),
-    }
-    for key, fb in want.items():
-        cur=_n(_get(cfg,key))
-        if key=="bom.file" and not cur:
-            cur=_n(cfg.get("bom.file")) or _n(cfg.get("bom",{}).get("file"))
-        if cur:
-            if not os.path.exists(cur):
-                if _ask("Brak pliku danych", f"Nie znaleziono pliku:\n{cur}\n\nUtworzyć pusty plik w tej lokalizacji?"):
-                    if _write_if_missing(cur, PAYLOADS[key]): created.append(cur)
-            if key=="bom.file": _set_bom_aliases(cfg,cur); changed=True
+
+
+def _resolve_initialdir(cfg: dict, dotted_key: str) -> str | None:
+    base_map = _paths_from_settings(cfg)
+    hint_dir_key = KEY_TO_PATHDIR.get(dotted_key)
+    return base_map.get(hint_dir_key) if hint_dir_key else base_map.get("data_root")
+
+
+def _migrate_layout_machines_path(cfg: dict) -> str | None:
+    """
+    Jeśli w configu jest stary/błędny hall.machines_file → ...\\data\\layout\\maszyny.json,
+    a w katalogu z paths.machines_dir istnieje 'maszyny.json', zapytaj o migrację.
+    """
+    cur = _norm(_get(cfg, "hall.machines_file"))
+    if not cur:
+        return None
+    low = cur.replace("/", "\\").lower()
+    if ("\\data\\layout\\maszyny.json" in low) or ("/data/layout/maszyny.json" in cur.replace("\\", "/").lower()):
+        base_dir = _resolve_initialdir(cfg, "hall.machines_file")
+        candidate = os.path.join(base_dir, "maszyny.json") if base_dir else None
+        if candidate and os.path.exists(candidate):
+            if _ask_yesno("Migracja pliku maszyn",
+                          f"Wykryto wpis do layout\\maszyny.json, ale istnieje:\n{candidate}\n\n"
+                          f"Czy podmienić ustawienie na ten plik?"):
+                _set(cfg, "hall.machines_file", candidate)
+                return candidate
+    return None
+
+
+def _pick_or_create_path(cfg: dict, dotted_key: str) -> str | None:
+    """
+    Wybiera ścieżkę dla klucza:
+    - jeśli klucz jest pusty → pozwala wybrać plik (open) lub wskazać nowy (save),
+    - jeśli klucz jest ustawiony, ale pliku brak → pyta o utworzenie lub zmianę ścieżki.
+    Zwraca finalną ścieżkę lub None (gdy użytkownik anulował).
+    """
+    filters = KEY_TO_FILTERS[dotted_key]
+    initialfile = KEY_TO_FILENAME[dotted_key]
+    current = _norm(_get(cfg, dotted_key))
+    if dotted_key == "bom.file" and not current:
+        current = _norm(cfg.get("bom.file")) or _norm(cfg.get("bom", {}).get("file"))
+
+    base_dir = _resolve_initialdir(cfg, dotted_key)
+
+    # 1) nic nie ustawiono → zapytaj o istniejący, a jeśli brak — zaproponuj zapis nowego
+    if not current:
+        chosen = _ask_open_file(base_dir, filters)
+        if not chosen:
+            chosen = _ask_save_file(base_dir, initialfile, filters)
+            if not chosen:
+                # headless: jeśli mamy base_dir, utwórz domyślną nazwę tam; jeśli nie — przerwij
+                if base_dir:
+                    chosen = os.path.join(base_dir, initialfile)
+                    _write_if_missing(chosen, PAYLOADS[dotted_key])
+                else:
+                    return None
+        return chosen
+
+    # 2) jest ścieżka, ale brak pliku → zapytaj o utworzenie, albo pozwól wybrać inny
+    if not os.path.exists(current):
+        if _ask_yesno("Brak pliku danych",
+                      f"Nie znaleziono pliku:\n{current}\n\nUtworzyć pusty plik w tej lokalizacji?"):
+            _write_if_missing(current, PAYLOADS[dotted_key])
+            return current
         else:
-            tgt=fb
-            if _write_if_missing(tgt, PAYLOADS[key]): created.append(tgt)
-            if key=="bom.file": _set_bom_aliases(cfg,tgt)
-            else: _set(cfg,key,tgt)
-            changed=True
-    if changed: _save(cfg)
-    print("[RC1][bootstrap] Utworzono pliki:" if created else "[RC1][bootstrap] Wszystkie wymagane pliki istnieją.")
-    for p in created: print("  -", p)
-try: ensure_data_files()
-except Exception as e: print(f"[RC1][bootstrap] ERROR: {e}")
-if __name__=="__main__": ensure_data_files()
+            chosen = _ask_open_file(base_dir, filters)
+            if not chosen:
+                chosen = _ask_save_file(base_dir, initialfile, filters)
+            return chosen or None
+
+    return current
+
+
+def ensure_data_files():
+    cfg = _load_config()
+    changed_cfg = False
+    created_files: list[str] = []
+
+    # ewentualna migracja hall.machines_file (layout -> machines_dir)
+    migrated = _migrate_layout_machines_path(cfg)
+    if migrated:
+        changed_cfg = True
+        print(f"[RC1][bootstrap] MIGRACJA: hall.machines_file → {migrated}")
+
+    # kolejne klucze do obsłużenia (kolejność nieprzypadkowa ze względu na aliasy BOM)
+    for dotted_key in [
+        "warehouse.stock_source",
+        "bom.file",
+        "tools.types_file",
+        "tools.statuses_file",
+        "tools.task_templates_file",
+        "hall.machines_file",
+    ]:
+        target = _pick_or_create_path(cfg, dotted_key)
+        if not target:
+            # użytkownik anulował — nie wymuszamy defaultów
+            print(f"[RC1][bootstrap] Pominięto ustawienie: {dotted_key} (użytkownik nie wskazał pliku)")
+            continue
+
+        # Zapisz do configu
+        if dotted_key == "bom.file":
+            _set_aliases_for_bom(cfg, target)
+        else:
+            _set(cfg, dotted_key, target)
+        changed_cfg = True
+
+        # Upewnij się, że plik istnieje (mógł zostać wybrany save path)
+        if _write_if_missing(target, PAYLOADS[dotted_key]):
+            created_files.append(target)
+
+    if changed_cfg:
+        _save_config(cfg)
+
+    if created_files:
+        print("[RC1][bootstrap] Utworzono pliki:")
+        for p in created_files:
+            print("  -", p)
+    else:
+        print("[RC1][bootstrap] Wszystkie wymagane pliki istnieją.")
+
+
+try:
+    ensure_data_files()
+except Exception as e:
+    print(f"[RC1][bootstrap] ERROR: {e}")
+
+
+if __name__ == "__main__":
+    ensure_data_files()
