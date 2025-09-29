@@ -527,6 +527,10 @@ def main():
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+        try:
+            import rc1_data_bootstrap  # RC1: autoutworzenie brakujących plików danych + poprawa ścieżek
+        except Exception:
+            pass
         # RC1 hotfixy: rejestracja akcji i poprawa motywu po załadowaniu configu/motywu
         try:
             import rc1_hotfix_actions  # RC1: akcje BOM + Audyt
