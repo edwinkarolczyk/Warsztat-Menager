@@ -28,6 +28,12 @@ from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
 import updater
 from pathlib import Path
+from rc1_data_bootstrap import ensure_data_bootstrap
+
+try:
+    ensure_data_bootstrap()
+except Exception as bootstrap_exc:  # pragma: no cover - defensywne logowanie
+    print(f"[RC1][bootstrap][error] {bootstrap_exc}", file=sys.stderr)
 
 try:
     CONFIG_MANAGER = ConfigManager()

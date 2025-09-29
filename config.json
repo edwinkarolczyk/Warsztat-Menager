@@ -235,7 +235,7 @@
     "drag_snap_px": 20,
     "triple_confirm_delete": false,
     "background_image": "",
-    "machines_file": "C:\\wm\\data\\layout\\maszyny.json",
+    "machines_file": "/workspace/Warsztat-Menager/data/maszyny/maszyny.json",
     "snap_to_grid": "1",
     "background_fit": "contain",
     "background_opacity": "100",
@@ -264,9 +264,9 @@
       "sprawne",
       "zakończone"
     ],
-    "types_file": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json",
-    "statuses_file": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json",
-    "task_templates_file": "C:\\wm\\data\\narzedzia\\szablony_zadan.json"
+    "types_file": "/workspace/Warsztat-Menager/data/narzedzia/typy_narzedzi.json",
+    "statuses_file": "/workspace/Warsztat-Menager/data/narzedzia/statusy_narzedzi.json",
+    "task_templates_file": "/workspace/Warsztat-Menager/data/narzedzia/szablony_zadan.json"
   },
   "progi_alertow_pct": [
     100.0
@@ -305,22 +305,22 @@
   "changelog": {
     "last_viewed": "2025-09-19T18:54:03"
   },
-  "paths.data_root": "C:\\wm\\data",
-  "paths.logs_dir": "C:\\wm\\data\\logs",
-  "paths.backup_dir": "C:\\wm\\data\\backup",
-  "paths.layout_dir": "C:\\wm\\data\\layout",
+  "paths.data_root": "/workspace/Warsztat-Menager/data",
+  "paths.logs_dir": "/workspace/Warsztat-Menager/data/logs",
+  "paths.backup_dir": "/workspace/Warsztat-Menager/data/backup",
+  "paths.layout_dir": "/workspace/Warsztat-Menager/data/maszyny",
   "hall.background_image": "",
-  "hall.machines_file": "C:\\wm\\data\\layout\\maszyny.json",
-  "paths.warehouse_dir": "C:\\wm\\data\\magazyn",
-  "warehouse.stock_source": "C:\\wm\\data\\magazyn\\magazyn.json",
-  "warehouse.reservations_file": "C:\\wm\\data\\magazyn\\rezerwacje.json",
-  "paths.products_dir": "C:\\wm\\data\\produkty",
-  "bom.file": "C:\\wm\\data\\produkty\\bom.json",
-  "paths.tools_dir": "C:\\wm\\data\\narzedzia",
-  "tools.types_file": "C:\\wm\\data\\narzedzia\\typy_narzedzi.json",
-  "tools.statuses_file": "C:\\wm\\data\\narzedzia\\statusy_narzedzi.json",
-  "tools.task_templates_file": "C:\\wm\\data\\narzedzia\\szablony_zadan.json",
-  "paths.orders_dir": "C:\\wm\\data\\zlecenia",
+  "hall.machines_file": "/workspace/Warsztat-Menager/data/maszyny/maszyny.json",
+  "paths.warehouse_dir": "/workspace/Warsztat-Menager/data/magazyn",
+  "warehouse.stock_source": "/workspace/Warsztat-Menager/data/magazyn/magazyn.json",
+  "warehouse.reservations_file": "/workspace/Warsztat-Menager/data/magazyn/rezerwacje.json",
+  "paths.products_dir": "/workspace/Warsztat-Menager/data/produkty",
+  "bom.file": "/workspace/Warsztat-Menager/data/produkty/bom.json",
+  "paths.tools_dir": "/workspace/Warsztat-Menager/data/narzedzia",
+  "tools.types_file": "/workspace/Warsztat-Menager/data/narzedzia/typy_narzedzi.json",
+  "tools.statuses_file": "/workspace/Warsztat-Menager/data/narzedzia/statusy_narzedzi.json",
+  "tools.task_templates_file": "/workspace/Warsztat-Menager/data/narzedzia/szablony_zadan.json",
+  "paths.orders_dir": "/workspace/Warsztat-Menager/data/zlecenia",
   "system.start_on_dashboard": true,
   "system.auto_check_updates": true,
   "system.theme": null,
@@ -347,7 +347,7 @@
     "Komunikacja"
   ],
   "hall.default_wall_thickness_mm": 120,
-  "system.data_root": "C:\\Warsztat\\WM\\Warsztat-Menager\\data",
+  "system.data_root": "/workspace/Warsztat-Menager/data",
   "machines.relative_path": "maszyny/maszyny.json",
   "tools.types": [
     "Tłoczące",
@@ -409,21 +409,21 @@
   ],
   "materials.allow_subst": true,
   "paths": {
-    "data_root": "C:\\wm\\data",
-    "logs_dir": "C:\\wm\\data\\logs",
-    "backup_dir": "C:\\wm\\data\\backup",
-    "layout_dir": "C:\\wm\\data\\layout",
-    "warehouse_dir": "C:\\wm\\data\\magazyn",
-    "products_dir": "C:\\wm\\data\\produkty",
-    "tools_dir": "C:/WM/data/narzedzia",
-    "orders_dir": "C:\\wm\\data\\zlecenia"
+    "data_root": "/workspace/Warsztat-Menager/data",
+    "logs_dir": "/workspace/Warsztat-Menager/data/logs",
+    "backup_dir": "/workspace/Warsztat-Menager/data/backup",
+    "layout_dir": "/workspace/Warsztat-Menager/data/maszyny",
+    "warehouse_dir": "/workspace/Warsztat-Menager/data/magazyn",
+    "products_dir": "/workspace/Warsztat-Menager/data/produkty",
+    "tools_dir": "/workspace/Warsztat-Menager/data/narzedzia",
+    "orders_dir": "/workspace/Warsztat-Menager/data/zlecenia"
   },
   "warehouse": {
-    "stock_source": "C:\\wm\\data\\magazyn\\magazyn.json",
-    "reservations_file": "C:\\wm\\data\\magazyn\\rezerwacje.json"
+    "stock_source": "/workspace/Warsztat-Menager/data/magazyn/magazyn.json",
+    "reservations_file": "/workspace/Warsztat-Menager/data/magazyn/rezerwacje.json"
   },
   "bom": {
-    "file": "C:\\wm\\data\\produkty\\bom.json"
+    "file": "/workspace/Warsztat-Menager/data/produkty/bom.json"
   },
   "system": {
     "start_on_dashboard": "1",
@@ -432,7 +432,7 @@
     "language": "pl",
     "debug_enabled": "1",
     "log_level": "debug",
-    "data_root": "C:\\Warsztat\\WM\\Warsztat-Menager\\data"
+    "data_root": "/workspace/Warsztat-Menager/data"
   },
   "profile": {
     "info": ""
