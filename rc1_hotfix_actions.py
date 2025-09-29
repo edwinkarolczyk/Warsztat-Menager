@@ -103,19 +103,39 @@ def action_bom_import_dialog(params: Dict[str, Any] | None = None) -> Dict[str, 
     return {"ok": True, "path": sel}
 
 def action_wm_audit_run(params: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """
+    Najpierw próbujemy Audit+ (rc1_audit_plus.run), który obejmuje core + dodatkowe reguły.
+    Jeśli modułu nie ma, wracamy do audit.run().
+    """
+    # 1) spróbuj Audit+
+    try:
+        import rc1_audit_plus as audit_plus
+        if hasattr(audit_plus, "run"):
+            out = audit_plus.run()
+            ok  = bool(out.get("ok"))
+            msg = str(out.get("msg", ""))
+            path = out.get("path")
+            try:
+                (_info if ok else _warn)("Audyt WM+", msg + (f"\n\nRaport: {path}" if path else ""))
+            except Exception:
+                pass
+            return {"ok": ok, "msg": msg, "path": path}
+    except Exception:
+        pass
+
+    # 2) fallback: audit.run()
     try:
         import audit
-    except Exception as e:
-        _error("Audyt WM", f"Brak modułu audit: {e}")
-        return {"ok": False, "msg": "audit missing"}
-    try:
         res = getattr(audit, "run", None)
         if callable(res):
             out = res() or {}
-            ok = bool(out.get("ok")) if isinstance(out, dict) else True
+            ok  = bool(out.get("ok")) if isinstance(out, dict) else True
             msg = out.get("msg", "") if isinstance(out, dict) else str(out)
             path = out.get("path") if isinstance(out, dict) else None
-            (_info if ok else _warn)("Audyt WM", msg or ("OK" if ok else "Problemy wykryte"))
+            try:
+                (_info if ok else _warn)("Audyt WM", msg + (f"\n\nRaport: {path}" if path else ""))
+            except Exception:
+                pass
             return {"ok": ok, "msg": msg, "path": path}
         else:
             _error("Audyt WM", "Brak funkcji audit.run()")
