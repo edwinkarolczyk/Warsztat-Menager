@@ -527,8 +527,9 @@ def main():
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+        # (owinięte w try/except, żeby start był zawsze bezpieczny)
         try:
-            import rc1_data_bootstrap  # RC1: autoutworzenie brakujących plików danych
+            import rc1_data_bootstrap  # RC1: tworzy brakujące pliki wg paths.* i aktualnego configu
         except Exception:
             pass
         # RC1 hotfixy: rejestracja akcji i poprawa motywu po załadowaniu configu/motywu
