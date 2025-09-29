@@ -540,6 +540,22 @@ class ConfigManager:
 # ========== Helpers ==========
 
 
+def get_path(key: str, default: Any = None) -> Any:
+    """Shortcut for ``ConfigManager().get``."""
+
+    mgr = ConfigManager()
+    return mgr.get(key, default)
+
+
+def set_path(key: str, value: Any, *, who: str = "system", save: bool = True) -> None:
+    """Shortcut for setting a config path and optionally saving immediately."""
+
+    mgr = ConfigManager()
+    mgr.set(key, value, who=who)
+    if save:
+        mgr.save_all()
+
+
 def deep_merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(a)
     for k, v in b.items():
