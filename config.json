@@ -415,7 +415,7 @@
     "layout_dir": "C:\\wm\\data\\layout",
     "warehouse_dir": "C:\\wm\\data\\magazyn",
     "products_dir": "C:\\wm\\data\\produkty",
-    "tools_dir": "C:/WM/data/narzedzia",
+    "tools_dir": "C:\\wm\\data\\narzedzia",
     "orders_dir": "C:\\wm\\data\\zlecenia"
   },
   "warehouse": {
