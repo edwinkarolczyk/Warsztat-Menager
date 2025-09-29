@@ -527,6 +527,10 @@ def main():
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+        try:
+            import rc1_profiles_bootstrap   # RC1: profiles.json + przypominajka o haśle admina
+        except Exception:
+            pass
         # (owinięte w try/except, żeby start był zawsze bezpieczny)
         try:
             import rc1_data_bootstrap  # RC1: tworzy brakujące pliki wg paths.* i aktualnego configu
