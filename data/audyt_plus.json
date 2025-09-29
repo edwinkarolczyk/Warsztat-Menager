@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "checks": [
+    { "id": "warehouse.stock_source.exists",   "type": "config_path_exists", "config_key": "warehouse.stock_source",    "label": "Magazyn: plik magazyn.json istnieje",  "required": true },
+    { "id": "bom.file.exists",                 "type": "config_path_exists", "config_key": "bom.file",                  "label": "BOM: plik bom.json istnieje",           "required": true },
+    { "id": "tools.types_file.json",           "type": "json_file_readable", "config_key": "tools.types_file",          "label": "Narzędzia: typy_narzedzi.json OK",      "required": true, "allow_empty": true },
+    { "id": "tools.statuses_file.json",        "type": "json_file_readable", "config_key": "tools.statuses_file",       "label": "Narzędzia: statusy_narzedzi.json OK",   "required": true, "allow_empty": true },
+    { "id": "tools.task_templates_file.json",  "type": "json_file_readable", "config_key": "tools.task_templates_file", "label": "Narzędzia: szablony_zadan.json OK",     "required": true, "allow_empty": true },
+    { "id": "profiles.file.exists",            "type": "config_path_exists", "config_key": "profiles.file",             "label": "Użytkownicy: profiles.json istnieje",   "required": true }
+  ]
+}
