@@ -15,6 +15,8 @@ from typing import Any, Dict
 from tkinter import colorchooser
 from tkinter import ttk, filedialog, messagebox
 
+from ui_theme import ensure_theme_applied
+
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
     execute as settings_action_exec,
@@ -2627,6 +2629,7 @@ class SettingsWindow(SettingsPanel):
 
 if __name__ == "__main__":
     root = tk.Tk()
+    ensure_theme_applied(root)
     root.title("Ustawienia")
     SettingsPanel(root)
     root.mainloop()

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ui_theme import ensure_theme_applied
+
 
 def _can_use_advanced_dialog() -> bool:
     """Sprawdź, czy środowisko pozwala na użycie wersji zaawansowanej."""
@@ -49,6 +51,7 @@ else:
 
         def __init__(self, master: tk.Widget | None = None, *, path: str, on_save=None) -> None:
             super().__init__(master)
+            ensure_theme_applied(self)
             self.title("Konfiguracja zadań narzędzi")
             self.resizable(True, True)
             self.path = path

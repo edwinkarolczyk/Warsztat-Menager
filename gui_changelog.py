@@ -8,6 +8,8 @@ import tkinter as tk
 from tkinter import scrolledtext
 from pathlib import Path
 
+from ui_theme import ensure_theme_applied
+
 
 def show_changelog(
     path: str = "CHANGELOG.md",
@@ -29,6 +31,7 @@ def show_changelog(
 
     own = master is None
     root = tk.Tk() if own else tk.Toplevel(master)
+    ensure_theme_applied(root)
     root.title("Nowości")
 
     text = scrolledtext.ScrolledText(root, width=80, height=25)

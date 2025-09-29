@@ -656,4 +656,36 @@ COLORS = {
     "stock_low": "#c0392b",
 }
 
+
+def ensure_theme_applied(root: tk.Misc) -> None:
+    """Ensure the theme is applied to ``root`` once."""
+
+    if not getattr(root, "_WM_THEME", False):
+        try:
+            apply_theme(root)
+            root._WM_THEME = True
+        except Exception:
+            pass
+
+
+_ORIG_TOPLEVEL_INIT = getattr(tk.Toplevel, "__init__", None)
+
+
+def _toplevel_init_patch(self, *a, **kw):
+    if _ORIG_TOPLEVEL_INIT:
+        _ORIG_TOPLEVEL_INIT(self, *a, **kw)
+    try:
+        ensure_theme_applied(self)
+    except Exception:
+        pass
+
+
+if _ORIG_TOPLEVEL_INIT and not getattr(tk.Toplevel, "_wm_autotheme_patched", False):
+    tk.Toplevel.__init__ = _toplevel_init_patch
+    tk.Toplevel._wm_autotheme_patched = True
+    try:
+        print("[WM-DBG][THEME] Auto-theme for Toplevel enabled")
+    except Exception:
+        pass
+
 # ⏹ KONIEC KODU
