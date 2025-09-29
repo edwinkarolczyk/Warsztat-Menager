@@ -2,8 +2,11 @@
 # RC1: hotfix dispatcher (BOM export/import + Audyt)
 
 from __future__ import annotations
-import os, json, shutil
-from typing import Any, Dict
+import importlib
+import json
+import os
+import shutil
+from typing import Any, Dict, Optional
 
 def _log(msg: str) -> None:
     print(f"[RC1][hotfix] {msg}")
@@ -102,24 +105,47 @@ def action_bom_import_dialog(params: Dict[str, Any] | None = None) -> Dict[str, 
     _info("Import BOM", f"Ustawiono plik BOM:\n{sel}")
     return {"ok": True, "path": sel}
 
+_AUDIT_MODULES = (
+    "rc1_audit_plus",
+    "wm_audit_runtime",
+    "backend.audit.wm_audit_runtime",
+    "audit",
+)
+
+
+def _load_audit_module() -> Optional[object]:
+    for mod_name in _AUDIT_MODULES:
+        try:
+            return importlib.import_module(mod_name)
+        except Exception:
+            continue
+    return None
+
+
 def action_wm_audit_run(params: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    try:
-        import audit
-    except Exception as e:
-        _error("Audyt WM", f"Brak modułu audit: {e}")
+    audit_mod = _load_audit_module()
+    if audit_mod is None:
+        _error("Audyt WM", "Brak modułu audytu (rc1_audit_plus/audit)")
         return {"ok": False, "msg": "audit missing"}
     try:
-        res = getattr(audit, "run", None)
+        res = getattr(audit_mod, "run", None)
         if callable(res):
             out = res() or {}
-            ok = bool(out.get("ok")) if isinstance(out, dict) else True
-            msg = out.get("msg", "") if isinstance(out, dict) else str(out)
-            path = out.get("path") if isinstance(out, dict) else None
-            (_info if ok else _warn)("Audyt WM", msg or ("OK" if ok else "Problemy wykryte"))
+            if isinstance(out, dict):
+                ok = bool(out.get("ok"))
+                msg = out.get("msg", "")
+                path = out.get("path")
+            else:
+                ok = True
+                msg = str(out)
+                path = None
+            (_info if ok else _warn)(
+                "Audyt WM",
+                msg or ("OK" if ok else "Problemy wykryte"),
+            )
             return {"ok": ok, "msg": msg, "path": path}
-        else:
-            _error("Audyt WM", "Brak funkcji audit.run()")
-            return {"ok": False, "msg": "audit.run missing"}
+        _error("Audyt WM", "Brak funkcji run() w module audytu")
+        return {"ok": False, "msg": "audit.run missing"}
     except Exception as e:
         _error("Audyt WM", f"Błąd audytu:\n{e}")
         return {"ok": False, "msg": str(e)}

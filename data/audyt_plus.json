@@ -1,0 +1,20 @@
+{
+  "title": "Audit+ RC1 — dodatkowe kontrole danych",
+  "rules": [
+    {
+      "type": "path",
+      "path": "data/maszyny.json",
+      "label": "Dane maszyn (data/maszyny.json)"
+    },
+    {
+      "type": "path",
+      "path": "data/uzytkownicy.json",
+      "label": "Dane użytkowników (data/uzytkownicy.json)"
+    },
+    {
+      "type": "path",
+      "path": "data/profiles.json",
+      "label": "Profile użytkowników (data/profiles.json)"
+    }
+  ]
+}
