@@ -22,7 +22,18 @@ except Exception:  # pragma: no cover - awaryjne dane
 
     HST = _Dummy()
 
-from widok_hali import HalaController
+try:
+    from widok_hali import HalaController, load_machines_models
+except Exception:  # pragma: no cover - brak modułu widoku hali
+
+    class _FallbackController:
+        def __init__(self, *args, **kwargs) -> None:  # pragma: no cover - awaryjnie
+            raise RuntimeError("Moduł widok_hali jest niedostępny")
+
+    HalaController = _FallbackController  # type: ignore
+
+    def load_machines_models(rows=None, **kwargs):  # type: ignore
+        return []
 
 
 def build_hala_view(parent: tk.Widget) -> HalaController:
@@ -36,7 +47,7 @@ def build_hala_view(parent: tk.Widget) -> HalaController:
     controls = ttk.Frame(frame)
     controls.pack(fill="x", pady=(0, 8))
 
-    _, src_meta = HST.load_machines()
+    rows, src_meta = HST.load_machines()
     diag_bar = tk.Frame(frame, bg=bg)
     diag_bar.pack(fill="x", padx=8, pady=(8, 4))
     path_txt = src_meta.get("path") or "(nie znaleziono pliku)"
@@ -55,7 +66,8 @@ def build_hala_view(parent: tk.Widget) -> HalaController:
     canvas = tk.Canvas(frame, bg=bg, bd=0, highlightthickness=0)
     canvas.pack(fill="both", expand=True)
 
-    ctrl = HalaController(canvas, style)
+    machine_models = load_machines_models(rows, source=src_meta.get("path"))
+    ctrl = HalaController(canvas, style, machines=machine_models)
 
     halls = sorted({m.hala for m in ctrl.machines})
     hala_var = tk.StringVar(value=ctrl.active_hala or (halls[0] if halls else ""))
