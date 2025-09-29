@@ -540,7 +540,11 @@ def _types_from_config():
     try:
         cfg_mgr = ConfigManager()
         types = cfg_mgr.get("tools.types", None)
-        if isinstance(types, list) and types:
+        if (
+            isinstance(types, list)
+            and types
+            and not cfg_mgr.is_schema_default("tools.types")
+        ):
             clean = [str(x).strip() for x in types if str(x).strip()]
             return clean
     except Exception:
