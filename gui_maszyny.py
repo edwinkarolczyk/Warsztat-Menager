@@ -6,8 +6,14 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from config.paths import get_path
+from config.paths import get_path, prefer_config_file
 from wm_log import dbg as wm_dbg, err as wm_err
+from utils.io_json import load_or_seed_json
+from seeds import SEEDS
+
+
+MACHINES_FILE = prefer_config_file("hall.machines_file", "maszyny/maszyny.json")
+load_or_seed_json(MACHINES_FILE, SEEDS["maszyny"])
 
 
 def _read_json_list(path: str) -> list:
@@ -236,22 +242,24 @@ class MaszynyGUI:
 def _resolve_machines_path() -> str:
     """Zwraca najlepszą możliwą ścieżkę do pliku maszyn."""
 
+    if MACHINES_FILE:
+        return MACHINES_FILE
+
     p = get_path("hall.machines_file", "").strip()
     if p and os.path.isfile(p):
         return p
 
-    # 1) Spróbuj wzgl. data_root (gdy ktoś wpisał ścieżkę względną)
     if p and os.path.isfile(os.path.join(os.getcwd(), p)):
         return os.path.join(os.getcwd(), p)
 
-    # 2) Spróbuj z sekcji 'machines.relative_path' (jeśli jest)
     rel = get_path("machines.relative_path", "").strip()
     if rel:
-        candidate = rel if os.path.isabs(rel) else os.path.join(os.getcwd(), "data", rel)
+        candidate = (
+            rel if os.path.isabs(rel) else os.path.join(os.getcwd(), "data", rel)
+        )
         if os.path.isfile(candidate):
             return candidate
 
-    # 3) Domyślka z config.paths (_default_paths)
     fallback = get_path(
         "hall.machines_file",
         os.path.join(get_path("paths.layout_dir", ""), "maszyny.json"),

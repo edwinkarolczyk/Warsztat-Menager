@@ -36,8 +36,10 @@ except Exception:  # pragma: no cover - optional dependency
     magazyn_io = None
     HAVE_MAG_IO = False
 
-from config.paths import get_path
+from config.paths import get_path, prefer_config_file
 from wm_log import dbg as wm_dbg, err as wm_err
+from utils.io_json import load_or_seed_json
+from seeds import SEEDS
 
 from ui_theme import apply_theme_safe as apply_theme
 
@@ -59,6 +61,9 @@ except Exception as _e:
 from logika_zakupy import auto_order_missing
 
 COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
+
+STOCK_FILE = prefer_config_file("warehouse.file", "magazyn/magazyn.json")
+load_or_seed_json(STOCK_FILE, SEEDS["magazyn"])
 
 
 ROLE_PERMS = {
@@ -192,7 +197,7 @@ def _resolve_order_author(widget) -> str:
 
 
 def load_stock():
-    path = get_path("warehouse.stock_source")
+    path = get_path("warehouse.stock_source") or STOCK_FILE
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -205,7 +210,7 @@ def load_stock():
 
 def _load_data():
     """Czyta magazyn; preferuje ``magazyn_io`` z fallbackiem na plik."""
-    path = get_path("warehouse.stock_source")
+    path = get_path("warehouse.stock_source") or STOCK_FILE
     data = {}
     if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
         try:

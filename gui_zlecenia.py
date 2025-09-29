@@ -2,11 +2,53 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
-from domain.orders import load_order, load_orders
+from config.paths import prefer_config_file
+from domain.orders import (
+    ensure_orders_dir,
+    load_order,
+    load_orders,
+    order_path,
+    save_order,
+)
+from utils.io_json import load_or_seed_json
+from seeds import SEEDS
+
+ORDERS_FILE = prefer_config_file("orders.file", "zlecenia/_seed.json")
+_SEEDED_ORDERS = load_or_seed_json(ORDERS_FILE, SEEDS["zlecenia"])
+
+
+def _ensure_seed_orders() -> None:
+    ensure_orders_dir()
+    existing = [
+        name
+        for name in os.listdir(ensure_orders_dir())
+        if name.endswith(".json") and not name.startswith("_")
+    ]
+    if existing:
+        return
+    if not isinstance(_SEEDED_ORDERS, list):
+        return
+    for entry in _SEEDED_ORDERS:
+        if not isinstance(entry, dict):
+            continue
+        order_id = str(entry.get("id") or "").strip()
+        if not order_id:
+            continue
+        path = order_path(order_id)
+        if os.path.exists(path):
+            continue
+        try:
+            save_order(dict(entry))
+        except Exception:
+            continue
+
+
+_ensure_seed_orders()
 
 try:  # pragma: no cover - środowiska testowe nie wymagają motywu
     from gui_zlecenia_creator import open_order_creator  # type: ignore

@@ -34,13 +34,15 @@ import ui_hover
 import zadania_assign_io
 import profile_utils
 from config_manager import ConfigManager
-from config.paths import get_path
+from config.paths import get_path, prefer_config_file
 from tools_config_loader import (
     load_config,
     get_status_names_for_type,
     get_tasks_for_status,
     get_types,
 )
+from utils.io_json import load_or_seed_json
+from seeds import SEEDS
 
 # ===================== MOTYW (użytkownika) =====================
 from ui_theme import apply_theme_safe as apply_theme
@@ -50,6 +52,9 @@ import logger
 import logging
 
 LOG = logging.getLogger(__name__)
+
+TOOLS_FILE = prefer_config_file("tools.file", "narzedzia/narzedzia.json")
+load_or_seed_json(TOOLS_FILE, SEEDS["narzedzia"])
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH = cfg_path("config.json")
@@ -543,6 +548,13 @@ def _types_from_config():
     Zwraca listę typów narzędzi. Preferuje config['tools']['types'].
     Fallback: kolekcja domyślna/loader, następnie stare klucze, na końcu stała.
     """
+    config_types: list[str] | None = None
+    try:
+        cfg = _load_config()
+        config_types = _clean_list(cfg.get("typy_narzedzi")) or None
+    except Exception:
+        config_types = None
+
     # 1) nowe ustawienia
     try:
         cfg_mgr = ConfigManager()
@@ -556,6 +568,10 @@ def _types_from_config():
             return clean
     except Exception:
         pass
+
+    if config_types:
+        return config_types
+
     # 2) loader kolekcji (jeśli istnieje)
     try:
         cfg_mgr = ConfigManager()
@@ -575,13 +591,9 @@ def _types_from_config():
     )
     if file_types:
         return file_types
-    # 4) stare klucze w configu
-    try:
-        cfg = _load_config()
-        lst = _clean_list(cfg.get("typy_narzedzi"))
-        return lst or TYPY_NARZEDZI_DEFAULT
-    except Exception:
-        return TYPY_NARZEDZI_DEFAULT
+    if config_types:
+        return config_types
+    return TYPY_NARZEDZI_DEFAULT
 
 def _append_type_to_config(new_type: str) -> bool:
     t = (new_type or "").strip()

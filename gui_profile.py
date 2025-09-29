@@ -32,6 +32,13 @@ from tkinter import ttk, messagebox
 from datetime import datetime as _dt, datetime
 from typing import Optional
 from config_manager import ConfigManager
+from config.paths import prefer_config_file
+from utils.io_json import load_or_seed_json
+from seeds import SEEDS
+
+
+PROFILES_FILE = prefer_config_file("profiles.file", "profiles.json")
+load_or_seed_json(PROFILES_FILE, SEEDS["profiles"])
 try:
     from PIL import Image, ImageTk, UnidentifiedImageError
 except ImportError:  # Pillow missing

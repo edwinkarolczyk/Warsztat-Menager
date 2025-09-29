@@ -1,6 +1,14 @@
 from __future__ import annotations
+
+import ntpath
 import os
+import sys
 from typing import Any, Callable, Dict, Optional
+
+try:
+    from config_manager import get_path as _config_get_path
+except Exception:  # pragma: no cover - optional during bootstrap
+    _config_get_path = None
 
 # -----------------------------------------------------------------------------
 #  Centralny helper ścieżek:
@@ -31,7 +39,14 @@ def set_getter(getter: Callable[[str], Any]) -> None:
 # --- domyślne wartości (zależne od data_root) --------------------------------
 
 def _default_paths() -> Dict[str, str]:
-    root = _read("paths.data_root") or r"C:\wm\data"
+    root_cfg = str(_read("paths.data_root") or "").strip()
+    if root_cfg:
+        if os.name != "nt" and len(root_cfg) >= 2 and root_cfg[1] == ":":
+            root = data_path()
+        else:
+            root = resolve(root_cfg)
+    else:
+        root = data_path()
     return {
         "paths.data_root": root,
         "paths.logs_dir": os.path.join(root, "logs"),
@@ -49,7 +64,7 @@ def _default_paths() -> Dict[str, str]:
         "tools.types_file": os.path.join(root, "narzedzia", "typy_narzedzi.json"),
         "tools.statuses_file": os.path.join(root, "narzedzia", "statusy_narzedzi.json"),
         "tools.task_templates_file": os.path.join(root, "narzedzia", "szablony_zadan.json"),
-        "hall.machines_file": os.path.join(root, "layout", "maszyny.json"),
+        "hall.machines_file": os.path.join(root, "maszyny", "maszyny.json"),
         # UWAGA: hall.background_image to zwykle obraz wskazywany ręcznie — brak twardej domyślnej
     }
 
@@ -69,8 +84,10 @@ def get_path(key: str, default: Optional[str] = None) -> str:
     """Zwraca ścieżkę z ustawień. Jeśli brak – oddaje sensowny fallback z _default_paths()."""
     val = _read(key)
     if isinstance(val, str) and val.strip():
-        return val
+        return resolve(val)
     fallback = _default_paths().get(key, default)
+    if isinstance(fallback, str) and fallback.strip():
+        return resolve(fallback)
     return str(fallback) if fallback is not None else ""
 
 def join_path(key: str, *rest: str) -> str:
@@ -95,3 +112,71 @@ def ensure_core_tree() -> None:
             os.makedirs(defaults[dkey], exist_ok=True)
         except Exception:
             pass
+
+
+def _auto_detect_base_dir() -> str:
+    if getattr(sys, "frozen", False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.abspath(os.path.dirname(sys.argv[0]))
+    for candidate in (
+        base,
+        os.path.abspath(os.path.join(base, os.pardir)),
+        os.getcwd(),
+    ):
+        if os.path.isdir(os.path.join(candidate, "data")):
+            return candidate
+    return os.getcwd()
+
+
+def get_base_dir() -> str:
+    cfg_raw = (
+        str(_config_get_path("paths.base_dir", ""))
+        if _config_get_path
+        else ""
+    ).strip()
+    if cfg_raw and os.path.isdir(cfg_raw):
+        return os.path.abspath(cfg_raw)
+    return _auto_detect_base_dir()
+
+
+def resolve(path_or_rel: str) -> str:
+    if not path_or_rel:
+        return path_or_rel
+    candidate = os.path.expanduser(str(path_or_rel).strip())
+    if not candidate:
+        return candidate
+    if os.path.isabs(candidate):
+        return os.path.abspath(candidate)
+    if candidate.startswith("\\\\"):
+        return os.path.abspath(candidate.replace("\\", "/"))
+    drive, tail = ntpath.splitdrive(candidate)
+    if drive:
+        if os.name == "nt":
+            return os.path.abspath(candidate)
+        candidate = tail.lstrip("\\/")
+    return os.path.abspath(os.path.join(get_base_dir(), candidate))
+
+
+def data_path(*parts: str) -> str:
+    return os.path.join(get_base_dir(), "data", *parts)
+
+
+def prefer_config_file(key: str, default_rel: str) -> str:
+    value = ""
+    if _config_get_path:
+        try:
+            value = str(_config_get_path(key, "") or "").strip()
+        except TypeError:
+            value = str(_config_get_path(key) or "").strip()
+        except Exception:
+            value = ""
+    if not value:
+        try:
+            value = get_path(key, "")
+        except Exception:
+            value = ""
+    if value:
+        return resolve(value)
+    normalized = default_rel.replace("\\", "/").split("/")
+    return data_path(*normalized)
