@@ -528,22 +528,22 @@ def main():
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
         try:
-            import rc1_profiles_bootstrap   # RC1: profiles.json + przypominajka o haśle admina
-        except Exception:
-            pass
-        # (owinięte w try/except, żeby start był zawsze bezpieczny)
-        try:
-            import rc1_data_bootstrap  # RC1: tworzy brakujące pliki wg paths.* i aktualnego configu
-        except Exception:
-            pass
-        # RC1 hotfixy: rejestracja akcji i poprawa motywu po załadowaniu configu/motywu
-        try:
-            import rc1_hotfix_actions  # RC1: akcje BOM + Audyt
+            import rc1_hotfix_actions   # RC1: akcje BOM + Audyt (dispatcher)
         except Exception:
             pass
 
         try:
-            import rc1_theme_fix  # RC1: kontrast napisów
+            import rc1_theme_fix        # RC1: kontrast napisów (TButton)
+        except Exception:
+            pass
+
+        try:
+            import rc1_data_bootstrap   # RC1: pliki danych wg paths.* / configu (magazyn, BOM, narzędzia)
+        except Exception:
+            pass
+
+        try:
+            import rc1_profiles_bootstrap  # RC1: profiles.json + przypominajka o haśle admina
         except Exception:
             pass
 
