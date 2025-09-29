@@ -6,6 +6,8 @@ import traceback
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from ui_theme import ensure_theme_applied
+
 from config.paths import get_path
 from wm_log import dbg as wm_dbg, err as wm_err
 
@@ -261,6 +263,7 @@ def _resolve_machines_path() -> str:
 # ---------- uruchomienie solo (dev) ----------
 if __name__ == "__main__":
     root = tk.Tk()
+    ensure_theme_applied(root)
     root.title("Warsztat Menager — Maszyny (DEV)")
     app = MaszynyGUI(root)
     root.mainloop()

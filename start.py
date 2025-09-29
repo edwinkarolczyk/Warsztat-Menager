@@ -22,7 +22,7 @@ import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
-from ui_theme import apply_theme_safe as apply_theme
+from ui_theme import apply_theme_safe as apply_theme, ensure_theme_applied
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
@@ -162,6 +162,7 @@ def show_startup_error(e):
         log_text = ""
 
     root = tk.Tk()
+    ensure_theme_applied(root)
     root.title("Błąd startu")
 
     tk.Label(
@@ -232,6 +233,7 @@ def auto_update_on_start():
             if "lokalne zmiany" in msg or "local changes" in msg:
                 try:
                     r = tk.Tk()
+                    ensure_theme_applied(r)
                     r.withdraw()
                     error_dialogs.show_error_dialog("Aktualizacje", str(e))
                     r.destroy()
@@ -524,6 +526,7 @@ def main():
     # === GUI start ===
     try:
         root = tk.Tk()
+        ensure_theme_applied(root)
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)

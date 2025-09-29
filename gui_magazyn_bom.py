@@ -12,6 +12,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from ui_theme import ensure_theme_applied
+
 from config.paths import get_path
 from config_manager import ConfigManager
 from ui_utils import _msg_error
@@ -613,6 +615,7 @@ def make_window(root: tk.Misc) -> ttk.Frame:
 
 if __name__ == "__main__":  # pragma: no cover - manual launch
     root = tk.Tk()
+    ensure_theme_applied(root)
     root.title("Magazyn i BOM")
     MagazynBOM(root).pack(fill="both", expand=True)
     root.mainloop()
