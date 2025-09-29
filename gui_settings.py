@@ -12,14 +12,14 @@ import re
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
-from tkinter import colorchooser, filedialog
-from tkinter import ttk, messagebox
+from tkinter import colorchooser
+from tkinter import ttk, filedialog, messagebox
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
     execute as settings_action_exec,
 )
-from config.paths import bind_settings, ensure_core_tree
+from config.paths import bind_settings, ensure_core_tree, get_base_dir, resolve, data_path
 
 try:
     from wm_log import (
@@ -141,7 +141,7 @@ except Exception:  # pragma: no cover - środowisko bez gui_tools_config
     ToolsConfigDialog = None
 
 import config_manager as cm
-from config_manager import ConfigManager
+from config_manager import ConfigManager, get_path, set_path
 from gui_products import ProductsMaterialsTab
 from ustawienia_magazyn import MagazynSettingsFrame
 import ustawienia_produkty_bom
@@ -155,6 +155,119 @@ from zlecenia_utils import DEFAULT_ORDER_TYPES
 
 
 MAG_DICT_PATH = "data/magazyn/slowniki.json"
+
+
+_SYSTEM_LEGACY_KEYS = {
+    "hall.machines_file",
+    "tools.file",
+    "orders.file",
+    "warehouse.file",
+    "profiles.file",
+    "warehouse.stock_source",
+    "warehouse.reservations_file",
+    "tools.types_file",
+    "tools.statuses_file",
+    "tools.task_templates_file",
+    "bom.file",
+}
+
+
+def _is_legacy_system_field(field_def: dict[str, Any]) -> bool:
+    key = field_def.get("key")
+    if not key:
+        return False
+    if key in _SYSTEM_LEGACY_KEYS:
+        return True
+    if key.endswith("_pick") and key[:-5] in _SYSTEM_LEGACY_KEYS:
+        return True
+    return False
+
+
+def _reset_legacy_file_overrides() -> None:
+    """Usuwa legacy-ścieżki plików tak, aby użyć Folderu WM."""
+
+    for legacy_key in _SYSTEM_LEGACY_KEYS:
+        try:
+            set_path(legacy_key, "", who="settings.ui")
+        except Exception:
+            pass
+    messagebox.showinfo(
+        "WM – Ścieżki",
+        "Wyczyszczono indywidualne ścieżki plików.\n"
+        "Moduły będą używać lokalizacji względem Folderu WM.",
+    )
+
+
+def _pick_wm_folder(lbl_var: tk.StringVar | None = None) -> None:
+    """Pozwala wskazać katalog bazowy WM i zapisuje go w konfiguracji."""
+
+    current = get_path("paths.base_dir", get_base_dir())
+    chosen = filedialog.askdirectory(
+        title="Wybierz folder WM (root)", initialdir=current or "."
+    )
+    if chosen:
+        set_path("paths.base_dir", chosen, who="settings.ui")
+        if lbl_var is not None:
+            lbl_var.set(chosen)
+        messagebox.showinfo(
+            "WM – Folder",
+            "Ustawiono folder WM:\n"
+            f"{chosen}\n\n"
+            "Wszystkie ścieżki danych będą liczone względem tego katalogu.",
+        )
+
+
+def _render_system_paths(parent: tk.Misc) -> ttk.LabelFrame:
+    """Renderuje sekcję wyboru Folderu WM i resetu legacy-ścieżek."""
+
+    box = ttk.LabelFrame(parent, text="Folder WM (root)")
+    box.pack(fill="x", padx=8, pady=8)
+
+    current = get_path("paths.base_dir", get_base_dir())
+    lbl_var = tk.StringVar(value=current)
+
+    row = ttk.Frame(box)
+    row.pack(fill="x", padx=8, pady=6)
+
+    ttk.Label(row, text="Bieżący folder WM:").pack(side="left")
+    ttk.Entry(row, textvariable=lbl_var, width=60, state="readonly").pack(
+        side="left", padx=6
+    )
+    ttk.Button(row, text="Wybierz…", command=lambda: _pick_wm_folder(lbl_var)).pack(
+        side="left"
+    )
+
+    row2 = ttk.Frame(box)
+    row2.pack(fill="x", padx=8, pady=6)
+    ttk.Button(
+        row2,
+        text="Wyczyść stare ścieżki plików (legacy)",
+        command=_reset_legacy_file_overrides,
+    ).pack(side="left")
+
+    ttk.Label(
+        box,
+        text="Uwaga: Indywidualne pola typu ‘Plik narzędzi / zleceń / magazynu / "
+        "profili / maszyn’ są nieaktywne – program sam wyznacza ścieżki względem "
+        "Folderu WM.",
+        wraplength=680,
+        justify="left",
+    ).pack(fill="x", padx=8, pady=6)
+
+    ttk.Label(
+        box,
+        text=(
+            "Przykładowe ścieżki:\n"
+            f"  {data_path('maszyny', 'maszyny.json')}\n"
+            f"  {data_path('narzedzia', 'narzedzia.json')}\n"
+            f"  {data_path('zlecenia', 'zlecenia.json')}\n"
+            f"  {data_path('magazyn', 'magazyn.json')}\n"
+            f"  {resolve('profiles.json')}"
+        ),
+        justify="left",
+    ).pack(fill="x", padx=8, pady=(0, 6))
+
+    return box
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -615,6 +728,12 @@ class SettingsPanel:
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
                 )
+            elif tab_id == "system":
+                _render_system_paths(frame)
+                grp_count, fld_count = self._populate_tab(frame, tab)
+                print(
+                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+                )
             else:
                 grp_count, fld_count = self._populate_tab(frame, tab)
                 print(
@@ -1064,6 +1183,12 @@ class SettingsPanel:
                     ident = field_def.get("key", "field")
                     print(
                         f"[WM-DBG][SETTINGS] pomijam deprecated {ident}"
+                    )
+                    continue
+                if _is_legacy_system_field(field_def):
+                    ident = field_def.get("key", "field")
+                    print(
+                        f"[WM-DBG][SETTINGS] pomijam legacy field {ident}"
                     )
                     continue
                 key = field_def.get("key")
