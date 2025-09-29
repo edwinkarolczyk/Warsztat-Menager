@@ -58,6 +58,7 @@ STATUSY_STARE_DEFAULT = ["sprawne", "do ostrzenia", "w ostrzeniu", "po ostrzeniu
 
 _CFG_CACHE: dict | None = None
 CONFIG_MTIME: float | None = None
+_CFG_CACHE_PATH: str | None = None
 
 TASK_TEMPLATES_DEFAULT = [
     "Przegląd wizualny",
@@ -328,7 +329,11 @@ def _asgn_assign() -> bool:
 
 # ===================== CONFIG / DEBUG =====================
 def _load_config():
-    global _CFG_CACHE, CONFIG_MTIME
+    global _CFG_CACHE, CONFIG_MTIME, _CFG_CACHE_PATH
+    if _CFG_CACHE_PATH != CONFIG_PATH:
+        _CFG_CACHE = None
+        CONFIG_MTIME = None
+        _CFG_CACHE_PATH = CONFIG_PATH
     if not os.path.exists(CONFIG_PATH):
         _CFG_CACHE = {}
         CONFIG_MTIME = None
@@ -343,6 +348,7 @@ def _load_config():
             )
             _CFG_CACHE = json.loads(content) if content.strip() else {}
         CONFIG_MTIME = mtime
+        _CFG_CACHE_PATH = CONFIG_PATH
         return _CFG_CACHE
     except (OSError, json.JSONDecodeError) as e:
         logger.log_akcja(f"Błąd wczytywania {CONFIG_PATH}: {e}")
@@ -350,7 +356,7 @@ def _load_config():
         return _CFG_CACHE or {}
 
 def _save_config(cfg: dict) -> bool:
-    global _CFG_CACHE, CONFIG_MTIME
+    global _CFG_CACHE, CONFIG_MTIME, _CFG_CACHE_PATH
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
@@ -359,6 +365,7 @@ def _save_config(cfg: dict) -> bool:
             CONFIG_MTIME = os.path.getmtime(CONFIG_PATH)
         except (OSError, AttributeError):
             CONFIG_MTIME = None
+        _CFG_CACHE_PATH = CONFIG_PATH
         return True
     except (OSError, TypeError, ValueError) as e:
         logger.log_akcja(f"Błąd zapisu {CONFIG_PATH}: {e}")
