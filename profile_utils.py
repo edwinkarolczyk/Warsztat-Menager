@@ -6,6 +6,7 @@
 from datetime import date, datetime, timezone
 import re
 from pathlib import Path
+from collections.abc import Iterable
 
 from io_utils import read_json, write_json
 from utils.path_utils import cfg_path
@@ -76,17 +77,53 @@ def _ensure_users_file_path() -> None:
     if legacy.exists() and not Path(USERS_FILE).exists():
         legacy.replace(USERS_FILE)
 
-SIDEBAR_MODULES: list[tuple[str, str]] = [
+try:
+    from utils.moduly import lista_modulow as _lista_modulow
+except Exception:  # pragma: no cover - fallback na brak manifestu
+    _lista_modulow = None
+
+_SIDEBAR_BASE: list[tuple[str, str]] = [
     ("zlecenia", "Zlecenia"),
     ("narzedzia", "Narzędzia"),
     ("maszyny", "Maszyny"),
     ("magazyn", "Magazyn"),
-    ("hale", "Hale"),
     ("feedback", "Wyślij opinię"),
     ("uzytkownicy", "Użytkownicy"),
     ("ustawienia", "Ustawienia"),
     ("profil", "Profil"),
 ]
+
+_SIDEBAR_ALWAYS = {"feedback", "uzytkownicy", "ustawienia", "profil"}
+
+
+def _load_manifest_modules() -> set[str]:
+    """Zwróć zestaw ID modułów zdefiniowanych w manifeście."""
+
+    if _lista_modulow is None:
+        return set()
+    try:
+        modules: Iterable[str] = _lista_modulow()
+    except Exception:
+        return set()
+    return {str(module).strip() for module in modules if module}
+
+
+def _compute_sidebar_modules() -> list[tuple[str, str]]:
+    """Zbuduj listę modułów bocznego panelu w oparciu o manifest."""
+
+    manifest_modules = _load_manifest_modules()
+    if not manifest_modules:
+        manifest_modules = {
+            key for key, _ in _SIDEBAR_BASE if key not in _SIDEBAR_ALWAYS
+        }
+    modules: list[tuple[str, str]] = []
+    for key, label in _SIDEBAR_BASE:
+        if key in manifest_modules or key in _SIDEBAR_ALWAYS:
+            modules.append((key, label))
+    return modules
+
+
+SIDEBAR_MODULES: list[tuple[str, str]] = _compute_sidebar_modules()
 
 # Domyślny profil użytkownika z rozszerzonymi polami
 DEFAULT_USER = {

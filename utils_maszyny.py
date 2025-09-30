@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from typing import Any, Dict, Iterable, List, Tuple
 
 PRIMARY_DATA = os.path.join("data", "maszyny.json")

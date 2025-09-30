@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.1
 # Moduł: start
 # ⏹ KONIEC WSTĘPU
 
@@ -20,9 +20,20 @@ import subprocess
 import shutil
 import tkinter as tk
 from tkinter import messagebox, Toplevel
+
 from utils import error_dialogs
 
-from ui_theme import apply_theme_safe as apply_theme
+try:
+    from ui_theme import apply_theme_safe as apply_theme
+except Exception:
+    def apply_theme(*_a, **_k):
+        return None
+
+try:
+    from ui_theme import ensure_theme_applied
+except Exception:
+    def ensure_theme_applied(_win):
+        return False
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
@@ -31,32 +42,21 @@ from pathlib import Path
 
 try:
     CONFIG_MANAGER = ConfigManager()
-    import rc1_hotfix_actions  # RC1: rejestracja brakujących akcji BOM/audytu
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
 # ====== LOGGING ======
 
-def _ensure_log_dir():
-    os.makedirs("logi", exist_ok=True)
+try:
+    from core.logging_config import setup_logging
+
+    setup_logging()  # konsola + logs/wm.log (rotacja 5×5MB)
+except Exception:
+    pass
 
 
 def _log_path():
-    return os.path.join(
-        "logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log"
-    )
-
-
-DEBUG_MODE = bool(os.getenv("WM_DEBUG"))
-_ensure_log_dir()
-logging.basicConfig(
-    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(_log_path(), encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
+    return os.path.join("logs", "wm.log")
 
 
 def _info(msg):
@@ -163,6 +163,7 @@ def show_startup_error(e):
         log_text = ""
 
     root = tk.Tk()
+    ensure_theme_applied(root)
     root.title("Błąd startu")
 
     tk.Label(
@@ -233,6 +234,7 @@ def auto_update_on_start():
             if "lokalne zmiany" in msg or "local changes" in msg:
                 try:
                     r = tk.Tk()
+                    ensure_theme_applied(r)
                     r.withdraw()
                     error_dialogs.show_error_dialog("Aktualizacje", str(e))
                     r.destroy()
@@ -525,9 +527,33 @@ def main():
     # === GUI start ===
     try:
         root = tk.Tk()
+        ensure_theme_applied(root)
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
         apply_theme(root)
+        try:
+            import rc1_audit_hook
+        except Exception:
+            pass
+        try:
+            import rc1_hotfix_actions   # RC1: akcje BOM + Audyt (dispatcher)
+        except Exception:
+            pass
+
+        try:
+            import rc1_theme_fix        # RC1: kontrast napisów (TButton)
+        except Exception:
+            pass
+
+        try:
+            import rc1_data_bootstrap   # RC1: pliki danych wg paths.* / configu (magazyn, BOM, narzędzia)
+        except Exception:
+            pass
+
+        try:
+            import rc1_profiles_bootstrap  # RC1: profiles.json + przypominajka o haśle admina
+        except Exception:
+            pass
 
         _show_tutorial_if_first_run(root)
 

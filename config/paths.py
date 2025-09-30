@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import os
+from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 # -----------------------------------------------------------------------------
@@ -13,6 +15,8 @@ from typing import Any, Callable, Dict, Optional
 
 _SETTINGS_STATE: Optional[Dict[str, Any]] = None
 _SETTINGS_GETTER: Optional[Callable[[str], Any]] = None
+
+_DEFAULT_BASE_DIR = Path(__file__).resolve().parent.parent
 
 def bind_settings(state: Dict[str, Any]) -> None:
     """Zbindowanie referencji do słownika ustawień (np. tego samego, który
@@ -52,6 +56,22 @@ def _default_paths() -> Dict[str, str]:
         "hall.machines_file": os.path.join(root, "layout", "maszyny.json"),
         # UWAGA: hall.background_image to zwykle obraz wskazywany ręcznie — brak twardej domyślnej
     }
+
+
+def _read_base_dir() -> Path:
+    base = _read("paths.base_dir")
+    if isinstance(base, str) and base.strip():
+        try:
+            return Path(base).expanduser().resolve()
+        except Exception:
+            return Path(base).expanduser()
+    data_root = _read("paths.data_root")
+    if isinstance(data_root, str) and data_root.strip():
+        try:
+            return Path(data_root).expanduser().resolve().parent
+        except Exception:
+            return Path(data_root).expanduser().parent
+    return _DEFAULT_BASE_DIR
 
 def _read(key: str) -> Any:
     if _SETTINGS_GETTER:
@@ -95,3 +115,23 @@ def ensure_core_tree() -> None:
             os.makedirs(defaults[dkey], exist_ok=True)
         except Exception:
             pass
+
+
+def get_base_dir() -> str:
+    """Zwraca katalog bazowy WM (folder root aplikacji)."""
+
+    return str(_read_base_dir())
+
+
+def resolve(*parts: str) -> str:
+    """Buduje ścieżkę względem katalogu bazowego WM."""
+
+    base = _read_base_dir()
+    return str(base.joinpath(*parts))
+
+
+def data_path(*parts: str) -> str:
+    """Buduje ścieżkę w katalogu ``data`` względem folderu WM."""
+
+    base = _read_base_dir()
+    return str(base.joinpath("data", *parts))

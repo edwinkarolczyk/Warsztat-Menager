@@ -19,6 +19,13 @@ except Exception:
 
 from logger import get_logger
 from config_manager import ConfigManager
+from logika_zadan import (
+    get_collections,
+    get_default_collection,
+    get_statuses,
+    get_tasks,
+    get_tool_types,
+)
 
 log = get_logger(__name__)
 
@@ -122,21 +129,84 @@ class ToolEditorDialog(tk.Toplevel):
 
     # ---------- Definicje z Ustawień ----------
 
-    def _load_tool_definitions_from_settings(self) -> dict:
-        """
-        Czyta ConfigManager().config['tools']['definitions'] i zwraca:
-        { typ: { status: [zadania] } }. Gdy brak, zwraca pusty dict.
-        """
+    def _load_tool_definitions_from_settings(
+        self,
+    ) -> dict[str, dict[str, list[str]]]:
+        """Czyta ``data/zadania_narzedzia.json`` i buduje mapę definicji."""
 
-        cfg = ConfigManager().config or {}
-        tools = cfg.get("tools", {})
-        definitions = tools.get("definitions", {})
-        if not isinstance(definitions, dict):
-            definitions = {}
-        if not definitions:
+        definitions: dict[str, dict[str, list[str]]] = {}
+
+        try:
+            collections = get_collections()
+        except Exception as exc:  # pragma: no cover - loguj i kontynuuj
             log.warning(
-                "[WM-DBG][TOOLS-EDITOR] Brak config['tools']['definitions'] – pusto."
+                "[WM-DBG][TOOLS-EDITOR] Nie można pobrać listy kolekcji: %s", exc
             )
+            collections = []
+
+        if not collections:
+            default_collection = get_default_collection()
+            if default_collection:
+                collections = [{"id": default_collection, "name": default_collection}]
+
+        any_loaded = False
+        for collection in collections:
+            coll_id = str(collection.get("id") or collection.get("name") or "").strip()
+            if not coll_id:
+                continue
+            try:
+                types = get_tool_types(collection=coll_id)
+            except Exception as exc:  # pragma: no cover - loguj i kontynuuj
+                log.warning(
+                    "[WM-DBG][TOOLS-EDITOR] Błąd pobierania typów (%s): %s",
+                    coll_id,
+                    exc,
+                )
+                continue
+            for entry in types:
+                type_name = str(entry.get("name") or entry.get("id") or "").strip()
+                type_id = str(entry.get("id") or entry.get("name") or "").strip()
+                if not type_name or not type_id:
+                    continue
+                any_loaded = True
+                definitions[type_name] = {}
+                try:
+                    statuses = get_statuses(type_id, collection=coll_id)
+                except Exception as exc:  # pragma: no cover - loguj i kontynuuj
+                    log.warning(
+                        "[WM-DBG][TOOLS-EDITOR] Błąd pobierania statusów (%s/%s): %s",
+                        coll_id,
+                        type_id,
+                        exc,
+                    )
+                    statuses = []
+                for status in statuses:
+                    status_name = (
+                        str(status.get("name") or status.get("id") or "").strip()
+                    )
+                    status_id = (
+                        str(status.get("id") or status.get("name") or "").strip()
+                    )
+                    if not status_name or not status_id:
+                        continue
+                    try:
+                        tasks = get_tasks(type_id, status_id, collection=coll_id)
+                    except Exception as exc:  # pragma: no cover - loguj i kontynuuj
+                        log.warning(
+                            "[WM-DBG][TOOLS-EDITOR] Błąd pobierania zadań (%s/%s/%s): %s",
+                            coll_id,
+                            type_id,
+                            status_id,
+                            exc,
+                        )
+                        tasks = []
+                    definitions[type_name][status_name] = list(tasks or [])
+
+        if not any_loaded:
+            log.warning(
+                "[WM-DBG][TOOLS-EDITOR] Brak zdefiniowanych typów w data/zadania_narzedzia.json"
+            )
+
         return definitions
 
     # ---------- Inicjalizacja UI ----------
@@ -193,9 +263,9 @@ class ToolEditorDialog(tk.Toplevel):
             self._refresh_tasks_list()
             return
 
-        cfg = ConfigManager().config or {}
-        tools = cfg.get("tools", {})
-        prompt_on = tools.get("prompt_add_tasks_on_status_change", True)
+        prompt_on = ConfigManager().get(
+            "tools.prompt_add_tasks_on_status_change", True
+        )
         if not prompt_on:
             self._prev_status = new_status
             self._refresh_tasks_list()
@@ -303,26 +373,12 @@ class ToolEditorDialog(tk.Toplevel):
         return []
 
     def _ordered_statuses_for_type(self, typ: str, fallback: list[str]) -> list[str]:
-        """
-        Zwraca listę statusów w kolejności:
-        1) z configu (tools.statuses), jeśli istnieje i niepusta,
-        2) w przeciwnym razie kolejność z definicji typu (keys),
-        3) w przeciwnym razie przekazany fallback.
-        """
+        """Zwraca statusy w kolejności zadeklarowanej w pliku definicji."""
 
-        cfg = ConfigManager().config or {}
-        tools = cfg.get("tools", {})
-        statuses = tools.get("statuses")
-        if isinstance(statuses, list) and statuses:
-            clean = [str(s).strip() for s in statuses if str(s).strip()]
-            # przefiltruj do statusów istniejących dla danego typu (jeśli podano)
-            if typ in self.defs:
-                allowed = set(self.defs[typ].keys())
-                clean = [s for s in clean if s in allowed]
-            if clean:
-                return clean
         if typ in self.defs:
-            return list(self.defs[typ].keys())
+            ordered = [status for status in self.defs[typ].keys() if status]
+            if ordered:
+                return ordered
         return list(fallback or [])
 
     def _is_last_status(self, typ: str, status: str) -> bool:
@@ -332,9 +388,7 @@ class ToolEditorDialog(tk.Toplevel):
         - podany status jest ostatni w kolejności (patrz _ordered_statuses_for_type).
         """
 
-        cfg = ConfigManager().config or {}
-        tools = cfg.get("tools", {})
-        if tools.get("auto_check_on_last_status", True) is not True:
+        if ConfigManager().get("tools.auto_check_on_last_status", True) is not True:
             return False
         ordered = self._ordered_statuses_for_type(typ, [])
         return bool(ordered) and status == ordered[-1]

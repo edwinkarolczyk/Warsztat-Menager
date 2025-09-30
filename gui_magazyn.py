@@ -21,6 +21,8 @@ import re
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from rc1_magazyn_fix import ensure_magazyn_toolbar_once
+
 try:
     from gui_zlecenia_creator import open_order_creator
 except Exception:
@@ -68,6 +70,90 @@ ROLE_PERMS = {
     "unreserve": "brygadzista",
     "to_orders": "brygadzista",
 }
+
+
+def _add_orders_button(toolbar: ttk.Frame, owner):
+    btn_orders = ttk.Button(
+        toolbar,
+        text="Zamówienia",
+        command=lambda: open_orders_window(owner) if open_orders_window else None,
+    )
+    btn_orders.pack(side="left", padx=(6, 0))
+    if open_orders_window is None:
+        try:
+            btn_orders.state(["disabled"])
+        except Exception:
+            pass
+    print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
+    return btn_orders
+
+
+@ensure_magazyn_toolbar_once
+def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
+    ttk.Label(toolbar, text="Typ:", style="WM.TLabel").pack(side="left", padx=(0, 6))
+    owner.cbo_typ = ttk.Combobox(
+        toolbar,
+        textvariable=owner._filter_typ,
+        state="readonly",
+        width=22,
+    )
+    owner.cbo_typ.pack(side="left", padx=(0, 10))
+    owner.cbo_typ.bind("<<ComboboxSelected>>", lambda _e: owner._apply_filters())
+
+    ttk.Label(toolbar, text="Szukaj (Nazwa/Rozmiar):", style="WM.TLabel").pack(
+        side="left", padx=(0, 6)
+    )
+    owner.ent_q = ttk.Entry(
+        toolbar, textvariable=owner._filter_query, width=28
+    )
+    owner.ent_q.pack(side="left", padx=(0, 6))
+    owner.ent_q.bind("<KeyRelease>", lambda _e: owner._apply_filters())
+
+    _add_orders_button(toolbar, owner)
+
+    btn_orders_prefill = ttk.Button(
+        toolbar,
+        text="Zamów brakujące",
+        command=lambda: _open_orders_for_shortages(owner),
+    )
+    btn_orders_prefill.pack(side="left", padx=(6, 0))
+
+    btn_creator = ttk.Button(
+        toolbar,
+        text="Dodaj zlecenie (Kreator)",
+        command=owner._quick_add_to_orders,
+    )
+    btn_creator.pack(side="left", padx=4)
+    if not callable(open_order_creator):
+        try:
+            btn_creator.state(["disabled"])
+        except Exception:
+            pass
+
+    ttk.Button(
+        toolbar,
+        text="Rezerwuj",
+        command=owner._rez_do_polproduktu,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Zwolnij rez.",
+        command=owner._rez_release,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Wyczyść",
+        command=owner._clear_filters,
+        style="WM.Side.TButton",
+    ).pack(side="right")
+    ttk.Button(
+        toolbar,
+        text="Odśwież",
+        command=owner.refresh,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
 
 
 def _role_rank(role: str) -> int:
@@ -268,75 +354,7 @@ class MagazynFrame(ttk.Frame):
         toolbar = ttk.Frame(self, style="WM.TFrame")
         toolbar.pack(fill="x", pady=(0, 6))
 
-        # Typ (dynamicznie, wartości ustawimy przy refresh)
-        ttk.Label(toolbar, text="Typ:", style="WM.TLabel").pack(side="left", padx=(0, 6))
-        self.cbo_typ = ttk.Combobox(toolbar, textvariable=self._filter_typ, state="readonly", width=22)
-        self.cbo_typ.pack(side="left", padx=(0, 10))
-        self.cbo_typ.bind("<<ComboboxSelected>>", lambda _e: self._apply_filters())
-
-        # Szukaj
-        ttk.Label(toolbar, text="Szukaj (Nazwa/Rozmiar):", style="WM.TLabel").pack(side="left", padx=(0, 6))
-        self.ent_q = ttk.Entry(toolbar, textvariable=self._filter_query, width=28)
-        self.ent_q.pack(side="left", padx=(0, 6))
-        self.ent_q.bind("<KeyRelease>", lambda _e: self._apply_filters())
-
-        btn_orders = ttk.Button(
-            toolbar,
-            text="Zamówienia",
-            command=lambda: open_orders_window(self) if open_orders_window else None,
-        )
-        btn_orders.pack(side="left", padx=(6, 0))
-        if open_orders_window is None:
-            try:
-                btn_orders.state(["disabled"])
-            except Exception:
-                pass
-        print("[WM-DBG][MAGAZYN] Dodano przycisk 'Zamówienia' w toolbarze")
-
-        btn_orders_prefill = ttk.Button(
-            toolbar,
-            text="Zamów brakujące",
-            command=lambda: _open_orders_for_shortages(self),
-        )
-        btn_orders_prefill.pack(side="left", padx=(6, 0))
-
-        btn_creator = ttk.Button(
-            toolbar,
-            text="Dodaj zlecenie (Kreator)",
-            command=self._quick_add_to_orders,
-        )
-        btn_creator.pack(side="left", padx=4)
-        if not callable(open_order_creator):
-            try:
-                btn_creator.state(["disabled"])
-            except Exception:
-                pass
-
-        # Przyciski
-        ttk.Button(
-            toolbar,
-            text="Rezerwuj",
-            command=self._rez_do_polproduktu,
-            style="WM.Side.TButton",
-        ).pack(side="right", padx=(0, 6))
-        ttk.Button(
-            toolbar,
-            text="Zwolnij rez.",
-            command=self._rez_release,
-            style="WM.Side.TButton",
-        ).pack(side="right", padx=(0, 6))
-        ttk.Button(
-            toolbar,
-            text="Wyczyść",
-            command=self._clear_filters,
-            style="WM.Side.TButton",
-        ).pack(side="right")
-        ttk.Button(
-            toolbar,
-            text="Odśwież",
-            command=self.refresh,
-            style="WM.Side.TButton",
-        ).pack(side="right", padx=(0, 6))
+        build_magazyn_toolbar(toolbar, self)
 
         # Tabela
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="headings", selectmode="browse", height=22)

@@ -1,7 +1,7 @@
 """Warstwa stylów Warsztat Menager.
 
-Wersja 1.1.0 – dodano motyw "warm" oraz funkcje `load_theme_name` i
-`apply_theme` akceptującą nazwę motywu.
+Wersja 1.1.1 – dodano strażnika `ensure_theme_applied` z obsługą logowania
+i importu wstecznie kompatybilnego.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import TclError, ttk
 
 logger = logging.getLogger(__name__)
+
 
 # -----------------------------
 # Palety kolorów (2 motywy)
@@ -142,331 +143,511 @@ def load_theme_name(config_path: Path) -> str:
     return DEFAULT_THEME
 
 
-def apply_theme(style: ttk.Style, name: str = DEFAULT_THEME) -> None:
-    """Aplikuje motyw do ttk.Style."""
+def _build_palette(name: str) -> Mapping[str, str]:
+    theme = THEMES[name]
+    bg = theme.get("bg", "#111214")
+    panel = theme.get("panel", theme.get("card", bg))
+    card = theme.get("card", panel)
+    accent = theme.get("accent", "#3a86ff")
+    accent_hover = theme.get("accent_hover", accent)
+    line = theme.get("line", "#2a2c31")
+    text = theme.get("text", "#ffffff")
+    muted = theme.get("muted", "#d0d0d0")
+    disabled = theme.get("disabled", "#9aa0a6")
+    entry_bg = theme.get("entry_bg", panel)
+    entry_fg = theme.get("entry_fg", text)
+    entry_bd = theme.get("entry_bd", line)
+    selection = theme.get("selection", accent_hover)
+
+    return {
+        "bg": bg,
+        "bg_alt": panel,
+        "card": card,
+        "fg": text,
+        "fg_dim": muted,
+        "fg_disabled": disabled,
+        "accent": accent,
+        "accent_hover": accent_hover,
+        "border": line,
+        "entry_bg": entry_bg,
+        "entry_fg": entry_fg,
+        "entry_border": entry_bd,
+        "selection": selection,
+        "tab_active": theme.get("tab_active", accent),
+        "tab_inactive": theme.get("tab_inactive", muted),
+    }
+
+
+def _apply_base_styles(style: ttk.Style, palette: Mapping[str, str]) -> None:
+    bg = palette["bg"]
+    bg_alt = palette["bg_alt"]
+    fg = palette["fg"]
+    fg_dim = palette["fg_dim"]
+    fg_disabled = palette["fg_disabled"]
+    accent = palette["accent"]
+    accent_hover = palette["accent_hover"]
+    border = palette["border"]
+    selection = palette["selection"]
+
+    style.configure(
+        ".",
+        background=bg,
+        foreground=fg,
+        fieldbackground=bg_alt,
+        bordercolor=border,
+    )
+
+    style.configure("TFrame", background=bg)
+    style.configure("TLabelframe", background=bg, bordercolor=border)
+    style.configure("TLabelframe.Label", background=bg, foreground=fg)
+    style.configure("TLabel", background=bg, foreground=fg)
+
+    style.configure(
+        "TButton",
+        background=bg_alt,
+        foreground=fg,
+        bordercolor=border,
+        focusthickness=1,
+        padding=(10, 6),
+    )
+    style.map(
+        "TButton",
+        foreground=[
+            ("disabled", fg_disabled),
+            ("pressed", fg),
+            ("active", fg),
+            ("!disabled", fg),
+        ],
+        background=[
+            ("disabled", bg_alt),
+            ("pressed", "#3b3e44"),
+            ("active", "#2c2f35"),
+        ],
+        relief=[("pressed", "sunken"), ("!pressed", "raised")],
+    )
+
+    for cls in ("TEntry", "TSpinbox"):
+        style.configure(
+            cls,
+            fieldbackground=palette["entry_bg"],
+            foreground=palette["entry_fg"],
+            bordercolor=palette["entry_border"],
+            lightcolor=palette["entry_border"],
+            darkcolor=palette["entry_border"],
+            insertcolor=fg,
+        )
+        style.map(
+            cls,
+            fieldbackground=[
+                ("disabled", palette["entry_bg"]),
+                ("readonly", palette["entry_bg"]),
+                ("focus", palette["entry_bg"]),
+            ],
+            foreground=[("disabled", fg_disabled), ("readonly", fg_dim)],
+        )
+
+    style.configure(
+        "TCombobox",
+        fieldbackground=palette["entry_bg"],
+        foreground=palette["entry_fg"],
+        background=palette["entry_bg"],
+        bordercolor=palette["entry_border"],
+        arrowsize=14,
+        padding=6,
+    )
+    style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", palette["entry_bg"]), ("focus", palette["entry_bg"])],
+        foreground=[("disabled", fg_disabled), ("readonly", fg)],
+        background=[("active", palette["entry_bg"])],
+    )
+    try:
+        style.configure("ComboboxPopdownFrame", background=bg)
+    except Exception:
+        pass
+
+    style.configure(
+        "TNotebook",
+        background=bg,
+        bordercolor=border,
+        tabmargins=(6, 4, 6, 0),
+    )
+    style.configure(
+        "TNotebook.Tab",
+        background=bg_alt,
+        foreground=fg_dim,
+        padding=(12, 6),
+    )
+    style.map(
+        "TNotebook.Tab",
+        foreground=[("selected", fg), ("!selected", fg_dim)],
+        background=[("selected", "#23252a"), ("!selected", bg_alt)],
+        bordercolor=[("selected", palette["tab_active"])],
+    )
+
+    style.configure(
+        "Treeview",
+        background=bg_alt,
+        fieldbackground=bg_alt,
+        foreground=fg,
+        bordercolor=border,
+    )
+    style.map(
+        "Treeview",
+        foreground=[("disabled", fg_disabled)],
+        background=[("selected", selection), ("!selected", bg_alt)],
+    )
+    style.configure(
+        "Treeview.Heading",
+        background=bg,
+        foreground=fg,
+        bordercolor=border,
+    )
+    style.map("Treeview.Heading", background=[("active", bg_alt)])
+
+    style.configure(
+        "TProgressbar",
+        background=accent,
+        troughcolor=bg_alt,
+        bordercolor=border,
+    )
+    style.configure(
+        "Vertical.TScrollbar",
+        background=bg_alt,
+        troughcolor=bg,
+        bordercolor=border,
+    )
+    style.configure(
+        "Horizontal.TScrollbar",
+        background=bg_alt,
+        troughcolor=bg,
+        bordercolor=border,
+    )
+
+    style.configure("TCheckbutton", background=bg, foreground=fg)
+    style.configure("TRadiobutton", background=bg, foreground=fg)
+
+    try:
+        style.configure("TMenubutton", background=bg_alt, foreground=fg, bordercolor=border)
+        style.map(
+            "TMenubutton",
+            background=[("active", "#2c2f35")],
+            foreground=[("disabled", fg_disabled)],
+        )
+    except Exception:
+        pass
+
+
+def _configure_wm_styles(
+    style: ttk.Style, theme: Mapping[str, str], palette: Mapping[str, str]
+) -> None:
+    text = palette["fg"]
+    muted = palette["fg_dim"]
+    accent = palette["accent"]
+    accent_hover = palette["accent_hover"]
+    panel = palette["bg_alt"]
+    card = palette["card"]
+    border = palette["border"]
+
+    style.configure("Card.TFrame", background=card)
+    style.configure("Muted.TLabel", foreground=muted)
+    style.configure(
+        "H1.TLabel",
+        font=("Segoe UI", 16, "bold"),
+        foreground=text,
+        background=panel,
+    )
+    style.configure(
+        "H2.TLabel",
+        font=("Segoe UI", 13, "bold"),
+        foreground=text,
+        background=panel,
+    )
+
+    style.configure("WM.TFrame", background=panel)
+    style.configure("WM.Side.TFrame", background=panel)
+    style.configure("WM.Container.TFrame", background=palette["bg"])
+    style.configure(
+        "WM.Card.TFrame",
+        background=card,
+        relief="flat",
+        borderwidth=0,
+    )
+    style.configure(
+        "WM.Header.TFrame",
+        background=panel,
+        relief="flat",
+        borderwidth=0,
+    )
+    style.configure(
+        "WM.Cover.TFrame",
+        background=accent,
+        relief="flat",
+        borderwidth=0,
+    )
+
+    style.configure("WM.TLabel", background=panel, foreground=text)
+    style.configure("WM.Muted.TLabel", background=panel, foreground=muted)
+    style.configure(
+        "WM.H1.TLabel",
+        background=panel,
+        foreground=text,
+        font=("Segoe UI", 16, "bold"),
+    )
+    style.configure(
+        "WM.H2.TLabel",
+        background=panel,
+        foreground=text,
+        font=("Segoe UI", 13, "bold"),
+    )
+    style.configure(
+        "WM.Card.TLabel",
+        background=card,
+        foreground=text,
+        font=("Segoe UI", 11, "bold"),
+    )
+    style.configure(
+        "WM.CardLabel.TLabel",
+        background=card,
+        foreground=text,
+    )
+    style.configure(
+        "WM.CardMuted.TLabel",
+        background=card,
+        foreground=muted,
+    )
+    style.configure(
+        "WM.KPI.TLabel",
+        background=card,
+        foreground=accent,
+        font=("Segoe UI", 18, "bold"),
+    )
+    style.configure(
+        "WM.Tag.TLabel",
+        background=card,
+        foreground=text,
+        padding=(6, 2),
+    )
+    style.configure("WM.Label", background=palette["bg"], foreground=text)
+    style.configure(
+        "WM.Banner.TLabel",
+        background=accent,
+        foreground=text,
+        padding=(12, 8),
+    )
+
+    style.configure(
+        "WM.Search.TEntry",
+        fieldbackground=palette["entry_bg"],
+        foreground=palette["entry_fg"],
+        bordercolor=palette["entry_border"],
+        insertcolor=text,
+        padding=6,
+    )
+
+    button_map = {
+        "background": [("active", accent_hover), ("pressed", accent)],
+        "foreground": [("disabled", muted)],
+    }
+    style.map("WM.Button.TButton", **button_map)
+    style.configure(
+        "WM.Button.TButton",
+        background=accent,
+        foreground=text,
+        padding=(12, 8),
+        borderwidth=0,
+    )
+
+    style.configure(
+        "WM.Side.TButton",
+        background=panel,
+        foreground=text,
+        padding=(12, 8),
+        borderwidth=0,
+        relief="flat",
+    )
+    side_active = theme.get("line", border)
+    style.map(
+        "WM.Side.TButton",
+        background=[("active", side_active), ("pressed", side_active)],
+        foreground=[
+            ("active", text),
+            ("pressed", text),
+            ("disabled", muted),
+        ],
+    )
+
+    style.configure(
+        "WM.Outline.TButton",
+        background=panel,
+        foreground=text,
+        padding=(12, 8),
+        borderwidth=1,
+        relief="solid",
+        bordercolor=accent,
+    )
+    style.map("WM.Outline.TButton", **button_map)
+
+    style.configure(
+        "WM.Treeview",
+        background=card,
+        fieldbackground=card,
+        foreground=text,
+        bordercolor=border,
+        rowheight=24,
+    )
+    style.configure(
+        "WM.Treeview.Heading",
+        background=panel,
+        foreground=text,
+        bordercolor=border,
+    )
+    style.map(
+        "WM.Treeview",
+        background=[("selected", palette["selection"])],
+        foreground=[("selected", "#000000")],
+    )
+
+    style.configure(
+        "WM.Section.TLabelframe",
+        background=card,
+        foreground=text,
+        bordercolor=border,
+        labelmargins=(8, 4, 8, 4),
+    )
+    style.configure(
+        "WM.Section.TLabelframe.Label",
+        background=card,
+        foreground=text,
+        font=("Segoe UI", 11, "bold"),
+    )
+
+    style.configure("TSeparator", background=border)
+
+
+def _set_bg_recursive(widget: tk.Misc, palette: Mapping[str, str]) -> None:
+    bg = palette["bg"]
+    fg = palette["fg"]
+
+    try:
+        widget.configure(bg=bg)
+    except Exception:
+        pass
+
+    if not hasattr(widget, "winfo_children"):
+        return
+
+    for child in widget.winfo_children():
+        if isinstance(child, (tk.Frame, tk.Toplevel, tk.LabelFrame, tk.Canvas)):
+            try:
+                child.configure(bg=bg)
+            except Exception:
+                pass
+        if isinstance(child, tk.Label):
+            try:
+                child.configure(bg=bg, fg=fg)
+            except Exception:
+                pass
+        _set_bg_recursive(child, palette)
+
+
+def _apply_widget_options(root: tk.Misc, palette: Mapping[str, str]) -> None:
+    try:
+        root.option_add("*Text.background", palette["bg_alt"])
+        root.option_add("*Text.foreground", palette["fg"])
+        root.option_add("*Text.insertBackground", palette["fg"])
+        root.option_add("*Text.selectBackground", palette["selection"])
+        root.option_add("*Text.selectForeground", palette["fg"])
+    except Exception:
+        pass
+
+    try:
+        root.option_add("*Entry.background", palette["entry_bg"])
+        root.option_add("*Entry.foreground", palette["entry_fg"])
+        root.option_add("*Entry.insertBackground", palette["fg"])
+        root.option_add("*Entry.selectBackground", palette["selection"])
+        root.option_add("*Entry.selectForeground", palette["fg"])
+    except Exception:
+        pass
+
+
+def apply_theme(target: tk.Misc | ttk.Style, *, scheme: str = DEFAULT_THEME) -> None:
+    """Aplikuje motyw do wskazanego widgetu lub obiektu ttk.Style."""
+
+    try:
+        style = target if isinstance(target, ttk.Style) else ttk.Style(target)
+    except Exception as exc:
+        logger.debug("Nie można zainicjować ttk.Style dla %s: %s", target, exc)
+        style = ttk.Style()
 
     try:
         style.theme_use("clam")
     except TclError:
         logger.debug("Styl 'clam' jest niedostępny – pozostawiam bieżący motyw ttk")
 
-    name = resolve_theme_name(name)
-
-    if name not in THEMES:
+    resolved_name = resolve_theme_name(scheme)
+    if resolved_name not in THEMES:
         print(
-            f"[WM-DBG][THEME] Motyw '{name}' nieznany, przełączam na 'default'"
+            f"[WM-DBG][THEME] Motyw '{resolved_name}' nieznany, przełączam na 'default'"
         )
-        name = DEFAULT_THEME
-    c = THEMES[name]
+        resolved_name = DEFAULT_THEME
 
-    root = style.master if hasattr(style, "master") else None
-    if isinstance(root, tk.Tk):
-        root.configure(bg=c["bg"])
+    palette = _build_palette(resolved_name)
+    _apply_base_styles(style, palette)
+    _configure_wm_styles(style, THEMES[resolved_name], palette)
 
-    style.configure(".", background=c["bg"], foreground=c["text"])
-    style.configure("TFrame", background=c["panel"])
-    style.configure("Card.TFrame", background=c["card"])
-    style.configure("TLabel", background=c["panel"], foreground=c["text"])
-    style.configure("Muted.TLabel", foreground=c["muted"])
-    style.configure(
-        "H1.TLabel",
-        font=("Segoe UI", 16, "bold"),
-        foreground=c["text"],
-        background=c["panel"],
-    )
-    style.configure(
-        "H2.TLabel",
-        font=("Segoe UI", 13, "bold"),
-        foreground=c["text"],
-        background=c["panel"],
-    )
+    root: tk.Misc | None
+    if isinstance(target, ttk.Style):
+        root = getattr(target, "master", None)
+    else:
+        root = target
 
-    # --- Motywy przestrzeni WM ---
-    style.configure("WM.TFrame", background=c["panel"])
-    style.configure("WM.Side.TFrame", background=c["panel"])
-    style.configure("WM.Container.TFrame", background=c["bg"])
-    style.configure(
-        "WM.Card.TFrame",
-        background=c["card"],
-        relief="flat",
-        borderwidth=0,
-    )
-    style.configure(
-        "WM.Header.TFrame",
-        background=c["panel"],
-        relief="flat",
-        borderwidth=0,
-    )
-    style.configure(
-        "WM.Cover.TFrame",
-        background=c["accent"],
-        relief="flat",
-        borderwidth=0,
-    )
+    if root is None:
+        root = getattr(style, "master", None)
 
-    style.configure("WM.TLabel", background=c["panel"], foreground=c["text"])
-    style.configure("WM.Muted.TLabel", background=c["panel"], foreground=c["muted"])
-    style.configure(
-        "WM.H1.TLabel",
-        background=c["panel"],
-        foreground=c["text"],
-        font=("Segoe UI", 16, "bold"),
-    )
-    style.configure(
-        "WM.H2.TLabel",
-        background=c["panel"],
-        foreground=c["text"],
-        font=("Segoe UI", 13, "bold"),
-    )
-    style.configure(
-        "WM.Card.TLabel",
-        background=c["card"],
-        foreground=c["text"],
-        font=("Segoe UI", 11, "bold"),
-    )
-    style.configure(
-        "WM.CardLabel.TLabel",
-        background=c["card"],
-        foreground=c["text"],
-    )
-    style.configure(
-        "WM.CardMuted.TLabel",
-        background=c["card"],
-        foreground=c["muted"],
-    )
-    style.configure(
-        "WM.KPI.TLabel",
-        background=c["card"],
-        foreground=c["accent"],
-        font=("Segoe UI", 18, "bold"),
-    )
-    style.configure(
-        "WM.Tag.TLabel",
-        background=c["card"],
-        foreground=c["text"],
-        padding=(6, 2),
-    )
-    style.configure(
-        "WM.Label", background=c["bg"], foreground=c["text"]
-    )
-    style.configure(
-        "WM.Banner.TLabel",
-        background=c["accent"],
-        foreground=c["text"],
-        padding=(12, 8),
-    )
+    if isinstance(root, tk.Misc):
+        _set_bg_recursive(root, palette)
+        _apply_widget_options(root, palette)
 
-    style.configure(
-        "WM.Search.TEntry",
-        fieldbackground=c["entry_bg"],
-        foreground=c["entry_fg"],
-        bordercolor=c["entry_bd"],
-        insertcolor=c["text"],
-        padding=6,
-    )
-
-    style.configure(
-        "TButton",
-        background=c["card"],
-        foreground=c["text"],
-        padding=(10, 6),
-    )
-    button_map = {
-        "background": [("active", c["accent_hover"]), ("pressed", c["accent"])],
-        "foreground": [("disabled", c["muted"])],
-    }
-    style.map("TButton", **button_map)
-
-    style.configure(
-        "WM.Side.TButton",
-        background=c["panel"],
-        foreground=c["text"],
-        padding=(12, 8),
-        borderwidth=0,
-        relief="flat",
-    )
-    side_active = c.get("line", "#2c2d31")
-    style.map(
-        "WM.Side.TButton",
-        background=[("active", side_active), ("pressed", side_active)],
-        foreground=[
-            ("active", c["text"]),
-            ("pressed", c["text"]),
-            ("disabled", c["muted"]),
-        ],
-    )
-
-    style.configure(
-        "WM.Button.TButton",
-        background=c["accent"],
-        foreground=c["text"],
-        padding=(12, 8),
-        borderwidth=0,
-    )
-    style.map("WM.Button.TButton", **button_map)
-
-    style.configure(
-        "WM.Outline.TButton",
-        background=c["panel"],
-        foreground=c["text"],
-        padding=(12, 8),
-        borderwidth=1,
-        relief="solid",
-        bordercolor=c["accent"],
-    )
-    style.map("WM.Outline.TButton", **button_map)
-
-    style.configure(
-        "TEntry",
-        fieldbackground=c["entry_bg"],
-        foreground=c["entry_fg"],
-        bordercolor=c["entry_bd"],
-        insertcolor=c["text"],
-        padding=6,
-    )
-    style.configure(
-        "TCombobox",
-        fieldbackground=c["entry_bg"],
-        foreground=c["entry_fg"],
-        bordercolor=c["entry_bd"],
-        arrowsize=14,
-        padding=6,
-    )
-
-    style.configure("TNotebook", background=c["panel"], borderwidth=0)
-    style.configure(
-        "TNotebook.Tab",
-        padding=(12, 6),
-        background=c["panel"],
-        foreground=c["muted"],
-    )
-    style.map(
-        "TNotebook.Tab",
-        foreground=[("selected", c["text"])],
-        background=[("selected", c["panel"])],
-        bordercolor=[("selected", c["tab_active"])],
-    )
-
-    style.configure(
-        "Treeview",
-        background=c["card"],
-        fieldbackground=c["card"],
-        foreground=c["text"],
-        bordercolor=c["line"],
-        rowheight=24,
-    )
-    style.configure(
-        "Treeview.Heading", background=c["panel"], foreground=c["text"]
-    )
-    style.map(
-        "Treeview",
-        background=[("selected", c["accent"])],
-        foreground=[("selected", "#000000")],
-    )
-
-    style.configure(
-        "WM.Treeview",
-        background=c["card"],
-        fieldbackground=c["card"],
-        foreground=c["text"],
-        bordercolor=c["line"],
-        rowheight=24,
-    )
-    style.configure(
-        "WM.Treeview.Heading",
-        background=c["panel"],
-        foreground=c["text"],
-        bordercolor=c["line"],
-    )
-    style.map(
-        "WM.Treeview",
-        background=[("selected", c["accent"])],
-        foreground=[("selected", "#000000")],
-    )
-
-    style.configure(
-        "WM.Section.TLabelframe",
-        background=c["card"],
-        foreground=c["text"],
-        bordercolor=c["line"],
-        labelmargins=(8, 4, 8, 4),
-    )
-    style.configure(
-        "WM.Section.TLabelframe.Label",
-        background=c["card"],
-        foreground=c["text"],
-        font=("Segoe UI", 11, "bold"),
-    )
-
-    style.configure("TSeparator", background=c["line"])
-    print(f"[WM-DBG][THEME] Zastosowano motyw: {name}")
-
-
-def _set_widget_background(widget: tk.Misc, bg_color: str) -> None:
-    """Ustawia tło dla widgetu tk/ttk w sposób odporny na wyjątki."""
-
-    def _set_native_background(w: tk.Misc) -> bool:
-        try:
-            w.configure(background=bg_color)
-            return True
-        except TclError:
-            pass
-        try:
-            w.configure(bg=bg_color)
-            return True
-        except TclError:
-            return False
-
-    if _set_native_background(widget):
-        print(
-            f"[WM-DBG][THEME] BG set native for {widget.__class__.__name__} = {bg_color}"
-        )
-        return
-
-    try:
-        style = ttk.Style(widget)
-        widget_class = widget.winfo_class()
-        unique_id = str(widget).replace(".", "_")
-        style_name = f"{widget_class}.{unique_id}"
-        style.configure(style_name, background=bg_color, fieldbackground=bg_color)
-        widget.configure(style=style_name)
-        print(f"[WM-DBG][THEME] BG set via ttk.Style for {widget_class} -> {bg_color}")
-    except Exception as exc:  # pragma: no cover - jedynie log
-        print(f"[WM-DBG][THEME] Nie można ustawić tła dla {widget}: {exc}")
+    print(f"[WM-DBG][THEME] Zastosowano motyw: {resolved_name}")
 
 
 def apply_theme_safe(
     target: tk.Misc | ttk.Style | None = None,
-    name: str | None = None,
+    scheme: str | None = None,
     *,
     config_path: Path | None = None,
 ) -> None:
     """Wrapper na :func:`apply_theme`, ignorujący wszelkie wyjątki."""
 
     try:
-        style = target if isinstance(target, ttk.Style) else ttk.Style(target)
         path = config_path or CONFIG_FILE
-        theme_name = name or load_theme_name(path)
+        theme_name = scheme or load_theme_name(path)
         theme_name = resolve_theme_name(theme_name)
-        apply_theme(style, theme_name)
-        if isinstance(target, tk.Misc):
-            _set_widget_background(target, THEMES[theme_name]["bg"])
+
+        style_or_widget: tk.Misc | ttk.Style
+        if isinstance(target, (tk.Misc, ttk.Style)):
+            style_or_widget = target
+        else:
+            style_or_widget = ttk.Style(target)
+
+        apply_theme(style_or_widget, scheme=theme_name)
     except Exception:  # pragma: no cover - log i kontynuuj
         logger.exception("apply_theme failed")
 
 
 def apply_theme_tree(
     widget: tk.Misc | None,
-    name: str | None = None,
+    scheme: str | None = None,
     *,
     config_path: Path | None = None,
 ) -> None:
     """Zastosuj motyw dla podanego widgetu i całego jego drzewa potomków."""
 
-    apply_theme_safe(widget, name=name, config_path=config_path)
+    apply_theme_safe(widget, scheme=scheme, config_path=config_path)
     if hasattr(widget, "winfo_children"):
         for child in widget.winfo_children():
-            apply_theme_tree(child, name=name, config_path=config_path)
+            apply_theme_tree(child, scheme=scheme, config_path=config_path)
 
 
 # ===== Kolory magazynu (używane przez gui_magazyn) =====
@@ -475,5 +656,69 @@ COLORS = {
     "stock_warn": "#d35400",
     "stock_low": "#c0392b",
 }
+
+
+# [HOTFIX-THEME-01] ensure_theme_applied – idempotentne zastosowanie motywu
+
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
+def _get_apply_fn():
+    fn = globals().get("apply_theme_safe") or globals().get("apply_theme")
+    return fn if callable(fn) else None
+
+
+if "ensure_theme_applied" not in globals():
+
+    def ensure_theme_applied(win):
+        try:
+            if not win:
+                return False
+            if getattr(win, "_wm_theme_applied", False):
+                return True
+            fn = _get_apply_fn()
+            if fn:
+                try:
+                    fn(win)
+                except Exception as e:
+                    _logger.warning("[THEME] apply_theme* wyjątek: %r", e)
+            try:
+                setattr(win, "_wm_theme_applied", True)
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+
+try:
+    __all__  # noqa: F821
+except NameError:
+    __all__ = []
+if "ensure_theme_applied" not in __all__:
+    __all__.append("ensure_theme_applied")
+
+
+_ORIG_TOPLEVEL_INIT = getattr(tk.Toplevel, "__init__", None)
+
+
+def _toplevel_init_patch(self, *a, **kw):
+    if _ORIG_TOPLEVEL_INIT:
+        _ORIG_TOPLEVEL_INIT(self, *a, **kw)
+    try:
+        ensure_theme_applied(self)
+    except Exception:
+        pass
+
+
+if _ORIG_TOPLEVEL_INIT and not getattr(tk.Toplevel, "_wm_autotheme_patched", False):
+    tk.Toplevel.__init__ = _toplevel_init_patch
+    tk.Toplevel._wm_autotheme_patched = True
+    try:
+        print("[WM-DBG][THEME] Auto-theme for Toplevel enabled")
+    except Exception:
+        pass
 
 # ⏹ KONIEC KODU

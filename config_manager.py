@@ -11,7 +11,7 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime, time
+import json, os, shutil, datetime, time, threading
 import logging
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -107,22 +107,31 @@ class ConfigManager:
 
         return default
 
-    @classmethod
     def _ensure_defaults_from_schema(
-        cls, cfg: Dict[str, Any], schema: Dict[str, Any]
+        self, cfg: Dict[str, Any], schema: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Uzupełnia brakujące klucze domyślnymi wartościami ze schematu."""
 
-        def apply_default(field: Dict[str, Any]) -> None:
+        sentinel = object()
+
+        for field in self._iter_schema_fields(schema):
             key = field.get("key")
             default = field.get("default")
-            if key and default is not None and key not in cfg:
-                value = cls._coerce_default_for_field(field)
-                print(f"[WM-DBG] [SETTINGS] default injected: {key}={value}")
-                cfg[key] = value
+            if not key or default is None:
+                continue
+            existing = get_by_key(cfg, key, sentinel)
+            if existing is not sentinel:
+                continue
+            if key in cfg:
+                value = cfg.pop(key)
+                set_by_key(cfg, key, value)
+                continue
+            value = self._coerce_default_for_field(field)
+            print(f"[WM-DBG] [SETTINGS] default injected: {key}={value}")
+            set_by_key(cfg, key, value)
+            self._schema_defaults_injected.add(key)
 
-        for field in cls._iter_schema_fields(schema):
-            apply_default(field)
+        migrate_dotted_keys(cfg)
         return cfg
     # >>> WM PATCH END
 
@@ -222,6 +231,7 @@ class ConfigManager:
                 self._audit_change(key, before_val=None, after_val=val, who="auto-heal")
         # >>> WM PATCH END
 
+        self._schema_defaults_injected: set[str] = set()
         self.global_cfg = self._ensure_defaults_from_schema(
             self.global_cfg, self.schema
         )
@@ -239,6 +249,12 @@ class ConfigManager:
         self.autosave_draft_interval_sec = self.get(
             "autosave_draft_interval_sec", 15
         )
+
+        self._save_debounce_seconds = 10.0
+        self._last_save_ts = 0.0
+        self._pending_save = False
+        self._save_lock = threading.Lock()
+        self._debounce_timer: threading.Timer | None = None
 
         logger.info("ConfigManager initialized")
         self.__class__._initialized = True
@@ -377,6 +393,11 @@ class ConfigManager:
     def get(self, key: str, default: Any = None) -> Any:
         return get_by_key(self.merged, key, default)
 
+    def is_schema_default(self, key: str) -> bool:
+        """Zwraca True, jeśli wartość została wstrzyknięta z domyślnego schematu."""
+
+        return key in self._schema_defaults_injected
+
     def set(self, key: str, value: Any, who: str = "system"):
         idx = self._schema_idx
         opt = idx.get(key)
@@ -392,11 +413,50 @@ class ConfigManager:
             # klucz spoza schematu → zapis do global
             target = self.global_cfg
         before_val = get_by_key(self.merged, key)
+        self._schema_defaults_injected.discard(key)
         set_by_key(target, key, value)
         self.merged = self._merge_all()
         self._audit_change(key, before_val=before_val, after_val=value, who=who)
 
     def save_all(self):
+        now = time.monotonic()
+        perform_now = False
+        remaining = self._save_debounce_seconds
+        with self._save_lock:
+            elapsed = now - self._last_save_ts
+            if self._last_save_ts == 0.0 or elapsed >= self._save_debounce_seconds:
+                self._last_save_ts = now
+                self._pending_save = False
+                perform_now = True
+            else:
+                remaining = max(self._save_debounce_seconds - elapsed, 0.1)
+                self._pending_save = True
+                timer = self._debounce_timer
+                if timer is None or not timer.is_alive():
+                    self._debounce_timer = threading.Timer(
+                        remaining, self._flush_debounced_save
+                    )
+                    self._debounce_timer.daemon = True
+                    self._debounce_timer.start()
+        if perform_now:
+            self._perform_save_all()
+        else:
+            print(
+                f"[WM-DBG] save_all debounced; ponowny zapis za ~{remaining:.1f}s"
+            )
+
+    def _flush_debounced_save(self) -> None:
+        with self._save_lock:
+            if not self._pending_save:
+                self._debounce_timer = None
+                return
+            self._pending_save = False
+            self._debounce_timer = None
+            self._last_save_ts = time.monotonic()
+        self._perform_save_all()
+
+    def _perform_save_all(self) -> None:
+        migrate_dotted_keys(self.global_cfg)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = Path(BACKUP_DIR)
         backup_dir.mkdir(parents=True, exist_ok=True)
@@ -480,6 +540,22 @@ class ConfigManager:
 # ========== Helpers ==========
 
 
+def get_path(key: str, default: Any = None) -> Any:
+    """Shortcut for ``ConfigManager().get``."""
+
+    mgr = ConfigManager()
+    return mgr.get(key, default)
+
+
+def set_path(key: str, value: Any, *, who: str = "system", save: bool = True) -> None:
+    """Shortcut for setting a config path and optionally saving immediately."""
+
+    mgr = ConfigManager()
+    mgr.set(key, value, who=who)
+    if save:
+        mgr.save_all()
+
+
 def deep_merge(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(a)
     for k, v in b.items():
@@ -518,3 +594,19 @@ def set_by_key(d: Dict[str, Any], dotted: str, value: Any):
             cur[p] = {}
         cur = cur[p]
     cur[parts[-1]] = value
+
+
+def migrate_dotted_keys(d: Dict[str, Any]) -> None:
+    """Przenieś klucze z kropkami do struktury zagnieżdżonej."""
+
+    if not isinstance(d, dict):
+        return
+
+    sentinel = object()
+    dotted_keys = [
+        key for key in list(d.keys()) if isinstance(key, str) and "." in key
+    ]
+    for dotted in dotted_keys:
+        value = d.pop(dotted)
+        if get_by_key(d, dotted, sentinel) is sentinel:
+            set_by_key(d, dotted, value)

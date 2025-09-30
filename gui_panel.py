@@ -22,6 +22,7 @@ from services.profile_service import get_user, save_user
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+# [PR-1165-MERGE-FIX] unikajmy zbyt szerokiego importu z start (ryzyko cyklu)
 from start import CONFIG_MANAGER, open_settings_window
 import gui_changelog
 from logger import log_akcja
@@ -667,13 +668,6 @@ def uruchom_panel(root, login, rola):
 
         ttk.Button(win, text="Wyślij", command=_submit).pack(pady=(0, 10))
 
-    def _open_hala():
-        try:
-            from gui_hala import open_hala_window
-            open_hala_window(root)
-        except Exception as e:  # pragma: no cover - prosty fallback
-            messagebox.showerror("Błąd", f"Nie można otworzyć widoku hal:\n{e}")
-
     def _load_mag_alerts():
         """Lista pozycji magazynowych poniżej progu."""
         try:
@@ -779,16 +773,6 @@ def uruchom_panel(root, login, rola):
                 _maybe_mark_button(btn)
                 if start_panel is None:
                     start_panel = panel_magazyn
-                    start_name = f"{label} (start)"
-            elif key == "hale":
-                btn = ttk.Button(
-                    side, text=label, command=_open_hala, style="WM.Side.TButton"
-                )
-                btn.last_modified = datetime(2025, 4, 1, tzinfo=timezone.utc)
-                btn.pack(padx=10, pady=pad, fill="x")
-                _maybe_mark_button(btn)
-                if start_panel is None:
-                    start_panel = lambda r, f, l, ro: _open_hala()
                     start_name = f"{label} (start)"
             elif key == "feedback":
                 btn = ttk.Button(

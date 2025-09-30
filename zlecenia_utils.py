@@ -37,80 +37,25 @@ def _ensure_orders_dir() -> str:
         os.makedirs(directory, exist_ok=True)
     return directory
 
-DEFAULT_ORDER_TYPES: Dict[str, Dict[str, object]] = {
-    "ZW": {
-        "enabled": True,
-        "label": "Zlecenie wewnętrzne",
-        "prefix": "ZW-",
-        "statuses": [
-            "nowe",
-            "w przygotowaniu",
-            "w realizacji",
-            "zrealizowane",
-            "archiwum",
-        ],
-    },
-    "ZN": {
-        "enabled": True,
-        "label": "Zlecenie na narzędzie",
-        "prefix": "ZN-",
-        "statuses": [
-            "nowe",
-            "oczekuje",
-            "w naprawie",
-            "zrealizowane",
-            "archiwum",
-        ],
-    },
-    "ZM": {
-        "enabled": True,
-        "label": "Naprawa/Awaria maszyny",
-        "prefix": "ZM-",
-        "statuses": [
-            "nowe",
-            "oczekuje",
-            "w serwisie",
-            "zrealizowane",
-            "archiwum",
-        ],
-    },
-    "ZZ": {
-        "enabled": True,
-        "label": "Zlecenie zakupu",
-        "prefix": "ZZ-",
-        "statuses": [
-            "nowe",
-            "oczekuje na dostawę",
-            "zrealizowane",
-            "anulowane",
-        ],
-    },
-}
+def _config_types_snapshot() -> Dict[str, Dict[str, object]]:
+    if not _CONFIG:
+        return {}
+    try:
+        cfg = _CONFIG.get("orders") or {}
+    except Exception:
+        return {}
+    if not isinstance(cfg, dict):
+        return {}
+    types_cfg = cfg.get("types", {})
+    if not isinstance(types_cfg, dict):
+        return {}
+    snapshot: Dict[str, Dict[str, object]] = {}
+    for code, data in types_cfg.items():
+        snapshot[code] = dict(data) if isinstance(data, dict) else {}
+    return snapshot
 
 
-def _base_type_defaults(kind: str) -> Dict[str, object]:
-    base = DEFAULT_ORDER_TYPES.get(kind, {})
-    if not isinstance(base, dict):
-        base = {}
-
-    raw_label = base.get("label", kind)
-    label = raw_label if isinstance(raw_label, str) and raw_label else kind
-
-    raw_prefix = base.get("prefix", f"{kind}-")
-    prefix = (
-        raw_prefix if isinstance(raw_prefix, str) and raw_prefix else f"{kind}-"
-    )
-
-    raw_statuses = base.get("statuses", ["nowe"])
-    if not isinstance(raw_statuses, list) or not raw_statuses:
-        raw_statuses = ["nowe"]
-
-    return {
-        "enabled": bool(base.get("enabled", True)),
-        "label": label,
-        "prefix": prefix,
-        "statuses": list(raw_statuses),
-    }
+DEFAULT_ORDER_TYPES: Dict[str, Dict[str, object]] = _config_types_snapshot()
 
 
 def _orders_cfg() -> Dict[str, object]:
@@ -127,44 +72,41 @@ def _orders_cfg() -> Dict[str, object]:
 
 def _orders_types() -> Dict[str, Dict[str, object]]:
     cfg_types = _orders_cfg().get("types", {})
-    cfg_types = cfg_types if isinstance(cfg_types, dict) else {}
-
-    merged: Dict[str, Dict[str, object]] = {**DEFAULT_ORDER_TYPES}
-    merged.update(cfg_types)
+    if not isinstance(cfg_types, dict):
+        cfg_types = {}
 
     sanitized: Dict[str, Dict[str, object]] = {}
-    for key, value in merged.items():
-        base = _base_type_defaults(key)
+    for key, value in cfg_types.items():
         if not isinstance(value, dict):
-            sanitized[key] = base
             continue
 
-        raw_label = value.get("label", base["label"])
-        label = (
-            raw_label
-            if isinstance(raw_label, str) and raw_label
-            else base["label"]
-        )
+        raw_label = value.get("label", key)
+        label = raw_label if isinstance(raw_label, str) and raw_label else key
 
-        raw_prefix = value.get("prefix", base["prefix"])
+        raw_prefix = value.get("prefix", f"{key}-")
         prefix = (
-            raw_prefix
-            if isinstance(raw_prefix, str) and raw_prefix
-            else base["prefix"]
+            raw_prefix if isinstance(raw_prefix, str) and raw_prefix else f"{key}-"
         )
 
-        raw_statuses = value.get("statuses", base["statuses"])
-        if not isinstance(raw_statuses, list) or not raw_statuses:
-            statuses = list(base["statuses"])
-        else:
-            statuses = list(raw_statuses)
+        statuses_raw = value.get("statuses", [])
+        statuses: List[str] = []
+        if isinstance(statuses_raw, list):
+            for status in statuses_raw:
+                if isinstance(status, str) and status.strip():
+                    statuses.append(status.strip())
 
-        sanitized[key] = {
-            "enabled": bool(value.get("enabled", base["enabled"])),
+        entry: Dict[str, object] = {
+            "enabled": bool(value.get("enabled", True)),
             "label": label,
             "prefix": prefix,
             "statuses": statuses,
         }
+
+        for extra_key in ("reserve_by_default", "requires_approval", "wizard"):
+            if extra_key in value:
+                entry[extra_key] = value.get(extra_key)
+
+        sanitized[key] = entry
 
     try:
         print(f"[WM-DBG][ZLECENIA] types={list(sanitized.keys())}")

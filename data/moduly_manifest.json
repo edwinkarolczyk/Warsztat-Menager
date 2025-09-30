@@ -51,10 +51,10 @@
       "korzysta_z": ["rdzen", "ustawienia", "profile", "magazyn"]
     },
     {
-      "id": "maszyny_hala",
-      "nazwa": "Maszyny / Hala",
-      "pliki": ["gui_hala.py", "widok_hali/**", "data/maszyny.json", "data/sciany.json"],
-      "dostarcza": ["widok_hali", "maszyny"],
+      "id": "maszyny",
+      "nazwa": "Maszyny",
+      "pliki": ["gui_maszyny.py", "data/maszyny/**"],
+      "dostarcza": ["maszyny"],
       "korzysta_z": ["rdzen", "ustawienia", "profile"]
     }
   ],
