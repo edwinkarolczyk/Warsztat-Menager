@@ -565,7 +565,15 @@ def _types_from_config():
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
-    # 3) plik typów narzędzi
+    # 3) stare klucze w configu
+    try:
+        cfg = _load_config()
+        lst = _clean_list(cfg.get("typy_narzedzi"))
+        if lst:
+            return lst
+    except Exception:
+        pass
+    # 4) plik typów narzędzi
     file_types = _clean_list(
         _load_tools_list_from_file(
             "tools.types_file",
@@ -575,13 +583,7 @@ def _types_from_config():
     )
     if file_types:
         return file_types
-    # 4) stare klucze w configu
-    try:
-        cfg = _load_config()
-        lst = _clean_list(cfg.get("typy_narzedzi"))
-        return lst or TYPY_NARZEDZI_DEFAULT
-    except Exception:
-        return TYPY_NARZEDZI_DEFAULT
+    return TYPY_NARZEDZI_DEFAULT
 
 def _append_type_to_config(new_type: str) -> bool:
     t = (new_type or "").strip()

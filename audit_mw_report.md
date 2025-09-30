@@ -12,7 +12,7 @@ Plików .py: 38
 - Zamienić gołe 'except' na konkretne wyjątki + logger z poziomami (info/warn/error).
 - Zapewnić pojedynczy mainloop, kontrolować .after() (cleanup przy zamknięciu), nie mieszać pack/grid w jednym kontenerze.
 - Dodać pre-commit (ruff + black, isort). Włączyć flake nieużytych importów.
-- Walidować config.json/maszyny.json/uzytkownicy.json z JSON Schema na starcie aplikacji.
+- Walidować config.json/maszyny/maszyny.json/uzytkownicy.json z JSON Schema na starcie aplikacji.
 - Moduł serwisowy jako oddzielny pakiet z event-busem (pub/sub) i kolejką zadań – izolacja od GUI.
 - Potrójne potwierdzenie usuwania: dialog modalny z 3-krotnym 'OK' + timeout i klawisz ESC – antymisclick.
 - Wydzielić ui_theme.py jako jedyne źródło kolorów/typografii; zakaz inline kolorów w GUI.
@@ -505,17 +505,17 @@ Plików .py: 38
 - **WARN** [ERROR-HANDLING] gui_uzytkownicy.py:28 – Goły except – dodaj konkretny wyjątek i logowanie
 - **WARN** [ERROR-HANDLING] gui_uzytkownicy.py:30 – Goły except – dodaj konkretny wyjątek i logowanie
 - **WARN** [JSON] config.json – Brak kluczy ['theme', 'start_view', 'pin_required'] w obiekcie 
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [0]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [1]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [2]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [3]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [4]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [5]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [6]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [7]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [8]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [9]
-- **WARN** [JSON] maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [10]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [0]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [1]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [2]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [3]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [4]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [5]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [6]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [7]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [8]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [9]
+- **WARN** [JSON] maszyny/maszyny.json – Brak kluczy ['id', 'hala'] w obiekcie [10]
 
 ## Podsumowania plików
 

@@ -28,7 +28,7 @@ Kompleksowy system do zarządzania warsztatem mechanicznym:
 Główne funkcje:
 - Logowanie z rolami (brygadzista i użytkownik).
 - Panel główny z modułami dostępnymi według roli.
-- Widok hali z przeciąganiem maszyn, zapisywaniem pozycji w maszyny.json.
+- Widok hali z przeciąganiem maszyn, zapisywaniem pozycji w maszyny/maszyny.json.
 - Obsługa narzędzi – dodawanie, edycja, usuwanie, statusy dostępności.
 - Moduł serwisowy – przypisywanie serwisantów do awarii, animacja dojścia.
 - Kalendarz – planowane nieobecności, przeglądy.
@@ -52,12 +52,12 @@ Pomocnicze:
 - kreator_sprawdzenia.py – 1.2.5 – sprawdzanie wersji plików, kopie zapasowe.
 - uzytkownicy.json – lista użytkowników, role, hasła (hash).
 - config.json – ustawienia globalne.
-- maszyny.json – dane maszyn: id, nazwa, typ, nr_hali, x, y.
+- maszyny/maszyny.json – dane maszyn: id, nazwa, typ, nr_hali, x, y.
 - narzedzia.json – dane narzędzi: id, nazwa, opis, status.
 
 Ustalenia techniczne:
 - Widok hali: siatka co 4 px = 20 cm.
-- Pozycje maszyn zapisywane w maszyny.json.
+- Pozycje maszyn zapisywane w maszyny/maszyny.json.
 - Numer hali zamiast współrzędnych na maszynie.
 - Usuwanie maszyny: 3 potwierdzenia, czyszczenie x, y.
 - Dwuklik na maszynie = okno szczegółów.

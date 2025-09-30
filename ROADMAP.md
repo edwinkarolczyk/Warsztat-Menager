@@ -28,7 +28,7 @@ Roadmapa projektu **Warsztat Menager** określa plan działania dla dalszego roz
 - Wydzielić moduł serwisowy (logika biznesowa) od GUI; komunikacja event-bus.
 - Ujednolicić nagłówki i stopki plików (`# Plik: …`, `# Wersja: …`, `# ⏹ KONIEC KODU`).
 - Pre-commit: Black + isort + Ruff/Flake8 (fail pipeline przy błędach).
-- Walidacja JSON (JSON Schema) dla `config.json`, `maszyny.json`, `uzytkownicy.json`.
+- Walidacja JSON (JSON Schema) dla `config.json`, `maszyny/maszyny.json`, `uzytkownicy.json`.
 - Tkinter: jedna `mainloop()`, kontrola `.after()`, nie mieszać `pack`/`grid` w jednym kontenerze.
 
 ### 3) UX/UI (średni)

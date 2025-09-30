@@ -9,7 +9,7 @@ import time
 import unicodedata
 from typing import Any, Dict, Iterable, List, Tuple
 
-PRIMARY_DATA = os.path.join("data", "maszyny.json")
+PRIMARY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
 

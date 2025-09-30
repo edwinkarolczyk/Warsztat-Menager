@@ -6,7 +6,6 @@ archiwalnych lub pomocniczych. Nie powinny wpływać na bieżący rozwój aplika
 ---
 
 ## Dane historyczne (JSON)
-- `data/maszyny.json` – **legacy** (obowiązuje `data/maszyny/maszyny.json`).
 - `data/profile.json` – **legacy** (obowiązuje `data/profiles.json`).
 
 ## Archiwa i zrzuty

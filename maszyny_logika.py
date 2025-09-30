@@ -8,13 +8,21 @@ from typing import List, Dict, Any, Optional
 from io_utils import read_json, write_json
 from logger import log_akcja
 
-DATA_FILE: Path = Path("data") / "maszyny.json"
+DATA_FILE: Path = Path("data") / "maszyny" / "maszyny.json"
 
 
 def load_machines() -> List[Dict[str, Any]]:
     """Wczytuje listę maszyn z pliku JSON z walidacją kluczy."""
-    data = read_json(str(DATA_FILE)) or []
-    if not isinstance(data, list):
+    raw = read_json(str(DATA_FILE)) or []
+    if isinstance(raw, dict):
+        candidates = raw.get("maszyny") or raw.get("items") or []
+        data = candidates if isinstance(candidates, list) else []
+        if not data:
+            values = [v for v in raw.values() if isinstance(v, dict)]
+            data = values
+    elif isinstance(raw, list):
+        data = raw
+    else:
         log_akcja("[MASZYNY] Nieprawidłowy format danych maszyn")
         return []
 
@@ -23,20 +31,40 @@ def load_machines() -> List[Dict[str, Any]]:
         if not isinstance(m, dict):
             log_akcja("[MASZYNY] Pominięto rekord – nie jest dict")
             continue
-        missing = [k for k in ("hala", "x", "y", "status") if k not in m]
+        position = m.get("pozycja") if isinstance(m.get("pozycja"), dict) else {}
+        x_val = m.get("x")
+        y_val = m.get("y")
+        if not isinstance(x_val, (int, float)):
+            x_val = position.get("x") if isinstance(position, dict) else None
+        if not isinstance(y_val, (int, float)):
+            y_val = position.get("y") if isinstance(position, dict) else None
+
+        hala = m.get("hala")
+        status = m.get("status")
+        missing = [
+            key
+            for key, present in (
+                ("hala", hala is not None),
+                ("x", isinstance(x_val, (int, float))),
+                ("y", isinstance(y_val, (int, float))),
+                ("status", status is not None),
+            )
+            if not present
+        ]
         if missing:
             log_akcja(
-                f"[MASZYNY] Maszyna {m.get('nr_ewid')} brak pól {missing}"
+                f"[MASZYNY] Maszyna {m.get('nr_ewid') or m.get('id')} brak pól {missing}"
             )
             continue
-        if not isinstance(m["x"], (int, float)) or not isinstance(
-            m["y"], (int, float)
-        ):
-            log_akcja(
-                f"[MASZYNY] Maszyna {m.get('nr_ewid')} ma nieprawidłowe współrzędne"
-            )
-            continue
-        valid.append(m)
+
+        record = dict(m)
+        record.setdefault("pozycja", {})
+        record["pozycja"] = dict(record["pozycja"] or {})
+        record["pozycja"]["x"] = float(x_val)
+        record["pozycja"]["y"] = float(y_val)
+        record.setdefault("x", float(x_val))
+        record.setdefault("y", float(y_val))
+        valid.append(record)
     return valid
 
 

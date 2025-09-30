@@ -143,7 +143,7 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
                 style="WM.H1.TLabel",
             ).pack(anchor="w", pady=(0, 12))
 
-            machines_path = os.path.join("data", "maszyny.json")
+            machines_path = os.path.join("data", "maszyny", "maszyny.json")
             try:
                 with open(machines_path, "r", encoding="utf-8") as handle:
                     machines_data = json.load(handle)

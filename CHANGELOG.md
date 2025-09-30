@@ -55,7 +55,7 @@
 
 ## 2025-09-18 — Poprawki modułu Zleceń
 - Naprawiono obsługę ConfigManager w `zlecenia_utils.py` (użycie instancji zamiast metody klasy).
-- Naprawiono błąd w `gui_zlecenia_creator.py` przy wczytywaniu `data/maszyny.json` (obsługa listy i dict).
+- Naprawiono błąd w `gui_zlecenia_creator.py` przy wczytywaniu `data/maszyny/maszyny.json` (obsługa listy i dict).
 - Zabezpieczono kreator ZM przed awarią przy nietypowej strukturze pliku maszyn.
 
 ## [Unreleased]

@@ -48,7 +48,7 @@
 - Na kaflach numer hali zamiast współrzędnych.
 
 **Hala/Serwis**
-- Jedna hala: tło JPEG, siatka 20cm (4px), drag&drop zapis do `maszyny.json`.
+- Jedna hala: tło JPEG, siatka 20cm (4px), drag&drop zapis do `maszyny/maszyny.json`.
 - Serwisanci (Edwin, Dawid, Marek, Sebastian) jako placeholdery.
 
 **Profile**

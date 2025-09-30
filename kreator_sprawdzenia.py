@@ -181,7 +181,7 @@ def check_required_paths(root):
     from logika_magazyn import MAGAZYN_PATH
 
     for relf in [
-        os.path.join("data", "maszyny.json"),
+        os.path.join("data", "maszyny", "maszyny.json"),
         MAGAZYN_PATH,
         "config.json",
     ]:
