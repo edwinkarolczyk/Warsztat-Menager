@@ -16,6 +16,7 @@ from tkinter import TclError, ttk
 
 logger = logging.getLogger(__name__)
 
+
 # -----------------------------
 # Palety kolorów (2 motywy)
 # -----------------------------
@@ -658,7 +659,10 @@ COLORS = {
 
 
 def ensure_theme_applied(root: tk.Misc) -> None:
-    """Ensure the theme is applied to ``root`` once."""
+    """
+    Bezpiecznik: jeśli na tym oknie nie ma jeszcze motywu – nałóż go.
+    Wymaga, by w tym module istniała funkcja apply_theme(root).
+    """
 
     if not getattr(root, "_WM_THEME", False):
         try:

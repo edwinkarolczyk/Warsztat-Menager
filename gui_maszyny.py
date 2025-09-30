@@ -1,189 +1,178 @@
 from __future__ import annotations
 
-import json
-import os
+import os, json
 import tkinter as tk
 from tkinter import ttk
 
-# -- bezpieczny import konfiguracji (działa także w testach/offline) --
-try:
-    from config_manager import ConfigManager
-except Exception:  # pragma: no cover - fallback tylko w środowiskach testowych
-    class _DummyCfg(dict):
-        def get(self, key, default=None):
-            return default
+from config_manager import ConfigManager
+from ui_theme import ensure_theme_applied
 
-    ConfigManager = lambda: _DummyCfg()
+try:  # pragma: no cover - fallback dla środowisk testowych
+    from logger import get_logger
+except Exception:  # pragma: no cover - logger opcjonalny
+    import logging
 
-
-_CFG = ConfigManager()
-
-# Domyślna lokalizacja pliku z maszynami (relatywnie do katalogu danych)
-DEFAULT_MACHINES_REL = os.path.join("maszyny", "maszyny.json")
+    def get_logger(name: str) -> logging.Logger:
+        return logging.getLogger(name)
 
 
-# ----------------- helpers: rozwiązywanie ścieżek + czytanie JSON -----------------
-
-def _pick_data_root() -> tuple[str, str]:
-    """Wybierz katalog danych na podstawie konfiguracji."""
-
-    for key in (
-        "paths.data_root",
-        "system.data_dir",
-        "system.data_path",
-        "system.data_root",
-    ):
-        value = _CFG.get(key)
-        if value:
-            return str(value), key
-    return os.path.join(os.getcwd(), "data"), "fallback:cwd/data"
+log = get_logger(__name__)
 
 
-def _resolve_machines_path() -> dict:
-    """Zbuduj meta informacje o pliku maszyn."""
+def _fetch_real_machines() -> list[str]:
+    """Zbiera listę identyfikatorów maszyn z katalogu machines_dir."""
 
-    data_root, picked_key = _pick_data_root()
-    machines_rel = _CFG.get("hall.machines_file", DEFAULT_MACHINES_REL)
-    machines_abs = (
-        machines_rel
-        if os.path.isabs(machines_rel)
-        else os.path.join(data_root, machines_rel)
+    machines_dir: str | None = None
+    coll = "NN"
+    try:
+        cfg_mgr = ConfigManager()
+        machines_dir = cfg_mgr.get("paths.machines_dir", None)
+        coll = str(cfg_mgr.get("tools.default_collection", coll) or coll)
+    except Exception:
+        machines_dir = None
+        coll = "NN"
+
+    machines_dir = (
+        str(machines_dir)
+        if machines_dir
+        else os.path.join(os.getcwd(), "data", "maszyny")
     )
-    return {
-        "data_root": data_root,
-        "picked_key": picked_key,
-        "machines_rel": machines_rel,
-        "machines_abs": machines_abs,
-        "exists": os.path.isfile(machines_abs),
-    }
+
+    items: list[str] = []
+    seen: set[str] = set()
+    try:
+        for root, _dirs, files in os.walk(machines_dir):
+            for fn in files:
+                if not fn.lower().endswith(".json"):
+                    continue
+                path = os.path.join(root, fn)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    continue
+
+                dcoll = str(data.get("kolekcja", coll) or coll)
+                if dcoll != coll:
+                    continue
+
+                ident = (
+                    data.get("ID")
+                    or data.get("id")
+                    or data.get("nr")
+                    or data.get("sn")
+                )
+                name = data.get("nazwa") or data.get("name") or ""
+                ident = (
+                    (str(ident).strip() if ident is not None else "")
+                    .strip()
+                )
+                label = ident or str(name).strip()
+                if not label or label in seen:
+                    continue
+                seen.add(label)
+                items.append(label)
+    except Exception as exc:  # pragma: no cover - log błędu wczytywania
+        log.error(f"[ERROR][MASZYNY] Błąd wczytywania listy maszyn: {exc}")
+
+    items.sort(key=lambda x: (len(x), x))
+    log.info(
+        f"[WM-DBG][MASZYNY] źródło={machines_dir} coll={coll} count={len(items)}"
+    )
+    return items
 
 
-def _read_json_list(path: str) -> list:
-    """Czytaj listę maszyn z pliku JSON."""
+def _bind_machines_to_view(self, items: list[str]) -> None:
+    """Podłącza listę maszyn do dostępnego widoku."""
 
     try:
-        with open(path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+        if hasattr(self, "tree") and self.tree is not None:
+            try:
+                for iid in self.tree.get_children():
+                    self.tree.delete(iid)
+                for lbl in items:
+                    self.tree.insert("", "end", text=lbl, values=(lbl,))
+                return
+            except Exception:
+                pass
+
+        if hasattr(self, "machines_list") and self.machines_list is not None:
+            try:
+                self.machines_list["values"] = tuple(items)
+                if items:
+                    try:
+                        self.machines_list.current(0)
+                    except Exception:
+                        pass
+                return
+            except Exception:
+                try:
+                    self.machines_list.delete(0, "end")
+                    for lbl in items:
+                        self.machines_list.insert("end", lbl)
+                    return
+                except Exception:
+                    pass
+
+        log.info("[WM-DBG][MASZYNY] Nie znaleziono widoku do podpięcia danych.")
+    except Exception as exc:  # pragma: no cover - log błędu podpinania
+        log.error(f"[ERROR][MASZYNY] Podpinanie danych do widoku: {exc}")
 
 
-# ----------------- GUI: tylko dodajemy baner diagnostyczny -----------------
+def _wm_init_hook_after_ui_build(self):
+    try:
+        data = _fetch_real_machines()
+        _bind_machines_to_view(self, data)
+    except Exception as _exc:  # pragma: no cover - log błędu inicjalizacji
+        log.error(f"[ERROR][MASZYNY] Inicjalizacja listy maszyn: {_exc}")
 
 
 class MaszynyGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self._meta = _resolve_machines_path()
-
-        # Próba wczytania DOKŁADNIE z tego pliku, który pokazujemy w banerze
-        self._machines = _read_json_list(self._meta["machines_abs"])
-        self._count = len(self._machines)
-
-        print(
-            "[WM][Maszyny] file=%s | exists=%s | count=%s | data_root=%s (via %s)"
-            % (
-                self._meta["machines_abs"],
-                self._meta["exists"],
-                self._count,
-                self._meta["data_root"],
-                self._meta["picked_key"],
-            )
-        )
-
         self._build_ui()
+        _wm_init_hook_after_ui_build(self)
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         bg = self.root["bg"] if "bg" in self.root.keys() else "#111214"
         main = tk.Frame(self.root, bg=bg)
         main.pack(fill="both", expand=True)
 
-        # 1) BANER DIAGNOSTYCZNY NA GÓRZE
-        self._build_diag_banner(main, bg)
-
-        # 2) Tabela maszyn (prezentacja danych)
-        self.tree = ttk.Treeview(
+        header = tk.Label(
             main,
-            columns=("id", "nazwa", "typ", "nastepne"),
-            show="headings",
-            height=18,
-        )
-        self.tree.heading("id", text="nr_ewid")
-        self.tree.column("id", width=90, anchor="center")
-        self.tree.heading("nazwa", text="nazwa")
-        self.tree.column("nazwa", width=280, anchor="w")
-        self.tree.heading("typ", text="typ")
-        self.tree.column("typ", width=150, anchor="w")
-        self.tree.heading("nastepne", text="nastepne_zadanie")
-        self.tree.column("nastepne", width=180, anchor="center")
-        self.tree.pack(fill="both", expand=True, padx=12, pady=(0, 10))
-
-        for machine in self._machines:
-            mid = machine.get("id") or machine.get("nr_ewid") or ""
-            nazwa = machine.get("nazwa") or machine.get("name") or ""
-            typ = machine.get("typ") or ""
-            nastepne = machine.get("nastepne_zadanie") or machine.get("nastepne") or ""
-            self.tree.insert("", "end", values=(mid, nazwa, typ, nastepne))
-
-        if not self._machines:
-            message = tk.Label(
-                main,
-                text="Brak danych maszyn — sprawdź ustawienia ścieżek i plik JSON.",
-                fg="#fca5a5",
-                bg=bg,
-                anchor="w",
-            )
-            message.pack(fill="x", padx=12, pady=(0, 8))
-
-    def _build_diag_banner(self, parent: tk.Widget, bg: str):
-        exists = self._meta["exists"]
-        count = self._count
-
-        if exists and count > 0:
-            color = "#22c55e"
-            status_txt = "OK"
-        elif exists and count == 0:
-            color = "#eab308"
-            status_txt = "Pusty plik"
-        else:
-            color = "#ef4444"
-            status_txt = "Brak pliku"
-
-        bar = tk.Frame(parent, bg=bg)
-        bar.pack(fill="x", padx=12, pady=(10, 6))
-
-        dot = tk.Canvas(bar, width=12, height=12, bg=bg, highlightthickness=0)
-        dot.pack(side="left", padx=(0, 8))
-        dot.create_oval(2, 2, 10, 10, fill=color, outline=color)
-
-        path_lbl = tk.Label(
-            bar,
-            text=(
-                "Źródło maszyn: "
-                f"{self._meta['machines_abs']}  •  rekordów: {count}  •  "
-                f"data_root: {self._meta['data_root']} (via {self._meta['picked_key']})"
-            ),
+            text="Lista dostępnych maszyn",
             bg=bg,
             fg="#d1d5db",
             anchor="w",
-            justify="left",
+            font=("TkDefaultFont", 12, "bold"),
         )
-        path_lbl.pack(side="left", fill="x", expand=True)
+        header.pack(fill="x", padx=12, pady=(12, 6))
 
-        status_lbl = tk.Label(
-            bar,
-            text=status_txt,
-            bg=bg,
-            fg=color,
-            font=("TkDefaultFont", 10, "bold"),
+        tree_container = tk.Frame(main, bg=bg)
+        tree_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+        self.tree = ttk.Treeview(
+            tree_container,
+            columns=("nazwa",),
+            show="tree headings",
+            selectmode="browse",
+            height=18,
         )
-        status_lbl.pack(side="right")
+        self.tree.heading("nazwa", text="Maszyna")
+        self.tree.column("#0", width=0, stretch=False)
+        self.tree.column("nazwa", width=320, anchor="w")
+        self.tree.pack(side="left", fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(
+            tree_container, orient="vertical", command=self.tree.yview
+        )
+        scrollbar.pack(side="right", fill="y")
+        self.tree.configure(yscrollcommand=scrollbar.set)
 
 
-# --- Uruchomienie testowe (lokalne) ---
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("Warsztat Menager — Maszyny (diag banner)")
-    app = MaszynyGUI(root)
+    root.title("Warsztat Menager — Maszyny")
+    ensure_theme_applied(root)
+    MaszynyGUI(root)
     root.mainloop()
