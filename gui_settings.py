@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 import datetime
 import json
+import logging
 import os, sys, subprocess, threading
 import re
 import tkinter as tk
@@ -16,6 +17,8 @@ from tkinter import colorchooser
 from tkinter import ttk, filedialog, messagebox
 
 from ui_theme import ensure_theme_applied
+
+logger = logging.getLogger(__name__)
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
@@ -2476,12 +2479,115 @@ class SettingsWindow(SettingsPanel):
 
         frame = ttk.Frame(self.nb)
         self.nb.add(frame, text="Audyt")
+
         btn = ttk.Button(frame, text="Uruchom audyt", command=self._run_audit_now)
         btn.pack(anchor="w", padx=5, pady=5)
-        txt = tk.Text(frame, height=15)
-        txt.pack(fill="both", expand=True, padx=5, pady=5)
+
+        txt = tk.Text(frame, height=12)
+        txt.pack(fill="x", expand=False, padx=5, pady=(0, 5))
         self.btn_audit_run = btn
         self.txt_audit = txt
+
+        tree_frame = ttk.Frame(frame)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        columns = ("time", "user", "action", "details", "file")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=12)
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+
+        headers = {
+            "time": "Czas",
+            "user": "Użytkownik",
+            "action": "Akcja/klucz",
+            "details": "Szczegóły",
+            "file": "Plik",
+        }
+        for key, label in headers.items():
+            tree.heading(key, text=label)
+        tree.column("time", width=150, anchor="w")
+        tree.column("user", width=120, anchor="w")
+        tree.column("action", width=220, anchor="w")
+        tree.column("details", width=320, anchor="w")
+        tree.column("file", width=140, anchor="w")
+        self.audit_tree = tree
+
+        def _populate_audit_tree() -> None:
+            tree.delete(*tree.get_children())
+            records: list[dict[str, Any]] = []
+            try:
+                audit_dir = Path(cm.AUDIT_DIR)
+                if audit_dir.exists():
+                    for audit_file in sorted(audit_dir.glob("*.jsonl")):
+                        try:
+                            with audit_file.open("r", encoding="utf-8") as handle:
+                                for raw in handle:
+                                    line = raw.strip()
+                                    if not line:
+                                        continue
+                                    try:
+                                        record = json.loads(line)
+                                    except Exception:
+                                        continue
+                                    record["_audit_file"] = audit_file.name
+                                    records.append(record)
+                        except Exception:
+                            continue
+            except Exception:
+                records = []
+
+            def _ts_value(rec: dict[str, Any]) -> str:
+                ts = rec.get("time") or rec.get("ts") or ""
+                return str(ts)
+
+            records.sort(key=_ts_value, reverse=True)
+
+            for rec in records:
+                time_val = rec.get("time") or rec.get("ts") or ""
+                user_val = rec.get("user") or rec.get("who") or ""
+                action_val = (
+                    rec.get("key")
+                    or rec.get("action")
+                    or rec.get("event")
+                    or ""
+                )
+                detail_val: Any = rec.get("after")
+                if detail_val in ({}, [], None, ""):
+                    detail_val = (
+                        rec.get("detail")
+                        or rec.get("path")
+                        or rec.get("branch")
+                        or rec.get("commit")
+                    )
+                if isinstance(detail_val, (dict, list)):
+                    try:
+                        detail_val = json.dumps(detail_val, ensure_ascii=False)
+                    except Exception:
+                        detail_val = str(detail_val)
+                if detail_val is None:
+                    detail_val = ""
+                file_val = rec.get("_audit_file", "")
+                tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        str(time_val),
+                        str(user_val),
+                        str(action_val),
+                        str(detail_val),
+                        str(file_val),
+                    ),
+                )
+            try:
+                logger.info("[AUDYT] Wyświetlono %s pozycji audytu", len(records))
+            except Exception:
+                pass
+
+        _populate_audit_tree()
+        self._refresh_audit_history = _populate_audit_tree
 
     def _append_audit_out(self, s: str) -> None:
         try:
@@ -2507,6 +2613,12 @@ class SettingsWindow(SettingsPanel):
                     f.write(result)
                 msg = result + f"\n[INFO] Raport zapisano do {path}\n"
                 self.txt_audit.after(0, self._append_audit_out, msg)
+                refresh = getattr(self, "_refresh_audit_history", None)
+                if callable(refresh):
+                    try:
+                        self.txt_audit.after(0, refresh)
+                    except Exception:
+                        pass
             except Exception as exc:
                 self.txt_audit.after(
                     0, self._append_audit_out, f"[ERROR] {exc!r}\n"
