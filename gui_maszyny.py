@@ -17,6 +17,7 @@ except Exception:  # pragma: no cover - logger opcjonalny
 
 
 log = get_logger(__name__)
+logger = log
 
 
 def _fetch_real_machines() -> list[str]:
@@ -121,8 +122,12 @@ def _bind_machines_to_view(self, items: list[str]) -> None:
 
 def _wm_init_hook_after_ui_build(self):
     try:
-        data = _fetch_real_machines()
-        _bind_machines_to_view(self, data)
+        machines = _fetch_real_machines()
+        try:
+            logger.info("[WM-DBG][Maszyny] Wczytano rekordów: %s", len(machines))
+        except Exception:
+            pass
+        _bind_machines_to_view(self, machines)
     except Exception as _exc:  # pragma: no cover - log błędu inicjalizacji
         log.error(f"[ERROR][MASZYNY] Inicjalizacja listy maszyn: {_exc}")
 
