@@ -64,22 +64,23 @@ Roadmapa projektu **Warsztat Menager** określa plan działania dla dalszego roz
 > Logi: **konsola + `logs/wm.log` z rotacją 5×5 MB**.
 
 ### 🔔 ALERT
-🔴 **STOP dla nowych funkcji.** Pracujemy wyłącznie nad naprawami, ładem i spójnością gałęzi **Rozwiniecie**.
+🔴 **STOP dla nowych funkcji.** Pracujemy wyłącznie nad naprawami i spójnością gałęzi **Rozwiniecie**.
 
 ---
 
-### 0) Rdzeń / Ustawienia / Logowanie — 🟡 70%
-- [ ] Zbiorczy fix `_TclError` (scroll/`after()` na zniszczonych widgetach)
-- [ ] Zawężenie `except Exception` + stałe logowanie `[WM-ERR]/[WM-DBG]`
-- [ ] **Motywy** – pełna spójność (Logowanie, Panel, wszystkie dialogi)
-- [ ] Logi: konsola + `logs/wm.log` (rotacja 5×5 MB)
-**Definition of Done:** start bez wyjątków; motywy spójne; wszystkie błędy/akcje → log; gdzie trzeba okna błędów.
+### 0) Rdzeń / Ustawienia / Logowanie — 🟢 90%  _(zaktualizowano po PR #1167)_
+- [x] Zbiorczy fix `_TclError` (scroll/`after()` na zniszczonych widgetach)
+- [x] Zawężenie `except Exception` + stałe logowanie `[WM-ERR]/[WM-DBG]`
+- [x] **Motywy** – pełna spójność (Logowanie, Panel, dialogi)
+- [x] Logi: konsola + `logs/wm.log` (rotacja 5×5 MB)
+**DoD:** start bez wyjątków; motywy spójne; błędy/akcje → log; okna błędów gdzie ustalone.
 
 ### 1) Narzędzia — 🟠 65%
 - [ ] Walidacja formularzy (puste pola → okno błędu)
 - [ ] Każdy błąd dod/edycja → **messagebox.showerror** + log
 - [ ] Historia NN↔SN: zabezpieczenie anty-duplikat (gdy występują)
-**DoD:** brak duplikatów; jasne komunikaty; pełne logowanie.
+- [ ] _Naprawić test:_ `test_panel_refreshes_after_config_change` (tylko istniejąca logika)
+**DoD:** brak duplikatów; jasne komunikaty; pełne logowanie; **refresh po zmianie konfigu działa**.
 
 ### 2) Magazyn — 🟠 60%
 - [ ] **Źródło prawdy** z Ustawień → jednolite ładowanie stanów
@@ -107,8 +108,8 @@ Roadmapa projektu **Warsztat Menager** określa plan działania dla dalszego roz
 ---
 
 ### Wyłączenia (deprecjacje/usunięcia)
-- [x] **Serwis** — **usunąć** moduł z kodu i manifestów
-- [x] **Hala** — **usunąć** (pozostaje tylko „Maszyny”)
+- [ ] **Serwis** — **usunąć** moduł z kodu i manifestów
+- [ ] **Hala** — **usunąć** (pozostaje tylko „Maszyny”)
 **DoD:** brak importów/odwołań; brak pozycji w menu/manifeście.
 
 ### Porządki repo
@@ -117,13 +118,4 @@ Roadmapa projektu **Warsztat Menager** określa plan działania dla dalszego roz
 - [ ] Przenieść/wyciąć stare logi/backupy/README_DEBUG/PATCH (jeśli obecne)
 
 ---
-
-### Paczki naprawcze (kolejność realizacji)
-1. **#R-00 – Usunięcia**: Serwis/Hala (manifest, importy, menu) — *średnia*
-2. **#R-01 – Rdzeń/Ustawienia/Logowanie**: `_TclError` + motywy + logi — *średnia*
-3. **#R-03 – Maszyny**: źródło prawdy + scalenie duplikatów — *średnia/duża*
-4. **#R-05 – Zlecenia**: walidacje + odświeżanie + okna błędów — *mała/średnia*
-5. **#R-06 – Narzędzia**: walidacje + okna błędów + historia — *średnia*
-
-> Aktualizujemy ten blok po każdym zaakceptowanym pakiecie (checklisty, % i notatki).
 <!-- END: TRYB NAPRAWCZY Q4-2025 -->
