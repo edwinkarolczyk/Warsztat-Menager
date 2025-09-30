@@ -1,1658 +1,280 @@
-{
-  "plik": "data/maszyny/maszyny.json",
-  "wersja_pliku": "1.0.0",
-  "wygenerowano": "2025-09-19 14:01:18",
-  "liczba_maszyn": 97,
-  "opis": "Startowy zbiór maszyn z harmonogramem 2025 (format WM uproszczony, seeder pure-python).",
-  "maszyny": [
-    {
-      "id": "1",
-      "nazwa": "BLELL",
-      "typ": "42",
-      "hala": 1,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "2",
-      "nazwa": "CJ6250YC",
-      "typ": "27",
-      "hala": 1,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "3",
-      "nazwa": "TOP - 115",
-      "typ": "71",
-      "hala": 1,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "4",
-      "nazwa": "TUC-40/50",
-      "typ": "44",
-      "hala": 1,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "5",
-      "nazwa": "CTW 400 TB",
-      "typ": "65",
-      "hala": 1,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "6",
-      "nazwa": "220V",
-      "typ": "46",
-      "hala": 1,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "7",
-      "nazwa": "66",
-      "typ": "66",
-      "hala": 1,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "8",
-      "nazwa": "WS 40",
-      "typ": "47",
-      "hala": 1,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "9",
-      "nazwa": "BT-BD 701",
-      "typ": "95",
-      "hala": 1,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "10",
-      "nazwa": "HAVEN SG-2050",
-      "typ": "48",
-      "hala": 1,
-      "pozycja": {
-        "x": 1450,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "11",
-      "nazwa": "LS350",
-      "typ": "94",
-      "hala": 1,
-      "pozycja": {
-        "x": 100,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "12",
-      "nazwa": "ZGR 1060",
-      "typ": "74",
-      "hala": 1,
-      "pozycja": {
-        "x": 250,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "13",
-      "nazwa": "DEDRA",
-      "typ": "72",
-      "hala": 1,
-      "pozycja": {
-        "x": 400,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "14",
-      "nazwa": "ZGR 1060",
-      "typ": "74",
-      "hala": 1,
-      "pozycja": {
-        "x": 550,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "15",
-      "nazwa": "FWA32M",
-      "typ": "45",
-      "hala": 1,
-      "pozycja": {
-        "x": 700,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "16",
-      "nazwa": "F 12/119",
-      "typ": "53",
-      "hala": 1,
-      "pozycja": {
-        "x": 850,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "17",
-      "nazwa": "NG-3C",
-      "typ": "9",
-      "hala": 1,
-      "pozycja": {
-        "x": 1000,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "18",
-      "nazwa": "BODOR",
-      "typ": "84",
-      "hala": 1,
-      "pozycja": {
-        "x": 1150,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "19",
-      "nazwa": "CleanAir",
-      "typ": "75",
-      "hala": 1,
-      "pozycja": {
-        "x": 1300,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "20",
-      "nazwa": "GunAIYOU",
-      "typ": "58",
-      "hala": 1,
-      "pozycja": {
-        "x": 1450,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "21",
-      "nazwa": "92",
-      "typ": "92",
-      "hala": 1,
-      "pozycja": {
-        "x": 100,
-        "y": 360
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "22",
-      "nazwa": "93",
-      "typ": "93",
-      "hala": 1,
-      "pozycja": {
-        "x": 250,
-        "y": 360
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "23",
-      "nazwa": "HAVEN YQ30-100",
-      "typ": "21",
-      "hala": 2,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "24",
-      "nazwa": "85",
-      "typ": "85",
-      "hala": 2,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "25",
-      "nazwa": "NPG-3",
-      "typ": "17",
-      "hala": 2,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "26",
-      "nazwa": "DURMA RGM 1504",
-      "typ": "18",
-      "hala": 2,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "27",
-      "nazwa": "MS2504",
-      "typ": "83",
-      "hala": 2,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "28",
-      "nazwa": "Vipros 255",
-      "typ": "87",
-      "hala": 2,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "29",
-      "nazwa": "Amada-Pega",
-      "typ": "64",
-      "hala": 2,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "30",
-      "nazwa": "Adira BB002512",
-      "typ": "50",
-      "hala": 2,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "31",
-      "nazwa": "DURMA HAP 2035",
-      "typ": "82",
-      "hala": 2,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "32",
-      "nazwa": "DURMA HAP 2035",
-      "typ": "61",
-      "hala": 2,
-      "pozycja": {
-        "x": 1450,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "33",
-      "nazwa": "Magster 330 4x4",
-      "typ": "76",
-      "hala": 2,
-      "pozycja": {
-        "x": 100,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "34",
-      "nazwa": "Magster 280 4x4",
-      "typ": "43",
-      "hala": 2,
-      "pozycja": {
-        "x": 250,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "35",
-      "nazwa": "Kemper",
-      "typ": "2",
-      "hala": 2,
-      "pozycja": {
-        "x": 400,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "36",
-      "nazwa": "Veriforce MIG 350",
-      "typ": "52",
-      "hala": 2,
-      "pozycja": {
-        "x": 550,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "37",
-      "nazwa": "Magster 280 4x4",
-      "typ": "54",
-      "hala": 2,
-      "pozycja": {
-        "x": 700,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "38",
-      "nazwa": "89",
-      "typ": "89",
-      "hala": 2,
-      "pozycja": {
-        "x": 850,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "39",
-      "nazwa": "Ederlich",
-      "typ": "77",
-      "hala": 5,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "40",
-      "nazwa": "Typ",
-      "typ": "Nr ewid.",
-      "hala": 5,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "41",
-      "nazwa": "NEZ-9",
-      "typ": "13",
-      "hala": 7,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "42",
-      "nazwa": "PMS 63 B",
-      "typ": "14",
-      "hala": 7,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "43",
-      "nazwa": "PYE2551",
-      "typ": "15",
-      "hala": 7,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "44",
-      "nazwa": "ECCO-LINE EL 500",
-      "typ": "63",
-      "hala": 7,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "45",
-      "nazwa": "DURMA HAP 2035",
-      "typ": "23",
-      "hala": 7,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "46",
-      "nazwa": "L.Schuler",
-      "typ": "16",
-      "hala": 7,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "47",
-      "nazwa": "DURMA VHKM 2004",
-      "typ": "22",
-      "hala": 7,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "48",
-      "nazwa": "DURMA HKM 2004",
-      "typ": "59",
-      "hala": 7,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "49",
-      "nazwa": "P 6330",
-      "typ": "19",
-      "hala": 7,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "50",
-      "nazwa": "PCL 40S",
-      "typ": "20",
-      "hala": 7,
-      "pozycja": {
-        "x": 1450,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "51",
-      "nazwa": "7",
-      "typ": "7",
-      "hala": 8,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "52",
-      "nazwa": "Zpb-6",
-      "typ": "62",
-      "hala": 8,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "53",
-      "nazwa": "Zpa-6",
-      "typ": "28",
-      "hala": 8,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "54",
-      "nazwa": "Zpf-16",
-      "typ": "69",
-      "hala": 8,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "55",
-      "nazwa": "Zpf-16",
-      "typ": "26",
-      "hala": 8,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "56",
-      "nazwa": "Zpk-12",
-      "typ": "37",
-      "hala": 8,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "57",
-      "nazwa": "Zpb-6",
-      "typ": "29",
-      "hala": 8,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "58",
-      "nazwa": "PDL-70NC",
-      "typ": "49",
-      "hala": 8,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "59",
-      "nazwa": "CHR 0,8",
-      "typ": "68",
-      "hala": 8,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "60",
-      "nazwa": "Zpk-6",
-      "typ": "77",
-      "hala": 8,
-      "pozycja": {
-        "x": 1450,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "61",
-      "nazwa": "ZPJ-15",
-      "typ": "70",
-      "hala": 8,
-      "pozycja": {
-        "x": 100,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "62",
-      "nazwa": "Zpb-6",
-      "typ": "78",
-      "hala": 8,
-      "pozycja": {
-        "x": 250,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "63",
-      "nazwa": "Zpm-40",
-      "typ": "73",
-      "hala": 8,
-      "pozycja": {
-        "x": 400,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "64",
-      "nazwa": "Zpn-16",
-      "typ": "24",
-      "hala": 8,
-      "pozycja": {
-        "x": 550,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "65",
-      "nazwa": "Zpn-16",
-      "typ": "25",
-      "hala": 8,
-      "pozycja": {
-        "x": 700,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "66",
-      "nazwa": "P 6324",
-      "typ": "12",
-      "hala": 8,
-      "pozycja": {
-        "x": 850,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "67",
-      "nazwa": "80",
-      "typ": "80",
-      "hala": 8,
-      "pozycja": {
-        "x": 1000,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "68",
-      "nazwa": "MPW 6,3",
-      "typ": "96",
-      "hala": 9,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "69",
-      "nazwa": "MPW 25",
-      "typ": "97",
-      "hala": 9,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "70",
-      "nazwa": "BABRAI",
-      "typ": "10",
-      "hala": 9,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "71",
-      "nazwa": "BABRAI",
-      "typ": "30",
-      "hala": 9,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "72",
-      "nazwa": "BABRAI",
-      "typ": "8",
-      "hala": 9,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "73",
-      "nazwa": "BABRAI",
-      "typ": "31",
-      "hala": 9,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "74",
-      "nazwa": "BABRAI",
-      "typ": "56",
-      "hala": 9,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "75",
-      "nazwa": "Metalbox",
-      "typ": "86",
-      "hala": 9,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "76",
-      "nazwa": "Per 16x200",
-      "typ": "11",
-      "hala": 9,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "77",
-      "nazwa": "CZEST",
-      "typ": "3",
-      "hala": 9,
-      "pozycja": {
-        "x": 1450,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "78",
-      "nazwa": "Włoska",
-      "typ": "4",
-      "hala": 9,
-      "pozycja": {
-        "x": 100,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "79",
-      "nazwa": "2324E",
-      "typ": "5",
-      "hala": 9,
-      "pozycja": {
-        "x": 250,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "80",
-      "nazwa": "CZEST",
-      "typ": "6",
-      "hala": 9,
-      "pozycja": {
-        "x": 400,
-        "y": 230
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "81",
-      "nazwa": "SGB 012",
-      "typ": "55",
-      "hala": 11,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "82",
-      "nazwa": "98",
-      "typ": "98",
-      "hala": 11,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "83",
-      "nazwa": "Typ",
-      "typ": "Nr ewid.",
-      "hala": 11,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "84",
-      "nazwa": "Euroimpianti",
-      "typ": "32",
-      "hala": 12,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "85",
-      "nazwa": "Euroimpianti",
-      "typ": "33",
-      "hala": 12,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "86",
-      "nazwa": "Euroimpianti",
-      "typ": "91",
-      "hala": 12,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "87",
-      "nazwa": "34",
-      "typ": "34",
-      "hala": 12,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "88",
-      "nazwa": "MONKIEWICZ",
-      "typ": "35",
-      "hala": 12,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "89",
-      "nazwa": "Euroimpianti",
-      "typ": "36",
-      "hala": 12,
-      "pozycja": {
-        "x": 850,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "90",
-      "nazwa": "DI/50/278M/SP",
-      "typ": "67",
-      "hala": 12,
-      "pozycja": {
-        "x": 1000,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "91",
-      "nazwa": "DEDRA DED7723",
-      "typ": "81",
-      "hala": 12,
-      "pozycja": {
-        "x": 1150,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "92",
-      "nazwa": "Euroimpianti",
-      "typ": "37",
-      "hala": 12,
-      "pozycja": {
-        "x": 1300,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "93",
-      "nazwa": "S-4",
-      "typ": "38",
-      "hala": 14,
-      "pozycja": {
-        "x": 100,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "94",
-      "nazwa": "39",
-      "typ": "39",
-      "hala": 14,
-      "pozycja": {
-        "x": 250,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "95",
-      "nazwa": "£ódź",
-      "typ": "40",
-      "hala": 14,
-      "pozycja": {
-        "x": 400,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "96",
-      "nazwa": "£ódź",
-      "typ": "41",
-      "hala": 14,
-      "pozycja": {
-        "x": 550,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    },
-    {
-      "id": "97",
-      "nazwa": "Plymovent",
-      "typ": "60",
-      "hala": 14,
-      "pozycja": {
-        "x": 700,
-        "y": 100
-      },
-      "rozmiar": {
-        "w": 100,
-        "h": 60
-      },
-      "status": "sprawna",
-      "nastepne_zadanie": null,
-      "przeglady": []
-    }
-  ]
-}
+[
+  {
+    "nr_hali": "1",
+    "nr_ewid": "27",
+    "nazwa": "Tokarka",
+    "typ": "CJ6250YC",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 60,
+    "y": 40,
+    "status": "OK",
+    "id": "27"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "42",
+    "nazwa": "Strugarka wzdłużna",
+    "typ": "BLELL",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 20,
+    "y": 40,
+    "status": "OK",
+    "id": "42"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "44",
+    "nazwa": "Tokarka",
+    "typ": "TUC-40/50",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 140,
+    "y": 40,
+    "status": "OK",
+    "id": "44"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "46",
+    "nazwa": "Piec hartowniczy",
+    "typ": "220V",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-04-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-07-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-10-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 20,
+    "y": 100,
+    "status": "OK",
+    "id": "46"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "47",
+    "nazwa": "Wiertarka słupowa",
+    "typ": "WS 40",
+    "zadania": [
+      {
+        "data": "2025-02-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-08-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 100,
+    "y": 100,
+    "status": "OK",
+    "id": "47"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "48",
+    "nazwa": "Szlifierka",
+    "typ": "HAVEN SG-2050",
+    "zadania": [
+      {
+        "data": "2025-01-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 180,
+    "y": 100,
+    "status": "OK",
+    "id": "48"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "65",
+    "nazwa": "Wycinarka drutowa",
+    "typ": "CTW 400 TB",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 180,
+    "y": 40,
+    "status": "SERWIS",
+    "id": "65"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "66",
+    "nazwa": "Wiertarka stołowa",
+    "typ": "",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 60,
+    "y": 100,
+    "status": "OK",
+    "id": "66"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "71",
+    "nazwa": "Przecinarka taśmowa",
+    "typ": "TOP - 115",
+    "zadania": [
+      {
+        "data": "2025-02-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-08-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 100,
+    "y": 40,
+    "status": "SERWIS",
+    "id": "71"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "94",
+    "nazwa": "Przecinarka tarczowa haven",
+    "typ": "LS350",
+    "zadania": [
+      {
+        "data": "2025-03-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-06-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-09-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 220,
+    "y": 100,
+    "status": "OK",
+    "id": "94"
+  },
+  {
+    "nr_hali": "1",
+    "nr_ewid": "95",
+    "nazwa": "Wiertarka stołowa Einhell",
+    "typ": "BT-BD 701",
+    "zadania": [
+      {
+        "data": "2025-05-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      },
+      {
+        "data": "2025-11-01",
+        "typ_zadania": "przegląd",
+        "uwagi": ""
+      }
+    ],
+    "hala": "1",
+    "x": 140,
+    "y": 100,
+    "status": "SERWIS",
+    "id": "95"
+  }
+]
