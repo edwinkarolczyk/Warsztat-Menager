@@ -1,4 +1,4 @@
-# Wersja pliku: 1.4.12.1
+# Wersja pliku: 1.4.13
 # Plik: gui_logowanie.py
 # Zmiany 1.4.12.1:
 # - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
@@ -6,13 +6,13 @@
 # - Bezpieczny timer (after) + anulowanie przy Destroy
 # - Spójny wygląd z motywem (apply_theme), brak pływania elementów
 
-import os
 import logging
+import os
 import subprocess
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import messagebox, ttk
 
 try:  # opcjonalny Pillow
     from PIL import Image, ImageTk
@@ -34,7 +34,34 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 # Motyw
 from ui_theme import apply_theme_tree
 
+logger = logging.getLogger(__name__)
+
+try:
+    from theme import apply_theme as _theme_apply
+except Exception:  # pragma: no cover - brak modułu theme
+    _theme_apply = None
+
 BASE_DIR = Path(__file__).resolve().parent
+
+
+def _apply_theme_login(win: tk.Misc) -> None:
+    try:
+        if _theme_apply:
+            _theme_apply(win)
+        else:
+            apply_theme_tree(win)
+        logger.debug("[THEME] Motyw zastosowany w oknie logowania")
+    except Exception as exc:  # pragma: no cover - defensywne logowanie
+        logger.warning("[THEME] Logowanie bez motywu: %r", exc)
+
+
+def _show_login_error(msg: str) -> None:
+    logger.error("[WM-ERR][LOGIN] %s", msg)
+    try:
+        messagebox.showerror("Błąd logowania", msg)
+    except Exception:  # pragma: no cover - brak GUI
+        pass
+
 
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
@@ -68,7 +95,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # wyczyść i ustaw motyw
     for w in root.winfo_children():
         w.destroy()
-    apply_theme(root)
+    _apply_theme_login(root)
 
     # pełny ekran i tytuł
     root.title("Warsztat Menager")
@@ -80,16 +107,20 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     # tło z pliku grafiki/login_bg.png
     bg_path = os.path.join("grafiki", "login_bg.png")
     fallback = True
-    try:
-        img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
-        bg_image = ImageTk.PhotoImage(img)
-        bg_label = tk.Label(root, image=bg_image)
-        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-        bg_label.image = bg_image  # pin referencji
-        bg_label.lower()
-        fallback = False
-    except Exception:
-        print("[WM-DBG] pomijam tło logowania (login_bg.png)")
+    if Image and os.path.exists(bg_path):
+        try:
+            img = Image.open(bg_path).resize((szer, wys), Image.LANCZOS)
+            bg_image = ImageTk.PhotoImage(img)
+            bg_label = tk.Label(root, image=bg_image)
+            bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+            bg_label.image = bg_image  # pin referencji
+            bg_label.lower()
+            fallback = False
+        except Exception as exc:
+            logger.exception("[WM-ERR][LOGIN] Nie można wczytać tła logowania: %r", exc)
+            _show_login_error(f"Nie można wczytać tła logowania:\n{exc}")
+    else:
+        logger.debug("[WM-DBG][LOGIN] Brak tła logowania – używam domyślnego koloru")
 
     if fallback:
         root.configure(bg="#0f1113")
@@ -103,7 +134,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 
         # logo (jeśli jest) — używamy tk.Label dla image
         logo_path = "logo.png"
-        if os.path.exists(logo_path):
+        if Image and os.path.exists(logo_path):
             try:
                 img = Image.open(logo_path).resize((300, 100), Image.LANCZOS)
                 logo_img = ImageTk.PhotoImage(img)
@@ -114,10 +145,13 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
                 )
                 lbl_logo.image = logo_img  # pin referencji
                 lbl_logo.pack()
-            except Exception:
-                # brak PIL lub błąd pliku — po prostu nazwa
+            except Exception as exc:
+                logger.exception("[WM-ERR][LOGIN] Nie można wczytać logo: %r", exc)
+                _show_login_error(f"Nie można wczytać logo:\n{exc}")
                 ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
         else:
+            if os.path.exists(logo_path):
+                logger.warning("[WM-DBG][LOGIN] Logo znalezione, ale Pillow niedostępny")
             ttk.Label(top, text="Warsztat Menager", style="WM.H1.TLabel").pack()
 
     # --- ŚRODEK: BOX PIN (wyśrodkowany stabilnie) ---
@@ -180,7 +214,7 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
         try:
             info = who_is_on_now(datetime.now())
         except Exception as e:
-            logging.exception("who_is_on_now error")
+            logger.exception("[WM-ERR][LOGIN] who_is_on_now error: %r", e)
             shift_label_bottom.config(text="Grafik zmian: błąd")
             for w in users_box_bottom.winfo_children():
                 w.destroy()

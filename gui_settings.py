@@ -1,4 +1,4 @@
-# Wersja pliku: 1.7.1
+# Wersja pliku: 1.8.0
 # Moduł: gui_settings
 # ⏹ KONIEC WSTĘPU
 
@@ -7,15 +7,64 @@ from __future__ import annotations
 import copy
 import datetime
 import json
+import logging
 import os, sys, subprocess, threading
 import re
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
+
+logger = logging.getLogger(__name__)
 
 from ui_theme import ensure_theme_applied
+
+
+def _safe_widget_exists(widget: tk.Misc) -> bool:
+    try:
+        return bool(widget and widget.winfo_exists())
+    except Exception:
+        return False
+
+
+def safe_after(widget: tk.Misc, ms: int, func, *args, **kwargs):
+    """Wywołaj func po ms tylko jeśli widget żyje."""
+
+    def _runner():
+        if _safe_widget_exists(widget):
+            try:
+                func(*args, **kwargs)
+            except Exception as exc:  # pragma: no cover - defensywne logowanie
+                logger.exception("[WM-ERR][AFTER] Błąd w funkcji after: %r", exc)
+        else:
+            logger.debug("[SAFE][AFTER] Pominięto wywołanie – widget nie istnieje")
+
+    try:
+        if _safe_widget_exists(widget):
+            widget.after(ms, _runner)
+        else:
+            logger.debug("[SAFE][AFTER] Nie zaplanowano – widget nie istnieje")
+    except tk.TclError as exc:  # pragma: no cover - brak GUI w testach
+        logger.error("[WM-ERR][AFTER] TclError przy after: %r", exc)
+
+
+def _apply_theme_if_available(win: tk.Misc):
+    try:
+        from theme import apply_theme
+
+        apply_theme(win)
+        logger.debug("[THEME] Zastosowano motyw dla okna %s", win)
+    except Exception as exc:
+        logger.warning("[THEME] Nie udało się zastosować motywu: %r", exc)
+
+
+def _show_error(title: str, msg: str) -> None:
+    logger.error("[WM-ERR] %s: %s", title, msg)
+    try:
+        messagebox.showerror(title, msg)
+    except Exception:  # pragma: no cover - brak GUI w testach
+        pass
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
@@ -80,11 +129,14 @@ class ScrollableFrame(ttk.Frame):
         if not self._canvas_alive:
             return
         try:
-            if self.canvas.winfo_exists():
+            if _safe_widget_exists(self.canvas):
                 self.canvas.itemconfigure(self._window, width=event.width)
-        except tk.TclError:
+        except tk.TclError as exc:
             self._canvas_alive = False
-            print("[WM-DBG][SETTINGS] Ignoruję configure po zniszczeniu canvas (TclError)")
+            logger.debug(
+                "[SAFE][SCROLL] Ignoruję configure po zniszczeniu canvas (TclError): %r",
+                exc,
+            )
 
     def _on_inner_configure(self, _event: tk.Event) -> None:
         """Update the scrollregion when the inner frame changes size."""
@@ -92,11 +144,14 @@ class ScrollableFrame(ttk.Frame):
         if not self._canvas_alive:
             return
         try:
-            if self.canvas.winfo_exists():
+            if _safe_widget_exists(self.canvas):
                 self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        except tk.TclError:
+        except tk.TclError as exc:
             self._canvas_alive = False
-            print("[WM-DBG][SETTINGS] Ignoruję update scrollregion po zniszczeniu canvas (TclError)")
+            logger.debug(
+                "[SAFE][SCROLL] Ignoruję update scrollregion po zniszczeniu canvas (TclError): %r",
+                exc,
+            )
 
     def _on_toplevel_destroy(self, _event: tk.Event) -> None:
         """Unbind global scroll handlers when the settings window is closed."""
@@ -105,36 +160,39 @@ class ScrollableFrame(ttk.Frame):
             self.canvas.unbind_all("<MouseWheel>")
             self.canvas.unbind_all("<Button-4>")
             self.canvas.unbind_all("<Button-5>")
-        except tk.TclError:
-            pass
+        except tk.TclError as exc:
+            logger.debug("[SAFE][SCROLL] Ignoruję unbind po zniszczeniu canvas: %r", exc)
 
     def _on_mousewheel(self, event: tk.Event) -> None:
         """Scroll canvas when mouse wheel is used (Windows/Linux)."""
 
-        delta = getattr(event, "delta", 0) or 0
         try:
-            step = -int(delta / 120) * 30
-        except Exception:
-            step = 0
-        if step:
-            self._scroll(step)
+            delta = event.delta if hasattr(event, "delta") else 0
+            units = -int(delta / 120) * 30 if delta else 0
+            if units:
+                self._scroll(units)
+        except Exception as exc:  # pragma: no cover - defensywne
+            logger.exception("[WM-ERR][SCROLL] _on_mousewheel: %r", exc)
 
     def _scroll(self, units: int) -> None:
         """Perform vertical scrolling by the given unit delta, handling widget teardown."""
 
-        c = getattr(self, "canvas", None)
-        if not c or not self._canvas_alive:
-            print("[WM-DBG][SETTINGS] Scroll przerwany: canvas nie istnieje/already destroyed")
+        canvas = getattr(self, "canvas", None)
+        if not canvas or not self._canvas_alive:
+            logger.debug(
+                "[SAFE][SCROLL] Pominięto yview_scroll – canvas nie istnieje lub został zniszczony"
+            )
             return
         try:
-            if c.winfo_exists():
-                c.yview_scroll(units, "units")
+            if _safe_widget_exists(canvas):
+                canvas.yview_scroll(units, "units")
             else:
-                print("[WM-DBG][SETTINGS] Scroll przerwany: winfo_exists=False")
-        except tk.TclError:
-            # Canvas został zniszczony w trakcie callbacku – ignorujemy
+                logger.debug("[SAFE][SCROLL] Pominięto yview_scroll – winfo_exists=False")
+        except tk.TclError as exc:
             self._canvas_alive = False
-            print("[WM-DBG][SETTINGS] Ignoruję scroll po zniszczeniu canvas (TclError)")
+            logger.error("[WM-ERR][SCROLL] TclError przy scrollu: %r", exc)
+        except Exception as exc:  # pragma: no cover - defensywne
+            logger.exception("[WM-ERR][SCROLL] Nieoczekiwany błąd: %r", exc)
 
 # A-2e: alias do edytora advanced (wyszukiwarka, limity, kolekcje NN/SN)
 try:
@@ -544,6 +602,7 @@ def _bind_tooltip(widget, text: str):
         x = widget.winfo_rootx() + 16
         y = widget.winfo_rooty() + 20
         tw = tk.Toplevel(widget)
+        _apply_theme_if_available(tw)
         _ensure_topmost(tw, widget)
         tw.wm_overrideredirect(True)
         tw.wm_geometry(f"+{x}+{y}")
@@ -2452,12 +2511,15 @@ class SettingsWindow(SettingsPanel):
             schema_path = os.path.join(base_dir, schema_path)
         self.config_path = config_path
         self.schema_path = schema_path
-        print(f"[WM-DBG] config_path={self.config_path}")
-        print(f"[WM-DBG] schema_path={self.schema_path}")
+        logger.debug("[WM-DBG][SETTINGS] config_path=%s", self.config_path)
+        logger.debug("[WM-DBG][SETTINGS] schema_path=%s", self.schema_path)
 
         super().__init__(master, config_path=config_path, schema_path=schema_path)
         self.schema = self.cfg.schema
-        print(f"[WM-DBG] tabs loaded: {len(self.schema.get('tabs', []))}")
+        logger.debug(
+            "[WM-DBG][SETTINGS] tabs loaded: %s",
+            len(self.schema.get("tabs", [])),
+        )
         self._init_audit_tab()
         self._reorder_tabs()
 
@@ -2506,15 +2568,22 @@ class SettingsWindow(SettingsPanel):
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(result)
                 msg = result + f"\n[INFO] Raport zapisano do {path}\n"
-                self.txt_audit.after(0, self._append_audit_out, msg)
+                safe_after(self.txt_audit, 0, self._append_audit_out, msg)
             except Exception as exc:
-                self.txt_audit.after(
-                    0, self._append_audit_out, f"[ERROR] {exc!r}\n"
+                logger.exception("[WM-ERR][AUDIT] Błąd uruchamiania audytu: %r", exc)
+                safe_after(
+                    self.txt_audit,
+                    0,
+                    self._append_audit_out,
+                    f"[ERROR] {exc!r}\n",
                 )
+                _show_error("Błąd audytu", f"Nie udało się wykonać audytu:\n{exc}")
             finally:
                 try:
-                    self.btn_audit_run.after(
-                        0, lambda: self.btn_audit_run.config(state="normal")
+                    safe_after(
+                        self.btn_audit_run,
+                        0,
+                        lambda: self.btn_audit_run.config(state="normal"),
                     )
                 except Exception:
                     pass
@@ -2534,7 +2603,7 @@ class SettingsWindow(SettingsPanel):
         except Exception:
             pass
         self._append_tests_out("\n[INFO] Uruchamiam: pytest -q\n")
-        print("[WM-DBG][SETTINGS][TESTS] start")
+        logger.debug("[WM-DBG][SETTINGS][TESTS] start")
 
         def _worker():
             try:
@@ -2548,27 +2617,46 @@ class SettingsWindow(SettingsPanel):
                     bufsize=1,
                 )
                 for line in proc.stdout:
-                    self.txt_tests.after(0, self._append_tests_out, line)
+                    safe_after(self.txt_tests, 0, self._append_tests_out, line)
                 ret = proc.wait()
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
+                safe_after(
+                    self.txt_tests,
+                    0,
+                    self._append_tests_out,
+                    f"\n[INFO] Zakończono: kod wyjścia = {ret}\n",
                 )
-                print(f"[WM-DBG][SETTINGS][TESTS] finished ret={ret}")
-            except FileNotFoundError:
-                self.txt_tests.after(
+                logger.debug("[WM-DBG][SETTINGS][TESTS] finished ret=%s", ret)
+            except FileNotFoundError as exc:
+                safe_after(
+                    self.txt_tests,
                     0,
                     self._append_tests_out,
                     "\n[ERROR] Nie znaleziono pytest. Zainstaluj: pip install pytest\n",
                 )
-                print("[WM-DBG][SETTINGS][TESTS] pytest not found")
-            except Exception as e:
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[ERROR] Błąd uruchamiania testów: {e!r}\n"
+                logger.error("[WM-ERR][SETTINGS][TESTS] pytest not found: %r", exc)
+                _show_error(
+                    "Brak pytest",
+                    "Nie znaleziono modułu pytest. Zainstaluj go poleceniem pip install pytest.",
                 )
-                print(f"[WM-DBG][SETTINGS][TESTS] error: {e!r}")
+            except Exception as exc:
+                safe_after(
+                    self.txt_tests,
+                    0,
+                    self._append_tests_out,
+                    f"\n[ERROR] Błąd uruchamiania testów: {exc!r}\n",
+                )
+                logger.exception("[WM-ERR][SETTINGS][TESTS] error: %r", exc)
+                _show_error(
+                    "Błąd testów",
+                    f"Nie udało się uruchomić testów:\n{exc}",
+                )
             finally:
                 try:
-                    self.btn_tests_run.after(0, lambda: self.btn_tests_run.config(state="normal"))
+                    safe_after(
+                        self.btn_tests_run,
+                        0,
+                        lambda: self.btn_tests_run.config(state="normal"),
+                    )
                 except Exception:
                     pass
 
@@ -2582,7 +2670,7 @@ class SettingsWindow(SettingsPanel):
         self._append_tests_out(
             "\n[INFO] Uruchamiam: python -m pip install -U pytest\n"
         )
-        print("[WM-DBG][SETTINGS][TESTS] install start")
+        logger.debug("[WM-DBG][SETTINGS][TESTS] install start")
 
         def _worker():
             try:
@@ -2603,23 +2691,33 @@ class SettingsWindow(SettingsPanel):
                     bufsize=1,
                 )
                 for line in proc.stdout:
-                    self.txt_tests.after(0, self._append_tests_out, line)
+                    safe_after(self.txt_tests, 0, self._append_tests_out, line)
                 ret = proc.wait()
-                self.txt_tests.after(
-                    0, self._append_tests_out, f"\n[INFO] Zakończono: kod wyjścia = {ret}\n"
-                )
-                print(f"[WM-DBG][SETTINGS][TESTS] install finished ret={ret}")
-            except Exception as e:
-                self.txt_tests.after(
+                safe_after(
+                    self.txt_tests,
                     0,
                     self._append_tests_out,
-                    f"\n[ERROR] Błąd instalacji pytest: {e!r}\n",
+                    f"\n[INFO] Zakończono: kod wyjścia = {ret}\n",
                 )
-                print(f"[WM-DBG][SETTINGS][TESTS] install error: {e!r}")
+                logger.debug("[WM-DBG][SETTINGS][TESTS] install finished ret=%s", ret)
+            except Exception as exc:
+                safe_after(
+                    self.txt_tests,
+                    0,
+                    self._append_tests_out,
+                    f"\n[ERROR] Błąd instalacji pytest: {exc!r}\n",
+                )
+                logger.exception("[WM-ERR][SETTINGS][TESTS] install error: %r", exc)
+                _show_error(
+                    "Błąd instalacji",
+                    f"Nie udało się zainstalować pytest:\n{exc}",
+                )
             finally:
                 try:
-                    self.btn_install_pytest.after(
-                        0, lambda: self.btn_install_pytest.config(state="normal")
+                    safe_after(
+                        self.btn_install_pytest,
+                        0,
+                        lambda: self.btn_install_pytest.config(state="normal"),
                     )
                 except Exception:
                     pass

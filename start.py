@@ -1,14 +1,6 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.6.0
 # Moduł: start
 # ⏹ KONIEC WSTĘPU
-
-# start.py
-# Zmiany względem 1.1.1:
-#  - [NOWE] Ładowanie motywu zaraz po utworzeniu root (apply_theme(root))
-#  - [NOWE] Tworzenie pliku data/user/<login>.json po udanym logowaniu (idempotentnie)
-#
-# Uwaga: Nie zmieniamy istniejącej logiki poza powyższymi punktami. Plik jest
-# możliwie defensywny i wstecznie kompatybilny z gui_logowanie.ekran_logowania.
 
 import os
 import sys
@@ -19,7 +11,12 @@ import logging
 import subprocess
 import shutil
 import tkinter as tk
-from tkinter import messagebox, Toplevel
+from core.logging_config import setup_logging
+try:
+    from tkinter import messagebox
+except Exception:  # pragma: no cover - fallback when messagebox unavailable
+    messagebox = None
+from tkinter import Toplevel
 from utils import error_dialogs
 
 from ui_theme import apply_theme_safe as apply_theme, ensure_theme_applied
@@ -34,40 +31,48 @@ try:
 except Exception:  # pragma: no cover - fallback if config init fails
     CONFIG_MANAGER = None
 
-# ====== LOGGING ======
 
-def _ensure_log_dir():
-    os.makedirs("logi", exist_ok=True)
+def _install_global_logging_and_excepthook() -> None:
+    setup_logging()  # [LOGCFG] konsola + logs/wm.log
+    logger = logging.getLogger("WM")
+
+    def _excepthook(exc_type, exc, tb):
+        logger.exception("Unhandled exception", exc_info=(exc_type, exc, tb))
+        try:
+            if messagebox is not None:
+                messagebox.showerror(
+                    "Błąd krytyczny",
+                    f"Wystąpił nieoczekiwany błąd:\n{exc}",
+                )
+        except Exception:  # pragma: no cover - defensywne
+            pass
+
+    sys.excepthook = _excepthook
+    logger.info("[WM-DBG] Global excepthook zainstalowany")
 
 
-def _log_path():
-    return os.path.join(
-        "logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log"
-    )
+LOG_DIR = "logs"
+LOG_FILE = "wm.log"
 
 
-DEBUG_MODE = bool(os.getenv("WM_DEBUG"))
-_ensure_log_dir()
-logging.basicConfig(
-    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(_log_path(), encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
+def _log_path() -> str:
+    return os.path.join(LOG_DIR, LOG_FILE)
+
+
+def _logger() -> logging.Logger:
+    return logging.getLogger("WM")
 
 
 def _info(msg):
-    logging.info(msg)
+    _logger().info(msg)
 
 
 def _error(msg):
-    logging.error(msg)
+    _logger().error(msg)
 
 
 def _dbg(msg):
-    logging.debug(msg)
+    _logger().debug(msg)
 
 SESSION_ID = None
 
@@ -499,6 +504,7 @@ def _wm_git_check_on_start(
 # ====== MAIN ======
 def main():
     global SESSION_ID
+    _install_global_logging_and_excepthook()
     SESSION_ID = f"{datetime.now().strftime('%H%M%S')}"
     _info(f"Uzywam Pythona: {sys.executable or sys.version}")
     _info(f"Katalog roboczy: \"{os.getcwd()}\"")
@@ -583,6 +589,7 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    _install_global_logging_and_excepthook()
     # --- Integracja manifestu modułów (lekka) ---
     try:
         from utils.moduly import (

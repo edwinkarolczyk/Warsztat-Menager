@@ -1,5 +1,5 @@
 # Plik: gui_panel.py
-# Wersja pliku: 1.6.17
+# Wersja pliku: 1.6.18
 # Zmiany 1.6.17:
 # - Dodano przycisk w stopce otwierający changelog.
 # - Zapamiętywanie czasu ostatniego obejrzenia changeloga.
@@ -12,6 +12,7 @@
 # - Adapter zgodności do panelu zleceń.
 
 import json
+import logging
 import os
 import re
 import tkinter as tk
@@ -26,6 +27,8 @@ from start import CONFIG_MANAGER, open_settings_window
 import gui_changelog
 from logger import log_akcja
 from profile_utils import SIDEBAR_MODULES
+
+logger = logging.getLogger(__name__)
 
 # --- PROFIL: nowy widok ---
 try:
@@ -619,6 +622,11 @@ def uruchom_panel(root, login, rola):
 
     def _open_feedback():
         win = tk.Toplevel(root)
+        try:
+            apply_theme(win)
+            logger.debug("[THEME] Motyw zastosowany w oknie opinii")
+        except Exception as exc:  # pragma: no cover - defensywne
+            logger.warning("[THEME] Nie udało się zastosować motywu w oknie opinii: %r", exc)
         win.title("Wyślij opinię")
         ttk.Label(win, text="Twoja opinia:").pack(
             anchor="w", padx=10, pady=(10, 0)
