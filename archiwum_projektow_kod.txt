@@ -78,8 +78,8 @@
 [tu wklej pełną zawartość pliku kreator_sprawdzenia.py]
 
 ### 3.11 Pliki JSON
-#### maszyny.json
-[tu wklej pełną zawartość pliku maszyny.json]
+#### maszyny/maszyny.json
+[tu wklej pełną zawartość pliku maszyny/maszyny.json]
 
 #### narzedzia.json
 [tu wklej pełną zawartość pliku narzedzia.json]

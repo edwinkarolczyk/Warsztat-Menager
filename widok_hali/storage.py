@@ -22,7 +22,7 @@ except Exception:  # pragma: no cover - fallback kiedy brak konfiguracji
 
 
 HALLS_FILE = cfg_path(os.path.join("data", HALLS_NAME))
-MACHINES_FILE = cfg_path(os.path.join("data", "maszyny.json"))
+MACHINES_FILE = cfg_path(os.path.join("data", "maszyny", "maszyny.json"))
 WALLS_FILE = cfg_path(os.path.join("data", "sciany.json"))
 AWARIE_FILE = cfg_path(os.path.join("data", "awarie.json"))
 CONFIG_FILE = cfg_path("config.json")
@@ -62,13 +62,11 @@ def resolve_machines_file() -> Tuple[str | None, str]:
     layout_default = os.path.join(layout_dir, "maszyny.json") if layout_dir else ""
 
     repo_97 = os.path.join(os.getcwd(), "data", "maszyny", "maszyny.json")
-    repo_11 = os.path.join(os.getcwd(), "data", "maszyny.json")
 
     candidates = [
         ("hall.machines_file", explicit),
         ("paths.layout_dir/maszyny.json", layout_default),
         ("data/maszyny/maszyny.json", repo_97),
-        ("data/maszyny.json", repo_11),
     ]
     for label, candidate in candidates:
         if candidate and os.path.isfile(candidate):

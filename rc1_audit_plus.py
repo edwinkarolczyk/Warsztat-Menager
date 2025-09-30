@@ -254,7 +254,7 @@ def run() -> dict:
         ("tools.statuses_file",    "Narzędzia: statusy_narzedzi.json istnieje", True),
         ("tools.task_templates_file","Narzędzia: szablony_zadan.json istnieje", True),
         ("profiles.file",          "Użytkownicy: profiles.json istnieje", True),
-        ("hall.machines_file",     "Hala: maszyny.json istnieje",    True),
+        ("hall.machines_file",     "Hala: plik maszyn (hall.machines_file) istnieje",    True),
     ]
     for key, label, req in cfg_path_keys:
         plus_checks.append(lambda k=key,l=label,r=req: _check_config_path_exists(cfg, k, l, r))

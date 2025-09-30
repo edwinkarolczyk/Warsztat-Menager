@@ -7,7 +7,7 @@
 #       2) DEEP: AST – importy, graf zależności, cykle, zduplikowane definicje, proste unused imports
 #       3) RISK: heurystyki miejsc ryzyka w GUI (tkinter), gołe excepty, eval/exec, wildcard importy
 #  - Tworzy: audit_mw_report.json + audit_mw_report.md z wnioskami i sugestiami
-#  - Opcjonalnie weryfikuje config.json, data/maszyny.json, uzytkownicy.json jeśli występują
+#  - Opcjonalnie weryfikuje config.json, data/maszyny/maszyny.json, uzytkownicy.json jeśli występują
 # Użycie:
 #   python audyt_mw.py "C:\\ścieżka\\do\\MW"
 #   (bez argumentu – bierze bieżący katalog)
@@ -179,7 +179,7 @@ class AudytMW:
 
         # JSON sanity
         self._check_json_file(cfg_path("config.json"), required_keys=['theme', 'start_view', 'pin_required'])
-        self._check_json_file(cfg_path(os.path.join('data', 'maszyny.json')), required_keys=['id', 'nazwa', 'hala'])
+        self._check_json_file(cfg_path(os.path.join('data', 'maszyny', 'maszyny.json')), required_keys=['id', 'nazwa', 'hala'])
         self._check_json_file(cfg_path('uzytkownicy.json'), required_keys=['login', 'pin', 'rola'])
 
     # ---------- REPORT ----------
@@ -206,7 +206,7 @@ class AudytMW:
             sug.append("Dodać pre-commit (ruff + black, isort). Włączyć flake nieużytych importów.")
         # 7. JSON/konfiguracja
         if any(i.kind == 'JSON' for i in self.issues):
-            sug.append("Walidować config.json/maszyny.json/uzytkownicy.json z JSON Schema na starcie aplikacji.")
+            sug.append("Walidować config.json/maszyny/maszyny.json/uzytkownicy.json z JSON Schema na starcie aplikacji.")
         # 8. Architektura modułu serwisowego
         sug.append("Moduł serwisowy jako oddzielny pakiet z event-busem (pub/sub) i kolejką zadań – izolacja od GUI.")
         # 9. Potwierdzenia kasowania 3x

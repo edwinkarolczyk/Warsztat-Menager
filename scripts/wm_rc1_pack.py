@@ -28,7 +28,6 @@ archiwalnych lub pomocniczych. Nie powinny wpływać na bieżący rozwój aplika
 ---
 
 ## Dane historyczne (JSON)
-- `data/maszyny.json` – **legacy** (obowiązuje `data/maszyny/maszyny.json`).
 - `data/profile.json` – **legacy** (obowiązuje `data/profiles.json`).
 
 ## Archiwa i zrzuty
@@ -164,10 +163,6 @@ def run_healthcheck() -> tuple[str, bool]:
             Path(p("data", "maszyny", "maszyny.json")).exists(),
         ),
         (
-            "Maszyny LEGACY (data/maszyny.json)",
-            Path(p("data", "maszyny.json")).exists(),
-        ),
-        (
             "Profiles (data/profiles.json or data/profile.json)",
             Path(p("data", "profiles.json")).exists()
             or Path(p("data", "profile.json")).exists(),
@@ -187,7 +182,6 @@ def run_healthcheck() -> tuple[str, bool]:
 
     for label, abs_path in [
         ("data/maszyny/maszyny.json", p("data", "maszyny", "maszyny.json")),
-        ("data/maszyny.json (LEGACY)", p("data", "maszyny.json")),
         ("data/magazyn.json", p("data", "magazyn.json")),
         ("data/profiles.json", p("data", "profiles.json")),
         ("data/profile.json (LEGACY)", p("data", "profile.json")),
