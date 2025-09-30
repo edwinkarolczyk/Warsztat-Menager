@@ -34,6 +34,8 @@ import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
 # Motyw
 from ui_theme import apply_theme_tree
 
+logger = logging.getLogger(__name__)
+
 BASE_DIR = Path(__file__).resolve().parent
 
 # Alias zachowany dla kompatybilności testów

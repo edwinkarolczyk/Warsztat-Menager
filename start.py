@@ -22,18 +22,16 @@ import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
+# [PR-1165-MERGE-FIX] import motywu z fallbackiem
 try:
-    from ui_theme import apply_theme_safe as apply_theme  # alias zgodnie z dotychczasowym użyciem
+    from ui_theme import apply_theme_safe as apply_theme
 except Exception:
-    # Łagodny fallback – jeśli z jakiegoś powodu zabraknie funkcji, nie blokuj startu
-    def apply_theme(*_args, **_kwargs):
+    def apply_theme(*_a, **_k):  # no-op
         return None
-
 try:
     from ui_theme import ensure_theme_applied
 except Exception:
-    # Fallback: no-op – by start nie wysypał się przy braku tej funkcji
-    def ensure_theme_applied(_win):
+    def ensure_theme_applied(_win):  # no-op
         return False
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
@@ -48,26 +46,16 @@ except Exception:  # pragma: no cover - fallback if config init fails
 
 # ====== LOGGING ======
 
-def _ensure_log_dir():
-    os.makedirs("logi", exist_ok=True)
+# [PR-1165-MERGE-FIX] integracja logowania
+try:
+    from core.logging_config import setup_logging
+    setup_logging()  # konsola + logs/wm.log (rotacja)
+except Exception:
+    pass
 
 
 def _log_path():
-    return os.path.join(
-        "logi", f"warsztat_{datetime.now().strftime('%Y-%m-%d')}.log"
-    )
-
-
-DEBUG_MODE = bool(os.getenv("WM_DEBUG"))
-_ensure_log_dir()
-logging.basicConfig(
-    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(_log_path(), encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
+    return os.path.join("logs", "wm.log")
 
 
 def _info(msg):

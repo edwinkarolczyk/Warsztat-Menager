@@ -22,6 +22,7 @@ from services.profile_service import get_user, save_user
 
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
+# [PR-1165-MERGE-FIX] unikajmy zbyt szerokiego importu z start (ryzyko cyklu)
 from start import CONFIG_MANAGER, open_settings_window
 import gui_changelog
 from logger import log_akcja
