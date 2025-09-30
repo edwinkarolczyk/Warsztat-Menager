@@ -1,11 +1,57 @@
 from __future__ import annotations
 import os
-import json
 import time
 from typing import List
 
 from config.paths import get_path, join_path, ensure_core_tree
 from wm_log import dbg as wm_dbg, info as wm_info, err as wm_err
+
+import json
+from pathlib import Path
+
+
+def wm_warn(where: str, msg: str, exc: BaseException | None = None, **kv: object) -> None:
+    if exc is not None:
+        kv = {**kv, "exc": repr(exc)}
+    wm_info(where, msg, **kv)
+
+
+_AUDIT_DATA_CANDIDATES = [
+    Path("data") / "audyt.json",
+    Path("config") / "audit_points.json",
+]
+
+
+def _load_extended_audit_data() -> dict | None:
+    """Czyta rozszerzony audyt (Roadmapa) z pliku danych. Zwraca dict z 'groups' albo None."""
+    for p in _AUDIT_DATA_CANDIDATES:
+        try:
+            if p.exists():
+                with p.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and isinstance(data.get("groups"), list):
+                    wm_info("audit.run", "extended_loaded", path=str(p))
+                    return data
+        except Exception as e:
+            wm_warn("audit.run", "extended_read_failed", e, path=str(p))
+    return None
+
+
+def _flatten_extended_audit_rows(data: dict) -> list[tuple[str, str, str, bool, str]]:
+    """Spłaszcza groups/items do wierszy: (group, id, label, done, notes)."""
+    rows: list[tuple[str, str, str, bool, str]] = []
+    try:
+        for g in data.get("groups", []):
+            gname = str(g.get("name", ""))
+            for it in g.get("items", []):
+                rid = str(it.get("id", ""))
+                label = str(it.get("label", ""))
+                done = bool(it.get("done", False))
+                notes = str(it.get("notes", ""))
+                rows.append((gname, rid, label, done, notes))
+    except Exception as e:
+        wm_warn("audit.run", "extended_flatten_failed", e)
+    return rows
 
 __all__ = ["run", "run_audit"]
 
@@ -82,6 +128,37 @@ def run() -> dict:
             )
         lines.append("-" * 40)
         lines.append(summary)
+
+        # --- BEGIN EXTENDED AUDIT APPEND ---
+        try:
+            _ext = _load_extended_audit_data()
+            if _ext:
+                _rows = _flatten_extended_audit_rows(_ext)
+                if _rows:
+                    lines.append("")  # odstęp
+                    lines.append("---- ROADMAP AUDYT (data/audyt.json) ----")
+                    total = len(_rows)
+                    done = sum(1 for r in _rows if r[3] is True)
+                    lines.append(f"Pozycje: {total} | Wykonane: {done} | Otwarte: {total-done}")
+                    lines.append("")  # odstęp
+
+                    # format jednej linii: [OK|TODO] Grupa :: ID – Opis  (notatka)
+                    for (grp, rid, label, ok, notes) in _rows:
+                        status = "OK" if ok else "TODO"
+                        # skracanie bardzo długich notatek do czytelnego raportu
+                        nshort = notes.strip()
+                        if len(nshort) > 120:
+                            nshort = nshort[:117] + "..."
+                        line = f"[{status}] {grp} :: {rid} – {label}"
+                        if nshort:
+                            line += f"  ({nshort})"
+                        lines.append(line)
+
+                    lines.append("---- /ROADMAP AUDYT ----")
+                    wm_info("audit.run", "extended_appended", count=total, done=done)
+        except Exception as _e:
+            wm_warn("audit.run", "extended_append_failed", _e)
+        # --- END EXTENDED AUDIT APPEND ---
 
         with open(out_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
