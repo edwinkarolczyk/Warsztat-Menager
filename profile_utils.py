@@ -81,7 +81,6 @@ SIDEBAR_MODULES: list[tuple[str, str]] = [
     ("narzedzia", "Narzędzia"),
     ("maszyny", "Maszyny"),
     ("magazyn", "Magazyn"),
-    ("hale", "Hale"),
     ("feedback", "Wyślij opinię"),
     ("uzytkownicy", "Użytkownicy"),
     ("ustawienia", "Ustawienia"),
