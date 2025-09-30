@@ -1,4 +1,4 @@
-# Wersja pliku: 1.5.0
+# Wersja pliku: 1.5.1
 # Moduł: start
 # ⏹ KONIEC WSTĘPU
 
@@ -22,7 +22,19 @@ import tkinter as tk
 from tkinter import messagebox, Toplevel
 from utils import error_dialogs
 
-from ui_theme import apply_theme_safe as apply_theme, ensure_theme_applied
+try:
+    from ui_theme import apply_theme_safe as apply_theme  # alias zgodnie z dotychczasowym użyciem
+except Exception:
+    # Łagodny fallback – jeśli z jakiegoś powodu zabraknie funkcji, nie blokuj startu
+    def apply_theme(*_args, **_kwargs):
+        return None
+
+try:
+    from ui_theme import ensure_theme_applied
+except Exception:
+    # Fallback: no-op – by start nie wysypał się przy braku tej funkcji
+    def ensure_theme_applied(_win):
+        return False
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
 from updater import _run_git_pull, _now_stamp, _git_has_updates
