@@ -660,73 +660,41 @@ COLORS = {
 
 # [HOTFIX-THEME-01] ensure_theme_applied – idempotentne zastosowanie motywu
 
-try:
-    import logging
-    _logger = logging.getLogger(__name__)
-except Exception:
-    _logger = None
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
-def _log_theme(msg):
-    try:
-        if _logger:
-            _logger.debug("[THEME][ensure] %s", msg)
-    except Exception:
-        pass
-
-
-# Jeżeli w module istnieje już apply_theme_safe albo apply_theme, użyjemy go.
 def _get_apply_fn():
-    fn = globals().get("apply_theme_safe")
-    if callable(fn):
-        return fn
-    fn = globals().get("apply_theme")
-    if callable(fn):
-        return fn
-    return None
+    fn = globals().get("apply_theme_safe") or globals().get("apply_theme")
+    return fn if callable(fn) else None
 
 
-# Idempotentny strażnik: nie nakładaj motywu wielokrotnie na to samo okno
 if "ensure_theme_applied" not in globals():
-    def ensure_theme_applied(win):
-        """
-        Zastosuj motyw do okna 'win' dokładnie raz.
-        Jeśli motyw nie jest dostępny – łagodnie pomiń.
-        """
 
+    def ensure_theme_applied(win):
         try:
-            if win is None:
+            if not win:
                 return False
             if getattr(win, "_wm_theme_applied", False):
-                _log_theme("pominięto – już zastosowano")
                 return True
-            apply_fn = _get_apply_fn()
-            if apply_fn:
+            fn = _get_apply_fn()
+            if fn:
                 try:
-                    apply_fn(win)
-                    _log_theme(f"zastosowano motyw dla {win}")
+                    fn(win)
                 except Exception as e:
-                    # Nie wysypuj startu – tylko zaloguj
-                    try:
-                        if _logger:
-                            _logger.warning("[THEME] apply_theme* wyjątek: %r", e)
-                    except Exception:
-                        pass
-            else:
-                _log_theme("brak apply_theme*/no-op")
+                    _logger.warning("[THEME] apply_theme* wyjątek: %r", e)
             try:
                 setattr(win, "_wm_theme_applied", True)
             except Exception:
                 pass
             return True
         except Exception:
-            # Ostatnia linia obrony – nie blokuj startu aplikacji
             return False
 
 
-# Uporządkowane API eksportu (jeśli używasz __all__)
 try:
-    __all__  # noqa
+    __all__  # noqa: F821
 except NameError:
     __all__ = []
 if "ensure_theme_applied" not in __all__:

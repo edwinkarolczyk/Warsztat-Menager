@@ -20,18 +20,19 @@ import subprocess
 import shutil
 import tkinter as tk
 from tkinter import messagebox, Toplevel
+
 from utils import error_dialogs
 
-# [PR-1165-MERGE-FIX] import motywu z fallbackiem
 try:
     from ui_theme import apply_theme_safe as apply_theme
 except Exception:
-    def apply_theme(*_a, **_k):  # no-op
+    def apply_theme(*_a, **_k):
         return None
+
 try:
     from ui_theme import ensure_theme_applied
 except Exception:
-    def ensure_theme_applied(_win):  # no-op
+    def ensure_theme_applied(_win):
         return False
 from gui_settings import SettingsWindow
 from config_manager import ConfigManager
@@ -46,10 +47,10 @@ except Exception:  # pragma: no cover - fallback if config init fails
 
 # ====== LOGGING ======
 
-# [PR-1165-MERGE-FIX] integracja logowania
 try:
     from core.logging_config import setup_logging
-    setup_logging()  # konsola + logs/wm.log (rotacja)
+
+    setup_logging()  # konsola + logs/wm.log (rotacja 5×5MB)
 except Exception:
     pass
 
