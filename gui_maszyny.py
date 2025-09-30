@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import os, json
+import json
+import os
 import tkinter as tk
+import tkinter.messagebox as messagebox
 from tkinter import ttk
 
 from config_manager import ConfigManager
@@ -19,67 +21,104 @@ except Exception:  # pragma: no cover - logger opcjonalny
 log = get_logger(__name__)
 logger = log
 
+Renderer = None
 
-def _fetch_real_machines() -> list[str]:
-    """Zbiera listę identyfikatorów maszyn z katalogu machines_dir."""
+try:  # pragma: no cover - CONFIG_MANAGER jest opcjonalny
+    from start import CONFIG_MANAGER
+except Exception:  # pragma: no cover - środowiska testowe
+    CONFIG_MANAGER = None
 
-    machines_dir: str | None = None
-    coll = "NN"
+
+def _resolve_config_manager(cm: ConfigManager | None) -> ConfigManager | None:
+    if cm is not None:
+        return cm
     try:
-        cfg_mgr = ConfigManager()
-        machines_dir = cfg_mgr.get("paths.machines_dir", None)
-        coll = str(cfg_mgr.get("tools.default_collection", coll) or coll)
-    except Exception:
-        machines_dir = None
-        coll = "NN"
+        return ConfigManager()
+    except Exception:  # pragma: no cover - fallback gdy ConfigManager nie działa
+        return None
 
-    machines_dir = (
-        str(machines_dir)
-        if machines_dir
-        else os.path.join(os.getcwd(), "data", "maszyny")
-    )
+
+def load_machines_from_config(config_manager) -> list[dict]:
+    """Wczytaj listę maszyn ze ścieżki podanej w config.json (klucz: machines.file)."""
+
+    machines: list[dict] = []
+    path: str | None = None
+
+    cm = _resolve_config_manager(config_manager)
+    try:
+        if cm is not None:
+            if hasattr(cm, "load") and callable(getattr(cm, "load")):
+                cfg = cm.load()
+            else:
+                cfg = getattr(cm, "merged", {}) or {}
+            path = cfg.get("machines", {}).get("file")
+    except Exception:
+        path = None
+
+    if not path:
+        logger.warning("[Maszyny] Brak ustawionej ścieżki (config['machines.file']).")
+        messagebox.showwarning(
+            "Maszyny", "Nie ustawiono źródła prawdy dla maszyn w Ustawieniach."
+        )
+        logger.info("[Maszyny] Wczytano %s rekordów (brak ścieżki w config).", len(machines))
+        return machines
+
+    if not os.path.exists(path):
+        logger.error("[Maszyny] Plik źródła prawdy nie istnieje: %s", path)
+        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{path}")
+        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+        return machines
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and "items" in data:
+            machines = [row for row in data["items"] if isinstance(row, dict)]
+        elif isinstance(data, list):
+            machines = [row for row in data if isinstance(row, dict)]
+        else:
+            logger.error("[Maszyny] Nieobsługiwany format w pliku: %s", path)
+            messagebox.showwarning(
+                "Maszyny", f"Plik {path} ma nieobsługiwany format."
+            )
+            logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+            return []
+        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+        return machines
+    except Exception as e:  # pragma: no cover - logowanie błędów IO
+        logger.exception("[Maszyny] Błąd przy wczytywaniu %s", path)
+        messagebox.showwarning("Maszyny", f"Błąd przy wczytywaniu pliku:\n{e}")
+        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+        return []
+
+
+def _prepare_machine_labels(rows: list[dict]) -> list[str]:
+    """Przekształć rekordy maszyn na posortowane etykiety do wyświetlenia."""
 
     items: list[str] = []
     seen: set[str] = set()
-    try:
-        for root, _dirs, files in os.walk(machines_dir):
-            for fn in files:
-                if not fn.lower().endswith(".json"):
-                    continue
-                path = os.path.join(root, fn)
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                except Exception:
-                    continue
 
-                dcoll = str(data.get("kolekcja", coll) or coll)
-                if dcoll != coll:
-                    continue
+    for row in rows or []:
+        try:
+            ident = (
+                row.get("ID")
+                or row.get("id")
+                or row.get("nr")
+                or row.get("nr_ewid")
+                or row.get("sn")
+            )
+            name = row.get("nazwa") or row.get("name") or ""
+            ident = (str(ident).strip() if ident is not None else "").strip()
+            label = ident or str(name).strip()
+            if not label or label in seen:
+                continue
+            seen.add(label)
+            items.append(label)
+        except Exception as exc:  # pragma: no cover - defensywne logowanie
+            logger.warning("[Maszyny] Nie mogę przetworzyć rekordu: %s", exc)
 
-                ident = (
-                    data.get("ID")
-                    or data.get("id")
-                    or data.get("nr")
-                    or data.get("sn")
-                )
-                name = data.get("nazwa") or data.get("name") or ""
-                ident = (
-                    (str(ident).strip() if ident is not None else "")
-                    .strip()
-                )
-                label = ident or str(name).strip()
-                if not label or label in seen:
-                    continue
-                seen.add(label)
-                items.append(label)
-    except Exception as exc:  # pragma: no cover - log błędu wczytywania
-        log.error(f"[ERROR][MASZYNY] Błąd wczytywania listy maszyn: {exc}")
-
-    items.sort(key=lambda x: (len(x), x))
-    log.info(
-        f"[WM-DBG][MASZYNY] źródło={machines_dir} coll={coll} count={len(items)}"
-    )
+    items.sort(key=lambda value: (len(value), value))
+    logger.info("[Maszyny] Przygotowano %s etykiet do widoku", len(items))
     return items
 
 
@@ -122,12 +161,18 @@ def _bind_machines_to_view(self, items: list[str]) -> None:
 
 def _wm_init_hook_after_ui_build(self):
     try:
-        machines = _fetch_real_machines()
-        try:
-            logger.info("[WM-DBG][Maszyny] Wczytano rekordów: %s", len(machines))
-        except Exception:
-            pass
-        _bind_machines_to_view(self, machines)
+        machines = load_machines_from_config(CONFIG_MANAGER)
+        labels = _prepare_machine_labels(machines)
+        _bind_machines_to_view(self, labels)
+        if Renderer is None:
+            logger.warning(
+                "[Maszyny] Renderer hali nie jest dostępny – pomijam podgląd."
+            )
+        else:  # pragma: no cover - renderer opcjonalny
+            try:
+                Renderer.draw(machines)
+            except Exception:
+                logger.exception("[Maszyny] Błąd renderowania podglądu hali")
     except Exception as _exc:  # pragma: no cover - log błędu inicjalizacji
         log.error(f"[ERROR][MASZYNY] Inicjalizacja listy maszyn: {_exc}")
 
