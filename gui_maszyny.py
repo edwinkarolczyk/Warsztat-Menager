@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tkinter as tk
-import tkinter.messagebox as messagebox
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from config_manager import ConfigManager
 from ui_theme import ensure_theme_applied
 
+logger = logging.getLogger(__name__)
+
 try:  # pragma: no cover - fallback dla środowisk testowych
     from logger import get_logger
 except Exception:  # pragma: no cover - logger opcjonalny
-    import logging
 
     def get_logger(name: str) -> logging.Logger:
         return logging.getLogger(name)
 
 
-log = get_logger(__name__)
-logger = log
+logger = get_logger(__name__)
 
 Renderer = None
 
@@ -38,167 +38,160 @@ def _resolve_config_manager(cm: ConfigManager | None) -> ConfigManager | None:
         return None
 
 
-def load_machines_from_config(config_manager) -> list[dict]:
-    """Wczytaj listę maszyn ze ścieżki podanej w config.json (klucz: machines.file)."""
-
-    machines: list[dict] = []
-    path: str | None = None
-
-    cm = _resolve_config_manager(config_manager)
-    try:
-        if cm is not None:
-            if hasattr(cm, "load") and callable(getattr(cm, "load")):
-                cfg = cm.load()
-            else:
-                cfg = getattr(cm, "merged", {}) or {}
-            path = cfg.get("machines", {}).get("file")
-    except Exception:
-        path = None
-
-    if not path:
-        logger.warning("[Maszyny] Brak ustawionej ścieżki (config['machines.file']).")
-        messagebox.showwarning(
-            "Maszyny", "Nie ustawiono źródła prawdy dla maszyn w Ustawieniach."
-        )
-        logger.info("[Maszyny] Wczytano %s rekordów (brak ścieżki w config).", len(machines))
-        return machines
-
-    if not os.path.exists(path):
-        logger.error("[Maszyny] Plik źródła prawdy nie istnieje: %s", path)
-        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{path}")
-        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
-        return machines
-
+def _load_machines_from_path(path: str) -> list[dict]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if isinstance(data, dict):
-            if "items" in data:
-                machines = [row for row in data["items"] if isinstance(row, dict)]
-            elif "maszyny" in data:
-                machines = [row for row in data["maszyny"] if isinstance(row, dict)]
-            else:
-                logger.error(
-                    "[Maszyny] Nieobsługiwany format dict w pliku: %s", path
-                )
-                messagebox.showwarning(
-                    "Maszyny",
-                    (
-                        "Plik "
-                        f"{path} ma nieobsługiwany format (brak 'items' ani "
-                        "'maszyny')."
-                    ),
-                )
-                logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
-                return []
-        elif isinstance(data, list):
-            machines = [row for row in data if isinstance(row, dict)]
-        else:
-            logger.error("[Maszyny] Nieobsługiwany format w pliku: %s", path)
-            messagebox.showwarning(
-                "Maszyny", f"Plik {path} ma nieobsługiwany format."
-            )
-            logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
-            return []
-        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
-        return machines
-    except Exception as e:  # pragma: no cover - logowanie błędów IO
-        logger.exception("[Maszyny] Błąd przy wczytywaniu %s", path)
-        messagebox.showwarning("Maszyny", f"Błąd przy wczytywaniu pliku:\n{e}")
-        logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+        if isinstance(data, dict) and isinstance(data.get("items"), list):
+            return [row for row in data["items"] if isinstance(row, dict)]
+        if isinstance(data, list):
+            return [row for row in data if isinstance(row, dict)]
+        logger.error("[Maszyny] Nieobsługiwany format JSON w %s", path)
+        return []
+    except Exception:
+        logger.exception("[Maszyny] Błąd wczytania %s", path)
         return []
 
 
-def _prepare_machine_labels(rows: list[dict]) -> list[str]:
-    """Przekształć rekordy maszyn na posortowane etykiety do wyświetlenia."""
+def _get_machines_path_from_config(config_manager) -> str | None:
+    cfg: dict = {}
+    cm = _resolve_config_manager(config_manager)
+    if cm is None:
+        return None
+    try:
+        if hasattr(cm, "load") and callable(getattr(cm, "load")):
+            cfg = cm.load()
+        else:
+            cfg = getattr(cm, "merged", {}) or {}
+    except Exception:
+        cfg = {}
+    machines_cfg = cfg.get("machines") or {}
+    hall_cfg = cfg.get("hall") or {}
+    path = machines_cfg.get("file") or hall_cfg.get("machines_file")
+    return path
 
-    items: list[str] = []
-    seen: set[str] = set()
 
-    for row in rows or []:
+def load_machines_from_config(config_manager) -> list[dict]:
+    """Wczytaj listę maszyn na podstawie konfiguracji."""
+
+    path = _get_machines_path_from_config(config_manager)
+    if not path:
+        logger.warning(
+            "[Maszyny] Brak ustawionej ścieżki (machines.file ani hall.machines_file)"
+        )
+        return []
+
+    if not os.path.exists(path):
+        logger.error("[Maszyny] Plik nie istnieje: %s", path)
+        return []
+
+    machines = _load_machines_from_path(path)
+    logger.info("[Maszyny] Źródło: %s | wczytano: %s rekordów", path, len(machines))
+    return machines
+
+
+def _render_machines_list(parent: tk.Misc, machines: list[dict]) -> ttk.Treeview:
+    tree = ttk.Treeview(
+        parent,
+        columns=("id", "kod", "nazwa", "lokacja", "status"),
+        show="headings",
+    )
+    for col, text in (
+        ("id", "ID"),
+        ("kod", "Kod"),
+        ("nazwa", "Nazwa"),
+        ("lokacja", "Lokacja"),
+        ("status", "Status"),
+    ):
+        tree.heading(col, text=text)
+        tree.column(col, width=120, stretch=True, anchor="w")
+    for machine in machines:
+        tree.insert(
+            "",
+            "end",
+            values=(
+                machine.get("id", ""),
+                machine.get("kod", ""),
+                machine.get("nazwa", ""),
+                machine.get("lokacja", ""),
+                machine.get("status", ""),
+            ),
+        )
+    tree.pack(side="left", fill="both", expand=True)
+    scrollbar = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
+    scrollbar.pack(side="right", fill="y")
+    tree.configure(yscrollcommand=scrollbar.set)
+    return tree
+
+
+def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None:
+    for child in container.winfo_children():
+        child.destroy()
+
+    label_kwargs = {}
+    if hasattr(container, "cget"):
         try:
-            ident = (
-                row.get("ID")
-                or row.get("id")
-                or row.get("nr")
-                or row.get("nr_ewid")
-                or row.get("sn")
-            )
-            name = row.get("nazwa") or row.get("name") or ""
-            ident = (str(ident).strip() if ident is not None else "").strip()
-            label = ident or str(name).strip()
-            if not label or label in seen:
-                continue
-            seen.add(label)
-            items.append(label)
-        except Exception as exc:  # pragma: no cover - defensywne logowanie
-            logger.warning("[Maszyny] Nie mogę przetworzyć rekordu: %s", exc)
+            label_kwargs["bg"] = container.cget("bg")
+        except Exception:
+            pass
+    if label_kwargs.get("bg"):
+        label_kwargs.setdefault("fg", "#d1d5db")
 
-    items.sort(key=lambda value: (len(value), value))
-    logger.info("[Maszyny] Przygotowano %s etykiet do widoku", len(items))
-    return items
+    path = _get_machines_path_from_config(config_manager)
+    if not path:
+        logger.warning(
+            "[Maszyny] Brak ustawionej ścieżki (machines.file ani hall.machines_file)"
+        )
+        messagebox.showwarning(
+            "Maszyny", "Nie ustawiono pliku maszyn w Ustawieniach."
+        )
+        tk.Label(
+            container,
+            text="Brak maszyn – ustaw 'Plik maszyn' w Ustawieniach.",
+            **label_kwargs,
+        ).pack(pady=12)
+        return None
 
+    if not os.path.exists(path):
+        logger.error("[Maszyny] Plik nie istnieje: %s", path)
+        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{path}")
+        tk.Label(
+            container,
+            text="Plik maszyn nie istnieje.",
+            **label_kwargs,
+        ).pack(pady=12)
+        return None
 
-def _bind_machines_to_view(self, items: list[str]) -> None:
-    """Podłącza listę maszyn do dostępnego widoku."""
+    machines = _load_machines_from_path(path)
+    logger.info("[Maszyny] Źródło: %s | wczytano: %s rekordów", path, len(machines))
 
-    try:
-        if hasattr(self, "tree") and self.tree is not None:
-            try:
-                for iid in self.tree.get_children():
-                    self.tree.delete(iid)
-                for lbl in items:
-                    self.tree.insert("", "end", text=lbl, values=(lbl,))
-                return
-            except Exception:
-                pass
+    if not Renderer:
+        logger.warning(
+            "[Maszyny] Renderer hali niedostępny – pokażę listę tekstową zamiast podglądu."
+        )
+    else:  # pragma: no cover - renderer opcjonalny
+        try:
+            Renderer.draw(machines)
+        except Exception:
+            logger.exception("[Maszyny] Błąd renderowania podglądu hali")
 
-        if hasattr(self, "machines_list") and self.machines_list is not None:
-            try:
-                self.machines_list["values"] = tuple(items)
-                if items:
-                    try:
-                        self.machines_list.current(0)
-                    except Exception:
-                        pass
-                return
-            except Exception:
-                try:
-                    self.machines_list.delete(0, "end")
-                    for lbl in items:
-                        self.machines_list.insert("end", lbl)
-                    return
-                except Exception:
-                    pass
+    if not machines:
+        tk.Label(
+            container,
+            text="Brak rekordów maszyn w pliku.",
+            **label_kwargs,
+        ).pack(pady=12)
+        return None
 
-        log.info("[WM-DBG][MASZYNY] Nie znaleziono widoku do podpięcia danych.")
-    except Exception as exc:  # pragma: no cover - log błędu podpinania
-        log.error(f"[ERROR][MASZYNY] Podpinanie danych do widoku: {exc}")
-
-
-def _wm_init_hook_after_ui_build(self):
-    try:
-        machines = load_machines_from_config(CONFIG_MANAGER)
-        labels = _prepare_machine_labels(machines)
-        _bind_machines_to_view(self, labels)
-        if Renderer is None:
-            logger.warning(
-                "[Maszyny] Renderer hali nie jest dostępny – pomijam podgląd."
-            )
-        else:  # pragma: no cover - renderer opcjonalny
-            try:
-                Renderer.draw(machines)
-            except Exception:
-                logger.exception("[Maszyny] Błąd renderowania podglądu hali")
-    except Exception as _exc:  # pragma: no cover - log błędu inicjalizacji
-        log.error(f"[ERROR][MASZYNY] Inicjalizacja listy maszyn: {_exc}")
+    return _render_machines_list(container, machines)
 
 
 class MaszynyGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
+        self.container: tk.Frame | None = None
+        self.tree: ttk.Treeview | None = None
         self._build_ui()
-        _wm_init_hook_after_ui_build(self)
 
     def _build_ui(self) -> None:
         bg = self.root["bg"] if "bg" in self.root.keys() else "#111214"
@@ -215,26 +208,10 @@ class MaszynyGUI:
         )
         header.pack(fill="x", padx=12, pady=(12, 6))
 
-        tree_container = tk.Frame(main, bg=bg)
-        tree_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        self.container = tk.Frame(main, bg=bg)
+        self.container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
-        self.tree = ttk.Treeview(
-            tree_container,
-            columns=("nazwa",),
-            show="tree headings",
-            selectmode="browse",
-            height=18,
-        )
-        self.tree.heading("nazwa", text="Maszyna")
-        self.tree.column("#0", width=0, stretch=False)
-        self.tree.column("nazwa", width=320, anchor="w")
-        self.tree.pack(side="left", fill="both", expand=True)
-
-        scrollbar = ttk.Scrollbar(
-            tree_container, orient="vertical", command=self.tree.yview
-        )
-        scrollbar.pack(side="right", fill="y")
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree = _open_machines_panel(self.root, self.container, CONFIG_MANAGER)
 
 
 if __name__ == "__main__":
