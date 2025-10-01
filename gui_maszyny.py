@@ -69,7 +69,7 @@ def load_machines_from_config(config_manager) -> list[dict]:
     if not abs_path:
         messagebox.showwarning(
             "Maszyny",
-            "Nie ustawiono relatywnej ścieżki 'maszyny/…' względem Folderu WM (root).",
+            "Nie ustawiono 'Relatywna ścieżka pliku maszyn' względem Folderu WM (root).",
         )
         logger.warning("[Maszyny] Brak machines.rel_path albo paths.data_root")
         return []
@@ -138,9 +138,7 @@ def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None
     machines = load_machines_from_config(config_manager)
 
     if not Renderer:
-        logger.warning(
-            "[Maszyny] Renderer hali niedostępny – pokażę listę tekstową zamiast podglądu."
-        )
+        logger.warning("[Maszyny] Renderer niedostępny – używam widoku listy.")
     else:  # pragma: no cover - renderer opcjonalny
         try:
             Renderer.draw(machines)
