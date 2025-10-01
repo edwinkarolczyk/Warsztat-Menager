@@ -25,6 +25,40 @@ _logger = logger
 _audit_text_widget = None
 
 
+def _safe_pick_json(
+    owner: tk.Misc | None,
+    reason: str = "",
+    *,
+    title: str | None = None,
+    filetypes: list[tuple[str, str]] | None = None,
+) -> str | None:
+    """Return file path picked via dialog unless bootstrap is active."""
+
+    try:
+        from start import BOOTSTRAP_ACTIVE
+    except Exception:
+        BOOTSTRAP_ACTIVE = False
+
+    if BOOTSTRAP_ACTIVE:
+        logger.info(
+            "[FILEDIALOG] Zablokowano dialog podczas bootstrapa (powód: %s)",
+            reason or "nie podano",
+        )
+        return None
+
+    kwargs: dict[str, Any] = {}
+    if owner is not None:
+        kwargs["parent"] = owner
+    kwargs["title"] = title or "Wybierz plik JSON"
+    if filetypes:
+        kwargs["filetypes"] = filetypes
+    else:
+        kwargs["filetypes"] = [("Plik JSON", "*.json")]
+
+    path = filedialog.askopenfilename(**kwargs)
+    return path or None
+
+
 def _copy_audit_report_to_clipboard(root: tk.Misc):
     """Kopiuje całą treść raportu audytu do schowka systemowego."""
 
@@ -357,10 +391,16 @@ def _create_widget(
         entry.pack(side="left", fill="x", expand=True)
 
         def browse() -> None:
+            owner = frame.winfo_toplevel() if hasattr(frame, "winfo_toplevel") else None
             if widget_type == "dir":
-                path = filedialog.askdirectory()
+                path = filedialog.askdirectory(parent=owner)
             else:
-                path = filedialog.askopenfilename()
+                reason = f"option:{option.get('key', 'path')}"
+                path = _safe_pick_json(
+                    owner,
+                    reason,
+                    title=option.get("dialog_title") or "Wybierz plik",
+                )
             if path:
                 var.set(path)
 
@@ -2186,7 +2226,14 @@ class SettingsPanel:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
         def run_patch(dry: bool) -> None:
-            patch_path = filedialog.askopenfilename()
+            owner = frame.winfo_toplevel() if hasattr(frame, "winfo_toplevel") else None
+            reason = f"patch:{'dry' if dry else 'apply'}"
+            patch_path = _safe_pick_json(
+                owner,
+                reason,
+                title="Wybierz plik patcha",
+                filetypes=[("Pakiet WM", "*.wmpatch *.zip"), ("Wszystkie pliki", "*.*")],
+            )
             if not patch_path:
                 return
             print(f"[WM-DBG] apply_patch dry_run={dry} path={patch_path}")
