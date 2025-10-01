@@ -72,8 +72,25 @@ def load_machines_from_config(config_manager) -> list[dict]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        if isinstance(data, dict) and "items" in data:
-            machines = [row for row in data["items"] if isinstance(row, dict)]
+        if isinstance(data, dict):
+            if "items" in data:
+                machines = [row for row in data["items"] if isinstance(row, dict)]
+            elif "maszyny" in data:
+                machines = [row for row in data["maszyny"] if isinstance(row, dict)]
+            else:
+                logger.error(
+                    "[Maszyny] Nieobsługiwany format dict w pliku: %s", path
+                )
+                messagebox.showwarning(
+                    "Maszyny",
+                    (
+                        "Plik "
+                        f"{path} ma nieobsługiwany format (brak 'items' ani "
+                        "'maszyny')."
+                    ),
+                )
+                logger.info("[Maszyny] Wczytano %s rekordów z %s", len(machines), path)
+                return []
         elif isinstance(data, list):
             machines = [row for row in data if isinstance(row, dict)]
         else:
