@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 import datetime
 import json
+import logging
 import os, sys, subprocess, threading
 import re
 import tkinter as tk
@@ -16,6 +17,67 @@ from tkinter import colorchooser
 from tkinter import ttk, filedialog, messagebox
 
 from ui_theme import ensure_theme_applied
+
+logger = logging.getLogger(__name__)
+_logger = logger
+
+
+_audit_text_widget = None
+
+
+def _safe_pick_json(
+    owner: tk.Misc | None,
+    reason: str = "",
+    *,
+    title: str | None = None,
+    filetypes: list[tuple[str, str]] | None = None,
+) -> str | None:
+    """Return file path picked via dialog unless bootstrap is active."""
+
+    try:
+        from start import BOOTSTRAP_ACTIVE
+    except Exception:
+        BOOTSTRAP_ACTIVE = False
+
+    if BOOTSTRAP_ACTIVE:
+        logger.info(
+            "[FILEDIALOG] Zablokowano dialog podczas bootstrapa (powód: %s)",
+            reason or "nie podano",
+        )
+        return None
+
+    kwargs: dict[str, Any] = {}
+    if owner is not None:
+        kwargs["parent"] = owner
+    kwargs["title"] = title or "Wybierz plik JSON"
+    if filetypes:
+        kwargs["filetypes"] = filetypes
+    else:
+        kwargs["filetypes"] = [("Plik JSON", "*.json")]
+
+    path = filedialog.askopenfilename(**kwargs)
+    return path or None
+
+
+def _copy_audit_report_to_clipboard(root: tk.Misc):
+    """Kopiuje całą treść raportu audytu do schowka systemowego."""
+
+    global _audit_text_widget
+    try:
+        if not (_audit_text_widget and _audit_text_widget.winfo_exists()):
+            messagebox.showwarning("Audyt", "Nie znaleziono widżetu raportu audytu.")
+            return
+        content = _audit_text_widget.get("1.0", "end").strip()
+        if not content:
+            messagebox.showinfo("Audyt", "Raport jest pusty.")
+            return
+        root.clipboard_clear()
+        root.clipboard_append(content)
+        _logger.info("[AUDYT] Skopiowano raport do schowka (%s znaków)", len(content))
+        messagebox.showinfo("Audyt", "Raport skopiowany do schowka.")
+    except Exception as e:  # pragma: no cover - ochrona przed błędami środowiska
+        _logger.exception("[AUDYT] Kopiowanie do schowka nie powiodło się")
+        messagebox.showerror("Audyt", f"Błąd kopiowania:\n{e}")
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
@@ -329,10 +391,16 @@ def _create_widget(
         entry.pack(side="left", fill="x", expand=True)
 
         def browse() -> None:
+            owner = frame.winfo_toplevel() if hasattr(frame, "winfo_toplevel") else None
             if widget_type == "dir":
-                path = filedialog.askdirectory()
+                path = filedialog.askdirectory(parent=owner)
             else:
-                path = filedialog.askopenfilename()
+                reason = f"option:{option.get('key', 'path')}"
+                path = _safe_pick_json(
+                    owner,
+                    reason,
+                    title=option.get("dialog_title") or "Wybierz plik",
+                )
             if path:
                 var.set(path)
 
@@ -2158,7 +2226,14 @@ class SettingsPanel:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
         def run_patch(dry: bool) -> None:
-            patch_path = filedialog.askopenfilename()
+            owner = frame.winfo_toplevel() if hasattr(frame, "winfo_toplevel") else None
+            reason = f"patch:{'dry' if dry else 'apply'}"
+            patch_path = _safe_pick_json(
+                owner,
+                reason,
+                title="Wybierz plik patcha",
+                filetypes=[("Pakiet WM", "*.wmpatch *.zip"), ("Wszystkie pliki", "*.*")],
+            )
             if not patch_path:
                 return
             print(f"[WM-DBG] apply_patch dry_run={dry} path={patch_path}")
@@ -2476,12 +2551,132 @@ class SettingsWindow(SettingsPanel):
 
         frame = ttk.Frame(self.nb)
         self.nb.add(frame, text="Audyt")
+
         btn = ttk.Button(frame, text="Uruchom audyt", command=self._run_audit_now)
         btn.pack(anchor="w", padx=5, pady=5)
-        txt = tk.Text(frame, height=15)
-        txt.pack(fill="both", expand=True, padx=5, pady=5)
+
+        txt = tk.Text(frame, height=12)
+        txt.pack(fill="x", expand=False, padx=5, pady=(0, 5))
+        global _audit_text_widget
+        _audit_text_widget = txt
+
+        ctrl_bar = tk.Frame(frame)
+        ctrl_bar.pack(fill="x", padx=5, pady=(0, 5))
+        btn_copy = tk.Button(
+            ctrl_bar,
+            text="Kopiuj raport",
+            command=lambda: _copy_audit_report_to_clipboard(frame),
+        )
+        btn_copy.pack(side="right")
+
+        def _bind_copy_shortcut(_event=None):
+            _copy_audit_report_to_clipboard(frame)
+            return "break"
+
+        txt.bind("<Control-c>", _bind_copy_shortcut)
         self.btn_audit_run = btn
         self.txt_audit = txt
+
+        tree_frame = ttk.Frame(frame)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        columns = ("time", "user", "action", "details", "file")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=12)
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+
+        headers = {
+            "time": "Czas",
+            "user": "Użytkownik",
+            "action": "Akcja/klucz",
+            "details": "Szczegóły",
+            "file": "Plik",
+        }
+        for key, label in headers.items():
+            tree.heading(key, text=label)
+        tree.column("time", width=150, anchor="w")
+        tree.column("user", width=120, anchor="w")
+        tree.column("action", width=220, anchor="w")
+        tree.column("details", width=320, anchor="w")
+        tree.column("file", width=140, anchor="w")
+        self.audit_tree = tree
+
+        def _populate_audit_tree() -> None:
+            tree.delete(*tree.get_children())
+            records: list[dict[str, Any]] = []
+            try:
+                audit_dir = Path(cm.AUDIT_DIR)
+                if audit_dir.exists():
+                    for audit_file in sorted(audit_dir.glob("*.jsonl")):
+                        try:
+                            with audit_file.open("r", encoding="utf-8") as handle:
+                                for raw in handle:
+                                    line = raw.strip()
+                                    if not line:
+                                        continue
+                                    try:
+                                        record = json.loads(line)
+                                    except Exception:
+                                        continue
+                                    record["_audit_file"] = audit_file.name
+                                    records.append(record)
+                        except Exception:
+                            continue
+            except Exception:
+                records = []
+
+            def _ts_value(rec: dict[str, Any]) -> str:
+                ts = rec.get("time") or rec.get("ts") or ""
+                return str(ts)
+
+            records.sort(key=_ts_value, reverse=True)
+
+            for rec in records:
+                time_val = rec.get("time") or rec.get("ts") or ""
+                user_val = rec.get("user") or rec.get("who") or ""
+                action_val = (
+                    rec.get("key")
+                    or rec.get("action")
+                    or rec.get("event")
+                    or ""
+                )
+                detail_val: Any = rec.get("after")
+                if detail_val in ({}, [], None, ""):
+                    detail_val = (
+                        rec.get("detail")
+                        or rec.get("path")
+                        or rec.get("branch")
+                        or rec.get("commit")
+                    )
+                if isinstance(detail_val, (dict, list)):
+                    try:
+                        detail_val = json.dumps(detail_val, ensure_ascii=False)
+                    except Exception:
+                        detail_val = str(detail_val)
+                if detail_val is None:
+                    detail_val = ""
+                file_val = rec.get("_audit_file", "")
+                tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        str(time_val),
+                        str(user_val),
+                        str(action_val),
+                        str(detail_val),
+                        str(file_val),
+                    ),
+                )
+            try:
+                logger.info("[AUDYT] Wyświetlono %s pozycji audytu", len(records))
+            except Exception:
+                pass
+
+        _populate_audit_tree()
+        self._refresh_audit_history = _populate_audit_tree
 
     def _append_audit_out(self, s: str) -> None:
         try:
@@ -2507,6 +2702,12 @@ class SettingsWindow(SettingsPanel):
                     f.write(result)
                 msg = result + f"\n[INFO] Raport zapisano do {path}\n"
                 self.txt_audit.after(0, self._append_audit_out, msg)
+                refresh = getattr(self, "_refresh_audit_history", None)
+                if callable(refresh):
+                    try:
+                        self.txt_audit.after(0, refresh)
+                    except Exception:
+                        pass
             except Exception as exc:
                 self.txt_audit.after(
                     0, self._append_audit_out, f"[ERROR] {exc!r}\n"

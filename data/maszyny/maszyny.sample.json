@@ -1,0 +1,23 @@
+[
+  {
+    "id": "M-001",
+    "kod": "PRASA-01",
+    "nazwa": "Prasa hydrauliczna 100T",
+    "lokacja": "H1-A3",
+    "status": "OK"
+  },
+  {
+    "id": "M-002",
+    "kod": "TOKARKA-02",
+    "nazwa": "Tokarka CNC T-450",
+    "lokacja": "H1-B1",
+    "status": "PRZEGLĄD"
+  },
+  {
+    "id": "M-003",
+    "kod": "FREZ-03",
+    "nazwa": "Frezarka 3-osiowa F300",
+    "lokacja": "H2-C2",
+    "status": "OK"
+  }
+]

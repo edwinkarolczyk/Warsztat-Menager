@@ -68,12 +68,13 @@ Roadmapa projektu **Warsztat Menager** określa plan działania dla dalszego roz
 
 ---
 
-### 0) Rdzeń / Ustawienia / Logowanie — 🟢 90%  _(zaktualizowano po PR #1167)_
-- [x] Zbiorczy fix `_TclError` (scroll/`after()` na zniszczonych widgetach)
-- [x] Zawężenie `except Exception` + stałe logowanie `[WM-ERR]/[WM-DBG]`
-- [x] **Motywy** – pełna spójność (Logowanie, Panel, dialogi)
-- [x] Logi: konsola + `logs/wm.log` (rotacja 5×5 MB)
-**DoD:** start bez wyjątków; motywy spójne; błędy/akcje → log; okna błędów gdzie ustalone.
+### 0) Rdzeń / Ustawienia / Logowanie — 🟢 100%  _(zaktualizowano po PR #1167 i R-07B)_
+- [x] Zbiorczy fix `_TclError` (scroll/`after()` na zniszczonych widgetach) — PR #1167  
+- [x] Zawężenie `except Exception` + stałe logowanie `[WM-ERR]/[WM-DBG]` — PR #1167  
+- [x] **Motywy** – pełna spójność (Logowanie, Panel, dialogi) — PR #1167  
+- [x] Logi: konsola + `logs/wm.log` (rotacja 5×5 MB) — PR #1167  
+- [x] **Audyt**: spięty z plikiem `data/audyt.json` (Roadmapa w UI) — R-07B  
+**DoD:** start bez wyjątków; motywy spójne; błędy/akcje → log; okna błędów gdzie ustalone; audyt pokazuje całą Roadmapę.
 
 ### 1) Narzędzia — 🟠 65%
 - [ ] Walidacja formularzy (puste pola → okno błędu)

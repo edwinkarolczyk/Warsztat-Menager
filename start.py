@@ -21,6 +21,8 @@ import shutil
 import tkinter as tk
 from tkinter import messagebox, Toplevel
 
+BOOTSTRAP_ACTIVE = True
+
 from utils import error_dialogs
 
 try:
@@ -499,7 +501,7 @@ def _wm_git_check_on_start(
 
 # ====== MAIN ======
 def main():
-    global SESSION_ID
+    global SESSION_ID, BOOTSTRAP_ACTIVE
     SESSION_ID = f"{datetime.now().strftime('%H%M%S')}"
     _info(f"Uzywam Pythona: {sys.executable or sys.version}")
     _info(f"Katalog roboczy: \"{os.getcwd()}\"")
@@ -572,6 +574,11 @@ def main():
         except Exception:
             timeout = 30 * 60
         monitor_user_activity(root, timeout)
+
+        try:
+            BOOTSTRAP_ACTIVE = False
+        except Exception:
+            pass
 
         # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
         # to po prostu zostawiamy pętlę główną jak dotąd:

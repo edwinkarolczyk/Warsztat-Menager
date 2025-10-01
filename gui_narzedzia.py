@@ -53,6 +53,7 @@ LOG = logging.getLogger(__name__)
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH = cfg_path("config.json")
+DEFAULT_CONFIG_PATH = CONFIG_PATH
 STATUSY_NOWE_DEFAULT  = ["projekt", "w budowie", "próby narzędzia", "odbiór", "sprawne"]
 STATUSY_STARE_DEFAULT = ["sprawne", "do ostrzenia", "w ostrzeniu", "po ostrzeniu", "w naprawie", "uszkodzone", "wycofane"]
 
@@ -543,38 +544,46 @@ def _types_from_config():
     Zwraca listę typów narzędzi. Preferuje config['tools']['types'].
     Fallback: kolekcja domyślna/loader, następnie stare klucze, na końcu stała.
     """
-    # 1) nowe ustawienia
-    try:
-        cfg_mgr = ConfigManager()
-        types = cfg_mgr.get("tools.types", None)
-        if (
-            isinstance(types, list)
-            and types
-            and not cfg_mgr.is_schema_default("tools.types")
-        ):
-            clean = [str(x).strip() for x in types if str(x).strip()]
-            return clean
-    except Exception:
-        pass
+    use_config_manager = CONFIG_PATH == DEFAULT_CONFIG_PATH
+
+    # 1) nowe ustawienia (tylko gdy korzystamy z domyślnej ścieżki configu)
+    if use_config_manager:
+        try:
+            cfg_mgr = ConfigManager()
+            types = cfg_mgr.get("tools.types", None)
+            if (
+                isinstance(types, list)
+                and types
+                and not cfg_mgr.is_schema_default("tools.types")
+            ):
+                clean = [str(x).strip() for x in types if str(x).strip()]
+                return clean
+        except Exception:
+            pass
+
     # 2) loader kolekcji (jeśli istnieje)
-    try:
-        cfg_mgr = ConfigManager()
-        default_collection = cfg_mgr.get("tools.default_collection", "NN") or "NN"
-    except Exception:
+    if use_config_manager:
+        try:
+            cfg_mgr = ConfigManager()
+            default_collection = cfg_mgr.get("tools.default_collection", "NN") or "NN"
+        except Exception:
+            default_collection = "NN"
+    else:
         default_collection = "NN"
     names = _type_names_for_collection(str(default_collection).strip() or "NN")
     if names:
         return names
     # 3) plik typów narzędzi
-    file_types = _clean_list(
-        _load_tools_list_from_file(
-            "tools.types_file",
-            ("types", "typy", "list", "items"),
-            dict_value_keys=("name", "title", "label", "value", "id"),
+    if use_config_manager:
+        file_types = _clean_list(
+            _load_tools_list_from_file(
+                "tools.types_file",
+                ("types", "typy", "list", "items"),
+                dict_value_keys=("name", "title", "label", "value", "id"),
+            )
         )
-    )
-    if file_types:
-        return file_types
+        if file_types:
+            return file_types
     # 4) stare klucze w configu
     try:
         cfg = _load_config()
