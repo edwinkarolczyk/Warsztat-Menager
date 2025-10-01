@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import copy
 import datetime
+import glob
+import io
 import json
 import logging
 import os, sys, subprocess, threading
@@ -19,10 +21,79 @@ from tkinter import ttk, filedialog, messagebox
 from ui_theme import ensure_theme_applied
 
 logger = logging.getLogger(__name__)
-_logger = logger
+_logger = logging.getLogger(__name__)
 
 
-_audit_text_widget = None
+def _wm_read_textwidget(widget) -> str:
+    """Zwraca cały tekst z Text/ScrolledText, jeżeli to taki widżet; w innym wypadku pusty string."""
+
+    try:
+        return widget.get("1.0", "end").strip()
+    except Exception:
+        return ""
+
+
+def _wm_copy_to_clipboard(owner, text: str) -> None:
+    """Kopiuje tekst do schowka systemowego + krótka notyfikacja/log."""
+
+    try:
+        owner.clipboard_clear()
+        owner.clipboard_append(text)
+        owner.update()
+        size = len(text.encode("utf-8")) if isinstance(text, str) else 0
+        _logger.info("[AUDIT][COPY] Skopiowano do schowka (%s bajtów).", size)
+        messagebox.showinfo("Kopiuj raport", "Raport skopiowany do schowka.")
+    except Exception as e:
+        _logger.exception("[AUDIT][COPY] Błąd kopiowania do schowka")
+        messagebox.showerror("Kopiuj raport", f"Nie udało się skopiować:\n{e}")
+
+
+def _wm_read_latest_audit_from_disk(cfg_manager) -> str:
+    """Szuka najnowszego pliku audytu w katalogu logs_dir (paths.logs_dir) i zwraca jego treść."""
+
+    try:
+        if cfg_manager is None:
+            _logger.warning("[AUDIT][COPY] Brak menedżera konfiguracji.")
+            return ""
+        if hasattr(cfg_manager, "load") and callable(getattr(cfg_manager, "load")):
+            cfg = cfg_manager.load() or {}
+        else:
+            cfg = getattr(cfg_manager, "merged", {}) or {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        logs_dir = ((cfg.get("paths") or {}).get("logs_dir") or "").strip()
+        if not logs_dir or not os.path.isdir(logs_dir):
+            _logger.warning("[AUDIT][COPY] Brak/niepoprawny logs_dir: %r", logs_dir)
+            return ""
+        pattern = os.path.join(logs_dir, "audyt_wm-*.txt")
+        files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+        if not files:
+            _logger.info("[AUDIT][COPY] Nie znaleziono plików audytu (%s).", pattern)
+            return ""
+        latest = files[0]
+        with io.open(latest, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+        _logger.info(
+            "[AUDIT][COPY] Wczytano najnowszy raport: %s (%s B)", latest, len(content)
+        )
+        return content
+    except Exception:
+        _logger.exception("[AUDIT][COPY] Wyjątek przy odczycie raportu z dysku")
+        return ""
+
+
+def _wm_copy_audit_report(owner, cfg_manager, text_widget=None):
+    """Główna akcja przycisku. Najpierw próbuje z widżetu tekstowego; jak pusty → najnowszy plik z logs_dir."""
+
+    text = ""
+    if text_widget is not None:
+        text = _wm_read_textwidget(text_widget)
+    if not text:
+        text = _wm_read_latest_audit_from_disk(cfg_manager)
+    if not text:
+        messagebox.showwarning("Kopiuj raport", "Brak treści raportu do skopiowania.")
+        return
+    _wm_copy_to_clipboard(owner, text)
 
 
 def _safe_pick_json(
@@ -99,26 +170,6 @@ def _safe_save_json(
     path = filedialog.asksaveasfilename(**kwargs)
     return path or None
 
-
-def _copy_audit_report_to_clipboard(root: tk.Misc):
-    """Kopiuje całą treść raportu audytu do schowka systemowego."""
-
-    global _audit_text_widget
-    try:
-        if not (_audit_text_widget and _audit_text_widget.winfo_exists()):
-            messagebox.showwarning("Audyt", "Nie znaleziono widżetu raportu audytu.")
-            return
-        content = _audit_text_widget.get("1.0", "end").strip()
-        if not content:
-            messagebox.showinfo("Audyt", "Raport jest pusty.")
-            return
-        root.clipboard_clear()
-        root.clipboard_append(content)
-        _logger.info("[AUDYT] Skopiowano raport do schowka (%s znaków)", len(content))
-        messagebox.showinfo("Audyt", "Raport skopiowany do schowka.")
-    except Exception as e:  # pragma: no cover - ochrona przed błędami środowiska
-        _logger.exception("[AUDYT] Kopiowanie do schowka nie powiodło się")
-        messagebox.showerror("Audyt", f"Błąd kopiowania:\n{e}")
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
@@ -2598,20 +2649,18 @@ class SettingsWindow(SettingsPanel):
 
         txt = tk.Text(frame, height=12)
         txt.pack(fill="x", expand=False, padx=5, pady=(0, 5))
-        global _audit_text_widget
-        _audit_text_widget = txt
 
         ctrl_bar = tk.Frame(frame)
         ctrl_bar.pack(fill="x", padx=5, pady=(0, 5))
         btn_copy = tk.Button(
             ctrl_bar,
             text="Kopiuj raport",
-            command=lambda: _copy_audit_report_to_clipboard(frame),
+            command=lambda: _wm_copy_audit_report(frame, getattr(self, "cfg", None), txt),
         )
         btn_copy.pack(side="right")
 
         def _bind_copy_shortcut(_event=None):
-            _copy_audit_report_to_clipboard(frame)
+            _wm_copy_audit_report(frame, getattr(self, "cfg", None), txt)
             return "break"
 
         txt.bind("<Control-c>", _bind_copy_shortcut)
