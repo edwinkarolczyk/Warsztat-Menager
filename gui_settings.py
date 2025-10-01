@@ -19,6 +19,31 @@ from tkinter import ttk, filedialog, messagebox
 from ui_theme import ensure_theme_applied
 
 logger = logging.getLogger(__name__)
+_logger = logger
+
+
+_audit_text_widget = None
+
+
+def _copy_audit_report_to_clipboard(root: tk.Misc):
+    """Kopiuje całą treść raportu audytu do schowka systemowego."""
+
+    global _audit_text_widget
+    try:
+        if not (_audit_text_widget and _audit_text_widget.winfo_exists()):
+            messagebox.showwarning("Audyt", "Nie znaleziono widżetu raportu audytu.")
+            return
+        content = _audit_text_widget.get("1.0", "end").strip()
+        if not content:
+            messagebox.showinfo("Audyt", "Raport jest pusty.")
+            return
+        root.clipboard_clear()
+        root.clipboard_append(content)
+        _logger.info("[AUDYT] Skopiowano raport do schowka (%s znaków)", len(content))
+        messagebox.showinfo("Audyt", "Raport skopiowany do schowka.")
+    except Exception as e:  # pragma: no cover - ochrona przed błędami środowiska
+        _logger.exception("[AUDYT] Kopiowanie do schowka nie powiodło się")
+        messagebox.showerror("Audyt", f"Błąd kopiowania:\n{e}")
 
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
@@ -2485,6 +2510,23 @@ class SettingsWindow(SettingsPanel):
 
         txt = tk.Text(frame, height=12)
         txt.pack(fill="x", expand=False, padx=5, pady=(0, 5))
+        global _audit_text_widget
+        _audit_text_widget = txt
+
+        ctrl_bar = tk.Frame(frame)
+        ctrl_bar.pack(fill="x", padx=5, pady=(0, 5))
+        btn_copy = tk.Button(
+            ctrl_bar,
+            text="Kopiuj raport",
+            command=lambda: _copy_audit_report_to_clipboard(frame),
+        )
+        btn_copy.pack(side="right")
+
+        def _bind_copy_shortcut(_event=None):
+            _copy_audit_report_to_clipboard(frame)
+            return "break"
+
+        txt.bind("<Control-c>", _bind_copy_shortcut)
         self.btn_audit_run = btn
         self.txt_audit = txt
 
