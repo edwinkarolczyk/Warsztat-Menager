@@ -59,6 +59,47 @@ def _safe_pick_json(
     return path or None
 
 
+def _safe_save_json(
+    owner: tk.Misc | None,
+    reason: str = "",
+    *,
+    title: str | None = None,
+    defaultextension: str = ".json",
+    initialfile: str | None = None,
+    filetypes: list[tuple[str, str]] | None = None,
+) -> str | None:
+    """Return save path picked via dialog unless bootstrap is active."""
+
+    try:
+        from start import BOOTSTRAP_ACTIVE
+    except Exception:
+        BOOTSTRAP_ACTIVE = False
+
+    if BOOTSTRAP_ACTIVE:
+        logger.info(
+            "[FILEDIALOG] Zablokowano dialog zapisu podczas bootstrapa (powód: %s)",
+            reason or "nie podano",
+        )
+        return None
+
+    kwargs: dict[str, Any] = {
+        "defaultextension": defaultextension,
+    }
+    if owner is not None:
+        kwargs["parent"] = owner
+    if title:
+        kwargs["title"] = title
+    if initialfile:
+        kwargs["initialfile"] = initialfile
+    if filetypes:
+        kwargs["filetypes"] = filetypes
+    else:
+        kwargs["filetypes"] = [("Plik JSON", "*.json")]
+
+    path = filedialog.asksaveasfilename(**kwargs)
+    return path or None
+
+
 def _copy_audit_report_to_clipboard(root: tk.Misc):
     """Kopiuje całą treść raportu audytu do schowka systemowego."""
 

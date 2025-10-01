@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-import os, json
+
+import json
+import os
+import sys
 
 ROOT = os.getcwd()
 CONFIG_PATH = os.path.join(ROOT, "config.json")
@@ -42,6 +45,25 @@ KEY_TO_FILTERS = {
     "tools.task_templates_file":     [("Plik JSON", "*.json")],
     "hall.machines_file":            [("Plik JSON", "*.json")],
 }
+
+
+def _bootstrap_active() -> bool:
+    try:
+        start_module = sys.modules.get("start")
+        if start_module is None:
+            return False
+        return bool(getattr(start_module, "BOOTSTRAP_ACTIVE", False))
+    except Exception:
+        return False
+
+
+def _log_dialog_block(kind: str, reason: str) -> None:
+    reason_text = reason or "brak powodu"
+    msg = (
+        "[RC1][bootstrap] Zablokowano dialog "
+        f"{kind} podczas bootstrapa (powód: {reason_text})"
+    )
+    print(msg)
 
 def _load_config() -> dict:
     try:
@@ -92,7 +114,10 @@ def _ask_yesno(title: str, message: str) -> bool:
         return True
 
 
-def _ask_open_file(initialdir: str | None, filters) -> str | None:
+def _ask_open_file(initialdir: str | None, filters, *, reason: str = "") -> str | None:
+    if _bootstrap_active():
+        _log_dialog_block("open", reason)
+        return None
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -105,7 +130,16 @@ def _ask_open_file(initialdir: str | None, filters) -> str | None:
         return None
 
 
-def _ask_save_file(initialdir: str | None, initialfile: str, filters) -> str | None:
+def _ask_save_file(
+    initialdir: str | None,
+    initialfile: str,
+    filters,
+    *,
+    reason: str = "",
+) -> str | None:
+    if _bootstrap_active():
+        _log_dialog_block("save", reason or initialfile)
+        return None
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -202,9 +236,14 @@ def _pick_or_create_path(cfg: dict, dotted_key: str) -> str | None:
 
     # 1) nic nie ustawiono → zapytaj o istniejący, a jeśli brak — zaproponuj zapis nowego
     if not current:
-        chosen = _ask_open_file(base_dir, filters)
+        chosen = _ask_open_file(base_dir, filters, reason=f"open:{dotted_key}")
         if not chosen:
-            chosen = _ask_save_file(base_dir, initialfile, filters)
+            chosen = _ask_save_file(
+                base_dir,
+                initialfile,
+                filters,
+                reason=f"save:{dotted_key}",
+            )
             if not chosen:
                 # headless: jeśli mamy base_dir, utwórz domyślną nazwę tam; jeśli nie — przerwij
                 if base_dir:
@@ -221,9 +260,14 @@ def _pick_or_create_path(cfg: dict, dotted_key: str) -> str | None:
             _write_if_missing(current, PAYLOADS[dotted_key])
             return current
         else:
-            chosen = _ask_open_file(base_dir, filters)
+            chosen = _ask_open_file(base_dir, filters, reason=f"open-missing:{dotted_key}")
             if not chosen:
-                chosen = _ask_save_file(base_dir, initialfile, filters)
+                chosen = _ask_save_file(
+                    base_dir,
+                    initialfile,
+                    filters,
+                    reason=f"save-missing:{dotted_key}",
+                )
             return chosen or None
 
     return current
