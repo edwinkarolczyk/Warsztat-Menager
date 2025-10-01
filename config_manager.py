@@ -18,6 +18,30 @@ from typing import Any, Dict, Iterable, List
 
 from utils.path_utils import cfg_path
 
+log = logging.getLogger(__name__)
+
+
+def _migrate_legacy_keys(cfg: dict) -> bool:
+    """
+    Migruje stare klucze konfiguracji do nowych. Zwraca True, jeśli coś zmieniono.
+    Na razie: hall.machines_file -> machines.file
+    """
+
+    changed = False
+    try:
+        legacy = (cfg.get("hall") or {}).get("machines_file")
+        newval = (cfg.get("machines") or {}).get("file")
+        if legacy and not newval:
+            cfg.setdefault("machines", {})["file"] = legacy
+            changed = True
+            log.info(
+                "[CFG-MIGRATE] Skopiowano hall.machines_file → machines.file: %s",
+                legacy,
+            )
+    except Exception as e:
+        log.warning("[CFG-MIGRATE] Wyjątek podczas migracji: %r", e)
+    return changed
+
 # Ścieżki domyślne (katalog główny aplikacji)
 SCHEMA_PATH = cfg_path("settings_schema.json")
 DEFAULTS_PATH = cfg_path("config.defaults.json")
@@ -30,7 +54,7 @@ BACKUP_DIR = cfg_path("backup_wersji")
 ROLLBACK_KEEP = 10
 
 # Initialize module logger
-logger = logging.getLogger(__name__)
+logger = log
 
 
 class ConfigError(Exception):
@@ -210,6 +234,13 @@ class ConfigManager:
                 self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
+        if _migrate_legacy_keys(self.global_cfg):
+            try:
+                save_method = getattr(self, "save", None)
+                if callable(save_method):
+                    save_method(self.global_cfg)
+            except Exception:
+                pass
         self._ensure_magazyn_slowniki(self.schema)
 
         # >>> WM PATCH START: auto-heal critical keys
