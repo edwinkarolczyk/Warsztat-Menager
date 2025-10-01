@@ -21,6 +21,62 @@ from utils.path_utils import cfg_path
 log = logging.getLogger(__name__)
 
 
+def _norm(p: str) -> str:
+    return os.path.normpath(p).replace("\\", "/")
+
+
+def _is_subpath(child: str, parent: str) -> bool:
+    try:
+        return os.path.commonpath(
+            [os.path.abspath(child), os.path.abspath(parent)]
+        ) == os.path.abspath(parent)
+    except Exception:
+        return False
+
+
+def resolve_under_root(cfg: dict, rel_key_path: tuple[str, ...]) -> str | None:
+    """
+    Zwraca ścieżkę absolutną jako join(paths.data_root, rel_path),
+    gdzie rel_path = cfg[rel_key_path...]. Jeśli brak danych – None.
+    """
+
+    root = ((cfg.get("paths") or {}).get("data_root") or "").strip()
+    cur = cfg
+    for k in rel_key_path:
+        cur = (cur.get(k) if isinstance(cur, dict) else None) or {}
+    rel = (cur or "").strip() if isinstance(cur, str) else ""
+    if not (root and rel):
+        return None
+    return os.path.join(root, rel)
+
+
+def _migrate_legacy_paths(cfg: dict) -> bool:
+    """
+    Migracje relatywne (bez zmian UI):
+    - hall.machines_file (ABS) → machines.rel_path (REL), jeśli:
+      * machines.rel_path jest puste ORAZ
+      * hall.machines_file wskazuje do środka paths.data_root.
+    """
+
+    changed = False
+    try:
+        root = ((cfg.get("paths") or {}).get("data_root") or "").strip()
+        legacy_abs = ((cfg.get("hall") or {}).get("machines_file") or "").strip()
+        new_rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
+
+        if root and legacy_abs and not new_rel and _is_subpath(legacy_abs, root):
+            rel = _norm(os.path.relpath(legacy_abs, root))
+            cfg.setdefault("machines", {})["rel_path"] = rel
+            changed = True
+            log.info(
+                "[CFG-MIGRATE] hall.machines_file → machines.rel_path = %s",
+                rel,
+            )
+    except Exception as e:
+        log.warning("[CFG-MIGRATE] Wyjątek migracji: %r", e)
+    return changed
+
+
 def _migrate_legacy_keys(cfg: dict) -> bool:
     """
     Migruje stare klucze konfiguracji do nowych. Zwraca True, jeśli coś zmieniono.
@@ -234,7 +290,12 @@ class ConfigManager:
                 self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
         self.global_cfg = self._load_json(self.config_path) or {}
+        migrated = False
+        if _migrate_legacy_paths(self.global_cfg):
+            migrated = True
         if _migrate_legacy_keys(self.global_cfg):
+            migrated = True
+        if migrated:
             try:
                 save_method = getattr(self, "save", None)
                 if callable(save_method):

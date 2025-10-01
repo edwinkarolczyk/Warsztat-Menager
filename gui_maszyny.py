@@ -6,7 +6,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from config_manager import ConfigManager
+from config_manager import ConfigManager, resolve_under_root
 from ui_theme import ensure_theme_applied
 
 logger = logging.getLogger(__name__)
@@ -38,56 +38,54 @@ def _resolve_config_manager(cm: ConfigManager | None) -> ConfigManager | None:
         return None
 
 
-def _load_machines_from_path(path: str) -> list[dict]:
+def _load_machines_list(abs_path: str) -> list[dict]:
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(abs_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict) and isinstance(data.get("items"), list):
             return [row for row in data["items"] if isinstance(row, dict)]
         if isinstance(data, list):
             return [row for row in data if isinstance(row, dict)]
-        logger.error("[Maszyny] Nieobsługiwany format JSON w %s", path)
+        logger.error("[Maszyny] Nieobsługiwany format w %s", abs_path)
         return []
     except Exception:
-        logger.exception("[Maszyny] Błąd wczytania %s", path)
+        logger.exception("[Maszyny] Błąd czytania %s", abs_path)
         return []
-
-
-def _get_machines_path_from_config(config_manager) -> str | None:
-    cfg: dict = {}
-    cm = _resolve_config_manager(config_manager)
-    if cm is None:
-        return None
-    try:
-        if hasattr(cm, "load") and callable(getattr(cm, "load")):
-            cfg = cm.load()
-        else:
-            cfg = getattr(cm, "merged", {}) or {}
-    except Exception:
-        cfg = {}
-    machines_cfg = cfg.get("machines") or {}
-    hall_cfg = cfg.get("hall") or {}
-    path = machines_cfg.get("file") or hall_cfg.get("machines_file")
-    return path
 
 
 def load_machines_from_config(config_manager) -> list[dict]:
-    """Wczytaj listę maszyn na podstawie konfiguracji."""
+    try:
+        cfg = {}
+        cm = _resolve_config_manager(config_manager)
+        if cm is not None:
+            if hasattr(cm, "load") and callable(getattr(cm, "load")):
+                cfg = cm.load()
+            else:
+                cfg = getattr(cm, "merged", {}) or {}
+    except Exception:
+        cfg = {}
 
-    path = _get_machines_path_from_config(config_manager)
-    if not path:
-        logger.warning(
-            "[Maszyny] Brak ustawionej ścieżki (machines.file ani hall.machines_file)"
+    abs_path = resolve_under_root(cfg, ("machines", "rel_path"))
+    if not abs_path:
+        messagebox.showwarning(
+            "Maszyny",
+            "Nie ustawiono relatywnej ścieżki 'maszyny/…' względem Folderu WM (root).",
         )
+        logger.warning("[Maszyny] Brak machines.rel_path albo paths.data_root")
         return []
-
-    if not os.path.exists(path):
-        logger.error("[Maszyny] Plik nie istnieje: %s", path)
+    if not os.path.exists(abs_path):
+        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{abs_path}")
+        logger.error("[Maszyny] Brak pliku: %s", abs_path)
         return []
-
-    machines = _load_machines_from_path(path)
-    logger.info("[Maszyny] Źródło: %s | wczytano: %s rekordów", path, len(machines))
-    return machines
+    items = _load_machines_list(abs_path)
+    logger.info(
+        "[Maszyny] root=%s | rel=%s | abs=%s | records=%s",
+        (cfg.get("paths") or {}).get("data_root"),
+        (cfg.get("machines") or {}).get("rel_path"),
+        abs_path,
+        len(items),
+    )
+    return items
 
 
 def _render_machines_list(parent: tk.Misc, machines: list[dict]) -> ttk.Treeview:
@@ -137,33 +135,7 @@ def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None
     if label_kwargs.get("bg"):
         label_kwargs.setdefault("fg", "#d1d5db")
 
-    path = _get_machines_path_from_config(config_manager)
-    if not path:
-        logger.warning(
-            "[Maszyny] Brak ustawionej ścieżki (machines.file ani hall.machines_file)"
-        )
-        messagebox.showwarning(
-            "Maszyny", "Nie ustawiono pliku maszyn w Ustawieniach."
-        )
-        tk.Label(
-            container,
-            text="Brak maszyn – ustaw 'Plik maszyn' w Ustawieniach.",
-            **label_kwargs,
-        ).pack(pady=12)
-        return None
-
-    if not os.path.exists(path):
-        logger.error("[Maszyny] Plik nie istnieje: %s", path)
-        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{path}")
-        tk.Label(
-            container,
-            text="Plik maszyn nie istnieje.",
-            **label_kwargs,
-        ).pack(pady=12)
-        return None
-
-    machines = _load_machines_from_path(path)
-    logger.info("[Maszyny] Źródło: %s | wczytano: %s rekordów", path, len(machines))
+    machines = load_machines_from_config(config_manager)
 
     if not Renderer:
         logger.warning(
@@ -178,7 +150,7 @@ def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None
     if not machines:
         tk.Label(
             container,
-            text="Brak rekordów maszyn w pliku.",
+            text="Brak rekordów maszyn lub niepoprawna ścieżka.",
             **label_kwargs,
         ).pack(pady=12)
         return None
