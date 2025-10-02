@@ -6,7 +6,7 @@ import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from config_manager import ConfigManager, resolve_under_root
+from config_manager import ConfigManager
 from ui_theme import ensure_theme_applied
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def _resolve_config_manager(cm: ConfigManager | None) -> ConfigManager | None:
         return None
 
 
-def _load_machines_list(abs_path: str) -> list[dict]:
+def _load_machines_json(abs_path: str) -> list[dict]:
     try:
         with open(abs_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -46,49 +46,26 @@ def _load_machines_list(abs_path: str) -> list[dict]:
             return [row for row in data["items"] if isinstance(row, dict)]
         if isinstance(data, list):
             return [row for row in data if isinstance(row, dict)]
-        logger.error("[Maszyny] Nieobsługiwany format w %s", abs_path)
+        logger.error("[Maszyny] Nieobsługiwany format JSON: %s", abs_path)
         return []
     except Exception:
-        logger.exception("[Maszyny] Błąd czytania %s", abs_path)
+        logger.exception("[Maszyny] Błąd czytania: %s", abs_path)
         return []
 
 
-def load_machines_from_config(config_manager) -> list[dict]:
+def _resolve_machines_path(cfg_mgr) -> str | None:
     try:
-        cfg = {}
-        cm = _resolve_config_manager(config_manager)
-        if cm is not None:
-            if hasattr(cm, "load") and callable(getattr(cm, "load")):
-                cfg = cm.load()
-            else:
-                cfg = getattr(cm, "merged", {}) or {}
+        cfg = cfg_mgr.load()
     except Exception:
         cfg = {}
-
-    abs_path = resolve_under_root(cfg, ("machines", "rel_path"))
-    if not abs_path:
-        messagebox.showwarning(
-            "Maszyny",
-            "Nie ustawiono 'Relatywna ścieżka pliku maszyn' względem Folderu WM (root).",
-        )
-        logger.warning("[Maszyny] Brak machines.rel_path albo paths.data_root")
-        return []
-    if not os.path.exists(abs_path):
-        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{abs_path}")
-        logger.error("[Maszyny] Brak pliku: %s", abs_path)
-        return []
-    items = _load_machines_list(abs_path)
-    logger.info(
-        "[Maszyny] root=%s | rel=%s | abs=%s | records=%s",
-        (cfg.get("paths") or {}).get("data_root"),
-        (cfg.get("machines") or {}).get("rel_path"),
-        abs_path,
-        len(items),
-    )
-    return items
+    root = ((cfg.get("paths") or {}).get("data_root") or "").strip()
+    rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
+    if not (root and rel):
+        return None
+    return os.path.join(root, rel)
 
 
-def _render_machines_list(parent: tk.Misc, machines: list[dict]) -> ttk.Treeview:
+def _render_list(parent: tk.Misc, items: list[dict]) -> ttk.Treeview:
     tree = ttk.Treeview(
         parent,
         columns=("id", "kod", "nazwa", "lokacja", "status"),
@@ -103,7 +80,7 @@ def _render_machines_list(parent: tk.Misc, machines: list[dict]) -> ttk.Treeview
     ):
         tree.heading(col, text=text)
         tree.column(col, width=120, stretch=True, anchor="w")
-    for machine in machines:
+    for machine in items:
         tree.insert(
             "",
             "end",
@@ -122,11 +99,16 @@ def _render_machines_list(parent: tk.Misc, machines: list[dict]) -> ttk.Treeview
     return tree
 
 
-def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None:
+def _open_machines_panel(
+    root,
+    container,
+    config_manager,
+    Renderer=None,
+) -> ttk.Treeview | None:
     for child in container.winfo_children():
         child.destroy()
 
-    label_kwargs = {}
+    label_kwargs: dict[str, str] = {}
     if hasattr(container, "cget"):
         try:
             label_kwargs["bg"] = container.cget("bg")
@@ -135,25 +117,74 @@ def _open_machines_panel(root, container, config_manager) -> ttk.Treeview | None
     if label_kwargs.get("bg"):
         label_kwargs.setdefault("fg", "#d1d5db")
 
-    machines = load_machines_from_config(config_manager)
+    cm = _resolve_config_manager(config_manager)
+    if cm is None:
+        logger.warning("[Maszyny] Brak aktywnego ConfigManagera")
+        messagebox.showwarning(
+            "Maszyny",
+            "Nie można odczytać konfiguracji maszyn. Ustaw Folder WM (root).",
+        )
+        tk.Label(container, text="Brak konfiguracji maszyn.", **label_kwargs).pack(pady=12)
+        return None
 
-    if not Renderer:
-        logger.warning("[Maszyny] Renderer niedostępny – używam widoku listy.")
-    else:  # pragma: no cover - renderer opcjonalny
-        try:
-            Renderer.draw(machines)
-        except Exception:
-            logger.exception("[Maszyny] Błąd renderowania podglądu hali")
-
-    if not machines:
+    abs_path = _resolve_machines_path(cm)
+    if not abs_path:
+        logger.warning("[Maszyny] Brak paths.data_root lub machines.rel_path")
+        messagebox.showwarning(
+            "Maszyny",
+            "Ustaw Folder WM (root) i relatywną ścieżkę pliku maszyn.",
+        )
         tk.Label(
             container,
-            text="Brak rekordów maszyn lub niepoprawna ścieżka.",
+            text="Brak konfiguracji ścieżki maszyn.",
+            **label_kwargs,
+        ).pack(pady=12)
+        return None
+    if not os.path.exists(abs_path):
+        logger.error("[Maszyny] Plik nie istnieje: %s", abs_path)
+        messagebox.showwarning("Maszyny", f"Plik maszyn nie istnieje:\n{abs_path}")
+        tk.Label(container, text="Plik maszyn nie istnieje.", **label_kwargs).pack(pady=12)
+        return None
+
+    items = _load_machines_json(abs_path)
+    logger.info("[Maszyny] abs=%s | records=%s", abs_path, len(items))
+    if not items:
+        tk.Label(
+            container,
+            text="Brak rekordów maszyn w pliku.",
             **label_kwargs,
         ).pack(pady=12)
         return None
 
-    return _render_machines_list(container, machines)
+    if not Renderer:
+        logger.warning("[Maszyny] Renderer hali niedostępny – używam widoku listy.")
+        return _render_list(container, items)
+
+    try:  # pragma: no cover - renderer opcjonalny
+        if callable(Renderer):
+            try:
+                renderer_instance = Renderer(container, items)
+            except TypeError:
+                renderer_instance = Renderer(root, container, items)
+            render = getattr(renderer_instance, "render", None)
+            if callable(render):
+                render()
+                return None
+            raise AttributeError("Renderer instance missing render()")
+        render_callable = getattr(Renderer, "render", None)
+        if callable(render_callable):
+            render_callable(container, items)
+            return None
+        draw_callable = getattr(Renderer, "draw", None)
+        if callable(draw_callable):
+            draw_callable(items)
+            return None
+        raise TypeError("Renderer does not expose render/draw API")
+    except Exception:
+        logger.exception("[Maszyny] Renderer zgłosił wyjątek – fallback na listę.")
+        return _render_list(container, items)
+
+    return None
 
 
 class MaszynyGUI:
@@ -181,7 +212,18 @@ class MaszynyGUI:
         self.container = tk.Frame(main, bg=bg)
         self.container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
-        self.tree = _open_machines_panel(self.root, self.container, CONFIG_MANAGER)
+        self.tree = _open_machines_panel(
+            self.root,
+            self.container,
+            CONFIG_MANAGER,
+            Renderer=Renderer,
+        )
+
+
+def panel_maszyny(root, frame, login=None, rola=None):
+    """Adapter używany przez główny panel aplikacji."""
+
+    _open_machines_panel(root, frame, CONFIG_MANAGER, Renderer=Renderer)
 
 
 if __name__ == "__main__":
