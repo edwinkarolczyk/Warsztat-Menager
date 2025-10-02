@@ -23,7 +23,36 @@ from tkinter import messagebox, Toplevel
 
 BOOTSTRAP_ACTIVE = True
 
+from utils_json import ensure_json
 from utils import error_dialogs
+
+DEFAULT_CONFIG = {
+    "paths": {
+        "data_root": "C:/wm/data",
+        "logs_dir": "C:/wm/data/logs",
+        "backup_dir": "C:/wm/data/backup",
+    },
+    "machines": {
+        "rel_path": "maszyny/maszyny.json",
+    },
+    "settings": {
+        "require_reauth": True,
+    },
+}
+
+DEFAULT_PROFILES = {
+    "profiles": [
+        {"login": "admin", "rola": "admin", "haslo": "admin"},
+        {"login": "bryg", "rola": "brygadzista", "haslo": "bryg"},
+    ]
+}
+
+try:
+    ensure_json("config.json", DEFAULT_CONFIG)
+    ensure_json("profiles.json", DEFAULT_PROFILES)
+except Exception:
+    # ensure_json już zalogował błąd; nie przerywamy startu
+    pass
 
 try:
     from ui_theme import apply_theme_safe as apply_theme
