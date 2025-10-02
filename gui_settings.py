@@ -171,6 +171,17 @@ def _safe_save_json(
     return path or None
 
 
+def _add_readonly_info(parent: tk.Widget, text: str, *, label: str | None = None) -> ttk.Frame:
+    """Adds an informational, read-only note to the given parent widget."""
+
+    frame = ttk.Frame(parent)
+    frame.pack(fill="x", padx=5, pady=(6, 0))
+    if label:
+        ttk.Label(frame, text=label).pack(anchor="w")
+    ttk.Label(frame, text=text, wraplength=520, justify="left").pack(anchor="w")
+    return frame
+
+
 from gui.settings_action_handlers import (
     bind as settings_actions_bind,
     execute as settings_action_exec,
@@ -890,6 +901,17 @@ class SettingsPanel:
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
                 )
+            elif tab_id == "maszyny":
+                grp_count, fld_count = self._populate_tab(frame, tab)
+                _add_readonly_info(
+                    frame,
+                    "Pliki danych są ustalane relatywnie względem Folderu WM (root). "
+                    "Ścieżka pliku maszyn: 'maszyny/maszyny.json'. Zmień tylko Folder WM "
+                    "(root) w zakładce System.",
+                )
+                print(
+                    f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
+                )
             elif tab_id == "system":
                 _render_system_paths(frame)
                 grp_count, fld_count = self._populate_tab(frame, tab)
@@ -1352,6 +1374,12 @@ class SettingsPanel:
                     print(
                         f"[WM-DBG][SETTINGS] pomijam legacy field {ident}"
                     )
+                    continue
+                if field_def.get("type") == "info":
+                    label = field_def.get("label_pl") or field_def.get("label")
+                    text = field_def.get("text_pl") or field_def.get("text") or ""
+                    _add_readonly_info(inner, text, label=label)
+                    fld_count += 1
                     continue
                 key = field_def.get("key")
                 if not key:
