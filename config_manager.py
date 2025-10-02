@@ -11,8 +11,14 @@ Funkcje:
 """
 
 from __future__ import annotations
-import json, os, shutil, datetime, time, threading
+
+import datetime
+import json
 import logging
+import os
+import shutil
+import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -22,14 +28,17 @@ log = logging.getLogger(__name__)
 
 # Standardowa mapa plików relatywnych (względem paths.data_root)
 PATH_MAP = {
-    "machines": "maszyny/maszyny.json",
+    "machines": "maszyny.json",
     "warehouse": "magazyn/magazyn.json",
     "bom": "produkty/bom.json",
+    "tools.dir": "narzedzia",
     "tools.types": "narzedzia/typy_narzedzi.json",
     "tools.statuses": "narzedzia/statusy_narzedzi.json",
     "tools.tasks": "narzedzia/szablony_zadan.json",
     "tools.zadania": "zadania_narzedzia.json",
     "orders": "zlecenia/zlecenia.json",
+    "root.logs": "logs",
+    "root.backup": "backup",
 }
 
 
@@ -42,11 +51,7 @@ def get_root(cfg: dict) -> str:
 
 
 def resolve_rel(cfg: dict, key: str) -> str | None:
-    """
-    Zwraca ABS dla zadanego klucza (np. 'machines', 'warehouse', ...).
-    • jeśli legacy machines.rel_path istnieje → honorujemy go (jednorazowo),
-      ale nie wystawiamy w UI.
-    """
+    """ABS dla klucza z :data:`PATH_MAP` względem ``paths.data_root``."""
 
     root = get_root(cfg)
     if not root:
@@ -55,33 +60,23 @@ def resolve_rel(cfg: dict, key: str) -> str | None:
     if key == "machines":
         legacy_rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
         if legacy_rel:
-            return os.path.join(root, legacy_rel)
+            legacy_abs = os.path.join(root, legacy_rel)
+            if os.path.exists(legacy_abs):
+                return legacy_abs
 
     rel = PATH_MAP.get(key)
     return os.path.join(root, rel) if rel else None
 
 
 def normalize_config(cfg: dict) -> dict:
-    """
-    Normalizuje config do 1-root-modelu:
-      • kasuje puste/zbędne legacy pola,
-      • ustawia domyślne mapowania jeśli brakuje sekcji.
-    """
+    """Czyścimy puste legacy i utrzymujemy sekcje."""
 
     cfg = dict(cfg or {})
-
-    paths = cfg.get("paths") if isinstance(cfg.get("paths"), dict) else {}
-    cfg["paths"] = dict(paths)
-
-    settings = cfg.get("settings") if isinstance(cfg.get("settings"), dict) else {}
-    cfg["settings"] = dict(settings)
-
-    machines = cfg.get("machines") if isinstance(cfg.get("machines"), dict) else {}
-    machines = dict(machines)
-    if "rel_path" in machines and not machines.get("rel_path"):
-        machines.pop("rel_path", None)
-    cfg["machines"] = machines
-
+    cfg.setdefault("paths", {})
+    cfg.setdefault("settings", {})
+    cfg.setdefault("machines", {})
+    if "rel_path" in cfg["machines"] and not cfg["machines"]["rel_path"]:
+        cfg["machines"].pop("rel_path", None)
     return cfg
 
 
