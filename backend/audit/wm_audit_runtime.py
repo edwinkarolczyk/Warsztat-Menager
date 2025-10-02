@@ -1,9 +1,10 @@
 from __future__ import annotations
 import os
 import time
-from typing import List
+from typing import Any, Dict, List
 
 from config.paths import get_path, join_path, ensure_core_tree
+from config_manager import ConfigManager, resolve_rel, get_root
 from wm_log import dbg as wm_dbg, info as wm_info, err as wm_err
 
 import json
@@ -55,6 +56,17 @@ def _flatten_extended_audit_rows(data: dict) -> list[tuple[str, str, str, bool, 
 
 __all__ = ["run", "run_audit"]
 
+_LEGACY_FALLBACKS: Dict[str, str] = {
+    "machines": "hall.machines_file",
+    "warehouse": "warehouse.stock_source",
+    "bom": "bom.file",
+    "tools.types": "tools.types_file",
+    "tools.statuses": "tools.statuses_file",
+    "tools.tasks": "tools.task_templates_file",
+    "orders": "orders.file",
+}
+
+
 def _exists(path: str) -> bool:
     return bool(path) and os.path.exists(path)
 
@@ -69,34 +81,49 @@ def run() -> dict:
     try:
         ensure_core_tree()
 
+        try:
+            manager = ConfigManager()
+            cfg: Dict[str, Any] = manager.merged if isinstance(manager.merged, dict) else {}
+        except Exception as exc:
+            wm_warn("audit.run", "config_load_failed", exc)
+            cfg = {}
+
         checks = []
 
         def add(name: str, ok: bool, detail: str = ""):
             checks.append({"name": name, "ok": ok, "detail": detail})
 
-        # Katalogi kluczowe
-        data_root = get_path("paths.data_root")
-        logs_dir = get_path("paths.logs_dir")
-        backup_dir = get_path("paths.backup_dir")
+        paths_cfg = cfg.get("paths") if isinstance(cfg.get("paths"), dict) else {}
+        override_root = (get_path("paths.data_root") or "").strip()
+        if override_root and override_root != (get_root(cfg) or "").strip():
+            cfg = dict(cfg)
+            paths_cfg = dict(paths_cfg)
+            paths_cfg["data_root"] = override_root
+            cfg["paths"] = paths_cfg
+        data_root = (get_root(cfg) or paths_cfg.get("data_root") or override_root or "").strip()
+        logs_dir = (get_path("paths.logs_dir") or paths_cfg.get("logs_dir") or "").strip()
+        backup_dir = (get_path("paths.backup_dir") or paths_cfg.get("backup_dir") or "").strip()
+
         add("data_root", _exists(data_root), data_root)
         add("logs_dir", _exists(logs_dir), logs_dir)
         add("backup_dir", _exists(backup_dir), backup_dir)
 
-        # Pliki i źródła
-        stock_src = get_path("warehouse.stock_source")
-        bom_file = get_path("bom.file")
-        types_f = get_path("tools.types_file")
-        statuses_f = get_path("tools.statuses_file")
-        tasks_f = get_path("tools.task_templates_file")
-        machines_f = get_path("hall.machines_file")
-        bg_img = get_path("hall.background_image", "")
+        def resolved(key: str) -> str:
+            path = resolve_rel(cfg, key)
+            if path:
+                return path
+            legacy_key = _LEGACY_FALLBACKS.get(key)
+            return get_path(legacy_key) if legacy_key else ""
 
-        add("warehouse.stock_source", _exists(stock_src), stock_src)
-        add("bom.file", _exists(bom_file), bom_file)
-        add("tools.types_file", _exists(types_f), types_f)
-        add("tools.statuses_file", _exists(statuses_f), statuses_f)
-        add("tools.task_templates_file", _exists(tasks_f), tasks_f)
-        add("hall.machines_file", _exists(machines_f), machines_f)
+        # Pliki i źródła
+        for key in ("machines", "warehouse", "bom", "tools.types", "tools.statuses", "tools.tasks", "tools.zadania", "orders"):
+            path_val = resolved(key)
+            add(key, _exists(path_val), path_val)
+
+        machines_layout = get_path("hall.machines_file")
+        add("hall.machines_file", _exists(machines_layout), machines_layout)
+
+        bg_img = get_path("hall.background_image", "")
         if bg_img:
             add("hall.background_image", _exists(bg_img), bg_img)
         else:
@@ -111,7 +138,11 @@ def run() -> dict:
 
         # Zapis raportu
         ts = time.strftime("%Y%m%d-%H%M%S")
-        out_path = join_path("paths.logs_dir", f"audyt_wm-{ts}.txt")
+        target_logs_dir = logs_dir or get_path("paths.logs_dir")
+        if target_logs_dir:
+            out_path = os.path.join(target_logs_dir, f"audyt_wm-{ts}.txt")
+        else:
+            out_path = join_path("paths.logs_dir", f"audyt_wm-{ts}.txt")
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
         lines: List[str] = [

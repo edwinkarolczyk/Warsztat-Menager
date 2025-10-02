@@ -20,9 +20,69 @@ from utils.path_utils import cfg_path
 
 log = logging.getLogger(__name__)
 
+# Standardowa mapa plików relatywnych (względem paths.data_root)
+PATH_MAP = {
+    "machines": "maszyny/maszyny.json",
+    "warehouse": "magazyn/magazyn.json",
+    "bom": "produkty/bom.json",
+    "tools.types": "narzedzia/typy_narzedzi.json",
+    "tools.statuses": "narzedzia/statusy_narzedzi.json",
+    "tools.tasks": "narzedzia/szablony_zadan.json",
+    "tools.zadania": "zadania_narzedzia.json",
+    "orders": "zlecenia/zlecenia.json",
+}
+
 
 def _norm(p: str) -> str:
     return os.path.normpath(p).replace("\\", "/")
+
+
+def get_root(cfg: dict) -> str:
+    return ((cfg.get("paths") or {}).get("data_root") or "").strip()
+
+
+def resolve_rel(cfg: dict, key: str) -> str | None:
+    """
+    Zwraca ABS dla zadanego klucza (np. 'machines', 'warehouse', ...).
+    • jeśli legacy machines.rel_path istnieje → honorujemy go (jednorazowo),
+      ale nie wystawiamy w UI.
+    """
+
+    root = get_root(cfg)
+    if not root:
+        return None
+
+    if key == "machines":
+        legacy_rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
+        if legacy_rel:
+            return os.path.join(root, legacy_rel)
+
+    rel = PATH_MAP.get(key)
+    return os.path.join(root, rel) if rel else None
+
+
+def normalize_config(cfg: dict) -> dict:
+    """
+    Normalizuje config do 1-root-modelu:
+      • kasuje puste/zbędne legacy pola,
+      • ustawia domyślne mapowania jeśli brakuje sekcji.
+    """
+
+    cfg = dict(cfg or {})
+
+    paths = cfg.get("paths") if isinstance(cfg.get("paths"), dict) else {}
+    cfg["paths"] = dict(paths)
+
+    settings = cfg.get("settings") if isinstance(cfg.get("settings"), dict) else {}
+    cfg["settings"] = dict(settings)
+
+    machines = cfg.get("machines") if isinstance(cfg.get("machines"), dict) else {}
+    machines = dict(machines)
+    if "rel_path" in machines and not machines.get("rel_path"):
+        machines.pop("rel_path", None)
+    cfg["machines"] = machines
+
+    return cfg
 
 
 def _is_subpath(child: str, parent: str) -> bool:
@@ -289,7 +349,16 @@ class ConfigManager:
             if key and key not in self._schema_idx:
                 self._schema_idx[key] = field
         self.defaults = self._load_json(DEFAULTS_PATH) or {}
-        self.global_cfg = self._load_json(self.config_path) or {}
+        raw_cfg = self._load_json(self.config_path) or {}
+        normalized_cfg = normalize_config(raw_cfg)
+        if normalized_cfg != raw_cfg:
+            try:
+                with open(self.config_path, "w", encoding="utf-8") as wf:
+                    json.dump(normalized_cfg, wf, ensure_ascii=False, indent=2)
+                log.info("[CFG] Normalized config to 1-root model.")
+            except Exception as e:
+                log.warning("[CFG] Failed to persist normalized config: %r", e)
+        self.global_cfg = normalized_cfg
         migrated = False
         if _migrate_legacy_paths(self.global_cfg):
             migrated = True
