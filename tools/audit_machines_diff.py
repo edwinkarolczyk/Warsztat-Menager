@@ -6,41 +6,78 @@
 #  - ile zniknęło (powinno być 0 przy SAFE-merge),
 #  - konflikty wartości (po kluczu id/kod/nazwa).
 
-import os, json, sys, hashlib
+import hashlib
+import json
+import sys
+from itertools import islice
+from typing import Dict, Iterable, List
 
-def _load_list(p):
+
+def _load_list(path: str) -> List[Dict]:
     try:
-        with open(p,"r",encoding="utf-8") as f:
-            d = json.load(f)
-        if isinstance(d, dict) and "items" in d: d = d["items"]
-        return d if isinstance(d, list) else []
-    except Exception:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and "items" in data:
+            data = data["items"]
+        return data if isinstance(data, list) else []
+    except Exception:  # pragma: no cover - defensywne logowanie
         return []
 
-def _norm(v): return str(v).strip().lower()
 
-def _key(o):
-    for k in ("id","ID","kod","code","nazwa","name"):
-        if o.get(k): return f"{k}:{_norm(o[k])}"
-    return "hash:"+hashlib.sha1(json.dumps(o,sort_keys=True,ensure_ascii=False).encode("utf-8")).hexdigest()
+def _norm(value) -> str:
+    return str(value).strip().lower()
 
-def diff(a_path, b_path):
-    A = _load_list(a_path); B = _load_list(b_path)
-    Amap = {_key(o):o for o in A}; Bmap = {_key(o):o for o in B}
-    common = set(Amap) & set(Bmap)
-    added  = [k for k in Bmap if k not in Amap]
-    gone   = [k for k in Amap if k not in Bmap]
-    changed= [k for k in common if Amap[k]!=Bmap[k]]
-    print(f"[DIFF] A={len(A)}  B={len(B)}  wspólne={len(common)}  +nowe={len(added)}  -znikniete={len(gone)}  zmienione={len(changed)}")
+
+def _key(obj: Dict) -> str:
+    for key in ("id", "ID", "kod", "code", "nazwa", "name"):
+        if obj.get(key):
+            return f"{key}:{_norm(obj[key])}"
+    digest = hashlib.sha1(
+        json.dumps(obj, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return f"hash:{digest}"
+
+
+def _first_n(values: Iterable[str], limit: int = 20) -> List[str]:
+    return list(islice(values, limit))
+
+
+def diff(old_path: str, new_path: str) -> None:
+    old_items = _load_list(old_path)
+    new_items = _load_list(new_path)
+
+    old_map = {_key(obj): obj for obj in old_items}
+    new_map = {_key(obj): obj for obj in new_items}
+
+    common = set(old_map) & set(new_map)
+    added = [key for key in new_map if key not in old_map]
+    gone = [key for key in old_map if key not in new_map]
+    changed = [key for key in common if old_map[key] != new_map[key]]
+
+    print(
+        "[DIFF] A={}  B={}  wspólne={}  +nowe={}  -znikniete={}  zmienione={}".format(
+            len(old_items),
+            len(new_items),
+            len(common),
+            len(added),
+            len(gone),
+            len(changed),
+        )
+    )
+
     if gone:
         print("[DIFF][ALERT] Zniknięte klucze (powinno być 0 w SAFE-merge):")
-        for k in gone[:20]: print(" -",k)
+        for key in _first_n(gone):
+            print(" -", key)
+
     if changed:
         print("[DIFF] Zmienione wpisy (do 20):")
-        for k in changed[:20]: print(" -",k)
+        for key in _first_n(changed):
+            print(" -", key)
+
 
 if __name__ == "__main__":
-    if len(sys.argv)!=3:
+    if len(sys.argv) != 3:
         print("Użycie: audit_machines_diff.py <stary.json> <nowy.json>")
         sys.exit(2)
     diff(sys.argv[1], sys.argv[2])
