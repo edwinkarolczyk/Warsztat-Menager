@@ -27,6 +27,7 @@ from utils import error_dialogs
 
 from services.profile_service import authenticate, find_first_brygadzista
 import profile_utils
+from utils_json import load_json
 
 # Pasek zmiany i przejście do panelu głównego
 import gui_panel  # używamy: _shift_bounds, _shift_progress, uruchom_panel
@@ -40,6 +41,21 @@ BASE_DIR = Path(__file__).resolve().parent
 
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
+
+DEFAULT_PROFILES = {
+    "profiles": [
+        {"login": "admin", "rola": "admin", "haslo": "admin"},
+        {"login": "bryg", "rola": "brygadzista", "haslo": "bryg"},
+    ]
+}
+
+
+def _load_profiles() -> list[dict]:
+    data = load_json("profiles.json", default=DEFAULT_PROFILES)
+    profiles = data.get("profiles", []) if isinstance(data, dict) else []
+    if not isinstance(profiles, list):
+        return []
+    return [p for p in profiles if isinstance(p, dict)]
 
 
  # -- informacje o ostatniej aktualizacji dostarcza moduł updates_utils --
@@ -327,18 +343,30 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
 def _login_pinless():
     try:
         user = find_first_brygadzista()
+        if not user:
+            for profile in _load_profiles():
+                role = str(profile.get("rola", "")).strip().lower()
+                if role == "brygadzista":
+                    user = {
+                        "login": profile.get("login"),
+                        "rola": profile.get("rola", "brygadzista"),
+                        "status": profile.get("status", ""),
+                        "nieobecny": profile.get("nieobecny", False),
+                    }
+                    break
         if user:
             login_key = user.get("login")
+            rola = user.get("rola", "brygadzista")
             if _on_login_cb:
                 try:
-                    _on_login_cb(login_key, "brygadzista", None)
+                    _on_login_cb(login_key, rola, None)
                 except Exception as err:
                     logging.exception("Error in login callback")
                     error_dialogs.show_error_dialog(
                         "Błąd", f"Błąd w callbacku logowania: {err}"
                     )
             else:
-                gui_panel.uruchom_panel(root_global, login_key, "brygadzista")
+                gui_panel.uruchom_panel(root_global, login_key, rola)
             return
         error_dialogs.show_error_dialog("Błąd", "Nie znaleziono brygadzisty")
     except Exception as e:
@@ -353,6 +381,19 @@ def logowanie():
             profile_utils, "_DEFAULT_USERS_FILE", profile_utils.USERS_FILE
         )
         user = authenticate(login, pin)
+        if not user:
+            for profile in _load_profiles():
+                if (
+                    str(profile.get("login", "")).strip().lower() == login
+                    and str(profile.get("haslo", "")).strip() == pin
+                ):
+                    user = {
+                        "login": profile.get("login", login),
+                        "rola": profile.get("rola", "pracownik"),
+                        "status": profile.get("status", ""),
+                        "nieobecny": profile.get("nieobecny", False),
+                    }
+                    break
         if user:
             login_key = user.get("login", login)
             status = str(user.get("status", "")).strip().lower()
