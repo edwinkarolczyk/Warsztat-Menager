@@ -25,10 +25,11 @@ Danych źródłowych w ``data/*`` nie modyfikujemy.
 import os
 import json
 import glob
+import logging
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from datetime import datetime as _dt, datetime
 from typing import Optional
 from config_manager import ConfigManager
@@ -76,6 +77,15 @@ from grafiki.shifts_schedule import (
 _MAX_AVATAR_SIZE = (250, 313)
 
 from ui_theme import apply_theme_safe as apply_theme
+from ui_dialogs_safe import (
+    error_box,
+    info_ok,
+    safe_open_dir,
+    safe_open_json,
+    warning_box,
+)
+
+logger = logging.getLogger(__name__)
 
 # Domyślny termin dla zadań bez daty – bardzo odległa przyszłość, aby sortowanie
 # umieszczało je na końcu listy.
@@ -197,6 +207,52 @@ def _is_overdue(task):
     if str(task.get("status","")).lower()=="zrobione": return False
     d=_parse_date(task.get("termin",""))
     return bool(d and d<_dt.now().date())
+
+
+def _on_pick_profile_json(owner, cfg_manager):
+    """Handle selection of the profile JSON path from the UI."""
+
+    if cfg_manager is None:
+        logger.warning("[PROFILE] Brak ConfigManager – pomijam wybór pliku profilu")
+        return
+
+    path = safe_open_json(owner, reason="profile.pick_json")
+    if not path:
+        return
+
+    try:
+        cfg_manager.set("profile.path", path, who="profile-ui")
+        cfg_manager.save_all()
+    except Exception as exc:  # pragma: no cover - defensive UI
+        logger.exception("[PROFILE] Nie udało się zapisać profile.path: %s", exc)
+        error_box(owner, "Profil", f"Nie udało się zapisać ścieżki profilu: {exc}")
+        return
+
+    logger.info("[PROFILE] Ustawiono profile.path = %s", path)
+    info_ok(owner, "Profil", "Zapisano ścieżkę profilu.")
+
+
+def _on_pick_profile_dir(owner, cfg_manager):
+    """Handle selection of the profile directory from the UI."""
+
+    if cfg_manager is None:
+        logger.warning("[PROFILE] Brak ConfigManager – pomijam wybór folderu profilu")
+        return
+
+    path = safe_open_dir(owner, reason="profile.pick_dir")
+    if not path:
+        return
+
+    try:
+        cfg_manager.set("profile.dir", path, who="profile-ui")
+        cfg_manager.save_all()
+    except Exception as exc:  # pragma: no cover - defensive UI
+        logger.exception("[PROFILE] Nie udało się zapisać profile.dir: %s", exc)
+        error_box(owner, "Profil", f"Nie udało się zapisać folderu profilu: {exc}")
+        return
+
+    logger.info("[PROFILE] Ustawiono profile.dir = %s", path)
+    info_ok(owner, "Profil", "Zapisano folder profilu.")
 
 # ====== Converters ======
 def _convert_order_to_task(order):
@@ -514,7 +570,7 @@ def _build_basic_tab(parent, user):
             else:
                 user[field] = val
         save_user(user)
-        messagebox.showinfo("Zapisano", "Dane zapisane.")
+        info_ok(parent, "Zapisano", "Dane zapisane.")
 
     ttk.Button(parent, text="Zapisz", command=_save).grid(
         row=row, column=0, columnspan=2, pady=6
@@ -1558,7 +1614,7 @@ class ProfileView(ttk.Frame):
                     pass
         print(f"[WM-DBG][PROFILE][PW] mark_read changed={changed}")
         if changed:
-            messagebox.showinfo("PW", f"Oznaczono jako przeczytane: {changed}")
+            info_ok(self, "PW", f"Oznaczono jako przeczytane: {changed}")
         self._refresh_pw_tab()
 
     def _build_placeholder_tab(self, parent: ttk.Frame, tab_name: str) -> None:
@@ -1674,7 +1730,7 @@ class ProfileView(ttk.Frame):
     def _on_send_pw(self) -> None:
         user = get_user(self.login) or {}
         if not user.get("allow_pw", True):
-            messagebox.showwarning("PW", "Ten użytkownik ma wyłączone PW.")
+            warning_box(self, "PW", "Ten użytkownik ma wyłączone PW.")
             return
 
         try:
@@ -1712,13 +1768,13 @@ class ProfileView(ttk.Frame):
             body = body_txt.get("1.0", "end").strip()
 
             if not to_login:
-                messagebox.showwarning("Błąd", "Podaj login odbiorcy.")
+                warning_box(win, "Błąd", "Podaj login odbiorcy.")
                 return
             if not subject:
-                messagebox.showwarning("Błąd", "Temat nie może być pusty.")
+                warning_box(win, "Błąd", "Temat nie może być pusty.")
                 return
             if not body:
-                messagebox.showwarning("Błąd", "Treść nie może być pusta.")
+                warning_box(win, "Błąd", "Treść nie może być pusta.")
                 return
 
             try:
@@ -1729,14 +1785,14 @@ class ProfileView(ttk.Frame):
                     body=body,
                 )
             except Exception as exc:  # pragma: no cover - defensive UI
-                messagebox.showerror("Błąd", f"Nie udało się wysłać: {exc}")
+                error_box(win, "Błąd", f"Nie udało się wysłać: {exc}")
                 return
 
             print(
                 f"[WM-DBG][PROFILE][PW] Wysłano wiadomość {msg['id']} "
                 f"od {self.login} do {to_login}"
             )
-            messagebox.showinfo("Sukces", "Wiadomość wysłana.")
+            info_ok(win, "Sukces", "Wiadomość wysłana.")
             try:
                 win.grab_release()
             except Exception:
@@ -1825,7 +1881,8 @@ class ProfileView(ttk.Frame):
         try:
             return datetime.fromisoformat(value)
         except Exception:
-            messagebox.showwarning(
+            warning_box(
+                self,
                 "Data",
                 "Wpisz datę w formacie YYYY-MM-DD (np. 2025-09-23).",
             )
