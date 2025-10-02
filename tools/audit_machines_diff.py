@@ -1,46 +1,53 @@
 #!/usr/bin/env python3
-# tools/audit_machines_diff.py
-# Porównuje dwa pliki JSON z maszynami i raportuje:
-#  - ile rekordów wspólnych,
-#  - ile nowych,
-#  - ile zniknęło (powinno być 0 przy SAFE-merge),
-#  - konflikty wartości (po kluczu id/kod/nazwa).
+"""Porównanie dwóch plików maszyn na podstawie identyfikatorów."""
 
-import os, json, sys, hashlib
+from __future__ import annotations
 
-def _load_list(p):
-    try:
-        with open(p,"r",encoding="utf-8") as f:
-            d = json.load(f)
-        if isinstance(d, dict) and "items" in d: d = d["items"]
-        return d if isinstance(d, list) else []
-    except Exception:
-        return []
+import json
+import sys
+from typing import Any
 
-def _norm(v): return str(v).strip().lower()
 
-def _key(o):
-    for k in ("id","ID","kod","code","nazwa","name"):
-        if o.get(k): return f"{k}:{_norm(o[k])}"
-    return "hash:"+hashlib.sha1(json.dumps(o,sort_keys=True,ensure_ascii=False).encode("utf-8")).hexdigest()
+def load_any(path: str) -> list[dict[str, Any]]:
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if isinstance(data, dict) and isinstance(data.get("items"), list):
+        return [row for row in data["items"] if isinstance(row, dict)]
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    raise ValueError(f"Nieobsługiwany format: {path}")
 
-def diff(a_path, b_path):
-    A = _load_list(a_path); B = _load_list(b_path)
-    Amap = {_key(o):o for o in A}; Bmap = {_key(o):o for o in B}
-    common = set(Amap) & set(Bmap)
-    added  = [k for k in Bmap if k not in Amap]
-    gone   = [k for k in Amap if k not in Bmap]
-    changed= [k for k in common if Amap[k]!=Bmap[k]]
-    print(f"[DIFF] A={len(A)}  B={len(B)}  wspólne={len(common)}  +nowe={len(added)}  -znikniete={len(gone)}  zmienione={len(changed)}")
-    if gone:
-        print("[DIFF][ALERT] Zniknięte klucze (powinno być 0 w SAFE-merge):")
-        for k in gone[:20]: print(" -",k)
-    if changed:
-        print("[DIFF] Zmienione wpisy (do 20):")
-        for k in changed[:20]: print(" -",k)
 
-if __name__ == "__main__":
-    if len(sys.argv)!=3:
-        print("Użycie: audit_machines_diff.py <stary.json> <nowy.json>")
-        sys.exit(2)
-    diff(sys.argv[1], sys.argv[2])
+def ids(items: list[dict[str, Any]], key: str = "id") -> set[str]:
+    return {str(item.get(key)) for item in items if item.get(key) is not None}
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 2:
+        print("Użycie: py -3.13 tools\\audit_machines_diff.py <srcA.json> <srcB.json>")
+        return 2
+
+    path_a, path_b = args
+    items_a = load_any(path_a)
+    items_b = load_any(path_b)
+
+    ids_a = ids(items_a)
+    ids_b = ids(items_b)
+
+    missing = sorted(ids_a - ids_b)
+    new = sorted(ids_b - ids_a)
+
+    print(f"[DIFF] A={path_a}({len(items_a)})  B={path_b}({len(items_b)})")
+    print(f"[DIFF] -zniknięte={len(missing)}  +nowe={len(new)}")
+    if missing:
+        preview = missing[:10]
+        print(f"  - {preview}{' ...' if len(missing) > 10 else ''}")
+    if new:
+        preview = new[:10]
+        print(f"  + {preview}{' ...' if len(new) > 10 else ''}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover - narzędzie CLI
+    sys.exit(main())

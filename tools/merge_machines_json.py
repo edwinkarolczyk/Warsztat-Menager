@@ -1,129 +1,124 @@
 #!/usr/bin/env python3
-# tools/merge_machines_json.py
-# SAFE MERGE: łączy listy maszyn z wielu plików do docelowego, deduplikuje po kluczach (id→kod→nazwa),
-# NIE usuwa nic unikalnego. Obsługuje --dry-run, backup docelowego i raport.
+"""Narządzie do bezpiecznego łączenia plików maszyn (operacja UNION)."""
 
 from __future__ import annotations
-import os, sys, json, hashlib, argparse, shutil
-from typing import Any, Dict, List, Tuple
 
-def _load_list(p: str) -> List[Dict[str, Any]]:
-    try:
-        with open(p, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # dopuszczamy format { "items": [...] }
-        if isinstance(data, dict) and "items" in data and isinstance(data["items"], list):
-            return data["items"]
-        if isinstance(data, list):
-            return data
-        print(f"[WARN] {p}: nieobsługiwany format – pomijam (nie lista)")
-        return []
-    except Exception as e:
-        print(f"[WARN] {p}: nie da się wczytać: {e}")
-        return []
+import argparse
+import copy
+import json
+import os
+import sys
+from typing import Any
 
-def _norm(v: Any) -> str:
-    return str(v).strip().lower()
 
-def _make_key(obj: Dict[str, Any]) -> Tuple[str, str]:
-    # priorytet: id → kod → nazwa
-    for k in ("id", "ID"):
-        if obj.get(k) not in (None, ""):
-            return ("id", _norm(obj[k]))
-    for k in ("kod", "code"):
-        if obj.get(k) not in (None, ""):
-            return ("kod", _norm(obj[k]))
-    for k in ("nazwa", "name"):
-        if obj.get(k) not in (None, ""):
-            return ("nazwa", _norm(obj[k]))
-    # ostateczność: hash całego obiektu
-    h = hashlib.sha1(json.dumps(obj, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
-    return ("hash", h)
+def load_any(path: str) -> list[dict[str, Any]]:
+    """Załaduj dane z JSON-a (lista lub słownik z kluczem ``items``)."""
 
-def _union_merge(inputs: List[str]) -> Tuple[List[Dict[str, Any]], List[Tuple[str, Dict[str, Any], Dict[str, Any], str]]]:
-    merged: Dict[Tuple[str,str], Dict[str, Any]] = {}
-    conflicts: List[Tuple[str, Dict[str, Any], Dict[str, Any], str]] = []
-    for src in inputs:
-        items = _load_list(src)
-        for obj in items:
-            k = _make_key(obj)
-            if k in merged:
-                # jeśli różne, konflikt – ale nie nadpisujemy w ciemno
-                if merged[k] != obj:
-                    conflicts.append((f"{k[0]}:{k[1]}", merged[k], obj, src))
-                    # strategia: preferuj "bogatszy" obiekt (więcej niepustych pól)
-                    def richness(o: Dict[str,Any]) -> int:
-                        return sum(1 for vv in o.values() if vv not in (None,""," "))
-                    if richness(obj) > richness(merged[k]):
-                        merged[k] = obj
-                # jeśli identyczne – nic nie robimy
-            else:
-                merged[k] = obj
-    return list(merged.values()), conflicts
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if isinstance(data, dict) and isinstance(data.get("items"), list):
+        return [copy.deepcopy(row) for row in data["items"] if isinstance(row, dict)]
+    if isinstance(data, list):
+        return [copy.deepcopy(row) for row in data if isinstance(row, dict)]
+    raise ValueError(f"Nieobsługiwany format: {path}")
 
-def _backup(path: str) -> str:
+
+def dump_list(path: str, items: list[dict[str, Any]]) -> None:
+    """Zapisz listę słowników jako JSON z wcięciem 2 spacji."""
+
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(items, handle, ensure_ascii=False, indent=2)
+
+
+def _key_of(item: dict[str, Any], key: str, index: int, prefix: str) -> str:
+    value = item.get(key)
+    if value is None or value == "":
+        return f"{prefix}{index}"
+    return str(value)
+
+
+def merge_union(
+    dst_items: list[dict[str, Any]],
+    src_items: list[dict[str, Any]],
+    *,
+    key: str = "id",
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Połącz listy bez utraty danych (UNION)."""
+
+    by_key: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(dst_items):
+        by_key[_key_of(item, key, index, "__idx_")] = copy.deepcopy(item)
+
+    added = 0
+    updated = 0
+    for index, src in enumerate(src_items):
+        src_key = src.get(key)
+        normalized_key = str(src_key) if src_key not in (None, "") else None
+        if normalized_key and normalized_key in by_key:
+            dst = by_key[normalized_key]
+            for field, value in src.items():
+                if field not in dst or (dst[field] in ("", None) and value not in ("", None)):
+                    dst[field] = copy.deepcopy(value)
+                    updated += 1
+            continue
+        generated_key = normalized_key or _key_of(src, key, len(by_key), "__new_")
+        by_key[generated_key] = copy.deepcopy(src)
+        added += 1
+
+    return list(by_key.values()), added, updated
+
+
+def backup_path(path: str) -> str:
     base, ext = os.path.splitext(path)
-    i = 1
+    counter = 1
     while True:
-        cand = f"{base}.bak{i}{ext or '.json'}"
-        if not os.path.exists(cand):
-            shutil.copy2(path, cand) if os.path.exists(path) else None
-            return cand
-        i += 1
+        candidate = f"{base}.bak{counter}{ext}"
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
 
-def main():
-    ap = argparse.ArgumentParser(description="SAFE merge machines JSON (UNION; no deletion of uniques)")
-    ap.add_argument("output", help="Docelowy plik JSON (ze źródła prawdy)")
-    ap.add_argument("inputs", nargs="+", help="Pliki wejściowe do scalenia (co najmniej 1)")
-    ap.add_argument("--dry-run", action="store_true", help="Tylko raport – nie zapisuje output")
-    ap.add_argument("--sort-by", choices=["id","kod","nazwa","none"], default="id", help="Sortowanie wyniku")
-    args = ap.parse_args()
 
-    out = os.path.normpath(args.output)
-    ins = [os.path.normpath(p) for p in args.inputs if os.path.exists(p)]
-    if not ins:
-        print("[ERR] Brak istniejących plików wejściowych.")
-        sys.exit(2)
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="SAFE MERGE maszyn: UNION bez utraty danych",
+    )
+    parser.add_argument("target", help="Plik docelowy (źródło prawdy)")
+    parser.add_argument("sources", nargs="+", help="Pliki do dołączenia")
+    parser.add_argument("--key", default="id", help="Klucz identyfikujący rekord (domyślnie id)")
+    parser.add_argument("--dry-run", action="store_true", help="Tylko raportuj wynik")
+    args = parser.parse_args(argv)
 
-    merged, conflicts = _union_merge(ins)
-    # Dołącz aktualną zawartość targetu (jeśli istnieje) – żeby nic nie zginęło:
-    target_existing = _load_list(out) if os.path.exists(out) else []
-    if target_existing:
-        merged, extra_conflicts = _union_merge([out] + ins)  # union także z targetem
-        conflicts.extend(extra_conflicts)
+    target_path = args.target
+    target_items = load_any(target_path) if os.path.exists(target_path) else []
 
-    # Sortowanie wyniku:
-    if args.sort_by in ("id","kod","nazwa"):
-        key_order = {"id":0,"kod":1,"nazwa":2}
-        def sort_key(o: Dict[str,Any]):
-            for k in ("id","ID","kod","code","nazwa","name"):
-                if o.get(k) not in (None,""," "):
-                    return _norm(o[k])
-            return ""
-        merged = sorted(merged, key=sort_key)
-
-    # Raport
-    total_inputs = sum(len(_load_list(p)) for p in ins)
-    print(f"[MERGE][SAFE] wejście: {len(ins)} plików, rekordów={total_inputs}")
-    print(f"[MERGE][SAFE] target pre-exist: {len(target_existing)}")
-    print(f"[MERGE][SAFE] wynik (po UNION): {len(merged)}")
-    if conflicts:
-        print(f"[MERGE][SAFE] konflikty: {len(conflicts)} (pokazuję do 20):")
-        for i,(k,a,b,src) in enumerate(conflicts[:20],1):
-            print(f"  {i:02d}. KEY={k} ← konflikt z {src}")
+    merged = target_items
+    total_added = 0
+    total_updated = 0
+    for source in args.sources:
+        source_items = load_any(source)
+        merged, added, updated = merge_union(merged, source_items, key=args.key)
+        total_added += added
+        total_updated += updated
 
     if args.dry_run:
-        print("[MERGE][SAFE] DRY-RUN – nic nie zapisano.")
-        return
+        print(
+            f"[DRY] target={target_path} out={len(merged)} "
+            f"(added={total_added}, updated={total_updated})",
+        )
+        return 0
 
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    backup = _backup(out)
-    if backup:
-        print(f"[MERGE][SAFE] backup targetu → {backup}")
+    if os.path.exists(target_path):
+        backup = backup_path(target_path)
+        os.replace(target_path, backup)
+        print(f"[BACKUP] {backup}")
 
-    with open(out, "w", encoding="utf-8") as f:
-        json.dump(merged, f, ensure_ascii=False, indent=2)
-    print(f"[MERGE][SAFE] zapisano → {out}")
+    dump_list(target_path, merged)
+    print(
+        f"[WRITE] {target_path} out={len(merged)} "
+        f"(added={total_added}, updated={total_updated})",
+    )
+    return 0
 
-if __name__ == "__main__":
-    main()
+
+if __name__ == "__main__":  # pragma: no cover - narzędzie CLI
+    sys.exit(main())
