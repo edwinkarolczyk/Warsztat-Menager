@@ -19,6 +19,7 @@ from tkinter import colorchooser
 from tkinter import ttk, filedialog, messagebox
 
 from ui_theme import ensure_theme_applied
+from config_manager import ConfigManager, PATH_MAP, get_root, resolve_rel
 
 logger = logging.getLogger(__name__)
 _logger = logging.getLogger(__name__)
@@ -55,13 +56,23 @@ def _wm_read_latest_audit_from_disk(cfg_manager) -> str:
         if cfg_manager is None:
             _logger.warning("[AUDIT][COPY] Brak menedżera konfiguracji.")
             return ""
+        cfg = {}
         if hasattr(cfg_manager, "load") and callable(getattr(cfg_manager, "load")):
             cfg = cfg_manager.load() or {}
-        else:
+        elif hasattr(cfg_manager, "merged"):
             cfg = getattr(cfg_manager, "merged", {}) or {}
         if not isinstance(cfg, dict):
             cfg = {}
-        logs_dir = ((cfg.get("paths") or {}).get("logs_dir") or "").strip()
+        root = get_root(cfg)
+        logs_dir = resolve_rel(cfg, "root.logs")
+        if not logs_dir:
+            paths_cfg = (cfg.get("paths") or {})
+            legacy = (paths_cfg.get("logs_dir") or "").strip()
+            if legacy:
+                logs_dir = legacy
+            elif root:
+                rel = PATH_MAP.get("root.logs", "logs")
+                logs_dir = os.path.join(root, rel)
         if not logs_dir or not os.path.isdir(logs_dir):
             _logger.warning("[AUDIT][COPY] Brak/niepoprawny logs_dir: %r", logs_dir)
             return ""
@@ -425,16 +436,87 @@ def _render_system_paths(parent: tk.Misc) -> ttk.LabelFrame:
         box,
         text=(
             "Przykładowe ścieżki:\n"
-            f"  {data_path('maszyny', 'maszyny.json')}\n"
-            f"  {data_path('narzedzia', 'narzedzia.json')}\n"
-            f"  {data_path('zlecenia', 'zlecenia.json')}\n"
-            f"  {data_path('magazyn', 'magazyn.json')}\n"
-            f"  {resolve('profiles.json')}"
+            "  <root>/maszyny.json\n"
+            "  <root>/narzedzia/typy_narzedzi.json\n"
+            "  <root>/narzedzia/001.json\n"
+            "  <root>/zlecenia/zlecenia.json\n"
+            "  <root>/logs/"
         ),
         justify="left",
     ).pack(fill="x", padx=8, pady=(0, 6))
 
     return box
+
+
+_STATUS_ROWS = [
+    ("Maszyny", "machines"),
+    ("Magazyn", "warehouse"),
+    ("BOM", "bom"),
+    ("Zlecenia", "orders"),
+    ("Narzędzia — typy", "tools.types"),
+    ("Narzędzia — statusy", "tools.statuses"),
+    ("Narzędzia — szablony", "tools.tasks"),
+    ("Narzędzia — katalog", "tools.dir"),
+    ("Logi (katalog)", "root.logs"),
+    ("Backup (katalog)", "root.backup"),
+]
+
+
+def _build_root_status(parent, cfg_manager):
+    wrap = ttk.Frame(parent)
+    wrap.pack(fill="x", expand=True, pady=(6, 2))
+
+    header = ttk.Label(
+        wrap,
+        text="Zasoby pod Folder WM (root):",
+        font=("Segoe UI", 10, "bold"),
+    )
+    header.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 4))
+
+    ttk.Label(wrap, text="Nazwa").grid(row=1, column=0, sticky="w")
+    ttk.Label(wrap, text="Rel").grid(row=1, column=1, sticky="w")
+    ttk.Label(wrap, text="Ścieżka ABS").grid(row=1, column=2, sticky="w")
+    ttk.Label(wrap, text="Status").grid(row=1, column=3, sticky="w")
+
+    manager = cfg_manager
+    if manager is None:
+        try:
+            manager = ConfigManager()
+        except Exception:
+            manager = None
+
+    cfg: dict[str, Any] = {}
+    if manager is not None:
+        try:
+            if hasattr(manager, "load") and callable(getattr(manager, "load")):
+                cfg = manager.load() or {}
+            elif hasattr(manager, "merged"):
+                cfg = getattr(manager, "merged", {}) or {}
+        except Exception:
+            cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+
+    root = get_root(cfg) or ""
+    for idx, (label, key) in enumerate(_STATUS_ROWS, start=2):
+        rel = PATH_MAP.get(key, "")
+        abs_path = resolve_rel(cfg, key) or (
+            os.path.join(root, rel) if root and rel else ""
+        )
+        exists = bool(abs_path and os.path.exists(abs_path))
+
+        ttk.Label(wrap, text=label).grid(row=idx, column=0, sticky="w")
+        ttk.Label(wrap, text=rel).grid(row=idx, column=1, sticky="w")
+        ttk.Label(wrap, text=abs_path).grid(row=idx, column=2, sticky="w")
+
+        status = ttk.Label(
+            wrap,
+            text="✅" if exists else "❌",
+            foreground="green" if exists else "red",
+        )
+        status.grid(row=idx, column=3, sticky="w")
+
+    return wrap
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -914,6 +996,7 @@ class SettingsPanel:
                 )
             elif tab_id == "system":
                 _render_system_paths(frame)
+                _build_root_status(frame, globals().get("CONFIG_MANAGER"))
                 grp_count, fld_count = self._populate_tab(frame, tab)
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"

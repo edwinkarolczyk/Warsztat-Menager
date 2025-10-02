@@ -95,14 +95,28 @@ def run() -> dict:
 
         paths_cfg = cfg.get("paths") if isinstance(cfg.get("paths"), dict) else {}
         override_root = (get_path("paths.data_root") or "").strip()
-        if override_root and override_root != (get_root(cfg) or "").strip():
+        cfg_root = (get_root(cfg) or "").strip()
+        if override_root and override_root != cfg_root:
             cfg = dict(cfg)
             paths_cfg = dict(paths_cfg)
             paths_cfg["data_root"] = override_root
             cfg["paths"] = paths_cfg
-        data_root = (get_root(cfg) or paths_cfg.get("data_root") or override_root or "").strip()
-        logs_dir = (get_path("paths.logs_dir") or paths_cfg.get("logs_dir") or "").strip()
-        backup_dir = (get_path("paths.backup_dir") or paths_cfg.get("backup_dir") or "").strip()
+        data_root = (get_root(cfg) or override_root or "").strip()
+
+        def _fallback_from_paths(key: str, default_rel: str = "") -> str:
+            val = (paths_cfg.get(key) or get_path(f"paths.{key}") or "").strip()
+            if val:
+                return val
+            if data_root and default_rel:
+                return os.path.join(data_root, default_rel)
+            return ""
+
+        logs_dir = resolve_rel(cfg, "root.logs") or _fallback_from_paths(
+            "logs_dir", "logs"
+        )
+        backup_dir = resolve_rel(cfg, "root.backup") or _fallback_from_paths(
+            "backup_dir", "backup"
+        )
 
         add("data_root", _exists(data_root), data_root)
         add("logs_dir", _exists(logs_dir), logs_dir)
@@ -116,9 +130,23 @@ def run() -> dict:
             return get_path(legacy_key) if legacy_key else ""
 
         # Pliki i źródła
-        for key in ("machines", "warehouse", "bom", "tools.types", "tools.statuses", "tools.tasks", "tools.zadania", "orders"):
+        for key in (
+            "machines",
+            "warehouse",
+            "bom",
+            "tools.types",
+            "tools.statuses",
+            "tools.tasks",
+            "tools.zadania",
+            "orders",
+        ):
             path_val = resolved(key)
             add(key, _exists(path_val), path_val)
+
+        tools_dir = resolve_rel(cfg, "tools.dir")
+        if not tools_dir:
+            tools_dir = _fallback_from_paths("tools_dir", "narzedzia")
+        add("tools.dir", _exists(tools_dir), tools_dir)
 
         machines_layout = get_path("hall.machines_file")
         add("hall.machines_file", _exists(machines_layout), machines_layout)
