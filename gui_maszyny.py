@@ -95,7 +95,13 @@ def _open_machines_panel(root, container, config_manager=None, Renderer=None):
     machines_path = resolve_rel(cfg, "machines") if cfg else resolve_rel({}, "machines")
     default_doc = {"maszyny": []}
     rows_data = _safe_read_json(machines_path, default_doc)
-    rows = [row for row in rows_data.get("maszyny") or [] if isinstance(row, dict)]
+    if isinstance(rows_data, dict):
+        rows = rows_data.get("maszyny") or []
+    elif isinstance(rows_data, list):
+        rows = rows_data
+    else:
+        rows = []
+    rows = [row for row in rows if isinstance(row, dict)]
 
     if not rows:
         info.set("Brak maszyn w konfiguracji. Lista jest pusta – możesz dodać pozycje.")
