@@ -13,6 +13,7 @@ Funkcje:
 from __future__ import annotations
 
 import datetime
+import inspect
 import json
 import logging
 import os
@@ -688,6 +689,52 @@ class ConfigManager:
     # ========== API ==========
     def get(self, key: str, default: Any = None) -> Any:
         return get_by_key(self.merged, key, default)
+
+    def load(self) -> Dict[str, Any]:
+        """Backward-compatible snapshot accessor returning current config."""
+
+        try:
+            getter = getattr(self, "get", None)
+            if callable(getter):
+                signature = inspect.signature(getter)
+                if len(signature.parameters) == 0:
+                    value = getter()
+                    if isinstance(value, dict):
+                        return value
+        except Exception:
+            pass
+
+        try:
+            to_dict = getattr(self, "to_dict", None)
+            if callable(to_dict):
+                value = to_dict()
+                if isinstance(value, dict):
+                    return value
+        except Exception:
+            pass
+
+        try:
+            reader = getattr(self, "read", None)
+            if callable(reader):
+                value = reader()
+                if isinstance(value, dict):
+                    return value
+        except Exception:
+            pass
+
+        if hasattr(self, "merged") and isinstance(self.merged, dict):
+            return json.loads(json.dumps(self.merged))
+
+        import os
+
+        path = getattr(self, "config_path", "config.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as fh:
+                try:
+                    return json.load(fh)
+                except Exception:
+                    return {}
+        return {}
 
     def is_schema_default(self, key: str) -> bool:
         """Zwraca True, jeśli wartość została wstrzyknięta z domyślnego schematu."""

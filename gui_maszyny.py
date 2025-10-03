@@ -1,26 +1,25 @@
 from __future__ import annotations
 
-import logging
+import json
+import os
 import tkinter as tk
+from logging import getLogger
 from tkinter import messagebox, ttk
 
-from config_manager import ConfigManager, resolve_rel
+try:
+    from config_manager import ConfigManager, resolve_rel
+except Exception:  # pragma: no cover - fallback gdy moduł nieosiągalny
+    ConfigManager = None  # type: ignore[assignment]
+
+    def resolve_rel(cfg: dict, what: str) -> str:
+        root = (cfg.get("paths", {}) or {}).get("data_root") or "C:/wm/data"
+        mapping = {"machines": os.path.join("maszyny", "maszyny.json")}
+        return os.path.normpath(os.path.join(root, mapping.get(what, "")))
+
 from ui_theme import ensure_theme_applied
-from utils_json import load_json
 
-logger = logging.getLogger(__name__)
-
-try:  # pragma: no cover - fallback dla środowisk testowych
-    from logger import get_logger
-except Exception:  # pragma: no cover - logger opcjonalny
-
-    def get_logger(name: str) -> logging.Logger:
-        return logging.getLogger(name)
-
-
-logger = get_logger(__name__)
-
-Renderer = None
+logger = getLogger(__name__)
+_ = messagebox  # pragma: no cover - import utrzymany dla kompatybilności
 
 try:  # pragma: no cover - CONFIG_MANAGER jest opcjonalny
     from start import CONFIG_MANAGER
@@ -28,213 +27,120 @@ except Exception:  # pragma: no cover - środowiska testowe
     CONFIG_MANAGER = None
 
 
-def _resolve_config_manager(cm: ConfigManager | None) -> ConfigManager | None:
-    if cm is not None:
-        return cm
+def _safe_read_json(path: str, default: dict) -> dict:
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(default, handle, ensure_ascii=False, indent=2)
+            logger.warning("[AUTOJSON] Brak pliku %s – utworzono szablon", path)
+            return default.copy()
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception as exc:  # pragma: no cover - ochrona przed błędami IO
+        logger.error("[Maszyny] Błąd JSON (%s): %s", path, exc)
+        return default.copy()
+
+
+def _resolve_manager(explicit: ConfigManager | None) -> ConfigManager | None:
+    if explicit is not None:
+        return explicit
+    if CONFIG_MANAGER is not None:
+        return CONFIG_MANAGER
+    if ConfigManager is None:
+        return None
     try:
         return ConfigManager()
-    except Exception:  # pragma: no cover - fallback gdy ConfigManager nie działa
+    except Exception:  # pragma: no cover - ConfigManager opcjonalny
+        logger.exception("[Maszyny] Nie udało się zainicjalizować ConfigManagera.")
         return None
 
 
-def _load_machines_sot(
-    config_manager: ConfigManager | None,
-    cfg: dict | None = None,
-) -> list[dict]:
-    """Ładuje SoT maszyn korzystając z ``resolve_rel`` i ``load_json``."""
-
-    data_cfg: dict = {}
-    if cfg is not None:
-        data_cfg = cfg
-    elif config_manager is not None:
-        try:
-            data_cfg = config_manager.load()
-        except Exception:
-            logger.exception("[Maszyny] Nie udało się wczytać konfiguracji.")
-            data_cfg = {}
-
-    path = resolve_rel(data_cfg, "machines") if data_cfg else None
-    if not path:
-        logger.warning("[Maszyny] Nie zdefiniowano ścieżki SoT maszyn.")
-        return []
-
-    data = load_json(path, default={"maszyny": []})
-    if isinstance(data, dict):
-        records = [
-            row
-            for row in data.get("maszyny") or []
-            if isinstance(row, dict)
-        ]
-    else:
-        records = [
-            row
-            for row in data or []
-            if isinstance(row, dict)
-        ]
-    logger.info("[Maszyny] abs=%s | records=%d", path, len(records))
-    return records
-
-
-def _build_list_view(parent: tk.Misc, records: list[dict]) -> ttk.Treeview:
-    """Fallback widoku listy maszyn."""
-
-    frame = ttk.Frame(parent)
-    frame.pack(fill="both", expand=True)
-
-    columns = ("id", "kod", "nazwa", "lokacja", "status")
-    tree = ttk.Treeview(frame, columns=columns, show="headings", height=18)
-    for column in columns:
-        tree.heading(column, text=column.upper())
-        tree.column(column, width=120, stretch=True, anchor="w")
-    for record in records:
+def _build_tree(parent: tk.Misc, rows: list[dict]) -> ttk.Treeview:
+    tree = ttk.Treeview(parent, columns=("id", "nazwa", "typ"), show="headings", height=18)
+    tree.heading("id", text="ID")
+    tree.heading("nazwa", text="Nazwa")
+    tree.heading("typ", text="Typ")
+    tree.column("id", width=120, anchor="w")
+    tree.column("nazwa", width=360, anchor="w")
+    tree.column("typ", width=160, anchor="w")
+    for item in rows:
         tree.insert(
             "",
             "end",
-            values=(
-                record.get("id", ""),
-                record.get("kod", ""),
-                record.get("nazwa", ""),
-                record.get("lokacja", ""),
-                record.get("status", ""),
-            ),
+            values=(item.get("id", ""), item.get("nazwa", ""), item.get("typ", "")),
         )
-    tree.pack(side="left", fill="both", expand=True)
-    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
-    scrollbar.pack(side="right", fill="y")
-    tree.configure(yscrollcommand=scrollbar.set)
+    tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
     return tree
 
 
-def _try_build_renderer_or_list(
-    parent: tk.Misc,
-    config_manager: ConfigManager | None,
-    *,
-    records: list[dict] | None = None,
-    label_kwargs: dict[str, str] | None = None,
-    renderer: object | None = None,
-) -> ttk.Treeview | None:
-    """Próbuje zbudować renderer hali lub fallback listy."""
-
-    items = records if records is not None else _load_machines_sot(config_manager)
-    if not items:
-        tk.Label(
-            parent,
-            text="Brak rekordów maszyn w pliku.",
-            **(label_kwargs or {}),
-        ).pack(pady=12)
-        return None
-
-    active_renderer = renderer if renderer is not None else Renderer
-
-    if not active_renderer:
-        logger.warning("[Maszyny] Renderer hali niedostępny – używam widoku listy.")
-        return _build_list_view(parent, items)
-
-    try:  # pragma: no cover - renderer opcjonalny
-        if callable(active_renderer):
-            try:
-                renderer_instance = active_renderer(parent, items)
-            except TypeError:
-                renderer_instance = active_renderer(
-                    parent.winfo_toplevel(),
-                    parent,
-                    items,
-                )
-            render = getattr(renderer_instance, "render", None)
-            if callable(render):
-                render()
-                return None
-            raise AttributeError("Renderer instance missing render()")
-        render_callable = getattr(active_renderer, "render", None)
-        if callable(render_callable):
-            render_callable(parent, items)
-            return None
-        draw_callable = getattr(active_renderer, "draw", None)
-        if callable(draw_callable):
-            draw_callable(items)
-            return None
-        raise TypeError("Renderer does not expose render/draw API")
-    except Exception as exc:
-        logger.warning(
-            "[Maszyny] Renderer niedostępny – fallback na listę (%s)",
-            exc,
-        )
-        return _build_list_view(parent, items)
+Renderer = None
 
 
-def _open_machines_panel(
-    root,
-    container,
-    config_manager,
-    Renderer=None,
-) -> ttk.Treeview | None:
+def _open_machines_panel(root, container, config_manager=None, Renderer=None):
     for child in container.winfo_children():
         child.destroy()
 
-    label_kwargs: dict[str, str] = {}
-    if hasattr(container, "cget"):
-        try:
-            label_kwargs["bg"] = container.cget("bg")
-        except Exception:
-            pass
-    if label_kwargs.get("bg"):
-        label_kwargs.setdefault("fg", "#d1d5db")
+    info = tk.StringVar()
+    info_label = ttk.Label(container, textvariable=info)
+    info_label.pack(fill="x", padx=8, pady=8)
 
-    cm = _resolve_config_manager(config_manager)
-    if cm is None:
-        logger.warning("[Maszyny] Brak aktywnego ConfigManagera")
-        messagebox.showwarning(
-            "Maszyny",
-            "Nie można odczytać konfiguracji maszyn. Ustaw Folder WM (root).",
-        )
-        tk.Label(container, text="Brak konfiguracji maszyn.", **label_kwargs).pack(pady=12)
-        return None
-
+    manager = _resolve_manager(config_manager)
     try:
-        cfg = cm.load()
+        cfg = manager.load() if manager is not None else {}
     except Exception:
         logger.exception("[Maszyny] Nie udało się wczytać konfiguracji.")
-        messagebox.showwarning(
-            "Maszyny",
-            "Błąd podczas wczytywania konfiguracji maszyn.",
-        )
-        tk.Label(
-            container,
-            text="Nie udało się wczytać konfiguracji maszyn.",
-            **label_kwargs,
-        ).pack(pady=12)
-        return None
+        cfg = {}
 
-    abs_path = resolve_rel(cfg, "machines")
-    if not abs_path:
-        logger.warning("[Maszyny] Brak paths.data_root lub ścieżki maszyn")
-        messagebox.showwarning(
-            "Maszyny",
-            "Ustaw Folder WM (root) i relatywną ścieżkę pliku maszyn.",
-        )
-        tk.Label(
-            container,
-            text="Brak konfiguracji ścieżki maszyn.",
-            **label_kwargs,
-        ).pack(pady=12)
-        return None
+    machines_path = resolve_rel(cfg, "machines") if cfg else resolve_rel({}, "machines")
+    default_doc = {"maszyny": []}
+    rows_data = _safe_read_json(machines_path, default_doc)
+    rows = [row for row in rows_data.get("maszyny") or [] if isinstance(row, dict)]
 
-    items = _load_machines_sot(cm, cfg=cfg)
-    if not items:
-        tk.Label(
-            container,
-            text="Brak rekordów maszyn w pliku.",
-            **label_kwargs,
-        ).pack(pady=12)
-        return None
+    if not rows:
+        info.set("Brak maszyn w konfiguracji. Lista jest pusta – możesz dodać pozycje.")
+    else:
+        info.set(f"Wczytano {len(rows)} maszyn.")
 
-    return _try_build_renderer_or_list(
-        container,
-        cm,
-        records=items,
-        label_kwargs=label_kwargs,
-        renderer=Renderer,
-    )
+    tree: ttk.Treeview | None = None
+    active_renderer = Renderer
+    if rows and active_renderer is not None:
+        try:  # pragma: no cover - renderer opcjonalny
+            if callable(active_renderer):
+                try:
+                    renderer_instance = active_renderer(container, rows)
+                except TypeError:
+                    renderer_instance = active_renderer(
+                        container.winfo_toplevel(),
+                        container,
+                        rows,
+                    )
+                render = getattr(renderer_instance, "render", None)
+                if callable(render):
+                    render()
+                    tree = None
+                else:
+                    raise AttributeError("Renderer instance missing render()")
+            else:
+                render_callable = getattr(active_renderer, "render", None)
+                if callable(render_callable):
+                    render_callable(container, rows)
+                    tree = None
+                else:
+                    draw_callable = getattr(active_renderer, "draw", None)
+                    if callable(draw_callable):
+                        draw_callable(rows)
+                        tree = None
+                    else:
+                        raise TypeError("Renderer does not expose render/draw API")
+        except Exception as exc:
+            logger.warning("[Maszyny] Renderer niedostępny – fallback na listę (%s)", exc)
+            tree = None
+
+    if tree is None:
+        tree = _build_tree(container, rows)
+    logger.info("[Maszyny] Panel otwarty; rekordów: %d", len(rows))
+    return tree
 
 
 class MaszynyGUI:
