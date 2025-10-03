@@ -70,7 +70,7 @@ def _open_machines_panel(root, container, Renderer=None):
         cfg = {}
 
     rows, primary_path = load_machines_rows_with_fallback(cfg, resolve_rel)
-    rows = ensure_machines_sample_if_empty(rows, primary_path)
+    rows, primary_path = ensure_machines_sample_if_empty(rows, primary_path)
 
     if not rows:
         info.set("Brak maszyn w konfiguracji. Lista jest pusta – możesz dodać pozycje.")
