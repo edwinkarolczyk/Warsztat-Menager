@@ -33,8 +33,9 @@ from utils.path_utils import cfg_path
 import ui_hover
 import zadania_assign_io
 import profile_utils
-from config_manager import ConfigManager
+from config_manager import ConfigManager, resolve_rel
 from config.paths import get_path
+from utils_json import normalize_rows, safe_read_json
 from tools_config_loader import (
     load_config,
     get_status_names_for_type,
@@ -46,10 +47,13 @@ from tools_config_loader import (
 from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
-import logger
+import logger as app_logger
 import logging
 
-LOG = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+if not hasattr(logger, "log_akcja"):
+    setattr(logger, "log_akcja", getattr(app_logger, "log_akcja", lambda *args, **kwargs: None))
+LOG = logger
 
 # ===================== STAŁE / USTALENIA (domyślne) =====================
 CONFIG_PATH = cfg_path("config.json")
@@ -86,6 +90,51 @@ NN_PROD_STATES = {
 # Obsługa załączników do narzędzi
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".dxf"}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+def _open_tools_panel():
+    """
+    Otwiera panel 'Narzędzia' ZAWSZE.
+    Gdy plik pusty/niepoprawny – pokazuje pustą listę i informację,
+    bez crashy i bez file-dialogów.
+    """
+
+    try:
+        from start import CONFIG_MANAGER  # type: ignore
+
+        cfg = CONFIG_MANAGER.load() if hasattr(CONFIG_MANAGER, "load") else {}
+    except Exception:
+        cfg = {}
+
+    tools_path = resolve_rel(cfg, "tools")
+    data = safe_read_json(tools_path, default=[])
+    rows = normalize_rows(data, "narzedzia")
+
+    win = tk.Toplevel()
+    win.title("Narzędzia")
+    win.geometry("900x540")
+
+    info = tk.StringVar()
+    info.set(
+        f"Załadowano {len(rows)} pozycji." if rows else "Brak pozycji — lista pusta."
+    )
+    ttk.Label(win, textvariable=info).pack(fill="x", padx=8, pady=8)
+
+    tv = ttk.Treeview(win, columns=("id", "nazwa", "status"), show="headings", height=20)
+    for column_id, width in (("id", 160), ("nazwa", 520), ("status", 160)):
+        tv.heading(column_id, text=column_id.upper())
+        tv.column(column_id, width=width, anchor="w")
+    for row in rows:
+        tv.insert(
+            "",
+            "end",
+            values=(row.get("id", ""), row.get("nazwa", ""), row.get("status", "")),
+        )
+    tv.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+    ttk.Button(win, text="Zamknij", command=win.destroy).pack(side="right", padx=8, pady=8)
+    logger.info("[Narzędzia] Panel otwarty; rekordów: %d; plik=%s", len(rows), tools_path)
+    return win
 
 
 _current_login: str | None = None

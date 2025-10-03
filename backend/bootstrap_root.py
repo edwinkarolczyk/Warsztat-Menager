@@ -6,7 +6,7 @@ import logging
 import os
 
 from config_manager import ConfigManager, resolve_rel, try_migrate_if_missing
-from utils_json import ensure_dir_json
+from utils_json import ensure_dir_json, safe_read_json
 
 log = logging.getLogger(__name__)
 
@@ -51,6 +51,16 @@ def _migrate_legacy(cfg: dict) -> None:
 
     for src, dst in moved:
         log.info("[MIGRACJA] %s -> %s", src, dst)
+
+
+def ensure_root_min_files(cfg: dict) -> None:
+    """Ensure minimal JSON files exist under configured root."""
+
+    safe_read_json(resolve_rel(cfg, "machines"), default=[])
+    safe_read_json(resolve_rel(cfg, "tools"), default=[])
+    safe_read_json(resolve_rel(cfg, "orders"), default=[])
+    safe_read_json(resolve_rel(cfg, "warehouse_stock"), default={"pozycje": []})
+    safe_read_json(resolve_rel(cfg, "bom"), default={"pozycje": []})
 
 
 def ensure_root_ready(config_path: str = "config.json") -> bool:

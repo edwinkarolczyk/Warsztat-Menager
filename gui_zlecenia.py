@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable
 
+from config_manager import resolve_rel
+from utils_json import normalize_rows, safe_read_json
 from domain.orders import load_order, load_orders
 from ui_dialogs_safe import error_box
 
@@ -21,6 +23,66 @@ try:  # pragma: no cover - opcjonalny moduł szczegółów
     from gui_zlecenia_detail import open_order_detail  # type: ignore
 except Exception:  # pragma: no cover - fallback gdy moduł nie istnieje
     open_order_detail = None  # type: ignore
+
+
+def _open_orders_panel():
+    """
+    Otwiera panel 'Zlecenia' ZAWSZE.
+    Gdy plik pusty/niepoprawny – pokazuje pustą listę i informację,
+    bez crashy i bez file-dialogów.
+    """
+
+    try:
+        from start import CONFIG_MANAGER  # type: ignore
+
+        cfg = CONFIG_MANAGER.load() if hasattr(CONFIG_MANAGER, "load") else {}
+    except Exception:
+        cfg = {}
+
+    orders_path = resolve_rel(cfg, "orders")
+    data = safe_read_json(orders_path, default=[])
+    rows = normalize_rows(data, "zlecenia")
+
+    win = tk.Toplevel()
+    win.title("Zlecenia")
+    win.geometry("960x560")
+
+    info = tk.StringVar()
+    info.set(
+        f"Załadowano {len(rows)} pozycji." if rows else "Brak zleceń — lista pusta."
+    )
+    ttk.Label(win, textvariable=info).pack(fill="x", padx=8, pady=8)
+
+    tv = ttk.Treeview(
+        win,
+        columns=("id", "klient", "status", "data"),
+        show="headings",
+        height=20,
+    )
+    for column_id, width in (
+        ("id", 160),
+        ("klient", 360),
+        ("status", 160),
+        ("data", 200),
+    ):
+        tv.heading(column_id, text=column_id.upper())
+        tv.column(column_id, width=width, anchor="w")
+    for row in rows:
+        tv.insert(
+            "",
+            "end",
+            values=(
+                row.get("id", ""),
+                row.get("klient", ""),
+                row.get("status", ""),
+                row.get("data", ""),
+            ),
+        )
+    tv.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+    ttk.Button(win, text="Zamknij", command=win.destroy).pack(side="right", padx=8, pady=8)
+    logger.info("[Zlecenia] Panel otwarty; rekordów: %d; plik=%s", len(rows), orders_path)
+    return win
 
 
 class _AfterGuard:
