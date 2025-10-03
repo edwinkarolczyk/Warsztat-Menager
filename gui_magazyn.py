@@ -356,6 +356,22 @@ class MagazynFrame(ttk.Frame):
 
         build_magazyn_toolbar(toolbar, self)
 
+        if not hasattr(self, "cbo_typ"):
+            container = ttk.Frame(self, style="WM.TFrame")
+            container.pack(fill="x", pady=(0, 6))
+            self.cbo_typ = ttk.Combobox(
+                container,
+                values=["surowce", "półprodukty", "produkty"],
+                state="readonly",
+                textvariable=self._filter_typ,
+            )
+            try:
+                self.cbo_typ.current(0)
+            except Exception:
+                self._filter_typ.set("surowce")
+            self.cbo_typ.grid(row=0, column=0, padx=6, pady=6, sticky="w")
+            self.cbo_typ.bind("<<ComboboxSelected>>", lambda _e: self._apply_filters())
+
         # Tabela
         self.tree = ttk.Treeview(self, columns=COLUMNS, show="headings", selectmode="browse", height=22)
         self.tree.pack(fill="both", expand=True)
@@ -394,6 +410,12 @@ class MagazynFrame(ttk.Frame):
     def _clear_filters(self):
         self._filter_typ.set("(wszystkie)")
         self._filter_query.set("")
+        cbo = getattr(self, "cbo_typ", None)
+        if cbo is not None:
+            try:
+                cbo.set(self._filter_typ.get())
+            except Exception:
+                pass
         self._apply_filters()
 
     def refresh(self):
@@ -422,8 +444,19 @@ class MagazynFrame(ttk.Frame):
         typy.extend(sorted(bucket, key=lambda s: s.lower()))
         # zachowaj wybór jeśli istnieje
         cur = self._filter_typ.get()
-        self.cbo_typ["values"] = typy
-        if cur not in typy:
+        cbo = getattr(self, "cbo_typ", None)
+        if cbo is not None:
+            try:
+                cbo["values"] = typy
+            except Exception:
+                pass
+            if cur not in typy:
+                self._filter_typ.set("(wszystkie)")
+                try:
+                    cbo.set(self._filter_typ.get())
+                except Exception:
+                    pass
+        else:
             self._filter_typ.set("(wszystkie)")
 
         # wypełnij widok z filtrami
@@ -435,7 +468,13 @@ class MagazynFrame(ttk.Frame):
             self.tree.delete(iid)
 
         q = self._filter_query.get().strip().lower()
-        t = self._filter_typ.get()
+        cbo = getattr(self, "cbo_typ", None)
+        if cbo is None:
+            return
+        try:
+            t = cbo.get()
+        except Exception:
+            t = self._filter_typ.get()
 
         # przygotuj regex „q” bezpiecznie (opcjonalne)
         rx = None

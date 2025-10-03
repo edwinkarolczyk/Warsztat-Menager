@@ -28,6 +28,28 @@ import gui_changelog
 from logger import log_akcja
 from profile_utils import SIDEBAR_MODULES
 
+
+def _warn(msg: str):
+    try:
+        from ui_theme import warn_banner  # type: ignore[attr-defined]
+
+        warn_banner(msg)
+    except Exception:
+        print(f"[WARN] {msg}")
+
+
+try:
+    import gui_narzedzia  # noqa: F401
+except Exception as e:  # pragma: no cover - fallback logging
+    _warn(f"Panel narzędzi (fallback) – błąd importu gui_narzedzia: {e!s}")
+    gui_narzedzia = None  # type: ignore
+
+try:
+    import gui_zlecenia  # noqa: F401
+except Exception as e:  # pragma: no cover - fallback logging
+    _warn(f"Panel zleceń (fallback) – błąd importu gui_zlecenia: {e!s}")
+    gui_zlecenia = None  # type: ignore
+
 # --- PROFIL: nowy widok ---
 try:
     from gui_profile import ProfileView

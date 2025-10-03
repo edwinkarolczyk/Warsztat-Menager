@@ -2,6 +2,7 @@ import os
 import json
 import copy
 import logging
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -80,4 +81,32 @@ def safe_read_json(path: str, default):
     except Exception as exc:  # pragma: no cover - defensive fallback
         logger.error("[JSON] Błąd czytania %s: %s", path, exc)
         return copy.deepcopy(default)
+
+
+# --- Alias zgodności: jeśli w repo istnieje _safe_read_json, wystaw alias safe_read_json
+try:
+    safe_read_json  # type: ignore[attr-defined]
+except NameError:
+    try:
+        safe_read_json = _safe_read_json  # type: ignore[name-defined]
+    except Exception:
+        pass  # brak starej nazwy – nic nie robimy (safe_read_json już może istnieć)
+
+
+def normalize_rows(data: Any, list_key: Optional[str] = None) -> List[Dict]:
+    """
+    Zwraca listę rekordów (list[dict]) niezależnie od formatu źródła:
+    - dict + list_key -> data[list_key] (gdy istnieje i jest listą)
+    - list na top-level -> bezpośrednio
+    - inaczej -> []
+    Filtruje tylko elementy typu dict (bezpieczne dla UI).
+    """
+
+    if isinstance(data, dict):
+        raw = data.get(list_key, []) if list_key else []
+    elif isinstance(data, list):
+        raw = data
+    else:
+        raw = []
+    return [r for r in raw if isinstance(r, dict)]
 
