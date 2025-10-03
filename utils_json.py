@@ -41,3 +41,13 @@ def load_json(path: str, default: dict | list | None = None) -> dict | list:
         logger.error("[AUTOJSON] Błąd wczytywania %s: %s", abs_path, e)
         return default if default is not None else {}
 
+
+def ensure_dir_json(path: str, default):
+    """Ensure directory for *path* exists and create JSON file if missing."""
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(default, f, ensure_ascii=False, indent=2)
+    return path
+
