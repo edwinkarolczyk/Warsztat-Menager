@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from tkinter import ttk
-from typing import Any
+from typing import Any, Callable
 
 from domain.orders import load_order, load_orders
+from ui_dialogs_safe import error_box
+
+logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - środowiska testowe nie wymagają motywu
     from gui_zlecenia_creator import open_order_creator  # type: ignore
@@ -19,62 +23,179 @@ except Exception:  # pragma: no cover - fallback gdy moduł nie istnieje
     open_order_detail = None  # type: ignore
 
 
-def panel_zlecenia(parent: tk.Widget) -> ttk.Frame:
-    frame = ttk.Frame(parent, padding=8)
-    frame.pack(fill="both", expand=True)
+class _AfterGuard:
+    """Helper zabezpieczający wywołania `after` przed zniszczeniem widgetu."""
 
-    toolbar = ttk.Frame(frame)
-    toolbar.pack(fill="x", pady=(0, 6))
+    def __init__(self, widget: tk.Misc) -> None:
+        self._widget = widget
+        self._tokens: list[str] = []
 
-    btn_add = ttk.Button(toolbar, text="Dodaj zlecenie (Kreator)")
-    if open_order_creator:
-        btn_add.configure(command=lambda: open_order_creator(frame, "uzytkownik"))
-    else:
-        btn_add.state(["disabled"])
-    btn_add.pack(side="left")
+    def call_later(self, ms: int, callback: Callable[[], None]) -> str | None:
+        try:
+            token = self._widget.after(ms, callback)
+        except Exception:  # pragma: no cover - brak w testach GUI
+            logger.exception("[ORD] after() failed")
+            return None
+        self._tokens.append(token)
+        return token
 
-    columns = ("rodzaj", "status", "opis")
-    tree = ttk.Treeview(frame, columns=columns, show="headings")
-    for column in columns:
-        tree.heading(column, text=column.capitalize())
-        tree.column(column, anchor="center")
-    tree.pack(fill="both", expand=True)
+    def cancel_all(self) -> None:
+        for token in self._tokens:
+            try:
+                self._widget.after_cancel(token)
+            except Exception:  # pragma: no cover - brak w testach GUI
+                continue
+        self._tokens.clear()
 
-    def _refresh() -> None:
-        for item in tree.get_children():
-            tree.delete(item)
-        for order in load_orders():
-            tree.insert(
-                "",
-                "end",
-                values=(order.get("rodzaj"), order.get("status"), order.get("opis")),
-                iid=str(order.get("id")),
+
+class ZleceniaView(ttk.Frame):
+    """Widok listy zleceń z automatycznym odświeżaniem."""
+
+    _REFRESH_INTERVAL_MS = 5000
+
+    def __init__(self, master: tk.Widget) -> None:
+        super().__init__(master, padding=8)
+        self._after = _AfterGuard(self)
+        self._refresh_error_shown = False
+        self._build_toolbar()
+        self._build_tree()
+        self.bind("<Destroy>", self._on_destroy, add=True)
+        self._refresh()
+        self._schedule_refresh()
+
+    # region UI helpers -------------------------------------------------
+    def _build_toolbar(self) -> None:
+        toolbar = ttk.Frame(self)
+        toolbar.pack(fill="x", pady=(0, 6))
+
+        btn_add = ttk.Button(toolbar, text="Dodaj zlecenie (Kreator)")
+        if open_order_creator:
+            btn_add.configure(command=self._on_add)
+        else:
+            btn_add.state(["disabled"])
+        btn_add.pack(side="left")
+
+    def _build_tree(self) -> None:
+        columns = ("rodzaj", "status", "opis")
+        self.tree = ttk.Treeview(self, columns=columns, show="headings")
+        for column in columns:
+            self.tree.heading(column, text=column.capitalize())
+            self.tree.column(column, anchor="center")
+        self.tree.pack(fill="both", expand=True)
+        self.tree.bind("<Double-1>", self._on_double_click, add=True)
+
+    # endregion ---------------------------------------------------------
+
+    # region Actions ----------------------------------------------------
+    def _on_add(self) -> None:
+        if not open_order_creator:
+            return
+        try:
+            open_order_creator(self, "uzytkownik")
+        except Exception as exc:  # pragma: no cover - wymagane GUI
+            logger.exception("[ORD] Błąd otwierania kreatora: %s", exc)
+            error_box(
+                self,
+                "Zlecenia",
+                f"Nie udało się otworzyć kreatora.\n{exc}",
             )
 
-    _refresh()
-
-    def _on_double_click(event: Any) -> None:
+    def _on_double_click(self, event: Any) -> None:
         if not open_order_detail:
             return
-        selection = tree.selection()
+        selection = self.tree.selection()
         if not selection:
             return
         order_id = selection[0]
         try:
             order_data = load_order(order_id)
-        except Exception:
+        except Exception as exc:  # pragma: no cover - wymagane GUI
+            logger.exception(
+                "[ORD] Błąd wczytywania zlecenia %s: %s",
+                order_id,
+                exc,
+            )
+            error_box(
+                self,
+                "Zlecenia",
+                f"Nie udało się wczytać szczegółów zlecenia {order_id}.\n{exc}",
+            )
             return
         if not order_data:
+            logger.warning("[ORD] Brak danych zlecenia o ID %s", order_id)
+            error_box(
+                self,
+                "Zlecenia",
+                f"Nie znaleziono danych zlecenia o ID {order_id}.",
+            )
             return
-        open_order_detail(frame, order_data)
+        try:
+            open_order_detail(self, order_data)
+        except Exception as exc:  # pragma: no cover - wymagane GUI
+            logger.exception("[ORD] Błąd otwierania szczegółów: %s", exc)
+            error_box(
+                self,
+                "Zlecenia",
+                f"Nie udało się otworzyć szczegółów.\n{exc}",
+            )
 
-    tree.bind("<Double-1>", _on_double_click)
+    # endregion ---------------------------------------------------------
 
-    def _auto_refresh() -> None:
-        if not frame.winfo_exists():
+    # region Refresh ----------------------------------------------------
+    def _refresh(self) -> None:
+        try:
+            orders = load_orders()
+        except Exception as exc:  # pragma: no cover - wymagane GUI
+            logger.exception("[ORD] Błąd odświeżania listy zleceń: %s", exc)
+            if not self._refresh_error_shown:
+                error_box(
+                    self,
+                    "Zlecenia",
+                    f"Nie udało się odświeżyć listy zleceń.\n{exc}",
+                )
+            self._refresh_error_shown = True
             return
-        _refresh()
-        frame.after(5000, _auto_refresh)
 
-    _auto_refresh()
-    return frame
+        self._refresh_error_shown = False
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        for order in orders:
+            try:
+                self.tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        order.get("rodzaj"),
+                        order.get("status"),
+                        order.get("opis"),
+                    ),
+                    iid=str(order.get("id")),
+                )
+            except Exception as exc:  # pragma: no cover - wymagane GUI
+                logger.exception(
+                    "[ORD] Błąd dodawania zlecenia do listy: %s",
+                    exc,
+                )
+
+    def _schedule_refresh(self) -> None:
+        if not self.winfo_exists():  # pragma: no cover - brak w testach GUI
+            return
+        self._after.call_later(self._REFRESH_INTERVAL_MS, self._on_refresh_timer)
+
+    def _on_refresh_timer(self) -> None:
+        if not self.winfo_exists():  # pragma: no cover - brak w testach GUI
+            self._after.cancel_all()
+            return
+        self._refresh()
+        self._schedule_refresh()
+
+    # endregion ---------------------------------------------------------
+
+    def _on_destroy(self, _event: Any) -> None:
+        self._after.cancel_all()
+
+
+def panel_zlecenia(parent: tk.Widget) -> ttk.Frame:
+    view = ZleceniaView(parent)
+    view.pack(fill="both", expand=True)
+    return view
