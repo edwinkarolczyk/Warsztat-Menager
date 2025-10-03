@@ -45,6 +45,7 @@ except ImportError:  # pragma: no cover - fallback dla starszych wersji
             return {}
 from config.paths import get_path
 from utils_json import normalize_rows, safe_read_json
+from utils_tools import ensure_tools_sample_if_empty, load_tools_rows_with_fallback
 from tools_config_loader import (
     load_config,
     get_status_names_for_type,
@@ -115,18 +116,28 @@ def _open_tools_panel():
     except Exception:
         cfg = {}
 
-    tools_path = resolve_rel(cfg, "tools")
-    data = safe_read_json(tools_path, default=[])
-    rows = normalize_rows(data, "narzedzia")
+    if not cfg:
+        try:
+            cfg = get_config()
+        except Exception:
+            logger.exception("[Narzędzia] Nie udało się uzyskać konfiguracji przez get_config().")
+            cfg = {}
+
+    rows, primary_path = load_tools_rows_with_fallback(cfg, resolve_rel)
+    had_rows = bool(rows)
+    rows = ensure_tools_sample_if_empty(rows, primary_path)
 
     win = tk.Toplevel()
     win.title("Narzędzia")
     win.geometry("900x540")
 
     info = tk.StringVar()
-    info.set(
-        f"Załadowano {len(rows)} pozycji." if rows else "Brak pozycji — lista pusta."
-    )
+    if had_rows:
+        info.set(f"Załadowano {len(rows)} pozycji.")
+    else:
+        info.set(
+            "Brak narzędzi w konfiguracji – dodano przykładowe wpisy do narzedzia/narzedzia.json."
+        )
     ttk.Label(win, textvariable=info).pack(fill="x", padx=8, pady=8)
 
     tv = ttk.Treeview(win, columns=("id", "nazwa", "status"), show="headings", height=20)
@@ -142,7 +153,7 @@ def _open_tools_panel():
     tv.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
     ttk.Button(win, text="Zamknij", command=win.destroy).pack(side="right", padx=8, pady=8)
-    logger.info("[Narzędzia] Panel otwarty; rekordów: %d; plik=%s", len(rows), tools_path)
+    logger.info("[Narzędzia] Panel otwarty; rekordów: %d; plik=%s", len(rows), primary_path)
     return win
 
 
