@@ -8,6 +8,18 @@ from tkinter import ttk
 from typing import Any, Callable
 
 from config_manager import resolve_rel
+
+try:
+    from config_manager import get_config  # type: ignore
+except ImportError:  # pragma: no cover - fallback dla starszych wersji
+    def get_config():
+        try:
+            from config_manager import ConfigManager  # type: ignore
+
+            return ConfigManager().load()
+        except Exception:
+            return {}
+
 from utils_json import normalize_rows, safe_read_json
 from domain.orders import load_order, load_orders
 from ui_dialogs_safe import error_box
@@ -85,6 +97,22 @@ def _open_orders_panel():
     return win
 
 
+def _load_orders_rows() -> list[dict]:
+    try:
+        cfg = get_config()
+    except Exception:
+        cfg = {}
+    orders_path = resolve_rel(cfg, r"zlecenia\zlecenia.json")
+    if not orders_path:
+        return []
+    rows_data = safe_read_json(orders_path, default=[])
+
+    rows = normalize_rows(rows_data, "zlecenia")
+    if not rows and isinstance(rows_data, list):
+        rows = [r for r in rows_data if isinstance(r, dict)]
+    return rows
+
+
 class _AfterGuard:
     """Helper zabezpieczający wywołania `after` przed zniszczeniem widgetu."""
 
@@ -119,6 +147,8 @@ class ZleceniaView(ttk.Frame):
         super().__init__(master, padding=8)
         self._after = _AfterGuard(self)
         self._refresh_error_shown = False
+        self._order_rows: dict[str, dict] = {}
+        self._order_ids: dict[str, str] = {}
         self._build_toolbar()
         self._build_tree()
         self.bind("<Destroy>", self._on_destroy, add=True)
@@ -148,6 +178,34 @@ class ZleceniaView(ttk.Frame):
 
     # endregion ---------------------------------------------------------
 
+    def _fill_orders_table(self, rows: list[dict]) -> None:
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._order_rows = {}
+        self._order_ids = {}
+        for idx, order in enumerate(rows):
+            if not isinstance(order, dict):
+                continue
+            rodzaj = str(order.get("rodzaj") or order.get("typ") or "")
+            status_txt = str(order.get("status") or "")
+            opis = str(order.get("opis") or order.get("nazwa") or order.get("klient") or "")
+            order_id = (
+                order.get("id")
+                or order.get("nr")
+                or order.get("kod")
+                or order.get("numer")
+            )
+            order_key = str(order_id) if order_id is not None else ""
+            iid = order_key if order_key else f"row-{idx}"
+            try:
+                self.tree.insert("", "end", values=(rodzaj, status_txt, opis), iid=iid)
+            except Exception as exc:  # pragma: no cover - wymagane GUI
+                logger.exception("[ORD] Błąd dodawania zlecenia do listy: %s", exc)
+                continue
+            self._order_rows[iid] = order
+            if order_key:
+                self._order_ids[iid] = order_key
+
     # region Actions ----------------------------------------------------
     def _on_add(self) -> None:
         if not open_order_creator:
@@ -168,21 +226,33 @@ class ZleceniaView(ttk.Frame):
         selection = self.tree.selection()
         if not selection:
             return
-        order_id = selection[0]
-        try:
-            order_data = load_order(order_id)
-        except Exception as exc:  # pragma: no cover - wymagane GUI
-            logger.exception(
-                "[ORD] Błąd wczytywania zlecenia %s: %s",
-                order_id,
-                exc,
-            )
-            error_box(
-                self,
-                "Zlecenia",
-                f"Nie udało się wczytać szczegółów zlecenia {order_id}.\n{exc}",
-            )
-            return
+        iid = selection[0]
+        mapped = self._order_rows.get(iid, {})
+        order_id = self._order_ids.get(iid) or (
+            mapped.get("id")
+            or mapped.get("nr")
+            or mapped.get("kod")
+            or mapped.get("numer")
+        )
+        order_data = {}
+        if order_id:
+            try:
+                order_data = load_order(order_id)
+            except Exception as exc:  # pragma: no cover - wymagane GUI
+                logger.exception(
+                    "[ORD] Błąd wczytywania zlecenia %s: %s",
+                    order_id,
+                    exc,
+                )
+                error_box(
+                    self,
+                    "Zlecenia",
+                    f"Nie udało się wczytać szczegółów zlecenia {order_id}.\n{exc}",
+                )
+                return
+        else:
+            order_data = mapped
+            order_id = iid
         if not order_data:
             logger.warning("[ORD] Brak danych zlecenia o ID %s", order_id)
             error_box(
@@ -206,7 +276,7 @@ class ZleceniaView(ttk.Frame):
     # region Refresh ----------------------------------------------------
     def _refresh(self) -> None:
         try:
-            orders = load_orders()
+            rows = _load_orders_rows()
         except Exception as exc:  # pragma: no cover - wymagane GUI
             logger.exception("[ORD] Błąd odświeżania listy zleceń: %s", exc)
             if not self._refresh_error_shown:
@@ -218,26 +288,23 @@ class ZleceniaView(ttk.Frame):
             self._refresh_error_shown = True
             return
 
-        self._refresh_error_shown = False
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        for order in orders:
+        if not rows:
             try:
-                self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        order.get("rodzaj"),
-                        order.get("status"),
-                        order.get("opis"),
-                    ),
-                    iid=str(order.get("id")),
-                )
+                fallback = load_orders()
             except Exception as exc:  # pragma: no cover - wymagane GUI
-                logger.exception(
-                    "[ORD] Błąd dodawania zlecenia do listy: %s",
-                    exc,
-                )
+                logger.exception("[ORD] Błąd odświeżania listy zleceń: %s", exc)
+                if not self._refresh_error_shown:
+                    error_box(
+                        self,
+                        "Zlecenia",
+                        f"Nie udało się odświeżyć listy zleceń.\n{exc}",
+                    )
+                self._refresh_error_shown = True
+                return
+            rows = [order for order in fallback if isinstance(order, dict)]
+
+        self._refresh_error_shown = False
+        self._fill_orders_table(rows)
 
     def _schedule_refresh(self) -> None:
         if not self.winfo_exists():  # pragma: no cover - brak w testach GUI

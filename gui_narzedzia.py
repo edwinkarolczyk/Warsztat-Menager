@@ -34,6 +34,15 @@ import ui_hover
 import zadania_assign_io
 import profile_utils
 from config_manager import ConfigManager, resolve_rel
+
+try:
+    from config_manager import get_config  # type: ignore
+except ImportError:  # pragma: no cover - fallback dla starszych wersji
+    def get_config():
+        try:
+            return ConfigManager().load()
+        except Exception:
+            return {}
 from config.paths import get_path
 from utils_json import normalize_rows, safe_read_json
 from tools_config_loader import (
@@ -1423,6 +1432,81 @@ def _iter_legacy_json_items():
             _dbg("Błąd parsowania pozycji legacy:", e)
     return items
 
+
+def _normalize_tool_entry(data: dict) -> dict:
+    if not isinstance(data, dict):
+        return {}
+
+    raw_nr = data.get("nr") or data.get("numer") or data.get("id") or ""
+    nr_str = str(raw_nr).strip()
+    if nr_str.isdigit() and len(nr_str) <= 3:
+        nr = nr_str.zfill(3)
+    else:
+        nr = nr_str
+
+    tasks = data.get("zadania", [])
+    if isinstance(tasks, str):
+        tasks = _legacy_parse_tasks(tasks)
+    elif isinstance(tasks, list):
+        tasks = [t for t in tasks if isinstance(t, dict)]
+    else:
+        tasks = []
+
+    total = len(tasks)
+    done = sum(1 for t in tasks if isinstance(t, dict) and t.get("done"))
+    if total:
+        try:
+            postep = int(done * 100 / total)
+        except Exception:
+            postep = 0
+    else:
+        try:
+            postep = int(data.get("postep", 0))
+        except Exception:
+            postep = 0
+    postep = max(0, min(100, postep))
+
+    return {
+        "nr": nr,
+        "nazwa": data.get("nazwa", ""),
+        "typ": data.get("typ", ""),
+        "status": data.get("status", ""),
+        "data": data.get("data_dodania", data.get("data", "")),
+        "zadania": tasks,
+        "postep": postep,
+        "tryb": data.get("tryb", ""),
+        "interwencje": data.get("interwencje", []),
+        "historia": data.get("historia", []),
+        "opis": data.get("opis", ""),
+        "pracownik": data.get("pracownik", ""),
+        "obraz": data.get("obraz", ""),
+        "dxf": data.get("dxf", ""),
+        "dxf_png": data.get("dxf_png", ""),
+    }
+
+
+def _load_tools_rows_from_json() -> list[dict]:
+    try:
+        cfg = get_config()
+    except Exception:
+        cfg = {}
+    tools_path = resolve_rel(cfg, r"narzedzia\narzedzia.json")
+    if not tools_path:
+        return []
+    rows_data = safe_read_json(tools_path, default=[])
+
+    rows = normalize_rows(rows_data, "narzedzia")
+    if not rows and isinstance(rows_data, list):
+        rows = [r for r in rows_data if isinstance(r, dict)]
+
+    items: list[dict] = []
+    for row in rows:
+        norm = _normalize_tool_entry(row)
+        if norm:
+            items.append(norm)
+    return items
+
+
 def _load_all_tools():
     _dbg("CWD:", os.getcwd())
     tools_dir = _resolve_tools_dir()
@@ -1439,6 +1523,12 @@ def _load_all_tools():
         _dbg("Załadowano LEGACY z narzedzia.json:", len(legacy), "szt.")
         legacy.sort(key=lambda x: x["nr"])
         return legacy
+
+    rows = _load_tools_rows_from_json()
+    if rows:
+        _dbg("Załadowano R-06F z narzedzia/narzedzia.json:", len(rows), "szt.")
+        rows.sort(key=lambda x: x.get("nr", ""))
+        return rows
 
     _dbg("Brak narzędzi do wyświetlenia (folder i legacy puste).")
     return []
@@ -1585,21 +1675,34 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     frame.assign_tree = assign_tree
 
     def refresh_list(*_):
-        tree.delete(*tree.get_children()); row_data.clear()
+        tree.delete(*tree.get_children())
+        row_data.clear()
         q = (search_var.get() or "").strip().lower()
         data = _load_all_tools()
         for tool in data:
-            blob = ("%s %s %s %s %s %s %s %s" % (
-                tool["nr"], tool["nazwa"], tool["typ"], tool["status"], tool["data"], tool["postep"], tool.get("tryb", ""), tool.get("opis", "")
-            )).lower()
+            if not isinstance(tool, dict):
+                continue
+            nr = str(tool.get("nr") or tool.get("numer") or tool.get("id") or "")
+            nazwa = str(tool.get("nazwa") or tool.get("name") or "")
+            typ = str(tool.get("typ") or "")
+            status_txt = str(tool.get("status") or "")
+            data_txt = str(tool.get("data") or tool.get("data_dodania") or "")
+            try:
+                postep_val = int(tool.get("postep", 0))
+            except Exception:
+                postep_val = 0
+            opis = str(tool.get("opis") or "")
+            tryb = str(tool.get("tryb") or "")
+
+            blob = f"{nr} {nazwa} {typ} {status_txt} {data_txt} {postep_val} {tryb} {opis}".lower()
             if q and q not in blob:
                 continue
-            tag = _band_tag(tool["postep"])
-            bar = _bar_text(tool["postep"])
+            tag = _band_tag(postep_val)
+            bar = _bar_text(postep_val)
             iid = tree.insert(
                 "",
                 "end",
-                values=(tool["nr"], tool["nazwa"], tool["typ"], tool["status"], tool["data"], bar),
+                values=(nr, nazwa, typ, status_txt, data_txt, bar),
                 tags=(tag,),
             )
             row_data[iid] = tool
