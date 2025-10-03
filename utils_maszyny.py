@@ -364,11 +364,13 @@ def load_machines_rows_with_fallback(
     return rows, primary_path
 
 
-def ensure_machines_sample_if_empty(rows: List[dict], primary_path: str | None) -> List[dict]:
+def ensure_machines_sample_if_empty(
+    rows: List[dict], primary_path: str | None
+) -> Tuple[List[dict], str | None]:
     """Provide sample data when ``rows`` are empty for preview purposes."""
 
     if rows:
-        return rows
+        return rows, primary_path
 
     candidates: List[str] = []
     if primary_path:
@@ -393,6 +395,6 @@ def ensure_machines_sample_if_empty(rows: List[dict], primary_path: str | None) 
         sample_rows = _load_json_file(abs_path)
         if sample_rows:
             print(f"[WM][Maszyny] użyto danych przykładowych z pliku: {abs_path}")
-            return sample_rows
+            return sample_rows, abs_path
 
-    return rows
+    return rows, primary_path
