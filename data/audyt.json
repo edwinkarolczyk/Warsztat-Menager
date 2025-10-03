@@ -1,103 +1,90 @@
-{
-  "version": "2025-09-30",
-  "title": "TRYB NAPRAWCZY (Q4-2025) – Audyt postępu",
-  "legend": {
-    "colors": {
-      "green": "90–100% Stabilne",
-      "yellow": "70–89% Dobre z ryzykiem",
-      "orange": "40–69% Chwiejne",
-      "red": "0–39% Krytyczne"
-    }
+[
+  {
+    "section": "Core",
+    "key": "core_one_root",
+    "title": "ONE-ROOT konsolidacja ścieżek",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Konsolidacja ścieżek do jednego Folder WM (root) + resolve_rel()."
   },
-  "groups": [
-    {
-      "id": "core",
-      "name": "0) Rdzeń / Ustawienia / Logowanie",
-      "status_color": "green",
-      "percent": 90,
-      "items": [
-        { "id": "core_tclerror", "label": "Zbiorczy fix TclError (scroll/after)", "done": true,  "notes": "Wdrożone w PR #1167" },
-        { "id": "core_excepts",  "label": "Zawężone except + logi [WM-ERR]/[WM-DBG]", "done": true,  "notes": "Wdrożone w PR #1167" },
-        { "id": "core_theme",    "label": "Motywy – pełna spójność (Logowanie/Panel/Dialogi)", "done": true,  "notes": "ensure_theme_applied; PR #1167" },
-        { "id": "core_logs",     "label": "Logi: konsola + logs/wm.log (rotacja 5×5MB)", "done": true,  "notes": "core/logging_config.py; PR #1167" }
-      ]
-    },
-    {
-      "id": "tools",
-      "name": "1) Narzędzia",
-      "status_color": "orange",
-      "percent": 65,
-      "items": [
-        { "id": "tools_validate", "label": "Walidacja formularzy (puste pola → okno błędu)", "done": false, "notes": "" },
-        { "id": "tools_errors",   "label": "Każdy błąd: messagebox.showerror + log", "done": false, "notes": "" },
-        { "id": "tools_history",  "label": "Historia NN↔SN – zabezpieczenie anty-duplikat", "done": false, "notes": "" },
-        { "id": "tools_refresh_test", "label": "Naprawa testu: panel refreshes after config change", "done": false, "notes": "tylko istniejąca logika" }
-      ]
-    },
-    {
-      "id": "warehouse",
-      "name": "2) Magazyn",
-      "status_color": "orange",
-      "percent": 60,
-      "items": [
-        { "id": "wh_source_of_truth", "label": "Źródło prawdy z Ustawień → jednolite ładowanie", "done": false, "notes": "" },
-        { "id": "wh_error_ui",        "label": "Błąd wczytania → okno + log", "done": false, "notes": "" },
-        { "id": "wh_nonblocking",     "label": "Operacje nieblokujące UI (min. komunikat o przetwarzaniu)", "done": false, "notes": "" }
-      ]
-    },
-    {
-      "id": "machines",
-      "name": "3) Maszyny (PRIORYTET)",
-      "status_color": "red",
-      "percent": 50,
-      "items": [
-        { "id": "machines_sot",      "label": "Źródło prawdy (klucz w Ustawieniach) → jeden plik danych", "done": false, "notes": "R-03/R-03B" },
-        { "id": "machines_merge",    "label": "Scalenie duplikatów (UNION) – nic unikalnego nie ginie", "done": false, "notes": "R-03B SAFE merge" },
-        { "id": "machines_cleanup",  "label": "Usunięcie odwołań do starych ścieżek (maszyny_hala)", "done": true,  "notes": "R-00/R-03" },
-        { "id": "machines_renderer", "label": "Brak renderera → okno błędu + log (bez crasha)", "done": false, "notes": "" }
-      ]
-    },
-    {
-      "id": "orders",
-      "name": "4) Zlecenia",
-      "status_color": "yellow",
-      "percent": 75,
-      "items": [
-        { "id": "orders_validate",   "label": "Walidacja kreatora (puste pola → okno)", "done": false, "notes": "R-05" },
-        { "id": "orders_safe_after", "label": "Bezpieczne odświeżanie (cancel after przy zamknięciu)", "done": false, "notes": "R-05" },
-        { "id": "orders_error_ui",   "label": "Każdy błąd → okno + log", "done": false, "notes": "R-05" }
-      ]
-    },
-    {
-      "id": "roles",
-      "name": "5) Profile / Role",
-      "status_color": "yellow",
-      "percent": 55,
-      "items": [
-        { "id": "roles_profile_all", "label": "„Profil” widoczny dla wszystkich ról", "done": false, "notes": "" },
-        { "id": "roles_settings_ab", "label": "„Ustawienia” widoczne dla Admin + Brygadzista", "done": false, "notes": "" }
-      ]
-    },
-    {
-      "id": "removals",
-      "name": "Wyłączenia (deprecjacje/usunięcia)",
-      "status_color": "yellow",
-      "percent": 50,
-      "items": [
-        { "id": "rm_service", "label": "Usunąć moduł „Serwis” (kod, manifest, menu)", "done": false, "notes": "R-00" },
-        { "id": "rm_hala",    "label": "Usunąć moduł „Hala” (pozostają „Maszyny”)", "done": false, "notes": "R-00" }
-      ]
-    },
-    {
-      "id": "cleanup",
-      "name": "Porządki repo",
-      "status_color": "yellow",
-      "percent": 60,
-      "items": [
-        { "id": "cl_machines_dupes", "label": "Po scaleniu – usunąć zdublowane pliki maszyn (pozostawić docelowy)", "done": false, "notes": "po R-03B" },
-        { "id": "cl_gitignore",      "label": "Uzupełnić .gitignore (logi, tmp, lokalne konfigi)", "done": false, "notes": "" },
-        { "id": "cl_legacy_docs",    "label": "Przenieść/wyciąć stare logi/backupy/README_DEBUG/PATCH", "done": false, "notes": "" }
-      ]
-    }
-  ]
-}
+  {
+    "section": "Ustawienia",
+    "key": "settings_root_init",
+    "title": "Przycisk 'Utwórz brakujące pliki teraz'",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Przycisk tworzący minimalne pliki/katalogi pod <root>."
+  },
+  {
+    "section": "Maszyny",
+    "key": "machines_sot",
+    "title": "Source of Truth <root>/maszyny.json (R-03)",
+    "status": "IN_PROGRESS",
+    "progress": 70,
+    "note": "<root>/maszyny.json ustawione; jeszcze bez finalnego scalenia danych z layout/."
+  },
+  {
+    "section": "Maszyny",
+    "key": "machines_merge",
+    "title": "SAFE merge duplikatów (R-03B)",
+    "status": "TODO",
+    "progress": 0,
+    "note": "R-03B: Scalenie duplikatów UNION bez utraty danych (narzędzie merge)."
+  },
+  {
+    "section": "Maszyny",
+    "key": "machines_renderer_guard",
+    "title": "Renderer guard (brak crasha)",
+    "status": "TODO",
+    "progress": 0,
+    "note": "Gdy brak renderera hali → czytelny komunikat + log (bez crasha)."
+  },
+  {
+    "section": "Ustawienia",
+    "key": "settings_root_status",
+    "title": "Status zasobów pod root (✅/❌)",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Panel statusu (zielone/czerwone) wg PATH_MAP w zakładce System."
+  },
+  {
+    "section": "Narzędzia",
+    "key": "tools_save_root_dir",
+    "title": "Zapisy narzędzi pod <root>/narzedzia",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Pliki 001.json, 002.json… w katalogu narzedzia/ pod root."
+  },
+  {
+    "section": "Zlecenia",
+    "key": "orders_validate",
+    "title": "Walidacje formularza (R-05)",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Puste pola → showerror + log."
+  },
+  {
+    "section": "Zlecenia",
+    "key": "orders_safe_after",
+    "title": "Bezpieczne after() przy zamknięciu (R-05)",
+    "status": "DONE",
+    "progress": 100,
+    "note": "Brak callbacków po destroy."
+  },
+  {
+    "section": "Zlecenia",
+    "key": "orders_error_ui",
+    "title": "Wyjątki → okno + log (R-05)",
+    "status": "DONE",
+    "progress": 100,
+    "note": "messagebox + logger.exception."
+  },
+  {
+    "section": "_meta",
+    "key": "roadmap_last_update",
+    "title": "Ostatnia aktualizacja Roadmapy",
+    "status": "INFO",
+    "progress": 0,
+    "note": "2025-10-03 14:27:54"
+  }
+]
