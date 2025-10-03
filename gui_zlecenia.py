@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - fallback dla starszych wersji
         except Exception:
             return {}
 
-from utils_json import normalize_rows, safe_read_json
+from utils_orders import ensure_orders_sample_if_empty, load_orders_rows_with_fallback
 from domain.orders import load_order, load_orders
 from ui_dialogs_safe import error_box
 
@@ -51,18 +51,28 @@ def _open_orders_panel():
     except Exception:
         cfg = {}
 
-    orders_path = resolve_rel(cfg, "orders")
-    data = safe_read_json(orders_path, default=[])
-    rows = normalize_rows(data, "zlecenia")
+    if not cfg:
+        try:
+            cfg = get_config()
+        except Exception:
+            logger.exception("[Zlecenia] Nie udało się uzyskać konfiguracji przez get_config().")
+            cfg = {}
+
+    rows, primary_path = load_orders_rows_with_fallback(cfg, resolve_rel)
+    had_rows = bool(rows)
+    rows = ensure_orders_sample_if_empty(rows, primary_path)
 
     win = tk.Toplevel()
     win.title("Zlecenia")
     win.geometry("960x560")
 
     info = tk.StringVar()
-    info.set(
-        f"Załadowano {len(rows)} pozycji." if rows else "Brak zleceń — lista pusta."
-    )
+    if had_rows:
+        info.set(f"Załadowano {len(rows)} pozycji.")
+    else:
+        info.set(
+            "Brak zleceń w konfiguracji – dodano przykładowe wpisy do zlecenia/zlecenia.json."
+        )
     ttk.Label(win, textvariable=info).pack(fill="x", padx=8, pady=8)
 
     tv = ttk.Treeview(
@@ -93,7 +103,7 @@ def _open_orders_panel():
     tv.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
     ttk.Button(win, text="Zamknij", command=win.destroy).pack(side="right", padx=8, pady=8)
-    logger.info("[Zlecenia] Panel otwarty; rekordów: %d; plik=%s", len(rows), orders_path)
+    logger.info("[Zlecenia] Panel otwarty; rekordów: %d; plik=%s", len(rows), primary_path)
     return win
 
 
@@ -102,14 +112,8 @@ def _load_orders_rows() -> list[dict]:
         cfg = get_config()
     except Exception:
         cfg = {}
-    orders_path = resolve_rel(cfg, r"zlecenia\zlecenia.json")
-    if not orders_path:
-        return []
-    rows_data = safe_read_json(orders_path, default=[])
-
-    rows = normalize_rows(rows_data, "zlecenia")
-    if not rows and isinstance(rows_data, list):
-        rows = [r for r in rows_data if isinstance(r, dict)]
+    rows, primary_path = load_orders_rows_with_fallback(cfg, resolve_rel)
+    rows = ensure_orders_sample_if_empty(rows, primary_path)
     return rows
 
 

@@ -110,3 +110,48 @@ def normalize_rows(data: Any, list_key: Optional[str] = None) -> List[Dict]:
         raw = []
     return [r for r in raw if isinstance(r, dict)]
 
+
+from typing import Any, List, Dict, Optional
+
+# Alias zgodności – jeśli masz starą nazwę _safe_read_json, wystaw jako safe_read_json
+try:
+    safe_read_json  # type: ignore[attr-defined]
+except NameError:
+    try:
+        safe_read_json = _safe_read_json  # type: ignore[name-defined]
+    except Exception:
+        pass  # brak – znaczy że już istnieje safe_read_json gdzie indziej
+
+
+def safe_write_json(path: str, data: Any) -> bool:
+    """Bezpieczny zapis JSON z utworzeniem katalogu; True jeśli OK."""
+    import os, json, logging
+
+    log = logging.getLogger(__name__)
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        log.info("[JSON] Zapisano %s", path)
+        return True
+    except Exception as e:
+        log.error("[JSON] Błąd zapisu %s: %s", path, e)
+        return False
+
+
+def normalize_rows(data: Any, list_key: Optional[str] = None) -> List[Dict]:
+    """
+    Zwraca listę rekordów (list[dict]) niezależnie od formatu:
+      - dict + list_key → data[list_key] (jeśli list)
+      - list na top-level → bezpośrednio
+      - inaczej → []
+    """
+
+    if isinstance(data, dict):
+        raw = data.get(list_key, []) if list_key else []
+    elif isinstance(data, list):
+        raw = data
+    else:
+        raw = []
+    return [r for r in raw if isinstance(r, dict)]
+

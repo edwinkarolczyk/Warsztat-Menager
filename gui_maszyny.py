@@ -7,7 +7,7 @@ from logging import getLogger
 from tkinter import messagebox, ttk
 
 try:
-    from config_manager import ConfigManager, resolve_rel
+    from config_manager import ConfigManager, get_config, resolve_rel
 except Exception:  # pragma: no cover - fallback gdy moduł nieosiągalny
     ConfigManager = None  # type: ignore[assignment]
 
@@ -16,7 +16,11 @@ except Exception:  # pragma: no cover - fallback gdy moduł nieosiągalny
         mapping = {"machines": os.path.join("maszyny", "maszyny.json")}
         return os.path.normpath(os.path.join(root, mapping.get(what, "")))
 
+    def get_config():  # type: ignore[override]
+        return {}
+
 from ui_theme import ensure_theme_applied
+from utils_maszyny import ensure_machines_sample_if_empty, load_machines_rows_with_fallback
 
 logger = getLogger(__name__)
 _ = messagebox  # pragma: no cover - import utrzymany dla kompatybilności
@@ -86,27 +90,30 @@ def _open_machines_panel(root, container, config_manager=None, Renderer=None):
     info_label.pack(fill="x", padx=8, pady=8)
 
     manager = _resolve_manager(config_manager)
-    try:
-        cfg = manager.load() if manager is not None else {}
-    except Exception:
-        logger.exception("[Maszyny] Nie udało się wczytać konfiguracji.")
-        cfg = {}
+    cfg: dict = {}
+    if manager is not None:
+        try:
+            cfg = manager.load()
+        except Exception:
+            logger.exception("[Maszyny] Nie udało się wczytać konfiguracji z managera.")
+            cfg = {}
+    if not cfg:
+        try:
+            cfg = get_config()
+        except Exception:
+            logger.exception("[Maszyny] Nie udało się uzyskać konfiguracji przez get_config().")
+            cfg = {}
 
-    machines_path = resolve_rel(cfg, "machines") if cfg else resolve_rel({}, "machines")
-    default_doc = {"maszyny": []}
-    rows_data = _safe_read_json(machines_path, default_doc)
-    if isinstance(rows_data, dict):
-        rows = rows_data.get("maszyny") or []
-    elif isinstance(rows_data, list):
-        rows = rows_data
-    else:
-        rows = []
-    rows = [row for row in rows if isinstance(row, dict)]
+    rows, primary_path = load_machines_rows_with_fallback(cfg, resolve_rel)
+    had_rows = bool(rows)
+    rows = ensure_machines_sample_if_empty(rows, primary_path)
 
-    if not rows:
-        info.set("Brak maszyn w konfiguracji. Lista jest pusta – możesz dodać pozycje.")
-    else:
+    if had_rows:
         info.set(f"Wczytano {len(rows)} maszyn.")
+    else:
+        info.set(
+            "Brak maszyn w konfiguracji – dodano przykładowe pozycje do maszyn/maszyny.json."
+        )
 
     tree: ttk.Treeview | None = None
     active_renderer = Renderer
@@ -145,7 +152,7 @@ def _open_machines_panel(root, container, config_manager=None, Renderer=None):
 
     if tree is None:
         tree = _build_tree(container, rows)
-    logger.info("[Maszyny] Panel otwarty; rekordów: %d", len(rows))
+    logger.info("[Maszyny] Panel otwarty; rekordów: %d; plik=%s", len(rows), primary_path)
     return tree
 
 
