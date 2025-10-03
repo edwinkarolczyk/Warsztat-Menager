@@ -481,54 +481,26 @@ def _make_system_tab(parent: tk.Misc, cfg_manager) -> tk.Misc:
     return parent
 
 
-# Minimalne szablony – tylko struktura, bez nowych ficzerów:
-ROOT_DEFAULTS = {
-    "machines": {"maszyny": []},
-    "warehouse": {"items": []},
-    "bom": {"produkty": []},
-    "tools.types": {"types": []},
-    "tools.statuses": {"statuses": []},
-    "tools.tasks": {"tasks": []},
-    "tools.zadania": {"zadania": []},
-    "orders": {"zlecenia": []},
-    # katalogi – nie mają treści, tylko mkdir:
-    "tools.dir": None,
-    "root.logs": None,
-    "root.backup": None,
-}
-
-
-_STATUS_ROWS = [
-    ("Maszyny", "machines"),
-    ("Magazyn", "warehouse"),
-    ("BOM", "bom"),
-    ("Zlecenia", "orders"),
-    ("Narzędzia — typy", "tools.types"),
-    ("Narzędzia — statusy", "tools.statuses"),
-    ("Narzędzia — szablony", "tools.tasks"),
-    ("Narzędzia — katalog", "tools.dir"),
-    ("Logi (katalog)", "root.logs"),
-    ("Backup (katalog)", "root.backup"),
-    ("Zadania narzędzi", "tools.zadania"),
-]
+def _root_status_rows(cfg: dict):
+    rows = []
+    what = [
+        ("Maszyny", "machines"),
+        ("Magazyn", "warehouse"),
+        ("BOM", "bom"),
+        ("Profile", "profiles"),
+        ("Narzędzia (katalog)", "tools_dir"),
+        ("Zlecenia (katalog)", "orders_dir"),
+        ("Def. narzędzi (katalog)", "tools_defs"),
+    ]
+    for label, key in what:
+        path = resolve_rel(cfg, key)
+        exists = bool(path and os.path.exists(path))
+        kind = "plik" if key in {"machines", "warehouse", "bom", "profiles"} else "katalog"
+        rows.append((label, kind, path or "", exists))
+    return rows
 
 
 def _build_root_status(parent, cfg_manager):
-    wrap = ttk.Frame(parent)
-    wrap.pack(fill="x", expand=True, pady=(6, 2))
-
-    header = ttk.Label(
-        wrap,
-        text="Zasoby pod Folder WM (root):",
-        font=("Segoe UI", 10, "bold"),
-    )
-    header.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 4))
-
-    ttk.Label(wrap, text="Nazwa").grid(row=1, column=0, sticky="w")
-    ttk.Label(wrap, text="Rel").grid(row=1, column=1, sticky="w")
-    ttk.Label(wrap, text="Ścieżka ABS").grid(row=1, column=2, sticky="w")
-    ttk.Label(wrap, text="Status").grid(row=1, column=3, sticky="w")
-
     manager = cfg_manager
     if manager is None:
         try:
@@ -539,35 +511,59 @@ def _build_root_status(parent, cfg_manager):
     cfg: dict[str, Any] = {}
     if manager is not None:
         try:
-            if hasattr(manager, "load") and callable(getattr(manager, "load")):
-                cfg = manager.load() or {}
-            elif hasattr(manager, "merged"):
-                cfg = getattr(manager, "merged", {}) or {}
+            cfg = manager.load() if hasattr(manager, "load") else {}
         except Exception:
             cfg = {}
+
     if not isinstance(cfg, dict):
-        cfg = {}
+        return None
 
-    root = get_root(cfg) or ""
-    for idx, (label, key) in enumerate(_STATUS_ROWS, start=2):
-        rel = PATH_MAP.get(key, "")
-        abs_path = resolve_rel(cfg, key) or (
-            os.path.join(root, rel) if root and rel else ""
+    frame = ttk.LabelFrame(
+        parent, text="Status plików/katalogów względem Folderu WM (root)"
+    )
+    tv = ttk.Treeview(
+        frame,
+        columns=("label", "typ", "sciezka", "ok"),
+        show="headings",
+        height=7,
+    )
+    tv.heading("label", text="Pozycja")
+    tv.column("label", width=200, anchor="w")
+    tv.heading("typ", text="Typ")
+    tv.column("typ", width=90, anchor="w")
+    tv.heading("sciezka", text="Ścieżka")
+    tv.column("sciezka", width=420, anchor="w")
+    tv.heading("ok", text="OK?")
+    tv.column("ok", width=60, anchor="center")
+
+    for label, kind, path, exists in _root_status_rows(cfg):
+        tv.insert(
+            "",
+            "end",
+            values=(label, kind, path, "✔" if exists else "✖"),
+            tags=("ok" if exists else "bad",),
         )
-        exists = bool(abs_path and os.path.exists(abs_path))
 
-        ttk.Label(wrap, text=label).grid(row=idx, column=0, sticky="w")
-        ttk.Label(wrap, text=rel).grid(row=idx, column=1, sticky="w")
-        ttk.Label(wrap, text=abs_path).grid(row=idx, column=2, sticky="w")
+    tv.tag_configure("ok", background="#1e3a1e")
+    tv.tag_configure("bad", background="#3a1e1e")
+    tv.pack(fill="x", expand=True, padx=6, pady=6)
+    frame.pack(fill="x", expand=True, padx=4, pady=4)
+    return frame
 
-        status = ttk.Label(
-            wrap,
-            text="✅" if exists else "❌",
-            foreground="green" if exists else "red",
-        )
-        status.grid(row=idx, column=3, sticky="w")
 
-    return wrap
+ROOT_DEFAULTS = {
+    "machines": {"maszyny": []},
+    "warehouse": {"items": []},
+    "bom": {"produkty": []},
+    "tools.types": {"types": []},
+    "tools.statuses": {"statuses": []},
+    "tools.tasks": {"tasks": []},
+    "tools.zadania": {"zadania": []},
+    "orders": {"zlecenia": []},
+    "tools.dir": None,
+    "root.logs": None,
+    "root.backup": None,
+}
 
 
 def _init_root_resources(owner, cfg_manager, rebuild_status_cb=None):

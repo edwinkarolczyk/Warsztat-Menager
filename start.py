@@ -552,6 +552,13 @@ def main():
     # Wstępna inicjalizacja konfiguracji, jeśli masz ConfigManager, zostawiamy symbolicznie:
     try:
         _info("ConfigManager: OK")
+        try:
+            from backend.bootstrap_root import ensure_root_ready
+
+            ensure_root_ready("config.json")
+            _info("Root bootstrap: OK")
+        except Exception as e:  # pragma: no cover - startup warning only
+            _error("Root bootstrap failed", str(e))
     except Exception:
         _error("ConfigManager: problem (pomijam)")
 

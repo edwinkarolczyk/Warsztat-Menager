@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 # Standardowa mapa plików relatywnych (względem paths.data_root)
 PATH_MAP = {
-    "machines": "maszyny.json",
+    "machines": "maszyny/maszyny.json",
     "warehouse": "magazyn/magazyn.json",
     "bom": "produkty/bom.json",
     "tools.dir": "narzedzia",
@@ -41,6 +41,24 @@ PATH_MAP = {
     "root.backup": "backup",
 }
 
+DEFAULTS = {
+    "paths": {
+        "data_root": "C:/wm/data",
+        "logs_dir": "C:/wm/data/logs",
+        "backup_dir": "C:/wm/data/backup",
+        "layout_dir": "C:/wm/data/layout",
+    },
+    "relative": {
+        "machines": "maszyny/maszyny.json",
+        "tools_dir": "narzedzia",
+        "orders_dir": "zlecenia",
+        "warehouse": "magazyn/magazyn.json",
+        "profiles": "profiles.json",
+        "bom": "produkty/bom.json",
+        "tools_defs": "narzedzia",
+    },
+}
+
 
 def _norm(p: str) -> str:
     return os.path.normpath(p).replace("\\", "/")
@@ -50,22 +68,144 @@ def get_root(cfg: dict) -> str:
     return ((cfg.get("paths") or {}).get("data_root") or "").strip()
 
 
-def resolve_rel(cfg: dict, key: str) -> str | None:
-    """ABS dla klucza z :data:`PATH_MAP` względem ``paths.data_root``."""
+def resolve_rel(cfg: dict, what: str) -> str | None:
+    """Zwróć ścieżkę absolutną względem ``paths.data_root`` lub wpisu w ``paths``."""
 
-    root = get_root(cfg)
-    if not root:
-        return None
+    cfg = cfg or {}
+    paths_cfg = (cfg.get("paths") or {})
+    root = (paths_cfg.get("data_root") or DEFAULTS["paths"]["data_root"]).strip()
+    relative_cfg = (cfg.get("relative") or {})
 
-    if key == "machines":
+    try:
+        from config.paths import get_path as _get_path  # lazy import to avoid cycles
+
+        override_root = (_get_path("paths.data_root") or "").strip()
+        if override_root:
+            root = override_root
+    except Exception:
+        pass
+
+    rel = {
+        "machines": relative_cfg.get("machines") or DEFAULTS["relative"]["machines"],
+        "tools_dir": relative_cfg.get("tools_dir")
+        or DEFAULTS["relative"]["tools_dir"],
+        "orders_dir": relative_cfg.get("orders_dir")
+        or DEFAULTS["relative"]["orders_dir"],
+        "warehouse": relative_cfg.get("warehouse")
+        or DEFAULTS["relative"]["warehouse"],
+        "profiles": relative_cfg.get("profiles")
+        or DEFAULTS["relative"]["profiles"],
+        "bom": relative_cfg.get("bom") or DEFAULTS["relative"]["bom"],
+        "tools_defs": relative_cfg.get("tools_defs")
+        or DEFAULTS["relative"]["tools_defs"],
+    }
+
+    def _is_windows_abs(val: str) -> bool:
+        return val.startswith("\\\\") or (len(val) > 1 and val[1] == ":")
+
+    def _abs_path(base: str, value: str | None) -> str | None:
+        if not value:
+            return None
+        if os.path.isabs(value) or _is_windows_abs(value):
+            return os.path.normpath(value)
+        base_path = base or DEFAULTS["paths"]["data_root"]
+        if base_path:
+            return os.path.normpath(os.path.join(base_path, value))
+        return os.path.normpath(value)
+
+    def _normalized(val: str | None) -> str:
+        return (val or "").replace("\\", "/")
+
+    join_map = {
+        "machines": rel["machines"],
+        "warehouse": rel["warehouse"],
+        "bom": rel["bom"],
+        "profiles": rel["profiles"],
+        "tools_dir": rel["tools_dir"],
+        "orders_dir": rel["orders_dir"],
+        "tools_defs": rel["tools_defs"],
+        "tools.dir": rel["tools_dir"],
+        "tools.types": os.path.join(rel["tools_defs"], "typy_narzedzi.json"),
+        "tools.statuses": os.path.join(rel["tools_defs"], "statusy_narzedzi.json"),
+        "tools.tasks": os.path.join(rel["tools_defs"], "szablony_zadan.json"),
+        "tools.zadania": "zadania_narzedzia.json",
+        "orders": os.path.join(rel["orders_dir"], "zlecenia.json"),
+    }
+
+    if what in ("machines",) and not relative_cfg.get("machines"):
         legacy_rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
-        if legacy_rel:
+        if legacy_rel and root:
             legacy_abs = os.path.join(root, legacy_rel)
             if os.path.exists(legacy_abs):
-                return legacy_abs
+                return os.path.normpath(legacy_abs)
 
-    rel = PATH_MAP.get(key)
-    return os.path.join(root, rel) if rel else None
+    value = join_map.get(what)
+    if value:
+        result = _abs_path(root, value)
+        if result:
+            return result
+
+    if what == "root.logs":
+        logs_dir = paths_cfg.get("logs_dir") or PATH_MAP.get("root.logs", "logs")
+        default_root = DEFAULTS["paths"].get("data_root", "")
+        default_logs = DEFAULTS["paths"].get("logs_dir", "")
+        if (
+            logs_dir
+            and default_root
+            and _normalized(logs_dir).startswith(_normalized(default_root))
+        ):
+            rel_logs = _normalized(logs_dir)[len(_normalized(default_root)) :].lstrip("/")
+            rel_logs = rel_logs or PATH_MAP.get("root.logs", "logs")
+            result = _abs_path(root, rel_logs)
+            if result:
+                return result
+        if _normalized(logs_dir) == _normalized(default_logs):
+            result = _abs_path(root, PATH_MAP.get("root.logs", "logs"))
+            if result:
+                return result
+        result = _abs_path(root, logs_dir)
+        if result:
+            return result
+    if what == "root.backup":
+        backup_dir = paths_cfg.get("backup_dir") or PATH_MAP.get("root.backup", "backup")
+        default_root = DEFAULTS["paths"].get("data_root", "")
+        default_backup = DEFAULTS["paths"].get("backup_dir", "")
+        if (
+            backup_dir
+            and default_root
+            and _normalized(backup_dir).startswith(_normalized(default_root))
+        ):
+            rel_backup = _normalized(backup_dir)[
+                len(_normalized(default_root)) :
+            ].lstrip("/")
+            rel_backup = rel_backup or PATH_MAP.get("root.backup", "backup")
+            result = _abs_path(root, rel_backup)
+            if result:
+                return result
+        if _normalized(backup_dir) == _normalized(default_backup):
+            result = _abs_path(root, PATH_MAP.get("root.backup", "backup"))
+            if result:
+                return result
+        result = _abs_path(root, backup_dir)
+        if result:
+            return result
+
+    if what == "root":
+        return os.path.normpath(root) if root else None
+
+    return None
+
+
+def try_migrate_if_missing(src_abs: str, dst_abs: str):
+    """Copy legacy file if destination is missing."""
+
+    if os.path.exists(dst_abs):
+        return False
+    if os.path.exists(src_abs):
+        os.makedirs(os.path.dirname(dst_abs) or ".", exist_ok=True)
+        shutil.copy2(src_abs, dst_abs)
+        return True
+    return False
 
 
 def normalize_config(cfg: dict) -> dict:
