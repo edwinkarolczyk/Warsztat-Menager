@@ -7,7 +7,7 @@ import os
 import re
 import time
 import unicodedata
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 PRIMARY_DATA = os.path.join("data", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
@@ -15,6 +15,7 @@ PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
 
 SOURCE_MODES = ("auto", "primary", "legacy")
 DEFAULT_SOURCE = os.environ.get("WM_MACHINES_SOURCE", "auto").strip().lower()
+SAMPLE_FILENAMES = ("maszyny.sample.json", "maszyny.json.sample")
 
 
 def _normalize_machine_id(value: object) -> str:
@@ -322,3 +323,76 @@ def apply_machine_updates(machine: dict, updates: dict) -> bool:
 def save_machines(rows: Iterable[dict]) -> None:
     data = sort_machines(rows)
     _save_json_file(PRIMARY_DATA, data)
+
+
+def _resolve_machines_path(
+    cfg: dict | None, resolver: Callable[[dict, str], str | None]
+) -> str | None:
+    if resolver is None:
+        return None
+    try:
+        return resolver(cfg or {}, "machines")
+    except Exception:
+        return None
+
+
+def load_machines_rows_with_fallback(
+    cfg: dict | None, resolver: Callable[[dict, str], str | None]
+) -> Tuple[List[dict], str]:
+    """Load machine rows using ``resolver`` with graceful fallbacks."""
+
+    rows: List[dict] = []
+    primary_path = _resolve_machines_path(cfg or {}, resolver)
+    if not primary_path:
+        primary_path = _resolve_machines_path({}, resolver)
+    if not primary_path:
+        primary_path = os.path.abspath(PRIMARY_DATA)
+
+    candidate_paths = []
+    if primary_path:
+        candidate_paths.append(primary_path)
+    if os.path.abspath(primary_path) != os.path.abspath(PRIMARY_DATA):
+        candidate_paths.append(os.path.abspath(PRIMARY_DATA))
+
+    for path in candidate_paths:
+        loaded_rows = _load_json_file(path)
+        if loaded_rows:
+            rows = loaded_rows
+            primary_path = path
+            break
+
+    return rows, primary_path
+
+
+def ensure_machines_sample_if_empty(rows: List[dict], primary_path: str | None) -> List[dict]:
+    """Provide sample data when ``rows`` are empty for preview purposes."""
+
+    if rows:
+        return rows
+
+    candidates: List[str] = []
+    if primary_path:
+        base_dir = os.path.dirname(primary_path)
+        for name in SAMPLE_FILENAMES:
+            candidates.append(os.path.join(base_dir, name))
+
+    primary_dir = os.path.dirname(PRIMARY_DATA) or ""
+    for name in SAMPLE_FILENAMES:
+        candidates.append(os.path.join(primary_dir, name))
+
+    candidates.append(os.path.join("data", "maszyny.sample.json"))
+
+    seen: set[str] = set()
+    for path in candidates:
+        if not path:
+            continue
+        abs_path = os.path.abspath(path)
+        if abs_path in seen:
+            continue
+        seen.add(abs_path)
+        sample_rows = _load_json_file(abs_path)
+        if sample_rows:
+            print(f"[WM][Maszyny] użyto danych przykładowych z pliku: {abs_path}")
+            return sample_rows
+
+    return rows
