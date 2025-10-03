@@ -42,6 +42,42 @@ PATH_MAP = {
     "root.backup": "backup",
 }
 
+RESOLVE_MAP = {
+    "machines": ("maszyny", "maszyny.json"),
+    "warehouse": ("magazyn", "magazyn.json"),
+    "warehouse_stock": ("magazyn", "magazyn.json"),
+    "bom": ("produkty", "bom.json"),
+    "tools": ("narzedzia", "narzedzia.json"),
+    "tools.dir": ("narzedzia", ""),
+    "tools_dir": ("narzedzia", ""),
+    "tools_defs": ("narzedzia", ""),
+    "tools.types": ("narzedzia", "typy_narzedzi.json"),
+    "tools.statuses": ("narzedzia", "statusy_narzedzi.json"),
+    "tools.tasks": ("narzedzia", "szablony_zadan.json"),
+    "tools_templates": ("narzedzia", "szablony_zadan.json"),
+    "tools_types": ("narzedzia", "typy_narzedzi.json"),
+    "tools_statuses": ("narzedzia", "statusy_narzedzi.json"),
+    "orders": ("zlecenia", "zlecenia.json"),
+    "orders_dir": ("zlecenia", ""),
+    "tools.zadania": ("", "zadania_narzedzia.json"),
+    "profiles": ("", "profiles.json"),
+}
+
+RELATIVE_ALIAS_KEYS = {
+    "tools": "tools_dir",
+    "tools.dir": "tools_dir",
+    "tools_defs": "tools_defs",
+    "tools.types": "tools_defs",
+    "tools.statuses": "tools_defs",
+    "tools.tasks": "tools_defs",
+    "tools_templates": "tools_defs",
+    "tools_types": "tools_defs",
+    "tools_statuses": "tools_defs",
+    "orders": "orders_dir",
+    "warehouse": "warehouse",
+    "warehouse_stock": "warehouse",
+}
+
 DEFAULTS = {
     "paths": {
         "data_root": "C:/wm/data",
@@ -86,21 +122,6 @@ def resolve_rel(cfg: dict, what: str) -> str | None:
     except Exception:
         pass
 
-    rel = {
-        "machines": relative_cfg.get("machines") or DEFAULTS["relative"]["machines"],
-        "tools_dir": relative_cfg.get("tools_dir")
-        or DEFAULTS["relative"]["tools_dir"],
-        "orders_dir": relative_cfg.get("orders_dir")
-        or DEFAULTS["relative"]["orders_dir"],
-        "warehouse": relative_cfg.get("warehouse")
-        or DEFAULTS["relative"]["warehouse"],
-        "profiles": relative_cfg.get("profiles")
-        or DEFAULTS["relative"]["profiles"],
-        "bom": relative_cfg.get("bom") or DEFAULTS["relative"]["bom"],
-        "tools_defs": relative_cfg.get("tools_defs")
-        or DEFAULTS["relative"]["tools_defs"],
-    }
-
     def _is_windows_abs(val: str) -> bool:
         return val.startswith("\\\\") or (len(val) > 1 and val[1] == ":")
 
@@ -117,21 +138,21 @@ def resolve_rel(cfg: dict, what: str) -> str | None:
     def _normalized(val: str | None) -> str:
         return (val or "").replace("\\", "/")
 
-    join_map = {
-        "machines": rel["machines"],
-        "warehouse": rel["warehouse"],
-        "bom": rel["bom"],
-        "profiles": rel["profiles"],
-        "tools_dir": rel["tools_dir"],
-        "orders_dir": rel["orders_dir"],
-        "tools_defs": rel["tools_defs"],
-        "tools.dir": rel["tools_dir"],
-        "tools.types": os.path.join(rel["tools_defs"], "typy_narzedzi.json"),
-        "tools.statuses": os.path.join(rel["tools_defs"], "statusy_narzedzi.json"),
-        "tools.tasks": os.path.join(rel["tools_defs"], "szablony_zadan.json"),
-        "tools.zadania": "zadania_narzedzia.json",
-        "orders": os.path.join(rel["orders_dir"], "zlecenia.json"),
-    }
+    override_value = (relative_cfg.get(what) or "").strip()
+    alias_key = RELATIVE_ALIAS_KEYS.get(what)
+    if not override_value and alias_key:
+        override_value = (relative_cfg.get(alias_key) or "").strip()
+
+    if override_value:
+        entry = RESOLVE_MAP.get(what)
+        candidate = override_value
+        if entry and alias_key and alias_key != what:
+            _, fname = entry
+            if fname and not os.path.splitext(override_value)[1]:
+                candidate = os.path.join(override_value, fname)
+        result = _abs_path(root, candidate)
+        if result:
+            return result
 
     if what in ("machines",) and not relative_cfg.get("machines"):
         legacy_rel = ((cfg.get("machines") or {}).get("rel_path") or "").strip()
@@ -140,11 +161,16 @@ def resolve_rel(cfg: dict, what: str) -> str | None:
             if os.path.exists(legacy_abs):
                 return os.path.normpath(legacy_abs)
 
-    value = join_map.get(what)
-    if value:
-        result = _abs_path(root, value)
-        if result:
-            return result
+    entry = RESOLVE_MAP.get(what)
+    if entry:
+        subdir, fname = entry
+        rel_path = os.path.join(subdir, fname) if subdir else fname
+        if rel_path:
+            result = _abs_path(root, rel_path)
+            if result:
+                return result
+        if root:
+            return os.path.normpath(root)
 
     if what == "root.logs":
         logs_dir = paths_cfg.get("logs_dir") or PATH_MAP.get("root.logs", "logs")
@@ -194,6 +220,8 @@ def resolve_rel(cfg: dict, what: str) -> str | None:
     if what == "root":
         return os.path.normpath(root) if root else None
 
+    if root:
+        return os.path.normpath(os.path.join(root, what))
     return None
 
 

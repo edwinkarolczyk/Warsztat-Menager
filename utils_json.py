@@ -1,5 +1,6 @@
 import os
 import json
+import copy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,4 +51,33 @@ def ensure_dir_json(path: str, default):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(default, f, ensure_ascii=False, indent=2)
     return path
+
+
+def normalize_rows(obj, key: str):
+    """Return a list of dictionaries regardless of JSON layout."""
+
+    if isinstance(obj, list):
+        return [row for row in obj if isinstance(row, dict)]
+    if isinstance(obj, dict):
+        rows = obj.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def safe_read_json(path: str, default):
+    """Safely read JSON file creating it with ``default`` when needed."""
+
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(default, handle, ensure_ascii=False, indent=2)
+            logger.warning("[AUTOJSON] Brak pliku %s – utworzono szablon", path)
+            return copy.deepcopy(default)
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error("[JSON] Błąd czytania %s: %s", path, exc)
+        return copy.deepcopy(default)
 
