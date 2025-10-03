@@ -10,16 +10,20 @@ import glob
 import io
 import json
 import logging
-import os, sys, subprocess, threading
+import os
+import subprocess
+import sys
+import threading
 import re
 import tkinter as tk
 from pathlib import Path
 from typing import Any, Dict
 from tkinter import colorchooser
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 from ui_theme import ensure_theme_applied
 from config_manager import ConfigManager, PATH_MAP, get_root, resolve_rel
+from utils_json import ensure_json
 
 logger = logging.getLogger(__name__)
 _logger = logging.getLogger(__name__)
@@ -448,6 +452,52 @@ def _render_system_paths(parent: tk.Misc) -> ttk.LabelFrame:
     return box
 
 
+def _make_system_tab(parent: tk.Misc, cfg_manager) -> tk.Misc:
+    _render_system_paths(parent)
+
+    status_holder = ttk.Frame(parent)
+    status_holder.pack(fill="x", expand=True, padx=4, pady=(8, 4))
+    parent._root_status_widget = None  # type: ignore[attr-defined]
+
+    def rebuild_status() -> None:
+        for widget in status_holder.winfo_children():
+            widget.destroy()
+        table = _build_root_status(status_holder, cfg_manager)
+        parent._root_status_widget = table  # type: ignore[attr-defined]
+
+    rebuild_status()
+
+    btns = ttk.Frame(parent)
+    btns.pack(fill="x", expand=False, padx=4, pady=(4, 8))
+
+    ttk.Button(
+        btns,
+        text="Utwórz brakujące pliki teraz",
+        command=lambda: _init_root_resources(
+            parent, cfg_manager, rebuild_status_cb=rebuild_status
+        ),
+    ).pack(side="left")
+
+    return parent
+
+
+# Minimalne szablony – tylko struktura, bez nowych ficzerów:
+ROOT_DEFAULTS = {
+    "machines": {"maszyny": []},
+    "warehouse": {"items": []},
+    "bom": {"produkty": []},
+    "tools.types": {"types": []},
+    "tools.statuses": {"statuses": []},
+    "tools.tasks": {"tasks": []},
+    "tools.zadania": {"zadania": []},
+    "orders": {"zlecenia": []},
+    # katalogi – nie mają treści, tylko mkdir:
+    "tools.dir": None,
+    "root.logs": None,
+    "root.backup": None,
+}
+
+
 _STATUS_ROWS = [
     ("Maszyny", "machines"),
     ("Magazyn", "warehouse"),
@@ -459,6 +509,7 @@ _STATUS_ROWS = [
     ("Narzędzia — katalog", "tools.dir"),
     ("Logi (katalog)", "root.logs"),
     ("Backup (katalog)", "root.backup"),
+    ("Zadania narzędzi", "tools.zadania"),
 ]
 
 
@@ -517,6 +568,103 @@ def _build_root_status(parent, cfg_manager):
         status.grid(row=idx, column=3, sticky="w")
 
     return wrap
+
+
+def _init_root_resources(owner, cfg_manager, rebuild_status_cb=None):
+    """
+    Tworzy brakujące zasoby pod wybranym <root> wg PATH_MAP:
+      • pliki JSON z minimalnymi szablonami (ROOT_DEFAULTS)
+      • katalogi (narzedzia/, logs/, backup/)
+    Po zakończeniu odświeża tabelę statusu, jeśli podano rebuild_status_cb().
+    """
+
+    manager = cfg_manager
+    if manager is None:
+        try:
+            manager = ConfigManager()
+        except Exception:
+            manager = None
+
+    try:
+        if manager is not None and hasattr(manager, "load"):
+            cfg = manager.load()
+        elif manager is not None and hasattr(manager, "merged"):
+            cfg = getattr(manager, "merged", {})
+        else:
+            cfg = {}
+    except Exception:
+        cfg = {}
+
+    if not isinstance(cfg, dict):
+        cfg = {}
+
+    root = get_root(cfg)
+    if not root:
+        messagebox.showwarning(
+            "Folder WM (root)",
+            "Najpierw ustaw Folder WM (root) w zakładce System.",
+            parent=owner,
+        )
+        return
+
+    created: list[tuple[str, str]] = []
+    skipped: list[tuple[str, str]] = []
+    errors: list[tuple[str, str, str]] = []
+
+    for key, tmpl in ROOT_DEFAULTS.items():
+        abs_path = resolve_rel(cfg, key)
+        rel = PATH_MAP.get(key, "")
+
+        if not rel or not abs_path:
+            skipped.append((key, rel))
+            continue
+
+        try:
+            if tmpl is None:
+                os.makedirs(abs_path, exist_ok=True)
+                created.append((key, abs_path))
+            else:
+                os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+                if not os.path.exists(abs_path):
+                    ensure_json(abs_path, default=tmpl)
+                    created.append((key, abs_path))
+                else:
+                    skipped.append((key, abs_path))
+        except Exception as exc:
+            logger.exception(
+                "[ROOT-INIT] Błąd tworzenia %s (%s): %s", key, abs_path, exc
+            )
+            errors.append((key, abs_path, str(exc)))
+
+    msg: list[str] = []
+    if created:
+        msg.append(f"Utworzono: {len(created)}")
+        for key, path in created[:10]:
+            msg.append(f"  + {key}: {path}")
+        if len(created) > 10:
+            msg.append("  ...")
+
+    if skipped:
+        msg.append(f"Pominięto (istnieją): {len(skipped)}")
+
+    if errors:
+        msg.append(f"Błędy: {len(errors)}")
+        for key, path, err in errors[:5]:
+            msg.append(f"  ! {key}: {path} -> {err}")
+        if len(errors) > 5:
+            msg.append("  ...")
+
+    messagebox.showinfo(
+        "Folder WM (root)",
+        "\n".join(msg) if msg else "Brak zmian.",
+        parent=owner,
+    )
+
+    if callable(rebuild_status_cb):
+        try:
+            rebuild_status_cb()
+        except Exception:
+            pass
 
 
 def _is_deprecated(node: dict) -> bool:
@@ -995,8 +1143,7 @@ class SettingsPanel:
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
                 )
             elif tab_id == "system":
-                _render_system_paths(frame)
-                _build_root_status(frame, globals().get("CONFIG_MANAGER"))
+                _make_system_tab(frame, globals().get("CONFIG_MANAGER"))
                 grp_count, fld_count = self._populate_tab(frame, tab)
                 print(
                     f"[WM-DBG] tab='{title}' groups={grp_count} fields={fld_count}"
