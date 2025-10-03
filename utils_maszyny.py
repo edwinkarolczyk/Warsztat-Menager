@@ -9,6 +9,12 @@ import time
 import unicodedata
 from typing import Any, Dict, Iterable, List, Tuple
 
+from utils_json import (
+    normalize_rows,
+    safe_read_json as _safe_read_json,
+    safe_write_json as _safe_write_json,
+)
+
 PRIMARY_DATA = os.path.join("data", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
@@ -238,6 +244,45 @@ def _timestamp() -> str:
 
 def now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def load_machines_rows_with_fallback(cfg: dict, resolve_rel):
+    """Wczytaj dane maszyn z podstawowej lub legacy ścieżki."""
+
+    primary = resolve_rel(cfg, r"maszyny\maszyny.json")
+    data = _safe_read_json(primary, default={"maszyny": []})
+
+    rows = normalize_rows(data, "maszyny")
+    if not rows and isinstance(data, list):
+        rows = normalize_rows(data, None)
+
+    if rows:
+        return rows, primary
+
+    legacy = resolve_rel(cfg, r"maszyny.json")
+    data2 = _safe_read_json(legacy, default=[])
+    rows2 = normalize_rows(data2, None)
+    if rows2:
+        return rows2, primary
+
+    return [], primary
+
+
+def ensure_machines_sample_if_empty(rows: list[dict], primary_path: str):
+    """Zapisz przykładowe dane maszyn, gdy brak rekordów."""
+
+    if rows:
+        return rows
+
+    sample = [
+        {"id": "M-001", "nazwa": "Tokarka CNC", "typ": "CNC", "lokalizacja": "Hala A"},
+        {"id": "M-002", "nazwa": "Frezarka 3-osiowa", "typ": "FREZ", "lokalizacja": "Hala A"},
+        {"id": "M-003", "nazwa": "Prasa hydrauliczna", "typ": "PRASA", "lokalizacja": "Hala B"},
+    ]
+    dir_path = os.path.dirname(primary_path) or "."
+    os.makedirs(dir_path, exist_ok=True)
+    _safe_write_json(primary_path, {"maszyny": sample})
+    return sample
 
 
 def apply_machine_updates(machine: dict, updates: dict) -> bool:
