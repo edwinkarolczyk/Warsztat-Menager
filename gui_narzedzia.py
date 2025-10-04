@@ -27,7 +27,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 from datetime import datetime
 from contextlib import contextmanager
-import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+try:
+    import logika_zadan as LZ  # [MAGAZYN] zużycie materiałów dla zadań
+except Exception:  # pragma: no cover - moduł opcjonalny
+    LZ = None
 import logika_magazyn as LM  # [MAGAZYN] zwrot materiałów
 from utils.path_utils import cfg_path
 import ui_hover
@@ -2544,19 +2547,22 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 t["by"] = login or "nieznany"
                 t["ts_done"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                 # [MAGAZYN] zużycie materiałów powiązanych z zadaniem / BOM
-                try:
-                    zuzyte = LZ.consume_for_task(
-                        tool_id=str(nr_auto), task=t, uzytkownik=login or "system"
+                can_consume = hasattr(LZ, "consume_for_task") if LZ else False
+                if not can_consume:
+                    logger.warning(
+                        "[TOOLS] Pomijam consume_for_task – brak implementacji w logika_zadan."
                     )
-                    if zuzyte:
-                        t["zuzyte_materialy"] = (t.get("zuzyte_materialy") or []) + list(
-                            zuzyte
+                else:
+                    try:
+                        zuzyte = LZ.consume_for_task(
+                            tool_id=str(nr_auto), task=t, uzytkownik=login or "system"
                         )
-                except (KeyError, ValueError, RuntimeError) as _e:
-                    t["done"] = False
-                    t["by"] = ""
-                    t["ts_done"] = ""
-                    messagebox.showerror("Magazyn", f"Błąd zużycia: {_e}")
+                        if zuzyte:
+                            t["zużyte_materialy"] = (t.get("zużyte_materialy") or []) + list(
+                                zuzyte
+                            )
+                    except Exception as _e:
+                        logger.error("[TOOLS] consume_for_task wyjątek: %s", _e)
             else:
                 try:
                     zuzyte = t.get("zuzyte_materialy")

@@ -7,6 +7,15 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def _is_dir_path(path: str) -> bool:
+    """Return ``True`` when *path* points to an existing directory."""
+
+    try:
+        return bool(path) and os.path.isdir(path)
+    except Exception:
+        return False
+
+
 def ensure_json(path: str, default: dict | list | None = None) -> str:
     """
     Gwarantuje, że plik JSON istnieje.
@@ -66,15 +75,14 @@ def normalize_rows(obj, key: str):
     return []
 
 
-def safe_read_json(path: str, default):
-    """Safely read JSON file creating it with ``default`` when needed."""
+def safe_read_json(path: str, default: Any = None) -> Any:
+    """Safely read JSON file returning ``default`` on errors or directories."""
 
     try:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        if not os.path.exists(path):
-            with open(path, "w", encoding="utf-8") as handle:
-                json.dump(default, handle, ensure_ascii=False, indent=2)
-            logger.warning("[AUTOJSON] Brak pliku %s – utworzono szablon", path)
+        if _is_dir_path(path):
+            logger.error("[JSON] Path is a directory, not a file: %s", path)
+            return copy.deepcopy(default)
+        if not path or not os.path.exists(path) or not os.path.isfile(path):
             return copy.deepcopy(default)
         with open(path, "r", encoding="utf-8") as handle:
             return json.load(handle)
@@ -124,18 +132,19 @@ except NameError:
 
 
 def safe_write_json(path: str, data: Any) -> bool:
-    """Bezpieczny zapis JSON z utworzeniem katalogu; True jeśli OK."""
-    import os, json, logging
+    """Bezpieczny zapis JSON z ochroną przed nadpisaniem katalogu."""
 
-    log = logging.getLogger(__name__)
     try:
+        if _is_dir_path(path):
+            logger.error("[JSON] Próba zapisu do katalogu (nie pliku): %s", path)
+            return False
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        log.info("[JSON] Zapisano %s", path)
+        logger.info("[JSON] Zapisano %s", path)
         return True
     except Exception as e:
-        log.error("[JSON] Błąd zapisu %s: %s", path, e)
+        logger.error("[JSON] Błąd zapisu %s: %s", path, e)
         return False
 
 

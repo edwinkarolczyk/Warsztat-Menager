@@ -330,26 +330,26 @@ def save_machines(rows: Iterable[dict]) -> None:
     _save_json_file(PRIMARY_DATA, data)
 
 
-def load_machines_rows_with_fallback(cfg: dict, resolve_rel):
-    r"""
-    1) <root>\maszyny\maszyny.json  (dict{'maszyny':list} lub list)
-    2) fallback: <root>\maszyny.json (legacy: list)
-    Zwraca (rows, primary_path)
-    """
+def _fix_if_dir(path: str, expected_rel: str) -> str:
+    """Jeśli trafił katalog (root), dołącz domyślny relatywny plik."""
 
+    if not path or os.path.isdir(path):
+        return os.path.normpath(os.path.join(path or "", expected_rel))
+    return path
+
+
+def load_machines_rows_with_fallback(cfg: dict, resolve_rel):
+    # primary
     primary = resolve_rel(cfg, r"maszyny\maszyny.json")
-    if not primary:
-        primary = resolve_rel({}, r"maszyny\maszyny.json")
+    primary = _fix_if_dir(primary, r"maszyny\maszyny.json")
     data = _safe_read_json(primary, default={"maszyny": []})
-    rows = _normalize_rows(data, "maszyny")
-    if not rows and isinstance(data, list):
-        rows = _normalize_rows(data, None)
+    rows = _normalize_rows(data, "maszyny") or _normalize_rows(data, None)
     if rows:
         return rows, primary
 
+    # legacy fallback
     legacy = resolve_rel(cfg, r"maszyny.json")
-    if not legacy:
-        legacy = resolve_rel({}, r"maszyny.json")
+    legacy = _fix_if_dir(legacy, r"maszyny\maszyny.json")
     data2 = _safe_read_json(legacy, default=[])
     rows2 = _normalize_rows(data2, None)
     if rows2:
@@ -367,6 +367,5 @@ def ensure_machines_sample_if_empty(rows: list[dict], primary_path: str):
         {"id": "M-002", "nazwa": "Frezarka 3-osiowa", "typ": "FREZ", "lokalizacja": "Hala A"},
         {"id": "M-003", "nazwa": "Prasa", "typ": "PRASA", "lokalizacja": "Hala B"},
     ]
-    os.makedirs(os.path.dirname(primary_path) or ".", exist_ok=True)
     _safe_write_json(primary_path, {"maszyny": sample})
     return sample

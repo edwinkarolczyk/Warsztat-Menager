@@ -152,7 +152,18 @@ def _open_machines_panel(root, container, config_manager=None, Renderer=None):
 
     if tree is None:
         tree = _build_tree(container, rows)
-    logger.info("[Maszyny] Panel otwarty; rekordów: %d; plik=%s", len(rows), primary_path)
+    import os as _os
+
+    _display_path = (
+        primary_path
+        if not _os.path.isdir(primary_path)
+        else _os.path.join(primary_path, r"maszyny\maszyny.json")
+    )
+    logger.info(
+        "[Maszyny] Panel otwarty; rekordów: %d; plik=%s",
+        len(rows),
+        _display_path,
+    )
     return tree
 
 
