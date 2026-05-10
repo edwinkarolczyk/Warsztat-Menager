@@ -2265,9 +2265,15 @@ def panel_maszyny(root, frame, login=None, rola=None):
     except Exception:
         pass
 
+    for child in frame.winfo_children():
+        child.destroy()
+
+    module_frame = ttk.Frame(frame)
+    module_frame.pack(fill="both", expand=True)
+
     _open_maszyny = _open_machines_panel  # alias nazwy
     if open_dyspo_wizard is not None:
-        toolbar = ttk.Frame(frame)
+        toolbar = ttk.Frame(module_frame)
         toolbar.pack(fill="x", padx=6, pady=(6, 0))
         target = root
         if hasattr(root, "winfo_toplevel"):
@@ -2283,7 +2289,10 @@ def panel_maszyny(root, frame, login=None, rola=None):
             ),
         ).pack(side=tk.RIGHT)
         bind_ctrl_d(target, context={"module": "Maszyny"})
-    _open_maszyny(root, frame, Renderer=None)
+
+    panel_container = ttk.Frame(module_frame)
+    panel_container.pack(fill="both", expand=True)
+    _open_maszyny(root, panel_container, Renderer=None)
 
 
 def init_maszyny_view(
