@@ -354,6 +354,15 @@ class ZleceniaView(ttk.Frame):
     def _refresh(self) -> None:
         try:
             rows = _load_orders_rows()
+            try:
+                from gui_panel import wm_set_module_source
+                wm_set_module_source(
+                    self.winfo_toplevel(),
+                    "Dyspozycje / Zlecenia",
+                    getattr(storage, "ORDERS_FILE", ""),
+                )
+            except Exception:
+                pass
         except Exception as exc:  # pragma: no cover - wymagane GUI
             logger.exception("[DYSP] Błąd odświeżania listy Dyspozycji: %s", exc)
             if not self._refresh_error_shown:

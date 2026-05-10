@@ -2061,6 +2061,16 @@ class SettingsPanel:
             )
         else:
             self.cfg = ConfigManager()
+        try:
+            from gui_panel import wm_set_module_source
+            active_root = self.master.winfo_toplevel()
+            config_path_diag = os.environ.get("WM_CONFIG_FILE")
+            if not config_path_diag:
+                cm = globals().get("CONFIG_MANAGER")
+                config_path_diag = str(getattr(cm, "config_path", "") or "")
+            wm_set_module_source(active_root, "Ustawienia", config_path_diag)
+        except Exception:
+            pass
         self._dirty = False
         self._unsaved = False
         self._validation_errors: list[str] = []

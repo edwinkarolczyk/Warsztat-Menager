@@ -1658,6 +1658,11 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         cfg_manager = None
 
     rows, primary_path = load_machines_rows_with_fallback(cfg, resolve_rel)
+    try:
+        from gui_panel import wm_set_module_source
+        wm_set_module_source(root, "Maszyny", primary_path)
+    except Exception:
+        pass
     had_rows = bool(rows)
     rows = ensure_machines_sample_if_empty(rows, primary_path)
     source_path = _detect_real_source(rows, primary_path, cfg)
@@ -2299,4 +2304,3 @@ if __name__ == "__main__":
     main.pack(fill="both", expand=True)
     _open_machines_panel(root, main, Renderer=None)
     root.mainloop()
-
