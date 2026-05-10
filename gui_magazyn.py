@@ -732,6 +732,21 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
      - notebook: opcjonalny ttk.Notebook
      - container: widget **albo** nazwa atrybutu (str), np. "content"
     """
+    try:
+        from gui_panel import wm_set_module_source
+        from config_manager import ConfigManager, resolve_rel
+
+        cfg = {}
+        try:
+            cfg = ConfigManager().load()
+        except Exception:
+            cfg = {}
+        stock_path = resolve_rel(cfg, "warehouse_stock")
+        target_root = root if root is not None else parent.winfo_toplevel()
+        wm_set_module_source(target_root, "Magazyn", stock_path)
+    except Exception:
+        pass
+
     # Config
     cfg = kwargs.get("config")
     if not isinstance(cfg, dict):
@@ -790,4 +805,3 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
     parent._magazyn_embed = frame
     return frame
 # ⏹ KONIEC KODU
-
