@@ -2252,6 +2252,19 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
 
 def panel_maszyny(root, frame, login=None, rola=None):
+    try:
+        from gui_panel import wm_set_module_source
+        from config_manager import ConfigManager, get_machines_path
+
+        cfg = {}
+        try:
+            cfg = ConfigManager().load()
+        except Exception:
+            cfg = {}
+        wm_set_module_source(root, "Maszyny", get_machines_path(cfg))
+    except Exception:
+        pass
+
     _open_maszyny = _open_machines_panel  # alias nazwy
     if open_dyspo_wizard is not None:
         toolbar = ttk.Frame(frame)

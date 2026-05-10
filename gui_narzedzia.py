@@ -3804,6 +3804,19 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 def panel_narzedzia(root, frame, login=None, rola=None):
+    try:
+        from gui_panel import wm_set_module_source
+        from utils_paths import tools_dir
+
+        cfg = {}
+        try:
+            cfg = ConfigManager().load()
+        except Exception:
+            cfg = {}
+        wm_set_module_source(root, "Narzędzia", tools_dir(cfg))
+    except Exception:
+        pass
+
     bridge = _TOOLS_BRIDGE
     STATE.current_login = login
     STATE.current_role = rola

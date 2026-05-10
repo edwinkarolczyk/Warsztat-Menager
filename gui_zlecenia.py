@@ -8,7 +8,12 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from typing import Any, Callable
 
-from dyspozycje_store import close_dyspozycja, delete_dyspozycja, load_dyspozycje
+from dyspozycje_store import (
+    close_dyspozycja,
+    delete_dyspozycja,
+    get_dyspozycje_path,
+    load_dyspozycje,
+)
 
 from ui_dialogs_safe import error_box
 
@@ -356,10 +361,11 @@ class ZleceniaView(ttk.Frame):
             rows = _load_orders_rows()
             try:
                 from gui_panel import wm_set_module_source
+
                 wm_set_module_source(
                     self.winfo_toplevel(),
                     "Dyspozycje / Zlecenia",
-                    getattr(storage, "ORDERS_FILE", ""),
+                    str(get_dyspozycje_path()),
                 )
             except Exception:
                 pass
