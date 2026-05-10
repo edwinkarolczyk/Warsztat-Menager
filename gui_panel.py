@@ -116,6 +116,110 @@ def _get_app_version() -> str:
 APP_VERSION = _get_app_version()
 
 
+def _wm_short_path(path: str | None, max_len: int = 95) -> str:
+    """Skróć długą ścieżkę do paska statusu bez zmiany samej wartości."""
+    text = str(path or "").strip()
+    if not text:
+        return "BRAK"
+    if len(text) <= max_len:
+        return text
+    return "…" + text[-max_len:]
+
+
+def _wm_path_exists(path: str | None) -> bool:
+    """Bezpiecznie sprawdź istnienie ścieżki."""
+    try:
+        return bool(path and os.path.exists(path))
+    except Exception:
+        return False
+
+
+def _wm_runtime_paths_snapshot() -> dict:
+    """Zwróć aktualne ścieżki runtime widoczne dla GUI.
+
+    To jest tylko diagnostyka. Funkcja niczego nie ustawia i nie zmienia.
+    """
+    root_path = os.environ.get("WM_ROOT")
+    data_root = os.environ.get("WM_DATA_ROOT")
+    config_file = os.environ.get("WM_CONFIG_FILE")
+    try:
+        from core import root_paths as wm_root_paths
+        if not root_path:
+            root_path = str(wm_root_paths.get_root_anchor())
+        if not data_root:
+            data_root = str(wm_root_paths.get_data_root())
+        if not config_file:
+            config_file = str(wm_root_paths.path_config())
+    except Exception:
+        pass
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        cfg = getattr(cm, "merged", None) if cm is not None else None
+        if cfg:
+            from config_manager import get_root, resolve_rel
+            if not root_path:
+                root_path = get_root(cfg)
+            if not data_root:
+                data_root = resolve_rel(cfg, "root")
+            if not config_file and hasattr(cm, "config_path"):
+                config_file = str(cm.config_path)
+    except Exception:
+        pass
+    return {
+        "root": os.path.normpath(root_path) if root_path else "",
+        "data": os.path.normpath(data_root) if data_root else "",
+        "config": os.path.normpath(config_file) if config_file else "",
+    }
+
+
+def _wm_build_root_status_text() -> tuple[str, bool]:
+    """Zbuduj tekst paska ROOT/DATA/CONFIG.
+
+    Zwraca:
+        (tekst, czy_jest_ostrzezenie)
+    """
+    paths = _wm_runtime_paths_snapshot()
+    root_ok = _wm_path_exists(paths.get("root"))
+    data_ok = _wm_path_exists(paths.get("data"))
+    config_ok = _wm_path_exists(paths.get("config"))
+    warn = not (root_ok and data_ok and config_ok)
+    prefix = "⚠ ROOT" if warn else "ROOT"
+    text = (
+        f"{prefix}: {_wm_short_path(paths.get('root'))} | "
+        f"DATA: {_wm_short_path(paths.get('data'))} | "
+        f"CONFIG: {_wm_short_path(paths.get('config'))}"
+    )
+    return text, warn
+
+
+def wm_set_module_source(root, module_name: str, source_path: str | None = None) -> None:
+    """Ustaw tekst 'Aktualnie' w górnym pasku z nazwą modułu i źródłem danych.
+
+    Funkcja jest celowo odporna na brak etykiety, żeby moduły mogły ją wołać
+    bez ryzyka wywalenia GUI.
+    """
+    try:
+        var = getattr(root, "wm_current_source_var", None)
+        if var is None:
+            return
+        module = str(module_name or "—").strip() or "—"
+        if source_path:
+            source_norm = os.path.normcase(os.path.abspath(str(source_path)))
+            root_path = _wm_runtime_paths_snapshot().get("root") or ""
+            root_norm = os.path.normcase(os.path.abspath(root_path)) if root_path else ""
+            outside_root = bool(root_norm and not source_norm.startswith(root_norm))
+            prefix = "⚠ " if outside_root else ""
+            suffix = " | POZA ROOT!" if outside_root else ""
+            var.set(
+                f"{prefix}Aktualnie: {module} | czytam: "
+                f"{_wm_short_path(source_path)}{suffix}"
+            )
+        else:
+            var.set(f"Aktualnie: {module} | czytam: —")
+    except Exception:
+        pass
+
+
 def _load_last_visit(login: str) -> datetime:
     """Odczytaj datę ostatniej wizyty z profilu użytkownika."""
     user = get_user(login) or {}
@@ -637,11 +741,28 @@ def uruchom_panel(root, login, rola):
     # NOWE: czytelny login/rola po prawej stronie nagłówka
     ttk.Label(header, text=f"{login} ({rola})", style="WM.Muted.TLabel").pack(side="right")
 
-    current_action_var = tk.StringVar(master=root, value="Aktualnie: —")
+    root_status_text, root_status_warn = _wm_build_root_status_text()
+    root_status_var = tk.StringVar(master=root, value=root_status_text)
+    root_status_label = ttk.Label(
+        main, textvariable=root_status_var, style="WM.Muted.TLabel"
+    )
+    root_status_label.pack(fill="x", padx=12, pady=(0, 2))
+    if root_status_warn:
+        try:
+            root_status_label.configure(foreground="#e53935")
+        except Exception:
+            pass
+    setattr(root, "wm_root_status_var", root_status_var)
+
+    current_action_var = tk.StringVar(
+        master=root,
+        value="Aktualnie: Panel główny | czytam: —",
+    )
     current_action_label = ttk.Label(
         main, textvariable=current_action_var, style="WM.Muted.TLabel"
     )
     current_action_label.pack(fill="x", padx=12, pady=(0, 6))
+    setattr(root, "wm_current_source_var", current_action_var)
 
     content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(fill="both", expand=True, padx=12, pady=6)
     setattr(root, "content", content)

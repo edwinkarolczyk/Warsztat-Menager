@@ -963,6 +963,11 @@ def _init_tools_data(cfg: dict | None = None) -> tuple[dict, list[dict], str, bo
         _TOOLS_MIGRATED = True
 
     rows_raw, primary = load_tools_rows_with_fallback(cfg, resolve_rel)
+    try:
+        from gui_panel import wm_set_module_source
+        wm_set_module_source(root, "Narzędzia", primary)
+    except Exception:
+        pass
     had_rows = bool(rows_raw)
     rows = ensure_tools_sample_if_empty(rows_raw, primary)
     _TOOLS_PRIMARY_PATH = primary
