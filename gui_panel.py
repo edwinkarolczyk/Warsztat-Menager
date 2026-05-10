@@ -764,15 +764,15 @@ def uruchom_panel(root, login, rola):
     current_action_label.pack(fill="x", padx=12, pady=(0, 6))
     setattr(root, "wm_current_source_var", current_action_var)
 
-    content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(fill="both", expand=True, padx=12, pady=6)
+    footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(side="bottom", fill="x", padx=12, pady=(6, 10))
+    footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
+
+    content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(side="top", fill="both", expand=True, padx=12, pady=6)
     setattr(root, "content", content)
     setattr(root, "main_content", content)
     setattr(root, "active_login", login)
     setattr(root, "current_user", login)
     setattr(root, "username", login)
-
-    footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(fill="x", padx=12, pady=(6,10))
-    footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
 
     # prawa część: stałe przyciski
     def _logout():
