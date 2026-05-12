@@ -25,6 +25,11 @@ try:
 except Exception:  # pragma: no cover
     ConfigManager = None  # type: ignore
 
+try:
+    from core import root_paths as wm_root_paths
+except Exception:  # pragma: no cover
+    wm_root_paths = None  # type: ignore
+
 
 DISP_FILE_NAME = "dyspozycje.json"
 DISP_DIR_NAME = "dyspozycje"
@@ -116,26 +121,63 @@ def _legacy_dyspozycje_path() -> Path:
     return _data_root() / DISP_FILE_NAME
 
 
-def _migrate_legacy_if_needed(target: Path) -> None:
-    legacy = _legacy_dyspozycje_path()
-    if target.exists() or not legacy.exists():
-        return
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(legacy, target)
-        print(
-            "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
-            f"{legacy} -> {target}"
-        )
-    except Exception as exc:
+def _legacy_root_dyspozycje_path() -> Path:
+    return _anchor_root() / DISP_DIR_NAME / DISP_FILE_NAME
+
+
+def _active_dyspozycje_path() -> Path:
+    if wm_root_paths is not None:
         try:
-            print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
+            return wm_root_paths.path_dyspozycje()
         except Exception:
             pass
+    return _data_root() / DISP_DIR_NAME / DISP_FILE_NAME
+
+
+def _migrate_legacy_if_needed(target: Path) -> None:
+    legacy_candidates = [
+        _legacy_root_dyspozycje_path(),
+        _legacy_dyspozycje_path(),
+    ]
+    try:
+        target_norm = target.resolve()
+    except Exception:
+        target_norm = target
+
+    for legacy in legacy_candidates:
+        try:
+            if legacy.resolve() == target_norm:
+                continue
+        except Exception:
+            pass
+        if not legacy.exists():
+            continue
+        if target.exists():
+            try:
+                print(
+                    "[WM-DBG][DYSP][STORE][WARN] legacy dyspozycje exists "
+                    f"but active is data dyspozycje: {legacy}"
+                )
+            except Exception:
+                pass
+            continue
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(legacy, target)
+            print(
+                "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
+                f"{legacy} -> {target}"
+            )
+            return
+        except Exception as exc:
+            try:
+                print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
+            except Exception:
+                pass
 
 
 def get_dyspozycje_path() -> Path:
-    path = _anchor_root() / DISP_DIR_NAME / DISP_FILE_NAME
+    path = _active_dyspozycje_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_if_needed(path)
     try:
