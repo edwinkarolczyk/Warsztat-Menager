@@ -4936,15 +4936,6 @@ class SettingsPanel:
 
     def _get_tools_config_path(self) -> str:
         """Ścieżka do definicji typów/statusów narzędzi (NN/SN)."""
-
-        try:
-            cfg = getattr(self, "cfg", None)
-            if cfg is not None:
-                path = cfg.get("tools.definitions_path", None)  # type: ignore[attr-defined]
-                if isinstance(path, str) and path.strip():
-                    return path
-        except Exception:
-            pass
         return _default_tools_definitions_path()
 
     def _on_tools_config_saved(self) -> None:
