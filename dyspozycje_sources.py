@@ -21,6 +21,11 @@ except Exception:  # pragma: no cover
     get_machines_path = None  # type: ignore
     resolve_rel = None  # type: ignore
 
+try:
+    from core import root_paths as wm_root_paths
+except Exception:  # pragma: no cover
+    wm_root_paths = None  # type: ignore
+
 
 def _runtime_cfg_manager():
     try:
@@ -134,7 +139,69 @@ def _data_path(*parts: str) -> str:
                 return result
         except Exception:
             pass
+    try:
+        if wm_root_paths is not None:
+            result = os.path.join(str(wm_root_paths.get_data_root()), *parts)
+            try:
+                print(f"[WM-DBG][DYSP][SRC] root_paths_data{parts} -> {result}")
+            except Exception:
+                pass
+            return result
+    except Exception:
+        pass
+    try:
+        cfg = _cfg()
+        paths = cfg.get("paths") or {}
+        data_root = str(paths.get("data_root") or "").strip()
+        if data_root:
+            result = os.path.join(data_root, *parts)
+            try:
+                print(f"[WM-DBG][DYSP][SRC] cfg_data{parts} -> {result}")
+            except Exception:
+                pass
+            return result
+    except Exception:
+        pass
     return os.path.join("data", *parts)
+
+
+def _tools_dir_path() -> str:
+    if wm_root_paths is not None:
+        try:
+            return str(wm_root_paths.path_tools_dir())
+        except Exception:
+            pass
+    return _data_path("narzedzia")
+
+
+def _machines_file_path() -> str:
+    if wm_root_paths is not None:
+        try:
+            return str(wm_root_paths.path_machines())
+        except Exception:
+            pass
+    return _data_path("maszyny", "maszyny.json")
+
+
+def _warehouse_file_path() -> str:
+    if wm_root_paths is not None:
+        try:
+            return str(wm_root_paths.path_warehouse())
+        except Exception:
+            pass
+    return _data_path("magazyn", "magazyn.json")
+
+
+def _magazyn_dir_path() -> str:
+    return _data_path("magazyn")
+
+
+def _produkty_dir_path() -> str:
+    return _data_path("produkty")
+
+
+def _polprodukty_dir_path() -> str:
+    return _data_path("polprodukty")
 
 
 def _first_existing_path(*candidates: str | None) -> str | None:
@@ -150,6 +217,8 @@ def _first_existing_path(*candidates: str | None) -> str | None:
 
 
 def _root_json_path(folder: str, filename: str) -> str:
+    # Legacy helper zostawiony dla kompatybilności.
+    # Nowe źródła kreatora Dyspozycji mają używać <ROOT>/data przez _data_path().
     return _root_path(folder, filename)
 
 
@@ -157,7 +226,7 @@ def _root_json_path(folder: str, filename: str) -> str:
 # NARZĘDZIA
 # =========================================================
 def load_tool_choices() -> List[Tuple[str, str]]:
-    tools_dir = _root_path("narzedzia")
+    tools_dir = _tools_dir_path()
     try:
         print(f"[WM-DBG][DYSP][SRC] tools_dir_selected={tools_dir}")
     except Exception:
@@ -216,6 +285,7 @@ def load_tool_choices() -> List[Tuple[str, str]]:
 def load_machine_choices() -> List[Tuple[str, str]]:
     cfg = _cfg()
     machine_path = None
+    root_data_machine_path = _machines_file_path()
 
     if callable(get_machines_path):
         try:
@@ -224,13 +294,14 @@ def load_machine_choices() -> List[Tuple[str, str]]:
             machine_path = None
 
     path = _first_existing_path(
-        _root_json_path("maszyny", "maszyny.json"),
+        root_data_machine_path,
         machine_path,
+        _data_path("maszyny", "maszyny.json"),
     )
     try:
         print(
             "[WM-DBG][DYSP][SRC] machine_candidates="
-            f"root:{_root_json_path('maszyny', 'maszyny.json')} | "
+            f"root_data:{root_data_machine_path} | "
             f"get_machines_path:{machine_path} | "
             f"data:{_data_path('maszyny', 'maszyny.json')}"
         )
@@ -300,8 +371,9 @@ def load_magazyn_choices() -> List[Tuple[str, str]]:
     seen: set[str] = set()
 
     candidates = [
-        _root_path("magazyn", "magazyn.json"),
-        _root_path("magazyn", "katalog.json"),
+        _warehouse_file_path(),
+        os.path.join(_magazyn_dir_path(), "katalog.json"),
+        os.path.join(_magazyn_dir_path(), "stany.json"),
     ]
     try:
         print(f"[WM-DBG][DYSP][SRC] magazyn_candidates={candidates}")
@@ -410,8 +482,8 @@ def load_zlecenie_wykonania_choices() -> List[Tuple[str, str]]:
     seen: set[str] = set()
 
     candidates = [
-        ("produkt", _root_path("produkty")),
-        ("polprodukt", _root_path("polprodukty")),
+        ("produkt", _produkty_dir_path()),
+        ("polprodukt", _polprodukty_dir_path()),
     ]
 
     for prefix, folder in candidates:
@@ -434,7 +506,7 @@ def load_zlecenie_wykonania_choices() -> List[Tuple[str, str]]:
 
     # katalog magazynowy jako "elementy / pozycje magazynowe"
     katalog_candidates = [
-        _root_path("magazyn", "katalog.json"),
+        os.path.join(_magazyn_dir_path(), "katalog.json"),
     ]
     katalog = {}
     try:
