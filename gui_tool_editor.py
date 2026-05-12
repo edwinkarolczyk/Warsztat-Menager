@@ -6,6 +6,7 @@
 # Linia max ~100 znaków
 import json
 import os
+from pathlib import Path
 import tkinter as tk
 from datetime import datetime
 from typing import ClassVar, Optional, Callable
@@ -26,6 +27,13 @@ from logika_zadan import (
     get_tool_types,
 )
 log = get_logger(__name__)
+
+try:
+    from tool_card_pdf import generate_tool_card
+except Exception:
+    generate_tool_card = None  # type: ignore
+
+
 def _wm_norm_str(x):
     return (x or "").strip()
 def _wm_dedupe_merge_list(dst_list, src_list, key_fn):
@@ -93,6 +101,19 @@ def _wm_merge_type_def(dst_def, src_def):
                         dst_def[k][kk] = vv
             elif isinstance(dst_def.get(k), list) and isinstance(v, list):
                 _wm_dedupe_merge_list(dst_def[k], v, lambda item: _wm_norm_str(item))
+
+
+def _tool_card_output_dir() -> Path:
+    try:
+        cfg = ConfigManager()
+        return Path(cfg.path_data("narzedzia", "wydruki"))
+    except Exception:
+        try:
+            from core import root_paths as wm_root_paths
+            return wm_root_paths.get_data_root() / "narzedzia" / "wydruki"
+        except Exception:
+            return Path("data") / "narzedzia" / "wydruki"
+
 class ToolEditorDialog(tk.Toplevel):
     """
     Okno edycji narzędzia. Definicje typ/status/zadania wczytywane z Ustawień.
@@ -216,6 +237,13 @@ class ToolEditorDialog(tk.Toplevel):
         )
         self.lbl_save_state.pack(side="right", padx=(0, 6))
         ttk.Button(btns, text="Zamknij okno", command=self._on_close).pack(
+            side="right", padx=4
+        )
+        ttk.Button(
+            btns,
+            text="Drukuj kartę",
+            command=self._on_print_card,
+        ).pack(
             side="right", padx=4
         )
         if role_norm == "brygadzista":
@@ -384,6 +412,34 @@ class ToolEditorDialog(tk.Toplevel):
                 f"{path} -> {exc}"
             )
             raise
+
+    def _on_print_card(self):
+        if generate_tool_card is None:
+            messagebox.showerror(
+                "Karta narzędzia",
+                "Brak modułu generowania karty narzędzia.",
+                parent=self,
+            )
+            return
+        try:
+            output_dir = _tool_card_output_dir()
+            generated_path = generate_tool_card(
+                dict(self.tool_data or {}),
+                output_dir,
+                open_after=True,
+            )
+            messagebox.showinfo(
+                "Karta narzędzia",
+                f"Wygenerowano kartę narzędzia:\n\n{generated_path}",
+                parent=self,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Karta narzędzia",
+                f"Nie udało się wygenerować karty narzędzia:\n\n{exc}",
+                parent=self,
+            )
+
     # ---------- Definicje z Ustawień ----------
     def _load_tool_definitions_from_settings(
         self,
