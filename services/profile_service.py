@@ -85,10 +85,7 @@ def _users_file_path(file_path: Optional[str] = None) -> Path:
     resolved = resolve_profiles_path(None)
     if resolved.exists():
         return resolved
-    cwd_candidates = [
-        (Path.cwd() / "profiles.json").resolve(),
-        (Path.cwd() / "uzytkownicy.json").resolve(),
-    ]
+    cwd_candidates = [(Path.cwd() / "uzytkownicy.json").resolve()]
     for candidate in cwd_candidates:
         try:
             if candidate.exists():
