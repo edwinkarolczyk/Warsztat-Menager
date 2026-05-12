@@ -218,26 +218,47 @@ def _maybe_migrate_profiles_to_root(root_path: Path) -> None:
 
 
 def _profiles_path() -> Path:
-    best_legacy_source, best_legacy_entries = _best_legacy_profiles_source()
-    if best_legacy_source and not _looks_like_default_admin_only(best_legacy_entries):
-        print(f"[WM-ROOT][LOGIN] profiles_path_legacy={best_legacy_source}")
-        return best_legacy_source
+    root_active = bool(
+        str(os.environ.get("WM_ROOT", "")).strip()
+        or str(os.environ.get("WM_DATA_ROOT", "")).strip()
+    )
 
-    if wm_root_paths is not None:
+    if wm_root_paths is not None and root_active:
         try:
             resolved = wm_root_paths.path_profiles()
             resolved.parent.mkdir(parents=True, exist_ok=True)
             _maybe_migrate_profiles_to_root(resolved)
+            try:
+                users = load_profiles_users(path=resolved) if resolved.exists() else []
+            except Exception:
+                users = []
+            print(
+                f"[WM-ROOT][PROFILES][ACTIVE] path={resolved} "
+                f"exists={1 if resolved.exists() else 0} users={len(users)}"
+            )
             print(f"[WM-ROOT][LOGIN] profiles_path={resolved}")
             return resolved
         except Exception:
             logger.exception("[WM-ERR][LOGIN] root_paths.path_profiles failed")
+
+    best_legacy_source, best_legacy_entries = _best_legacy_profiles_source()
+    if best_legacy_source and not _looks_like_default_admin_only(best_legacy_entries):
+        print(f"[WM-ROOT][LOGIN] profiles_path_legacy={best_legacy_source}")
+        return best_legacy_source
 
     try:
         cfg = ConfigManager()
     except Exception:
         cfg = None
     resolved = resolve_profiles_path(cfg)
+    try:
+        users = load_profiles_users(path=resolved) if resolved.exists() else []
+    except Exception:
+        users = []
+    print(
+        f"[WM-ROOT][PROFILES][ACTIVE] path={resolved} "
+        f"exists={1 if resolved.exists() else 0} users={len(users)}"
+    )
     print(f"[WM-ROOT][LOGIN] profiles_path_fallback={resolved}")
     return resolved
 
