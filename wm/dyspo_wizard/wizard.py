@@ -6,10 +6,25 @@ from __future__ import annotations
 import importlib
 import tkinter as tk
 from tkinter import messagebox, ttk
+from pathlib import Path
 from typing import Dict, Optional, Type
 
+from dyspozycje_store import get_dyspozycje_path
 from wm.gui.i18n import t
 from wm.settings.util import get_conf
+
+try:
+    from core import root_paths
+except Exception:  # pragma: no cover
+    root_paths = None  # type: ignore
+
+try:
+    from config_manager import ConfigManager, get_machines_path, get_profiles_path, resolve_rel
+except Exception:  # pragma: no cover
+    ConfigManager = None  # type: ignore
+    get_machines_path = None  # type: ignore
+    get_profiles_path = None  # type: ignore
+    resolve_rel = None  # type: ignore
 
 from .constants import TYPES_REGISTRY
 from .validators import validate_required
@@ -23,6 +38,9 @@ class _Wizard:
         self.root.transient(parent)
         self.root.grab_set()
         self.context = context or {}
+        self._paths = _resolve_wizard_paths()
+        self.context.setdefault("paths", self._paths)
+        self._log_paths()
         self._current_step: ttk.Frame | None = None
         self._current_code: str | None = None
         self._content = ttk.Frame(self.root)
@@ -44,6 +62,13 @@ class _Wizard:
         self._show_selection()
         self.root.update_idletasks()
         self._center_on_parent(parent)
+
+    def _log_paths(self) -> None:
+        print(f"[WM-DBG][DYSP-WIZARD] profiles={self._paths['profiles']}")
+        print(f"[WM-DBG][DYSP-WIZARD] tools={self._paths['tools']}")
+        print(f"[WM-DBG][DYSP-WIZARD] machines={self._paths['machines']}")
+        print(f"[WM-DBG][DYSP-WIZARD] warehouse={self._paths['warehouse']}")
+        print(f"[WM-DBG][DYSP-WIZARD] dyspozycje={self._paths['dyspozycje']}")
 
     def _center_on_parent(self, parent: tk.Misc | None) -> None:
         self.root.update_idletasks()
@@ -126,6 +151,74 @@ def open_dyspo_wizard(parent: tk.Misc | None, context: Optional[Dict] = None) ->
     """Open Dyspozycje wizard and return controller instance."""
 
     return _Wizard(parent, context)
+
+
+def _resolve_wizard_paths() -> dict[str, str]:
+    cfg = get_conf() or {}
+    manager = None
+    if ConfigManager is not None:
+        try:
+            manager = ConfigManager()
+        except Exception:
+            manager = None
+
+    tools = ""
+    if root_paths is not None:
+        try:
+            tools = str(root_paths.path_tools_dir())
+        except Exception:
+            tools = ""
+    if not tools and manager is not None:
+        try:
+            tools = str(manager.path_data("narzedzia"))
+        except Exception:
+            tools = ""
+
+    machines = ""
+    if root_paths is not None:
+        try:
+            machines = str(root_paths.path_machines())
+        except Exception:
+            machines = ""
+    if not machines and callable(get_machines_path):
+        try:
+            machines = str(get_machines_path(cfg))
+        except Exception:
+            machines = ""
+
+    warehouse = ""
+    if root_paths is not None:
+        try:
+            warehouse = str(root_paths.path_warehouse())
+        except Exception:
+            warehouse = ""
+    if not warehouse and callable(resolve_rel):
+        try:
+            warehouse = str(resolve_rel(cfg, "warehouse_stock") or "")
+        except Exception:
+            warehouse = ""
+
+    profiles = ""
+    if root_paths is not None:
+        try:
+            profiles = str(root_paths.path_profiles())
+        except Exception:
+            profiles = ""
+    if not profiles and callable(get_profiles_path):
+        try:
+            profiles = str(get_profiles_path(cfg))
+        except Exception:
+            profiles = ""
+
+    dyspozycje = str(get_dyspozycje_path())
+
+    return {
+        "profiles": str(Path(profiles)) if profiles else "",
+        "tools": str(Path(tools)) if tools else "",
+        "machines": str(Path(machines)) if machines else "",
+        "warehouse": str(Path(warehouse)) if warehouse else "",
+        "dyspozycje": str(Path(dyspozycje)) if dyspozycje else "",
+    }
 
 
 __all__ = ["open_dyspo_wizard"]
