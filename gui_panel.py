@@ -88,6 +88,12 @@ except Exception as e:  # pragma: no cover - fallback logging
     _warn(f"Panel Dyspozycji (fallback) – błąd importu gui_zlecenia: {e!s}")
     gui_zlecenia = None  # type: ignore
 
+try:
+    import gui_planowanie  # noqa: F401
+except Exception as e:  # pragma: no cover - fallback logging
+    _warn(f"Panel planowania (fallback) – błąd importu gui_planowanie: {e!s}")
+    gui_planowanie = None  # type: ignore
+
 # --- PROFIL: nowy widok ---
 try:
     from gui_profile import ProfileView
@@ -508,6 +514,13 @@ def panel_jarvis(root, frame, login=None, rola=None):
     panel = _JarvisPanel(frame)
     panel.pack(fill="both", expand=True)
 
+
+
+
+def panel_planowanie(root, frame, login=None, rola=None):
+    if gui_planowanie and hasattr(gui_planowanie, "panel_planowanie"):
+        return gui_planowanie.panel_planowanie(root, frame, login, rola)
+    ttk.Label(frame, text="Panel Planowanie (fallback) – błąd importu gui_planowanie").pack(pady=20)
 
 def panel_chat(root, frame, login=None, rola=None):
     """Prosty chat (ala messenger) – lokalny MVP.
@@ -1129,7 +1142,7 @@ def uruchom_panel(root, login, rola):
     # przyciski boczne
     start_panel = None
     start_name = ""
-    admin_roles = ADMIN_ROLE_NAMES | {"kierownik", "brygadzista", "lider"}
+    admin_roles = ADMIN_ROLE_NAMES | {"kierownik", "lider"}
     is_admin = str(rola).strip().lower() in admin_roles
 
     def _format_modules(modules) -> str:
@@ -1213,6 +1226,8 @@ def uruchom_panel(root, login, rola):
             pad = (12, 6) if start_panel is None else 6
 
             role_allowed = not (key in {"uzytkownicy", "ustawienia"} and not is_admin)
+            if key == "planowanie":
+                role_allowed = str(rola).strip().lower() in {"admin", "administrator", "kierownik", "brygadzista"}
             jarvis_allowed = can_access_jarvis(profile) if key == "jarvis" else True
             enabled = (
                 _module_is_active(key)
@@ -1270,6 +1285,22 @@ def uruchom_panel(root, login, rola):
                     module_shortcuts["maszyny"] = (panel_maszyny, label)
                     if start_panel is None:
                         start_panel = panel_maszyny
+                        start_name = f"{label} (start)"
+            elif key == "planowanie":
+                btn = ttk.Button(
+                    side,
+                    text=button_label,
+                    command=lambda f=panel_planowanie, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                    state="normal" if enabled else "disabled",
+                )
+                btn.last_modified = datetime(2026, 5, 12, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                if enabled:
+                    _maybe_mark_button(btn)
+                    module_shortcuts["planowanie"] = (panel_planowanie, label)
+                    if start_panel is None:
+                        start_panel = panel_planowanie
                         start_name = f"{label} (start)"
             elif key == "magazyn":
                 btn = ttk.Button(

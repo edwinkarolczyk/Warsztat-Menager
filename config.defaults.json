@@ -299,5 +299,9 @@
     "shortcuts": {
       "ctrlD": true
     }
+  },
+  "planowanie": {
+    "enabled": true,
+    "data_path": "data/planowanie/plan.json"
   }
 }
