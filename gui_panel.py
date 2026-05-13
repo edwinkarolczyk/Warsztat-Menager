@@ -908,8 +908,8 @@ def uruchom_panel(root, login, rola):
     session_btn_text = "Zaloguj" if is_guest else "Wyloguj"
     session_btn_cmd = _open_login_popup if is_guest else _logout
     ttk.Button(
-        footer_btns, text=session_btn_text, command=session_btn_cmd, style="WM.Side.TButton"
-    ).pack(side="right", padx=(6, 0))
+        session_wrap, text=session_btn_text, command=session_btn_cmd, style="WM.Side.TButton"
+    ).pack(side="left")
     # --- licznik automatycznego wylogowania ---
     try:
         cm = globals().get("CONFIG_MANAGER")
