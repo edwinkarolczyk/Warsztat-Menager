@@ -703,6 +703,18 @@ def uruchom_panel(root, login, rola):
     root.title(
         f"Warsztat Menager v{APP_VERSION} - zalogowano jako {login} ({rola})"
     )
+    try:
+        root.attributes("-fullscreen", True)
+    except Exception:
+        try:
+            root.state("zoomed")
+        except Exception:
+            pass
+    try:
+        root.bind("<Escape>", lambda _event: root.attributes("-fullscreen", False))
+        root.bind("<F11>", lambda _event: root.attributes("-fullscreen", not bool(root.attributes("-fullscreen"))))
+    except Exception:
+        pass
     clear_frame(root)
     if _register_notification_root is not None:
         try:
