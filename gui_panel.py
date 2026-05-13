@@ -1245,7 +1245,7 @@ def uruchom_panel(root, login, rola):
             pad = (12, 6) if start_panel is None else 6
 
             role_allowed = not (key in {"uzytkownicy", "ustawienia"} and not is_admin)
-            if is_guest and key in {"ustawienia", "uzytkownicy", "magazyn", "narzedzia", "planowanie"}:
+            if is_guest and key in {"ustawienia", "uzytkownicy", "magazyn", "narzedzia", "planowanie", "zlecenia"}:
                 role_allowed = False
             if key == "planowanie":
                 role_allowed = str(rola).strip().lower() in {"admin", "administrator", "kierownik", "brygadzista"}

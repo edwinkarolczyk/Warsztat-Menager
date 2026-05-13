@@ -70,8 +70,12 @@ def open_dyspozycje_creator(
     root = master.winfo_toplevel() if master else None
     win = tk.Toplevel(root)
     win.title("Kreator – Edytuj Dyspozycję" if edit_mode else "Kreator – Dodaj Dyspozycję")
-    win.geometry("700x500")
-    win.resizable(False, False)
+    win.geometry("1200x800")
+    win.resizable(True, True)
+    try:
+        win.state("zoomed")
+    except Exception:
+        win.attributes("-zoomed", True)
 
     frame = ttk.Frame(win, padding=12)
     frame.pack(fill="both", expand=True)
