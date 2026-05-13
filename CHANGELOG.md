@@ -1,5 +1,11 @@
 # Changelog
 
+## Grok - Zmiany testowe (2026-05-13)
+
+### Test commit od Groka (Code Admin)
+- Dodano wpis w CHANGELOG jako test integracji z GitHub
+- Potwierdzenie, że Grok może robić commity na branchu GROK
+
 ## Dzisiejsze zmiany - 2026-05-12
 
 ### ROOT / ścieżki danych
