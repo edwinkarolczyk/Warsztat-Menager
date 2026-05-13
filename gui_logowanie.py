@@ -1321,6 +1321,37 @@ def zamknij():
         os._exit(0)
 
 
+def _login_profiles_for_popup() -> tuple[list[str], dict[str, dict]]:
+    """Zwróć aktywne profile do popupu logowania, tak jak na pełnym ekranie."""
+
+    entries: list[tuple[str, dict]] = []
+    try:
+        profiles = _load_profiles()
+    except Exception:
+        profiles = []
+
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        login_value = str(profile.get("login", "") or "").strip()
+        if login_value:
+            entries.append((login_value, profile))
+
+    ordered_logins: list[str] = []
+    profiles_by_login: dict[str, dict] = {}
+    seen: set[str] = set()
+
+    for login_value, profile in sorted(entries, key=lambda item: item[0].casefold()):
+        key = login_value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered_logins.append(login_value)
+        profiles_by_login[key] = profile
+
+    return ordered_logins, profiles_by_login
+
+
 def open_login_popup(parent, on_success):
     """Lekki popup logowania do osadzenia w panelu głównym."""
 
@@ -1333,13 +1364,46 @@ def open_login_popup(parent, on_success):
     frame = ttk.Frame(popup, padding=12)
     frame.pack(fill="both", expand=True)
     ttk.Label(frame, text="Login").grid(row=0, column=0, sticky="w", pady=(0, 4))
+    ordered_logins, popup_profiles = _login_profiles_for_popup()
     login_var = tk.StringVar()
     pin_var = tk.StringVar()
-    login_entry = ttk.Entry(frame, textvariable=login_var, width=30)
+
+    if ordered_logins:
+        login_entry = ttk.Combobox(
+            frame,
+            textvariable=login_var,
+            values=ordered_logins,
+            state="readonly",
+            width=28,
+        )
+        try:
+            cfg = ConfigManager()
+            last_user = cfg.get("ostatni_uzytkownik")
+        except Exception:
+            last_user = ""
+        if isinstance(last_user, str) and last_user.strip() in ordered_logins:
+            login_var.set(last_user.strip())
+        else:
+            login_var.set(ordered_logins[0])
+    else:
+        login_entry = ttk.Entry(frame, textvariable=login_var, width=30)
+
     login_entry.grid(row=1, column=0, sticky="ew", pady=(0, 8))
     ttk.Label(frame, text="PIN / hasło").grid(row=2, column=0, sticky="w", pady=(0, 4))
     pin_entry = ttk.Entry(frame, textvariable=pin_var, show="*", width=30)
     pin_entry.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+
+    def _focus_pin(_event=None):
+        try:
+            pin_entry.focus_set()
+            pin_entry.selection_range(0, tk.END)
+        except Exception:
+            pass
+
+    try:
+        login_entry.bind("<<ComboboxSelected>>", _focus_pin)
+    except Exception:
+        pass
 
     def _submit(_event=None):
         login_display = login_var.get().strip()
@@ -1349,12 +1413,7 @@ def open_login_popup(parent, on_success):
             return
         login_key = login_display.lower()
         user = authenticate(login_key, pin)
-        selected_profile = None
-        for profile in _load_profiles():
-            profile_login = str(profile.get("login", "")).strip()
-            if profile_login.casefold() == login_display.casefold():
-                selected_profile = profile
-                break
+        selected_profile = popup_profiles.get(login_display.casefold())
         if not user and selected_profile is not None:
             stored_pin = str(selected_profile.get("pin", "")).strip()
             stored_password = str(selected_profile.get("haslo", "")).strip()
@@ -1374,12 +1433,21 @@ def open_login_popup(parent, on_success):
             ProfileService.set_active_user(login_final)
         except Exception:
             pass
+        try:
+            cfg = ConfigManager()
+            cfg.set("ostatni_uzytkownik", login_final)
+            if hasattr(cfg, "save_all"):
+                cfg.save_all()
+            else:
+                cfg.save()
+        except Exception:
+            pass
         popup.destroy()
         on_success(login_final, rola, None)
 
     ttk.Button(frame, text="Zaloguj", command=_submit).grid(row=4, column=0, sticky="e")
     frame.columnconfigure(0, weight=1)
-    login_entry.focus_set()
+    _focus_pin() if ordered_logins else login_entry.focus_set()
     popup.bind("<Return>", _submit)
     return popup
 
