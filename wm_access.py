@@ -46,6 +46,47 @@ def load_profiles():
     return {}
 
 
+def _profiles_users_list(profiles_payload) -> list[dict]:
+    """Zwróć listę użytkowników z różnych formatów profiles.json."""
+
+    if isinstance(profiles_payload, list):
+        return [dict(item) for item in profiles_payload if isinstance(item, dict)]
+
+    if isinstance(profiles_payload, dict):
+        users = profiles_payload.get("users")
+        if isinstance(users, list):
+            return [dict(item) for item in users if isinstance(item, dict)]
+
+        profiles = profiles_payload.get("profiles")
+        if isinstance(profiles, list):
+            return [dict(item) for item in profiles if isinstance(item, dict)]
+
+        uzytkownicy = profiles_payload.get("uzytkownicy")
+        if isinstance(uzytkownicy, list):
+            return [dict(item) for item in uzytkownicy if isinstance(item, dict)]
+
+        out: list[dict] = []
+        for key, value in profiles_payload.items():
+            if not isinstance(value, dict):
+                continue
+            user = dict(value)
+            user.setdefault("login", key)
+            out.append(user)
+        return out
+
+    return []
+
+
+def _find_profile_user(profiles_payload, login: str) -> dict:
+    login_norm = str(login or "").strip().casefold()
+    if not login_norm:
+        return {}
+    for user in _profiles_users_list(profiles_payload):
+        if str(user.get("login", "") or "").strip().casefold() == login_norm:
+            return user
+    return {}
+
+
 def save_profiles(profiles_dict: dict):
     """Zapisuje słownik profili do pliku profiles.json w katalogu danych."""
     _ensure_dirs()
@@ -57,7 +98,7 @@ def save_profiles(profiles_dict: dict):
 def get_disabled_modules_for(login: str):
     """Zwraca listę disabled_modules dla danego loginu (lista lub [])."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled = user.get("disabled_modules")
     if isinstance(disabled, list):
         return [str(item) for item in disabled]
@@ -67,7 +108,7 @@ def get_disabled_modules_for(login: str):
 def set_modules_visibility(login: str, show_maszyny: bool, show_narzedzia: bool):
     """Ustawia widoczność modułów dla użytkownika."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled = user.get("disabled_modules")
     if not isinstance(disabled, list):
         disabled = []
@@ -91,8 +132,34 @@ def set_modules_visibility(login: str, show_maszyny: bool, show_narzedzia: bool)
         add_disabled("narzedzia")
 
     user["disabled_modules"] = disabled
-    profiles[login] = user
+    _replace_profile_user(profiles, login, user)
     save_profiles(profiles)
+
+
+def _replace_profile_user(profiles_payload, login: str, user: dict) -> None:
+    login_norm = str(login or user.get("login", "") or "").strip().casefold()
+    if not login_norm:
+        return
+
+    if isinstance(profiles_payload, dict) and isinstance(profiles_payload.get("users"), list):
+        users = profiles_payload["users"]
+        for idx, item in enumerate(users):
+            if str(item.get("login", "") or "").strip().casefold() == login_norm:
+                users[idx] = user
+                return
+        users.append(user)
+        return
+
+    if isinstance(profiles_payload, list):
+        for idx, item in enumerate(profiles_payload):
+            if str(item.get("login", "") or "").strip().casefold() == login_norm:
+                profiles_payload[idx] = user
+                return
+        profiles_payload.append(user)
+        return
+
+    if isinstance(profiles_payload, dict):
+        profiles_payload[str(user.get("login") or login)] = user
 
 
 _ALIASES = {
@@ -122,7 +189,7 @@ def normalize_module_name(name: str) -> str:
 def set_modules_visibility_map(login: str, show_map: dict):
     """Ustawia widoczność wielu modułów naraz."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled_modules = user.get("disabled_modules")
     if not isinstance(disabled_modules, list):
         disabled_modules = []
@@ -141,7 +208,7 @@ def set_modules_visibility_map(login: str, show_map: dict):
                 disabled_modules.append(module)
 
     user["disabled_modules"] = disabled_modules
-    profiles[login] = user
+    _replace_profile_user(profiles, login, user)
     save_profiles(profiles)
 
 
