@@ -25,6 +25,7 @@ MODULES_DEFAULT_ACTIVE: Dict[str, bool] = {
     "ustawienia": False,
     "panel_glowny": False,
     "hala": False,
+    "planowanie": True,
 }
 
 MODULY: Dict[str, Dict[str, Any]] = {
@@ -40,6 +41,7 @@ MODULY: Dict[str, Dict[str, Any]] = {
         "label": "Panel główny",
     },
     "hala": {"active": MODULES_DEFAULT_ACTIVE["hala"], "label": "Hala"},
+    "planowanie": {"active": MODULES_DEFAULT_ACTIVE["planowanie"], "label": "Planowanie"},
 }
 
 _MANIFEST_CACHE: Dict[str, Any] | None = None
@@ -96,6 +98,7 @@ def zaladuj_manifest(cfg: "ConfigManager" | None = None) -> Dict[str, Any]:
                 _default_module_entry("zlecenia"),
                 _default_module_entry("jarvis"),
                 _default_module_entry("maszyny"),
+                _default_module_entry("planowanie"),
             ]
         }
         os.makedirs(os.path.dirname(path), exist_ok=True)

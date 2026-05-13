@@ -3,52 +3,137 @@
   "rdzen": {
     "id": "rdzen",
     "nazwa": "Rdzeń (Konfiguracja / Logger / Motyw / Utils)",
-    "pliki": ["config_manager.py", "logger.py", "ui_theme.py", "utils/**"],
-    "dostarcza": ["konfiguracja", "logi", "motyw", "io", "sciezki"],
+    "pliki": [
+      "config_manager.py",
+      "logger.py",
+      "ui_theme.py",
+      "utils/**"
+    ],
+    "dostarcza": [
+      "konfiguracja",
+      "logi",
+      "motyw",
+      "io",
+      "sciezki"
+    ],
     "korzysta_z": []
   },
   "moduly": [
     {
       "id": "ustawienia",
       "nazwa": "Ustawienia",
-      "pliki": ["gui_settings.py", "settings_schema.json", "updater.py", "updates_utils.py"],
-      "dostarcza": ["ustawienia_aplikacji", "aktualizacje", "schema_ui"],
-      "korzysta_z": ["rdzen"]
+      "pliki": [
+        "gui_settings.py",
+        "settings_schema.json",
+        "updater.py",
+        "updates_utils.py"
+      ],
+      "dostarcza": [
+        "ustawienia_aplikacji",
+        "aktualizacje",
+        "schema_ui"
+      ],
+      "korzysta_z": [
+        "rdzen"
+      ]
     },
     {
       "id": "profil",
       "nazwa": "Profile / Obecność",
-      "pliki": ["services/profile_service.py", "presence.py", "presence_watcher.py", "data/profiles.json"],
-      "dostarcza": ["autoryzacja", "role", "obecnosc"],
-      "korzysta_z": ["rdzen", "ustawienia"]
+      "pliki": [
+        "services/profile_service.py",
+        "presence.py",
+        "presence_watcher.py",
+        "data/profiles.json"
+      ],
+      "dostarcza": [
+        "autoryzacja",
+        "role",
+        "obecnosc"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia"
+      ]
     },
     {
       "id": "panel_glowny",
       "nazwa": "Panel główny",
-      "pliki": ["gui_panel.py", "gui_dashboard.py"],
-      "dostarcza": ["nawigacja", "start"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil"]
+      "pliki": [
+        "gui_panel.py",
+        "gui_dashboard.py"
+      ],
+      "dostarcza": [
+        "nawigacja",
+        "start"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil"
+      ]
     },
     {
       "id": "narzedzia",
       "nazwa": "Narzędzia",
-      "pliki": ["gui_narzedzia.py", "tools_*.py", "data/narzedzia/**"],
-      "dostarcza": ["baza_narzedzi", "szablony", "historia", "qr"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil"]
+      "pliki": [
+        "gui_narzedzia.py",
+        "tools_*.py",
+        "data/narzedzia/**"
+      ],
+      "dostarcza": [
+        "baza_narzedzi",
+        "szablony",
+        "historia",
+        "qr"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil"
+      ]
     },
     {
       "id": "magazyn",
       "nazwa": "Magazyn",
-      "pliki": ["gui_magazyn*.py", "logika_magazyn.py", "logika_bom.py", "data/magazyn/**", "data/produkty/**"],
-      "dostarcza": ["stany", "pz", "rezerwacje", "bom"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil"]
+      "pliki": [
+        "gui_magazyn*.py",
+        "logika_magazyn.py",
+        "logika_bom.py",
+        "data/magazyn/**",
+        "data/produkty/**"
+      ],
+      "dostarcza": [
+        "stany",
+        "pz",
+        "rezerwacje",
+        "bom"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil"
+      ]
     },
     {
       "id": "zlecenia",
       "nazwa": "Zlecenia / Kreator",
-      "pliki": ["gui_orders.py", "gui_zlecenia.py", "zlecenia_*.py", "data/zlecenia/**"],
-      "dostarcza": ["baza_zlecen", "kreator"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil", "magazyn"]
+      "pliki": [
+        "gui_orders.py",
+        "gui_zlecenia.py",
+        "zlecenia_*.py",
+        "data/zlecenia/**"
+      ],
+      "dostarcza": [
+        "baza_zlecen",
+        "kreator"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil",
+        "magazyn"
+      ]
     },
     {
       "id": "jarvis",
@@ -60,20 +145,61 @@
         "core/jarvis_engine.py",
         "core/jarvis_prompt_engine.py"
       ],
-      "dostarcza": ["analiza", "raporty", "powiadomienia"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil"]
+      "dostarcza": [
+        "analiza",
+        "raporty",
+        "powiadomienia"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil"
+      ]
     },
     {
       "id": "maszyny",
       "nazwa": "Maszyny",
-      "pliki": ["gui_maszyny.py", "data/maszyny/**"],
-      "dostarcza": ["maszyny"],
-      "korzysta_z": ["rdzen", "ustawienia", "profil"]
+      "pliki": [
+        "gui_maszyny.py",
+        "data/maszyny/**"
+      ],
+      "dostarcza": [
+        "maszyny"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "ustawienia",
+        "profil"
+      ]
+    },
+    {
+      "id": "planowanie",
+      "nazwa": "Planowanie",
+      "pliki": [
+        "gui_planowanie.py",
+        "data/planowanie/**"
+      ],
+      "dostarcza": [
+        "plan_produkcji"
+      ],
+      "korzysta_z": [
+        "rdzen",
+        "profil"
+      ]
     }
   ],
   "reguly": [
-    {"musi_startowac_przed": "panel_glowny", "modul": "ustawienia"},
-    {"musi_startowac_przed": "panel_glowny", "modul": "profil"},
-    {"musi_startowac_przed": "zlecenia", "modul": "magazyn"}
+    {
+      "musi_startowac_przed": "panel_glowny",
+      "modul": "ustawienia"
+    },
+    {
+      "musi_startowac_przed": "panel_glowny",
+      "modul": "profil"
+    },
+    {
+      "musi_startowac_przed": "zlecenia",
+      "modul": "magazyn"
+    }
   ]
 }

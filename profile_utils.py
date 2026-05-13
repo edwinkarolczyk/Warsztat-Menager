@@ -529,6 +529,7 @@ _SIDEBAR_BASE: list[tuple[str, str]] = [
     ("narzedzia", "Narzędzia"),
     ("maszyny", "Maszyny"),
     ("magazyn", "Magazyn"),
+    ("planowanie", "Planowanie"),
     ("jarvis", "Jarvis"),
     ("feedback", "Wyślij opinię"),
     ("uzytkownicy", "Użytkownicy"),
