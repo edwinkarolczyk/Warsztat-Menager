@@ -746,13 +746,26 @@ def uruchom_panel(root, login, rola):
             dot.place(relx=1, x=-4, y=4, anchor="ne")
             markers.append(dot)
 
+    def _is_guest_role(role_value) -> bool:
+        return str(role_value or "").strip().lower() in {"guest", "gość", "gosc", ""}
+
+    is_guest = _is_guest_role(rola)
+
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
 
     header  = ttk.Frame(main, style="WM.TFrame");      header.pack(fill="x", padx=12, pady=(10,6))
     ttk.Label(header, text="Panel główny", style="WM.H1.TLabel").pack(side="left")
     # NOWE: czytelny login/rola po prawej stronie nagłówka
-    ttk.Label(header, text=f"{login} ({rola})", style="WM.Muted.TLabel").pack(side="right")
+    session_wrap = ttk.Frame(header, style="WM.TFrame")
+    session_wrap.pack(side="right")
+    session_var = tk.StringVar(
+        master=root,
+        value="Niezalogowany / Gość" if is_guest else f"{login} ({rola})",
+    )
+    ttk.Label(session_wrap, textvariable=session_var, style="WM.Muted.TLabel").pack(
+        side="left", padx=(0, 8)
+    )
 
     root_status_text, root_status_warn = _wm_build_root_status_text()
     root_status_var = tk.StringVar(master=root, value=root_status_text)
@@ -789,21 +802,25 @@ def uruchom_panel(root, login, rola):
 
     # prawa część: stałe przyciski
     def _logout():
-        """Powrót do ekranu logowania + opcjonalne oznaczenie wylogowania."""
-        # heartbeat logout if available
+        """Wylogowanie do trybu gościa."""
         try:
             from presence import heartbeat
             heartbeat(login, rola, logout=True)
         except Exception:
             pass
+        uruchom_panel(root, login="Gość", rola="guest")
+
+    def _open_login_popup():
         try:
             import gui_logowanie
-            gui_logowanie.ekran_logowania(root)
-        except Exception:
-            try:
-                root.destroy()
-            except Exception:
-                pass
+            gui_logowanie.open_login_popup(
+                root,
+                on_success=lambda login_new, rola_new, extra=None: uruchom_panel(
+                    root, login_new, rola_new
+                ),
+            )
+        except Exception as exc:
+            messagebox.showerror("Logowanie", f"Nie można otworzyć okna logowania: {exc}")
     changelog_win = {"ref": None}
     btn_changelog = None
 
@@ -888,8 +905,10 @@ def uruchom_panel(root, login, rola):
     btn_changelog.pack(side="right", padx=(6, 0))
     _maybe_mark_button(btn_changelog)
     root.after(100, lambda: _toggle_changelog(auto=True))
+    session_btn_text = "Zaloguj" if is_guest else "Wyloguj"
+    session_btn_cmd = _open_login_popup if is_guest else _logout
     ttk.Button(
-        footer_btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
+        footer_btns, text=session_btn_text, command=session_btn_cmd, style="WM.Side.TButton"
     ).pack(side="right", padx=(6, 0))
     # --- licznik automatycznego wylogowania ---
     try:
@@ -1226,6 +1245,8 @@ def uruchom_panel(root, login, rola):
             pad = (12, 6) if start_panel is None else 6
 
             role_allowed = not (key in {"uzytkownicy", "ustawienia"} and not is_admin)
+            if is_guest and key in {"ustawienia", "uzytkownicy", "magazyn", "narzedzia", "planowanie"}:
+                role_allowed = False
             if key == "planowanie":
                 role_allowed = str(rola).strip().lower() in {"admin", "administrator", "kierownik", "brygadzista"}
             jarvis_allowed = can_access_jarvis(profile) if key == "jarvis" else True
