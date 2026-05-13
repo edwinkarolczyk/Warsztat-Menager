@@ -32,7 +32,9 @@
     "pin_length": 4,
     "pinless_brygadzista": false,
     "auto_login_enabled": false,
-    "auto_login_profile": ""
+    "auto_login_profile": "",
+    "embedded_login": true,
+    "guest_start": true
   },
   "paths": {
     "data_root": "data",
