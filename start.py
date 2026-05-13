@@ -65,6 +65,17 @@ def _feature_flag_enabled(value, *, default: bool = True) -> bool:
     return bool(value)
 
 
+def _auth_flag(config_manager, key: str, default: bool) -> bool:
+    """Odczytaj flagę auth.* z ConfigManager z łagodnym fallbackiem."""
+
+    try:
+        if config_manager is None:
+            return default
+        return _feature_flag_enabled(config_manager.get(key, default), default=default)
+    except Exception:
+        return default
+
+
 ROOT_SNAPSHOT = None
 
 
@@ -955,7 +966,19 @@ def main():
             traceback.print_exc()
             _error("Błąd auto-logowania – przechodzę do standardowego ekranu logowania")
 
-        if not auto_logged:
+        embedded_login = _auth_flag(CONFIG_MANAGER, "auth.embedded_login", False)
+        guest_start = _auth_flag(CONFIG_MANAGER, "auth.guest_start", True)
+
+        if embedded_login and guest_start and not auto_logged:
+            try:
+                import gui_panel
+                gui_panel.uruchom_panel(root, login="Gość", rola="guest")
+            except Exception:
+                traceback.print_exc()
+                _error("Błąd uruchomienia trybu gościa – przechodzę do pełnego logowania")
+                embedded_login = False
+
+        if not auto_logged and not (embedded_login and guest_start):
             import gui_logowanie
 
             returned_root = gui_logowanie.ekran_logowania(

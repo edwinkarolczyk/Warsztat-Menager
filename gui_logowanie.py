@@ -1320,6 +1320,69 @@ def zamknij():
     finally:
         os._exit(0)
 
+
+def open_login_popup(parent, on_success):
+    """Lekki popup logowania do osadzenia w panelu głównym."""
+
+    popup = tk.Toplevel(parent)
+    popup.title("Logowanie")
+    popup.transient(parent)
+    popup.grab_set()
+    popup.resizable(False, False)
+
+    frame = ttk.Frame(popup, padding=12)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text="Login").grid(row=0, column=0, sticky="w", pady=(0, 4))
+    login_var = tk.StringVar()
+    pin_var = tk.StringVar()
+    login_entry = ttk.Entry(frame, textvariable=login_var, width=30)
+    login_entry.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+    ttk.Label(frame, text="PIN / hasło").grid(row=2, column=0, sticky="w", pady=(0, 4))
+    pin_entry = ttk.Entry(frame, textvariable=pin_var, show="*", width=30)
+    pin_entry.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+
+    def _submit(_event=None):
+        login_display = login_var.get().strip()
+        pin = pin_var.get().strip()
+        if not login_display or not pin:
+            messagebox.showerror("Błąd", "Podaj login i PIN/hasło.", parent=popup)
+            return
+        login_key = login_display.lower()
+        user = authenticate(login_key, pin)
+        selected_profile = None
+        for profile in _load_profiles():
+            profile_login = str(profile.get("login", "")).strip()
+            if profile_login.casefold() == login_display.casefold():
+                selected_profile = profile
+                break
+        if not user and selected_profile is not None:
+            stored_pin = str(selected_profile.get("pin", "")).strip()
+            stored_password = str(selected_profile.get("haslo", "")).strip()
+            if pin and (pin == stored_pin or pin == stored_password):
+                user = {
+                    "login": selected_profile.get("login", login_display),
+                    "rola": selected_profile.get("rola", "pracownik"),
+                    "status": selected_profile.get("status", ""),
+                    "active": selected_profile.get("active", True),
+                }
+        if not user:
+            messagebox.showerror("Błąd", "Nieprawidłowy login lub PIN.", parent=popup)
+            return
+        rola = str(user.get("rola", "pracownik"))
+        login_final = str(user.get("login", login_display))
+        try:
+            ProfileService.set_active_user(login_final)
+        except Exception:
+            pass
+        popup.destroy()
+        on_success(login_final, rola, None)
+
+    ttk.Button(frame, text="Zaloguj", command=_submit).grid(row=4, column=0, sticky="e")
+    frame.columnconfigure(0, weight=1)
+    login_entry.focus_set()
+    popup.bind("<Return>", _submit)
+    return popup
+
 if __name__ == "__main__":
     root = tk.Tk()
     ekran_logowania(root)
