@@ -111,16 +111,23 @@ def get_commits(limit: int = 20, branch: str = "Rozwiniecie") -> List[Tuple[str,
     """
     cmd = ["git", "log", f"-n{limit}", "--format=%H%x09%s", branch]
     try:
-        result = _run(cmd)
+        result = subprocess.check_output(
+            cmd,
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
     except Exception as exc:
+        print(f"[WM-DBG][PATCHER][GIT] git log unavailable: {exc}")
         logger.warning(
             "[PATCHER] get_commits failed for branch=%s: %s",
             branch,
             exc,
         )
         return []
+    if not result.strip():
+        return []
     commits: List[Tuple[str, str]] = []
-    for line in result.stdout.strip().splitlines():
+    for line in result.strip().splitlines():
         commit_hash, message = line.split("\t", 1)
         commits.append((commit_hash, message))
     _append_audit(
