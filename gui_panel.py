@@ -1280,7 +1280,6 @@ def uruchom_panel(root, login, rola):
                 module_allowed = module_allowed and can_access_jarvis(profile)
             enabled = (
                 _module_is_active(key)
-                and key in allowed_modules
                 and module_allowed
             )
 
