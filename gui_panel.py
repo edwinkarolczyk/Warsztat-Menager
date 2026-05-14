@@ -44,7 +44,9 @@ from utils.moduly import module_active, zaladuj_manifest
 from wm_access import (
     get_disabled_modules_for,
     get_effective_allowed_modules,
+    is_module_allowed_for_user,
     normalize_module_name,
+    normalize_role_name,
 )
 from gui.widgets_user_footer import (
     _shift_bounds,
@@ -762,6 +764,13 @@ def uruchom_panel(root, login, rola):
         return str(role_value or "").strip().lower() in {"guest", "gość", "gosc", ""}
 
     is_guest = _is_guest_role(rola)
+    normalized_role = normalize_role_name(rola)
+
+    def _show_access_denied(module_label: str) -> None:
+        messagebox.showwarning(
+            "Brak dostępu",
+            f"Moduł '{module_label}' jest wyłączony dla Twojej rangi albo dla Twojego konta.",
+        )
 
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
@@ -1256,17 +1265,13 @@ def uruchom_panel(root, login, rola):
         for key, label in sidebar_entries:
             pad = (12, 6) if start_panel is None else 6
 
-            role_allowed = not (key in {"uzytkownicy", "ustawienia"} and not is_admin)
-            if is_guest and key in {"ustawienia", "uzytkownicy", "magazyn", "narzedzia", "planowanie", "zlecenia"}:
-                role_allowed = False
-            if key == "planowanie":
-                role_allowed = str(rola).strip().lower() in {"admin", "administrator", "kierownik", "brygadzista"}
-            jarvis_allowed = can_access_jarvis(profile) if key == "jarvis" else True
+            module_allowed = is_module_allowed_for_user(login, normalized_role, key)
+            if key == "jarvis":
+                module_allowed = module_allowed and can_access_jarvis(profile)
             enabled = (
                 _module_is_active(key)
                 and key in allowed_modules
-                and role_allowed
-                and jarvis_allowed
+                and module_allowed
             )
 
             button_label = (
@@ -1276,10 +1281,19 @@ def uruchom_panel(root, login, rola):
                 btn = ttk.Button(
                     side,
                     text="Dyspozycje" if enabled else "Dyspozycje (wyłączony)",
-                    command=lambda f=panel_zlecenia, l="Dyspozycje": otworz_panel(f, l),
                     style="WM.Side.TButton",
-                    state="normal" if enabled else "disabled",
+                    command=(
+                        (lambda f=panel_zlecenia, l="Dyspozycje": otworz_panel(f, l))
+                        if enabled
+                        else (lambda lbl="Dyspozycje": _show_access_denied(lbl))
+                    ),
+                    state="normal",
                 )
+                if not enabled:
+                    try:
+                        btn.configure(text="Dyspozycje  🔒")
+                    except Exception:
+                        pass
                 btn.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 if enabled:
@@ -1291,10 +1305,19 @@ def uruchom_panel(root, login, rola):
                 btn = ttk.Button(
                     side,
                     text=button_label,
-                    command=lambda f=panel_narzedzia, l=label: otworz_panel(f, l),
                     style="WM.Side.TButton",
-                    state="normal" if enabled else "disabled",
+                    command=(
+                        (lambda f=panel_narzedzia, l=label: otworz_panel(f, l))
+                        if enabled
+                        else (lambda lbl=label: _show_access_denied(lbl))
+                    ),
+                    state="normal",
                 )
+                if not enabled:
+                    try:
+                        btn.configure(text=f"{label}  🔒")
+                    except Exception:
+                        pass
                 btn.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 if enabled:
