@@ -490,6 +490,10 @@ def get_effective_allowed_modules(login: str, all_modules: list[str]) -> list[st
     if not isinstance(all_modules, (list, tuple, set)):
         all_modules = []
     normalized_all = [normalize_module_name(module) for module in all_modules]
+    disabled = {
+        normalize_module_name(module)
+        for module in get_disabled_modules_for(login)
+    }
     skip = {"panel_glowny"}
     try:
         _manifest = zaladuj_manifest()
@@ -500,6 +504,6 @@ def get_effective_allowed_modules(login: str, all_modules: list[str]) -> list[st
         for module in normalized_all
         if module
         and module not in skip
-        and is_module_allowed_for_user(login, "", module)
+        and module not in disabled
         and module_active(module, manifest=_manifest)
     ]
