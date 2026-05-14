@@ -7,6 +7,122 @@ from config_manager import ConfigManager
 from profile_utils import ensure_profiles_file
 from utils.moduly import module_active, zaladuj_manifest
 
+ALL_ACCESS_MODULES = [
+    "panel_glowny",
+    "profil",
+    "zlecenia",
+    "narzedzia",
+    "maszyny",
+    "magazyn",
+    "planowanie",
+    "jarvis",
+    "ustawienia",
+    "uzytkownicy",
+    "chat",
+    "feedback",
+]
+
+DEFAULT_ROLE_MODULES = {
+    "administrator": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": True,
+        "uzytkownicy": True,
+        "chat": True,
+        "feedback": True,
+    },
+    "kierownik": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "brygadzista": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "operator": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "student": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": False,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "sezonowiec": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "guest": {
+        "panel_glowny": True,
+        "profil": False,
+        "zlecenia": False,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": False,
+        "feedback": True,
+    },
+}
+
 
 def _profiles_path() -> Path:
     """Return preferred path to ``profiles.json``."""
@@ -186,6 +302,114 @@ def normalize_module_name(name: str) -> str:
     return _ALIASES.get(key, key.replace(" ", "_"))
 
 
+_ROLE_ALIASES = {
+    "admin": "administrator",
+    "administrator": "administrator",
+    "kierownik": "kierownik",
+    "brygadzista": "brygadzista",
+    "operator": "operator",
+    "slusarz": "operator",
+    "ślusarz": "operator",
+    "pracownik": "operator",
+    "student": "student",
+    "uczen": "student",
+    "uczeń": "student",
+    "sezonowiec": "sezonowiec",
+    "guest": "guest",
+    "gosc": "guest",
+    "gość": "guest",
+    "": "guest",
+}
+
+
+def normalize_role_name(role: str) -> str:
+    """Ujednolić nazwę roli/rangi do klucza uprawnień."""
+
+    key = str(role or "").strip().lower()
+    return _ROLE_ALIASES.get(key, key)
+
+
+def _cfg_get_role_modules() -> dict:
+    try:
+        cfg = ConfigManager()
+        value = cfg.get("access.role_modules", {})
+        if isinstance(value, dict):
+            return value
+    except Exception:
+        pass
+    return {}
+
+
+def _cfg_set_role_modules(role_modules: dict) -> None:
+    cfg = ConfigManager()
+    cfg.set("access.role_modules", role_modules)
+    if hasattr(cfg, "save_all"):
+        cfg.save_all()
+    else:
+        cfg.save()
+
+
+def _normalize_modules_map(raw_map) -> dict[str, bool]:
+    out: dict[str, bool] = {}
+    if isinstance(raw_map, dict):
+        for module, allowed in raw_map.items():
+            key = normalize_module_name(module)
+            if not key:
+                continue
+            out[key] = bool(allowed)
+    return out
+
+
+def get_role_modules(role: str) -> dict[str, bool]:
+    """Zwróć mapę modułów dla roli z configu z fallbackiem do domyślnych."""
+
+    role_key = normalize_role_name(role)
+    defaults = dict(DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"]))
+    configured = _cfg_get_role_modules()
+    configured_for_role = configured.get(role_key)
+    if isinstance(configured_for_role, dict):
+        defaults.update(_normalize_modules_map(configured_for_role))
+    for module in ALL_ACCESS_MODULES:
+        defaults.setdefault(module, False)
+    return defaults
+
+
+def set_role_modules(role: str, modules_map: dict[str, bool]) -> None:
+    """Zapisz mapę dostępności modułów dla roli do configu."""
+
+    role_key = normalize_role_name(role)
+    current = _cfg_get_role_modules()
+    current[role_key] = _normalize_modules_map(modules_map)
+    _cfg_set_role_modules(current)
+
+
+def is_module_allowed_for_role(role: str, module: str) -> bool:
+    """Sprawdź dostęp roli do modułu."""
+
+    module_key = normalize_module_name(module)
+    if not module_key:
+        return False
+    if module_key == "panel_glowny":
+        return True
+    role_modules = get_role_modules(role)
+    return bool(role_modules.get(module_key, False))
+
+
+def is_module_allowed_for_user(login: str, role: str, module: str) -> bool:
+    """Sprawdź dostęp użytkownika: rola pozwala i user nie ma disabled_modules."""
+
+    module_key = normalize_module_name(module)
+    if not module_key:
+        return False
+    if not is_module_allowed_for_role(role, module_key):
+        return False
+    disabled = {
+        normalize_module_name(item)
+        for item in get_disabled_modules_for(login)
+    }
+    return module_key not in disabled
+
+
 def set_modules_visibility_map(login: str, show_map: dict):
     """Ustawia widoczność wielu modułów naraz."""
     profiles = load_profiles()
@@ -217,10 +441,6 @@ def get_effective_allowed_modules(login: str, all_modules: list[str]) -> list[st
     if not isinstance(all_modules, (list, tuple, set)):
         all_modules = []
     normalized_all = [normalize_module_name(module) for module in all_modules]
-    disabled = {
-        normalize_module_name(module)
-        for module in get_disabled_modules_for(login)
-    }
     skip = {"panel_glowny"}
     try:
         _manifest = zaladuj_manifest()
@@ -230,7 +450,7 @@ def get_effective_allowed_modules(login: str, all_modules: list[str]) -> list[st
         module
         for module in normalized_all
         if module
-        and module not in disabled
         and module not in skip
+        and is_module_allowed_for_user(login, "", module)
         and module_active(module, manifest=_manifest)
     ]
