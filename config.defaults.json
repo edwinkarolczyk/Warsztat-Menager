@@ -36,6 +36,108 @@
     "embedded_login": true,
     "guest_start": true
   },
+  "access": {
+    "role_modules": {
+      "administrator": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": true,
+        "narzedzia": true,
+        "maszyny": true,
+        "magazyn": true,
+        "planowanie": true,
+        "jarvis": true,
+        "ustawienia": true,
+        "uzytkownicy": true,
+        "chat": true,
+        "feedback": true
+      },
+      "kierownik": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": true,
+        "narzedzia": true,
+        "maszyny": true,
+        "magazyn": true,
+        "planowanie": true,
+        "jarvis": true,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": true,
+        "feedback": true
+      },
+      "brygadzista": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": true,
+        "narzedzia": true,
+        "maszyny": true,
+        "magazyn": true,
+        "planowanie": true,
+        "jarvis": true,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": true,
+        "feedback": true
+      },
+      "operator": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": true,
+        "narzedzia": false,
+        "maszyny": false,
+        "magazyn": false,
+        "planowanie": false,
+        "jarvis": false,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": true,
+        "feedback": true
+      },
+      "student": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": false,
+        "narzedzia": false,
+        "maszyny": false,
+        "magazyn": false,
+        "planowanie": false,
+        "jarvis": false,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": true,
+        "feedback": true
+      },
+      "sezonowiec": {
+        "panel_glowny": true,
+        "profil": true,
+        "zlecenia": true,
+        "narzedzia": false,
+        "maszyny": false,
+        "magazyn": false,
+        "planowanie": false,
+        "jarvis": false,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": true,
+        "feedback": true
+      },
+      "guest": {
+        "panel_glowny": true,
+        "profil": false,
+        "zlecenia": false,
+        "narzedzia": false,
+        "maszyny": false,
+        "magazyn": false,
+        "planowanie": false,
+        "jarvis": false,
+        "ustawienia": false,
+        "uzytkownicy": false,
+        "chat": false,
+        "feedback": true
+      }
+    }
+  },
   "paths": {
     "data_root": "data",
     "logs_dir": "logs",
