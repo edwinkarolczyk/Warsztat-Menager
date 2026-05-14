@@ -329,10 +329,59 @@ def normalize_role_name(role: str) -> str:
     return _ROLE_ALIASES.get(key, key)
 
 
+def _all_default_role_modules() -> dict[str, dict[str, bool]]:
+    """Zwróć pełną kopię domyślnych uprawnień ról."""
+
+    return {
+        role: dict(modules)
+        for role, modules in DEFAULT_ROLE_MODULES.items()
+    }
+
+
+def ensure_default_role_modules_config() -> dict:
+    """Dopisz brakujące access.role_modules do aktywnego config.json.
+
+    config.defaults.json jest tylko szablonem. Jeżeli aktywny <ROOT>/config.json
+    powstał wcześniej, może nie mieć sekcji access.role_modules. Wtedy WM powinien
+    sam dopisać domyślne role, zamiast wymagać ręcznej edycji JSON.
+    """
+
+    cfg = ConfigManager()
+    existing = cfg.get("access.role_modules", {})
+    changed = False
+
+    if not isinstance(existing, dict):
+        existing = {}
+        changed = True
+
+    for role, default_modules in DEFAULT_ROLE_MODULES.items():
+        role_map = existing.get(role)
+        if not isinstance(role_map, dict):
+            existing[role] = dict(default_modules)
+            changed = True
+            continue
+        normalized_map = _normalize_modules_map(role_map)
+        for module, allowed in default_modules.items():
+            if module not in normalized_map:
+                normalized_map[module] = bool(allowed)
+                changed = True
+        if normalized_map != role_map:
+            existing[role] = normalized_map
+            changed = True
+
+    if changed:
+        cfg.set("access.role_modules", existing)
+        if hasattr(cfg, "save_all"):
+            cfg.save_all()
+        else:
+            cfg.save()
+
+    return existing
+
+
 def _cfg_get_role_modules() -> dict:
     try:
-        cfg = ConfigManager()
-        value = cfg.get("access.role_modules", {})
+        value = ensure_default_role_modules_config()
         if isinstance(value, dict):
             return value
     except Exception:
@@ -365,7 +414,7 @@ def get_role_modules(role: str) -> dict[str, bool]:
 
     role_key = normalize_role_name(role)
     defaults = dict(DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"]))
-    configured = _cfg_get_role_modules()
+    configured = ensure_default_role_modules_config()
     configured_for_role = configured.get(role_key)
     if isinstance(configured_for_role, dict):
         defaults.update(_normalize_modules_map(configured_for_role))
