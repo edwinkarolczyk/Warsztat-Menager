@@ -1264,6 +1264,16 @@ def uruchom_panel(root, login, rola):
 
         for key, label in sidebar_entries:
             pad = (12, 6) if start_panel is None else 6
+            def _locked_command(module_label=label):
+                return lambda: _show_access_denied(module_label)
+
+            def _button_text(module_label: str, enabled_flag: bool) -> str:
+                return module_label if enabled_flag else f"{module_label}  🔒"
+
+            def _button_command(panel_func, module_label: str, enabled_flag: bool):
+                if enabled_flag:
+                    return lambda f=panel_func, l=module_label: otworz_panel(f, l)
+                return _locked_command(module_label)
 
             module_allowed = is_module_allowed_for_user(login, normalized_role, key)
             if key == "jarvis":
@@ -1274,26 +1284,15 @@ def uruchom_panel(root, login, rola):
                 and module_allowed
             )
 
-            button_label = (
-                f"{label} (wyłączony)" if key in modules_disabled else label
-            )
+            button_label = "Dyspozycje" if key == "zlecenia" else label
             if key == "zlecenia":
                 btn = ttk.Button(
                     side,
-                    text="Dyspozycje" if enabled else "Dyspozycje (wyłączony)",
+                    text=_button_text("Dyspozycje", enabled),
                     style="WM.Side.TButton",
-                    command=(
-                        (lambda f=panel_zlecenia, l="Dyspozycje": otworz_panel(f, l))
-                        if enabled
-                        else (lambda lbl="Dyspozycje": _show_access_denied(lbl))
-                    ),
+                    command=_button_command(panel_zlecenia, "Dyspozycje", enabled),
                     state="normal",
                 )
-                if not enabled:
-                    try:
-                        btn.configure(text="Dyspozycje  🔒")
-                    except Exception:
-                        pass
                 btn.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 if enabled:
@@ -1304,20 +1303,11 @@ def uruchom_panel(root, login, rola):
             elif key == "narzedzia":
                 btn = ttk.Button(
                     side,
-                    text=button_label,
+                    text=_button_text(button_label, enabled),
                     style="WM.Side.TButton",
-                    command=(
-                        (lambda f=panel_narzedzia, l=label: otworz_panel(f, l))
-                        if enabled
-                        else (lambda lbl=label: _show_access_denied(lbl))
-                    ),
+                    command=_button_command(panel_narzedzia, label, enabled),
                     state="normal",
                 )
-                if not enabled:
-                    try:
-                        btn.configure(text=f"{label}  🔒")
-                    except Exception:
-                        pass
                 btn.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
                 if enabled:
@@ -1326,7 +1316,30 @@ def uruchom_panel(root, login, rola):
                     if start_panel is None:
                         start_panel = panel_narzedzia
                         start_name = f"{label} (start)"
-            elif key == "maszyny":
+            else:
+                panel_func = {
+                    "maszyny": panel_maszyny,
+                    "magazyn": panel_magazyn,
+                    "planowanie": panel_planowanie,
+                    "jarvis": panel_jarvis,
+                    "uzytkownicy": panel_uzytkownicy,
+                    "ustawienia": panel_ustawien,
+                    "profile": lambda r, f, login=login, rola=rola: open_profile_for_logged_user(root),
+                    "chat": panel_chat,
+                }.get(key)
+                if panel_func is not None:
+                    btn = ttk.Button(
+                        side,
+                        text=_button_text(button_label, enabled),
+                        command=_button_command(panel_func, button_label, enabled),
+                        style="WM.Side.TButton",
+                        state="normal",
+                    )
+                    btn.pack(padx=10, pady=pad, fill="x")
+                    if enabled:
+                        _maybe_mark_button(btn)
+                    continue
+            if key == "maszyny":
                 btn = ttk.Button(
                     side,
                     text=button_label,
