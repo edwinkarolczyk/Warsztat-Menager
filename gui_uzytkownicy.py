@@ -132,6 +132,7 @@ ROLE_LABELS = [
 ]
 
 ROLE_KEYS = [role_key for role_key, _label in ROLE_LABELS]
+ROLE_LABELS_MAP = {role_key: label for role_key, label in ROLE_LABELS}
 
 LEGACY_ROLE_ALIASES = {
     "admin": "administrator",
@@ -531,6 +532,11 @@ def _choice_to_role(choice: str) -> str:
     return normalized if normalized in ROLE_KEYS else "operator"
 
 
+def _role_key_to_label(role_key: str | None) -> str:
+    normalized = _role_to_choice(role_key)
+    return ROLE_LABELS_MAP.get(normalized, "Operator / Ślusarz")
+
+
 def _slugify_login(name: str) -> str:
     """Konwertuje nazwę na prosty login (a-z, 0-9, '_')."""
 
@@ -653,11 +659,12 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
             role_choice = _role_to_choice(
                 profile.get("rola") if isinstance(profile, dict) else None
             )
+            role_label = _role_key_to_label(role_choice)
             tree.insert(
                 "",
                 "end",
                 iid=login_value,
-                values=(name, pin, role_choice),
+                values=(name, pin, role_label),
             )
 
         if select_login and tree.exists(select_login):
