@@ -347,7 +347,7 @@ class SettingsProfilesTab(ttk.Frame):
 class ProfileEditDialog(tk.Toplevel):
     """Dialog window for creating or editing a single profile entry."""
 
-    ROLES = [PRIMARY_ADMIN_ROLE, "admin", "operator", "serwisant", "brygadzista"]
+    ROLES = [role_key for role_key, _label in ROLE_LABELS]
     STATUSES = ["aktywny", "zablokowany"]
     SHIFT_MODES = [
         ("111", "Stała 1 zmiana (06–14)"),
