@@ -195,7 +195,7 @@ def _current_user_role_safe(owner=None) -> str:
     if role:
         return role
 
-    return "user"
+    return "operator"
 
 
 def _current_user_login_safe(owner=None) -> str:
