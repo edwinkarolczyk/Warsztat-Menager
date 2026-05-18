@@ -1,3 +1,16 @@
+# =========================================================
+# WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
+# =========================================================
+# Zmiany:
+# - pełnoekranowy kalendarz
+# - edycja zleceń
+# - workflow elementów
+# - etapy opcjonalne
+# - pracownicy + stanowiska
+# - ilości wykonane na zmianach
+# - analiza archiwum pod czasy etapów
+# =========================================================
+
 import calendar
 import json
 import os
@@ -11,14 +24,83 @@ from tkinter import messagebox, ttk, simpledialog
 
 from config_manager import ConfigManager
 
-ETAPY_DOMYSLNE = [
-    ("ciecie", "cięcie", "#3b82f6"),
-    ("przygotowanie", "przygotowanie", "#facc15"),
-    ("zgrzewanie", "zgrzewanie", "#fb923c"),
-    ("malowanie", "malowanie", "#a855f7"),
-    ("pakowanie", "pakowanie", "#22c55e"),
-    ("wysylka", "wysyłka", "#374151"),
+DEFAULT_WORKFLOW = [
+    {
+        "id": "laser",
+        "name": "Laser",
+        "color": "#3498db",
+        "enabled": True,
+        "optional": True,
+        "station": "Laser",
+        "min_workers": 1,
+        "max_workers": 2,
+    },
+    {
+        "id": "gilotyna",
+        "name": "Gilotyna",
+        "color": "#5dade2",
+        "enabled": False,
+        "optional": True,
+        "station": "Gilotyna",
+        "min_workers": 1,
+        "max_workers": 2,
+    },
+    {
+        "id": "giecie",
+        "name": "Gięcie",
+        "color": "#f1c40f",
+        "enabled": True,
+        "optional": True,
+        "station": "Giętarka 1",
+        "min_workers": 1,
+        "max_workers": 2,
+    },
+    {
+        "id": "zgrzewanie",
+        "name": "Zgrzewanie",
+        "color": "#e67e22",
+        "enabled": True,
+        "optional": True,
+        "station": "Zgrzewanie",
+        "min_workers": 1,
+        "max_workers": 6,
+    },
+    {
+        "id": "malowanie",
+        "name": "Malowanie",
+        "color": "#9b59b6",
+        "enabled": True,
+        "optional": True,
+        "station": "Malarnia",
+        "min_workers": 2,
+        "max_workers": 4,
+    },
+    {
+        "id": "pakowanie",
+        "name": "Pakowanie",
+        "color": "#2ecc71",
+        "enabled": True,
+        "optional": True,
+        "station": "Pakowanie",
+        "min_workers": 1,
+        "max_workers": 3,
+    },
 ]
+
+DEFAULT_STATIONS = [
+    "Laser",
+    "Gilotyna",
+    "Giętarka 1",
+    "Zgrzewanie",
+    "Malarnia",
+    "Pakowanie",
+]
+
+DEFAULT_SHIFTS = [
+    "06:00-14:00",
+    "14:00-22:00",
+]
+
 STATUSY = ["oczekuje", "w trakcie", "zakończone", "problem"]
 BLOCK_REASONS = ["awaria", "brak ludzi", "inwentaryzacja", "święto", "własny opis"]
 SHIFTS = {"1": "06:00-14:00", "2": "14:00-22:00", "S": "06:00-14:00 (sobota)"}
@@ -317,8 +399,30 @@ class PlanowanieUI:
         start = simpledialog.askstring("Planowanie", "Data startu (YYYY-MM-DD):", parent=self.frame) or _today()
         ship = simpledialog.askstring("Planowanie", "Termin wysyłki (YYYY-MM-DD):", parent=self.frame) or start
         stages = []
-        for key, label, color in ETAPY_DOMYSLNE:
-            stages.append({"id": key, "name": label, "color": color, "enabled": True, "duration_days": 1, "status": "oczekuje", "employees": [], "notes": "", "shift": "1"})
+        for cfg in DEFAULT_WORKFLOW:
+            if not cfg.get("enabled", True):
+                continue
+            stages.append({
+                "id": cfg["id"],
+                "name": cfg["name"],
+                "color": cfg["color"],
+                "enabled": cfg.get("enabled", True),
+                "optional": cfg.get("optional", True),
+                "station": cfg.get("station", ""),
+                "min_workers": cfg.get("min_workers", 1),
+                "max_workers": cfg.get("max_workers", 1),
+                "duration_days": 1,
+                "planned_days": 1,
+                "real_days": 0,
+                "status": "oczekuje",
+                "employees": [],
+                "workers": [],
+                "notes": "",
+                "shift": "1",
+                "planned_shift": DEFAULT_SHIFTS[0],
+                "shift_history": [],
+                "done_qty": 0,
+            })
         order = {
             "id": f"ord-{int(datetime.now().timestamp() * 1000)}",
             "number": number,
