@@ -963,6 +963,11 @@ def _init_tools_data(cfg: dict | None = None) -> tuple[dict, list[dict], str, bo
         _TOOLS_MIGRATED = True
 
     rows_raw, primary = load_tools_rows_with_fallback(cfg, resolve_rel)
+    try:
+        from gui_panel import wm_set_module_source
+        wm_set_module_source(root, "Narzędzia", primary)
+    except Exception:
+        pass
     had_rows = bool(rows_raw)
     rows = ensure_tools_sample_if_empty(rows_raw, primary)
     _TOOLS_PRIMARY_PATH = primary
@@ -3799,6 +3804,19 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 def panel_narzedzia(root, frame, login=None, rola=None):
+    try:
+        from gui_panel import wm_set_module_source
+        from utils_paths import tools_dir
+
+        cfg = {}
+        try:
+            cfg = ConfigManager().load()
+        except Exception:
+            cfg = {}
+        wm_set_module_source(root, "Narzędzia", tools_dir(cfg))
+    except Exception:
+        pass
+
     bridge = _TOOLS_BRIDGE
     STATE.current_login = login
     STATE.current_role = rola
@@ -6192,9 +6210,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             tv.bind("<Button-3>", _show_task_menu)
 
         def _update_global_tasks(comment, ts):
-            state = STATE
-            if getattr(state, "global_tasks", None) is None:
-                state.global_tasks = []
             path = _resolve_path_candidate(
                 getattr(LZ, "TOOL_TASKS_PATH", None),
                 _default_tools_tasks_file(),
@@ -6204,9 +6219,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     data = json.load(f)
             except (OSError, json.JSONDecodeError):
                 data = []
-            state.global_tasks = data
+
+            if not isinstance(data, list):
+                data = []
+
             changed = False
             for item in data:
+                if not isinstance(item, dict):
+                    continue
                 if item.get("status") != "Zrobione":
                     item["status"] = "Zrobione"
                     item["by"] = login or "nieznany"

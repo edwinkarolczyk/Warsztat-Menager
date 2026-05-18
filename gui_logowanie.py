@@ -8,13 +8,14 @@
 # - Spójny wygląd z motywem (apply_theme), brak pływania elementów
 
 import json
+import importlib
 import logging
 import os
 import subprocess
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 try:  # opcjonalny Pillow
     from PIL import Image, ImageTk
@@ -27,6 +28,12 @@ from grafiki.shifts_schedule import who_is_on_now
 from profiles_store import load_profiles_users, resolve_profiles_path
 from updates_utils import load_last_update_info, remote_branch_exists
 from utils import error_dialogs
+
+wm_root_paths = (
+    importlib.import_module("core.root_paths")
+    if importlib.util.find_spec("core.root_paths")
+    else None
+)
 
 from services.profile_service import (
     ProfileService,
@@ -56,26 +63,203 @@ except AttributeError:  # pragma: no cover - fallback dla stubów
 # Alias zachowany dla kompatybilności testów
 apply_theme = apply_theme_tree
 
+
+def _save_root_choice_to_config(root_path: str) -> None:
+    """Zapisz główny ROOT WM z ekranu logowania.
+
+    Nowy mechanizm ROOT zapisuje wybór do wm_root.json.
+    Nie zapisujemy już paths.anchor_root / paths.data_root z poziomu logowania,
+    bo to miesza ConfigManager z core.root_paths.
+    """
+
+    normalized = str(Path(root_path).expanduser().resolve())
+    if wm_root_paths is not None:
+        root_file = wm_root_paths.root_file_path()
+        root_file.parent.mkdir(parents=True, exist_ok=True)
+        with root_file.open("w", encoding="utf-8") as handle:
+            json.dump({"root": normalized}, handle, ensure_ascii=False, indent=2)
+        os.environ["WM_ROOT"] = normalized
+        os.environ["WM_DATA_ROOT"] = str(Path(normalized) / "data")
+        os.environ["WM_CONFIG_FILE"] = str(Path(normalized) / "config.json")
+        try:
+            wm_root_paths.ensure_root_tree()
+        except Exception:
+            logger.exception("[WM-ERR][LOGIN] ensure_root_tree failed after ROOT change")
+        print(f"[WM-ROOT][LOGIN] zapisano ROOT_FILE={root_file} root={normalized}")
+        return
+
+    cfg = ConfigManager()
+    cfg.set("paths.anchor_root", normalized)
+    cfg.set("paths.data_root", str(Path(normalized) / "data"))
+    cfg.save_all() if hasattr(cfg, "save_all") else cfg.save()
+
+
+def _choose_root_from_login() -> None:
+    """Mały, ukryty wybór głównego katalogu WM z ekranu logowania."""
+
+    try:
+        messagebox.showinfo(
+            "Wybór ROOT WM",
+            "Wskaż główny folder danych WM.\n\n"
+            "Nie wybieraj pojedynczego podfolderu typu:\n"
+            "- data\n"
+            "- magazyn\n"
+            "- narzedzia\n"
+            "- zlecenia\n\n"
+            "Może to być dowolny folder na dysku albo pendrive.",
+        )
+        selected = filedialog.askdirectory(title="Wybierz główny folder danych WM")
+        if not selected:
+            return
+
+        _save_root_choice_to_config(selected)
+        messagebox.showinfo(
+            "ROOT WM ustawiony",
+            "Ustawiono główny folder WM:\n\n"
+            f"{Path(selected).expanduser().resolve()}\n\n"
+            "Najlepiej uruchom logowanie/program ponownie, żeby wszystkie "
+            "moduły czytały dane z nowego ROOT.",
+        )
+    except Exception as exc:
+        logger.exception("[WM-ERR][LOGIN] Nie udało się ustawić ROOT WM")
+        try:
+            messagebox.showwarning(
+                "ROOT WM",
+                "Nie udało się zapisać głównego folderu WM.\n\n"
+                f"Szczegóły: {exc}",
+            )
+        except Exception:
+            pass
+
+
+def _looks_like_default_admin_only(entries: list[dict]) -> bool:
+    if len(entries) != 1:
+        return False
+    entry = entries[0] if isinstance(entries[0], dict) else {}
+    login = str(entry.get("login", "") or "").strip().lower()
+    return login == "admin"
+
+
+def _legacy_profile_candidates() -> list[Path]:
+    candidates = [
+        BASE_DIR / "data" / "profiles.json",
+        BASE_DIR / "profiles.json",
+        BASE_DIR / "uzytkownicy.json",
+        Path.cwd() / "data" / "profiles.json",
+        Path.cwd() / "profiles.json",
+        Path.cwd() / "uzytkownicy.json",
+    ]
+    out: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+            key = os.path.normcase(str(resolved))
+            if key not in seen:
+                seen.add(key)
+                out.append(resolved)
+        except Exception:
+            pass
+    return out
+
+
+def _best_legacy_profiles_source(
+    *,
+    exclude_path: Path | None = None,
+) -> tuple[Path | None, list[dict]]:
+    excluded = None
+    if exclude_path is not None:
+        try:
+            excluded = os.path.normcase(str(exclude_path.resolve()))
+        except Exception:
+            excluded = None
+
+    best_entries: list[dict] = []
+    best_source: Path | None = None
+    for candidate in _legacy_profile_candidates():
+        try:
+            if not candidate.exists():
+                continue
+            candidate_norm = os.path.normcase(str(candidate.resolve()))
+            if excluded and candidate_norm == excluded:
+                continue
+            entries = load_profiles_users(path=candidate)
+            if len(entries) > len(best_entries):
+                best_entries = entries
+                best_source = candidate
+        except Exception:
+            continue
+    return best_source, best_entries
+
+
+def _maybe_migrate_profiles_to_root(root_path: Path) -> None:
+    """Przenieś legacy profile do ROOT, jeśli ROOT ma tylko domyślnego admina."""
+
+    try:
+        root_entries = load_profiles_users(path=root_path) if root_path.exists() else []
+    except Exception:
+        root_entries = []
+
+    if root_entries and not _looks_like_default_admin_only(root_entries):
+        return
+
+    best_source, best_entries = _best_legacy_profiles_source(exclude_path=root_path)
+
+    if not best_entries or _looks_like_default_admin_only(best_entries):
+        return
+
+    root_path.parent.mkdir(parents=True, exist_ok=True)
+    with root_path.open("w", encoding="utf-8") as handle:
+        json.dump({"users": best_entries}, handle, ensure_ascii=False, indent=2)
+    print(
+        f"[WM-ROOT][LOGIN] zmigrowano profile: {best_source} -> {root_path} "
+        f"users={len(best_entries)}"
+    )
+
+
 def _profiles_path() -> Path:
+    root_active = bool(
+        str(os.environ.get("WM_ROOT", "")).strip()
+        or str(os.environ.get("WM_DATA_ROOT", "")).strip()
+    )
+
+    if wm_root_paths is not None and root_active:
+        try:
+            resolved = wm_root_paths.path_profiles()
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            _maybe_migrate_profiles_to_root(resolved)
+            try:
+                users = load_profiles_users(path=resolved) if resolved.exists() else []
+            except Exception:
+                users = []
+            print(
+                f"[WM-ROOT][PROFILES][ACTIVE] path={resolved} "
+                f"exists={1 if resolved.exists() else 0} users={len(users)}"
+            )
+            print(f"[WM-ROOT][LOGIN] profiles_path={resolved}")
+            return resolved
+        except Exception:
+            logger.exception("[WM-ERR][LOGIN] root_paths.path_profiles failed")
+
+    best_legacy_source, best_legacy_entries = _best_legacy_profiles_source()
+    if best_legacy_source and not _looks_like_default_admin_only(best_legacy_entries):
+        print(f"[WM-ROOT][LOGIN] profiles_path_legacy={best_legacy_source}")
+        return best_legacy_source
+
     try:
         cfg = ConfigManager()
     except Exception:
         cfg = None
     resolved = resolve_profiles_path(cfg)
-    if resolved.exists():
-        return resolved
-    fallback_candidates = [
-        (BASE_DIR / "profiles.json").resolve(),
-        (BASE_DIR / "uzytkownicy.json").resolve(),
-        (Path.cwd() / "profiles.json").resolve(),
-        (Path.cwd() / "uzytkownicy.json").resolve(),
-    ]
-    for candidate in fallback_candidates:
-        try:
-            if candidate.exists():
-                return candidate
-        except OSError:
-            continue
+    try:
+        users = load_profiles_users(path=resolved) if resolved.exists() else []
+    except Exception:
+        users = []
+    print(
+        f"[WM-ROOT][PROFILES][ACTIVE] path={resolved} "
+        f"exists={1 if resolved.exists() else 0} users={len(users)}"
+    )
+    print(f"[WM-ROOT][LOGIN] profiles_path_fallback={resolved}")
     return resolved
 
 
@@ -746,6 +930,12 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
     ttk.Button(bottom, text="Zamknij program", command=zamknij, style="WM.Side.TButton").pack()
     # stopka
     ttk.Label(root, text="Warsztat Menager – beta", style="WM.Muted.TLabel").pack(side="bottom", pady=(0, 6))
+    ttk.Button(
+        root,
+        text="⚙ root",
+        command=_choose_root_from_login,
+        style="WM.Side.TButton",
+    ).pack(side="bottom", pady=(0, 2))
     update_text, _ = load_last_update_info()
     lbl_update = ttk.Label(root, text=update_text, style="WM.Muted.TLabel")
     lbl_update.pack(side="bottom", pady=(0, 2))
@@ -1129,6 +1319,137 @@ def zamknij():
         root_global.destroy()
     finally:
         os._exit(0)
+
+
+def _login_profiles_for_popup() -> tuple[list[str], dict[str, dict]]:
+    """Zwróć aktywne profile do popupu logowania, tak jak na pełnym ekranie."""
+
+    entries: list[tuple[str, dict]] = []
+    try:
+        profiles = _load_profiles()
+    except Exception:
+        profiles = []
+
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        login_value = str(profile.get("login", "") or "").strip()
+        if login_value:
+            entries.append((login_value, profile))
+
+    ordered_logins: list[str] = []
+    profiles_by_login: dict[str, dict] = {}
+    seen: set[str] = set()
+
+    for login_value, profile in sorted(entries, key=lambda item: item[0].casefold()):
+        key = login_value.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered_logins.append(login_value)
+        profiles_by_login[key] = profile
+
+    return ordered_logins, profiles_by_login
+
+
+def open_login_popup(parent, on_success):
+    """Lekki popup logowania do osadzenia w panelu głównym."""
+
+    popup = tk.Toplevel(parent)
+    popup.title("Logowanie")
+    popup.transient(parent)
+    popup.grab_set()
+    popup.resizable(False, False)
+
+    frame = ttk.Frame(popup, padding=12)
+    frame.pack(fill="both", expand=True)
+    ttk.Label(frame, text="Login").grid(row=0, column=0, sticky="w", pady=(0, 4))
+    ordered_logins, popup_profiles = _login_profiles_for_popup()
+    login_var = tk.StringVar()
+    pin_var = tk.StringVar()
+
+    if ordered_logins:
+        login_entry = ttk.Combobox(
+            frame,
+            textvariable=login_var,
+            values=ordered_logins,
+            state="readonly",
+            width=28,
+        )
+        try:
+            cfg = ConfigManager()
+            last_user = cfg.get("ostatni_uzytkownik")
+        except Exception:
+            last_user = ""
+        if isinstance(last_user, str) and last_user.strip() in ordered_logins:
+            login_var.set(last_user.strip())
+        else:
+            login_var.set(ordered_logins[0])
+    else:
+        login_entry = ttk.Entry(frame, textvariable=login_var, width=30)
+
+    login_entry.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+    ttk.Label(frame, text="PIN / hasło").grid(row=2, column=0, sticky="w", pady=(0, 4))
+    pin_entry = ttk.Entry(frame, textvariable=pin_var, show="*", width=30)
+    pin_entry.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+
+    def _focus_pin(_event=None):
+        try:
+            pin_entry.focus_set()
+            pin_entry.selection_range(0, tk.END)
+        except Exception:
+            pass
+
+    try:
+        login_entry.bind("<<ComboboxSelected>>", _focus_pin)
+    except Exception:
+        pass
+
+    def _submit(_event=None):
+        login_display = login_var.get().strip()
+        pin = pin_var.get().strip()
+        if not login_display or not pin:
+            messagebox.showerror("Błąd", "Podaj login i PIN/hasło.", parent=popup)
+            return
+        login_key = login_display.lower()
+        user = authenticate(login_key, pin)
+        selected_profile = popup_profiles.get(login_display.casefold())
+        if not user and selected_profile is not None:
+            stored_pin = str(selected_profile.get("pin", "")).strip()
+            stored_password = str(selected_profile.get("haslo", "")).strip()
+            if pin and (pin == stored_pin or pin == stored_password):
+                user = {
+                    "login": selected_profile.get("login", login_display),
+                    "rola": selected_profile.get("rola", "pracownik"),
+                    "status": selected_profile.get("status", ""),
+                    "active": selected_profile.get("active", True),
+                }
+        if not user:
+            messagebox.showerror("Błąd", "Nieprawidłowy login lub PIN.", parent=popup)
+            return
+        rola = str(user.get("rola", "pracownik"))
+        login_final = str(user.get("login", login_display))
+        try:
+            ProfileService.set_active_user(login_final)
+        except Exception:
+            pass
+        try:
+            cfg = ConfigManager()
+            cfg.set("ostatni_uzytkownik", login_final)
+            if hasattr(cfg, "save_all"):
+                cfg.save_all()
+            else:
+                cfg.save()
+        except Exception:
+            pass
+        popup.destroy()
+        on_success(login_final, rola, None)
+
+    ttk.Button(frame, text="Zaloguj", command=_submit).grid(row=4, column=0, sticky="e")
+    frame.columnconfigure(0, weight=1)
+    _focus_pin() if ordered_logins else login_entry.focus_set()
+    popup.bind("<Return>", _submit)
+    return popup
 
 if __name__ == "__main__":
     root = tk.Tk()

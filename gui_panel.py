@@ -44,7 +44,9 @@ from utils.moduly import module_active, zaladuj_manifest
 from wm_access import (
     get_disabled_modules_for,
     get_effective_allowed_modules,
+    is_module_allowed_for_user,
     normalize_module_name,
+    normalize_role_name,
 )
 from gui.widgets_user_footer import (
     _shift_bounds,
@@ -88,6 +90,12 @@ except Exception as e:  # pragma: no cover - fallback logging
     _warn(f"Panel Dyspozycji (fallback) – błąd importu gui_zlecenia: {e!s}")
     gui_zlecenia = None  # type: ignore
 
+try:
+    import gui_planowanie  # noqa: F401
+except Exception as e:  # pragma: no cover - fallback logging
+    _warn(f"Panel planowania (fallback) – błąd importu gui_planowanie: {e!s}")
+    gui_planowanie = None  # type: ignore
+
 # --- PROFIL: nowy widok ---
 try:
     from gui_profile import ProfileView
@@ -114,6 +122,110 @@ def _get_app_version() -> str:
 
 
 APP_VERSION = _get_app_version()
+
+
+def _wm_short_path(path: str | None, max_len: int = 95) -> str:
+    """Skróć długą ścieżkę do paska statusu bez zmiany samej wartości."""
+    text = str(path or "").strip()
+    if not text:
+        return "BRAK"
+    if len(text) <= max_len:
+        return text
+    return "…" + text[-max_len:]
+
+
+def _wm_path_exists(path: str | None) -> bool:
+    """Bezpiecznie sprawdź istnienie ścieżki."""
+    try:
+        return bool(path and os.path.exists(path))
+    except Exception:
+        return False
+
+
+def _wm_runtime_paths_snapshot() -> dict:
+    """Zwróć aktualne ścieżki runtime widoczne dla GUI.
+
+    To jest tylko diagnostyka. Funkcja niczego nie ustawia i nie zmienia.
+    """
+    root_path = os.environ.get("WM_ROOT")
+    data_root = os.environ.get("WM_DATA_ROOT")
+    config_file = os.environ.get("WM_CONFIG_FILE")
+    try:
+        from core import root_paths as wm_root_paths
+        if not root_path:
+            root_path = str(wm_root_paths.get_root_anchor())
+        if not data_root:
+            data_root = str(wm_root_paths.get_data_root())
+        if not config_file:
+            config_file = str(wm_root_paths.path_config())
+    except Exception:
+        pass
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        cfg = getattr(cm, "merged", None) if cm is not None else None
+        if cfg:
+            from config_manager import get_root, resolve_rel
+            if not root_path:
+                root_path = get_root(cfg)
+            if not data_root:
+                data_root = resolve_rel(cfg, "root")
+            if not config_file and hasattr(cm, "config_path"):
+                config_file = str(cm.config_path)
+    except Exception:
+        pass
+    return {
+        "root": os.path.normpath(root_path) if root_path else "",
+        "data": os.path.normpath(data_root) if data_root else "",
+        "config": os.path.normpath(config_file) if config_file else "",
+    }
+
+
+def _wm_build_root_status_text() -> tuple[str, bool]:
+    """Zbuduj tekst paska ROOT/DATA/CONFIG.
+
+    Zwraca:
+        (tekst, czy_jest_ostrzezenie)
+    """
+    paths = _wm_runtime_paths_snapshot()
+    root_ok = _wm_path_exists(paths.get("root"))
+    data_ok = _wm_path_exists(paths.get("data"))
+    config_ok = _wm_path_exists(paths.get("config"))
+    warn = not (root_ok and data_ok and config_ok)
+    prefix = "⚠ ROOT" if warn else "ROOT"
+    text = (
+        f"{prefix}: {_wm_short_path(paths.get('root'))} | "
+        f"DATA: {_wm_short_path(paths.get('data'))} | "
+        f"CONFIG: {_wm_short_path(paths.get('config'))}"
+    )
+    return text, warn
+
+
+def wm_set_module_source(root, module_name: str, source_path: str | None = None) -> None:
+    """Ustaw tekst 'Aktualnie' w górnym pasku z nazwą modułu i źródłem danych.
+
+    Funkcja jest celowo odporna na brak etykiety, żeby moduły mogły ją wołać
+    bez ryzyka wywalenia GUI.
+    """
+    try:
+        var = getattr(root, "wm_current_source_var", None)
+        if var is None:
+            return
+        module = str(module_name or "—").strip() or "—"
+        if source_path:
+            source_norm = os.path.normcase(os.path.abspath(str(source_path)))
+            root_path = _wm_runtime_paths_snapshot().get("root") or ""
+            root_norm = os.path.normcase(os.path.abspath(root_path)) if root_path else ""
+            outside_root = bool(root_norm and not source_norm.startswith(root_norm))
+            prefix = "⚠ " if outside_root else ""
+            suffix = " | POZA ROOT!" if outside_root else ""
+            var.set(
+                f"{prefix}Aktualnie: {module} | czytam: "
+                f"{_wm_short_path(source_path)}{suffix}"
+            )
+        else:
+            var.set(f"Aktualnie: {module} | czytam: —")
+    except Exception:
+        pass
 
 
 def _load_last_visit(login: str) -> datetime:
@@ -405,6 +517,13 @@ def panel_jarvis(root, frame, login=None, rola=None):
     panel.pack(fill="both", expand=True)
 
 
+
+
+def panel_planowanie(root, frame, login=None, rola=None):
+    if gui_planowanie and hasattr(gui_planowanie, "panel_planowanie"):
+        return gui_planowanie.panel_planowanie(root, frame, login, rola)
+    ttk.Label(frame, text="Panel Planowanie (fallback) – błąd importu gui_planowanie").pack(pady=20)
+
 def panel_chat(root, frame, login=None, rola=None):
     """Prosty chat (ala messenger) – lokalny MVP.
 
@@ -586,6 +705,18 @@ def uruchom_panel(root, login, rola):
     root.title(
         f"Warsztat Menager v{APP_VERSION} - zalogowano jako {login} ({rola})"
     )
+    try:
+        root.attributes("-fullscreen", True)
+    except Exception:
+        try:
+            root.state("zoomed")
+        except Exception:
+            pass
+    try:
+        root.bind("<Escape>", lambda _event: root.attributes("-fullscreen", False))
+        root.bind("<F11>", lambda _event: root.attributes("-fullscreen", not bool(root.attributes("-fullscreen"))))
+    except Exception:
+        pass
     clear_frame(root)
     if _register_notification_root is not None:
         try:
@@ -629,47 +760,88 @@ def uruchom_panel(root, login, rola):
             dot.place(relx=1, x=-4, y=4, anchor="ne")
             markers.append(dot)
 
+    def _is_guest_role(role_value) -> bool:
+        return str(role_value or "").strip().lower() in {"guest", "gość", "gosc", ""}
+
+    is_guest = _is_guest_role(rola)
+    normalized_role = normalize_role_name(rola)
+
+    def _show_access_denied(module_label: str) -> None:
+        messagebox.showwarning(
+            "Brak dostępu",
+            f"Moduł '{module_label}' jest wyłączony dla Twojej rangi albo dla Twojego konta.",
+        )
+
     side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
 
     header  = ttk.Frame(main, style="WM.TFrame");      header.pack(fill="x", padx=12, pady=(10,6))
     ttk.Label(header, text="Panel główny", style="WM.H1.TLabel").pack(side="left")
     # NOWE: czytelny login/rola po prawej stronie nagłówka
-    ttk.Label(header, text=f"{login} ({rola})", style="WM.Muted.TLabel").pack(side="right")
+    session_wrap = ttk.Frame(header, style="WM.TFrame")
+    session_wrap.pack(side="right")
+    session_var = tk.StringVar(
+        master=root,
+        value="Niezalogowany / Gość" if is_guest else f"{login} ({rola})",
+    )
+    ttk.Label(session_wrap, textvariable=session_var, style="WM.Muted.TLabel").pack(
+        side="left", padx=(0, 8)
+    )
 
-    current_action_var = tk.StringVar(master=root, value="Aktualnie: —")
+    root_status_text, root_status_warn = _wm_build_root_status_text()
+    root_status_var = tk.StringVar(master=root, value=root_status_text)
+    root_status_label = ttk.Label(
+        main, textvariable=root_status_var, style="WM.Muted.TLabel"
+    )
+    root_status_label.pack(fill="x", padx=12, pady=(0, 2))
+    if root_status_warn:
+        try:
+            root_status_label.configure(foreground="#e53935")
+        except Exception:
+            pass
+    setattr(root, "wm_root_status_var", root_status_var)
+
+    current_action_var = tk.StringVar(
+        master=root,
+        value="Aktualnie: Panel główny | czytam: —",
+    )
     current_action_label = ttk.Label(
         main, textvariable=current_action_var, style="WM.Muted.TLabel"
     )
     current_action_label.pack(fill="x", padx=12, pady=(0, 6))
+    setattr(root, "wm_current_source_var", current_action_var)
 
-    content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(fill="both", expand=True, padx=12, pady=6)
+    footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(side="bottom", fill="x", padx=12, pady=(6, 10))
+    footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
+
+    content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(side="top", fill="both", expand=True, padx=12, pady=6)
     setattr(root, "content", content)
     setattr(root, "main_content", content)
     setattr(root, "active_login", login)
     setattr(root, "current_user", login)
     setattr(root, "username", login)
 
-    footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(fill="x", padx=12, pady=(6,10))
-    footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
-
     # prawa część: stałe przyciski
     def _logout():
-        """Powrót do ekranu logowania + opcjonalne oznaczenie wylogowania."""
-        # heartbeat logout if available
+        """Wylogowanie do trybu gościa."""
         try:
             from presence import heartbeat
             heartbeat(login, rola, logout=True)
         except Exception:
             pass
+        uruchom_panel(root, login="Gość", rola="guest")
+
+    def _open_login_popup():
         try:
             import gui_logowanie
-            gui_logowanie.ekran_logowania(root)
-        except Exception:
-            try:
-                root.destroy()
-            except Exception:
-                pass
+            gui_logowanie.open_login_popup(
+                root,
+                on_success=lambda login_new, rola_new, extra=None: uruchom_panel(
+                    root, login_new, rola_new
+                ),
+            )
+        except Exception as exc:
+            messagebox.showerror("Logowanie", f"Nie można otworzyć okna logowania: {exc}")
     changelog_win = {"ref": None}
     btn_changelog = None
 
@@ -754,9 +926,11 @@ def uruchom_panel(root, login, rola):
     btn_changelog.pack(side="right", padx=(6, 0))
     _maybe_mark_button(btn_changelog)
     root.after(100, lambda: _toggle_changelog(auto=True))
+    session_btn_text = "Zaloguj" if is_guest else "Wyloguj"
+    session_btn_cmd = _open_login_popup if is_guest else _logout
     ttk.Button(
-        footer_btns, text="Wyloguj", command=_logout, style="WM.Side.TButton"
-    ).pack(side="right", padx=(6, 0))
+        session_wrap, text=session_btn_text, command=session_btn_cmd, style="WM.Side.TButton"
+    ).pack(side="left")
     # --- licznik automatycznego wylogowania ---
     try:
         cm = globals().get("CONFIG_MANAGER")
@@ -1008,7 +1182,7 @@ def uruchom_panel(root, login, rola):
     # przyciski boczne
     start_panel = None
     start_name = ""
-    admin_roles = ADMIN_ROLE_NAMES | {"kierownik", "brygadzista", "lider"}
+    admin_roles = ADMIN_ROLE_NAMES | {"kierownik", "lider"}
     is_admin = str(rola).strip().lower() in admin_roles
 
     def _format_modules(modules) -> str:
@@ -1090,26 +1264,33 @@ def uruchom_panel(root, login, rola):
 
         for key, label in sidebar_entries:
             pad = (12, 6) if start_panel is None else 6
+            def _locked_command(module_label=label):
+                return lambda: _show_access_denied(module_label)
 
-            role_allowed = not (key in {"uzytkownicy", "ustawienia"} and not is_admin)
-            jarvis_allowed = can_access_jarvis(profile) if key == "jarvis" else True
+            def _button_text(module_label: str, enabled_flag: bool) -> str:
+                return module_label if enabled_flag else f"{module_label}  🔒"
+
+            def _button_command(panel_func, module_label: str, enabled_flag: bool):
+                if enabled_flag:
+                    return lambda f=panel_func, l=module_label: otworz_panel(f, l)
+                return _locked_command(module_label)
+
+            module_allowed = is_module_allowed_for_user(login, normalized_role, key)
+            if key == "jarvis":
+                module_allowed = module_allowed and can_access_jarvis(profile)
             enabled = (
                 _module_is_active(key)
-                and key in allowed_modules
-                and role_allowed
-                and jarvis_allowed
+                and module_allowed
             )
 
-            button_label = (
-                f"{label} (wyłączony)" if key in modules_disabled else label
-            )
+            button_label = "Dyspozycje" if key == "zlecenia" else label
             if key == "zlecenia":
                 btn = ttk.Button(
                     side,
-                    text="Dyspozycje" if enabled else "Dyspozycje (wyłączony)",
-                    command=lambda f=panel_zlecenia, l="Dyspozycje": otworz_panel(f, l),
+                    text=_button_text("Dyspozycje", enabled),
                     style="WM.Side.TButton",
-                    state="normal" if enabled else "disabled",
+                    command=_button_command(panel_zlecenia, "Dyspozycje", enabled),
+                    state="normal",
                 )
                 btn.last_modified = datetime(2025, 8, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
@@ -1121,10 +1302,10 @@ def uruchom_panel(root, login, rola):
             elif key == "narzedzia":
                 btn = ttk.Button(
                     side,
-                    text=button_label,
-                    command=lambda f=panel_narzedzia, l=label: otworz_panel(f, l),
+                    text=_button_text(button_label, enabled),
                     style="WM.Side.TButton",
-                    state="normal" if enabled else "disabled",
+                    command=_button_command(panel_narzedzia, label, enabled),
+                    state="normal",
                 )
                 btn.last_modified = datetime(2025, 7, 1, tzinfo=timezone.utc)
                 btn.pack(padx=10, pady=pad, fill="x")
@@ -1134,7 +1315,30 @@ def uruchom_panel(root, login, rola):
                     if start_panel is None:
                         start_panel = panel_narzedzia
                         start_name = f"{label} (start)"
-            elif key == "maszyny":
+            else:
+                panel_func = {
+                    "maszyny": panel_maszyny,
+                    "magazyn": panel_magazyn,
+                    "planowanie": panel_planowanie,
+                    "jarvis": panel_jarvis,
+                    "uzytkownicy": panel_uzytkownicy,
+                    "ustawienia": panel_ustawien,
+                    "profile": lambda r, f, login=login, rola=rola: open_profile_for_logged_user(root),
+                    "chat": panel_chat,
+                }.get(key)
+                if panel_func is not None:
+                    btn = ttk.Button(
+                        side,
+                        text=_button_text(button_label, enabled),
+                        command=_button_command(panel_func, button_label, enabled),
+                        style="WM.Side.TButton",
+                        state="normal",
+                    )
+                    btn.pack(padx=10, pady=pad, fill="x")
+                    if enabled:
+                        _maybe_mark_button(btn)
+                    continue
+            if key == "maszyny":
                 btn = ttk.Button(
                     side,
                     text=button_label,
@@ -1149,6 +1353,22 @@ def uruchom_panel(root, login, rola):
                     module_shortcuts["maszyny"] = (panel_maszyny, label)
                     if start_panel is None:
                         start_panel = panel_maszyny
+                        start_name = f"{label} (start)"
+            elif key == "planowanie":
+                btn = ttk.Button(
+                    side,
+                    text=button_label,
+                    command=lambda f=panel_planowanie, l=label: otworz_panel(f, l),
+                    style="WM.Side.TButton",
+                    state="normal" if enabled else "disabled",
+                )
+                btn.last_modified = datetime(2026, 5, 12, tzinfo=timezone.utc)
+                btn.pack(padx=10, pady=pad, fill="x")
+                if enabled:
+                    _maybe_mark_button(btn)
+                    module_shortcuts["planowanie"] = (panel_planowanie, label)
+                    if start_panel is None:
+                        start_panel = panel_planowanie
                         start_name = f"{label} (start)"
             elif key == "magazyn":
                 btn = ttk.Button(

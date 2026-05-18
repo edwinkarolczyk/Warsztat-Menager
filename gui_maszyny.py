@@ -1658,6 +1658,11 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         cfg_manager = None
 
     rows, primary_path = load_machines_rows_with_fallback(cfg, resolve_rel)
+    try:
+        from gui_panel import wm_set_module_source
+        wm_set_module_source(root, "Maszyny", primary_path)
+    except Exception:
+        pass
     had_rows = bool(rows)
     rows = ensure_machines_sample_if_empty(rows, primary_path)
     source_path = _detect_real_source(rows, primary_path, cfg)
@@ -2247,9 +2252,28 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
 
 def panel_maszyny(root, frame, login=None, rola=None):
+    try:
+        from gui_panel import wm_set_module_source
+        from config_manager import ConfigManager, get_machines_path
+
+        cfg = {}
+        try:
+            cfg = ConfigManager().load()
+        except Exception:
+            cfg = {}
+        wm_set_module_source(root, "Maszyny", get_machines_path(cfg))
+    except Exception:
+        pass
+
+    for child in frame.winfo_children():
+        child.destroy()
+
+    module_frame = ttk.Frame(frame)
+    module_frame.pack(fill="both", expand=True)
+
     _open_maszyny = _open_machines_panel  # alias nazwy
     if open_dyspo_wizard is not None:
-        toolbar = ttk.Frame(frame)
+        toolbar = ttk.Frame(module_frame)
         toolbar.pack(fill="x", padx=6, pady=(6, 0))
         target = root
         if hasattr(root, "winfo_toplevel"):
@@ -2265,7 +2289,10 @@ def panel_maszyny(root, frame, login=None, rola=None):
             ),
         ).pack(side=tk.RIGHT)
         bind_ctrl_d(target, context={"module": "Maszyny"})
-    _open_maszyny(root, frame, Renderer=None)
+
+    panel_container = ttk.Frame(module_frame)
+    panel_container.pack(fill="both", expand=True)
+    _open_maszyny(root, panel_container, Renderer=None)
 
 
 def init_maszyny_view(
@@ -2299,4 +2326,3 @@ if __name__ == "__main__":
     main.pack(fill="both", expand=True)
     _open_machines_panel(root, main, Renderer=None)
     root.mainloop()
-

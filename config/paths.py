@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from core.path_utils import get_app_root as _resolve_app_root
+try:
+    from core import root_paths as _root_paths
+except Exception:  # pragma: no cover - fallback na starszy start
+    _root_paths = None
 
 
 def get_app_root() -> Path:
@@ -14,6 +18,8 @@ def get_app_root() -> Path:
     Logika jest scentralizowana w core.path_utils.get_app_root().
     """
 
+    if _root_paths is not None:
+        return _root_paths.get_app_root()
     return _resolve_app_root()
 
 
@@ -23,6 +29,8 @@ def get_data_root(cfg: Optional[Dict[str, Any]]) -> Path:
     env_root = os.getenv("WM_DATA_ROOT")
     if env_root:
         return Path(env_root)
+    if _root_paths is not None:
+        return _root_paths.get_data_root()
 
     cfg = cfg or {}
     paths = cfg.get("paths") or {}
@@ -68,7 +76,10 @@ _SETTINGS_STATE: Optional[Dict[str, Any]] = None
 _SETTINGS_GETTER: Optional[Callable[[str], Any]] = None
 
 _DEFAULT_BASE_DIR = get_app_root()
-_DEFAULT_ANCHOR = os.path.normpath(str(_DEFAULT_BASE_DIR))
+if _root_paths is not None:
+    _DEFAULT_ANCHOR = os.path.normpath(str(_root_paths.get_root_anchor()))
+else:
+    _DEFAULT_ANCHOR = os.path.normpath(str(_DEFAULT_BASE_DIR))
 
 
 def _is_abs(path: str) -> bool:
@@ -93,6 +104,8 @@ def _raw_anchor_value() -> str:
         if os.path.basename(norm_candidate).lower() == "data":
             return os.path.dirname(norm_candidate)
         return norm_candidate
+    if _root_paths is not None:
+        return str(_root_paths.get_root_anchor())
     return _DEFAULT_ANCHOR
 
 
@@ -127,6 +140,8 @@ def _data_root() -> str:
     data_raw = _read("paths.data_root")
     if isinstance(data_raw, str) and data_raw.strip():
         return _expand_path(data_raw.strip())
+    if _root_paths is not None:
+        return str(_root_paths.get_data_root())
     return os.path.join(_anchor_root(), "data")
 
 def bind_settings(state: Dict[str, Any]) -> None:

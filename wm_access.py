@@ -7,6 +7,122 @@ from config_manager import ConfigManager
 from profile_utils import ensure_profiles_file
 from utils.moduly import module_active, zaladuj_manifest
 
+ALL_ACCESS_MODULES = [
+    "panel_glowny",
+    "profil",
+    "zlecenia",
+    "narzedzia",
+    "maszyny",
+    "magazyn",
+    "planowanie",
+    "jarvis",
+    "ustawienia",
+    "uzytkownicy",
+    "chat",
+    "feedback",
+]
+
+DEFAULT_ROLE_MODULES = {
+    "administrator": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": True,
+        "uzytkownicy": True,
+        "chat": True,
+        "feedback": True,
+    },
+    "kierownik": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "brygadzista": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": True,
+        "maszyny": True,
+        "magazyn": True,
+        "planowanie": True,
+        "jarvis": True,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "operator": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "student": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": False,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "sezonowiec": {
+        "panel_glowny": True,
+        "profil": True,
+        "zlecenia": True,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": True,
+        "feedback": True,
+    },
+    "guest": {
+        "panel_glowny": True,
+        "profil": False,
+        "zlecenia": False,
+        "narzedzia": False,
+        "maszyny": False,
+        "magazyn": False,
+        "planowanie": False,
+        "jarvis": False,
+        "ustawienia": False,
+        "uzytkownicy": False,
+        "chat": False,
+        "feedback": True,
+    },
+}
+
 
 def _profiles_path() -> Path:
     """Return preferred path to ``profiles.json``."""
@@ -46,6 +162,47 @@ def load_profiles():
     return {}
 
 
+def _profiles_users_list(profiles_payload) -> list[dict]:
+    """Zwróć listę użytkowników z różnych formatów profiles.json."""
+
+    if isinstance(profiles_payload, list):
+        return [dict(item) for item in profiles_payload if isinstance(item, dict)]
+
+    if isinstance(profiles_payload, dict):
+        users = profiles_payload.get("users")
+        if isinstance(users, list):
+            return [dict(item) for item in users if isinstance(item, dict)]
+
+        profiles = profiles_payload.get("profiles")
+        if isinstance(profiles, list):
+            return [dict(item) for item in profiles if isinstance(item, dict)]
+
+        uzytkownicy = profiles_payload.get("uzytkownicy")
+        if isinstance(uzytkownicy, list):
+            return [dict(item) for item in uzytkownicy if isinstance(item, dict)]
+
+        out: list[dict] = []
+        for key, value in profiles_payload.items():
+            if not isinstance(value, dict):
+                continue
+            user = dict(value)
+            user.setdefault("login", key)
+            out.append(user)
+        return out
+
+    return []
+
+
+def _find_profile_user(profiles_payload, login: str) -> dict:
+    login_norm = str(login or "").strip().casefold()
+    if not login_norm:
+        return {}
+    for user in _profiles_users_list(profiles_payload):
+        if str(user.get("login", "") or "").strip().casefold() == login_norm:
+            return user
+    return {}
+
+
 def save_profiles(profiles_dict: dict):
     """Zapisuje słownik profili do pliku profiles.json w katalogu danych."""
     _ensure_dirs()
@@ -57,7 +214,7 @@ def save_profiles(profiles_dict: dict):
 def get_disabled_modules_for(login: str):
     """Zwraca listę disabled_modules dla danego loginu (lista lub [])."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled = user.get("disabled_modules")
     if isinstance(disabled, list):
         return [str(item) for item in disabled]
@@ -67,7 +224,7 @@ def get_disabled_modules_for(login: str):
 def set_modules_visibility(login: str, show_maszyny: bool, show_narzedzia: bool):
     """Ustawia widoczność modułów dla użytkownika."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled = user.get("disabled_modules")
     if not isinstance(disabled, list):
         disabled = []
@@ -91,8 +248,34 @@ def set_modules_visibility(login: str, show_maszyny: bool, show_narzedzia: bool)
         add_disabled("narzedzia")
 
     user["disabled_modules"] = disabled
-    profiles[login] = user
+    _replace_profile_user(profiles, login, user)
     save_profiles(profiles)
+
+
+def _replace_profile_user(profiles_payload, login: str, user: dict) -> None:
+    login_norm = str(login or user.get("login", "") or "").strip().casefold()
+    if not login_norm:
+        return
+
+    if isinstance(profiles_payload, dict) and isinstance(profiles_payload.get("users"), list):
+        users = profiles_payload["users"]
+        for idx, item in enumerate(users):
+            if str(item.get("login", "") or "").strip().casefold() == login_norm:
+                users[idx] = user
+                return
+        users.append(user)
+        return
+
+    if isinstance(profiles_payload, list):
+        for idx, item in enumerate(profiles_payload):
+            if str(item.get("login", "") or "").strip().casefold() == login_norm:
+                profiles_payload[idx] = user
+                return
+        profiles_payload.append(user)
+        return
+
+    if isinstance(profiles_payload, dict):
+        profiles_payload[str(user.get("login") or login)] = user
 
 
 _ALIASES = {
@@ -119,10 +302,167 @@ def normalize_module_name(name: str) -> str:
     return _ALIASES.get(key, key.replace(" ", "_"))
 
 
+_ROLE_ALIASES = {
+    "admin": "administrator",
+    "administrator": "administrator",
+    "kierownik": "kierownik",
+    "brygadzista": "brygadzista",
+    "operator": "operator",
+    "slusarz": "operator",
+    "ślusarz": "operator",
+    "pracownik": "operator",
+    "student": "student",
+    "uczen": "student",
+    "uczeń": "student",
+    "sezonowiec": "sezonowiec",
+    "guest": "guest",
+    "gosc": "guest",
+    "gość": "guest",
+    "": "guest",
+}
+
+
+def normalize_role_name(role: str) -> str:
+    """Ujednolić nazwę roli/rangi do klucza uprawnień."""
+
+    key = str(role or "").strip().lower()
+    return _ROLE_ALIASES.get(key, key)
+
+
+def _all_default_role_modules() -> dict[str, dict[str, bool]]:
+    """Zwróć pełną kopię domyślnych uprawnień ról."""
+
+    return {
+        role: dict(modules)
+        for role, modules in DEFAULT_ROLE_MODULES.items()
+    }
+
+
+def ensure_default_role_modules_config() -> dict:
+    """Dopisz brakujące access.role_modules do aktywnego config.json.
+
+    config.defaults.json jest tylko szablonem. Jeżeli aktywny <ROOT>/config.json
+    powstał wcześniej, może nie mieć sekcji access.role_modules. Wtedy WM powinien
+    sam dopisać domyślne role, zamiast wymagać ręcznej edycji JSON.
+    """
+
+    cfg = ConfigManager()
+    existing = cfg.get("access.role_modules", {})
+    changed = False
+
+    if not isinstance(existing, dict):
+        existing = {}
+        changed = True
+
+    for role, default_modules in DEFAULT_ROLE_MODULES.items():
+        role_map = existing.get(role)
+        if not isinstance(role_map, dict):
+            existing[role] = dict(default_modules)
+            changed = True
+            continue
+        normalized_map = _normalize_modules_map(role_map)
+        for module, allowed in default_modules.items():
+            if module not in normalized_map:
+                normalized_map[module] = bool(allowed)
+                changed = True
+        if normalized_map != role_map:
+            existing[role] = normalized_map
+            changed = True
+
+    if changed:
+        cfg.set("access.role_modules", existing)
+        if hasattr(cfg, "save_all"):
+            cfg.save_all()
+        else:
+            cfg.save()
+
+    return existing
+
+
+def _cfg_get_role_modules() -> dict:
+    try:
+        value = ensure_default_role_modules_config()
+        if isinstance(value, dict):
+            return value
+    except Exception:
+        pass
+    return {}
+
+
+def _cfg_set_role_modules(role_modules: dict) -> None:
+    cfg = ConfigManager()
+    cfg.set("access.role_modules", role_modules)
+    if hasattr(cfg, "save_all"):
+        cfg.save_all()
+    else:
+        cfg.save()
+
+
+def _normalize_modules_map(raw_map) -> dict[str, bool]:
+    out: dict[str, bool] = {}
+    if isinstance(raw_map, dict):
+        for module, allowed in raw_map.items():
+            key = normalize_module_name(module)
+            if not key:
+                continue
+            out[key] = bool(allowed)
+    return out
+
+
+def get_role_modules(role: str) -> dict[str, bool]:
+    """Zwróć mapę modułów dla roli z configu z fallbackiem do domyślnych."""
+
+    role_key = normalize_role_name(role)
+    defaults = dict(DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"]))
+    configured = ensure_default_role_modules_config()
+    configured_for_role = configured.get(role_key)
+    if isinstance(configured_for_role, dict):
+        defaults.update(_normalize_modules_map(configured_for_role))
+    for module in ALL_ACCESS_MODULES:
+        defaults.setdefault(module, False)
+    return defaults
+
+
+def set_role_modules(role: str, modules_map: dict[str, bool]) -> None:
+    """Zapisz mapę dostępności modułów dla roli do configu."""
+
+    role_key = normalize_role_name(role)
+    current = _cfg_get_role_modules()
+    current[role_key] = _normalize_modules_map(modules_map)
+    _cfg_set_role_modules(current)
+
+
+def is_module_allowed_for_role(role: str, module: str) -> bool:
+    """Sprawdź dostęp roli do modułu."""
+
+    module_key = normalize_module_name(module)
+    if not module_key:
+        return False
+    if module_key == "panel_glowny":
+        return True
+    role_modules = get_role_modules(role)
+    return bool(role_modules.get(module_key, False))
+
+
+def is_module_allowed_for_user(login: str, role: str, module: str) -> bool:
+    """Sprawdź dostęp użytkownika: rola pozwala i user nie ma disabled_modules."""
+
+    module_key = normalize_module_name(module)
+    if not module_key:
+        return False
+    if not is_module_allowed_for_role(role, module_key):
+        return False
+    disabled = {
+        normalize_module_name(item)
+        for item in get_disabled_modules_for(login)
+    }
+    return module_key not in disabled
+
+
 def set_modules_visibility_map(login: str, show_map: dict):
     """Ustawia widoczność wielu modułów naraz."""
     profiles = load_profiles()
-    user = profiles.get(login) or {}
+    user = _find_profile_user(profiles, login)
     disabled_modules = user.get("disabled_modules")
     if not isinstance(disabled_modules, list):
         disabled_modules = []
@@ -141,7 +481,7 @@ def set_modules_visibility_map(login: str, show_map: dict):
                 disabled_modules.append(module)
 
     user["disabled_modules"] = disabled_modules
-    profiles[login] = user
+    _replace_profile_user(profiles, login, user)
     save_profiles(profiles)
 
 
@@ -163,7 +503,7 @@ def get_effective_allowed_modules(login: str, all_modules: list[str]) -> list[st
         module
         for module in normalized_all
         if module
-        and module not in disabled
         and module not in skip
+        and module not in disabled
         and module_active(module, manifest=_manifest)
     ]

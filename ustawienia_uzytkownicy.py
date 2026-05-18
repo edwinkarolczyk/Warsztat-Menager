@@ -16,10 +16,38 @@ from tkinter import messagebox, ttk
 
 from profiles_store import load_profiles_users, resolve_profiles_path, save_profiles_users
 from profile_utils import PRIMARY_ADMIN_ROLE
+from wm_access import (
+    get_role_modules,
+    normalize_module_name,
+    normalize_role_name,
+    set_role_modules,
+)
 
 logger = logging.getLogger(__name__)
 
 USERS_PATH: str | None = None
+ROLE_LABELS = [
+    ("administrator", "Administrator"),
+    ("kierownik", "Kierownik"),
+    ("brygadzista", "Brygadzista"),
+    ("operator", "Operator / Ślusarz"),
+    ("student", "Student"),
+    ("sezonowiec", "Sezonowiec"),
+    ("guest", "Gość"),
+]
+MODULE_LABELS = [
+    ("zlecenia", "Dyspozycje / Zlecenia"),
+    ("narzedzia", "Narzędzia"),
+    ("maszyny", "Maszyny"),
+    ("magazyn", "Magazyn"),
+    ("planowanie", "Planowanie"),
+    ("jarvis", "Jarvis"),
+    ("ustawienia", "Ustawienia"),
+    ("uzytkownicy", "Użytkownicy"),
+    ("profil", "Profil"),
+    ("chat", "Chat"),
+    ("feedback", "Wyślij opinię"),
+]
 
 
 class ProfilesLoadError(RuntimeError):
@@ -89,7 +117,24 @@ class SettingsProfilesTab(ttk.Frame):
     # UI helpers
     # ------------------------------------------------------------------
     def _build_ui(self) -> ttk.Treeview:
-        toolbar = ttk.Frame(self)
+        self.nb = ttk.Notebook(self)
+        self.nb.pack(fill="both", expand=True)
+
+        tab_list = ttk.Frame(self.nb)
+        tab_profile = ttk.Frame(self.nb)
+        tab_roles = ttk.Frame(self.nb)
+        self.nb.add(tab_list, text="Lista i edycja")
+        self.nb.add(tab_profile, text="Profil użytkownika")
+        self.nb.add(tab_roles, text="Rangi")
+
+        ttk.Label(
+            tab_profile,
+            text="Edycja profilu odbywa się przez: Lista i edycja -> Edytuj.",
+        ).pack(anchor="w", padx=10, pady=10)
+
+        self._build_roles_tab(tab_roles)
+
+        toolbar = ttk.Frame(tab_list)
         toolbar.pack(fill="x", pady=4)
         ttk.Button(toolbar, text="Dodaj profil", command=self._add_profile).pack(
             side="left"
@@ -97,10 +142,13 @@ class SettingsProfilesTab(ttk.Frame):
         ttk.Button(toolbar, text="Edytuj", command=self._edit_selected).pack(
             side="left", padx=6
         )
+        ttk.Button(toolbar, text="Usuń profil", command=self._delete_selected).pack(
+            side="left", padx=6
+        )
         ttk.Button(toolbar, text="Zapisz", command=self._save_now).pack(side="right")
 
         tree = ttk.Treeview(
-            self,
+            tab_list,
             columns=self.COLUMNS,
             show="headings",
             height=12,
@@ -113,6 +161,63 @@ class SettingsProfilesTab(ttk.Frame):
         tree.pack(fill="both", expand=True, pady=(4, 0))
         tree.bind("<Double-1>", lambda _event: self._edit_selected())
         return tree
+
+    def _build_roles_tab(self, parent: ttk.Frame) -> None:
+        parent.columnconfigure(1, weight=1)
+        parent.rowconfigure(0, weight=1)
+        left = ttk.Frame(parent)
+        left.grid(row=0, column=0, sticky="ns", padx=(10, 12), pady=10)
+        ttk.Label(left, text="Rangi / role").pack(anchor="w", pady=(0, 6))
+        roles_list = tk.Listbox(left, height=10, exportselection=False)
+        roles_list.pack(fill="y", expand=True)
+        for _role_key, role_label in ROLE_LABELS:
+            roles_list.insert("end", role_label)
+
+        right = ttk.Frame(parent)
+        right.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=10)
+        right.columnconfigure(0, weight=1)
+        selected_role_var = tk.StringVar(value="")
+        ttk.Label(right, textvariable=selected_role_var).grid(
+            row=0, column=0, sticky="w", pady=(0, 8)
+        )
+        checks_frame = ttk.Frame(right)
+        checks_frame.grid(row=1, column=0, sticky="nsew")
+        module_vars: dict[str, tk.BooleanVar] = {}
+        for idx, (module_key, module_label) in enumerate(MODULE_LABELS):
+            var = tk.BooleanVar(value=False)
+            module_vars[module_key] = var
+            ttk.Checkbutton(checks_frame, text=module_label, variable=var).grid(
+                row=idx, column=0, sticky="w", pady=2
+            )
+
+        def selected_role_key() -> str:
+            selected = roles_list.curselection()
+            return ROLE_LABELS[int(selected[0])][0] if selected else ""
+
+        def load_role(_event=None) -> None:
+            role_key = selected_role_key()
+            if not role_key:
+                return
+            selected_role_var.set(f"Uprawnienia rangi: {dict(ROLE_LABELS).get(role_key, role_key)}")
+            modules = get_role_modules(role_key)
+            for module_key, var in module_vars.items():
+                var.set(bool(modules.get(normalize_module_name(module_key), False)))
+
+        def save_role() -> None:
+            role_key = selected_role_key()
+            if not role_key:
+                messagebox.showwarning("Rangi", "Wybierz rangę do zapisania.")
+                return
+            modules_map = {module_key: bool(var.get()) for module_key, var in module_vars.items()}
+            set_role_modules(normalize_role_name(role_key), modules_map)
+            messagebox.showinfo("Rangi", "Zapisano uprawnienia rangi.")
+
+        roles_list.bind("<<ListboxSelect>>", load_role)
+        ttk.Button(right, text="Zapisz rangę", command=save_role).grid(
+            row=2, column=0, sticky="e", pady=(12, 0)
+        )
+        roles_list.selection_set(0)
+        load_role()
 
     def _load_from_storage(self) -> None:
         try:
@@ -208,11 +313,41 @@ class SettingsProfilesTab(ttk.Frame):
         _save_users([dict(user) for user in self.users])
         messagebox.showinfo("Profile", "Zapisano zmiany.")
 
+    def _delete_selected(self) -> None:
+        index = self._get_selected_index()
+        if index is None:
+            messagebox.showinfo("Usuń profil", "Zaznacz użytkownika do usunięcia.")
+            return
+        user = self.users[index]
+        login = str(user.get("login", "")).strip()
+        if not login:
+            return
+        current_login = str(getattr(self.master, "login", "") or "").strip()
+        if current_login and current_login.casefold() == login.casefold():
+            messagebox.showerror("Usuń profil", "Nie można usunąć aktualnie zalogowanego użytkownika.")
+            return
+        active_admins = 0
+        for item in self.users:
+            if not isinstance(item, dict):
+                continue
+            if not item.get("active", True):
+                continue
+            if normalize_role_name(item.get("rola", "")) == "administrator":
+                active_admins += 1
+        if normalize_role_name(user.get("rola", "")) == "administrator" and active_admins <= 1:
+            messagebox.showerror("Usuń profil", "Nie można usunąć ostatniego aktywnego administratora.")
+            return
+        if not messagebox.askyesno("Usuń profil", f"Czy na pewno usunąć profil '{login}'?"):
+            return
+        self.users = [item for item in self.users if str(item.get("login", "")).strip().casefold() != login.casefold()]
+        self._refresh_tree()
+        _save_users([dict(entry) for entry in self.users])
+
 
 class ProfileEditDialog(tk.Toplevel):
     """Dialog window for creating or editing a single profile entry."""
 
-    ROLES = [PRIMARY_ADMIN_ROLE, "admin", "operator", "serwisant", "brygadzista"]
+    ROLES = [role_key for role_key, _label in ROLE_LABELS]
     STATUSES = ["aktywny", "zablokowany"]
     SHIFT_MODES = [
         ("111", "Stała 1 zmiana (06–14)"),

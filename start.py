@@ -31,6 +31,10 @@ from utils_json import ensure_json
 from utils import error_dialogs
 from config.paths import get_app_root, p_config, p_settings_schema
 from config_manager import ConfigManager
+try:
+    from core import root_paths as wm_root_paths
+except Exception:  # pragma: no cover - awaryjnie nie blokuj startu
+    wm_root_paths = None
 
 os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.*=false")
 
@@ -61,22 +65,47 @@ def _feature_flag_enabled(value, *, default: bool = True) -> bool:
     return bool(value)
 
 
+def _auth_flag(config_manager, key: str, default: bool) -> bool:
+    """Odczytaj flagę auth.* z ConfigManager z łagodnym fallbackiem."""
+
+    try:
+        if config_manager is None:
+            return default
+        return _feature_flag_enabled(config_manager.get(key, default), default=default)
+    except Exception:
+        return default
+
+
+ROOT_SNAPSHOT = None
+
+
 APP_ROOT = get_app_root()
 
-DEFAULT_CONFIG = {
-    "paths": {
-        "data_root": "data",
-        "logs_dir": "logs",
-        "backup_dir": "backup",
-        "layout_dir": "data/layout",
-    },
-    "machines": {
-        "rel_path": "maszyny/maszyny.json",
-    },
-    "settings": {
-        "require_reauth": True,
-    },
-}
+def _default_config() -> dict:
+    root = str(wm_root_paths.get_root_anchor()) if wm_root_paths is not None else str(APP_ROOT)
+    data = str(wm_root_paths.get_data_root()) if wm_root_paths is not None else str(APP_ROOT / "data")
+    logs = str(wm_root_paths.path_logs()) if wm_root_paths is not None else str(APP_ROOT / "logs")
+    backup = str(wm_root_paths.path_backup()) if wm_root_paths is not None else str(APP_ROOT / "backup")
+    assets = str(wm_root_paths.path_assets()) if wm_root_paths is not None else str(APP_ROOT / "assets")
+    return {
+        "paths": {
+            "anchor_root": root,
+            "data_root": data,
+            "logs_dir": logs,
+            "backup_dir": backup,
+            "assets_dir": assets,
+            "layout_dir": str(Path(data) / "layout"),
+        },
+        "machines": {
+            "rel_path": "maszyny/maszyny.json",
+        },
+        "settings": {
+            "require_reauth": True,
+        },
+    }
+
+
+DEFAULT_CONFIG = _default_config()
 
 CONFIG_MANAGER: ConfigManager | None = None
 env_cfg = os.environ.get("WM_CONFIG_FILE")
@@ -123,7 +152,7 @@ def _ensure_config_manager() -> ConfigManager | None:
 
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     try:
-        ensure_json(CONFIG_PATH, DEFAULT_CONFIG)
+        ensure_json(CONFIG_PATH, _default_config())
     except Exception:
         pass
 
@@ -203,6 +232,12 @@ from utils.moduly import zaladuj_manifest
 
 def _print_root_diagnostics(manager) -> None:
     """Emit podstawowe informacje diagnostyczne o ścieżkach <root>."""
+
+    if wm_root_paths is not None:
+        try:
+            wm_root_paths.print_root_diagnostics(ROOT_SNAPSHOT)
+        except Exception as exc:
+            print(f"[WM-ROOT][WARN] Diagnostyka centralnego ROOT nieudana: {exc}")
 
     print("[WM ROOT DIAGNOSTICS]")
     if manager is None:
@@ -419,7 +454,10 @@ def _ensure_user_file(login, rola):
     try:
         if not login:
             return
-        base = os.path.join("data", "user")
+        if wm_root_paths is not None:
+            base = str(wm_root_paths.get_data_root() / "user")
+        else:
+            base = os.path.join("data", "user")
         os.makedirs(base, exist_ok=True)
         path = os.path.join(base, f"{login}.json")
         if not os.path.exists(path):
@@ -436,6 +474,7 @@ def _ensure_user_file(login, rola):
             }
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
+            print(f"[WM-ROOT][USER] file={path}")
             _info(f"[{SESSION_ID}] Utworzono plik użytkownika: {path}")
     except Exception as e:
         _error(f"[{SESSION_ID}] Błąd tworzenia pliku użytkownika: {e}")
@@ -741,6 +780,35 @@ def main():
     # Opcjonalnie wycisz WARNING Qt
     # "Untested Windows version 10.0 detected!" – porządkuje logi.
     SESSION_ID = f"{datetime.now().strftime('%H%M%S')}"
+    global ROOT_SNAPSHOT, CONFIG_MANAGER, CONFIG_PATH
+
+    if wm_root_paths is not None:
+        try:
+            # Tu wolno pokazać wybór folderu ROOT, bo startuje właściwa aplikacja.
+            ROOT_SNAPSHOT = wm_root_paths.install_environment(prompt=True)
+            CONFIG_MANAGER = None
+            try:
+                os.environ["WM_ROOT"] = str(wm_root_paths.get_root_anchor())
+                os.environ["WM_DATA_ROOT"] = str(wm_root_paths.get_data_root())
+                os.environ["WM_CONFIG_FILE"] = str(wm_root_paths.path_config())
+            except Exception:
+                pass
+            env_cfg = os.environ.get("WM_CONFIG_FILE")
+            if env_cfg:
+                CONFIG_PATH = Path(env_cfg).expanduser().resolve()
+            try:
+                print(f"[WM-ROOT][START] CONFIG_PATH={CONFIG_PATH}")
+                print(f"[WM-ROOT][START] WM_ROOT={os.environ.get('WM_ROOT')}")
+                print(f"[WM-ROOT][START] WM_DATA_ROOT={os.environ.get('WM_DATA_ROOT')}")
+                print(
+                    f"[WM-ROOT][START] WM_CONFIG_FILE={os.environ.get('WM_CONFIG_FILE')}"
+                )
+            except Exception:
+                pass
+            wm_root_paths.print_root_diagnostics(ROOT_SNAPSHOT)
+        except Exception as exc:
+            print(f"[WM-ROOT][WARN] Bootstrap ROOT w main() nieudany: {exc}")
+
     manager = _ensure_config_manager()
     _print_root_diagnostics(manager)
     _post_config_bootstrap()
@@ -792,11 +860,26 @@ def main():
     try:
         _info("ConfigManager: OK")
         try:
-            from backend.bootstrap_root import ensure_root_ready
-
-            ensure_root_ready(str(CONFIG_PATH))
+            # Stary backend.bootstrap_root mieszał APP_ROOT z WM_ROOT i potrafił
+            # ponownie pytać o folder albo tworzyć strukturę poza wybranym ROOT.
+            # Centralnym mechanizmem ROOT jest teraz core.root_paths.install_environment().
+            if wm_root_paths is not None:
+                try:
+                    wm_root_paths.ensure_root_tree()
+                except Exception as exc:
+                    _error(f"Root bootstrap ensure_root_tree failed: {exc}")
             _info("Root bootstrap: OK")
         except Exception as e:  # pragma: no cover - startup warning only
+            try:
+                messagebox.showwarning(
+                    "Problem ze ścieżkami WM",
+                    "Nie udało się przygotować głównego folderu danych WM.\n\n"
+                    "Wskaż ROOT danych w ustawieniach lub usuń wm_root.json i uruchom program ponownie.\n\n"
+                    f"Szczegóły: {e}",
+                    parent=None,
+                )
+            except Exception:
+                pass
             _error("Root bootstrap failed", str(e))
     except Exception:
         _error("ConfigManager: problem (pomijam)")
@@ -883,7 +966,19 @@ def main():
             traceback.print_exc()
             _error("Błąd auto-logowania – przechodzę do standardowego ekranu logowania")
 
-        if not auto_logged:
+        embedded_login = _auth_flag(CONFIG_MANAGER, "auth.embedded_login", False)
+        guest_start = _auth_flag(CONFIG_MANAGER, "auth.guest_start", True)
+
+        if embedded_login and guest_start and not auto_logged:
+            try:
+                import gui_panel
+                gui_panel.uruchom_panel(root, login="Gość", rola="guest")
+            except Exception:
+                traceback.print_exc()
+                _error("Błąd uruchomienia trybu gościa – przechodzę do pełnego logowania")
+                embedded_login = False
+
+        if not auto_logged and not (embedded_login and guest_start):
             import gui_logowanie
 
             returned_root = gui_logowanie.ekran_logowania(

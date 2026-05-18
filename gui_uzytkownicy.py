@@ -22,6 +22,7 @@ try:
         set_modules_visibility_map,
         load_profiles,
         save_profiles,
+        normalize_role_name,
     )
 except Exception:  # pragma: no cover - fallback, gdy moduł nie istnieje
     def get_disabled_modules_for(_login: str):
@@ -29,6 +30,9 @@ except Exception:  # pragma: no cover - fallback, gdy moduł nie istnieje
 
     def set_modules_visibility_map(_login: str, _show_map: dict):
         pass
+
+    def normalize_role_name(role: str) -> str:
+        return str(role or "").strip().lower()
 
     def load_profiles():
         return {}
@@ -117,6 +121,29 @@ SHIFT_MODE_CHOICES = {
     "Rotacja 2 → 1 → 2": "212",
 }
 
+ROLE_LABELS = [
+    ("administrator", "Administrator"),
+    ("kierownik", "Kierownik"),
+    ("brygadzista", "Brygadzista"),
+    ("operator", "Operator / Ślusarz"),
+    ("student", "Student"),
+    ("sezonowiec", "Sezonowiec"),
+    ("guest", "Gość"),
+]
+
+ROLE_KEYS = [role_key for role_key, _label in ROLE_LABELS]
+ROLE_LABELS_MAP = {role_key: label for role_key, label in ROLE_LABELS}
+
+LEGACY_ROLE_ALIASES = {
+    "admin": "administrator",
+    "administrator": "administrator",
+    "user": "operator",
+    "uzytkownik": "operator",
+    "użytkownik": "operator",
+    "pracownik": "operator",
+    "serwisant": "operator",
+}
+
 
 def _shift_mode_label_from_code(code: str | None) -> str:
     normalized = str(code or "").strip()
@@ -168,7 +195,7 @@ def _current_user_role_safe(owner=None) -> str:
     if role:
         return role
 
-    return "user"
+    return "operator"
 
 
 def _current_user_login_safe(owner=None) -> str:
@@ -486,18 +513,28 @@ def _profile_display_name(profile: dict) -> str:
 
 
 def _role_to_choice(role: str | None) -> str:
-    """Normalizuje rolę na wartość UI ('admin' lub 'user')."""
+    """Normalizuje rolę profilu na klucz z nowej listy rang."""
 
     normalized = str(role or "").strip().lower()
-    if normalized in {"administrator", "admin"}:
-        return "admin"
-    return "user"
+    normalized = LEGACY_ROLE_ALIASES.get(normalized, normalized)
+    try:
+        normalized = normalize_role_name(normalized)
+    except Exception:
+        pass
+    return normalized if normalized in ROLE_KEYS else "operator"
 
 
 def _choice_to_role(choice: str) -> str:
     """Mapuje wartość z UI na zapis w profilu."""
 
-    return "administrator" if str(choice).strip().lower() == "admin" else "uzytkownik"
+    normalized = str(choice or "").strip().lower()
+    normalized = LEGACY_ROLE_ALIASES.get(normalized, normalized)
+    return normalized if normalized in ROLE_KEYS else "operator"
+
+
+def _role_key_to_label(role_key: str | None) -> str:
+    normalized = _role_to_choice(role_key)
+    return ROLE_LABELS_MAP.get(normalized, "Operator / Ślusarz")
 
 
 def _slugify_login(name: str) -> str:
@@ -622,11 +659,12 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
             role_choice = _role_to_choice(
                 profile.get("rola") if isinstance(profile, dict) else None
             )
+            role_label = _role_key_to_label(role_choice)
             tree.insert(
                 "",
                 "end",
                 iid=login_value,
-                values=(name, pin, role_choice),
+                values=(name, pin, role_label),
             )
 
         if select_login and tree.exists(select_login):
@@ -665,8 +703,8 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
         login_var = tk.StringVar(value=original_login)
         name_var = tk.StringVar(value=_profile_display_name(seed))
         role_var = tk.StringVar(value=_role_to_choice(seed.get("rola") or seed.get("role")))
-        if role_var.get() not in {"admin", "user"}:
-            role_var.set("user")
+        if role_var.get() not in ROLE_KEYS:
+            role_var.set("operator")
         pin_var = tk.StringVar(value=str(seed.get("pin", "")))
         shift_mode_var = tk.StringVar(
             value=_shift_mode_label_from_code(seed.get("tryb_zmian", "111"))
@@ -688,7 +726,7 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
         ttk.Label(form, text="Rola:").grid(row=2, column=0, sticky="w")
         role_combo = ttk.Combobox(
             form,
-            values=["admin", "user"],
+            values=ROLE_KEYS,
             textvariable=role_var,
             state="readonly",
         )
@@ -758,9 +796,9 @@ def panel_uzytkownicy(root, frame, login=None, rola=None):
                 return
 
             role_choice = role_var.get().strip().lower()
-            if role_choice not in {"admin", "user"}:
-                role_choice = "user"
-                role_var.set("user")
+            if role_choice not in ROLE_KEYS:
+                role_choice = "operator"
+                role_var.set("operator")
 
             pin_value = pin_var.get().strip()
             profiles_map = dict(state.get("profiles", {}))

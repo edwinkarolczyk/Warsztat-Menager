@@ -13,7 +13,7 @@ from dyspozycje_sources import (
     load_tool_choices,
     load_zlecenie_wykonania_choices,
 )
-from dyspozycje_store import add_dyspozycja, make_dyspozycja
+from dyspozycje_store import add_dyspozycja, make_dyspozycja, update_dyspozycja
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
@@ -65,11 +65,17 @@ def open_dyspozycje_creator(
     context: dict[str, Any] | None = None,
 ) -> tk.Toplevel:
     ctx = dict(context or {})
+    edit_mode = bool(ctx.get("edit_mode"))
+    existing_id = str(ctx.get("id") or "").strip()
     root = master.winfo_toplevel() if master else None
     win = tk.Toplevel(root)
-    win.title("Kreator – Dodaj Dyspozycję")
-    win.geometry("700x500")
-    win.resizable(False, False)
+    win.title("Kreator – Edytuj Dyspozycję" if edit_mode else "Kreator – Dodaj Dyspozycję")
+    win.geometry("1200x800")
+    win.resizable(True, True)
+    try:
+        win.state("zoomed")
+    except Exception:
+        win.attributes("-zoomed", True)
 
     frame = ttk.Frame(win, padding=12)
     frame.pack(fill="both", expand=True)
@@ -77,7 +83,7 @@ def open_dyspozycje_creator(
 
     ttk.Label(
         frame,
-        text="Nowa Dyspozycja",
+        text="Edycja Dyspozycji" if edit_mode else "Nowa Dyspozycja",
         style="WM.H1.TLabel",
     ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
@@ -92,11 +98,6 @@ def open_dyspozycje_creator(
     )
     cb_type.grid(row=1, column=1, sticky="w", pady=4)
 
-    ttk.Label(frame, text="Tytuł:").grid(row=2, column=0, sticky="w", pady=4)
-    var_title = tk.StringVar(value=str(ctx.get("tytul") or ""))
-    ent_title = ttk.Entry(frame, textvariable=var_title)
-    ent_title.grid(row=2, column=1, sticky="ew", pady=4)
-
     var_object_label = tk.StringVar(value="Obiekt:")
     lbl_object = ttk.Label(frame, textvariable=var_object_label)
     lbl_object.grid(row=3, column=0, sticky="w", pady=4)
@@ -110,6 +111,11 @@ def open_dyspozycje_creator(
         width=48,
     )
     cb_object.grid(row=3, column=1, sticky="ew", pady=4)
+
+    var_tool_search = tk.StringVar()
+    ent_tool_search = ttk.Entry(frame, textvariable=var_tool_search)
+    ent_tool_search.grid(row=2, column=1, sticky="ew", pady=4)
+    ent_tool_search.grid_remove()
 
     ttk.Label(frame, text="Opis:").grid(row=4, column=0, sticky="nw", pady=4)
     txt_desc = tk.Text(frame, height=6, width=54)
@@ -149,6 +155,7 @@ def open_dyspozycje_creator(
     cb_assigned.grid(row=8, column=1, sticky="w", pady=4)
 
     options_map: dict[str, str] = {}
+    all_labels: list[str] = []
     source_module = {"value": ""}
 
     def _toggle_assigned(*_args) -> None:
@@ -164,13 +171,19 @@ def open_dyspozycje_creator(
                 pass
 
     def _refresh_object_choices(*_args) -> None:
-        nonlocal options_map
+        nonlocal options_map, all_labels
         source_key, label_text, options = _options_for_type(var_type.get())
         source_module["value"] = source_key
         var_object_label.set(label_text)
         options_map = {label: object_id for object_id, label in options}
-        labels = [label for _object_id, label in options]
+        all_labels = [label for _object_id, label in options]
+        labels = list(all_labels)
         cb_object.configure(values=labels)
+        var_tool_search.set("")
+        if source_key == "narzedzia":
+            ent_tool_search.grid()
+        else:
+            ent_tool_search.grid_remove()
 
         ctx_object_id = str(ctx.get("obiekt_id") or "").strip()
         picked = ""
@@ -188,15 +201,28 @@ def open_dyspozycje_creator(
     cb_type.bind("<<ComboboxSelected>>", _refresh_object_choices)
     _refresh_object_choices()
 
+    def _filter_tools(*_args) -> None:
+        if source_module["value"] != "narzedzia":
+            return
+        query = var_tool_search.get().strip().lower()
+        if not query:
+            filtered = list(all_labels)
+        else:
+            filtered = [label for label in all_labels if query in label.lower()]
+        cb_object.configure(values=filtered)
+        if filtered:
+            current = var_object_display.get().strip()
+            if current not in filtered:
+                var_object_display.set(filtered[0])
+        else:
+            var_object_display.set("")
+
+    var_tool_search.trace_add("write", _filter_tools)
+
     btns = ttk.Frame(win, padding=(12, 0, 12, 12))
     btns.pack(fill="x")
 
     def _save() -> None:
-        title = var_title.get().strip()
-        if not title:
-            messagebox.showwarning("Dyspozycje", "Tytuł jest wymagany.", parent=win)
-            return
-
         selected_label = var_object_display.get().strip()
         object_id = options_map.get(selected_label, "").strip()
         if not object_id:
@@ -207,31 +233,50 @@ def open_dyspozycje_creator(
             )
             return
 
-        item = make_dyspozycja(
-            typ_dyspozycji=var_type.get().strip(),
-            tytul=title,
-            opis=txt_desc.get("1.0", "end").strip(),
-            autor=str(autor or "").strip(),
-            przypisane_do="" if var_all.get() else var_assigned.get().strip(),
-            dla_wszystkich=bool(var_all.get()),
-            termin=var_deadline.get().strip(),
-            priorytet=var_priority.get().strip(),
-            modul_zrodlowy=source_module["value"],
-            obiekt_id=object_id,
-            meta={"object_label": selected_label},
-        )
-        add_dyspozycja(item)
+        title = str(ctx.get("tytul") or "").strip() or selected_label or var_type.get().strip()
+        payload = {
+            "typ_dyspozycji": var_type.get().strip(),
+            "tytul": title,
+            "opis": txt_desc.get("1.0", "end").strip(),
+            "autor": str(autor or ctx.get("autor") or "").strip(),
+            "przypisane_do": "" if var_all.get() else var_assigned.get().strip(),
+            "dla_wszystkich": bool(var_all.get()),
+            "termin": var_deadline.get().strip(),
+            "priorytet": var_priority.get().strip(),
+            "modul_zrodlowy": source_module["value"],
+            "obiekt_id": object_id,
+            "meta": {"object_label": selected_label},
+        }
+
+        if edit_mode and existing_id:
+            changed = update_dyspozycja(existing_id, payload)
+            if not changed:
+                messagebox.showerror(
+                    "Dyspozycje",
+                    "Nie udało się zapisać zmian Dyspozycji.",
+                    parent=win,
+                )
+                return
+        else:
+            item = make_dyspozycja(**payload)
+            add_dyspozycja(item)
+
         try:
-            win.winfo_toplevel().event_generate("<<OrdersUpdated>>", when="tail")
+            # NOWY event dla Dyspozycji (zamiast OrdersUpdated)
+            win.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
         except Exception:
             pass
-        messagebox.showinfo("Dyspozycje", "Dyspozycja została zapisana.", parent=win)
+        messagebox.showinfo(
+            "Dyspozycje",
+            "Dyspozycja została zaktualizowana." if edit_mode else "Dyspozycja została zapisana.",
+            parent=win,
+        )
         win.destroy()
 
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right", padx=(8, 0))
     ttk.Button(btns, text="Zapisz", command=_save).pack(side="right")
 
-    ent_title.focus_set()
+    cb_object.focus_set()
     win.transient(root)
     win.grab_set()
     return win

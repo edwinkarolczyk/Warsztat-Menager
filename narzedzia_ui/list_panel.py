@@ -181,6 +181,32 @@ def _tool_progress_pct(tool: Mapping[str, Any]) -> str:
     return f"{pct}%"
 
 
+def _progress_value(progress_text: str) -> int:
+    """Zwraca liczbę 0-100 z tekstu typu '75%'."""
+
+    raw = str(progress_text or "").strip().replace("%", "")
+    try:
+        value = int(float(raw.replace(",", ".")))
+    except (TypeError, ValueError):
+        value = 0
+    return max(0, min(100, value))
+
+
+def _progress_tag(progress_text: str) -> str:
+    """Dobiera tag koloru do postępu narzędzia."""
+
+    progress = _progress_value(progress_text)
+    if progress <= 0:
+        return "progress_0"
+    if progress < 50:
+        return "progress_low"
+    if progress < 90:
+        return "progress_mid"
+    if progress < 100:
+        return "progress_high"
+    return "progress_done"
+
+
 REFRESH_INTERVAL_SECONDS = 30
 
 
@@ -620,6 +646,15 @@ class ToolsThreeTabsView(ttk.Frame):
             )
             self.tv_inprog.column(column, width=widths.get(column, 120), anchor="w")
 
+        # Kolory postępu w zakładce "Narzędzia".
+        # Tkinter Treeview koloruje tagiem cały wiersz, nie pojedynczą komórkę,
+        # więc celowo kolorujemy cały rekord według kolumny "Postęp".
+        self.tv_inprog.tag_configure("progress_0", foreground="#9ca3af")
+        self.tv_inprog.tag_configure("progress_low", foreground="#f87171")
+        self.tv_inprog.tag_configure("progress_mid", foreground="#facc15")
+        self.tv_inprog.tag_configure("progress_high", foreground="#86efac")
+        self.tv_inprog.tag_configure("progress_done", foreground="#22c55e")
+
     def _build_tab_all(self) -> None:
         top = ttk.Frame(self.tab_all)
         top.pack(fill="x", padx=8, pady=6)
@@ -813,16 +848,18 @@ class ToolsThreeTabsView(ttk.Frame):
         self._clear_tree(self.tv_inprog)
         for tool in tools:
             active, total = _tool_tasks_counts(tool)
+            progress_text = _tool_progress_pct(tool)
             self.tv_inprog.insert(
                 "",
                 "end",
+                tags=(_progress_tag(progress_text),),
                 values=(
                     _tool_id(tool),
                     _tool_name(tool),
                     _tool_type_label(tool),
                     _tool_status_label(tool),
                     _pretty_dt(_tool_current_visit_start(tool)),
-                    _tool_progress_pct(tool),
+                    progress_text,
                     f"{active}/{total}",
                     str(_tool_visits_count(tool)),
                 ),

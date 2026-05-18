@@ -32,6 +32,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
 
+from dyspozycje_store import assigned_to_login, visible_for_login
+
 try:
     from ui_theme_guard import ensure_theme_applied
 except Exception:  # pragma: no cover - optional dependency
@@ -39,52 +41,6 @@ except Exception:  # pragma: no cover - optional dependency
         """Fallback gdy strażnik motywu jest niedostępny."""
 
         return
-try:  # pragma: no cover - nowy moduł kreatora może być niedostępny
-    from wm.dyspo_wizard import open_dyspo_wizard
-except Exception:  # pragma: no cover - zachowaj kompatybilność
-    open_dyspo_wizard = None  # type: ignore
-
-try:  # pragma: no cover - skróty wymagają nowego modułu
-    from wm.gui.shortcuts import bind_ctrl_d
-except Exception:  # pragma: no cover - fallback
-    def bind_ctrl_d(*_args, **_kwargs):  # type: ignore
-        return None
-
-
-def _maybe_open_dyspo(root, context):
-    if open_dyspo_wizard is None:
-        return
-    target = root
-    if hasattr(root, "winfo_toplevel"):
-        try:
-            target = root.winfo_toplevel()
-        except Exception:
-            target = root
-    if getattr(target, "tk", None) is None:
-        local_tk = globals().get("tk")
-        local_ttk = globals().get("ttk")
-        dialog = None
-        if hasattr(local_tk, "Toplevel"):
-            try:
-                dialog = local_tk.Toplevel(target)
-            except Exception:
-                dialog = None
-        proceed = None
-        if hasattr(local_ttk, "Button"):
-            try:
-                proceed = lambda: None
-                local_ttk.Button(
-                    dialog or target, text="Dalej", command=proceed
-                )
-            except Exception:
-                proceed = None
-        if dialog is not None and hasattr(dialog, "bind") and proceed is not None:
-            try:
-                dialog.bind("<Return>", proceed)
-            except Exception:
-                pass
-        return
-    open_dyspo_wizard(target, context=context)
 from datetime import datetime as _dt, datetime
 from typing import Optional, Callable
 from config_manager import ConfigManager
@@ -1092,22 +1048,6 @@ def _build_tasks_tab(parent, root, login, rola, tasks):
     open_cnt = sum(1 for t in tasks if t.get("status") in ("Nowe","W toku","Pilne"))
     urgent = sum(1 for t in tasks if t.get("status")=="Pilne")
     done   = sum(1 for t in tasks if t.get("status")=="Zrobione")
-    if open_dyspo_wizard is not None:
-        target = root
-        if hasattr(root, "winfo_toplevel"):
-            try:
-                target = root.winfo_toplevel()
-            except Exception:
-                target = root
-        ttk.Button(
-            stats,
-            text="Nowa dyspozycja…",
-            command=lambda: _maybe_open_dyspo(
-                target,
-                {"module": "Zadania", "login": login},
-            ),
-        ).pack(side="right", padx=4)
-        bind_ctrl_d(target, context={"module": "Zadania", "login": login})
     for txt in (f"Zadania: {total}", f"Otwarte: {open_cnt}", f"Pilne: {urgent}", f"Zrobione: {done}"):
         ttk.Label(stats, text=txt, relief="groove", style="WM.TLabel").pack(side="left", padx=4)
     _build_table(parent, root, login, rola, tasks)
@@ -1987,16 +1927,6 @@ class ProfileView(ttk.Frame):
             if tab_name != self.active_tab.get():
                 frame.grid_remove()
 
-        for tab_name in ("O mnie", "Narzędzia"):
-            frame = ttk.Frame(center, style="WM.Card.TFrame")
-            frame.grid(row=0, column=0, sticky="nsew")
-            self._tab_contents[tab_name] = frame
-            self._tab_builders[tab_name] = lambda parent, name=tab_name: self._build_placeholder_tab(
-                parent, name
-            )
-            self._render_tab(tab_name)
-            frame.grid_remove()
-
         right = ttk.Frame(content, style="WM.Card.TFrame")
         right.grid(row=0, column=2, sticky="nsew", padx=(8, 0))
         self._shortcuts_container = right
@@ -2482,38 +2412,6 @@ class ProfileView(ttk.Frame):
         except Exception:
             warning_box(self, "Narzędzie", f"Nie udało się otworzyć: {tool_ref}")
 
-    def _build_placeholder_tab(self, parent: ttk.Frame, tab_name: str) -> None:
-        parent.grid_propagate(False)
-        wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
-        wrap.pack(fill="both", expand=True)
-
-        ttk.Label(
-            wrap,
-            text=tab_name.upper(),
-            style="WM.CardMuted.TLabel",
-            font=("Segoe UI", 10, "bold"),
-        ).pack(anchor="w", pady=(0, 8))
-
-        if tab_name == "O mnie":
-            message = (
-                "Szczegółowe dane personalne znajdziesz w lewej kolumnie. "
-                "Sekcja zakładki zostanie rozbudowana w kolejnych wydaniach."
-            )
-        else:
-            message = (
-                "Integracja z modułem narzędzi jest w przygotowaniu. "
-                "Na razie skorzystaj z widoku w głównym module narzędzi."
-            )
-
-        ttk.Label(
-            wrap,
-            text=message,
-            style="WM.CardLabel.TLabel",
-            anchor="w",
-            justify="left",
-            wraplength=560,
-        ).pack(anchor="w")
-
     def _timeline_item(
         self, parent: ttk.Frame, text: str, refs: list[tuple[str, str]] | None = None
     ) -> None:
@@ -2583,12 +2481,6 @@ class ProfileView(ttk.Frame):
         if can_edit_profile and (editable_fields or allow_pin_change):
             quick_actions.append(("Edytuj mój profil", self._open_edit_profile, True))
         quick_actions.append(("Nowa wiadomość (PW)", self._on_send_pw, True))
-        quick_actions.extend(
-            [
-                ("Symuluj zdarzenie awarii", self._on_sim_event, False),
-                ("Podgląd mojego grafiku", self._on_open_schedule, False),
-            ]
-        )
 
         for text, callback, enabled in quick_actions:
             btn = ttk.Button(
@@ -2599,20 +2491,6 @@ class ProfileView(ttk.Frame):
                 takefocus=False,
             )
             btn.pack(fill="x", pady=4)
-            if not enabled:
-                try:
-                    btn.configure(state="disabled")
-                except Exception:
-                    try:
-                        btn.state(["disabled"])
-                    except Exception:
-                        pass
-                _bind_tooltip(btn, "Funkcja w przygotowaniu")
-                ttk.Label(
-                    wrapper,
-                    text="Funkcja w przygotowaniu",
-                    style="WM.CardMuted.TLabel",
-                ).pack(anchor="w", padx=(12, 0), pady=(0, 4))
 
     def _can_edit_profile(self) -> bool:
         return _can_edit_profile_for(self.login)
@@ -2980,156 +2858,6 @@ class ProfileView(ttk.Frame):
                 if isinstance(rec, dict) and rec.get("login")
             ]
         return []
-
-    def _on_open_settings(self) -> None:
-        root = self.winfo_toplevel()
-        panel: tk.Misc | None = None
-        window: tk.Misc | None = None
-
-        candidates: list[tk.Misc] = []
-        if isinstance(root, tk.Misc):
-            candidates.append(root)
-            try:
-                candidates.extend(root.winfo_children())
-            except Exception:
-                pass
-
-        for candidate in candidates:
-            current = getattr(candidate, "_wm_settings_panel", None)
-            if current is None:
-                continue
-            try:
-                exists = current.winfo_exists()
-            except Exception:
-                exists = False
-            if exists:
-                panel = current
-                try:
-                    window = current.winfo_toplevel()
-                except Exception:
-                    window = getattr(candidate, "winfo_toplevel", lambda: None)()
-                break
-
-        if panel is None:
-            try:
-                from gui_settings import SettingsWindow
-            except Exception as exc:
-                log_akcja(
-                    f"[WM-DBG][PROFILE] Nie można załadować modułu ustawień: {exc}"
-                )
-                warning_box(
-                    self,
-                    "Ustawienia",
-                    "Nie udało się otworzyć panelu ustawień.",
-                )
-                return
-
-            _prepare_modal_owner(self)
-            window = tk.Toplevel(root)
-            window.title("Ustawienia – Warsztat Menager")
-            apply_theme(window)
-            try:
-                window.geometry("1024x700")
-                window.minsize(900, 600)
-            except Exception:
-                pass
-
-            try:
-                panel = SettingsWindow(window)
-            except Exception as exc:
-                log_akcja(f"[WM-DBG][PROFILE] Błąd inicjalizacji ustawień: {exc}")
-                warning_box(
-                    self,
-                    "Ustawienia",
-                    "Nie udało się zbudować panelu ustawień.",
-                )
-                try:
-                    window.destroy()
-                except Exception:
-                    pass
-                return
-
-            try:
-                setattr(root, "_wm_settings_panel", panel)
-            except Exception:
-                pass
-            try:
-                setattr(root, "_wm_settings_window", window)
-            except Exception:
-                pass
-
-        if window is None and panel is not None:
-            try:
-                window = panel.winfo_toplevel()
-            except Exception:
-                window = None
-
-        if window is not None:
-            try:
-                window.deiconify()
-                window.lift()
-                window.focus_force()
-            except Exception:
-                pass
-
-        if panel is None:
-            return
-
-        focused = False
-        if hasattr(panel, "focus_tab"):
-            try:
-                focused = panel.focus_tab("uzytkownicy", "profile_config")
-            except Exception as exc:
-                log_akcja(f"[WM-DBG][PROFILE] focus_tab nie powiodło się: {exc}")
-            if not focused:
-                try:
-                    focused = panel.focus_tab("użytkownicy")
-                except Exception:
-                    pass
-            if not focused:
-                try:
-                    focused = panel.focus_tab("profile")
-                except Exception:
-                    pass
-
-        if focused:
-            return
-
-        notebook = getattr(panel, "nb", None)
-        if notebook is None or not hasattr(notebook, "tabs"):
-            return
-
-        try:
-            tabs = list(notebook.tabs())
-        except Exception:
-            return
-
-        labels = {
-            "użytkownicy",
-            "uzytkownicy",
-            "profile",
-            "profiles",
-        }
-        for tab_id in tabs:
-            try:
-                label = notebook.tab(tab_id, "text")
-            except Exception:
-                continue
-            if not isinstance(label, str):
-                continue
-            if label.strip().lower() in labels:
-                try:
-                    notebook.select(tab_id)
-                except Exception:
-                    pass
-                break
-
-    def _on_sim_event(self) -> None:
-        log_akcja("[WM-DBG][PROFILE] Klik: Symuluj zdarzenie awarii (placeholder).")
-
-    def _on_open_schedule(self) -> None:
-        log_akcja("[WM-DBG][PROFILE] Klik: Podgląd grafiku (placeholder).")
-
 
 if __name__ == "__main__":
     root = tk.Tk()

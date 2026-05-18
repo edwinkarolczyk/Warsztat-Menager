@@ -35,11 +35,30 @@ from logger import log_akcja
 from profiles_store import resolve_profiles_path
 
 try:
-    DATA_ROOT = ConfigManager().path_data()
-except Exception:
-    DATA_ROOT = os.path.join(os.getcwd(), "data")
+    from core import root_paths
+except Exception:  # pragma: no cover
+    root_paths = None
 
-PROFILES_DIR = Path(DATA_ROOT) / "profile"
+
+def _data_root() -> Path:
+    if root_paths is not None:
+        return root_paths.get_data_root()
+    try:
+        return Path(ConfigManager().path_data())
+    except Exception:
+        print("[WM-ROOT][WARN] profile_service fallback DATA_ROOT=data")
+        return Path("data")
+
+
+def _profiles_dir() -> Path:
+    path = _data_root() / "profile"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+# Zachowane dla kompatybilności z kodem, który może importować te nazwy.
+DATA_ROOT = str(_data_root())
+PROFILES_DIR = _profiles_dir()
 
 
 def _app_root() -> Path:
@@ -66,10 +85,7 @@ def _users_file_path(file_path: Optional[str] = None) -> Path:
     resolved = resolve_profiles_path(None)
     if resolved.exists():
         return resolved
-    cwd_candidates = [
-        (Path.cwd() / "profiles.json").resolve(),
-        (Path.cwd() / "uzytkownicy.json").resolve(),
-    ]
+    cwd_candidates = [(Path.cwd() / "uzytkownicy.json").resolve()]
     for candidate in cwd_candidates:
         try:
             if candidate.exists():
@@ -236,26 +252,25 @@ def _config_manager_or_none() -> ConfigManager | None:
 
 
 def _presence_path() -> Path:
-    path = PROFILES_DIR / "presence.json"
+    path = _profiles_dir() / "presence.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _assign_orders_path() -> Path:
-    path = PROFILES_DIR / "assign_orders.json"
+    path = _profiles_dir() / "assign_orders.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _assign_tools_path() -> Path:
-    path = PROFILES_DIR / "assign_tools.json"
+    path = _profiles_dir() / "assign_tools.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _overrides_dir() -> Path:
-    PROFILES_DIR.mkdir(parents=True, exist_ok=True)
-    return PROFILES_DIR
+    return _profiles_dir()
 
 
 def _status_override_path(login: str) -> Path:
@@ -572,22 +587,19 @@ def workload_for(users, **kwargs):
     return _workload_for(users, **kwargs)
 
 
-try:
-    _TASK_FILES  # type: ignore[name-defined]
-except NameError:
+def _task_files() -> List[str]:
     try:
         _cfg = ConfigManager()
-        _data_root = _cfg.path_data()
-        if not os.path.isdir(_data_root) and os.path.isdir("data"):
-            raise FileNotFoundError("Configured data root missing.")
-        _TASK_FILES: List[str] = [
+        return [
             _cfg.path_data("zlecenia.json"),
             _cfg.path_data("zadania.json"),
         ]
     except Exception:
-        _TASK_FILES = [
-            os.path.join("data", "zlecenia.json"),
-            os.path.join("data", "zadania.json"),
+        base = _data_root()
+        print(f"[WM-ROOT][WARN] profile_service task files fallback={base}")
+        return [
+            str(base / "zlecenia.json"),
+            str(base / "zadania.json"),
         ]
 
 
@@ -596,7 +608,7 @@ try:
 except NameError:
 
     def _load_tasks_raw() -> List[Dict[str, Any]]:
-        for fp in _TASK_FILES:
+        for fp in _task_files():
             if os.path.exists(fp):
                 try:
                     with open(fp, encoding="utf-8") as fh:
@@ -613,7 +625,7 @@ except NameError:
 def tasks_data_status() -> Tuple[bool, Optional[str], int]:
     """Return information about the availability of task data sources."""
 
-    for fp in _TASK_FILES:
+    for fp in _task_files():
         if os.path.exists(fp):
             try:
                 with open(fp, encoding="utf-8") as fh:

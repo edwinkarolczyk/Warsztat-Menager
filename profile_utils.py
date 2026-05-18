@@ -23,10 +23,24 @@ if TYPE_CHECKING:  # pragma: no cover - tylko do statycznych analiz
 
 
 _LOGGER = logging.getLogger(__name__)
-try:
-    DATA_DIR = str(Path(ConfigManager().path_data()))
-except Exception:
-    DATA_DIR = "data"
+
+
+def _data_dir() -> str:
+    """Zwraca aktualny DATA_ROOT, liczony dynamicznie po wyborze WM_ROOT."""
+
+    try:
+        from core import root_paths
+
+        return str(root_paths.get_data_root())
+    except Exception:
+        try:
+            return str(Path(ConfigManager().path_data()))
+        except Exception:
+            print("[WM-ROOT][WARN] profile_utils fallback DATA_DIR=data")
+            return "data"
+
+
+DATA_DIR = _data_dir()
 
 def _norm(p: str) -> str:
     return os.path.normcase(os.path.abspath(os.path.normpath(p)))
@@ -356,6 +370,15 @@ def _configured_users_path(cfg: ConfigManager) -> Path | None:
 
 
 def _profiles_target_path(cfg: ConfigManager | None) -> Path:
+    try:
+        from core import root_paths
+
+        resolved = root_paths.path_profiles()
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        print(f"[WM-ROOT][PROFILES] target={resolved}")
+        return resolved
+    except Exception:
+        pass
     raw_cfg = None
     if cfg is not None:
         raw_cfg = getattr(cfg, "global_cfg", None)
@@ -479,14 +502,21 @@ def refresh_users_file() -> str:
     return USERS_FILE
 
 
+def current_users_file() -> str:
+    """Zwraca aktualną ścieżkę users/profiles po zmianie ROOT."""
+
+    return refresh_users_file()
+
+
 def _ensure_users_file_path() -> None:
     """Ensure target directory exists and migrate legacy file if present."""
     global USERS_FILE
-    if USERS_FILE == _DEFAULT_USERS_FILE:
-        USERS_FILE = _default_users_file()
-    Path(USERS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    USERS_FILE = _default_users_file()
+    target = Path(USERS_FILE)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[WM-ROOT][PROFILES] users_file={target}")
     legacy = Path(__file__).resolve().parent / "uzytkownicy.json"
-    if legacy.exists() and not Path(USERS_FILE).exists():
+    if legacy.exists() and not target.exists():
         legacy.replace(USERS_FILE)
 
 try:
@@ -499,6 +529,7 @@ _SIDEBAR_BASE: list[tuple[str, str]] = [
     ("narzedzia", "Narzędzia"),
     ("maszyny", "Maszyny"),
     ("magazyn", "Magazyn"),
+    ("planowanie", "Planowanie"),
     ("jarvis", "Jarvis"),
     ("feedback", "Wyślij opinię"),
     ("uzytkownicy", "Użytkownicy"),
@@ -649,8 +680,9 @@ def find_user_by_pin(pin):
 
 
 def load_task_queue() -> list[Any]:
-    path_zadania = os.path.join(DATA_DIR, "zadania.json")
-    path_zlecenia = os.path.join(DATA_DIR, "zlecenia.json")
+    data_dir = _data_dir()
+    path_zadania = os.path.join(data_dir, "zadania.json")
+    path_zlecenia = os.path.join(data_dir, "zlecenia.json")
 
     # Auto-tworzenie pustych plików jeśli nie istnieją
     for path in (path_zadania, path_zlecenia):
@@ -736,6 +768,7 @@ __all__ = [
     "DEFAULT_BRYGADZISTA_PASSWORD",
     "PRIMARY_ADMIN_ROLE",
     "ADMIN_ROLE_NAMES",
+    "current_users_file",
     "read_users",
     "write_users",
     "list_user_ids",

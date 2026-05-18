@@ -82,6 +82,23 @@ def panel_ustawien(
     wires variable traces so callers using legacy APIs continue to work.
     """
 
+    try:
+        from gui_panel import wm_set_module_source
+
+        detected_config_path = os.environ.get("WM_CONFIG_FILE")
+        if not detected_config_path:
+            try:
+                from start import CONFIG_MANAGER
+
+                detected_config_path = str(
+                    getattr(CONFIG_MANAGER, "config_path", "") or ""
+                )
+            except Exception:
+                detected_config_path = ""
+        wm_set_module_source(root, "Ustawienia", detected_config_path)
+    except Exception:
+        pass
+
     clear_frame(frame)
 
     # ------------------------------------------------------------------

@@ -38,25 +38,109 @@ from typing import Any, Dict, Iterable, List, Mapping
 
 from core.bootstrap import bootstrap_paths
 from core.path_utils import resolve_root_path
+from core import root_paths as wm_root_paths
 from utils.path_utils import cfg_path
 
 log = logging.getLogger(__name__)
 
+
+def _wm_root_env_active() -> bool:
+    """Czy centralny ROOT jest już ustawiony w runtime."""
+
+    return bool(
+        os.environ.get("WM_ROOT")
+        or os.environ.get("WM_DATA_ROOT")
+        or os.environ.get("WM_CONFIG_FILE")
+    )
+
+
+def _force_runtime_root_into_env() -> None:
+    """Ujednolica ENV na podstawie core.root_paths, bez pytania użytkownika."""
+
+    try:
+        if not os.environ.get("WM_ROOT"):
+            os.environ["WM_ROOT"] = str(wm_root_paths.get_root_anchor())
+        if not os.environ.get("WM_DATA_ROOT"):
+            os.environ["WM_DATA_ROOT"] = str(wm_root_paths.get_data_root())
+        if not os.environ.get("WM_CONFIG_FILE"):
+            os.environ["WM_CONFIG_FILE"] = str(wm_root_paths.path_config())
+    except Exception:
+        pass
+
+
+def _runtime_root() -> str | None:
+    _force_runtime_root_into_env()
+    env_root = os.environ.get("WM_ROOT")
+    if env_root:
+        return _norm(env_root)
+    try:
+        return _norm(str(wm_root_paths.get_root_anchor()))
+    except Exception:
+        return None
+
+
+def _runtime_data_root() -> str | None:
+    _force_runtime_root_into_env()
+    env_data = os.environ.get("WM_DATA_ROOT")
+    if env_data:
+        return _norm(env_data)
+    root = _runtime_root()
+    return _norm(os.path.join(root, "data")) if root else None
+
+
+def _runtime_config_file() -> str | None:
+    _force_runtime_root_into_env()
+    env_cfg = os.environ.get("WM_CONFIG_FILE")
+    if env_cfg:
+        return _norm(env_cfg)
+    root = _runtime_root()
+    return _norm(os.path.join(root, "config.json")) if root else None
+
+
+def _wm_root_anchor() -> str | None:
+    """Zwraca aktywny WM_ROOT, jeśli centralny resolver jest dostępny."""
+
+    env_root = os.environ.get("WM_ROOT")
+    if env_root:
+        return _norm(env_root)
+    if _wm_root_env_active():
+        return _runtime_root()
+    return None
+
+
+def _wm_data_root() -> str | None:
+    env_data = os.environ.get("WM_DATA_ROOT")
+    if env_data:
+        return _norm(env_data)
+    if _wm_root_env_active():
+        return _runtime_data_root()
+    return None
+
+
+def _wm_config_file() -> str | None:
+    env_cfg = os.environ.get("WM_CONFIG_FILE")
+    if env_cfg:
+        return _norm(env_cfg)
+    if _wm_root_env_active():
+        return _runtime_config_file()
+    return None
+
+
 # --- R-ROOT-ALL: centralny dostęp do katalogu danych ---
-_DEFAULT_ROOT = os.path.normcase(
+_DEFAULT_ROOT = _wm_root_anchor() or os.path.normcase(
     os.path.abspath(os.path.normpath(os.path.join(os.getcwd(), "data", "..")))
 )
 _MAP: dict[str, tuple[str, ...]] = {
     # MODUŁY DANYCH
-    "machines": ("maszyny", "maszyny.json"),
-    "tools_index": ("narzedzia", "narzedzia.json"),
-    "tools_item_dir": ("narzedzia",),
-    "warehouse_stock": ("magazyn", "magazyn.json"),
-    "bom": ("produkty", "bom.json"),
-    "orders": ("zlecenia", "zlecenia.json"),
-    "tools_defs": ("data", "zadania_narzedzia.json"),
+    "machines": ("data", "maszyny", "maszyny.json"),
+    "tools_index": ("data", "narzedzia", "narzedzia.json"),
+    "tools_item_dir": ("data", "narzedzia"),
+    "warehouse_stock": ("data", "magazyn", "magazyn.json"),
+    "bom": ("data", "produkty", "bom.json"),
+    "orders": ("data", "zlecenia", "zlecenia.json"),
+    "tools_defs": ("data", "narzedzia", "szablony_zadan.json"),
     # UI / MEDIA
-    "machines_bg": ("maszyny", "hala_bg.png"),
+    "machines_bg": ("assets", "hala_bg.png"),
     # INNE
     "profiles": ("data", "profiles.json"),
     "audit_log_dir": ("logs",),
@@ -74,11 +158,11 @@ PATH_MAP = {
     "tools.types": "narzedzia/typy_narzedzi.json",
     "tools.statuses": "narzedzia/statusy_narzedzi.json",
     "tools.tasks": "narzedzia/szablony_zadan.json",
-    "tools.zadania": "data/zadania_narzedzia.json",
+    "tools.zadania": "narzedzia/szablony_zadan.json",
     "orders": "zlecenia/zlecenia.json",
     "root.logs": "logs",
     "root.backup": "backup",
-    "data.profiles": "data/profiles.json",
+    "data.profiles": "profiles.json",
 }
 
 RESOLVE_MAP = {
@@ -89,7 +173,7 @@ RESOLVE_MAP = {
     "tools": ("narzedzia", "narzedzia.json"),
     "tools.dir": ("narzedzia", ""),
     "tools_dir": ("narzedzia", ""),
-    "tools_defs": ("data", "zadania_narzedzia.json"),
+    "tools_defs": ("narzedzia", "szablony_zadan.json"),
     "tools.types": ("narzedzia", "typy_narzedzi.json"),
     "tools.statuses": ("narzedzia", "statusy_narzedzi.json"),
     "tools.tasks": ("narzedzia", "szablony_zadan.json"),
@@ -98,8 +182,8 @@ RESOLVE_MAP = {
     "tools_statuses": ("narzedzia", "statusy_narzedzi.json"),
     "orders": ("zlecenia", "zlecenia.json"),
     "orders_dir": ("zlecenia", ""),
-    "tools.zadania": ("data", "zadania_narzedzia.json"),
-    "profiles": ("data", "profiles.json"),
+    "tools.zadania": ("narzedzia", "szablony_zadan.json"),
+    "profiles": ("", "profiles.json"),
 }
 
 RELATIVE_ALIAS_KEYS = {
@@ -120,7 +204,7 @@ RELATIVE_ALIAS_KEYS = {
 DEFAULTS = {
     "paths": {
         "anchor_root": _DEFAULT_ROOT,
-        "data_root": _DEFAULT_ROOT,
+        "data_root": _wm_data_root() or os.path.join(_DEFAULT_ROOT, "data"),
         "logs_dir": os.path.join(_DEFAULT_ROOT, "logs"),
         "backup_dir": os.path.join(_DEFAULT_ROOT, "backup"),
         "assets_dir": os.path.join(_DEFAULT_ROOT, "assets"),
@@ -131,9 +215,9 @@ DEFAULTS = {
         "tools_dir": "narzedzia",
         "orders_dir": "zlecenia",
         "warehouse": "magazyn/magazyn.json",
-        "profiles": "data/profiles.json",
+        "profiles": "profiles.json",
         "bom": "produkty/bom.json",
-        "tools_defs": "data",
+        "tools_defs": "narzedzia",
     },
 }
 
@@ -154,22 +238,26 @@ def get_machines_path(cfg: dict | None = None) -> str:
     """Return the canonical absolute path to the machines data file."""
 
     cfg = cfg or {}
+    data = _wm_data_root()
+    if data:
+        return _norm(os.path.join(data, "maszyny", "maszyny.json"))
     path = resolve_rel(cfg, "machines")
     if path:
         return _norm(path)
-    root = get_root(cfg)
-    return _norm(os.path.join(root, "maszyny", "maszyny.json"))
+    return _norm(os.path.join(get_root(cfg), "data", "maszyny", "maszyny.json"))
 
 
 def get_profiles_path(cfg: dict | None = None) -> str:
     """Return the canonical absolute path to the profiles JSON file."""
 
     cfg = cfg or {}
+    data = _wm_data_root()
+    if data:
+        return _norm(os.path.join(data, "profiles.json"))
     path = resolve_rel(cfg, "profiles")
     if path:
         return _norm(path)
-    root = get_root(cfg)
-    return _norm(os.path.join(root, "data", "profiles.json"))
+    return _norm(os.path.join(get_root(cfg), "data", "profiles.json"))
 
 
 def _norm(path: str) -> str:
@@ -254,8 +342,15 @@ def _absolute_with_root(path: str | None, root: str) -> str:
 
 def get_root(cfg: dict | None = None) -> str:
     cfg = cfg or {}
+    forced_root = _wm_root_anchor()
+    # WM_ROOT / core.root_paths jest nadrzędną prawdą runtime.
+    # Stare wpisy paths.anchor_root / paths.data_root z configu nie mogą
+    # nadpisywać folderu wybranego przez użytkownika.
+    if forced_root:
+        return _norm(forced_root)
+    paths = cfg.get("paths") or {}
+
     try:
-        paths = cfg.get("paths") or {}
         raw_anchor = paths.get("anchor_root")
         anchor_candidate: str | None = None
         if isinstance(raw_anchor, str) and raw_anchor.strip():
@@ -302,7 +397,9 @@ def _resolve_rel_legacy(cfg: dict, what: str) -> str | None:
 
     cfg = cfg or {}
     paths_cfg = (cfg.get("paths") or {})
-    root = (paths_cfg.get("data_root") or DEFAULTS["paths"]["data_root"]).strip()
+    root = (
+        _wm_data_root() or paths_cfg.get("data_root") or DEFAULTS["paths"]["data_root"]
+    ).strip()
     relative_cfg = (cfg.get("relative") or {})
 
     try:
@@ -436,7 +533,7 @@ def _resolve_rroot_map(cfg: dict | None, key: str, *, dir_only: bool = False) ->
         last = parts[-1]
         if os.path.splitext(last)[1]:
             parts = parts[:-1]
-    root = get_root(cfg)
+    root = _wm_root_anchor() or get_root(cfg)
     if not parts:
         return root
     return _norm(os.path.join(root, *parts))
@@ -467,7 +564,14 @@ def _apply_root_defaults(cfg: dict) -> dict:
 
     try:
         paths = cfg.setdefault("paths", {})
-        paths["data_root"] = get_root(cfg)
+        anchor = _wm_root_anchor() or get_root(cfg)
+        data_root = _wm_data_root() or os.path.join(anchor, "data")
+        paths["anchor_root"] = anchor
+        paths["data_root"] = data_root
+        paths["logs_dir"] = os.path.join(anchor, "logs")
+        paths["backup_dir"] = os.path.join(anchor, "backup")
+        paths["assets_dir"] = os.path.join(anchor, "assets")
+        paths["layout_dir"] = os.path.join(data_root, "layout")
 
         hall = cfg.get("hall") or {}
         machines = cfg.setdefault("machines", {})
@@ -521,10 +625,10 @@ def migrate_user_files(cfg: dict | None = None) -> list[str]:
     cfg = cfg or {}
     moved: list[str] = []
     try:
-        root = get_root(cfg)
+        root = _wm_root_anchor() or get_root(cfg)
         if not root:
             return moved
-        data_dir = os.path.join(root, "data")
+        data_dir = _wm_data_root() or os.path.join(root, "data")
         os.makedirs(data_dir, exist_ok=True)
 
         repo_data_dir = cfg_path("data")
@@ -1136,6 +1240,7 @@ class ConfigManager:
     ):
         if self.__class__._initialized:
             return
+        _force_runtime_root_into_env()
 
         self.schema_path = schema_path or SCHEMA_PATH
         self._config_path_value = config_path or GLOBAL_PATH
@@ -1181,6 +1286,10 @@ class ConfigManager:
             except Exception:
                 pass
         self.global_cfg = bootstrap_paths(self.global_cfg)
+        try:
+            self.global_cfg = _apply_root_defaults(self.global_cfg)
+        except Exception:
+            pass
         self._ensure_magazyn_slowniki(self.schema)
 
         # >>> WM PATCH START: auto-heal critical keys
@@ -1705,7 +1814,8 @@ class ConfigManager:
         return root_path
 
     def path_anchor(self, *parts: str) -> str:
-        base = self._anchor()
+        forced = _wm_root_anchor()
+        base = forced or self._anchor()
         if parts:
             return _norm(os.path.join(base, *parts))
         return base
@@ -1713,6 +1823,9 @@ class ConfigManager:
     def config_path(self) -> str:
         """Return absolute path to the active configuration file."""
 
+        runtime_config = _runtime_config_file()
+        if runtime_config:
+            return runtime_config
         if isinstance(self._config_path, Path):
             return _norm(str(self._config_path))
         if isinstance(self._root_config_path, Path):
@@ -1723,25 +1836,46 @@ class ConfigManager:
         return self.config_path()
 
     def path_data(self, *parts: str) -> str:
-        base = self._expanded_path("paths.data_root", os.path.join(self.path_root(), "data"))
+        forced = _wm_data_root()
+        base = forced or self._expanded_path(
+            "paths.data_root", os.path.join(self.path_root(), "data")
+        )
         if parts:
             return _norm(os.path.join(base, *parts))
         return base
 
     def path_backup(self, *parts: str) -> str:
-        base = self._expanded_path("paths.backup_dir", os.path.join(self.path_root(), "backup"))
+        forced_root = _wm_root_anchor()
+        if forced_root:
+            base = _norm(os.path.join(forced_root, "backup"))
+        else:
+            base = self._expanded_path(
+                "paths.backup_dir", os.path.join(self.path_root(), "backup")
+            )
         if parts:
             return _norm(os.path.join(base, *parts))
         return base
 
     def path_logs(self, *parts: str) -> str:
-        base = self._expanded_path("paths.logs_dir", os.path.join(self.path_root(), "logs"))
+        forced_root = _wm_root_anchor()
+        if forced_root:
+            base = _norm(os.path.join(forced_root, "logs"))
+        else:
+            base = self._expanded_path(
+                "paths.logs_dir", os.path.join(self.path_root(), "logs")
+            )
         if parts:
             return _norm(os.path.join(base, *parts))
         return base
 
     def path_assets(self, *parts: str) -> str:
-        base = self._expanded_path("paths.assets_dir", os.path.join(self.path_root(), "assets"))
+        forced_root = _wm_root_anchor()
+        if forced_root:
+            base = _norm(os.path.join(forced_root, "assets"))
+        else:
+            base = self._expanded_path(
+                "paths.assets_dir", os.path.join(self.path_root(), "assets")
+            )
         if parts:
             return _norm(os.path.join(base, *parts))
         return base
@@ -1957,6 +2091,15 @@ class ConfigManager:
         self._perform_save_all()
 
     def _perform_save_all(self) -> None:
+        _force_runtime_root_into_env()
+        runtime_config = _runtime_config_file()
+        if runtime_config:
+            self._config_path = Path(runtime_config).expanduser().resolve()
+            self._config_path_value = str(self._config_path)
+        try:
+            self.global_cfg = _apply_root_defaults(self.global_cfg)
+        except Exception:
+            pass
         migrate_dotted_keys(self.global_cfg)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir_str = self.path_backup()

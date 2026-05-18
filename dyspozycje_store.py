@@ -12,6 +12,8 @@ Cel:
 from __future__ import annotations
 
 import json
+import shutil
+import sys
 import uuid
 from copy import deepcopy
 from datetime import datetime
@@ -23,8 +25,14 @@ try:
 except Exception:  # pragma: no cover
     ConfigManager = None  # type: ignore
 
+try:
+    from core import root_paths as wm_root_paths
+except Exception:  # pragma: no cover
+    wm_root_paths = None  # type: ignore
+
 
 DISP_FILE_NAME = "dyspozycje.json"
+DISP_DIR_NAME = "dyspozycje"
 DISP_ALLOWED_TYPES = {
     "narzedzie",
     "maszyna",
@@ -43,18 +51,139 @@ def _now_iso() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _data_root() -> Path:
+def _runtime_cfg_manager():
+    try:
+        start_mod = sys.modules.get("start")
+        if start_mod is not None:
+            mgr = getattr(start_mod, "CONFIG_MANAGER", None)
+            if mgr is not None:
+                try:
+                    print(
+                        "[WM-DBG][DYSP][STORE] runtime manager=start.CONFIG_MANAGER "
+                        f"{type(mgr).__name__}"
+                    )
+                except Exception:
+                    pass
+                return mgr
+    except Exception:
+        pass
     if ConfigManager is not None:
         try:
-            return Path(ConfigManager().path_data())
+            mgr = ConfigManager()
+            try:
+                print(
+                    "[WM-DBG][DYSP][STORE] runtime manager=ConfigManager() "
+                    f"{type(mgr).__name__}"
+                )
+            except Exception:
+                pass
+            return mgr
+        except Exception:
+            pass
+    return None
+
+
+def _data_root() -> Path:
+    mgr = _runtime_cfg_manager()
+    if mgr is not None:
+        try:
+            path = Path(mgr.path_data())
+            try:
+                print(f"[WM-DBG][DYSP][STORE] data_root={path}")
+            except Exception:
+                pass
+            return path
         except Exception:
             pass
     return Path("data")
 
 
+def _anchor_root() -> Path:
+    mgr = _runtime_cfg_manager()
+    if mgr is not None:
+        for method_name in ("path_anchor", "path_root"):
+            method = getattr(mgr, method_name, None)
+            if not callable(method):
+                continue
+            try:
+                path = Path(method())
+                try:
+                    print(f"[WM-DBG][DYSP][STORE] anchor_root={path}")
+                except Exception:
+                    pass
+                return path
+            except Exception:
+                continue
+    return Path.cwd()
+
+
+def _legacy_dyspozycje_path() -> Path:
+    return _data_root() / DISP_FILE_NAME
+
+
+def _legacy_root_dyspozycje_path() -> Path:
+    return _anchor_root() / DISP_DIR_NAME / DISP_FILE_NAME
+
+
+def _active_dyspozycje_path() -> Path:
+    if wm_root_paths is not None:
+        try:
+            return wm_root_paths.path_dyspozycje()
+        except Exception:
+            pass
+    return _data_root() / DISP_DIR_NAME / DISP_FILE_NAME
+
+
+def _migrate_legacy_if_needed(target: Path) -> None:
+    legacy_candidates = [
+        _legacy_root_dyspozycje_path(),
+        _legacy_dyspozycje_path(),
+    ]
+    try:
+        target_norm = target.resolve()
+    except Exception:
+        target_norm = target
+
+    for legacy in legacy_candidates:
+        try:
+            if legacy.resolve() == target_norm:
+                continue
+        except Exception:
+            pass
+        if not legacy.exists():
+            continue
+        if target.exists():
+            try:
+                print(
+                    "[WM-DBG][DYSP][STORE][WARN] legacy dyspozycje exists "
+                    f"but active is data dyspozycje: {legacy}"
+                )
+            except Exception:
+                pass
+            continue
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(legacy, target)
+            print(
+                "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
+                f"{legacy} -> {target}"
+            )
+            return
+        except Exception as exc:
+            try:
+                print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
+            except Exception:
+                pass
+
+
 def get_dyspozycje_path() -> Path:
-    path = _data_root() / DISP_FILE_NAME
+    path = _active_dyspozycje_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_if_needed(path)
+    try:
+        print(f"[WM-DBG][DYSP][STORE] dyspozycje_path={path}")
+    except Exception:
+        pass
     return path
 
 
@@ -124,6 +253,8 @@ def make_dyspozycja(
         "obiekt_id": str(obiekt_id or "").strip(),
         "utworzono": _now_iso(),
         "wykonano": "",
+        "zamknieto_at": "",
+        "zamkniete_przez": "",
         "uwagi": "",
         "meta": dict(meta or {}),
     }
@@ -147,6 +278,8 @@ def normalize_dyspozycja(item: dict[str, Any] | None) -> dict[str, Any]:
         "obiekt_id": str(src.get("obiekt_id") or "").strip(),
         "utworzono": str(src.get("utworzono") or _now_iso()).strip(),
         "wykonano": str(src.get("wykonano") or "").strip(),
+        "zamknieto_at": str(src.get("zamknieto_at") or "").strip(),
+        "zamkniete_przez": _normalize_login(src.get("zamkniete_przez")),
         "uwagi": str(src.get("uwagi") or "").strip(),
         "meta": dict(src.get("meta") or {}),
     }
@@ -236,10 +369,13 @@ def close_dyspozycja(
     dyspozycja_id: str,
     *,
     uwagi: str = "",
+    closed_by: str = "",
 ) -> dict[str, Any] | None:
     updates = {
         "status": "zamknieta",
         "wykonano": _now_iso(),
+        "zamknieto_at": _now_iso(),
+        "zamkniete_przez": _normalize_login(closed_by),
     }
     if str(uwagi or "").strip():
         updates["uwagi"] = str(uwagi).strip()

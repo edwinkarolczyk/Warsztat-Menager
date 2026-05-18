@@ -56,6 +56,11 @@ from core.crash_handler import (
     mark_crash_log_read,
 )
 from tools_config_loader import load_config as load_tools_config
+wm_root_paths = (
+    importlib.import_module("core.root_paths")
+    if importlib.util.find_spec("core.root_paths")
+    else None
+)
 from utils_json import ensure_json
 from config.paths import (
     bind_settings,
@@ -606,202 +611,261 @@ def _build_root_section(
     if not isinstance(cfg, dict):
         cfg = {}
 
-    root = get_root(cfg)
-    box = ttk.Labelframe(parent, text="Folder WM (<root>) i status plików")
-
-    row_top = ttk.Frame(box)
-    var_path = tk.StringVar(value=root or "")
-    entry = ttk.Entry(row_top, textvariable=var_path, width=60)
-    entry.pack(side="left", padx=6, pady=6)
-
-    def _pick_dir(key: str = "<root>") -> None:
-        title = (
-            "Wybierz katalog <root>"
-            if key in {"<root>", "root"}
-            else "Wybierz katalog"
-        )
-        selected = filedialog.askdirectory(title=title)
-        if not selected:
-            return
-
-        cfg_key = "paths.data_root" if key in {"<root>", "root", "paths.<root>"} else key
-
+    if wm_root_paths is not None:
         try:
-            normalized = os.path.normpath(selected)
+            snap = wm_root_paths.install_environment(prompt=False)
         except Exception:
-            normalized = selected
+            snap = {}
 
-        try:
-            os.makedirs(normalized, exist_ok=True)
-        except Exception:
-            logger.exception(
-                "[SETTINGS] Nie udało się utworzyć katalogu '%s' dla klucza %s.",
-                normalized,
-                key,
-            )
-            return
+        root_box = ttk.Labelframe(parent, text="📁 Główny folder danych WM")
+        root_box.pack(fill="x", padx=8, pady=8)
 
-        manager = cm
-        if manager is None:
+        root_var = tk.StringVar(value=str(snap.get("wm_root", "—")))
+
+        root_row = ttk.Frame(root_box)
+        root_row.pack(fill="x", padx=8, pady=(8, 4))
+        ttk.Label(root_row, text="Aktualny ROOT:", width=18).pack(side="left")
+        root_entry = ttk.Entry(root_row, textvariable=root_var)
+        root_entry.configure(state="readonly")
+        root_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        labels: dict[str, ttk.Label] = {}
+
+        def _refresh_labels(new_snap: dict[str, Any]) -> None:
+            root_var.set(str(new_snap.get("wm_root", "—")))
+            for key, lbl in labels.items():
+                try:
+                    lbl.configure(text=str(new_snap.get(key, "—")))
+                except Exception:
+                    pass
+
+        def _refresh_root_preview() -> None:
             try:
-                manager = ConfigManager()
+                new_snap = wm_root_paths.install_environment(prompt=False)
+            except Exception as exc:
+                messagebox.showerror(
+                    "ROOT / Folder danych WM",
+                    f"Nie udało się odświeżyć ścieżek ROOT:\n{exc}",
+                    parent=parent,
+                )
+                return
+            _refresh_labels(new_snap)
+            try:
+                wm_root_paths.print_root_diagnostics(new_snap)
             except Exception:
-                manager = None
+                pass
 
-        if manager is None:
-            logger.error("[SETTINGS] Brak menedżera konfiguracji – nie zapisano %s.", key)
-            return
-
-        try:
-            manager.set(cfg_key, normalized)
-            if cfg_key == "paths.data_root":
-                try:
-                    manager.update_root_paths(normalized)
-                except Exception:
-                    logger.exception("[SETTINGS] Aktualizacja katalogu root nieudana")
-                backup_dir = manager.get("paths.backup_dir") or os.path.join(
-                    manager.path_root(), "backup"
-                )
-                logs_dir = manager.get("paths.logs_dir") or os.path.join(
-                    manager.path_root(), "logs"
-                )
-                assets_dir = manager.get("paths.assets_dir") or manager.path_assets()
-                for directory in (backup_dir, logs_dir, assets_dir):
-                    try:
-                        os.makedirs(directory, exist_ok=True)
-                    except Exception:
-                        logger.exception(
-                            "[SETTINGS] Nie udało się utworzyć katalogu %s", directory
-                        )
-            manager.save_all()
-            var_path.set(normalized)
-            logger.info("[SETTINGS] Ustawiono %s = %s", key, normalized)
-            if callable(on_root_change):
-                try:
-                    on_root_change(normalized)
-                except Exception:
-                    logger.exception("[SETTINGS] on_root_change callback failed")
-        except Exception:
-            logger.exception(
-                "[SETTINGS] Nie udało się zapisać ścieżki %s.",
-                key,
+        def _change_root_folder() -> None:
+            current = root_var.get()
+            if not current or current == "—":
+                current = str(Path.home())
+            messagebox.showinfo(
+                "Wybór głównego folderu danych WM",
+                "Wskaż folder, w którym Warsztat Menager ma trzymać dane.\n\n"
+                "Może to być dowolny folder na dysku lub pendrive.\n"
+                "Program utworzy w nim katalogi: data, logs, backup, assets.\n\n"
+                "Nie wybieraj folderu programu.\n"
+                "Nie wybieraj samego folderu data.\n\n"
+                "Po zmianie ROOT uruchom program ponownie.",
+                parent=parent,
             )
+            selected = filedialog.askdirectory(
+                parent=parent,
+                title="Wybierz główny folder danych WM",
+                initialdir=current,
+            )
+            if not selected:
+                return
 
-    ttk.Button(row_top, text="Wybierz…", command=_pick_dir).pack(side="left", padx=6)
-    row_top.pack(fill="x")
+            selected_path = Path(selected).expanduser()
+            try:
+                selected_path.mkdir(parents=True, exist_ok=True)
+                root_file = wm_root_paths.root_file_path()
+                with root_file.open("w", encoding="utf-8") as handle:
+                    json.dump(
+                        {"root": str(selected_path)},
+                        handle,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                os.environ["WM_ROOT"] = str(selected_path)
+                os.environ["WM_APP_ROOT"] = str(selected_path)
+                os.environ["WM_DATA_ROOT"] = str(selected_path / "data")
+                os.environ["WM_CONFIG_FILE"] = str(selected_path / "config.json")
+                wm_root_paths.ensure_root_tree()
+                _refresh_root_preview()
+                messagebox.showinfo(
+                    "ROOT / Folder danych WM",
+                    "Zapisano nowy folder danych WM.\n\n"
+                    "Uruchom program ponownie, aby wszystkie moduły użyły nowego ROOT.",
+                    parent=parent,
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "ROOT / Folder danych WM",
+                    f"Nie udało się zapisać ROOT:\n{exc}",
+                    parent=parent,
+                )
 
-    actions_row = ttk.Frame(box)
-    actions_row.pack(fill="x", padx=6, pady=(0, 4))
-    ttk.Button(
-        actions_row,
-        text="Wyczyść stare ścieżki plików (legacy)",
-        command=_reset_legacy_file_overrides,
-    ).pack(side="left")
+        def _open_path(path_key: str) -> None:
+            if path_key == "wm_root":
+                value = root_var.get()
+            else:
+                target = labels.get(path_key)
+                value = target.cget("text") if target is not None else ""
+            if not value or value == "—":
+                return
+            try:
+                path = Path(value)
+                if path.is_file():
+                    path = path.parent
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            except Exception as exc:
+                messagebox.showerror("Otwórz folder", f"Nie udało się otworzyć:\n{exc}")
 
-    _add_readonly_info(box, PATH_SAVE_INFO, label="Informacja o zapisie")
+        ttk.Button(
+            root_row,
+            text="Wybierz folder ROOT",
+            command=_change_root_folder,
+        ).pack(side="left")
 
+        root_actions = ttk.Frame(root_box)
+        root_actions.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(root_actions, text="Otwórz ROOT", command=lambda: _open_path("wm_root")).pack(side="left", padx=(0, 6))
+        ttk.Button(root_actions, text="Otwórz DATA", command=lambda: _open_path("data_root")).pack(side="left", padx=6)
+        ttk.Button(root_actions, text="Odśwież", command=_refresh_root_preview).pack(side="left", padx=6)
+
+        ttk.Label(
+            root_box,
+            text=(
+                "ROOT to główny folder danych. Program tworzy w nim data, logs, backup i assets.\n"
+                "Folder programu/repozytorium pozostaje osobno i służy do uruchamiania oraz aktualizacji Git."
+            ),
+            justify="left",
+            wraplength=760,
+        ).pack(fill="x", padx=8, pady=(0, 8))
+
+        paths_box = ttk.Labelframe(parent, text="🗂 Aktualne ścieżki używane przez program")
+        paths_box.pack(fill="x", padx=8, pady=8)
+
+        rows_frame = ttk.Frame(paths_box)
+        rows_frame.pack(fill="x", padx=8, pady=8)
+
+        def _row(label: str, key: str) -> None:
+            row = ttk.Frame(rows_frame)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=label, width=24).pack(side="left")
+            lbl = ttk.Label(row, text=str(snap.get(key, "—")))
+            lbl.pack(side="left", fill="x", expand=True)
+            labels[key] = lbl
+
+        _row("APP_ROOT / program", "app_root")
+        _row("Plik wyboru ROOT", "root_file")
+        _row("Config", "config")
+        _row("DATA", "data_root")
+        _row("Profile / użytkownicy", "profiles")
+        _row("Narzędzia", "tools_dir")
+        _row("Maszyny", "machines")
+        _row("Magazyn", "warehouse")
+        _row("Produkty / BOM", "bom")
+        _row("Zlecenia", "orders_dir")
+        _row("Dyspozycje", "dyspozycje")
+        _row("Logi", "logs_dir")
+        _row("Backup", "backup_dir")
+
+        hall_box = ttk.Labelframe(parent, text="🖼 Tło hali")
+        hall_box.pack(fill="x", padx=8, pady=8)
+
+        machines_cfg = {}
+        try:
+            machines_cfg = cm.get("machines", {}) if cm is not None else {}
+        except Exception:
+            machines_cfg = {}
+
+        bg_var = tk.StringVar(value=str(machines_cfg.get("background_image") or ""))
+
+        bg_row = ttk.Frame(hall_box)
+        bg_row.pack(fill="x", padx=8, pady=8)
+        ttk.Label(bg_row, text="Plik tła hali:", width=18).pack(side="left")
+        bg_entry = ttk.Entry(bg_row, textvariable=bg_var)
+        bg_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        def _choose_hall_bg() -> None:
+            picked = filedialog.askopenfilename(
+                parent=parent,
+                title="Wybierz tło hali",
+                filetypes=[
+                    ("Obrazy", "*.jpg;*.jpeg;*.png;*.bmp;*.gif"),
+                    ("Wszystkie pliki", "*.*"),
+                ],
+            )
+            if not picked:
+                return
+            bg_var.set(picked)
+
+        def _save_hall_bg() -> None:
+            if cm is None:
+                messagebox.showerror("Tło hali", "Brak menedżera konfiguracji.", parent=parent)
+                return
+            try:
+                machines = cm.get("machines", {}) or {}
+                if not isinstance(machines, dict):
+                    machines = {}
+                machines["background_image"] = bg_var.get().strip()
+                cm.set("machines", machines)
+                cm.save_all()
+                messagebox.showinfo("Tło hali", "Zapisano ścieżkę tła hali.", parent=parent)
+            except Exception as exc:
+                messagebox.showerror(
+                    "Tło hali",
+                    f"Nie udało się zapisać tła hali:\n{exc}",
+                    parent=parent,
+                )
+
+        ttk.Button(bg_row, text="Wybierz tło hali", command=_choose_hall_bg).pack(side="left", padx=6)
+        ttk.Button(bg_row, text="Zapisz", command=_save_hall_bg).pack(side="left", padx=6)
+
+        def _copy_root_diag() -> None:
+            text = "\n".join(
+                f"{key}: {label.cget('text')}" for key, label in labels.items()
+            )
+            try:
+                parent.clipboard_clear()
+                parent.clipboard_append(text)
+                messagebox.showinfo(
+                    "ROOT / Folder danych WM",
+                    "Diagnostyka ROOT skopiowana do schowka.",
+                    parent=parent,
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "ROOT / Folder danych WM",
+                    f"Nie udało się skopiować diagnostyki:\n{exc}",
+                    parent=parent,
+                )
+
+        diag_actions = ttk.Frame(paths_box)
+        diag_actions.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(
+            diag_actions,
+            text="Kopiuj diagnostykę",
+            command=_copy_root_diag,
+        ).pack(side="left", padx=6)
+
+        return
+
+    # Fallback tylko gdy core.root_paths nie istnieje.
+    # Nie pokazujemy starej konfiguracji paths.data_root, aby nie mieszać APP_ROOT z WM_ROOT.
     ttk.Label(
-        box,
-        text=PATH_EXAMPLES_TEXT,
+        parent,
+        text=(
+            "Centralny ROOT jest niedostępny, bo nie udało się zaimportować "
+            "core.root_paths. Najpierw zastosuj diff z root_paths.py."
+        ),
+        foreground=get_theme_color("error", fallback="#ef4444"),
         justify="left",
-    ).pack(fill="x", padx=8, pady=(0, 6))
-
-    paths = {
-        "Maszyny": resolve_rel(cfg, "machines"),
-        "Tło hali": resolve_rel(cfg, "machines_bg"),
-        "Narzędzia.idx": resolve_rel(cfg, "tools_index"),
-        "Magazyn": resolve_rel(cfg, "warehouse_stock"),
-        "Zlecenia": resolve_rel(cfg, "orders"),
-        "BOM": resolve_rel(cfg, "bom"),
-    }
-
-    for name, path in paths.items():
-        _mk_status(box, name, _exists(path), path or "—")
-
-    root_dir = get_root(cfg) if cfg else ""
-    required_dirs = {
-        "Katalog data/": os.path.join(root_dir, "data") if root_dir else "",
-        "Katalog assets/": os.path.join(root_dir, "assets") if root_dir else "",
-        "Katalog logs/": os.path.join(root_dir, "logs") if root_dir else "",
-    }
-    for name, path in required_dirs.items():
-        exists = bool(path and os.path.isdir(path))
-        _mk_status(box, name, exists, path or "<brak root>")
-
-    diag_labels: dict[str, ttk.Label] = {}
-    diag_frame = ttk.LabelFrame(box, text="Diagnostyka ścieżek")
-    diag_frame.pack(fill="x", padx=8, pady=(4, 8))
-
-    def _current_cfg_manager() -> ConfigManager | None:
-        if owner is not None and hasattr(owner, "cfg"):
-            return getattr(owner, "cfg", None)
-        return cm
-
-    manager_obj = _current_cfg_manager()
-    paths_preview = {
-        "root": "",
-        "config": "",
-        "data": "",
-        "backup": "",
-        "logs": "",
-        "assets": "",
-    }
-    if manager_obj is not None:
-        try:
-            paths_preview["root"] = manager_obj.path_root()
-        except Exception:
-            pass
-        try:
-            paths_preview["config"] = manager_obj.get_config_path()
-        except Exception:
-            pass
-        try:
-            paths_preview["data"] = manager_obj.path_data()
-        except Exception:
-            pass
-        try:
-            paths_preview["backup"] = manager_obj.path_backup()
-        except Exception:
-            pass
-        try:
-            paths_preview["logs"] = manager_obj.path_logs()
-        except Exception:
-            pass
-        try:
-            paths_preview["assets"] = manager_obj.path_assets()
-        except Exception:
-            pass
-
-    labels_map = {
-        "root": "Folder WM",
-        "config": "config.json",
-        "data": "katalog danych",
-        "backup": "backup/",
-        "logs": "logs/",
-        "assets": "assets/",
-    }
-
-    warning_keys = {"data", "backup", "logs", "assets"}
-
-    root_value = paths_preview.get("root", "")
-
-    for key, label_text in labels_map.items():
-        row = ttk.Frame(diag_frame)
-        row.pack(fill="x", padx=6, pady=1)
-        ttk.Label(row, text=f"{label_text}:", width=16).pack(side="left")
-        text, color = _format_diag_path(
-            paths_preview.get(key, ""),
-            root_value,
-            warn=bool(root_value) and key in warning_keys,
-        )
-        value_label = ttk.Label(row, text=text, foreground=color)
-        value_label.pack(side="left", fill="x", expand=True)
-        diag_labels[key] = value_label
-
-    if owner is not None:
-        setattr(owner, "_root_paths_labels", diag_labels)
-
-    box.pack(fill="x", padx=8, pady=8)
+        wraplength=760,
+    ).pack(fill="x", padx=8, pady=8)
 
 
 def _add_readonly_info(parent: tk.Widget, text: str, *, label: str | None = None) -> ttk.Frame:
@@ -1997,6 +2061,16 @@ class SettingsPanel:
             )
         else:
             self.cfg = ConfigManager()
+        try:
+            from gui_panel import wm_set_module_source
+            active_root = self.master.winfo_toplevel()
+            config_path_diag = os.environ.get("WM_CONFIG_FILE")
+            if not config_path_diag:
+                cm = globals().get("CONFIG_MANAGER")
+                config_path_diag = str(getattr(cm, "config_path", "") or "")
+            wm_set_module_source(active_root, "Ustawienia", config_path_diag)
+        except Exception:
+            pass
         self._dirty = False
         self._unsaved = False
         self._validation_errors: list[str] = []
@@ -4862,15 +4936,6 @@ class SettingsPanel:
 
     def _get_tools_config_path(self) -> str:
         """Ścieżka do definicji typów/statusów narzędzi (NN/SN)."""
-
-        try:
-            cfg = getattr(self, "cfg", None)
-            if cfg is not None:
-                path = cfg.get("tools.definitions_path", None)  # type: ignore[attr-defined]
-                if isinstance(path, str) and path.strip():
-                    return path
-        except Exception:
-            pass
         return _default_tools_definitions_path()
 
     def _on_tools_config_saved(self) -> None:
@@ -4942,21 +5007,37 @@ class SettingsPanel:
             command=lambda: run_patch(False),
         ).pack(side="left", padx=5, pady=5)
 
-        commits = patcher.get_commits()
+        try:
+            commits = patcher.get_commits()
+        except Exception as exc:
+            logger.warning("[SETTINGS][PATCH] get_commits failed: %s", exc)
+            commits = []
         print(f"[WM-DBG] available commits: {len(commits)}")
         roll_frame = ttk.Frame(frame)
         roll_frame.pack(fill="x", padx=5, pady=5)
         commit_var = tk.StringVar()
-        ttk.Combobox(
+        commit_combo = ttk.Combobox(
             roll_frame,
             textvariable=commit_var,
             values=commits,
-            state="readonly",
-        ).pack(side="left", fill="x", expand=True)
+            state="readonly" if commits else "disabled",
+        )
+        commit_combo.pack(side="left", fill="x", expand=True)
+        if not commits:
+            ttk.Label(
+                roll_frame,
+                text="Brak historii git / gałęzi Rozwiniecie w tym środowisku",
+                style="WM.Muted.TLabel",
+            ).pack(side="left", padx=(8, 0))
 
         def rollback() -> None:
             commit = commit_var.get()
             if not commit:
+                messagebox.showinfo(
+                    "Patche",
+                    "Brak dostępnych commitów do cofnięcia.",
+                    parent=frame,
+                )
                 return
             print(f"[WM-DBG] rollback to {commit}")
             patcher.rollback_to(commit)
