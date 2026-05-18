@@ -354,14 +354,30 @@ class PlanowanieUI:
             ttk.Label(week_hdr, text=day_name).pack(side="left", fill="x", expand=True)
 
         month_matrix = calendar.Calendar(firstweekday=0).monthdatescalendar(self.calendar_year, self.calendar_month)
+        today = date.today()
         for row_idx, week in enumerate(month_matrix):
             row = ttk.Frame(self.cal_frame)
             row.pack(fill="both", expand=True, pady=2)
             for day in week:
-                tile = tk.Frame(row, relief="groove", borderwidth=1, bg="#1f2937")
+                is_today = day == today
+                is_current_month = day.month == self.calendar_month
+                bg = "#fff3b0" if is_today else ("#1f2937" if is_current_month else "#111827")
+                fg = "#111827" if is_today else "white"
+                border = 3 if is_today else 1
+                highlight = "#f39c12" if is_today else "#374151"
+
+                tile = tk.Frame(
+                    row,
+                    relief="solid" if is_today else "groove",
+                    borderwidth=border,
+                    bg=bg,
+                    highlightthickness=2 if is_today else 0,
+                    highlightbackground=highlight,
+                )
                 tile.pack(side="left", fill="both", expand=True, padx=1, pady=1)
                 tile.bind("<Button-1>", lambda _e, d=day: self._open_day_plan(d))
-                tk.Label(tile, text=f"{day.day}", fg="white", bg="#1f2937", anchor="w", font=("Arial", 12, "bold")).pack(fill="x")
+                day_title = f"{day.day}  DZISIAJ" if is_today else f"{day.day}"
+                tk.Label(tile, text=day_title, fg=fg, bg=bg, anchor="w", font=("Arial", 12, "bold")).pack(fill="x")
                 for order in self.store.data.get("orders", []):
                     for st in order.get("stages", []):
                         s = _parse_dt(st.get("start"))
