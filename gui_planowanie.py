@@ -124,7 +124,9 @@ def _parse_dt(value: str | None) -> date | None:
 def _default_data() -> dict:
     return {
         "meta": {"version": 1, "updated_at": datetime.now().isoformat()},
-        "employees": [],
+        "workers": [],
+        "stations": deepcopy(DEFAULT_STATIONS),
+        "workflow_templates": deepcopy(DEFAULT_WORKFLOW),
         "blocked_days": [],
         "orders": [],
         "archive": [],
@@ -226,6 +228,8 @@ class PlanStore:
 class RoleAccess:
     can_edit: bool
     can_assign: bool
+    can_delete: bool
+    can_archive: bool
 
 
 class PlanowanieUI:
@@ -234,7 +238,15 @@ class PlanowanieUI:
         self.frame = frame
         self.login = login
         self.role = str(rola or "").strip().lower()
-        self.access = RoleAccess(self.role in EDIT_ROLES, self.role in EDIT_ROLES or self.role in ASSIGN_ONLY_ROLES)
+        self.is_manager = self.role in {"admin", "kierownik"}
+        self.is_bryg = self.role == "brygadzista"
+        can_edit = self.role in EDIT_ROLES or self.is_manager
+        self.access = RoleAccess(
+            can_edit=can_edit,
+            can_assign=True,
+            can_delete=can_edit,
+            can_archive=can_edit,
+        )
         self.store = PlanStore()
         self.calendar_year = date.today().year
         self.calendar_month = date.today().month
@@ -248,9 +260,6 @@ class PlanowanieUI:
     def _build_ui(self):
         for w in self.frame.winfo_children():
             w.destroy()
-        if not self.access.can_assign:
-            return self._notify_no_access()
-
         toolbar = ttk.Frame(self.frame)
         toolbar.pack(fill="x", padx=8, pady=8)
         ttk.Button(toolbar, text="Otwórz okno planisty", command=self._open_planner_window).pack(side="left", padx=(0, 8))
@@ -277,17 +286,23 @@ class PlanowanieUI:
     def _build_orders_tab(self, tab):
         top = ttk.Frame(tab)
         top.pack(fill="x", padx=8, pady=8)
-        ttk.Label(top, text="Filtr:").pack(side="left")
+        ttk.Label(top, text="Szukaj:").pack(side="left")
         ent = ttk.Entry(top, textvariable=self.search_var)
         ent.pack(side="left", fill="x", expand=True, padx=6)
         ent.bind("<KeyRelease>", lambda _e: self._refresh_orders_list())
+        ttk.Button(top, text="Dodaj", command=self._add_order).pack(side="left", padx=6)
+        ttk.Button(top, text="Edytuj", command=self._edit_selected_order).pack(side="left", padx=3)
+        ttk.Button(top, text="Usuń", command=self._delete_selected_order).pack(side="left", padx=3)
+        ttk.Button(top, text="Archiwum", command=self._archive_selected_order).pack(side="left", padx=3)
         if self.access.can_edit:
-            ttk.Button(top, text="Dodaj zlecenie", command=self._add_order).pack(side="left", padx=6)
-            ttk.Button(top, text="Blokada dnia", command=self._block_day).pack(side="left")
+            ttk.Button(top, text="Blokada dnia", command=self._block_day).pack(side="left", padx=6)
 
-        self.orders_tree = ttk.Treeview(tab, columns=("client", "ship", "status"), show="headings", height=12)
+        self.orders_tree = ttk.Treeview(tab, columns=("number", "symbol", "client", "qty", "ship", "status"), show="headings", height=12)
+        self.orders_tree.heading("number", text="Nr")
+        self.orders_tree.heading("symbol", text="Symbol")
         self.orders_tree.heading("client", text="Klient")
-        self.orders_tree.heading("ship", text="Termin wysyłki")
+        self.orders_tree.heading("qty", text="Ilość")
+        self.orders_tree.heading("ship", text="Termin")
         self.orders_tree.heading("status", text="Status")
         self.orders_tree.pack(fill="both", expand=True, padx=8, pady=8)
         self.orders_tree.bind("<<TreeviewSelect>>", lambda _e: self._show_order_detail())
@@ -336,16 +351,17 @@ class PlanowanieUI:
         week_hdr = ttk.Frame(self.cal_frame)
         week_hdr.pack(fill="x")
         for day_name in ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"]:
-            ttk.Label(week_hdr, text=day_name, width=16).pack(side="left")
+            ttk.Label(week_hdr, text=day_name).pack(side="left", fill="x", expand=True)
 
         month_matrix = calendar.Calendar(firstweekday=0).monthdatescalendar(self.calendar_year, self.calendar_month)
-        for week in month_matrix:
+        for row_idx, week in enumerate(month_matrix):
             row = ttk.Frame(self.cal_frame)
-            row.pack(fill="x", pady=2)
+            row.pack(fill="both", expand=True, pady=2)
             for day in week:
                 tile = tk.Frame(row, relief="groove", borderwidth=1, bg="#1f2937")
-                tile.pack(side="left", padx=1, ipadx=2, ipady=2)
-                tk.Label(tile, text=f"{day.day}", fg="white", bg="#1f2937", width=14, anchor="w").pack()
+                tile.pack(side="left", fill="both", expand=True, padx=1, pady=1)
+                tile.bind("<Button-1>", lambda _e, d=day: self._open_day_plan(d))
+                tk.Label(tile, text=f"{day.day}", fg="white", bg="#1f2937", anchor="w", font=("Arial", 12, "bold")).pack(fill="x")
                 for order in self.store.data.get("orders", []):
                     for st in order.get("stages", []):
                         s = _parse_dt(st.get("start"))
@@ -353,7 +369,9 @@ class PlanowanieUI:
                         if s and e and s <= day <= e:
                             color = st.get("color", "#64748b")
                             txt = f"{order.get('number')} {st.get('name')}"
-                            tk.Label(tile, text=txt[:16], bg=color, fg="black").pack(fill="x")
+                            lbl = tk.Label(tile, text=txt[:24], bg=color, fg="black")
+                            lbl.pack(fill="x")
+                            lbl.bind("<Button-1>", lambda _e, d=day: self._open_day_plan(d))
 
     def _filtered_orders(self):
         text = self.search_var.get().strip().lower()
@@ -374,7 +392,7 @@ class PlanowanieUI:
         for i in self.orders_tree.get_children():
             self.orders_tree.delete(i)
         for order in self._filtered_orders():
-            self.orders_tree.insert("", "end", iid=order["id"], values=(order.get("client"), order.get("ship_date"), order.get("status", "aktywne")))
+            self.orders_tree.insert("", "end", iid=order["id"], values=(order.get("number"), order.get("symbol"), order.get("client"), order.get("qty"), order.get("ship_date"), order.get("status", "aktywne")))
         self._refresh_stats()
         self._render_calendar()
 
@@ -389,46 +407,89 @@ class PlanowanieUI:
                 shifts[st.get("shift", "1")] = shifts.get(st.get("shift", "1"), 0) + 1
         self.stats_var.set(f"Aktywne: {len(orders)} | Opóźnione: {delayed} | Etapy: {stage_counts} | Obłożenie zmian: {shifts}")
 
-    def _add_order(self):
+    def _open_order_form(self, order=None, day_date=None):
         if not self.access.can_edit:
-            return
-        number = simpledialog.askstring("Planowanie", "Numer zlecenia:", parent=self.frame)
-        if not number:
-            return
-        client = simpledialog.askstring("Planowanie", "Klient/Nazwa:", parent=self.frame) or ""
-        start = simpledialog.askstring("Planowanie", "Data startu (YYYY-MM-DD):", parent=self.frame) or _today()
-        ship = simpledialog.askstring("Planowanie", "Termin wysyłki (YYYY-MM-DD):", parent=self.frame) or start
+            return None
+        win = tk.Toplevel(self.root)
+        win.title("Dodaj/Edytuj zlecenie")
+        default_date = day_date.isoformat() if day_date else _today()
+        values = order or {}
+        fields = {}
+        form = ttk.Frame(win, padding=8)
+        form.pack(fill="both", expand=True)
+        for idx, (label, key, default) in enumerate([
+            ("Nr zlecenia", "number", ""),
+            ("Symbol elementu", "symbol", ""),
+            ("Klient", "client", ""),
+            ("Ilość", "qty", "1"),
+            ("Termin wysyłki", "ship_date", default_date),
+            ("Data startu", "start_date", default_date),
+        ]):
+            ttk.Label(form, text=label).grid(row=idx, column=0, sticky="w", pady=3)
+            var = tk.StringVar(value=str(values.get(key, default)))
+            ttk.Entry(form, textvariable=var, width=40).grid(row=idx, column=1, sticky="ew", pady=3)
+            if key in {"ship_date", "start_date"}:
+                ttk.Button(form, text="📅", command=lambda v=var: v.set(_today())).grid(row=idx, column=2, padx=4)
+            fields[key] = var
+        form.columnconfigure(1, weight=1)
+        result = {"value": None}
+        def save_form():
+            result["value"] = {k: v.get().strip() for k, v in fields.items()}
+            win.destroy()
+        ttk.Button(form, text="Zapisz", command=save_form).grid(row=7, column=1, sticky="e", pady=8)
+        win.grab_set()
+        win.wait_window()
+        return result["value"]
+
+    def _build_stages(self, base_stages=None):
         stages = []
-        for cfg in DEFAULT_WORKFLOW:
-            if not cfg.get("enabled", True):
-                continue
+        for i, cfg in enumerate(DEFAULT_WORKFLOW):
+            stage_in = (base_stages or [{}] * len(DEFAULT_WORKFLOW))[i] if base_stages else {}
+            enabled = stage_in.get("enabled", cfg.get("enabled", True))
             stages.append({
                 "id": cfg["id"],
                 "name": cfg["name"],
-                "color": cfg["color"],
-                "enabled": cfg.get("enabled", True),
+                "color": stage_in.get("color", cfg["color"]),
+                "enabled": enabled,
                 "optional": cfg.get("optional", True),
-                "station": cfg.get("station", ""),
-                "min_workers": cfg.get("min_workers", 1),
-                "max_workers": cfg.get("max_workers", 1),
-                "duration_days": 1,
-                "planned_days": 1,
-                "real_days": 0,
-                "status": "oczekuje",
-                "employees": [],
-                "workers": [],
-                "notes": "",
-                "shift": "1",
-                "planned_shift": DEFAULT_SHIFTS[0],
-                "shift_history": [],
-                "done_qty": 0,
+                "station": stage_in.get("station", cfg.get("station", "")),
+                "min_workers": int(stage_in.get("min_workers", cfg.get("min_workers", 1))),
+                "max_workers": int(stage_in.get("max_workers", cfg.get("max_workers", 1))),
+                "duration_days": int(stage_in.get("duration_days", 1)),
+                "planned_days": int(stage_in.get("planned_days", 1)),
+                "real_days": int(stage_in.get("real_days", 0)),
+                "status": stage_in.get("status", "oczekuje"),
+                "employees": stage_in.get("employees", []),
+                "workers": stage_in.get("workers", []),
+                "skills": stage_in.get("skills", []),
+                "notes": stage_in.get("notes", ""),
+                "planned_shift": stage_in.get("planned_shift", DEFAULT_SHIFTS[0]),
+                "shift_history": stage_in.get("shift_history", []),
+                "done_qty": int(stage_in.get("done_qty", 0)),
             })
+        # Laser/Gilotyna jako alternatywa
+        enabled_laser = stages[0]["enabled"]
+        enabled_gilotyna = stages[1]["enabled"]
+        if enabled_laser and enabled_gilotyna:
+            stages[1]["enabled"] = False
+        if not enabled_laser and not enabled_gilotyna:
+            stages[0]["enabled"] = True
+        return stages
+
+    def _add_order(self, day_date=None):
+        payload = self._open_order_form(day_date=day_date)
+        if not payload:
+            return
+        qty = int(payload.get("qty") or 0)
+        stages = self._build_stages()
         order = {
             "id": f"ord-{int(datetime.now().timestamp() * 1000)}",
-            "number": number,
-            "client": client,
-            "start_date": start,
-            "ship_date": ship,
+            "number": payload.get("number"),
+            "symbol": payload.get("symbol"),
+            "client": payload.get("client"),
+            "qty": qty,
+            "start_date": payload.get("start_date") or _today(),
+            "ship_date": payload.get("ship_date") or _today(),
             "status": "aktywne",
             "attachments": [],
             "stages": stages,
@@ -461,6 +522,77 @@ class PlanowanieUI:
     def _persist_or_warn(self):
         if not self.store.save():
             messagebox.showwarning("Planowanie", "Ktoś edytuje plan — spróbuj ponownie.")
+
+    def _selected_order(self):
+        sel = self.orders_tree.selection()
+        if not sel:
+            return None
+        return next((o for o in self.store.data.get("orders", []) if o["id"] == sel[0]), None)
+
+    def _edit_selected_order(self):
+        order = self._selected_order()
+        if not order:
+            return
+        if not self.access.can_edit:
+            return
+        payload = self._open_order_form(order=order)
+        if not payload:
+            return
+        order.update({
+            "number": payload.get("number"),
+            "symbol": payload.get("symbol"),
+            "client": payload.get("client"),
+            "qty": int(payload.get("qty") or order.get("qty") or 0),
+            "ship_date": payload.get("ship_date") or order.get("ship_date"),
+            "start_date": payload.get("start_date") or order.get("start_date"),
+        })
+        order["stages"] = self._build_stages(order.get("stages", []))
+        _build_schedule(order, set(self.store.data.get("working_saturdays", [])))
+        self._persist_or_warn()
+        self._refresh_orders_list()
+
+    def _delete_selected_order(self):
+        order = self._selected_order()
+        if not order or not self.access.can_delete:
+            return
+        self.store.data["orders"] = [o for o in self.store.data.get("orders", []) if o["id"] != order["id"]]
+        self._persist_or_warn()
+        self._refresh_orders_list()
+
+    def _archive_selected_order(self):
+        order = self._selected_order()
+        if not order or not self.access.can_archive:
+            return
+        self.store.data.setdefault("archive", []).append(order)
+        self.store.data["orders"] = [o for o in self.store.data.get("orders", []) if o["id"] != order["id"]]
+        self._persist_or_warn()
+        self._refresh_orders_list()
+
+    def suggest_stage_days(self, symbol, stage_name):
+        values = []
+        for order in self.store.data.get("archive", []):
+            if order.get("symbol") != symbol:
+                continue
+            for st in order.get("stages", []):
+                if st.get("name") == stage_name and st.get("real_days"):
+                    values.append(int(st.get("real_days")))
+        return round(sum(values) / len(values), 2) if values else 1
+
+    def _open_day_plan(self, day):
+        win = tk.Toplevel(self.root)
+        win.title(f"Plan dnia {day.isoformat()}")
+        frm = ttk.Frame(win, padding=8)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text=f"Zlecenia na dzień: {day.isoformat()}", font=("Arial", 11, "bold")).pack(anchor="w")
+        box = tk.Listbox(frm, height=12)
+        box.pack(fill="both", expand=True, pady=8)
+        for order in self.store.data.get("orders", []):
+            for st in order.get("stages", []):
+                s = _parse_dt(st.get("start"))
+                e = _parse_dt(st.get("end"))
+                if s and e and s <= day <= e:
+                    box.insert("end", f"{order.get('number')} | {order.get('symbol')} | {st.get('name')} | {st.get('status')}")
+        ttk.Button(frm, text="Dodaj zlecenie", command=lambda d=day: self._add_order(day_date=d)).pack(anchor="e")
 
 
 def panel_planowanie(root, frame, login=None, rola=None):
