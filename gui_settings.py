@@ -84,6 +84,7 @@ TAB_PATHS = "Ścieżki"
 TAB_BACKUP = "Kopia zapasowa"
 TAB_UI = "UI i wygląd"
 TAB_MODULES = "Moduły"
+TAB_STATISTICS = "Statystyki"
 TAB_JARVIS = "Jarvis / powiadomienia"
 TAB_ADVANCED = "Zaawansowane / Dev"
 
@@ -2243,6 +2244,7 @@ class SettingsPanel:
         self.tab_users = ttk.Frame(self.nb)
         self.tab_tools = ttk.Frame(self.nb)
         self.tab_backup = ttk.Frame(self.nb)
+        self.tab_statistics = ttk.Frame(self.nb)
         self.tab_jarvis = ttk.Frame(self.nb)
         self.tab_advanced = ttk.Frame(self.nb)
 
@@ -2264,6 +2266,7 @@ class SettingsPanel:
             (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
             (self.tab_backup, "Backup", ""),
+            (self.tab_statistics, "Statystyki", ""),
             (self.tab_jarvis, "Jarvis", ""),
             (self.tab_advanced, "Zaawansowane", ""),
         ]
@@ -2312,6 +2315,15 @@ class SettingsPanel:
         )
         self._backup_container.pack(fill="both", expand=True, padx=8, pady=8)
 
+        _scroll__statistics_container = ScrolledFrame(self.tab_statistics)
+        _scroll__statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._statistics_container = ttk.LabelFrame(
+            _scroll__statistics_container.inner,
+            text="📊 Statystyki WM",
+        )
+        self._statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._statistics_text = None
+
         _scroll__ui_container = ScrolledFrame(self.tab_ui)
         _scroll__ui_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._ui_container = ttk.LabelFrame(
@@ -2356,6 +2368,7 @@ class SettingsPanel:
             "jarvis.enabled",
         }
         self._build_manual_config_fields()
+        self._build_statistics_settings_tab()
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -2859,6 +2872,86 @@ class SettingsPanel:
         )
 
         self._last_tab = self.nb.select()
+
+    def _build_statistics_settings_tab(self) -> None:
+        """Read-only podgląd statystyk z services.statistics_service."""
+
+        parent = getattr(self, "_statistics_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        info = ttk.Label(
+            parent,
+            text=(
+                "Podgląd statystyk jest tylko do odczytu. "
+                "Nie zapisuje i nie naprawia danych WM."
+            ),
+        )
+        info.pack(anchor="w", padx=8, pady=(8, 4))
+
+        buttons = ttk.Frame(parent)
+        buttons.pack(fill="x", padx=8, pady=(0, 8))
+
+        summary = ttk.Label(parent, text="Nie odświeżono jeszcze statystyk.")
+        summary.pack(anchor="w", padx=8, pady=(0, 8))
+
+        text = scrolledtext.ScrolledText(parent, height=24, wrap="word")
+        text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        text.configure(state="disabled")
+        self._statistics_text = text
+
+        def _set_text(value: str) -> None:
+            try:
+                text.configure(state="normal")
+                text.delete("1.0", "end")
+                text.insert("1.0", value)
+                text.configure(state="disabled")
+            except Exception:
+                logger.exception("[SETTINGS][STAT] Nie udało się ustawić tekstu statystyk")
+
+        def _refresh() -> None:
+            try:
+                from services.statistics_service import collect_statistics
+
+                data = collect_statistics()
+            except Exception as exc:
+                logger.exception("[SETTINGS][STAT] Błąd ładowania statystyk")
+                summary.config(text="Błąd ładowania statystyk.")
+                _set_text(str(exc))
+                return
+
+            try:
+                narzedzia = data.get("narzedzia", {}) or {}
+                zadania = data.get("zadania", {}) or {}
+                wizyty = data.get("wizyty", {}) or {}
+                dyspozycje = data.get("dyspozycje", {}) or {}
+                diagnostyka = data.get("diagnostyka", {}) or {}
+
+                summary.config(
+                    text=(
+                        f"Narzędzia: {narzedzia.get('count', 0)} | "
+                        f"Zadania otwarte: {zadania.get('open_count', 0)} | "
+                        f"Wizyty: {wizyty.get('count', 0)} | "
+                        f"Dyspozycje: {dyspozycje.get('count', 0)} | "
+                        f"Problemy danych: {diagnostyka.get('problem_count', 0)}"
+                    )
+                )
+                _set_text(json.dumps(data, ensure_ascii=False, indent=2))
+            except Exception as exc:
+                logger.exception("[SETTINGS][STAT] Błąd renderowania statystyk")
+                summary.config(text="Błąd renderowania statystyk.")
+                _set_text(str(exc))
+
+        ttk.Button(
+            buttons,
+            text="Odśwież statystyki",
+            command=_refresh,
+        ).pack(side="left")
+
+        _refresh()
 
     def _build_user_profile_settings(self, parent: tk.Widget) -> None:
         """Extend the Users tab with global profile settings."""
