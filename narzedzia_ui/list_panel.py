@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from pathlib import Path
 import subprocess
@@ -120,6 +121,82 @@ def _pretty_dt(value: str) -> str:
     if len(value) >= 16:
         return value[:16]
     return value
+
+
+def _parse_visit_dt(value: str):
+    """Bezpiecznie parsuje timestamp wizyty z JSON."""
+
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if "T" not in raw and " " in raw:
+        raw = raw.replace(" ", "T", 1)
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def _visit_end_iso(visit: Mapping[str, Any]) -> str:
+    return str(
+        visit.get("end")
+        or visit.get("koniec")
+        or visit.get("stop")
+        or visit.get("end_ts")
+        or visit.get("closed_at")
+        or ""
+    )
+
+
+def _human_duration_from_seconds(seconds: float) -> str:
+    """Czytelny czas: <24h w godzinach, potem dni, potem miesiące."""
+
+    if seconds <= 0:
+        return "0h"
+
+    hours = int(seconds // 3600)
+    if hours < 24:
+        return f"{max(1, hours)}h"
+
+    days = hours // 24
+    rem_hours = hours % 24
+
+    if days < 30:
+        if rem_hours and days < 7:
+            return f"{days}d {rem_hours}h"
+        return f"{days}d"
+
+    months = days // 30
+    rem_days = days % 30
+    if months < 12:
+        return f"{months} mies. {rem_days}d" if rem_days else f"{months} mies."
+
+    years = months // 12
+    rem_months = months % 12
+    return f"{years}r {rem_months} mies." if rem_months else f"{years}r"
+
+
+def _visit_duration_label(tool: Mapping[str, Any]) -> str:
+    """Zwraca czas trwania aktualnej/ostatniej wizyty w ludzkim formacie."""
+
+    visits = _tool_visits(tool)
+    if not visits:
+        return "—"
+    last = visits[-1]
+    if not isinstance(last, Mapping):
+        return "—"
+
+    start = _parse_visit_dt(_visit_start_iso(last))
+    if start is None:
+        return "—"
+
+    end = _parse_visit_dt(_visit_end_iso(last))
+    if end is None:
+        end = datetime.now(tz=start.tzinfo) if start.tzinfo else datetime.now()
+
+    return _human_duration_from_seconds((end - start).total_seconds())
 
 
 def _tool_visits_count(tool: Mapping[str, Any]) -> int:
@@ -623,7 +700,7 @@ class ToolsThreeTabsView(ttk.Frame):
             "nazwa": "Nazwa",
             "typ": "Typ",
             "status": "Status",
-            "visit_start": "Wizyta start",
+            "visit_start": "Czas wizyty",
             "progress": "Postęp",
             "tasks": "Zadania (A/W)",
             "visits": "Wizyty",
@@ -858,7 +935,7 @@ class ToolsThreeTabsView(ttk.Frame):
                     _tool_name(tool),
                     _tool_type_label(tool),
                     _tool_status_label(tool),
-                    _pretty_dt(_tool_current_visit_start(tool)),
+                    _visit_duration_label(tool),
                     progress_text,
                     f"{active}/{total}",
                     str(_tool_visits_count(tool)),
