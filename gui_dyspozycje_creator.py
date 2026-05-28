@@ -13,7 +13,12 @@ from dyspozycje_sources import (
     load_tool_choices,
     load_zlecenie_wykonania_choices,
 )
-from dyspozycje_store import add_dyspozycja, make_dyspozycja, update_dyspozycja
+from dyspozycje_store import (
+    add_dyspozycja,
+    close_dyspozycja,
+    make_dyspozycja,
+    update_dyspozycja,
+)
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
@@ -222,6 +227,46 @@ def open_dyspozycje_creator(
     btns = ttk.Frame(win, padding=(12, 0, 12, 12))
     btns.pack(fill="x")
 
+    def _event_updated() -> None:
+        try:
+            win.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
+        except Exception:
+            pass
+
+    def _actor_login() -> str:
+        for candidate in (
+            autor,
+            ctx.get("autor"),
+            getattr(root, "active_login", ""),
+            getattr(root, "_wm_login", ""),
+            getattr(root, "login", ""),
+        ):
+            text = str(candidate or "").strip()
+            if text:
+                return text
+        return ""
+
+    def _close_current() -> None:
+        if not edit_mode or not existing_id:
+            return
+        if not messagebox.askyesno(
+            "Dyspozycje",
+            "Zamknąć tę dyspozycję?",
+            parent=win,
+        ):
+            return
+        changed = close_dyspozycja(existing_id, closed_by=_actor_login())
+        if not changed:
+            messagebox.showerror(
+                "Dyspozycje",
+                "Nie udało się zamknąć Dyspozycji.",
+                parent=win,
+            )
+            return
+        _event_updated()
+        messagebox.showinfo("Dyspozycje", "Dyspozycja została zamknięta.", parent=win)
+        win.destroy()
+
     def _save() -> None:
         selected_label = var_object_display.get().strip()
         object_id = options_map.get(selected_label, "").strip()
@@ -261,11 +306,7 @@ def open_dyspozycje_creator(
             item = make_dyspozycja(**payload)
             add_dyspozycja(item)
 
-        try:
-            # NOWY event dla Dyspozycji (zamiast OrdersUpdated)
-            win.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
-        except Exception:
-            pass
+        _event_updated()
         messagebox.showinfo(
             "Dyspozycje",
             "Dyspozycja została zaktualizowana." if edit_mode else "Dyspozycja została zapisana.",
@@ -275,6 +316,10 @@ def open_dyspozycje_creator(
 
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right", padx=(8, 0))
     ttk.Button(btns, text="Zapisz", command=_save).pack(side="right")
+    if edit_mode and existing_id:
+        ttk.Button(btns, text="Zamknij dyspozycję", command=_close_current).pack(
+            side="left"
+        )
 
     cb_object.focus_set()
     win.transient(root)

@@ -1622,8 +1622,15 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     info = tk.StringVar(value="Maszyny")
     ttk.Label(toolbar, textvariable=info).pack(side="left")
 
+    search_var = tk.StringVar(value="")
+    ttk.Label(toolbar, text="Szukaj:").pack(side="left", padx=(12, 4))
+    entry_search = ttk.Entry(toolbar, textvariable=search_var, width=28)
+    entry_search.pack(side="left", padx=(0, 6))
+    btn_clear_search = ttk.Button(toolbar, text="Wyczyść")
+    btn_clear_search.pack(side="left", padx=(0, 8))
+
     filter_var = tk.StringVar(value="Wszystkie")
-    ttk.Label(toolbar, text="Filtr:").pack(side="left", padx=(12, 4))
+    ttk.Label(toolbar, text="Filtr:").pack(side="left", padx=(4, 4))
     filter_box = ttk.Combobox(
         toolbar,
         state="readonly",
@@ -1745,6 +1752,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     def _recompute_visible_rows() -> None:
         nonlocal visible_rows
         mode = filter_var.get()
+        query = search_var.get().strip().lower()
 
         def predicate(machine: Dict[str, Any]) -> bool:
             key = _schedule_status_key(machine)
@@ -1758,7 +1766,39 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 return key == "done"
             return True
 
-        visible_rows = [row for row in rows_cache if predicate(row)]
+        def matches_search(machine: Dict[str, Any]) -> bool:
+            if not query:
+                return True
+            summary = machine.get("__schedule_summary") or {}
+            haystack = " ".join(
+                str(value or "")
+                for value in (
+                    machine.get("id"),
+                    machine.get("nr_ewid"),
+                    machine.get("nr"),
+                    machine.get("nazwa"),
+                    machine.get("typ"),
+                    machine.get("status"),
+                    machine.get("lokalizacja"),
+                    summary.get("next_label"),
+                    summary.get("status_label"),
+                )
+            ).lower()
+            return query in haystack
+
+        visible_rows = [
+            row for row in rows_cache if predicate(row) and matches_search(row)
+        ]
+
+    def _focus_first_machine_row() -> bool:
+        children = tree.get_children("")
+        if not children:
+            return False
+        first = children[0]
+        tree.selection_set(first)
+        tree.focus(first)
+        tree.see(first)
+        return True
 
     def _find_machine(machine_id: Optional[str]) -> Optional[Dict]:
         if not machine_id:
@@ -1858,6 +1898,27 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 _populate_details(_find_machine(selected_machine_id))
             else:
                 _populate_details(None)
+
+    def _apply_search(*_args) -> None:
+        _apply_filter()
+        if not selected_machine_id:
+            _focus_first_machine_row()
+
+    def _clear_search() -> None:
+        search_var.set("")
+        _apply_filter()
+        _focus_first_machine_row()
+
+    def _on_search_enter(_event=None) -> str:
+        children = tree.get_children("")
+        if not children:
+            return "break"
+        current = tree.selection()
+        if not current or current[0] != children[0]:
+            _focus_first_machine_row()
+        else:
+            _on_edit()
+        return "break"
 
     def _drag_commit(mid: str, x: int, y: int) -> None:
         nonlocal rows_cache
@@ -2235,12 +2296,15 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     btn_restore.configure(command=_restore_plan)
     btn_assign_card.configure(command=_assign_card)
     btn_open_card.configure(command=_open_selected_card)
+    btn_clear_search.configure(command=_clear_search)
 
     tree.bind("<<TreeviewSelect>>", _on_tree_select)
     tree.bind("<Double-1>", lambda _e: _on_edit())
     upcoming_tree.bind("<<TreeviewSelect>>", _on_upcoming_select)
     history_tree.bind("<<TreeviewSelect>>", _on_history_select)
     filter_box.bind("<<ComboboxSelected>>", _apply_filter)
+    entry_search.bind("<KeyRelease>", lambda _event: _apply_search())
+    entry_search.bind("<Return>", _on_search_enter)
 
     _refresh_schedule_info()
     _recompute_visible_rows()
