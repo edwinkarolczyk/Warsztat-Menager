@@ -229,6 +229,78 @@ def _maybe_open_dyspo(root, context):
         return
     open_dyspo_wizard(target, context=context)
 
+
+def _wm_humanize_duration_seconds(seconds: float | int | None) -> str:
+    """Zwraca czytelny czas wizyty: godziny -> dni -> miesiące -> lata."""
+
+    try:
+        total_seconds = float(seconds or 0)
+    except (TypeError, ValueError):
+        total_seconds = 0.0
+
+    if total_seconds <= 0:
+        return "0h"
+
+    total_minutes = int(total_seconds // 60)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+
+    if hours < 24:
+        if minutes:
+            return f"{max(0, hours)}h {minutes}m"
+        return f"{max(1, hours)}h"
+
+    days = hours // 24
+    rem_hours = hours % 24
+
+    if days < 30:
+        if rem_hours:
+            return f"{days}d {rem_hours}h"
+        return f"{days}d"
+
+    months = days // 30
+    rem_days = days % 30
+
+    if months < 12:
+        if rem_days:
+            return f"{months} mies. {rem_days}d"
+        return f"{months} mies."
+
+    years = months // 12
+    rem_months = months % 12
+
+    if rem_months:
+        return f"{years}r {rem_months} mies."
+    return f"{years}r"
+
+
+def _wm_humanize_duration_text(value: object) -> str:
+    """Konwertuje stare teksty typu '29h 29m' / '29h' na czytelny format."""
+
+    raw = str(value or "").strip()
+    if not raw or raw == "—":
+        return raw or "—"
+    if "w toku" in raw.lower():
+        return raw
+
+    import re
+
+    hours = 0
+    minutes = 0
+
+    match_h = re.search(r"(\d+)\s*h", raw, re.IGNORECASE)
+    match_m = re.search(r"(\d+)\s*m", raw, re.IGNORECASE)
+    if match_h:
+        hours = int(match_h.group(1))
+    if match_m:
+        minutes = int(match_m.group(1))
+
+    if not match_h and not match_m:
+        return raw
+
+    return _wm_humanize_duration_seconds(hours * 3600 + minutes * 60)
+
+
 try:
     from utils.tool_mode_helpers import infer_mode_from_id, validate_number
 except ImportError as exc:  # pragma: no cover - fallback przy brakującym helperze
