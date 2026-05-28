@@ -21,6 +21,48 @@ from ui_dialogs_safe import error_box
 logger = logging.getLogger(__name__)
 
 
+def _dysp_status(item: dict[str, Any]) -> str:
+    return str(item.get("status") or "").strip().lower()
+
+
+def _dysp_is_closed(item: dict[str, Any]) -> bool:
+    return _dysp_status(item) in {
+        "zamknieta",
+        "zamknięta",
+        "closed",
+        "done",
+        "wykonane",
+    }
+
+
+def _dysp_is_new(item: dict[str, Any]) -> bool:
+    return _dysp_status(item) in {"nowa", "new"}
+
+
+def _dysp_is_overdue(item: dict[str, Any]) -> bool:
+    if _dysp_is_closed(item):
+        return False
+    raw = str(item.get("termin") or item.get("deadline") or "").strip()
+    if not raw:
+        return False
+    try:
+        import datetime as _dt
+
+        deadline = _dt.date.fromisoformat(raw[:10])
+        return deadline < _dt.date.today()
+    except Exception:
+        return False
+
+
+def _dysp_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str, str]:
+    closed = 1 if _dysp_is_closed(item) else 0
+    overdue = 0 if _dysp_is_overdue(item) else 1
+    new = 0 if _dysp_is_new(item) else 1
+    termin = str(item.get("termin") or "")
+    created = str(item.get("utworzono") or "")
+    return (closed, overdue, new, termin, created)
+
+
 def _resolve_creator() -> Callable[..., tk.Toplevel] | None:
     try:
         from gui_dyspozycje_creator import open_dyspozycje_creator  # type: ignore
@@ -135,8 +177,55 @@ class ZleceniaView(ttk.Frame):
         for column in columns:
             self.tree.heading(column, text=column.capitalize())
             self.tree.column(column, anchor="center")
+        self.tree.tag_configure("dysp_closed", foreground="#9ca3af")
+        self.tree.tag_configure("dysp_new", foreground="#facc15")
+        self.tree.tag_configure("dysp_new_blink", foreground="#ffffff")
+        self.tree.tag_configure("dysp_overdue", foreground="#ef4444")
+        self.tree.tag_configure(
+            "dysp_overdue_blink",
+            foreground="#ffffff",
+            background="#7f1d1d",
+        )
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self._on_double_click, add=True)
+        self._ensure_blink_started()
+
+    def _ensure_blink_started(self) -> None:
+        if getattr(self.tree, "_wm_dysp_blink_started", False):
+            return
+        self.tree._wm_dysp_blink_started = True
+        self._blink_state = {"new": False, "overdue": False}
+        self._blink_dysp_new()
+        self._blink_dysp_overdue()
+
+    def _blink_dysp_new(self) -> None:
+        self._blink_state["new"] = not self._blink_state["new"]
+        for iid in self.tree.get_children(""):
+            tags = set(self.tree.item(iid, "tags") or ())
+            if "dysp_new" in tags or "dysp_new_blink" in tags:
+                tags.discard("dysp_new")
+                tags.discard("dysp_new_blink")
+                tags.add("dysp_new_blink" if self._blink_state["new"] else "dysp_new")
+                self.tree.item(iid, tags=tuple(tags))
+        try:
+            self.tree.after(2000, self._blink_dysp_new)
+        except Exception:
+            pass
+
+    def _blink_dysp_overdue(self) -> None:
+        self._blink_state["overdue"] = not self._blink_state["overdue"]
+        for iid in self.tree.get_children(""):
+            tags = set(self.tree.item(iid, "tags") or ())
+            if "dysp_overdue" in tags or "dysp_overdue_blink" in tags:
+                tags.discard("dysp_overdue")
+                tags.discard("dysp_overdue_blink")
+                toggle = "dysp_overdue_blink" if self._blink_state["overdue"] else "dysp_overdue"
+                tags.add(toggle)
+                self.tree.item(iid, tags=tuple(tags))
+        try:
+            self.tree.after(500, self._blink_dysp_overdue)
+        except Exception:
+            pass
 
     # endregion ---------------------------------------------------------
 
@@ -157,7 +246,7 @@ class ZleceniaView(ttk.Frame):
             self.tree.delete(item)
         self._order_rows = {}
         self._order_ids = {}
-        for idx, order in enumerate(rows):
+        for idx, order in enumerate(sorted(rows, key=_dysp_sort_key)):
             if not isinstance(order, dict):
                 continue
             rodzaj = str(order.get("typ_dyspozycji") or "")
@@ -179,12 +268,20 @@ class ZleceniaView(ttk.Frame):
             )
             order_key = str(order_id) if order_id is not None else ""
             iid = order_key if order_key else f"row-{idx}"
+            tags: list[str] = []
+            if _dysp_is_closed(order):
+                tags.append("dysp_closed")
+            elif _dysp_is_overdue(order):
+                tags.append("dysp_overdue")
+            elif _dysp_is_new(order):
+                tags.append("dysp_new")
             try:
                 self.tree.insert(
                     "",
                     "end",
                     values=(rodzaj, status_txt, tytul, przypisane, termin),
                     iid=iid,
+                    tags=tuple(tags),
                 )
             except Exception as exc:  # pragma: no cover - wymagane GUI
                 logger.exception("[DYSP] Błąd dodawania Dyspozycji do listy: %s", exc)
