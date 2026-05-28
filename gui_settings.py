@@ -2874,7 +2874,7 @@ class SettingsPanel:
         self._last_tab = self.nb.select()
 
     def _build_statistics_settings_tab(self) -> None:
-        """Read-only podgląd statystyk z services.statistics_service."""
+        """Czytelny podgląd statystyk WM: kafelki + diagnostyka + JSON."""
 
         parent = getattr(self, "_statistics_container", None)
         if parent is None:
@@ -2883,34 +2883,104 @@ class SettingsPanel:
         for child in parent.winfo_children():
             child.destroy()
 
-        info = ttk.Label(
-            parent,
+        header = ttk.Frame(parent)
+        header.pack(fill="x", padx=8, pady=(8, 6))
+
+        ttk.Label(
+            header,
+            text="📊 Statystyki WM",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+
+        ttk.Label(
+            header,
             text=(
-                "Podgląd statystyk jest tylko do odczytu. "
-                "Nie zapisuje i nie naprawia danych WM."
+                "Podgląd tylko do odczytu. Statystyki nic nie zapisują "
+                "i nie naprawiają danych automatycznie."
             ),
-        )
-        info.pack(anchor="w", padx=8, pady=(8, 4))
+        ).pack(anchor="w", pady=(2, 0))
 
-        buttons = ttk.Frame(parent)
-        buttons.pack(fill="x", padx=8, pady=(0, 8))
+        actions = ttk.Frame(parent)
+        actions.pack(fill="x", padx=8, pady=(0, 8))
 
-        summary = ttk.Label(parent, text="Nie odświeżono jeszcze statystyk.")
-        summary.pack(anchor="w", padx=8, pady=(0, 8))
+        status_var = tk.StringVar(value="Nie odświeżono jeszcze statystyk.")
+        ttk.Label(actions, textvariable=status_var).pack(side="left")
 
-        text = scrolledtext.ScrolledText(parent, height=24, wrap="word")
-        text.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-        text.configure(state="disabled")
-        self._statistics_text = text
+        body_nb = ttk.Notebook(parent)
+        body_nb.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
-        def _set_text(value: str) -> None:
+        tab_overview = ttk.Frame(body_nb)
+        tab_diagnostics = ttk.Frame(body_nb)
+        tab_json = ttk.Frame(body_nb)
+
+        body_nb.add(tab_overview, text="Przegląd")
+        body_nb.add(tab_diagnostics, text="Diagnostyka")
+        body_nb.add(tab_json, text="JSON")
+
+        overview_frame = ttk.Frame(tab_overview)
+        overview_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        diagnostics_text = scrolledtext.ScrolledText(tab_diagnostics, height=22, wrap="word")
+        diagnostics_text.pack(fill="both", expand=True, padx=8, pady=8)
+        diagnostics_text.configure(state="disabled")
+
+        json_text = scrolledtext.ScrolledText(tab_json, height=22, wrap="word")
+        json_text.pack(fill="both", expand=True, padx=8, pady=8)
+        json_text.configure(state="disabled")
+        self._statistics_text = json_text
+
+        def _set_text(widget, value: str) -> None:
             try:
-                text.configure(state="normal")
-                text.delete("1.0", "end")
-                text.insert("1.0", value)
-                text.configure(state="disabled")
+                widget.configure(state="normal")
+                widget.delete("1.0", "end")
+                widget.insert("1.0", value)
+                widget.configure(state="disabled")
             except Exception:
-                logger.exception("[SETTINGS][STAT] Nie udało się ustawić tekstu statystyk")
+                logger.exception("[SETTINGS][STAT] Nie udało się ustawić tekstu")
+
+        def _clear_overview() -> None:
+            for child in overview_frame.winfo_children():
+                child.destroy()
+
+        def _card(parent_widget, title: str, value: object, hint: str = "") -> None:
+            frame = ttk.LabelFrame(parent_widget, text=title)
+            frame.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+
+            ttk.Label(
+                frame,
+                text=str(value),
+                font=("", 18, "bold"),
+            ).pack(anchor="center", pady=(8, 2))
+
+            if hint:
+                ttk.Label(frame, text=hint).pack(anchor="center", pady=(0, 8))
+
+        def _section(parent_widget, title: str, rows: list[tuple[str, object]]) -> None:
+            box = ttk.LabelFrame(parent_widget, text=title)
+            box.pack(fill="x", expand=False, padx=4, pady=6)
+            box.columnconfigure(1, weight=1)
+
+            for row_idx, (label, value) in enumerate(rows):
+                ttk.Label(box, text=f"{label}:").grid(
+                    row=row_idx,
+                    column=0,
+                    sticky="w",
+                    padx=8,
+                    pady=2,
+                )
+                ttk.Label(box, text=str(value)).grid(
+                    row=row_idx,
+                    column=1,
+                    sticky="w",
+                    padx=8,
+                    pady=2,
+                )
+
+        def _top_dict_lines(data: dict, limit: int = 8) -> str:
+            if not isinstance(data, dict) or not data:
+                return "—"
+            items = sorted(data.items(), key=lambda item: str(item[0]).lower())[:limit]
+            return "\n".join(f"• {key}: {value}" for key, value in items)
 
         def _refresh() -> None:
             try:
@@ -2919,37 +2989,110 @@ class SettingsPanel:
                 data = collect_statistics()
             except Exception as exc:
                 logger.exception("[SETTINGS][STAT] Błąd ładowania statystyk")
-                summary.config(text="Błąd ładowania statystyk.")
-                _set_text(str(exc))
+                status_var.set("Błąd ładowania statystyk.")
+                _clear_overview()
+                _set_text(diagnostics_text, str(exc))
+                _set_text(json_text, str(exc))
                 return
 
-            try:
-                narzedzia = data.get("narzedzia", {}) or {}
-                zadania = data.get("zadania", {}) or {}
-                wizyty = data.get("wizyty", {}) or {}
-                dyspozycje = data.get("dyspozycje", {}) or {}
-                diagnostyka = data.get("diagnostyka", {}) or {}
+            narzedzia = data.get("narzedzia", {}) or {}
+            zadania = data.get("zadania", {}) or {}
+            wizyty = data.get("wizyty", {}) or {}
+            dyspozycje = data.get("dyspozycje", {}) or {}
+            maszyny = data.get("maszyny", {}) or {}
+            zlecenia = data.get("zlecenia", {}) or {}
+            operatorzy = data.get("operatorzy", {}) or {}
+            diagnostyka = data.get("diagnostyka", {}) or {}
 
-                summary.config(
-                    text=(
-                        f"Narzędzia: {narzedzia.get('count', 0)} | "
-                        f"Zadania otwarte: {zadania.get('open_count', 0)} | "
-                        f"Wizyty: {wizyty.get('count', 0)} | "
-                        f"Dyspozycje: {dyspozycje.get('count', 0)} | "
-                        f"Problemy danych: {diagnostyka.get('problem_count', 0)}"
-                    )
-                )
-                _set_text(json.dumps(data, ensure_ascii=False, indent=2))
-            except Exception as exc:
-                logger.exception("[SETTINGS][STAT] Błąd renderowania statystyk")
-                summary.config(text="Błąd renderowania statystyk.")
-                _set_text(str(exc))
+            _clear_overview()
+
+            cards = ttk.Frame(overview_frame)
+            cards.pack(fill="x", padx=0, pady=(0, 8))
+
+            _card(cards, "Narzędzia", narzedzia.get("count", 0), "wszystkie")
+            _card(cards, "W toku", narzedzia.get("in_progress_count", 0), "aktywne")
+            _card(cards, "Zadania otwarte", zadania.get("open_count", 0), "do zrobienia")
+            _card(cards, "Wizyty", wizyty.get("count", 0), "łącznie")
+            _card(cards, "Dyspozycje", dyspozycje.get("open_count", 0), "otwarte")
+            _card(cards, "Problemy", diagnostyka.get("problem_count", 0), "diagnostyka")
+
+            _section(
+                overview_frame,
+                "Narzędzia",
+                [
+                    ("Razem", narzedzia.get("count", 0)),
+                    ("W toku", narzedzia.get("in_progress_count", 0)),
+                    ("Spoczynkowe / sprawne", narzedzia.get("idle_count", 0)),
+                    ("Z otwartymi zadaniami", narzedzia.get("with_open_tasks_count", 0)),
+                    ("Bez zadań", narzedzia.get("without_tasks_count", 0)),
+                    ("Duplikaty numerów", ", ".join(narzedzia.get("duplicate_ids", []) or []) or "—"),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Zadania i wizyty",
+                [
+                    ("Zadania razem", zadania.get("count", 0)),
+                    ("Wykonane", zadania.get("done_count", 0)),
+                    ("Otwarte", zadania.get("open_count", 0)),
+                    ("Wykonanie", f"{zadania.get('done_pct', 0)}%"),
+                    ("Wizyty otwarte", wizyty.get("open_count", 0)),
+                    ("Wizyty zamknięte", wizyty.get("closed_count", 0)),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Pozostałe moduły",
+                [
+                    ("Dyspozycje razem", dyspozycje.get("count", 0)),
+                    ("Dyspozycje po terminie", dyspozycje.get("overdue_count", 0)),
+                    ("Maszyny", maszyny.get("count", 0)),
+                    ("Zlecenia", zlecenia.get("count", 0)),
+                    ("Operatorzy", operatorzy.get("count", 0)),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Rozkład statusów / typów",
+                [
+                    ("Statusy narzędzi", "\n" + _top_dict_lines(narzedzia.get("per_status", {}))),
+
+                    ("Typy narzędzi", "\n" + _top_dict_lines(narzedzia.get("per_type", {}))),
+
+                    ("Role użytkowników", "\n" + _top_dict_lines(operatorzy.get("per_role", {}))),
+
+                ],
+            )
+
+            problems = diagnostyka.get("problems", []) or []
+            if not problems:
+                diag_output = "Brak problemów danych wykrytych przez statystyki."
+            else:
+                lines = []
+                for idx, problem in enumerate(problems, start=1):
+                    level = problem.get("level", "?")
+                    code = problem.get("code", "?")
+                    message = problem.get("message", "")
+                    path = problem.get("path", "")
+                    lines.append(f"{idx}. [{level}] {code}\n   {message}")
+                    if path:
+                        lines.append(f"   Plik: {path}")
+                diag_output = "\n\n".join(lines)
+
+            _set_text(diagnostics_text, diag_output)
+            _set_text(json_text, json.dumps(data, ensure_ascii=False, indent=2))
+
+            generated_at = data.get("generated_at", "")
+            status_var.set(f"Ostatnie odświeżenie: {generated_at or 'teraz'}")
 
         ttk.Button(
-            buttons,
+            actions,
             text="Odśwież statystyki",
             command=_refresh,
-        ).pack(side="left")
+        ).pack(side="right")
 
         _refresh()
 
