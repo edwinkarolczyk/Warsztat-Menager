@@ -123,6 +123,26 @@ def _pretty_dt(value: str) -> str:
     return value
 
 
+def _pretty_dt_pl(value: str) -> str:
+    """Format daty do tabel: dd-mm-rr hh:mm."""
+
+    if not value:
+        return "—"
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+    if "T" not in raw and " " in raw:
+        raw = raw.replace(" ", "T", 1)
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except Exception:
+        fallback = raw.replace("T", " ")
+        return fallback[:16] if len(fallback) >= 16 else fallback
+    return parsed.strftime("%d-%m-%y %H:%M")
+
+
 def _parse_visit_dt(value: str):
     """Bezpiecznie parsuje timestamp wizyty z JSON."""
 
@@ -197,6 +217,87 @@ def _visit_duration_label(tool: Mapping[str, Any]) -> str:
         end = datetime.now(tz=start.tzinfo) if start.tzinfo else datetime.now()
 
     return _human_duration_from_seconds((end - start).total_seconds())
+
+
+def _visit_closed_at_iso(visit: Mapping[str, Any]) -> str:
+    return str(
+        visit.get("end")
+        or visit.get("koniec")
+        or visit.get("stop")
+        or visit.get("end_ts")
+        or visit.get("closed_at")
+        or visit.get("data_powrotu")
+        or visit.get("returned_at")
+        or ""
+    )
+
+
+def _visit_closed_by(visit: Mapping[str, Any]) -> str:
+    return str(
+        visit.get("closed_by")
+        or visit.get("end_by")
+        or visit.get("returned_by")
+        or visit.get("zmienione_przez")
+        or visit.get("changed_by")
+        or visit.get("by")
+        or visit.get("login")
+        or ""
+    ).strip()
+
+
+def _last_closed_visit(tool: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Zwraca ostatnią wizytę z datą zakończenia."""
+
+    closed: list[Mapping[str, Any]] = []
+    for visit in _tool_visits(tool):
+        if not isinstance(visit, Mapping):
+            continue
+        if _visit_closed_at_iso(visit):
+            closed.append(visit)
+    if not closed:
+        return None
+
+    def _sort_key(visit: Mapping[str, Any]):
+        parsed = _parse_visit_dt(_visit_closed_at_iso(visit))
+        return parsed or datetime.min
+
+    return sorted(closed, key=_sort_key)[-1]
+
+
+def _tool_last_closed_visit_date(tool: Mapping[str, Any]) -> str:
+    visit = _last_closed_visit(tool)
+    if visit is None:
+        return "—"
+    return _pretty_dt_pl(_visit_closed_at_iso(visit))
+
+
+def _tool_last_closed_visit_by(tool: Mapping[str, Any]) -> str:
+    visit = _last_closed_visit(tool)
+    if visit is None:
+        return "—"
+    return _visit_closed_by(visit) or "—"
+
+
+def _tool_total_visits_duration_label(tool: Mapping[str, Any]) -> str:
+    """Łączny czas wizyt narzędzia w ludzkim formacie."""
+
+    total_seconds = 0.0
+    now_cache: datetime | None = None
+
+    for visit in _tool_visits(tool):
+        if not isinstance(visit, Mapping):
+            continue
+        start = _parse_visit_dt(_visit_start_iso(visit))
+        if start is None:
+            continue
+        end = _parse_visit_dt(_visit_closed_at_iso(visit))
+        if end is None:
+            if now_cache is None:
+                now_cache = datetime.now(tz=start.tzinfo) if start.tzinfo else datetime.now()
+            end = now_cache
+        total_seconds += max(0.0, (end - start).total_seconds())
+
+    return _human_duration_from_seconds(total_seconds) if total_seconds > 0 else "—"
 
 
 def _tool_visits_count(tool: Mapping[str, Any]) -> int:
@@ -755,7 +856,16 @@ class ToolsThreeTabsView(ttk.Frame):
             ),
         ).pack(side="left")
 
-        cols = ("nr", "nazwa", "typ", "status", "visit_start")
+        cols = (
+            "nr",
+            "nazwa",
+            "typ",
+            "status",
+            "last_visit_end",
+            "last_visit_by",
+            "total_visit_time",
+            "visits",
+        )
         self.tv_all = ttk.Treeview(
             self.tab_all, columns=cols, show="headings", height=18
         )
@@ -766,14 +876,20 @@ class ToolsThreeTabsView(ttk.Frame):
             "nazwa": "Nazwa",
             "typ": "Typ",
             "status": "Status",
-            "visit_start": "Ostatnia wizyta start",
+            "last_visit_end": "Ostatnia wizyta zakończona",
+            "last_visit_by": "Zakończył",
+            "total_visit_time": "Łączny czas wizyt",
+            "visits": "Ilość wizyt",
         }
         widths = {
             "nr": 90,
             "nazwa": 260,
             "typ": 180,
             "status": 200,
-            "visit_start": 170,
+            "last_visit_end": 190,
+            "last_visit_by": 120,
+            "total_visit_time": 150,
+            "visits": 90,
         }
         for column in cols:
             self.tv_all.heading(
@@ -970,7 +1086,10 @@ class ToolsThreeTabsView(ttk.Frame):
                     _tool_name(tool),
                     _tool_type_label(tool),
                     _tool_status_label(tool),
-                    _pretty_dt(_tool_current_visit_start(tool)),
+                    _tool_last_closed_visit_date(tool),
+                    _tool_last_closed_visit_by(tool),
+                    _tool_total_visits_duration_label(tool),
+                    str(_tool_visits_count(tool)),
                 ),
             )
         self._focus_first_all_tool_row()
