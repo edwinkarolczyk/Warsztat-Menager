@@ -4599,7 +4599,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         ttk.Label(visits_header, textvariable=visits_count_var, style="WM.Card.TLabel").pack(side="left")
         visits_base_var = tk.StringVar(master=dialog_master, value="")
         ttk.Label(visits_header, textvariable=visits_base_var, style="WM.Muted.TLabel").pack(side="right")
-        visits_total_var = tk.StringVar(master=dialog_master, value="Łączny czas wizyt: 0m")
+        visits_total_var = tk.StringVar(master=dialog_master, value="Łączny czas wizyt: 0h")
 
         visits_cols = ("ts", "by", "from", "duration", "comment")
         visits_tree = ttk.Treeview(
@@ -4685,24 +4685,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 return ts_value.strftime("%d-%m-%y %H:%M")
             return raw
 
-        def _format_duration(delta) -> str:
-            if delta is None:
-                return "0m"
-
-            # FIX: bywa int (sekundy) zamiast timedelta
-            if isinstance(delta, (int, float)):
-                total_seconds = max(int(delta), 0)
-            else:
-                try:
-                    total_seconds = max(int(delta.total_seconds()), 0)
-                except Exception:
-                    return "0m"
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            if hours:
-                return f"{hours}h {minutes}m"
-            return f"{minutes}m"
-
         def _refresh_visits_comments() -> None:
             visits_comments_list.delete(0, "end")
             visits = []
@@ -4760,7 +4742,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         if duration < 0:
                             duration = 0
                         total_duration += duration
-                        dur_txt = _format_duration(duration)
+                        dur_txt = _wm_humanize_duration_seconds(duration)
                     else:
                         dur_txt = "w toku"
 
@@ -4776,7 +4758,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
                 visits_count_var.set(f"Liczba wizyt: {len(visits_rows)}")
                 visits_total_var.set(
-                    f"Łączny czas wizyt: {_format_duration(total_duration) if total_duration else '0m'}"
+                    f"Łączny czas wizyt: {_wm_humanize_duration_seconds(total_duration)}"
                 )
 
                 for row in visits_rows:
@@ -4829,7 +4811,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                                 _format_ts(end_dt, change.get("ts", "")),
                                 who,
                                 prev_status or "—",
-                                _format_duration(duration),
+                                _wm_humanize_duration_seconds(duration),
                                 comment_text,
                             )
                         )
@@ -4837,7 +4819,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
             visits_count_var.set(f"Liczba wizyt: {len(visits_rows)}")
             visits_total_var.set(
-                f"Łączny czas wizyt: {_format_duration(total_duration) if total_duration else '0m'}"
+                f"Łączny czas wizyt: {_wm_humanize_duration_seconds(total_duration)}"
             )
 
             for row in visits_rows:
