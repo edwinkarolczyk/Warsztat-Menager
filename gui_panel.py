@@ -1084,8 +1084,12 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 sent = False
             if not sent:
-                os.makedirs("data", exist_ok=True)
-                path = os.path.join("data", "opinie.json")
+                try:
+                    data_root = CONFIG_MANAGER.path_data()
+                except Exception:
+                    data_root = "data"
+                os.makedirs(data_root, exist_ok=True)
+                path = os.path.join(data_root, "opinie.json")
                 try:
                     with open(path, "r", encoding="utf-8") as fh:
                         data = json.load(fh)
