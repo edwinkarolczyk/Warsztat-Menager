@@ -1177,12 +1177,46 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 sent = False
             if not sent:
+                def _feedback_data_root() -> str:
+                    """Zwraca aktywny ROOT/data dla lokalnego zapisu opinii."""
+
+                    try:
+                        from core import root_paths as wm_root_paths
+
+                        data_root = wm_root_paths.get_data_root()
+                        if data_root:
+                            return str(data_root)
+                    except Exception:
+                        pass
+
+                    try:
+                        cm = globals().get("CONFIG_MANAGER")
+                        if cm is not None:
+                            data_root = cm.path_data()
+                            if data_root:
+                                return str(data_root)
+                    except Exception:
+                        pass
+
+                    try:
+                        env_data_root = os.environ.get("WM_DATA_ROOT")
+                        if env_data_root:
+                            return str(env_data_root)
+                    except Exception:
+                        pass
+
+                    return "data"
+
                 try:
-                    data_root = CONFIG_MANAGER.path_data()
+                    data_root = _feedback_data_root()
                 except Exception:
                     data_root = "data"
                 os.makedirs(data_root, exist_ok=True)
                 path = os.path.join(data_root, "opinie.json")
+                try:
+                    print(f"[WM-ROOT][FEEDBACK] zapis opinii: {path}")
+                except Exception:
+                    pass
                 try:
                     with open(path, "r", encoding="utf-8") as fh:
                         data = json.load(fh)
