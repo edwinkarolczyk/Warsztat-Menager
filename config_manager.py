@@ -44,6 +44,29 @@ from utils.path_utils import cfg_path
 log = logging.getLogger(__name__)
 
 
+def _is_absolute_path(path: str) -> bool:
+    """Return ``True`` when ``path`` points to an absolute location."""
+
+    if not path:
+        return False
+    if os.path.isabs(path):
+        return True
+    if path.startswith("\\\\"):
+        return True
+    if len(path) > 1 and path[1] == ":":
+        return True
+    return False
+
+
+def _norm(path: str) -> str:
+    if not path:
+        return ""
+    normalized = os.path.normpath(path)
+    if _is_absolute_path(normalized) or os.path.isabs(normalized):
+        return os.path.normcase(normalized)
+    return os.path.normcase(os.path.abspath(normalized))
+
+
 def _wm_root_env_active() -> bool:
     """Czy centralny ROOT jest już ustawiony w runtime."""
 
@@ -260,15 +283,6 @@ def get_profiles_path(cfg: dict | None = None) -> str:
     return _norm(os.path.join(get_root(cfg), "data", "profiles.json"))
 
 
-def _norm(path: str) -> str:
-    if not path:
-        return ""
-    normalized = os.path.normpath(path)
-    if _is_absolute_path(normalized) or os.path.isabs(normalized):
-        return os.path.normcase(normalized)
-    return os.path.normcase(os.path.abspath(normalized))
-
-
 def _looks_like_windows_path(path: str) -> bool:
     if not path:
         return False
@@ -316,20 +330,6 @@ def _normalize_user_path(path_str: str) -> Path:
     if candidate.is_absolute():
         return candidate.expanduser().resolve()
     return (base_root / candidate).expanduser().resolve()
-
-
-def _is_absolute_path(path: str) -> bool:
-    """Return ``True`` when ``path`` points to an absolute location."""
-
-    if not path:
-        return False
-    if os.path.isabs(path):
-        return True
-    if path.startswith("\\\\"):
-        return True
-    if len(path) > 1 and path[1] == ":":
-        return True
-    return False
 
 
 def _absolute_with_root(path: str | None, root: str) -> str:
@@ -1011,9 +1011,19 @@ def _migrate_legacy_keys(cfg: dict) -> bool:
         log.warning("[CFG-MIGRATE] Wyjątek podczas migracji: %r", e)
     return changed
 
+
 # Ścieżki domyślne (katalog główny aplikacji)
-SCHEMA_PATH = cfg_path("settings_schema.json")
-DEFAULTS_PATH = cfg_path("config.defaults.json")
+def _cfg_resource_path(filename: str) -> str:
+    """Zwraca ścieżkę zasobu konfiguracji z fallbackiem do katalogu kodu."""
+
+    candidate = cfg_path(filename)
+    if os.path.exists(candidate):
+        return candidate
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+
+
+SCHEMA_PATH = _cfg_resource_path("settings_schema.json")
+DEFAULTS_PATH = _cfg_resource_path("config.defaults.json")
 GLOBAL_PATH = cfg_path("config.json")
 LOCAL_PATH = cfg_path("config.local.json")
 SECRETS_PATH = cfg_path("secrets.json")

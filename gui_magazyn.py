@@ -328,6 +328,72 @@ def load_stock():
         return {}
 
 
+def _normalize_magazyn_payload(data):
+    """Normalizuje różne formaty magazynu do (items, order, format_name)."""
+
+    if not isinstance(data, (dict, list)):
+        return {}, [], type(data).__name__
+
+    if isinstance(data, list):
+        items = {}
+        order = []
+        for idx, rec in enumerate(data):
+            if not isinstance(rec, dict):
+                continue
+            item_id = str(
+                rec.get("id")
+                or rec.get("kod")
+                or rec.get("symbol")
+                or rec.get("nr")
+                or f"poz_{idx + 1:04d}"
+            ).strip()
+            if not item_id:
+                continue
+            copy = dict(rec)
+            copy.setdefault("id", item_id)
+            items[item_id] = copy
+            order.append(item_id)
+        return items, order, "list"
+
+    if isinstance(data.get("items"), dict):
+        items = data.get("items") or {}
+        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+        order = meta.get("order") if isinstance(meta.get("order"), list) else []
+        return items, order, "items"
+
+    if isinstance(data.get("pozycje"), dict):
+        items = data.get("pozycje") or {}
+        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+        order = meta.get("order") if isinstance(meta.get("order"), list) else []
+        return items, order, "pozycje"
+
+    if isinstance(data.get("items"), list):
+        items, order, _format_name = _normalize_magazyn_payload(
+            data.get("items") or []
+        )
+        return items, order, "items_list"
+
+    if isinstance(data.get("pozycje"), list):
+        items, order, _format_name = _normalize_magazyn_payload(
+            data.get("pozycje") or []
+        )
+        return items, order, "pozycje_list"
+
+    flat_items = {}
+    flat_order = []
+    for key, value in data.items():
+        if not isinstance(value, dict):
+            continue
+        copy = dict(value)
+        copy.setdefault("id", key)
+        flat_items[str(key)] = copy
+        flat_order.append(str(key))
+    if flat_items:
+        return flat_items, flat_order, "flat_dict"
+
+    return {}, [], "empty" if not data else "unknown_dict"
+
+
 def _load_data():
     """Czyta magazyn; preferuje ``magazyn_io`` z fallbackiem na plik."""
     path = get_path("warehouse.stock_source")
@@ -355,9 +421,14 @@ def _load_data():
         except Exception:
             data = {}
 
-    items = data.get("items") if isinstance(data.get("items"), dict) else {}
-    meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
-    order = meta.get("order") if isinstance(meta.get("order"), list) else []
+    items, order, format_name = _normalize_magazyn_payload(data)
+    try:
+        print(
+            "[WM-DBG][MAGAZYN] normalized "
+            f"format={format_name} items={len(items)} order={len(order)}"
+        )
+    except Exception:
+        pass
     return items, order
 
 
@@ -601,6 +672,11 @@ class MagazynFrame(ttk.Frame):
         for item_id in sorted_ids:
             item = items.get(item_id)
             if isinstance(item, dict):
+                item.setdefault("id", item_id)
+                item.setdefault("nazwa", item.get("kod") or item_id)
+                item.setdefault("typ", item.get("type") or item.get("rodzaj") or "")
+                item.setdefault("rozmiar", item.get("wymiar") or item.get("size") or "")
+                item.setdefault("stan", item.get("ilosc", item.get("ilość", 0)))
                 self._all_rows.append((item_id, item))
                 self._items_map[item_id] = item
 
