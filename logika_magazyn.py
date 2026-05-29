@@ -20,6 +20,7 @@ if not logging.getLogger().handlers:
     )
 
 from config_manager import ConfigManager
+from core import root_paths as wm_root_paths
 from magazyn_io import append_history
 try:
     from tkinter import messagebox
@@ -84,23 +85,102 @@ except Exception:
 _CFG = ConfigManager()
 
 
-MAGAZYN_PATH = "data/magazyn/magazyn.json"
-OLD_MAGAZYN_PATH = "data/magazyn.json"
+_DEFAULT_MAGAZYN_PATH = "data/magazyn/magazyn.json"
+_DEFAULT_OLD_MAGAZYN_PATH = "data/magazyn.json"
+_DEFAULT_SUROWCE_PATH = "data/magazyn/surowce.json"
+_DEFAULT_POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
+_DEFAULT_MATERIAL_SEQ_PATH = "data/magazyn/_seq_material.json"
+
+MAGAZYN_PATH = _DEFAULT_MAGAZYN_PATH
+OLD_MAGAZYN_PATH = _DEFAULT_OLD_MAGAZYN_PATH
 """Ścieżki do pliku magazynu (nowa i stara lokalizacja)."""
 
-SUROWCE_PATH = "data/magazyn/surowce.json"
+SUROWCE_PATH = _DEFAULT_SUROWCE_PATH
 """Ścieżka do pliku surowców magazynu."""
 
-POLPRODUKTY_PATH = "data/magazyn/polprodukty.json"
+POLPRODUKTY_PATH = _DEFAULT_POLPRODUKTY_PATH
 """Ścieżka do pliku półproduktów magazynu."""
+
+MATERIAL_SEQ_PATH = _DEFAULT_MATERIAL_SEQ_PATH
+"""Ścieżka do licznika identyfikatorów materiałów."""
+
+
+def _root_data_dir() -> str:
+    """Zwraca aktywny katalog danych dla magazynu."""
+
+    try:
+        data_root = wm_root_paths.get_data_root()
+        if data_root:
+            return str(data_root)
+    except Exception:
+        pass
+
+    try:
+        data_root = _CFG.path_data()
+        if data_root:
+            return str(data_root)
+    except Exception:
+        pass
+
+    env_data_root = os.environ.get("WM_DATA_ROOT")
+    if env_data_root:
+        return str(env_data_root)
+
+    return "data"
+
+
+def _mag_path(*parts: str) -> str:
+    if MAGAZYN_PATH != _DEFAULT_MAGAZYN_PATH:
+        return os.path.join(os.path.dirname(_warehouse_path()), *parts)
+    return os.path.join(_root_data_dir(), "magazyn", *parts)
+
+
+def _warehouse_path() -> str:
+    if MAGAZYN_PATH != _DEFAULT_MAGAZYN_PATH:
+        return MAGAZYN_PATH
+
+    try:
+        path = wm_root_paths.path_warehouse()
+        if path:
+            return str(path)
+    except Exception:
+        pass
+
+    return _mag_path("magazyn.json")
+
+
+def _legacy_warehouse_path() -> str:
+    if OLD_MAGAZYN_PATH != _DEFAULT_OLD_MAGAZYN_PATH:
+        return OLD_MAGAZYN_PATH
+    return os.path.join(_root_data_dir(), "magazyn.json")
+
+
+def _surowce_path() -> str:
+    if SUROWCE_PATH != _DEFAULT_SUROWCE_PATH:
+        return SUROWCE_PATH
+    return _mag_path("surowce.json")
+
+
+def _polprodukty_path() -> str:
+    if POLPRODUKTY_PATH != _DEFAULT_POLPRODUKTY_PATH:
+        return POLPRODUKTY_PATH
+    return _mag_path("polprodukty.json")
+
+
+def _material_seq_path() -> str:
+    if MATERIAL_SEQ_PATH != _DEFAULT_MATERIAL_SEQ_PATH:
+        return MATERIAL_SEQ_PATH
+    return _mag_path("_seq_material.json")
 
 
 def _migrate_legacy_path() -> None:
     """Przenosi stary plik magazynu do nowej lokalizacji, jeśli istnieje."""
-    if os.path.exists(OLD_MAGAZYN_PATH) and not os.path.exists(MAGAZYN_PATH):
-        os.makedirs(os.path.dirname(MAGAZYN_PATH), exist_ok=True)
+    old_path = _legacy_warehouse_path()
+    new_path = _warehouse_path()
+    if os.path.exists(old_path) and not os.path.exists(new_path):
+        os.makedirs(os.path.dirname(new_path), exist_ok=True)
         try:
-            os.replace(OLD_MAGAZYN_PATH, MAGAZYN_PATH)
+            os.replace(old_path, new_path)
         except OSError:
             pass
 
@@ -113,8 +193,9 @@ def _safe_load(path, default):
         with open(path, "r", encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
-        if path == MAGAZYN_PATH and os.path.exists(OLD_MAGAZYN_PATH):
-            return _safe_load(OLD_MAGAZYN_PATH, default)
+        legacy_path = _legacy_warehouse_path()
+        if path == _warehouse_path() and os.path.exists(legacy_path):
+            return _safe_load(legacy_path, default)
         return default
     except (OSError, json.JSONDecodeError) as exc:
         print(f"[WM-DBG][MAG] Nie można odczytać {path}: {exc}")
@@ -157,12 +238,10 @@ _LOCK = RLock()
 
 DEFAULT_ITEM_TYPES = ["komponent", "półprodukt", "materiał"]
 
-MATERIAL_SEQ_PATH = "data/magazyn/_seq_material.json"
-
 
 def _magazyn_dir() -> str:
     """Zwraca katalog zawierający plik magazynu."""
-    return os.path.dirname(MAGAZYN_PATH)
+    return os.path.dirname(_warehouse_path())
 
 
 def _ensure_dirs():
@@ -191,7 +270,8 @@ def load_magazyn(include_external: bool = True):
         % include_external
     )
 
-    base = _safe_load(MAGAZYN_PATH, {"pozycje": {}, "historia": []})
+    magazyn_path = _warehouse_path()
+    base = _safe_load(magazyn_path, {"pozycje": {}, "historia": []})
     if not isinstance(base, dict):
         base = {"pozycje": {}, "historia": []}
 
@@ -204,8 +284,8 @@ def load_magazyn(include_external: bool = True):
     meta = base.get("meta") if isinstance(base.get("meta"), dict) else {}
 
     if include_external:
-        _merge_list_into(pozycje, _safe_load(SUROWCE_PATH, []), "surowiec")
-        _merge_list_into(pozycje, _safe_load(POLPRODUKTY_PATH, []), "półprodukt")
+        _merge_list_into(pozycje, _safe_load(_surowce_path(), []), "surowiec")
+        _merge_list_into(pozycje, _safe_load(_polprodukty_path(), []), "półprodukt")
 
     result = {"pozycje": pozycje, "historia": historia, "meta": meta}
     result["items"] = pozycje  # kompatybilność
@@ -246,11 +326,12 @@ def save_magazyn(data):
             if iid not in new_order:
                 new_order.append(iid)
         data["meta"]["order"] = new_order
-    lock_path = MAGAZYN_PATH + ".lock"
+    magazyn_path = _warehouse_path()
+    lock_path = magazyn_path + ".lock"
     lock_f = open(lock_path, "w")
     try:
         lock_file(lock_f)
-        tmp = MAGAZYN_PATH + ".tmp"
+        tmp = magazyn_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             try:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -262,13 +343,13 @@ def save_magazyn(data):
                     pass
                 raise
         try:
-            os.replace(tmp, MAGAZYN_PATH)
+            os.replace(tmp, magazyn_path)
         except Exception as e:
             _log_info(f"save_magazyn replace error: {e}")
             try:
-                if os.path.exists(MAGAZYN_PATH):
-                    os.remove(MAGAZYN_PATH)
-                os.rename(tmp, MAGAZYN_PATH)
+                if os.path.exists(magazyn_path):
+                    os.remove(magazyn_path)
+                os.rename(tmp, magazyn_path)
             except Exception as e2:
                 _log_info(f"save_magazyn rename error: {e2}")
                 try:
@@ -348,9 +429,10 @@ def save_polprodukt(record: dict) -> bool:
         data_rec["stan"] = float(data_rec["stan"])
 
     with _LOCK:
-        os.makedirs(os.path.dirname(POLPRODUKTY_PATH), exist_ok=True)
+        polprodukty_path = _polprodukty_path()
+        os.makedirs(os.path.dirname(polprodukty_path), exist_ok=True)
         try:
-            with open(POLPRODUKTY_PATH, "r", encoding="utf-8") as fh:
+            with open(polprodukty_path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
                 if not isinstance(data, dict):
                     data = {}
@@ -361,10 +443,10 @@ def save_polprodukt(record: dict) -> bool:
         if kod in data:
             return False
         data[kod] = data_rec
-        tmp = POLPRODUKTY_PATH + ".tmp"
+        tmp = polprodukty_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp, POLPRODUKTY_PATH)
+        os.replace(tmp, polprodukty_path)
         _log_mag("polprodukt_zapisany", {"kod": kod})
         return True
 
@@ -470,7 +552,7 @@ def remove_item_type(nazwa: str, uzytkownik: str = "system") -> bool:
 
 def _load_material_seq() -> dict:
     try:
-        with open(MATERIAL_SEQ_PATH, "r", encoding="utf-8") as f:
+        with open(_material_seq_path(), "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
                 return {str(k): int(v) for k, v in data.items()}
@@ -481,7 +563,7 @@ def _load_material_seq() -> dict:
 
 def _save_material_seq(data: dict) -> None:
     _ensure_dirs()
-    with open(MATERIAL_SEQ_PATH, "w", encoding="utf-8") as f:
+    with open(_material_seq_path(), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
