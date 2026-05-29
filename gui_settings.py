@@ -2244,6 +2244,7 @@ class SettingsPanel:
         self.tab_paths = ttk.Frame(self.nb)
         self.tab_modules = ttk.Frame(self.nb)
         self.tab_dispatches = ttk.Frame(self.nb)
+        self.tab_warehouse = ttk.Frame(self.nb)
         self.tab_users = ttk.Frame(self.nb)
         self.tab_tools = ttk.Frame(self.nb)
         self.tab_backup = ttk.Frame(self.nb)
@@ -2270,6 +2271,7 @@ class SettingsPanel:
             (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
             (self.tab_dispatches, "Dyspozycje", ""),
+            (self.tab_warehouse, "Magazyn", ""),
             (self.tab_backup, "Backup", ""),
             (self.tab_feedback, "Opinie", ""),
             (self.tab_statistics, "Statystyki", ""),
@@ -2357,7 +2359,16 @@ class SettingsPanel:
         self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._modules_nb = ttk.Notebook(self.tab_modules)
         self._modules_nb.pack(fill="both", expand=True, padx=8, pady=8)
-        self._modules_nb.bind("<<NotebookTabChanged>>", self._on_modules_tab_change, add="+")
+        self._modules_nb.bind(
+            "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
+        )
+
+        self._warehouse_nb = ttk.Notebook(self.tab_warehouse)
+        self._warehouse_nb.pack(fill="both", expand=True, padx=8, pady=8)
+        self._warehouse_nb.bind(
+            "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
+        )
+
         _scroll__jarvis_container = ScrolledFrame(self.tab_jarvis)
         _scroll__jarvis_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._jarvis_container = ttk.LabelFrame(
@@ -2406,10 +2417,13 @@ class SettingsPanel:
         modules_ids = {
             "maszyny",
             "zlecenia",
+            "dyspo",
+        }
+
+        warehouse_ids = {
             "magazyn",
             "zamowienia",
             "produkty",
-            "dyspo",
         }
 
         def _debug_settings_modules_tab(tab: dict[str, Any]) -> None:
@@ -2432,9 +2446,12 @@ class SettingsPanel:
                 groups_count = len(tab.get("groups") or [])
                 fields_count = len(tab.get("fields") or [])
                 subtabs_count = len(tab.get("subtabs") or [])
-                status = (
-                    "MODULES" if tab_id in modules_ids else "OUTSIDE_MODULES"
-                )
+                if tab_id in modules_ids:
+                    status = "MODULES"
+                elif tab_id in warehouse_ids:
+                    status = "WAREHOUSE"
+                else:
+                    status = "OUTSIDE_MODULES"
                 print(
                     "[WM-DBG][SETTINGS][MODULES] "
                     f"id={tab_id or '-'} | "
@@ -2493,10 +2510,33 @@ class SettingsPanel:
                 if counts:
                     self._log_tab_stats(title, *counts)
                 continue
+            if tab_id in warehouse_ids:
+                frame = ttk.Frame(self._warehouse_nb)
+                self._warehouse_nb.add(frame, text=title)
+                self._register_nested_tab(
+                    title, self.tab_warehouse, self._warehouse_nb, frame
+                )
+                print(
+                    "[WM-DBG][SETTINGS] add warehouse tab: "
+                    f"{title} groups={len(tab.get('groups', []))} "
+                    f"fields={len(tab.get('fields', []))}"
+                )
+                path_key = tuple(filter(None, [tab_id]))
+                self._remember_tab_frame(path_key, frame)
+                handler = handlers.get(tab_id)
+                if handler is None:
+                    counts = self._handle_generic_tab(frame, tab, path_key)
+                else:
+                    counts = handler(frame, tab, path_key)
+                if counts:
+                    self._log_tab_stats(title, *counts)
+                continue
             if tab_id in modules_ids:
                 frame = ttk.Frame(self._modules_nb)
                 self._modules_nb.add(frame, text=title)
-                self._register_nested_tab(title, self.tab_modules, self._modules_nb, frame)
+                self._register_nested_tab(
+                    title, self.tab_modules, self._modules_nb, frame
+                )
                 path_key = tuple(filter(None, [tab_id]))
                 self._remember_tab_frame(path_key, frame)
                 handler = handlers.get(tab_id)
@@ -3684,9 +3724,14 @@ class SettingsPanel:
         root.bind_all("<Key-p>", _make_handler("Użytkownicy"))
 
     def _on_modules_tab_change(self, _event=None):
-        if self._magazyn_frame is not None and not self._magazyn_initialized:
-            if self._modules_nb.select() == str(self._magazyn_frame):
-                self._init_magazyn_tab()
+        if self._magazyn_frame is None or self._magazyn_initialized:
+            return
+        try:
+            current_tab = self._warehouse_nb.select()
+        except Exception:
+            current_tab = ""
+        if current_tab == str(self._magazyn_frame):
+            self._init_magazyn_tab()
 
     def _handle_magazyn_tab(
         self, frame: tk.Widget, tab: dict[str, Any], tab_path: tuple[str, ...]
@@ -3868,15 +3913,17 @@ class SettingsPanel:
 
     def _add_magazyn_tab(self) -> None:
         try:
-            frame = MagazynSettingsFrame(self._modules_nb, self.cfg)
+            frame = MagazynSettingsFrame(self._warehouse_nb, self.cfg)
         except Exception as e:
             import tkinter as tk
             from tkinter import ttk
-            frame = ttk.Frame(self._modules_nb)
+            frame = ttk.Frame(self._warehouse_nb)
             lbl = ttk.Label(frame, text=f"Błąd ładowania zakładki Magazyn:\n{e}")
             lbl.pack(padx=12, pady=12)
-        self._modules_nb.add(frame, text="Magazyn")
-        self._register_nested_tab("Magazyn", self.tab_modules, self._modules_nb, frame)
+        self._warehouse_nb.add(frame, text="Magazyn")
+        self._register_nested_tab(
+            "Magazyn", self.tab_warehouse, self._warehouse_nb, frame
+        )
 
     def _coerce_default_for_var(self, opt: dict[str, Any], default: Any) -> Any:
         """Return value adjusted for Tk variable according to option definition."""
@@ -6047,9 +6094,9 @@ class SettingsPanel:
 
         if self._magazyn_frame is not None and not self._magazyn_initialized:
             current_top = self.nb.select()
-            if current_top == str(self.tab_modules):
+            if current_top == str(self.tab_warehouse):
                 try:
-                    current_inner = self._modules_nb.select()
+                    current_inner = self._warehouse_nb.select()
                 except Exception:
                     current_inner = ""
                 if current_inner == str(self._magazyn_frame):
