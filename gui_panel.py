@@ -124,6 +124,59 @@ def _get_app_version() -> str:
 APP_VERSION = _get_app_version()
 
 
+def _wm_get_current_theme() -> str:
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        if cm is not None:
+            value = cm.get("ui.theme", None)
+            if value:
+                return str(value)
+            value = cm.get("theme", None)
+            if value:
+                return str(value)
+    except Exception:
+        pass
+    return "default"
+
+
+def _wm_save_theme(theme_name: str) -> bool:
+    theme = str(theme_name or "").strip() or "default"
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        if cm is None:
+            return False
+        if hasattr(cm, "set"):
+            cm.set("ui.theme", theme)
+        elif hasattr(cm, "set_path"):
+            cm.set_path("ui.theme", theme)
+        else:
+            data = cm.load()
+            if not isinstance(data, dict):
+                data = {}
+            ui = data.setdefault("ui", {})
+            if isinstance(ui, dict):
+                ui["theme"] = theme
+        if hasattr(cm, "save"):
+            cm.save()
+        return True
+    except Exception:
+        return False
+
+
+def _wm_theme_values() -> list[str]:
+    values = ["default", "dark", "light"]
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        raw = cm.get("ui.available_themes", None) if cm is not None else None
+        if isinstance(raw, (list, tuple)):
+            out = [str(x).strip() for x in raw if str(x).strip()]
+            if out:
+                return out
+    except Exception:
+        pass
+    return values
+
+
 def _wm_short_path(path: str | None, max_len: int = 95) -> str:
     """Skróć długą ścieżkę do paska statusu bez zmiany samej wartości."""
     text = str(path or "").strip()
@@ -787,6 +840,46 @@ def uruchom_panel(root, login, rola):
     ttk.Label(session_wrap, textvariable=session_var, style="WM.Muted.TLabel").pack(
         side="left", padx=(0, 8)
     )
+    ttk.Label(session_wrap, text="Motyw:", style="WM.Muted.TLabel").pack(
+        side="left", padx=(8, 4)
+    )
+    theme_var = tk.StringVar(master=root, value=_wm_get_current_theme())
+    theme_box = ttk.Combobox(
+        session_wrap,
+        textvariable=theme_var,
+        values=_wm_theme_values(),
+        state="readonly",
+        width=12,
+    )
+    theme_box.pack(side="left", padx=(0, 8))
+
+    def _on_quick_theme_change(_event=None):
+        selected = theme_var.get().strip() or "default"
+        saved = _wm_save_theme(selected)
+        try:
+            apply_theme(root)
+        except Exception:
+            pass
+        try:
+            ensure_theme_applied(root)
+        except Exception:
+            pass
+        try:
+            root.event_generate("<<ThemeChanged>>", when="tail")
+        except Exception:
+            pass
+        if not saved:
+            try:
+                messagebox.showwarning(
+                    "Motyw",
+                    "Motyw został zastosowany tylko tymczasowo. "
+                    "Nie udało się zapisać configu.",
+                    parent=root,
+                )
+            except Exception:
+                pass
+
+    theme_box.bind("<<ComboboxSelected>>", _on_quick_theme_change)
 
     root_status_text, root_status_warn = _wm_build_root_status_text()
     root_status_var = tk.StringVar(master=root, value=root_status_text)
