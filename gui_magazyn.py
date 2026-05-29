@@ -74,6 +74,75 @@ ROLE_PERMS = {
 }
 
 
+def _magazyn_runtime_paths() -> dict:
+    out = {
+        "root": "",
+        "data": "",
+        "warehouse": "",
+        "bom": "",
+        "warehouse_exists": False,
+        "bom_exists": False,
+    }
+
+    try:
+        from core import root_paths as wm_root_paths
+
+        out["root"] = str(wm_root_paths.get_root_anchor())
+        out["data"] = str(wm_root_paths.get_data_root())
+        out["warehouse"] = str(wm_root_paths.path_warehouse())
+        out["bom"] = str(wm_root_paths.path_bom())
+    except Exception:
+        pass
+
+    try:
+        from config_manager import ConfigManager, resolve_rel
+
+        cfg = ConfigManager().load()
+        if not out["data"]:
+            out["data"] = str(ConfigManager().path_data())
+        if not out["warehouse"]:
+            out["warehouse"] = str(resolve_rel(cfg, "warehouse_stock"))
+    except Exception:
+        pass
+
+    try:
+        if not out["warehouse"]:
+            out["warehouse"] = str(get_path("warehouse.stock_source"))
+    except Exception:
+        pass
+
+    try:
+        import os
+
+        out["warehouse_exists"] = bool(
+            out["warehouse"] and os.path.exists(out["warehouse"])
+        )
+        out["bom_exists"] = bool(out["bom"] and os.path.exists(out["bom"]))
+    except Exception:
+        pass
+
+    return out
+
+
+def _log_magazyn_paths(context: str = "") -> None:
+    paths = _magazyn_runtime_paths()
+    try:
+        print("[WM-ROOT][MAGAZYN]", context)
+        print(f"[WM-ROOT][MAGAZYN] ROOT      = {paths.get('root')}")
+        print(f"[WM-ROOT][MAGAZYN] DATA      = {paths.get('data')}")
+        print(
+            "[WM-ROOT][MAGAZYN] WAREHOUSE = "
+            f"{paths.get('warehouse')} "
+            f"exists={int(paths.get('warehouse_exists'))}"
+        )
+        print(
+            "[WM-ROOT][MAGAZYN] BOM       = "
+            f"{paths.get('bom')} exists={int(paths.get('bom_exists'))}"
+        )
+    except Exception:
+        pass
+
+
 def _add_orders_button(toolbar: ttk.Frame, owner):
     if False:  # DISABLED: używamy natywnego przycisku „Dodaj zlecenie (Kreator)”
         btn_orders = ttk.Button(
@@ -262,6 +331,8 @@ def load_stock():
 def _load_data():
     """Czyta magazyn; preferuje ``magazyn_io`` z fallbackiem na plik."""
     path = get_path("warehouse.stock_source")
+    _log_magazyn_paths("_load_data")
+    print(f"[WM-ROOT][MAGAZYN] loader path from config.paths = {path}")
     data = {}
     if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
         try:
@@ -533,6 +604,11 @@ class MagazynFrame(ttk.Frame):
                 self._all_rows.append((item_id, item))
                 self._items_map[item_id] = item
 
+        try:
+            print(f"[WM-DBG][MAGAZYN] rows={len(self._all_rows)}")
+        except Exception:
+            pass
+
         # wartości do combobox Typ
         typy = ["(wszystkie)"]
         bucket = set()
@@ -732,6 +808,8 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
      - notebook: opcjonalny ttk.Notebook
      - container: widget **albo** nazwa atrybutu (str), np. "content"
     """
+    _log_magazyn_paths("open_panel_magazyn")
+
     try:
         from gui_panel import wm_set_module_source
         from config_manager import ConfigManager, resolve_rel
@@ -741,7 +819,8 @@ def open_panel_magazyn(parent, root=None, app=None, notebook=None, *args, **kwar
             cfg = ConfigManager().load()
         except Exception:
             cfg = {}
-        stock_path = resolve_rel(cfg, "warehouse_stock")
+        paths = _magazyn_runtime_paths()
+        stock_path = paths.get("warehouse") or resolve_rel(cfg, "warehouse_stock")
         target_root = root if root is not None else parent.winfo_toplevel()
         wm_set_module_source(target_root, "Magazyn", stock_path)
     except Exception:
