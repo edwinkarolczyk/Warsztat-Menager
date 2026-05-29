@@ -6,7 +6,7 @@ UWAGA: To jest JEDYNE źródło prawdy o wersji.
 Podnosimy wyłącznie tutaj (albo przez tools/bump_version.py).
 """
 
-__version__ = "0.1"
+__version__ = "0.2"
 
 
 def get_version() -> str:

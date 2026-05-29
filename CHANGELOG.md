@@ -1,30 +1,38 @@
 # Changelog
 
-## Dzisiejsze zmiany - 2026-05-12
+## Wersja 0.2 - 2026-05-29
 
-### ROOT / ścieżki danych
-- Dodano widoczny pasek diagnostyczny pokazujący aktywne ścieżki:
-  `ROOT`, `DATA` i `CONFIG`.
-- Dodano pasek aktualnego modułu pokazujący, z jakiego pliku lub katalogu moduł czyta dane.
-- Dodano ostrzeżenie `POZA ROOT!`, gdy moduł korzysta ze ścieżki spoza aktywnego ROOT.
+### Najważniejsze zmiany
+- Program lepiej pilnuje aktywnego folderu ROOT i pokazuje, z jakich plików korzystają moduły.
+- Dodano wygodniejsze zarządzanie dostępem do modułów według rangi użytkownika.
+- Dodano tryb podglądu/gościa oraz logowanie z poziomu głównego okna programu.
+- Dodano nową rangę „Kierownik”.
 
-### Moduły i źródła danych
-- Podłączono diagnostykę źródła danych do modułów:
-  Narzędzia, Maszyny, Dyspozycje / Zlecenia, Magazyn i Ustawienia.
-- Naprawiono błędne źródło diagnostyczne w Dyspozycjach / Zleceniach, gdzie wcześniej używana była niezdefiniowana zmienna `storage`.
-- Dyspozycje / Zlecenia pokazują teraz realną ścieżkę zwracaną przez `get_dyspozycje_path()`.
-
-### GUI / układ programu
-- Naprawiono problem, przez który moduł Maszyny wypychał dolną globalną stopkę poza widoczny obszar okna.
-- Ograniczono panel Maszyn do właściwego kontenera modułu.
-- Zmieniono kolejność pakowania `footer` i `content`, aby globalna stopka WM była zawsze rezerwowana na dole okna.
+### Dyspozycje
+- Dodano wygodniejsze tworzenie i edycję dyspozycji.
+- Dodano możliwość zamykania dyspozycji z okna edycji.
+- Dodano wyszukiwarkę obiektów przy dyspozycjach dla narzędzi i maszyn.
+- Zamknięte dyspozycje są wyszarzone i przenoszone na dół listy.
+- Nowe dyspozycje mogą migać wolniej, a dyspozycje po terminie szybciej na czerwono.
+- Dodano ustawienia kolorów i częstotliwości migania dyspozycji.
 
 ### Narzędzia
-- Wykryto, że Narzędzia czytają plik:
-  `C:\w-m\data\narzedzia\szablony_zadan.json`,
-  ale plik ma `zadania=0`.
-- Do dalszej naprawy pozostaje migracja albo uzupełnienie szablonów zadań w ROOT.
+- Poprawiono czytelność listy narzędzi.
+- Dodano kolory postępu narzędzi.
+- Poprawiono wyświetlanie czasu wizyt: godziny, dni, miesiące zamiast samych godzin.
+- Dodano informacje o ostatnio zakończonej wizycie, osobie kończącej, łącznym czasie wizyt i liczbie wizyt.
+- Dodano przygotowanie pod drukowanie karty narzędzia.
 
-### Profile
-- Wykryto niespójność ścieżki profili: część logiki może używać `<ROOT>\profiles.json` zamiast wymaganego `<ROOT>\data\profiles.json`.
-- Do dalszej naprawy pozostaje wymuszenie aktywnej ścieżki profili na `<ROOT>\data\profiles.json`.
+### Maszyny
+- Dodano wyszukiwarkę w module Maszyny.
+- Poprawiono obsługę dyspozycji dla maszyn.
+
+### Ustawienia
+- Dodano zakładkę Statystyki z czytelnym podglądem danych programu.
+- Dodano zakładkę Opinie, w której można podejrzeć opinie wysłane przez użytkowników.
+- Dodano szybką zmianę motywu z poziomu głównego okna programu.
+
+### Techniczne
+- Dodano pierwszy silnik statystyk działający tylko do odczytu.
+- Poprawiono zapisywanie opinii do aktywnego folderu danych.
+- Uporządkowano część ścieżek, żeby moduły częściej korzystały z aktywnego ROOT zamiast folderu programu.
