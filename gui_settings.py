@@ -85,6 +85,7 @@ TAB_BACKUP = "Kopia zapasowa"
 TAB_UI = "UI i wygląd"
 TAB_MODULES = "Moduły"
 TAB_DISPATCHES = "Dyspozycje"
+TAB_FEEDBACK = "Opinie"
 TAB_STATISTICS = "Statystyki"
 TAB_JARVIS = "Jarvis / powiadomienia"
 TAB_ADVANCED = "Zaawansowane / Dev"
@@ -2246,6 +2247,7 @@ class SettingsPanel:
         self.tab_users = ttk.Frame(self.nb)
         self.tab_tools = ttk.Frame(self.nb)
         self.tab_backup = ttk.Frame(self.nb)
+        self.tab_feedback = ttk.Frame(self.nb)
         self.tab_statistics = ttk.Frame(self.nb)
         self.tab_jarvis = ttk.Frame(self.nb)
         self.tab_advanced = ttk.Frame(self.nb)
@@ -2269,6 +2271,7 @@ class SettingsPanel:
             (self.tab_modules, "Moduły", ""),
             (self.tab_dispatches, "Dyspozycje", ""),
             (self.tab_backup, "Backup", ""),
+            (self.tab_feedback, "Opinie", ""),
             (self.tab_statistics, "Statystyki", ""),
             (self.tab_jarvis, "Jarvis", ""),
             (self.tab_advanced, "Zaawansowane", ""),
@@ -2326,6 +2329,16 @@ class SettingsPanel:
         )
         self._dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
 
+        _scroll__feedback_container = ScrolledFrame(self.tab_feedback)
+        _scroll__feedback_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._feedback_container = ttk.LabelFrame(
+            _scroll__feedback_container.inner,
+            text="Opinie użytkowników",
+        )
+        self._feedback_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._feedback_tree = None
+        self._feedback_details = None
+
         _scroll__statistics_container = ScrolledFrame(self.tab_statistics)
         _scroll__statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._statistics_container = ttk.LabelFrame(
@@ -2380,6 +2393,7 @@ class SettingsPanel:
         }
         self._build_manual_config_fields()
         self._build_dispatches_settings_tab()
+        self._build_feedback_settings_tab()
         self._build_statistics_settings_tab()
 
         # state for lazy creation of magazyn subtabs
@@ -3057,6 +3071,145 @@ class SettingsPanel:
         )
 
         self._last_tab = self.nb.select()
+
+    def _build_feedback_settings_tab(self) -> None:
+        """Podgląd opinii zapisanych z modułu 'Wyślij opinię'."""
+
+        parent = getattr(self, "_feedback_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        ttk.Label(
+            parent,
+            text=(
+                "Opinie zapisane lokalnie przez moduł 'Wyślij opinię'. "
+                "Źródło: aktywny ROOT/data/opinie.json."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 6))
+
+        top = ttk.Frame(parent)
+        top.pack(fill="x", padx=8, pady=(0, 8))
+
+        info_var = tk.StringVar(value="")
+        ttk.Label(top, textvariable=info_var).pack(side="left")
+
+        columns = ("ts", "login", "rola", "message")
+        tree = ttk.Treeview(parent, columns=columns, show="headings", height=14)
+        tree.heading("ts", text="Data")
+        tree.heading("login", text="Login")
+        tree.heading("rola", text="Rola")
+        tree.heading("message", text="Opinia")
+
+        tree.column("ts", width=170, anchor="w")
+        tree.column("login", width=120, anchor="w")
+        tree.column("rola", width=130, anchor="w")
+        tree.column("message", width=650, anchor="w")
+
+        tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        details_box = ttk.LabelFrame(parent, text="Treść opinii")
+        details_box.pack(fill="x", expand=False, padx=8, pady=(0, 8))
+
+        details = tk.Text(details_box, height=7, wrap="word")
+        details.pack(fill="x", expand=True, padx=8, pady=8)
+        details.configure(state="disabled")
+
+        self._feedback_tree = tree
+        self._feedback_details = details
+
+        rows_cache: list[dict] = []
+
+        def _opinie_path() -> str:
+            try:
+                data_root = self.cfg.path_data()
+            except Exception:
+                try:
+                    data_root = ConfigManager().path_data()
+                except Exception:
+                    data_root = "data"
+            return os.path.join(data_root, "opinie.json")
+
+        def _load_rows() -> list[dict]:
+            path = _opinie_path()
+            if not os.path.exists(path):
+                info_var.set(f"Brak pliku opinii: {path}")
+                return []
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+            except Exception as exc:
+                info_var.set(f"Błąd odczytu opinii: {exc}")
+                return []
+            if isinstance(payload, list):
+                return [item for item in payload if isinstance(item, dict)]
+            info_var.set(f"Nieobsługiwany format pliku opinii: {path}")
+            return []
+
+        def _set_details(text_value: str) -> None:
+            try:
+                details.configure(state="normal")
+                details.delete("1.0", "end")
+                details.insert("1.0", text_value)
+                details.configure(state="disabled")
+            except Exception:
+                logger.exception(
+                    "[SETTINGS][FEEDBACK] Nie udało się ustawić treści opinii"
+                )
+
+        def _refresh() -> None:
+            nonlocal rows_cache
+            tree.delete(*tree.get_children())
+            rows_cache = _load_rows()
+            rows_cache.sort(
+                key=lambda item: str(item.get("ts") or ""),
+                reverse=True,
+            )
+
+            for idx, row in enumerate(rows_cache):
+                message = str(row.get("message") or "")
+                short = message.replace("\n", " ").strip()
+                if len(short) > 140:
+                    short = short[:140] + "…"
+                tree.insert(
+                    "",
+                    "end",
+                    iid=str(idx),
+                    values=(
+                        str(row.get("ts") or ""),
+                        str(row.get("login") or ""),
+                        str(row.get("rola") or ""),
+                        short,
+                    ),
+                )
+
+            info_var.set(
+                f"Wczytano opinii: {len(rows_cache)} | Plik: {_opinie_path()}"
+            )
+            _set_details("")
+
+        def _show_selected(_event=None) -> None:
+            selected = tree.selection()
+            if not selected:
+                return
+            try:
+                row = rows_cache[int(selected[0])]
+            except Exception:
+                return
+
+            text_value = (
+                f"Data: {row.get('ts', '')}\n"
+                f"Login: {row.get('login', '')}\n"
+                f"Rola: {row.get('rola', '')}\n\n"
+                f"{row.get('message', '')}"
+            )
+            _set_details(text_value)
+
+        ttk.Button(top, text="Odśwież", command=_refresh).pack(side="right")
+        tree.bind("<<TreeviewSelect>>", _show_selected)
+        _refresh()
 
     def _build_statistics_settings_tab(self) -> None:
         """Czytelny podgląd statystyk WM: kafelki + diagnostyka + JSON."""
