@@ -2365,6 +2365,7 @@ class SettingsPanel:
 
         self._warehouse_nb = ttk.Notebook(self.tab_warehouse)
         self._warehouse_nb.pack(fill="both", expand=True, padx=8, pady=8)
+        self._warehouse_diag_tab = None
         self._warehouse_nb.bind(
             "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
         )
@@ -2425,6 +2426,7 @@ class SettingsPanel:
             "zamowienia",
             "produkty",
         }
+        self._build_warehouse_diagnostics_tab()
 
         def _debug_settings_modules_tab(tab: dict[str, Any]) -> None:
             """Loguje, jak zakładka z configu trafia do Ustawienia → Moduły.
@@ -3154,6 +3156,251 @@ class SettingsPanel:
         )
 
         self._last_tab = self.nb.select()
+
+    def _build_warehouse_diagnostics_tab(self) -> None:
+        """Diagnostyka plików Magazynu/BOM w Ustawienia → Magazyn."""
+
+        nb = getattr(self, "_warehouse_nb", None)
+        if nb is None:
+            return
+
+        try:
+            if self._warehouse_diag_tab is not None:
+                nb.forget(self._warehouse_diag_tab)
+        except Exception:
+            pass
+
+        frame = ttk.Frame(nb)
+        self._warehouse_diag_tab = frame
+        nb.add(frame, text="Diagnostyka")
+
+        box = ttk.LabelFrame(frame, text="Magazyn — diagnostyka danych")
+        box.pack(fill="both", expand=True, padx=8, pady=8)
+
+        ttk.Label(
+            box,
+            text=(
+                "Podgląd tylko do odczytu. Ta sekcja pokazuje, z jakich "
+                "plików Magazyn i BOM korzystają oraz ile danych realnie "
+                "w nich wykryto."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 6))
+
+        status_var = tk.StringVar(value="Nie odświeżono diagnostyki.")
+        ttk.Label(box, textvariable=status_var).pack(anchor="w", padx=8, pady=(0, 8))
+
+        grid = ttk.Frame(box)
+        grid.pack(fill="x", padx=8, pady=(0, 8))
+        grid.columnconfigure(1, weight=1)
+
+        rows: dict[str, tk.StringVar] = {}
+
+        def _add_row(row: int, label: str, key: str) -> None:
+            ttk.Label(grid, text=f"{label}:").grid(
+                row=row, column=0, sticky="nw", padx=(0, 8), pady=3
+            )
+            var = tk.StringVar(value="—")
+            rows[key] = var
+            ttk.Label(grid, textvariable=var, wraplength=900).grid(
+                row=row, column=1, sticky="ew", pady=3
+            )
+
+        _add_row(0, "ROOT", "root")
+        _add_row(1, "DATA", "data")
+        _add_row(2, "Plik magazynu", "warehouse")
+        _add_row(3, "Plik BOM", "bom")
+        _add_row(4, "Magazyn istnieje", "warehouse_exists")
+        _add_row(5, "BOM istnieje", "bom_exists")
+        _add_row(6, "Format magazynu", "warehouse_format")
+        _add_row(7, "Pozycje magazynu", "warehouse_count")
+        _add_row(8, "Pozycje BOM", "bom_count")
+
+        details = tk.Text(box, height=8, wrap="word")
+        details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        details.configure(state="disabled")
+
+        def _set_details(value: str) -> None:
+            try:
+                details.configure(state="normal")
+                details.delete("1.0", "end")
+                details.insert("1.0", value)
+                details.configure(state="disabled")
+            except Exception:
+                logger.exception(
+                    "[SETTINGS][MAGAZYN] Nie udało się ustawić diagnostyki"
+                )
+
+        def _path_info() -> dict[str, Any]:
+            out = {
+                "root": "",
+                "data": "",
+                "warehouse": "",
+                "bom": "",
+            }
+
+            try:
+                from core import root_paths as wm_root_paths
+
+                for name, func_name in (
+                    ("root", "get_root_anchor"),
+                    ("data", "get_data_root"),
+                    ("warehouse", "path_warehouse"),
+                    ("bom", "path_bom"),
+                ):
+                    func = getattr(wm_root_paths, func_name, None)
+                    if callable(func):
+                        value = func()
+                        if value:
+                            out[name] = str(value)
+            except Exception:
+                pass
+
+            try:
+                from config_manager import ConfigManager, resolve_rel
+
+                cm = ConfigManager()
+                cfg = cm.load()
+                if not out["data"] and hasattr(cm, "path_data"):
+                    out["data"] = str(cm.path_data())
+                if not out["warehouse"]:
+                    out["warehouse"] = str(resolve_rel(cfg, "warehouse_stock"))
+            except Exception:
+                pass
+
+            if not out["bom"] and out["data"]:
+                out["bom"] = os.path.join(out["data"], "produkty", "bom.json")
+            if not out["warehouse"] and out["data"]:
+                out["warehouse"] = os.path.join(
+                    out["data"], "magazyn", "magazyn.json"
+                )
+
+            return out
+
+        def _load_json(path: str) -> Any:
+            if not path or not os.path.exists(path):
+                return None
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    return json.load(handle)
+            except Exception as exc:
+                return {"__error__": str(exc)}
+
+        def _detect_warehouse(payload: Any) -> tuple[str, int]:
+            if payload is None:
+                return "missing", 0
+            if isinstance(payload, dict) and payload.get("__error__"):
+                return "broken_json", 0
+            if isinstance(payload, dict):
+                if isinstance(payload.get("items"), dict):
+                    return "items", len(payload.get("items") or {})
+                if isinstance(payload.get("pozycje"), dict):
+                    return "pozycje", len(payload.get("pozycje") or {})
+                if isinstance(payload.get("items"), list):
+                    return "items_list", len(payload.get("items") or [])
+                if isinstance(payload.get("pozycje"), list):
+                    return "pozycje_list", len(payload.get("pozycje") or [])
+                if not payload:
+                    return "empty", 0
+                flat_count = sum(
+                    1 for value in payload.values() if isinstance(value, dict)
+                )
+                if flat_count:
+                    return "flat_dict", flat_count
+                return "unknown_dict", 0
+            if isinstance(payload, list):
+                return "list", len(payload)
+            return type(payload).__name__, 0
+
+        def _detect_bom(payload: Any) -> tuple[str, int]:
+            if payload is None:
+                return "missing", 0
+            if isinstance(payload, dict) and payload.get("__error__"):
+                return "broken_json", 0
+            if isinstance(payload, list):
+                return "list", len(payload)
+            if isinstance(payload, dict):
+                for key in ("items", "produkty", "products", "bom"):
+                    value = payload.get(key)
+                    if isinstance(value, dict):
+                        return key, len(value)
+                    if isinstance(value, list):
+                        return f"{key}_list", len(value)
+                if not payload:
+                    return "empty", 0
+                flat_count = sum(
+                    1 for value in payload.values() if isinstance(value, dict)
+                )
+                if flat_count:
+                    return "flat_dict", flat_count
+                return "unknown_dict", 0
+            return type(payload).__name__, 0
+
+        def _refresh() -> None:
+            paths = _path_info()
+            warehouse_path = paths.get("warehouse") or ""
+            bom_path = paths.get("bom") or ""
+
+            warehouse_payload = _load_json(warehouse_path)
+            bom_payload = _load_json(bom_path)
+
+            warehouse_format, warehouse_count = _detect_warehouse(warehouse_payload)
+            bom_format, bom_count = _detect_bom(bom_payload)
+
+            warehouse_exists = bool(warehouse_path and os.path.exists(warehouse_path))
+            bom_exists = bool(bom_path and os.path.exists(bom_path))
+
+            rows["root"].set(paths.get("root") or "—")
+            rows["data"].set(paths.get("data") or "—")
+            rows["warehouse"].set(warehouse_path or "—")
+            rows["bom"].set(bom_path or "—")
+            rows["warehouse_exists"].set("TAK" if warehouse_exists else "NIE")
+            rows["bom_exists"].set("TAK" if bom_exists else "NIE")
+            rows["warehouse_format"].set(warehouse_format)
+            rows["warehouse_count"].set(str(warehouse_count))
+            rows["bom_count"].set(f"{bom_count} ({bom_format})")
+
+            problems = []
+            if not warehouse_exists:
+                problems.append("Nie znaleziono pliku magazynu.")
+            if warehouse_exists and warehouse_count == 0:
+                problems.append(
+                    "Plik magazynu istnieje, ale diagnostyka nie wykryła pozycji."
+                )
+            if not bom_exists:
+                problems.append("Nie znaleziono pliku BOM.")
+            if bom_exists and bom_count == 0:
+                problems.append(
+                    "Plik BOM istnieje, ale diagnostyka nie wykryła pozycji."
+                )
+
+            if problems:
+                detail_text = "Wykryte uwagi:\n" + "\n".join(
+                    f"- {item}" for item in problems
+                )
+            else:
+                detail_text = "Brak podstawowych problemów w diagnostyce Magazyn/BOM."
+
+            _set_details(detail_text)
+            status_var.set("Diagnostyka odświeżona.")
+
+            try:
+                print(
+                    "[WM-DBG][SETTINGS][MAGAZYN] "
+                    f"warehouse={warehouse_path} exists={int(warehouse_exists)} "
+                    f"format={warehouse_format} count={warehouse_count} | "
+                    f"bom={bom_path} exists={int(bom_exists)} "
+                    f"format={bom_format} count={bom_count}"
+                )
+            except Exception:
+                pass
+
+        ttk.Button(
+            box,
+            text="Odśwież diagnostykę",
+            command=_refresh,
+        ).pack(anchor="w", padx=8, pady=(0, 8))
+
+        _refresh()
 
     def _build_feedback_settings_tab(self) -> None:
         """Podgląd opinii zapisanych z modułu 'Wyślij opinię'."""
