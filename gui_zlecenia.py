@@ -8,6 +8,7 @@ import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from typing import Any, Callable
 
+from config_manager import ConfigManager
 from dyspozycje_store import (
     close_dyspozycja,
     delete_dyspozycja,
@@ -19,6 +20,45 @@ from ui_dialogs_safe import error_box
 
 
 logger = logging.getLogger(__name__)
+
+
+def _dysp_ui_config() -> dict[str, Any]:
+    defaults: dict[str, Any] = {
+        "blink_enabled": True,
+        "closed_foreground": "#9ca3af",
+        "new_foreground": "#facc15",
+        "new_blink_foreground": "#ffffff",
+        "overdue_foreground": "#ef4444",
+        "overdue_blink_foreground": "#ffffff",
+        "overdue_blink_background": "#7f1d1d",
+        "new_blink_ms": 2000,
+        "overdue_blink_ms": 500,
+    }
+    try:
+        cfg = ConfigManager()
+        data = cfg.load()
+        ui = (((data or {}).get("dyspozycje") or {}).get("ui") or {})
+        out = dict(defaults)
+        out.update({k: v for k, v in ui.items() if v not in (None, "")})
+        out["new_blink_ms"] = int(
+            out.get("new_blink_ms") or defaults["new_blink_ms"]
+        )
+        out["overdue_blink_ms"] = int(
+            out.get("overdue_blink_ms") or defaults["overdue_blink_ms"]
+        )
+        blink_enabled = out.get("blink_enabled", True)
+        if isinstance(blink_enabled, str):
+            blink_enabled = blink_enabled.strip().lower() not in {
+                "0",
+                "false",
+                "nie",
+                "no",
+                "off",
+            }
+        out["blink_enabled"] = bool(blink_enabled)
+        return out
+    except Exception:
+        return defaults
 
 
 def _dysp_status(item: dict[str, Any]) -> str:
@@ -117,6 +157,7 @@ class ZleceniaView(ttk.Frame):
         self._refresh_error_shown = False
         self._order_rows: dict[str, dict] = {}
         self._order_ids: dict[str, str] = {}
+        self._dysp_ui = _dysp_ui_config()
         self._open_order_creator = _resolve_creator()
         self._build_toolbar()
         self._build_tree()
@@ -177,20 +218,29 @@ class ZleceniaView(ttk.Frame):
         for column in columns:
             self.tree.heading(column, text=column.capitalize())
             self.tree.column(column, anchor="center")
-        self.tree.tag_configure("dysp_closed", foreground="#9ca3af")
-        self.tree.tag_configure("dysp_new", foreground="#facc15")
-        self.tree.tag_configure("dysp_new_blink", foreground="#ffffff")
-        self.tree.tag_configure("dysp_overdue", foreground="#ef4444")
-        self.tree.tag_configure(
-            "dysp_overdue_blink",
-            foreground="#ffffff",
-            background="#7f1d1d",
-        )
+        self._apply_dysp_ui_config()
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self._on_double_click, add=True)
         self._ensure_blink_started()
 
+    def _apply_dysp_ui_config(self) -> None:
+        self._dysp_ui = _dysp_ui_config()
+        ui = self._dysp_ui
+        self.tree.tag_configure("dysp_closed", foreground=ui["closed_foreground"])
+        self.tree.tag_configure("dysp_new", foreground=ui["new_foreground"])
+        self.tree.tag_configure(
+            "dysp_new_blink", foreground=ui["new_blink_foreground"]
+        )
+        self.tree.tag_configure("dysp_overdue", foreground=ui["overdue_foreground"])
+        self.tree.tag_configure(
+            "dysp_overdue_blink",
+            foreground=ui["overdue_blink_foreground"],
+            background=ui["overdue_blink_background"],
+        )
+
     def _ensure_blink_started(self) -> None:
+        if not self._dysp_ui.get("blink_enabled", True):
+            return
         if getattr(self.tree, "_wm_dysp_blink_started", False):
             return
         self.tree._wm_dysp_blink_started = True
@@ -207,8 +257,14 @@ class ZleceniaView(ttk.Frame):
                 tags.discard("dysp_new_blink")
                 tags.add("dysp_new_blink" if self._blink_state["new"] else "dysp_new")
                 self.tree.item(iid, tags=tuple(tags))
+        if not self._dysp_ui.get("blink_enabled", True):
+            self.tree._wm_dysp_blink_started = False
+            return
         try:
-            self.tree.after(2000, self._blink_dysp_new)
+            self.tree.after(
+                int(self._dysp_ui.get("new_blink_ms", 2000)),
+                self._blink_dysp_new,
+            )
         except Exception:
             pass
 
@@ -219,11 +275,19 @@ class ZleceniaView(ttk.Frame):
             if "dysp_overdue" in tags or "dysp_overdue_blink" in tags:
                 tags.discard("dysp_overdue")
                 tags.discard("dysp_overdue_blink")
-                toggle = "dysp_overdue_blink" if self._blink_state["overdue"] else "dysp_overdue"
-                tags.add(toggle)
+                if self._blink_state["overdue"]:
+                    tags.add("dysp_overdue_blink")
+                else:
+                    tags.add("dysp_overdue")
                 self.tree.item(iid, tags=tuple(tags))
+        if not self._dysp_ui.get("blink_enabled", True):
+            self.tree._wm_dysp_blink_started = False
+            return
         try:
-            self.tree.after(500, self._blink_dysp_overdue)
+            self.tree.after(
+                int(self._dysp_ui.get("overdue_blink_ms", 500)),
+                self._blink_dysp_overdue,
+            )
         except Exception:
             pass
 
@@ -239,7 +303,11 @@ class ZleceniaView(ttk.Frame):
         if not root:
             return
         # nowy event dla Dyspozycji
-        root.bind("<<DyspozycjeUpdated>>", lambda _event: self._reload_orders(), add=True)
+        root.bind(
+            "<<DyspozycjeUpdated>>",
+            lambda _event: self._reload_orders(),
+            add=True,
+        )
 
     def _fill_orders_table(self, rows: list[dict]) -> None:
         for item in self.tree.get_children():
@@ -291,6 +359,8 @@ class ZleceniaView(ttk.Frame):
                 self._order_ids[iid] = order_key
 
     def _reload_orders(self) -> None:
+        self._apply_dysp_ui_config()
+        self._ensure_blink_started()
         try:
             rows = load_dyspozycje()
         except Exception as exc:  # pragma: no cover - wymagane GUI
@@ -454,6 +524,8 @@ class ZleceniaView(ttk.Frame):
 
     # region Refresh ----------------------------------------------------
     def _refresh(self) -> None:
+        self._apply_dysp_ui_config()
+        self._ensure_blink_started()
         try:
             rows = _load_orders_rows()
             try:

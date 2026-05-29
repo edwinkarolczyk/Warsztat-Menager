@@ -84,6 +84,7 @@ TAB_PATHS = "Ścieżki"
 TAB_BACKUP = "Kopia zapasowa"
 TAB_UI = "UI i wygląd"
 TAB_MODULES = "Moduły"
+TAB_DISPATCHES = "Dyspozycje"
 TAB_STATISTICS = "Statystyki"
 TAB_JARVIS = "Jarvis / powiadomienia"
 TAB_ADVANCED = "Zaawansowane / Dev"
@@ -2241,6 +2242,7 @@ class SettingsPanel:
         self.tab_ui = ttk.Frame(self.nb)
         self.tab_paths = ttk.Frame(self.nb)
         self.tab_modules = ttk.Frame(self.nb)
+        self.tab_dispatches = ttk.Frame(self.nb)
         self.tab_users = ttk.Frame(self.nb)
         self.tab_tools = ttk.Frame(self.nb)
         self.tab_backup = ttk.Frame(self.nb)
@@ -2265,6 +2267,7 @@ class SettingsPanel:
             (self.tab_paths, "Ścieżki", ""),
             (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
+            (self.tab_dispatches, "Dyspozycje", ""),
             (self.tab_backup, "Backup", ""),
             (self.tab_statistics, "Statystyki", ""),
             (self.tab_jarvis, "Jarvis", ""),
@@ -2314,6 +2317,14 @@ class SettingsPanel:
             text="💾 Kopie zapasowe"
         )
         self._backup_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        _scroll__dispatches_container = ScrolledFrame(self.tab_dispatches)
+        _scroll__dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._dispatches_container = ttk.LabelFrame(
+            _scroll__dispatches_container.inner,
+            text="Dyspozycje — wygląd i miganie",
+        )
+        self._dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
 
         _scroll__statistics_container = ScrolledFrame(self.tab_statistics)
         _scroll__statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
@@ -2368,6 +2379,7 @@ class SettingsPanel:
             "jarvis.enabled",
         }
         self._build_manual_config_fields()
+        self._build_dispatches_settings_tab()
         self._build_statistics_settings_tab()
 
         # state for lazy creation of magazyn subtabs
@@ -2654,6 +2666,179 @@ class SettingsPanel:
                 counts = handler(frame, subtab, path_key)
             if counts:
                 self._log_tab_stats(title, *counts)
+
+    def _build_dispatches_settings_tab(self) -> None:
+        parent = getattr(self, "_dispatches_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        cfg = getattr(self, "cfg", None) or ConfigManager()
+
+        def _cfg_get(key: str, default: Any) -> Any:
+            getter = getattr(cfg, "get_path", None)
+            if callable(getter):
+                return getter(key, default)
+            getter = getattr(cfg, "get", None)
+            if callable(getter):
+                return getter(key, default)
+            return default
+
+        def _cfg_set(key: str, value: Any) -> None:
+            setter = getattr(cfg, "set_path", None)
+            if callable(setter):
+                setter(key, value)
+                return
+            setter = getattr(cfg, "set", None)
+            if callable(setter):
+                setter(key, value)
+
+        ttk.Label(
+            parent,
+            text=(
+                "Ustawienia wyglądu listy dyspozycji. Zmiany zapisują się "
+                "do config.json i będą użyte po odświeżeniu panelu Dyspozycji."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 10))
+
+        fields = ttk.LabelFrame(parent, text="Kolory")
+        fields.pack(fill="x", padx=8, pady=8)
+        fields.columnconfigure(1, weight=1)
+
+        blink = ttk.LabelFrame(parent, text="Miganie")
+        blink.pack(fill="x", padx=8, pady=8)
+        blink.columnconfigure(1, weight=1)
+
+        values = {
+            "dyspozycje.ui.closed_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.closed_foreground", "#9ca3af"))
+            ),
+            "dyspozycje.ui.new_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.new_foreground", "#facc15"))
+            ),
+            "dyspozycje.ui.new_blink_foreground": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.new_blink_foreground", "#ffffff")
+                )
+            ),
+            "dyspozycje.ui.overdue_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.overdue_foreground", "#ef4444"))
+            ),
+            "dyspozycje.ui.overdue_blink_foreground": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.overdue_blink_foreground", "#ffffff")
+                )
+            ),
+            "dyspozycje.ui.overdue_blink_background": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.overdue_blink_background", "#7f1d1d")
+                )
+            ),
+            "dyspozycje.ui.new_blink_ms": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.new_blink_ms", 2000))
+            ),
+            "dyspozycje.ui.overdue_blink_ms": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.overdue_blink_ms", 500))
+            ),
+        }
+
+        blink_enabled = tk.BooleanVar(
+            value=bool(_cfg_get("dyspozycje.ui.blink_enabled", True))
+        )
+
+        def _row(parent_widget, row: int, label: str, key: str):
+            ttk.Label(parent_widget, text=label).grid(
+                row=row, column=0, sticky="w", padx=8, pady=4
+            )
+            ent = ttk.Entry(parent_widget, textvariable=values[key], width=18)
+            ent.grid(row=row, column=1, sticky="w", padx=8, pady=4)
+            return ent
+
+        _row(fields, 0, "Zamknięte — tekst:", "dyspozycje.ui.closed_foreground")
+        _row(fields, 1, "Nowe — tekst:", "dyspozycje.ui.new_foreground")
+        _row(
+            fields,
+            2,
+            "Nowe miganie — tekst:",
+            "dyspozycje.ui.new_blink_foreground",
+        )
+        _row(fields, 3, "Po terminie — tekst:", "dyspozycje.ui.overdue_foreground")
+        _row(
+            fields,
+            4,
+            "Po terminie miganie — tekst:",
+            "dyspozycje.ui.overdue_blink_foreground",
+        )
+        _row(
+            fields,
+            5,
+            "Po terminie miganie — tło:",
+            "dyspozycje.ui.overdue_blink_background",
+        )
+
+        ttk.Checkbutton(
+            blink,
+            text="Włącz miganie dyspozycji",
+            variable=blink_enabled,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=8, pady=4)
+
+        _row(blink, 1, "Miganie nowych [ms]:", "dyspozycje.ui.new_blink_ms")
+        _row(blink, 2, "Miganie po terminie [ms]:", "dyspozycje.ui.overdue_blink_ms")
+
+        ttk.Label(
+            parent,
+            text=(
+                "Kolory wpisuj jako HEX, np. #ef4444. Częstotliwość "
+                "w milisekundach: 2000 = 2 sekundy, 500 = pół sekundy."
+            ),
+        ).pack(anchor="w", padx=8, pady=(4, 8))
+
+        def _safe_int(
+            value: str,
+            default: int,
+            min_value: int = 100,
+            max_value: int = 10000,
+        ) -> int:
+            try:
+                parsed = int(str(value).strip())
+            except Exception:
+                parsed = default
+            return max(min_value, min(max_value, parsed))
+
+        def _save_dispatches_ui() -> None:
+            try:
+                _cfg_set("dyspozycje.ui.blink_enabled", bool(blink_enabled.get()))
+                for key, var in values.items():
+                    if key.endswith("_ms"):
+                        default = 2000 if key.endswith("new_blink_ms") else 500
+                        _cfg_set(key, _safe_int(var.get(), default))
+                    else:
+                        _cfg_set(key, str(var.get()).strip() or "#ffffff")
+                saver = getattr(cfg, "save", None)
+                if callable(saver):
+                    saver()
+                messagebox.showinfo(
+                    "Dyspozycje",
+                    "Zapisano ustawienia wyglądu dyspozycji.",
+                    parent=self.win,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "[SETTINGS][DYSP] Nie udało się zapisać ustawień dyspozycji"
+                )
+                messagebox.showerror(
+                    "Dyspozycje",
+                    f"Nie udało się zapisać ustawień: {exc}",
+                    parent=self.win,
+                )
+
+        ttk.Button(
+            parent,
+            text="Zapisz ustawienia Dyspozycji",
+            command=_save_dispatches_ui,
+        ).pack(anchor="w", padx=8, pady=(4, 12))
 
     def _build_manual_config_fields(self) -> None:
         """Insert hand-crafted widgets tied to configuration keys."""
