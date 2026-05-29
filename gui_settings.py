@@ -2412,6 +2412,48 @@ class SettingsPanel:
             "dyspo",
         }
 
+        def _debug_settings_modules_tab(tab: dict[str, Any]) -> None:
+            """Loguje, jak zakładka z configu trafia do Ustawienia → Moduły.
+
+            Etap 1 audytu: tylko diagnostyka, bez zmiany działania UI.
+            """
+
+            try:
+                tab_id = str(tab.get("id") or "").strip().lower()
+                title = str(
+                    tab.get("title") or tab.get("label") or tab_id or ""
+                ).strip()
+                handler = handlers.get(tab_id)
+                handler_name = (
+                    getattr(handler, "__name__", "generic")
+                    if handler
+                    else "generic"
+                )
+                groups_count = len(tab.get("groups") or [])
+                fields_count = len(tab.get("fields") or [])
+                subtabs_count = len(tab.get("subtabs") or [])
+                status = (
+                    "MODULES" if tab_id in modules_ids else "OUTSIDE_MODULES"
+                )
+                print(
+                    "[WM-DBG][SETTINGS][MODULES] "
+                    f"id={tab_id or '-'} | "
+                    f"title={title or '-'} | "
+                    f"target={status} | "
+                    f"handler={handler_name} | "
+                    f"groups={groups_count} | "
+                    f"fields={fields_count} | "
+                    f"subtabs={subtabs_count}"
+                )
+            except Exception as exc:
+                try:
+                    print(
+                        "[WM-DBG][SETTINGS][MODULES][WARN] "
+                        f"debug failed: {exc}"
+                    )
+                except Exception:
+                    pass
+
         # allow_users policzone wyżej – tutaj już tylko używamy tej wartości
         if allow_users:
             users_nb = ttk.Notebook(self._users_container)
@@ -2425,6 +2467,7 @@ class SettingsPanel:
             users_nb.add(users_profile_frame, text="Profil użytkownika")
 
         for tab in schema.get("tabs", []):
+            _debug_settings_modules_tab(tab)
             tab_id_raw = tab.get("id")
             tab_id = str(tab_id_raw or "").strip().lower()
             title = tab.get("title", tab.get("id", ""))
