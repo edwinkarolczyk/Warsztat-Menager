@@ -145,21 +145,47 @@ def _wm_save_theme(theme_name: str) -> bool:
         cm = globals().get("CONFIG_MANAGER")
         if cm is None:
             return False
-        if hasattr(cm, "set"):
-            cm.set("ui.theme", theme)
-        elif hasattr(cm, "set_path"):
+        if hasattr(cm, "set_path"):
             cm.set_path("ui.theme", theme)
+        elif hasattr(cm, "set"):
+            cm.set("ui.theme", theme)
         else:
-            data = cm.load()
+            data = getattr(cm, "merged", None)
             if not isinstance(data, dict):
-                data = {}
+                data = getattr(cm, "global_cfg", None)
+            if not isinstance(data, dict):
+                data = cm.load() if hasattr(cm, "load") else {}
+            if not isinstance(data, dict):
+                return False
             ui = data.setdefault("ui", {})
-            if isinstance(ui, dict):
-                ui["theme"] = theme
+            if not isinstance(ui, dict):
+                data["ui"] = {}
+                ui = data["ui"]
+            ui["theme"] = theme
+            try:
+                setattr(cm, "merged", data)
+            except Exception:
+                pass
+            try:
+                setattr(cm, "global_cfg", data)
+            except Exception:
+                pass
         if hasattr(cm, "save"):
             cm.save()
+        elif hasattr(cm, "save_config"):
+            cm.save_config()
+        else:
+            return False
+        try:
+            print(f"[WM-DBG][THEME] quick theme saved: ui.theme={theme}")
+        except Exception:
+            pass
         return True
-    except Exception:
+    except Exception as exc:
+        try:
+            print(f"[WM-DBG][THEME][WARN] quick theme save failed: {exc}")
+        except Exception:
+            pass
         return False
 
 
