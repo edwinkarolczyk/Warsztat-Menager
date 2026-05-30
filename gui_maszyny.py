@@ -2888,29 +2888,143 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             if os.path.isabs(raw) and os.path.exists(raw):
                 return os.path.normpath(raw)
 
+            raw_norm = os.path.normpath(raw)
+            raw_base = os.path.basename(raw_norm)
+            machines_dir = os.path.dirname(primary_path)
+            data_root = os.path.dirname(machines_dir)
+
             candidates: List[str] = []
+
+            # 1) katalog, z którego realnie czytamy maszyny.json
+            candidates.extend(
+                [
+                    os.path.join(machines_dir, raw_norm),
+                    os.path.join(machines_dir, raw_base),
+                    os.path.join(machines_dir, "zdjecia", raw_norm),
+                    os.path.join(machines_dir, "zdjecia", raw_base),
+                    os.path.join(machines_dir, "zdjęcia", raw_norm),
+                    os.path.join(machines_dir, "zdjęcia", raw_base),
+                    os.path.join(machines_dir, "images", raw_norm),
+                    os.path.join(machines_dir, "images", raw_base),
+                    os.path.join(machines_dir, "photos", raw_norm),
+                    os.path.join(machines_dir, "photos", raw_base),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_norm
+                    ),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_base
+                    ),
+                ]
+            )
+
+            # 2) ROOT/data jako fallback
+            candidates.extend(
+                [
+                    os.path.join(data_root, "maszyny", raw_norm),
+                    os.path.join(data_root, "maszyny", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_base),
+                    os.path.join(data_root, "maszyny", "images", raw_norm),
+                    os.path.join(data_root, "maszyny", "images", raw_base),
+                    os.path.join(data_root, "maszyny", "photos", raw_norm),
+                    os.path.join(data_root, "maszyny", "photos", raw_base),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_norm
+                    ),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_base
+                    ),
+                ]
+            )
+
             try:
-                data_root = cfg_manager.path_data()
-                candidates.extend(
-                    [
-                        os.path.join(data_root, "maszyny", raw),
-                        os.path.join(data_root, "maszyny", "zdjecia", raw),
-                        os.path.join(data_root, "maszyny", "zdjęcia", raw),
-                        os.path.join(data_root, "maszyny", "images", raw),
-                        os.path.join(data_root, "maszyny", "photos", raw),
-                        os.path.join(
-                            data_root, "maszyny", "attachments", machine_id, raw
-                        ),
-                    ]
+                cfg_data_root = (
+                    cfg_manager.path_data() if cfg_manager is not None else ""
                 )
+                if cfg_data_root:
+                    candidates.extend(
+                        [
+                            os.path.join(cfg_data_root, "maszyny", raw_norm),
+                            os.path.join(cfg_data_root, "maszyny", raw_base),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_norm,
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_base,
+                            ),
+                        ]
+                    )
             except Exception:
                 pass
-            candidates.append(raw)
 
+            candidates.append(raw_norm)
+
+            seen: set[str] = set()
             for candidate in candidates:
                 candidate = os.path.normpath(candidate)
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
                 if os.path.exists(candidate):
                     return candidate
+
+            # 3) ostatnia deska ratunku: szybkie szukanie po nazwie pliku
+            #    w data/maszyny. Przydatne, gdy w JSON jest samo
+            #    "100004526.jpg", a folder zdjęć jest inny.
+            if raw_base:
+                search_roots = [
+                    machines_dir,
+                    os.path.join(data_root, "maszyny"),
+                ]
+                for search_root in search_roots:
+                    if not search_root or not os.path.isdir(search_root):
+                        continue
+                    try:
+                        for dirpath, _dirnames, filenames in os.walk(
+                            search_root
+                        ):
+                            if raw_base in filenames:
+                                return os.path.normpath(
+                                    os.path.join(dirpath, raw_base)
+                                )
+                    except Exception:
+                        pass
             return ""
 
         image_path = (
@@ -2920,22 +3034,39 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         if image_path:
             try:
                 resolved_image = _resolve_machine_image_absolute(image_path)
-                if (
+                image_exists = bool(
                     resolved_image and os.path.exists(resolved_image)
-                    and Image and ImageTk
-                ):
+                )
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO] "
+                        f"id={machine_id} raw={image_path!r} "
+                        f"resolved={resolved_image!r} "
+                        f"exists={int(image_exists)} "
+                        f"pil={int(bool(Image and ImageTk))}"
+                    )
+                except Exception:
+                    pass
+                if image_exists and Image and ImageTk:
                     img = Image.open(resolved_image)
-                    img.thumbnail((180, 180))
+                    img.thumbnail((180, 180), Image.LANCZOS)
                     photo_img = ImageTk.PhotoImage(img)
                     win._machine_photo_img = photo_img
                     photo_label.configure(image=photo_img, text="")
-                elif resolved_image and os.path.exists(resolved_image):
+                elif image_exists:
                     photo_label.configure(
                         text=os.path.basename(resolved_image)
                     )
                 else:
                     photo_label.configure(text=f"Nie znaleziono:\n{image_path}")
-            except Exception:
+            except Exception as exc:
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO][ERR] "
+                        f"id={machine_id} raw={image_path!r} error={exc}"
+                    )
+                except Exception:
+                    pass
                 photo_label.configure(text=str(image_path))
 
         header = ttk.Frame(outer)
