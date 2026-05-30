@@ -74,19 +74,58 @@ GRID_BASE_BG_PX_Y = 25
 
 DEFAULT_BG_COLOR = "#1e1e1e"
 
+MACHINE_STATUS_ALIASES = {
+    "ok": "ok",
+    "sprawna": "ok",
+    "sprawne": "ok",
+    "sprawny": "ok",
+    "dziala": "ok",
+    "działa": "ok",
+    "alert": "alert",
+    "serwis": "alert",
+    "przeglad": "alert",
+    "przegląd": "alert",
+    "serwis/przeglad": "alert",
+    "serwis/przegląd": "alert",
+    "warn": "warn",
+    "warm": "warn",
+    "awaria": "warn",
+    "uszkodzona": "warn",
+    "uszkodzone": "warn",
+    "stop": "warn",
+}
+
+MACHINE_STATUS_LABELS = {
+    "ok": "Sprawna",
+    "alert": "Serwis / przegląd",
+    "warn": "Awaria",
+}
+
+MACHINE_STATUS_COLORS = {
+    "ok": "#16a34a",
+    "alert": "#ca8a04",
+    "warn": "#dc2626",
+}
+
+MACHINE_STATUS_ROW_COLORS = {
+    "ok": {"background": "#dcfce7", "foreground": "#166534"},
+    "alert": {"background": "#fef3c7", "foreground": "#854d0e"},
+    "warn": {"background": "#fee2e2", "foreground": "#7f1d1d"},
+}
+
 SCHEDULE_YEAR = 2025
 SCHEDULE_SOON_THRESHOLD_DAYS = 7
 SCHEDULE_STATUS_COLORS = {
-    "overdue": "#dc2626",
-    "soon": "#ca8a04",
-    "ok": "#16a34a",
+    "overdue": MACHINE_STATUS_COLORS["warn"],
+    "soon": MACHINE_STATUS_COLORS["alert"],
+    "ok": MACHINE_STATUS_COLORS["ok"],
     "done": "#0f766e",
     "none": "#64748b",
 }
 SCHEDULE_STATUS_ROW_COLORS = {
-    "overdue": {"background": "#fee2e2", "foreground": "#7f1d1d"},
-    "soon": {"background": "#fef3c7", "foreground": "#854d0e"},
-    "ok": {"background": "#dcfce7", "foreground": "#166534"},
+    "overdue": MACHINE_STATUS_ROW_COLORS["warn"],
+    "soon": MACHINE_STATUS_ROW_COLORS["alert"],
+    "ok": MACHINE_STATUS_ROW_COLORS["ok"],
     "done": {"background": "#e0f2fe", "foreground": "#0c4a6e"},
     "none": {"background": "#e2e8f0", "foreground": "#475569"},
 }
@@ -113,6 +152,34 @@ def _canvas_bounds(canvas) -> tuple[int, int]:
         return (800, 600)
 
 logger = getLogger(__name__)
+
+
+def _normalize_machine_status(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return "ok"
+    key = raw.replace("_", " ").replace("-", " ")
+    key = " ".join(key.split())
+    direct = MACHINE_STATUS_ALIASES.get(key)
+    if direct:
+        return direct
+    compact = key.replace(" ", "")
+    return MACHINE_STATUS_ALIASES.get(compact, key)
+
+
+def _machine_status_label(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_LABELS.get(key, str(value or "Sprawna"))
+
+
+def _machine_status_color(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_COLORS.get(key, MACHINE_STATUS_COLORS["ok"])
+
+
+def _machine_status_row_colors(value: object) -> dict[str, str]:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_ROW_COLORS.get(key, MACHINE_STATUS_ROW_COLORS["ok"])
 
 
 def _normalize_machine_key(value: object) -> str:
@@ -411,6 +478,18 @@ def _ensure_tree_schedule_tag(tree: ttk.Treeview, status_key: str) -> str:
     if tag in _TREE_STATUS_TAG_CACHE:
         return tag
     colors = SCHEDULE_STATUS_ROW_COLORS.get(status_key)
+    if colors:
+        tree.tag_configure(tag, **colors)
+    _TREE_STATUS_TAG_CACHE[tag] = True
+    return tag
+
+
+def _ensure_tree_machine_status_tag(tree: ttk.Treeview, status_value: object) -> str:
+    status_key = _normalize_machine_status(status_value)
+    tag = f"MACHINE_STATUS::{status_key}"
+    if tag in _TREE_STATUS_TAG_CACHE:
+        return tag
+    colors = _machine_status_row_colors(status_key)
     if colors:
         tree.tag_configure(tag, **colors)
     _TREE_STATUS_TAG_CACHE[tag] = True
@@ -1022,15 +1101,20 @@ def _tree_insert_row(tree: ttk.Treeview, machine: dict) -> str:
             return status_label
         if col == "id":
             return machine.get("id", "") or machine.get("nr_ewid", "") or ""
+        if col == "status":
+            return _machine_status_label(machine.get("status"))
         return machine.get(col, "")
 
     values = tuple(_value_for(col) for col in columns)
     identifier = str(machine.get("id") or machine.get("nr_ewid") or "")
     item_id = tree.insert("", "end", iid=identifier or None, values=values)
     tag_identifier = identifier or item_id
+    machine_status_tag = _ensure_tree_machine_status_tag(tree, machine.get("status"))
     schedule_key = _schedule_status_key(machine)
     schedule_tag = _ensure_tree_schedule_tag(tree, schedule_key)
     tags = [f"ROW::{tag_identifier}"]
+    if machine_status_tag:
+        tags.append(machine_status_tag)
     if schedule_tag:
         tags.append(schedule_tag)
     tree.item(item_id, tags=tuple(tags))
