@@ -6,7 +6,7 @@ import os
 import subprocess
 import tkinter as tk
 from logging import getLogger
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.settings_manager import Settings
@@ -185,6 +185,171 @@ def _machine_status_label(value: object) -> str:
 def _machine_status_edit_label(value: object) -> str:
     key = _normalize_machine_status(value)
     return MACHINE_STATUS_LABELS.get(key, "Sprawna")
+
+
+def _machine_now_iso() -> str:
+    return dt.datetime.now().replace(microsecond=0).isoformat()
+
+
+def _parse_machine_dt(value: object) -> Optional[dt.datetime]:
+    if isinstance(value, dt.datetime):
+        return value
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1]
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return dt.datetime.strptime(text[:19], fmt)
+        except ValueError:
+            pass
+    try:
+        return dt.datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _duration_minutes(started_at: object, ended_at: object) -> int:
+    start = _parse_machine_dt(started_at)
+    end = _parse_machine_dt(ended_at)
+    if not start or not end:
+        return 0
+    return max(0, int((end - start).total_seconds())) // 60
+
+
+def _format_duration_minutes(minutes: object) -> str:
+    try:
+        total = int(minutes or 0)
+    except Exception:
+        total = 0
+    if total < 60:
+        return f"{total} min"
+    hours, mins = divmod(total, 60)
+    if hours < 24:
+        return f"{hours}h {mins}m"
+    days, hours = divmod(hours, 24)
+    if days < 30:
+        return f"{days}d {hours}h"
+    months, days = divmod(days, 30)
+    return f"{months} mies. {days}d"
+
+
+def _active_login_for_machine(root: tk.Misc | None = None) -> str:
+    candidates = [root]
+    try:
+        if root is not None and hasattr(root, "winfo_toplevel"):
+            candidates.append(root.winfo_toplevel())
+    except Exception:
+        pass
+    for source in candidates:
+        if source is None:
+            continue
+        for attr in ("active_login", "_wm_login", "login"):
+            value = str(getattr(source, attr, "") or "").strip()
+            if value:
+                return value
+    return "system"
+
+
+def _ensure_status_current(machine: Dict[str, Any], *, actor: str = "system") -> None:
+    if isinstance(machine.get("status_current"), dict):
+        return
+    status = _normalize_machine_status(machine.get("status"))
+    machine["status_current"] = {
+        "status": status,
+        "label": _machine_status_label(status),
+        "started_at": _machine_now_iso(),
+        "changed_by": actor,
+        "note": "",
+        "photos": [],
+    }
+
+
+def _apply_machine_status_change(
+    machine: Dict[str, Any],
+    new_status: str,
+    *,
+    actor: str,
+    note: str,
+) -> bool:
+    old_status = _normalize_machine_status(machine.get("status"))
+    new_status = _normalize_machine_status(new_status)
+    if old_status == new_status:
+        machine["status"] = new_status
+        _ensure_status_current(machine, actor=actor)
+        return False
+
+    now = _machine_now_iso()
+    history = machine.get("status_history")
+    if not isinstance(history, list):
+        history = []
+        machine["status_history"] = history
+
+    current = machine.get("status_current")
+    if not isinstance(current, dict):
+        current = {
+            "status": old_status,
+            "label": _machine_status_label(old_status),
+            "started_at": now,
+            "changed_by": actor,
+            "note": "",
+            "photos": [],
+        }
+
+    closed = dict(current)
+    closed.setdefault("status", old_status)
+    closed.setdefault("label", _machine_status_label(old_status))
+    closed["ended_at"] = now
+    closed["duration_minutes"] = _duration_minutes(closed.get("started_at"), now)
+    closed["closed_by"] = actor
+    closed["close_note"] = note or ""
+    history.append(closed)
+
+    machine["status"] = new_status
+    machine["status_current"] = {
+        "status": new_status,
+        "label": _machine_status_label(new_status),
+        "started_at": now,
+        "changed_by": actor,
+        "note": note or "",
+        "photos": [],
+    }
+    return True
+
+
+def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
+    rows: List[tuple] = []
+    history = machine.get("status_history")
+    if isinstance(history, list):
+        for item in history:
+            if not isinstance(item, dict):
+                continue
+            status = _machine_status_label(item.get("status"))
+            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
+            stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+            duration = _format_duration_minutes(item.get("duration_minutes"))
+            who = str(item.get("closed_by") or item.get("changed_by") or "—")
+            note = str(item.get("close_note") or item.get("note") or "")
+            rows.append((status, start, stop, duration, who, note))
+
+    current = machine.get("status_current")
+    if isinstance(current, dict):
+        start_raw = current.get("started_at")
+        now = _machine_now_iso()
+        rows.append(
+            (
+                _machine_status_label(current.get("status")),
+                str(start_raw or "—").replace("T", " ")[:16],
+                "w toku",
+                _format_duration_minutes(_duration_minutes(start_raw, now)),
+                str(current.get("changed_by") or "—"),
+                str(current.get("note") or ""),
+            )
+        )
+    return rows
 
 
 def _machine_status_color(value: object) -> str:
@@ -2247,6 +2412,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.grab_set()
             self._row = dict(row or {})
             self._on_ok = on_ok
+            self._actor = _active_login_for_machine(master)
+            self._old_status = _normalize_machine_status(self._row.get("status"))
             frm = ttk.Frame(self)
             frm.pack(fill="both", expand=True, padx=12, pady=12)
 
@@ -2282,8 +2449,32 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
             _build_edit_footer(frm, self._row, lambda: None)
 
+            hist_box = ttk.LabelFrame(frm, text="Historia statusów")
+            hist_box.grid(row=8, column=0, columnspan=2, sticky="nsew", pady=(10, 4))
+            hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
+            hist_tree = ttk.Treeview(
+                hist_box, columns=hist_cols, show="headings", height=5
+            )
+            hist_setup = {
+                "status": ("Status", 140, "w"),
+                "start": ("Start", 130, "center"),
+                "stop": ("Stop", 130, "center"),
+                "czas": ("Czas", 100, "center"),
+                "kto": ("Kto", 100, "w"),
+                "opis": ("Opis", 360, "w"),
+            }
+            for col, (label, width, anchor) in hist_setup.items():
+                hist_tree.heading(col, text=label)
+                hist_tree.column(col, width=width, anchor=anchor)
+            hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
+
+            history_source = dict(self._row)
+            _ensure_status_current(history_source, actor=self._actor)
+            for values in _machine_status_history_rows(history_source):
+                hist_tree.insert("", "end", values=values)
+
             btns = ttk.Frame(frm)
-            btns.grid(row=8, column=0, columnspan=2, pady=(10, 0))
+            btns.grid(row=9, column=0, columnspan=2, pady=(10, 0))
             ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
             ttk.Button(
                 btns,
@@ -2297,6 +2488,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.bind("<Escape>", lambda *_: self.destroy())
 
         def _ok(self, x, y):
+            new_status = MACHINE_STATUS_EDIT_LABELS.get(
+                self.cb_status.get().strip(), "ok"
+            )
             row = {
                 "id": (
                     self.e_id.get().strip()
@@ -2307,12 +2501,37 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 "nazwa": self.e_nazwa.get().strip(),
                 "typ": self.e_typ.get().strip(),
                 "lokalizacja": self.e_lok.get().strip(),
-                "status": MACHINE_STATUS_EDIT_LABELS.get(
-                    self.cb_status.get().strip(), "ok"
-                ),
+                "status": self._old_status,
                 "x": x,
                 "y": y,
             }
+            for key in ("status_history", "status_current"):
+                if key in self._row:
+                    row[key] = self._row[key]
+            if new_status != self._old_status:
+                note = simpledialog.askstring(
+                    "Zmiana statusu maszyny",
+                    "Opis zmiany statusu:\n"
+                    f"{_machine_status_label(self._old_status)} → "
+                    f"{_machine_status_label(new_status)}",
+                    parent=self,
+                )
+                if note is None:
+                    return
+                if new_status in {"alert", "warn"} and not note.strip():
+                    messagebox.showwarning(
+                        "Maszyny",
+                        "Przy zmianie na Serwis / przegląd albo Awarię "
+                        "opis jest wymagany.",
+                        parent=self,
+                    )
+                    return
+                _apply_machine_status_change(
+                    row, new_status, actor=self._actor, note=note.strip()
+                )
+            else:
+                row["status"] = new_status
+                _ensure_status_current(row, actor=self._actor)
             row.setdefault("nr_hali", "1")
             if isinstance(self._row.get("zadania"), list):
                 row["zadania"] = self._row["zadania"]
