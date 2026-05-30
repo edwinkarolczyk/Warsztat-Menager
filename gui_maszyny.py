@@ -2860,6 +2860,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
         win = tk.Toplevel(root)
         win.title(f"Użytkowanie maszyny — {machine_id}")
+        win._machine_photo_img = None
         win.geometry("980x720")
         win.minsize(840, 620)
         win.transient(root)
@@ -2877,7 +2878,40 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         photo_label = ttk.Label(
             photo_frame, text="brak zdjęcia", anchor="center"
         )
+        photo_label.configure(width=24)
         photo_label.pack(fill="both", expand=True, padx=8, pady=8)
+
+        def _resolve_machine_image_absolute(path_value: object) -> str:
+            raw = str(path_value or "").strip()
+            if not raw:
+                return ""
+            if os.path.isabs(raw) and os.path.exists(raw):
+                return os.path.normpath(raw)
+
+            candidates: List[str] = []
+            try:
+                data_root = cfg_manager.path_data()
+                candidates.extend(
+                    [
+                        os.path.join(data_root, "maszyny", raw),
+                        os.path.join(data_root, "maszyny", "zdjecia", raw),
+                        os.path.join(data_root, "maszyny", "zdjęcia", raw),
+                        os.path.join(data_root, "maszyny", "images", raw),
+                        os.path.join(data_root, "maszyny", "photos", raw),
+                        os.path.join(
+                            data_root, "maszyny", "attachments", machine_id, raw
+                        ),
+                    ]
+                )
+            except Exception:
+                pass
+            candidates.append(raw)
+
+            for candidate in candidates:
+                candidate = os.path.normpath(candidate)
+                if os.path.exists(candidate):
+                    return candidate
+            return ""
 
         image_path = (
             machine.get("image") or machine.get("obraz")
@@ -2885,11 +2919,22 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         )
         if image_path:
             try:
-                resolved_image = _resolve_card_absolute(
-                    str(image_path), cfg_manager
-                )
-                if os.path.exists(resolved_image):
-                    photo_label.configure(text=os.path.basename(resolved_image))
+                resolved_image = _resolve_machine_image_absolute(image_path)
+                if (
+                    resolved_image and os.path.exists(resolved_image)
+                    and Image and ImageTk
+                ):
+                    img = Image.open(resolved_image)
+                    img.thumbnail((180, 180))
+                    photo_img = ImageTk.PhotoImage(img)
+                    win._machine_photo_img = photo_img
+                    photo_label.configure(image=photo_img, text="")
+                elif resolved_image and os.path.exists(resolved_image):
+                    photo_label.configure(
+                        text=os.path.basename(resolved_image)
+                    )
+                else:
+                    photo_label.configure(text=f"Nie znaleziono:\n{image_path}")
             except Exception:
                 photo_label.configure(text=str(image_path))
 
