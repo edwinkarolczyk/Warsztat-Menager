@@ -2060,8 +2060,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         ttk.Button(toolbar, text=text)
         for text in ("Dodaj", "Edytuj", "Usuń", "Zapisz")
     )
+    btn_change_status = ttk.Button(toolbar, text="Zmień status")
     edit_mode_buttons = [btn_import, btn_add, btn_edit, btn_del, btn_save]
-    for button in (btn_save, btn_del, btn_edit, btn_add):
+    for button in (btn_save, btn_del, btn_edit, btn_change_status, btn_add):
         button.pack(side="right", padx=4)
 
     def _refresh_machine_mode_ui(*_args) -> None:
@@ -2839,6 +2840,150 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
         MachineEditDialog(container, row=None, on_ok=commit)
 
+    def _open_status_change_dialog(machine: Dict[str, Any]) -> None:
+        """Change only the operational status, without technical editing."""
+
+        nonlocal rows_cache
+
+        machine_id = str(
+            machine.get("id") or machine.get("nr_ewid") or ""
+        ).strip()
+        if not machine_id:
+            messagebox.showwarning(
+                "Maszyny",
+                "Maszyna nie ma ID / nr_ewid.",
+                parent=root,
+            )
+            return
+
+        old_status = _normalize_machine_status(machine.get("status"))
+        win = tk.Toplevel(root)
+        win.title("Zmień status maszyny")
+        win.geometry("520x260")
+        win.transient(root)
+        win.grab_set()
+
+        box = ttk.Frame(win, padding=12)
+        box.pack(fill="both", expand=True)
+        box.columnconfigure(1, weight=1)
+        box.rowconfigure(3, weight=1)
+
+        ttk.Label(box, text="Maszyna:").grid(
+            row=0, column=0, sticky="e", padx=4, pady=4
+        )
+        ttk.Label(
+            box,
+            text=(
+                f"{machine_id} — "
+                f"{machine.get('nazwa') or machine.get('name') or ''}"
+            ),
+        ).grid(row=0, column=1, sticky="w", padx=4, pady=4)
+        ttk.Label(box, text="Aktualny status:").grid(
+            row=1, column=0, sticky="e", padx=4, pady=4
+        )
+        ttk.Label(box, text=_machine_status_label(old_status)).grid(
+            row=1, column=1, sticky="w", padx=4, pady=4
+        )
+        ttk.Label(box, text="Nowy status:").grid(
+            row=2, column=0, sticky="e", padx=4, pady=4
+        )
+        status_var = tk.StringVar(
+            value=_machine_status_edit_label(old_status)
+        )
+        status_box = ttk.Combobox(
+            box,
+            textvariable=status_var,
+            values=MACHINE_STATUS_EDIT_VALUES,
+            state="readonly",
+            width=32,
+        )
+        status_box.grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(box, text="Opis:").grid(
+            row=3, column=0, sticky="ne", padx=4, pady=4
+        )
+        note_text = tk.Text(box, height=5, wrap="word")
+        note_text.grid(row=3, column=1, sticky="nsew", padx=4, pady=4)
+
+        def _save_status() -> None:
+            nonlocal rows_cache
+
+            new_status = MACHINE_STATUS_EDIT_LABELS.get(
+                status_var.get().strip(), "ok"
+            )
+            note = note_text.get("1.0", "end").strip()
+            if new_status == old_status:
+                win.destroy()
+                return
+            if new_status in {"alert", "warn"} and not note:
+                messagebox.showwarning(
+                    "Maszyny",
+                    "Przy zmianie na Serwis / przegląd albo Awarię "
+                    "opis jest wymagany.",
+                    parent=win,
+                )
+                return
+
+            status_photos: List[str] = []
+            try:
+                wants_photos = messagebox.askyesno(
+                    "Zdjęcia serwisu / przeglądu",
+                    "Czy dodać zdjęcia do tej zmiany statusu?",
+                    parent=win,
+                )
+            except Exception:
+                wants_photos = False
+            if wants_photos:
+                selected_photos = filedialog.askopenfilenames(
+                    parent=win,
+                    title="Wybierz zdjęcia do historii maszyny",
+                    filetypes=[
+                        ("Obrazy", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                        ("Wszystkie pliki", "*.*"),
+                    ],
+                )
+                status_photos = _copy_machine_status_photos(
+                    machine_id, selected_photos
+                )
+
+            payload = dict(machine)
+            payload["status"] = old_status
+            _apply_machine_status_change(
+                payload,
+                new_status,
+                actor=_active_login_for_machine(root),
+                note=note,
+                photos=status_photos,
+            )
+            new_rows = upsert_machine(rows_cache, payload)
+            persisted = _save_rows(new_rows)
+            rows_cache = list(persisted)
+            _on_rows_changed()
+            _set_selected_machine(machine_id)
+            win.destroy()
+
+        buttons = ttk.Frame(box)
+        buttons.grid(
+            row=4, column=0, columnspan=2, sticky="e", pady=(10, 0)
+        )
+        ttk.Button(buttons, text="Zapisz", command=_save_status).pack(
+            side="left", padx=4
+        )
+        ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(
+            side="left", padx=4
+        )
+
+    def _on_change_status() -> None:
+        machine_id = _selected_id()
+        machine = _find_machine(machine_id) if machine_id else None
+        if not machine:
+            messagebox.showinfo(
+                "Maszyny",
+                "Wybierz maszynę do zmiany statusu.",
+                parent=root,
+            )
+            return
+        _open_status_change_dialog(machine)
+
     def _on_edit() -> None:
         nonlocal rows_cache
         if not _require_machine_edit_mode():
@@ -2892,6 +3037,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     btn_import.configure(command=_do_import)
     btn_add.configure(command=_on_add)
+    btn_change_status.configure(command=_on_change_status)
     btn_edit.configure(command=_on_edit)
     btn_del.configure(command=_on_del)
     btn_save.configure(command=_on_save)
