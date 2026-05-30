@@ -166,3 +166,11 @@ def test_copy_machine_status_photos_uses_attachment_directory(monkeypatch, tmp_p
     assert gui_maszyny.os.path.basename(copied_path) == "status_01.jpg"
     assert gui_maszyny.os.path.isfile(copied[0])
     assert gui_maszyny.os.path.splitext(copied[0])[1] == ".jpg"
+
+
+def test_normalize_review_months_accepts_legacy_and_filters_invalid_items():
+    assert gui_maszyny._normalize_review_months("4") == [4]
+    assert gui_maszyny._normalize_review_months(
+        [12, "2", 2, 0, 13, "bad"]
+    ) == [2, 12]
+    assert gui_maszyny._normalize_review_months(None) == []

@@ -188,6 +188,40 @@ def _machine_status_edit_label(value: object) -> str:
     return MACHINE_STATUS_LABELS.get(key, "Sprawna")
 
 
+MONTH_LABELS_PL = [
+    (1, "Styczeń"),
+    (2, "Luty"),
+    (3, "Marzec"),
+    (4, "Kwiecień"),
+    (5, "Maj"),
+    (6, "Czerwiec"),
+    (7, "Lipiec"),
+    (8, "Sierpień"),
+    (9, "Wrzesień"),
+    (10, "Październik"),
+    (11, "Listopad"),
+    (12, "Grudzień"),
+]
+
+
+def _normalize_review_months(value: object) -> List[int]:
+    if isinstance(value, list):
+        raw_values = value
+    elif value in (None, ""):
+        raw_values = []
+    else:
+        raw_values = [value]
+    out: List[int] = []
+    for item in raw_values:
+        try:
+            month = int(item)
+        except Exception:
+            continue
+        if 1 <= month <= 12 and month not in out:
+            out.append(month)
+    return sorted(out)
+
+
 def _machine_now_iso() -> str:
     return dt.datetime.now().replace(microsecond=0).isoformat()
 
@@ -2533,8 +2567,63 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
             _build_edit_footer(frm, self._row, lambda: None)
 
+            selected_review_months = set(
+                _normalize_review_months(
+                    self._row.get("review_months")
+                    if "review_months" in self._row
+                    else self._row.get("review_month")
+                )
+            )
+            self.review_month_vars: Dict[int, tk.BooleanVar] = {}
+            review_box = ttk.LabelFrame(frm, text="Przeglądy cykliczne")
+            review_box.grid(
+                row=8, column=0, columnspan=2, sticky="ew", pady=(10, 4)
+            )
+            review_box.columnconfigure(1, weight=1)
+            ttk.Label(review_box, text="Miesiące przeglądu:").grid(
+                row=0, column=0, sticky="nw", padx=6, pady=6
+            )
+            months_frame = ttk.Frame(review_box)
+            months_frame.grid(row=0, column=1, sticky="w", padx=6, pady=6)
+            for idx, (month_number, month_label) in enumerate(MONTH_LABELS_PL):
+                var = tk.BooleanVar(
+                    master=self, value=month_number in selected_review_months
+                )
+                self.review_month_vars[month_number] = var
+                ttk.Checkbutton(
+                    months_frame, text=month_label, variable=var
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
+            ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
+                row=1, column=0, sticky="e", padx=6, pady=6
+            )
+            review_workers = self._row.get("review_workers") or []
+            if not isinstance(review_workers, list):
+                review_workers = [review_workers]
+            self.var_review_workers = tk.StringVar(
+                master=self,
+                value=", ".join(
+                    str(worker) for worker in review_workers if str(worker).strip()
+                ),
+            )
+            ttk.Entry(
+                review_box, textvariable=self.var_review_workers, width=60
+            ).grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+            ttk.Label(
+                review_box,
+                text="Wpisz kilka osób po przecinku, np. Edwin, Marek, Dawid.",
+            ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
+
             hist_box = ttk.LabelFrame(frm, text="Historia statusów")
-            hist_box.grid(row=8, column=0, columnspan=2, sticky="nsew", pady=(10, 4))
+            hist_box.grid(
+                row=9, column=0, columnspan=2, sticky="nsew", pady=(10, 4)
+            )
             hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
             hist_tree = ttk.Treeview(
                 hist_box, columns=hist_cols, show="headings", height=5
@@ -2558,7 +2647,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 hist_tree.insert("", "end", values=values)
 
             btns = ttk.Frame(frm)
-            btns.grid(row=9, column=0, columnspan=2, pady=(10, 0))
+            btns.grid(row=10, column=0, columnspan=2, pady=(10, 0))
             ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
             ttk.Button(
                 btns,
@@ -2588,6 +2677,16 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 "status": self._old_status,
                 "x": x,
                 "y": y,
+                "review_months": [
+                    month
+                    for month, var in self.review_month_vars.items()
+                    if bool(var.get())
+                ],
+                "review_workers": [
+                    worker.strip()
+                    for worker in self.var_review_workers.get().split(",")
+                    if worker.strip()
+                ],
             }
             for key in ("status_history", "status_current"):
                 if key in self._row:
