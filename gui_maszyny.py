@@ -2009,6 +2009,25 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     btn_clear_search.pack(side="left", padx=(0, 8))
 
     filter_var = tk.StringVar(value="Wszystkie")
+    machine_mode_var = tk.StringVar(value="Użytkowanie")
+
+    def _is_machine_edit_mode() -> bool:
+        return machine_mode_var.get() == "Edycja maszyn"
+
+    def _require_machine_edit_mode() -> bool:
+        if _is_machine_edit_mode():
+            return True
+        messagebox.showinfo(
+            "Maszyny",
+            (
+                "Jesteś w trybie Użytkowanie.\n\n"
+                "Przełącz na „Edycja maszyn”, żeby dodawać, edytować, usuwać "
+                "albo importować dane techniczne maszyn."
+            ),
+            parent=root,
+        )
+        return False
+
     ttk.Label(toolbar, text="Filtr:").pack(side="left", padx=(4, 4))
     filter_box = ttk.Combobox(
         toolbar,
@@ -2019,12 +2038,41 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     )
     filter_box.pack(side="left")
 
+    ttk.Label(toolbar, text="Tryb:").pack(side="left", padx=(8, 4))
+    mode_box = ttk.Combobox(
+        toolbar,
+        textvariable=machine_mode_var,
+        values=("Użytkowanie", "Edycja maszyn"),
+        state="readonly",
+        width=18,
+    )
+    mode_box.pack(side="left", padx=(0, 12))
+
+    mode_hint_var = tk.StringVar(
+        value="Tryb bezpieczny: można przeglądać i obsługiwać statusy."
+    )
+    ttk.Label(toolbar, textvariable=mode_hint_var).pack(side="left", padx=(0, 12))
+
     btn_import = ttk.Button(toolbar, text="Importuj harmonogram…")
     btn_import.pack(side="left", padx=(12, 0))
 
-    btn_add, btn_edit, btn_del, btn_save = (ttk.Button(toolbar, text=t) for t in ("Dodaj", "Edytuj", "Usuń", "Zapisz"))
+    btn_add, btn_edit, btn_del, btn_save = (
+        ttk.Button(toolbar, text=text)
+        for text in ("Dodaj", "Edytuj", "Usuń", "Zapisz")
+    )
+    edit_mode_buttons = [btn_import, btn_add, btn_edit, btn_del, btn_save]
     for button in (btn_save, btn_del, btn_edit, btn_add):
         button.pack(side="right", padx=4)
+
+    def _refresh_machine_mode_ui(*_args) -> None:
+        edit_mode = _is_machine_edit_mode()
+        for button in edit_mode_buttons:
+            button.state(["!disabled"] if edit_mode else ["disabled"])
+        mode_hint_var.set(
+            "Tryb edycji: można zmieniać dane techniczne maszyn."
+            if edit_mode
+            else "Tryb bezpieczny: można przeglądać i obsługiwać statusy."
+        )
 
     schedule_info = tk.StringVar(value="")
     ttk.Label(left, textvariable=schedule_info).pack(fill="x", padx=8, pady=(4, 4))
@@ -2494,6 +2542,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _do_import() -> None:
         nonlocal schedule_entries, schedule_year, schedule_path
+        if not _require_machine_edit_mode():
+            return
         path = filedialog.askopenfilename(
             parent=root,
             title="Wybierz plik harmonogramu",
@@ -2773,6 +2823,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.destroy()
 
     def _on_add() -> None:
+        if not _require_machine_edit_mode():
+            return
+
         def commit(new_row: Dict) -> None:
             nonlocal rows_cache
             if not new_row.get("id"):
@@ -2788,6 +2841,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_edit() -> None:
         nonlocal rows_cache
+        if not _require_machine_edit_mode():
+            return
         mid = _selected_id()
         if not mid:
             return
@@ -2809,6 +2864,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_del() -> None:
         nonlocal rows_cache
+        if not _require_machine_edit_mode():
+            return
         mid = _selected_id()
         if not mid:
             return
@@ -2820,6 +2877,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_save() -> None:
         nonlocal rows_cache
+        if not _require_machine_edit_mode():
+            return
         for row in rows_cache:
             if "nr_hali" not in row or row.get("nr_hali") in (None, ""):
                 row["nr_hali"] = "1"
@@ -2849,7 +2908,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     filter_box.bind("<<ComboboxSelected>>", _apply_filter)
     entry_search.bind("<KeyRelease>", lambda _event: _apply_search())
     entry_search.bind("<Return>", _on_search_enter)
+    machine_mode_var.trace_add("write", _refresh_machine_mode_ui)
 
+    _refresh_machine_mode_ui()
     _refresh_schedule_info()
     _recompute_visible_rows()
     _refresh_tree()
