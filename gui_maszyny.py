@@ -114,6 +114,15 @@ MACHINE_STATUS_ROW_COLORS = {
     "warn": {"background": "#fee2e2", "foreground": "#7f1d1d"},
 }
 
+MACHINE_STATUS_EDIT_LABELS = {
+    "Sprawna": "ok",
+    "Serwis / przegląd": "alert",
+    "Awaria": "warn",
+}
+
+MACHINE_STATUS_EDIT_VALUES = list(MACHINE_STATUS_EDIT_LABELS.keys())
+
+
 SCHEDULE_YEAR = 2025
 SCHEDULE_SOON_THRESHOLD_DAYS = 7
 SCHEDULE_STATUS_COLORS = {
@@ -171,6 +180,11 @@ def _normalize_machine_status(value: object) -> str:
 def _machine_status_label(value: object) -> str:
     key = _normalize_machine_status(value)
     return MACHINE_STATUS_LABELS.get(key, str(value or "Sprawna"))
+
+
+def _machine_status_edit_label(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_LABELS.get(key, "Sprawna")
 
 
 def _machine_status_color(value: object) -> str:
@@ -2227,7 +2241,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         messagebox.showinfo("Import harmonogramu", f"Zaimportowano {len(schedule_entries)} wpisów.")
 
     class MachineEditDialog(tk.Toplevel):
-        STATUSES = ("OK", "WARN", "ALERT")
+        STATUSES = MACHINE_STATUS_EDIT_VALUES
 
         def __init__(self, master: tk.Misc, row: dict | None, on_ok):
             super().__init__(master)
@@ -2258,8 +2272,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 row=4, column=0, padx=6, pady=4, sticky="e"
             )
             self.cb_status = ttk.Combobox(frm, values=self.STATUSES, state="readonly", width=34)
-            cur_status = str(self._row.get("status") or "").upper()
-            self.cb_status.set(cur_status if cur_status in self.STATUSES else "OK")
+            self.cb_status.set(_machine_status_edit_label(self._row.get("status")))
             self.cb_status.grid(row=4, column=1, padx=6, pady=4, sticky="w")
 
             def int_or_none(value: str):
@@ -2298,7 +2311,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 "nazwa": self.e_nazwa.get().strip(),
                 "typ": self.e_typ.get().strip(),
                 "lokalizacja": self.e_lok.get().strip(),
-                "status": self.cb_status.get().strip() or "OK",
+                "status": MACHINE_STATUS_EDIT_LABELS.get(
+                    self.cb_status.get().strip(), "ok"
+                ),
                 "x": x,
                 "y": y,
             }
