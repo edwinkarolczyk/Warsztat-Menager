@@ -60,7 +60,9 @@ def test_apply_machine_status_change_initializes_current_when_unchanged(monkeypa
 
 
 def test_machine_status_history_rows_include_closed_and_current(monkeypatch):
-    monkeypatch.setattr(gui_maszyny, "_machine_now_iso", lambda: "2026-05-30T12:00:00")
+    monkeypatch.setattr(
+        gui_maszyny, "_machine_now_iso", lambda: "2026-05-30T12:00:00"
+    )
     machine = {
         "status_history": [
             {
@@ -100,3 +102,67 @@ def test_machine_status_history_rows_include_closed_and_current(monkeypatch):
             "Gotowa do pracy",
         ),
     ]
+
+
+def test_apply_machine_status_change_stores_photos_for_new_period(monkeypatch):
+    monkeypatch.setattr(
+        gui_maszyny, "_machine_now_iso", lambda: "2026-05-30T13:00:00"
+    )
+    machine = {"status": "ok"}
+    photos = ["data/maszyny/attachments/M-1/status_01.jpg"]
+
+    changed = gui_maszyny._apply_machine_status_change(
+        machine, "alert", actor="anna", note="Przegląd", photos=photos
+    )
+
+    assert changed is True
+    assert machine["status_current"]["photos"] == photos
+
+
+def test_machine_status_history_rows_show_photo_count(monkeypatch):
+    monkeypatch.setattr(
+        gui_maszyny, "_machine_now_iso", lambda: "2026-05-30T12:00:00"
+    )
+    machine = {
+        "status_history": [
+            {
+                "status": "alert",
+                "started_at": "2026-05-30T08:00:00",
+                "ended_at": "2026-05-30T09:00:00",
+                "duration_minutes": 60,
+                "closed_by": "anna",
+                "close_note": "Przegląd wykonany",
+                "photos": ["one.jpg", "two.jpg"],
+            }
+        ],
+        "status_current": {
+            "status": "ok",
+            "started_at": "2026-05-30T09:00:00",
+            "changed_by": "anna",
+            "note": "Gotowa",
+            "photos": ["three.jpg"],
+        },
+    }
+
+    rows = gui_maszyny._machine_status_history_rows(machine)
+
+    assert rows[0][-1] == "Przegląd wykonany | zdjęcia: 2"
+    assert rows[1][-1] == "Gotowa | zdjęcia: 1"
+
+
+def test_copy_machine_status_photos_uses_attachment_directory(monkeypatch, tmp_path):
+    attachment_root = tmp_path / "attachments"
+    source = tmp_path / "Zdjęcie.JPG"
+    source.write_bytes(b"photo")
+    monkeypatch.setattr(
+        gui_maszyny, "_machine_attachment_root", lambda: str(attachment_root)
+    )
+
+    copied = gui_maszyny._copy_machine_status_photos("M 1/2", [str(source)])
+
+    assert len(copied) == 1
+    target = attachment_root / "M_1_2"
+    copied_path = gui_maszyny.os.path.relpath(copied[0], target)
+    assert gui_maszyny.os.path.basename(copied_path) == "status_01.jpg"
+    assert gui_maszyny.os.path.isfile(copied[0])
+    assert gui_maszyny.os.path.splitext(copied[0])[1] == ".jpg"

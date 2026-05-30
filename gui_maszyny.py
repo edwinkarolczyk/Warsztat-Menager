@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import shutil
 import subprocess
 import tkinter as tk
 from logging import getLogger
@@ -274,7 +275,9 @@ def _apply_machine_status_change(
     *,
     actor: str,
     note: str,
+    photos: Optional[List[str]] = None,
 ) -> bool:
+    photos = list(photos or [])
     old_status = _normalize_machine_status(machine.get("status"))
     new_status = _normalize_machine_status(new_status)
     if old_status == new_status:
@@ -315,9 +318,80 @@ def _apply_machine_status_change(
         "started_at": now,
         "changed_by": actor,
         "note": note or "",
-        "photos": [],
+        "photos": photos,
     }
     return True
+
+
+def _machine_attachment_root() -> str:
+    """Zwraca katalog ROOT/data/maszyny/attachments."""
+
+    try:
+        from core import root_paths as wm_root_paths
+
+        data_root = wm_root_paths.get_data_root()
+        if data_root:
+            return os.path.join(str(data_root), "maszyny", "attachments")
+    except Exception:
+        pass
+
+    try:
+        from config_manager import ConfigManager
+
+        data_root = ConfigManager().path_data()
+        if data_root:
+            return os.path.join(str(data_root), "maszyny", "attachments")
+    except Exception:
+        pass
+
+    return os.path.join("data", "maszyny", "attachments")
+
+
+def _safe_machine_file_part(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        text = "machine"
+    out = []
+    for ch in text:
+        if ch.isalnum() or ch in ("-", "_"):
+            out.append(ch)
+        else:
+            out.append("_")
+    return "".join(out).strip("_") or "machine"
+
+
+def _copy_machine_status_photos(
+    machine_id: object, source_paths: Iterable[str]
+) -> List[str]:
+    """Kopiuje zdjęcia statusu do ROOT/data/maszyny/attachments."""
+
+    copied: List[str] = []
+    valid_sources = [
+        str(path) for path in source_paths or [] if str(path or "").strip()
+    ]
+    if not valid_sources:
+        return copied
+
+    ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    machine_part = _safe_machine_file_part(machine_id)
+    target_dir = os.path.join(_machine_attachment_root(), machine_part, ts)
+    os.makedirs(target_dir, exist_ok=True)
+
+    for idx, src in enumerate(valid_sources, start=1):
+        if not os.path.exists(src):
+            continue
+        ext = os.path.splitext(src)[1].lower() or ".jpg"
+        filename = f"status_{idx:02d}{ext}"
+        dst = os.path.join(target_dir, filename)
+        try:
+            shutil.copy2(src, dst)
+            copied.append(dst)
+        except Exception:
+            logger.exception(
+                "[MASZYNY][STATUS_PHOTO] Nie udało się skopiować zdjęcia: %s",
+                src,
+            )
+    return copied
 
 
 def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
@@ -333,7 +407,11 @@ def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
             duration = _format_duration_minutes(item.get("duration_minutes"))
             who = str(item.get("closed_by") or item.get("changed_by") or "—")
             note = str(item.get("close_note") or item.get("note") or "")
-            rows.append((status, start, stop, duration, who, note))
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            photo_txt = f" | zdjęcia: {len(photos)}" if photos else ""
+            rows.append((status, start, stop, duration, who, note + photo_txt))
 
     current = machine.get("status_current")
     if isinstance(current, dict):
@@ -346,7 +424,13 @@ def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
                 "w toku",
                 _format_duration_minutes(_duration_minutes(start_raw, now)),
                 str(current.get("changed_by") or "—"),
-                str(current.get("note") or ""),
+                str(current.get("note") or "")
+                + (
+                    f" | zdjęcia: {len(current.get('photos') or [])}"
+                    if isinstance(current.get("photos"), list)
+                    and current.get("photos")
+                    else ""
+                ),
             )
         )
     return rows
@@ -2526,8 +2610,33 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                         parent=self,
                     )
                     return
+                status_photos: List[str] = []
+                try:
+                    wants_photos = messagebox.askyesno(
+                        "Zdjęcia serwisu / przeglądu",
+                        "Czy dodać zdjęcia do tej zmiany statusu?",
+                        parent=self,
+                    )
+                except Exception:
+                    wants_photos = False
+                if wants_photos:
+                    selected_photos = filedialog.askopenfilenames(
+                        parent=self,
+                        title="Wybierz zdjęcia do historii maszyny",
+                        filetypes=[
+                            ("Obrazy", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                            ("Wszystkie pliki", "*.*"),
+                        ],
+                    )
+                    status_photos = _copy_machine_status_photos(
+                        row["id"], selected_photos
+                    )
                 _apply_machine_status_change(
-                    row, new_status, actor=self._actor, note=note.strip()
+                    row,
+                    new_status,
+                    actor=self._actor,
+                    note=note.strip(),
+                    photos=status_photos,
                 )
             else:
                 row["status"] = new_status
