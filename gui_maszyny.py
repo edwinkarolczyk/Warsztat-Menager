@@ -89,6 +89,7 @@ MACHINE_STATUS_ALIASES = {
     "serwis/przegląd": "alert",
     "warn": "warn",
     "warm": "warn",
+    "warning": "warn",
     "awaria": "warn",
     "uszkodzona": "warn",
     "uszkodzone": "warn",
@@ -1383,8 +1384,9 @@ class MachineHallRenderer:
         return clamped_x, clamped_y
 
     def _status_color(self, status):
-        key = str(status or "").strip().upper()
-        return self.COLORS.get(key, self.COLORS["_"])
+        """Kolor kółka maszyny zgodny z polskimi statusami WM."""
+
+        return _machine_status_color(status)
 
     def _node_center(self, r: Dict, idx: int, radius: int) -> tuple[int, int]:
         cols, cell_w, cell_h, pad_x, pad_y = 6, 120, 110, 70, 70
@@ -1460,7 +1462,7 @@ class MachineHallRenderer:
                 cy - radius,
                 cx + radius,
                 cy + radius,
-                fill=_status_color(r),
+                fill=self._status_color(r.get("status")),
                 outline="#0b0c0f",
                 width=1,
             )
