@@ -2840,6 +2840,153 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
         MachineEditDialog(container, row=None, on_ok=commit)
 
+    def _open_machine_usage_window(machine: Dict[str, Any]) -> None:
+        """Show the daily machine usage window with status and history."""
+
+        if not machine:
+            messagebox.showinfo("Maszyny", "Wybierz maszynę.", parent=root)
+            return
+
+        machine_id = str(
+            machine.get("id") or machine.get("nr_ewid") or ""
+        ).strip()
+        if not machine_id:
+            messagebox.showwarning(
+                "Maszyny",
+                "Maszyna nie ma ID / nr_ewid.",
+                parent=root,
+            )
+            return
+
+        win = tk.Toplevel(root)
+        win.title(f"Użytkowanie maszyny — {machine_id}")
+        win.geometry("980x720")
+        win.minsize(840, 620)
+        win.transient(root)
+
+        outer = ttk.Frame(win, padding=12)
+        outer.pack(fill="both", expand=True)
+        outer.columnconfigure(1, weight=1)
+        outer.rowconfigure(2, weight=1)
+
+        photo_frame = ttk.LabelFrame(outer, text="Zdjęcie")
+        photo_frame.grid(
+            row=0, column=0, rowspan=2, sticky="nsw",
+            padx=(0, 12), pady=(0, 8)
+        )
+        photo_label = ttk.Label(
+            photo_frame, text="brak zdjęcia", anchor="center"
+        )
+        photo_label.pack(fill="both", expand=True, padx=8, pady=8)
+
+        image_path = (
+            machine.get("image") or machine.get("obraz")
+            or machine.get("photo")
+        )
+        if image_path:
+            try:
+                resolved_image = _resolve_card_absolute(
+                    str(image_path), cfg_manager
+                )
+                if os.path.exists(resolved_image):
+                    photo_label.configure(text=os.path.basename(resolved_image))
+            except Exception:
+                photo_label.configure(text=str(image_path))
+
+        header = ttk.Frame(outer)
+        header.grid(row=0, column=1, sticky="new")
+        header.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            header, text=machine_id, font=("TkDefaultFont", 28, "bold")
+        ).grid(row=0, column=0, sticky="w", padx=(0, 16))
+        title_text = f"{machine.get('nazwa') or machine.get('name') or ''}"
+        typ_text = f"{machine.get('typ') or machine.get('type') or ''}"
+        ttk.Label(
+            header, text=title_text, font=("TkDefaultFont", 18, "bold")
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Label(header, text=typ_text).grid(
+            row=1, column=1, sticky="w", pady=(2, 0)
+        )
+
+        status_key = _normalize_machine_status(machine.get("status"))
+        status_label = _machine_status_label(status_key)
+        status_box = ttk.LabelFrame(outer, text="Aktualny status")
+        status_box.grid(row=1, column=1, sticky="ew", pady=(8, 8))
+        ttk.Label(
+            status_box,
+            text=status_label,
+            foreground=_machine_status_color(status_key),
+            font=("TkDefaultFont", 24, "bold"),
+        ).pack(anchor="w", padx=10, pady=8)
+
+        summary = machine.get("__schedule_summary") or {}
+        next_review = str(summary.get("next_label") or "—")
+        review_status = str(
+            summary.get("status_text") or "Brak danych przeglądu"
+        )
+        review_box = ttk.LabelFrame(outer, text="Najbliższy przegląd")
+        review_box.grid(
+            row=2, column=0, columnspan=2, sticky="new", pady=(0, 8)
+        )
+        ttk.Label(review_box, text=f"Termin: {next_review}").pack(
+            anchor="w", padx=8, pady=(6, 2)
+        )
+        ttk.Label(review_box, text=review_status).pack(
+            anchor="w", padx=8, pady=(0, 6)
+        )
+
+        history_box = ttk.LabelFrame(outer, text="Historia statusów")
+        history_box.grid(
+            row=3, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
+        )
+        outer.rowconfigure(3, weight=1)
+        hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
+        hist_tree = ttk.Treeview(
+            history_box, columns=hist_cols, show="headings", height=12
+        )
+        hist_setup = {
+            "status": ("Status", 150, "w"),
+            "start": ("Start", 140, "center"),
+            "stop": ("Stop", 140, "center"),
+            "czas": ("Czas", 110, "center"),
+            "kto": ("Kto", 110, "w"),
+            "opis": ("Opis", 420, "w"),
+        }
+        for col, (label, width, anchor) in hist_setup.items():
+            hist_tree.heading(col, text=label)
+            hist_tree.column(col, width=width, anchor=anchor)
+        hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
+
+        has_history = isinstance(machine.get("status_history"), list)
+        has_current = isinstance(machine.get("status_current"), dict)
+        if has_history or has_current:
+            for values in _machine_status_history_rows(machine):
+                hist_tree.insert("", "end", values=values)
+        else:
+            hist_tree.insert(
+                "",
+                "end",
+                values=(
+                    "—", "—", "—", "—", "—",
+                    "Brak historii. Pierwszy wpis powstanie przy zmianie "
+                    "statusu.",
+                ),
+            )
+
+        buttons = ttk.Frame(outer)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="e")
+        ttk.Button(
+            buttons,
+            text="Zmień status",
+            command=lambda: (
+                win.destroy(), _open_status_change_dialog(machine)
+            ),
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            buttons, text="Zamknij", command=win.destroy
+        ).pack(side="left", padx=4)
+
     def _open_status_change_dialog(machine: Dict[str, Any]) -> None:
         """Change only the operational status, without technical editing."""
 
@@ -2986,13 +3133,16 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_edit() -> None:
         nonlocal rows_cache
-        if not _require_machine_edit_mode():
-            return
         mid = _selected_id()
         if not mid:
             return
         current = _find_machine(mid)
         if not current:
+            return
+        if not _is_machine_edit_mode():
+            _open_machine_usage_window(current)
+            return
+        if not _require_machine_edit_mode():
             return
 
         def commit(upd: Dict) -> None:
