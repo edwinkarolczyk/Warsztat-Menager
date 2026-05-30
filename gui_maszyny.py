@@ -1125,13 +1125,9 @@ def _tree_insert_row(tree: ttk.Treeview, machine: dict) -> str:
     item_id = tree.insert("", "end", iid=identifier or None, values=values)
     tag_identifier = identifier or item_id
     machine_status_tag = _ensure_tree_machine_status_tag(tree, machine.get("status"))
-    schedule_key = _schedule_status_key(machine)
-    schedule_tag = _ensure_tree_schedule_tag(tree, schedule_key)
     tags = [f"ROW::{tag_identifier}"]
     if machine_status_tag:
         tags.append(machine_status_tag)
-    if schedule_tag:
-        tags.append(schedule_tag)
     tree.item(item_id, tags=tuple(tags))
     return item_id
 
