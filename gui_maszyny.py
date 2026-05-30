@@ -2525,6 +2525,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         def __init__(self, master: tk.Misc, row: dict | None, on_ok):
             super().__init__(master)
             self.title("Edycja maszyny")
+            self.geometry("1180x760")
+            self.minsize(980, 680)
             self.resizable(False, False)
             self.transient(master)
             self.grab_set()
@@ -2626,7 +2628,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             )
             hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
             hist_tree = ttk.Treeview(
-                hist_box, columns=hist_cols, show="headings", height=5
+                hist_box, columns=hist_cols, show="headings", height=4
             )
             hist_setup = {
                 "status": ("Status", 140, "w"),
@@ -2642,9 +2644,27 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
 
             history_source = dict(self._row)
-            _ensure_status_current(history_source, actor=self._actor)
-            for values in _machine_status_history_rows(history_source):
-                hist_tree.insert("", "end", values=values)
+            has_history = isinstance(
+                history_source.get("status_history"), list
+            ) and bool(history_source.get("status_history"))
+            has_current = isinstance(history_source.get("status_current"), dict)
+            if has_history or has_current:
+                for values in _machine_status_history_rows(history_source):
+                    hist_tree.insert("", "end", values=values)
+            else:
+                hist_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        "—",
+                        "—",
+                        "—",
+                        "—",
+                        "—",
+                        "Brak historii. Pierwszy wpis powstanie przy zmianie "
+                        "statusu.",
+                    ),
+                )
 
             btns = ttk.Frame(frm)
             btns.grid(row=10, column=0, columnspan=2, pady=(10, 0))
