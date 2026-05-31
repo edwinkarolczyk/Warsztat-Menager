@@ -3117,7 +3117,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             row=3, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
         )
         outer.rowconfigure(3, weight=1)
-        hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
+        hist_cols = (
+            "status", "start", "stop", "czas", "kto", "zdjecia", "opis"
+        )
         hist_tree = ttk.Treeview(
             history_box, columns=hist_cols, show="headings", height=12
         )
@@ -3127,6 +3129,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             "stop": ("Stop", 140, "center"),
             "czas": ("Czas", 110, "center"),
             "kto": ("Kto", 110, "w"),
+            "zdjecia": ("Zdjęcia", 80, "center"),
             "opis": ("Opis", 420, "w"),
         }
         for col, (label, width, anchor) in hist_setup.items():
@@ -3134,21 +3137,172 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             hist_tree.column(col, width=width, anchor=anchor)
         hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
 
-        has_history = isinstance(machine.get("status_history"), list)
-        has_current = isinstance(machine.get("status_current"), dict)
-        if has_history or has_current:
-            for values in _machine_status_history_rows(machine):
-                hist_tree.insert("", "end", values=values)
+        history_items: Dict[str, Dict[str, Any]] = {}
+
+        def _history_entries_for_usage(
+            src: Dict[str, Any]
+        ) -> List[Dict[str, Any]]:
+            entries: List[Dict[str, Any]] = []
+            raw_history = src.get("status_history")
+            if isinstance(raw_history, list):
+                for item in raw_history:
+                    if isinstance(item, dict):
+                        entries.append(dict(item))
+            current = src.get("status_current")
+            if isinstance(current, dict):
+                item = dict(current)
+                item["__current"] = True
+                entries.append(item)
+            return entries
+
+        def _history_entry_values(item: Dict[str, Any]) -> tuple:
+            status = _machine_status_label(item.get("status"))
+            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
+            if item.get("__current"):
+                stop = "w toku"
+                duration = _format_duration_minutes(
+                    _duration_minutes(item.get("started_at"), _machine_now_iso())
+                )
+                who = str(item.get("changed_by") or "—")
+                note = str(item.get("note") or "")
+            else:
+                stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+                duration = _format_duration_minutes(item.get("duration_minutes"))
+                who = str(item.get("closed_by") or item.get("changed_by") or "—")
+                note = str(item.get("close_note") or item.get("note") or "")
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            photos_text = f"📷 {len(photos)}" if photos else "—"
+            return status, start, stop, duration, who, photos_text, note
+
+        entries = _history_entries_for_usage(machine)
+        if entries:
+            for item in entries:
+                iid = hist_tree.insert(
+                    "", "end", values=_history_entry_values(item)
+                )
+                history_items[iid] = item
         else:
             hist_tree.insert(
                 "",
                 "end",
                 values=(
-                    "—", "—", "—", "—", "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
                     "Brak historii. Pierwszy wpis powstanie przy zmianie "
                     "statusu.",
                 ),
             )
+
+        def _selected_history_item() -> Optional[Dict[str, Any]]:
+            selected = hist_tree.selection()
+            if not selected:
+                return None
+            return history_items.get(selected[0])
+
+        def _show_history_photos() -> None:
+            item = _selected_history_item()
+            if not item:
+                messagebox.showinfo(
+                    "Zdjęcia historii",
+                    "Wybierz wpis historii.",
+                    parent=win,
+                )
+                return
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            if not photos:
+                messagebox.showinfo(
+                    "Zdjęcia historii",
+                    "Ten wpis historii nie ma zdjęć.",
+                    parent=win,
+                )
+                return
+
+            photo_win = tk.Toplevel(win)
+            photo_win.title("Zdjęcia z historii maszyny")
+            photo_win.geometry("760x520")
+            photo_win.minsize(640, 420)
+            photo_win.transient(win)
+            photo_win._thumbs = []
+
+            header_text = (
+                f"{_machine_status_label(item.get('status'))} | "
+                f"{str(item.get('started_at') or '—').replace('T', ' ')[:16]}"
+            )
+            ttk.Label(
+                photo_win,
+                text=header_text,
+                font=("TkDefaultFont", 14, "bold"),
+            ).pack(anchor="w", padx=10, pady=(10, 4))
+
+            holder = ttk.Frame(photo_win, padding=8)
+            holder.pack(fill="both", expand=True)
+
+            for idx, raw_path in enumerate(photos, start=1):
+                resolved = _resolve_machine_image_absolute(raw_path)
+                if not resolved:
+                    resolved = _resolve_card_absolute(str(raw_path), cfg_manager)
+                exists = bool(resolved and os.path.exists(resolved))
+
+                tile = ttk.LabelFrame(holder, text=f"Zdjęcie {idx}")
+                tile.grid(
+                    row=(idx - 1) // 4,
+                    column=(idx - 1) % 4,
+                    padx=6,
+                    pady=6,
+                    sticky="nsew",
+                )
+
+                if exists and Image and ImageTk:
+                    try:
+                        img = Image.open(resolved)
+                        img.thumbnail((140, 140), Image.LANCZOS)
+                        thumb = ImageTk.PhotoImage(img)
+                        photo_win._thumbs.append(thumb)
+                        ttk.Button(
+                            tile,
+                            image=thumb,
+                            command=lambda p=resolved: _open_external(p),
+                        ).pack(padx=6, pady=6)
+                    except Exception:
+                        ttk.Button(
+                            tile,
+                            text=os.path.basename(resolved),
+                            command=lambda p=resolved: _open_external(p),
+                        ).pack(padx=6, pady=6)
+                elif exists:
+                    ttk.Button(
+                        tile,
+                        text=os.path.basename(resolved),
+                        command=lambda p=resolved: _open_external(p),
+                    ).pack(padx=6, pady=6)
+                else:
+                    ttk.Label(
+                        tile,
+                        text=f"Nie znaleziono:\n{raw_path}",
+                        wraplength=150,
+                    ).pack(padx=6, pady=6)
+
+            ttk.Button(
+                photo_win, text="Zamknij", command=photo_win.destroy
+            ).pack(anchor="e", padx=10, pady=(0, 10))
+
+        hist_tree.bind("<Double-1>", lambda _event: _show_history_photos())
+
+        history_actions = ttk.Frame(history_box)
+        history_actions.pack(fill="x", padx=6, pady=(0, 6))
+        ttk.Button(
+            history_actions,
+            text="Pokaż zdjęcia",
+            command=_show_history_photos,
+        ).pack(side="left")
 
         buttons = ttk.Frame(outer)
         buttons.grid(row=4, column=0, columnspan=2, sticky="e")
