@@ -28,16 +28,19 @@ except Exception:  # pragma: no cover
 
 
 def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
-    """Otwiera istniejący edytor narzędzia dla obiektu z dyspozycji."""
+    """Otwiera normalny widok narzędzia używany przez moduł Narzędzia."""
     tool_id = str(object_id or "").strip()
     if not tool_id:
         messagebox.showwarning("Dyspozycje", "Brak numeru narzędzia.", parent=master)
         return
 
     try:
-        from gui_narzedzia import open_tool_editor_by_id
+        from gui_narzedzia import open_tool_from_external_context
 
-        opened = open_tool_editor_by_id(master.winfo_toplevel(), tool_id)
+        opened = open_tool_from_external_context(
+            master.winfo_toplevel(),
+            tool_id,
+        )
         if not opened:
             messagebox.showwarning(
                 "Dyspozycje",
