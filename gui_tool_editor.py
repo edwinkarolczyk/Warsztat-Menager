@@ -4,6 +4,7 @@
 # Logi: [WM-DBG] / [INFO] / [ERROR]
 # Język: PL (UI i komentarze)
 # Linia max ~100 znaków
+import logging
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,12 @@ except Exception:
     def apply_theme(_root):
         # Fallback, gdy motyw nie jest dostępny – brak awarii okna
         pass
-from logger import get_logger
+try:
+    from logger import get_logger
+except Exception:
+    def get_logger(name):
+        return logging.getLogger(name)
+
 from config_manager import ConfigManager
 from logika_zadan import (
     get_collections,
