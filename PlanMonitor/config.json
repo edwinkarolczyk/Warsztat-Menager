@@ -1,0 +1,11 @@
+{
+  "plan_file": "",
+  "check_interval_seconds": 60,
+  "department_keywords": [],
+  "column_mapping": {
+    "order": "",
+    "symbol": "",
+    "quantity": "",
+    "deadline": ""
+  }
+}
