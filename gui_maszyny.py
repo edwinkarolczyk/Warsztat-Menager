@@ -2673,8 +2673,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         def __init__(self, master: tk.Misc, row: dict | None, on_ok):
             super().__init__(master)
             self.title("Edycja maszyny")
-            self.geometry("1180x760")
-            self.minsize(980, 680)
+            self.geometry("920x520")
+            self.minsize(820, 480)
             self.resizable(False, False)
             self.transient(master)
             self.grab_set()
@@ -2714,8 +2714,6 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
             self.e_x = row_entry(5, "x (px):", "x")
             self.e_y = row_entry(6, "y (px):", "y")
-
-            _build_edit_footer(frm, self._row, lambda: None)
 
             selected_review_months = set(
                 _normalize_review_months(
@@ -2770,52 +2768,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 text="Wpisz kilka osób po przecinku, np. Edwin, Marek, Dawid.",
             ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
 
-            hist_box = ttk.LabelFrame(frm, text="Historia statusów")
-            hist_box.grid(
-                row=9, column=0, columnspan=2, sticky="nsew", pady=(10, 4)
-            )
-            hist_cols = ("status", "start", "stop", "czas", "kto", "opis")
-            hist_tree = ttk.Treeview(
-                hist_box, columns=hist_cols, show="headings", height=4
-            )
-            hist_setup = {
-                "status": ("Status", 140, "w"),
-                "start": ("Start", 130, "center"),
-                "stop": ("Stop", 130, "center"),
-                "czas": ("Czas", 100, "center"),
-                "kto": ("Kto", 100, "w"),
-                "opis": ("Opis", 360, "w"),
-            }
-            for col, (label, width, anchor) in hist_setup.items():
-                hist_tree.heading(col, text=label)
-                hist_tree.column(col, width=width, anchor=anchor)
-            hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
-
-            history_source = dict(self._row)
-            has_history = isinstance(
-                history_source.get("status_history"), list
-            ) and bool(history_source.get("status_history"))
-            has_current = isinstance(history_source.get("status_current"), dict)
-            if has_history or has_current:
-                for values in _machine_status_history_rows(history_source):
-                    hist_tree.insert("", "end", values=values)
-            else:
-                hist_tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        "—",
-                        "—",
-                        "—",
-                        "—",
-                        "—",
-                        "Brak historii. Pierwszy wpis powstanie przy zmianie "
-                        "statusu.",
-                    ),
-                )
-
             btns = ttk.Frame(frm)
-            btns.grid(row=10, column=0, columnspan=2, pady=(10, 0))
+            btns.grid(row=9, column=0, columnspan=2, pady=(14, 0))
             ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
             ttk.Button(
                 btns,
