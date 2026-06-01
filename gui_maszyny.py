@@ -2736,6 +2736,19 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 row=7, column=1, padx=6, pady=4, sticky="w"
             )
 
+            image_frame = ttk.Frame(frm)
+            image_frame.grid(
+                row=8, column=0, columnspan=3, sticky="w", padx=6, pady=4
+            )
+            ttk.Button(
+                image_frame,
+                text="Ustaw zdjęcie...",
+                command=self._choose_image,
+            ).pack(side="left")
+            self.image_label = ttk.Label(image_frame)
+            self.image_label.pack(side="left", padx=(12, 0))
+            self._refresh_image_label()
+
             selected_review_months = set(
                 _normalize_review_months(
                     self._row.get("review_months")
@@ -2832,6 +2845,18 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 lambda *_: self._ok(int_or_none(self.e_x.get()), int_or_none(self.e_y.get())),
             )
             self.bind("<Escape>", lambda *_: self.destroy())
+
+        def _choose_image(self) -> None:
+            path = pick_machine_image(self)
+            if not path:
+                return
+            self._row["image"] = os.path.normpath(path)
+            self._refresh_image_label()
+
+        def _refresh_image_label(self) -> None:
+            image_path = self._row.get("image") or self._row.get("obraz")
+            image_name = os.path.basename(image_path) if image_path else "brak"
+            self.image_label.configure(text=f"Zdjęcie: {image_name}")
 
         def _ok(self, x, y):
             new_status = MACHINE_STATUS_EDIT_LABELS.get(
