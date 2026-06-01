@@ -506,15 +506,68 @@ def _external_get_tool_id(tool: Mapping[str, Any]) -> str:
     return str(tool.get("id") or tool.get("nr") or tool.get("numer") or "").strip()
 
 
+def _external_load_tools_rows() -> list[Mapping[str, Any]]:
+    """
+    Ładuje narzędzia dla wejścia z Dyspozycji.
+
+    Ma być odporne na różne sygnatury load_tools_rows_with_fallback()
+    i nie może wymagać wcześniej otwartego modułu Narzędzia.
+    """
+    attempts = []
+
+    try:
+        cfg = get_config()
+        attempts.append(lambda: load_tools_rows_with_fallback(cfg, resolve_rel))
+    except Exception:
+        pass
+
+    attempts.append(lambda: load_tools_rows_with_fallback())
+
+    for attempt in attempts:
+        try:
+            result = attempt()
+        except Exception:
+            continue
+
+        if isinstance(result, tuple):
+            rows = result[0] if result else []
+        else:
+            rows = result
+
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, Mapping)]
+
+    rows: list[Mapping[str, Any]] = []
+    try:
+        for entry in iter_tools_json():
+            if isinstance(entry, tuple):
+                path, data = entry
+            else:
+                path = entry
+                try:
+                    data = _safe_read_json(str(path), {})
+                except Exception:
+                    data = {}
+            if isinstance(data, Mapping):
+                row = dict(data)
+                row.setdefault("_path", str(path))
+                if not _external_get_tool_id(row):
+                    stem = Path(str(path)).stem
+                    row.setdefault("id", stem)
+                    row.setdefault("nr", stem)
+                    row.setdefault("numer", stem)
+                rows.append(row)
+    except Exception:
+        pass
+
+    return rows
+
+
 def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
     """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
     variants = _external_tool_id_variants(tool_id)
 
-    try:
-        cfg = get_config()
-        rows, _primary = load_tools_rows_with_fallback(cfg, resolve_rel)
-    except Exception:
-        rows = []
+    rows = _external_load_tools_rows()
 
     for row in rows or []:
         if not isinstance(row, Mapping):
