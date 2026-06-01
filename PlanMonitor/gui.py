@@ -11,10 +11,10 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 try:
-    from .main import (APP_DIR, CHANGE_LABELS, SUPPORTED_EXTENSIONS, PlanMonitor,
+    from .main import (SUPPORTED_EXTENSIONS, PlanMonitor,
                        display_row, export_changes, load_history, save_config)
 except ImportError:
-    from main import (APP_DIR, CHANGE_LABELS, SUPPORTED_EXTENSIONS, PlanMonitor,
+    from main import (SUPPORTED_EXTENSIONS, PlanMonitor,
                       display_row, export_changes, load_history, save_config)
 
 BG = "#171b22"
@@ -64,6 +64,10 @@ class MonitorApp(tk.Tk):
             "Status": tk.StringVar(value="Oczekiwanie na konfigurację"),
             "Ostatnie sprawdzenie": tk.StringVar(value="—"),
             "Ostatnia zmiana pliku": tk.StringVar(value="—"),
+            "Odczytano pozycji": tk.StringVar(value="0"),
+            "Przeskanowano wierszy": tk.StringVar(value="0"),
+            "Kolumny": tk.StringVar(value="—"),
+            "Ostatni błąd": tk.StringVar(value="—"),
         }
         for row, (label, variable) in enumerate(self.status_vars.items()):
             tk.Label(status, text=f"{label}:", width=23, anchor="w",
@@ -78,6 +82,7 @@ class MonitorApp(tk.Tk):
         for text, command in (
             ("Sprawdź teraz", lambda: self._check_async(force=True)),
             ("Pokaż zmiany", self._show_latest),
+            ("Podgląd odczytanych pozycji", self._show_preview),
             ("Historia zmian", self._show_history),
             ("Ustawienia", self._open_settings),
             ("Eksportuj raport", self._export),
@@ -159,9 +164,23 @@ class MonitorApp(tk.Tk):
             )
         if result.status == "error":
             self.status_vars["Status"].set("Błąd dostępu do pliku")
+            self.status_vars["Ostatni błąd"].set(result.error or result.message)
             messagebox.showwarning("Plan Monitor", result.message)
             return
         self.status_vars["Status"].set("Monitorowanie aktywne")
+        self.status_vars["Ostatni błąd"].set("—")
+        parser = result.parser or {}
+        mapping = parser.get("column_mapping", {})
+        self.status_vars["Odczytano pozycji"].set(
+            str(parser.get("records_count", len(result.rows)))
+        )
+        self.status_vars["Przeskanowano wierszy"].set(
+            str(parser.get("rows_scanned", 0))
+        )
+        self.status_vars["Kolumny"].set("/".join(
+            mapping.get(field, "-")
+            for field in ("order", "symbol", "quantity", "date", "process")
+        ))
         if result.changes:
             self.last_changes = result.changes
             self._render(self.last_changes)
@@ -176,7 +195,8 @@ class MonitorApp(tk.Tk):
         counts = Counter(change["type"] for change in changes)
         self.summary.set(
             f'Nowe: {counts["new"]}  |  Ilość: {counts["quantity_changed"]}'
-            f'  |  Terminy: {counts["deadline_changed"]}'
+            f'  |  Terminy: {counts["date_changed"]}'
+            f'  |  Proces: {counts["process_changed"]}'
             f'  |  Usunięte: {counts["removed"]}'
         )
 
@@ -196,11 +216,42 @@ class MonitorApp(tk.Tk):
             filetypes=[("CSV", "*.csv"), ("TXT", "*.txt")],
         )
         if path:
-            export_changes(self.last_changes, path)
+            export_changes(self.last_changes, path, self.monitor.last_parser)
             messagebox.showinfo("Plan Monitor", "Raport został zapisany.")
+
+    def _show_preview(self) -> None:
+        PreviewDialog(self, self.monitor.last_rows,
+                      self.monitor.config.get("department_keywords", []))
 
     def _open_settings(self) -> None:
         SettingsDialog(self, self.monitor)
+
+
+class PreviewDialog(tk.Toplevel):
+    """Show up to one hundred normalized records from the latest parse."""
+
+    def __init__(self, parent: MonitorApp, rows: list[dict[str, Any]],
+                 keywords: list[str]) -> None:
+        super().__init__(parent)
+        self.title("Podgląd odczytanych pozycji")
+        self.geometry("1100x520")
+        columns = ("order", "symbol", "quantity", "date", "process", "department")
+        table = ttk.Treeview(self, columns=columns, show="headings")
+        headings = ("Nr zlecenia", "Symbol / opis", "Ilość", "Termin", "Proces",
+                    "Dotyczy działu")
+        widths = (110, 330, 90, 130, 180, 140)
+        for column, heading, width in zip(columns, headings, widths):
+            table.heading(column, text=heading)
+            table.column(column, width=width, anchor="w")
+        for row in rows[:100]:
+            haystack = f'{row.get("symbol", "")} {row.get("order", "")}'.upper()
+            related = any(word.strip().upper() in haystack for word in keywords
+                          if word.strip())
+            table.insert("", "end", values=(row.get("order", ""),
+                         row.get("symbol", ""), row.get("quantity"),
+                         row.get("date", ""), row.get("process", ""),
+                         "TAK" if related else "NIE"))
+        table.pack(fill="both", expand=True, padx=12, pady=12)
 
 
 class SettingsDialog(tk.Toplevel):
@@ -211,7 +262,7 @@ class SettingsDialog(tk.Toplevel):
         self.parent = parent
         self.monitor = monitor
         self.title("Ustawienia Plan Monitor")
-        self.geometry("620x430")
+        self.geometry("700x700")
         self.configure(bg=BG)
         config = monitor.config
         mapping = config["column_mapping"]
@@ -223,19 +274,35 @@ class SettingsDialog(tk.Toplevel):
             "department_keywords": tk.StringVar(
                 value=", ".join(config.get("department_keywords", []))
             ),
+            "sheet_name": tk.StringVar(value=config.get("sheet_name") or ""),
+            "header_scan_rows": tk.StringVar(
+                value=str(config.get("header_scan_rows", 15))
+            ),
+            "data_start_row": tk.StringVar(
+                value=str(config.get("data_start_row") or "")
+            ),
+            "data_end_row": tk.StringVar(
+                value=str(config.get("data_end_row") or "")
+            ),
             "order": tk.StringVar(value=mapping.get("order", "")),
             "symbol": tk.StringVar(value=mapping.get("symbol", "")),
             "quantity": tk.StringVar(value=mapping.get("quantity", "")),
-            "deadline": tk.StringVar(value=mapping.get("deadline", "")),
+            "date": tk.StringVar(value=mapping.get("date", "")),
+            "process": tk.StringVar(value=mapping.get("process", "")),
         }
         labels = (
             ("Plik planu", "plan_file"),
             ("Interwał sprawdzania (sekundy)", "check_interval_seconds"),
             ("Słowa kluczowe działu (po przecinku)", "department_keywords"),
+            ("Nazwa arkusza (puste = aktywny)", "sheet_name"),
+            ("Liczba skanowanych wierszy nagłówka", "header_scan_rows"),
+            ("Pierwszy wiersz danych (opcjonalnie)", "data_start_row"),
+            ("Ostatni wiersz danych (opcjonalnie)", "data_end_row"),
             ("Kolumna: nr zlecenia", "order"),
             ("Kolumna: symbol / opis (np. B)", "symbol"),
             ("Kolumna: ilość", "quantity"),
-            ("Kolumna: termin", "deadline"),
+            ("Kolumna: data / termin", "date"),
+            ("Kolumna: proces", "process"),
         )
         for row, (label, key) in enumerate(labels):
             tk.Label(self, text=label, bg=BG, fg=TEXT, anchor="w").grid(
@@ -258,15 +325,28 @@ class SettingsDialog(tk.Toplevel):
         if path and Path(path).suffix.lower() in SUPPORTED_EXTENSIONS:
             self.values["plan_file"].set(path)
 
+    def _optional_int(self, key: str) -> int | None:
+        value = self.values[key].get().strip()
+        return max(1, int(value)) if value else None
+
     def _save(self) -> None:
         try:
             interval = max(1, int(self.values["check_interval_seconds"].get()))
+            header_scan_rows = max(1, int(self.values["header_scan_rows"].get()))
+            data_start_row = self._optional_int("data_start_row")
+            data_end_row = self._optional_int("data_end_row")
         except ValueError:
-            messagebox.showerror("Plan Monitor", "Interwał musi być liczbą.")
+            messagebox.showerror(
+                "Plan Monitor", "Interwał i numery wierszy muszą być liczbami."
+            )
             return
         config = {
             "plan_file": self.values["plan_file"].get().strip(),
             "check_interval_seconds": interval,
+            "sheet_name": self.values["sheet_name"].get().strip() or None,
+            "header_scan_rows": header_scan_rows,
+            "data_start_row": data_start_row,
+            "data_end_row": data_end_row,
             "department_keywords": [
                 item.strip() for item in
                 self.values["department_keywords"].get().split(",")
@@ -274,7 +354,7 @@ class SettingsDialog(tk.Toplevel):
             ],
             "column_mapping": {
                 key: self.values[key].get().strip()
-                for key in ("order", "symbol", "quantity", "deadline")
+                for key in ("order", "symbol", "quantity", "date", "process")
             },
         }
         save_config(config, self.monitor.config_path)
