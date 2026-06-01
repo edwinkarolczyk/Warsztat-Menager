@@ -3435,6 +3435,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             raw = str(value or "").strip().lower()
             if raw in {"done", "wykonany", "completed"}:
                 return "Wykonany"
+            if raw in {"in_progress", "w_trakcie", "w trakcie"}:
+                return "W trakcie"
             return "Planowany"
 
         def _people_text(value: object) -> str:
@@ -3467,15 +3469,67 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 return None
             return review_items.get(sel[0])
 
-        def _persist_machine_reviews() -> None:
+        def _persist_machine_after_review_change(
+            updated_machine: Dict[str, Any],
+        ) -> None:
             nonlocal rows_cache
-            updated = dict(machine)
-            updated["reviews"] = list(_machine_reviews(machine))
-            new_rows = upsert_machine(rows_cache, updated)
+            new_rows = upsert_machine(rows_cache, updated_machine)
             persisted = _save_rows(new_rows)
             rows_cache = list(persisted)
             _on_rows_changed()
             _set_selected_machine(machine_id)
+
+        def _start_selected_review() -> None:
+            entry = _selected_review_entry()
+            if not entry:
+                messagebox.showinfo("Przegląd / serwis", "Wybierz wpis.", parent=win)
+                return
+            if str(entry.get("status") or "").lower() in {
+                "done", "wykonany", "completed"
+            }:
+                messagebox.showinfo(
+                    "Przegląd / serwis",
+                    "Ten wpis jest już wykonany.",
+                    parent=win,
+                )
+                return
+            if _normalize_machine_status(machine.get("status")) == "warn":
+                messagebox.showwarning(
+                    "Przegląd / serwis",
+                    "Maszyna jest w statusie Awaria. Najpierw zamknij "
+                    "awarię albo zmień status ręcznie.",
+                    parent=win,
+                )
+                return
+
+            note = (
+                f"Rozpoczęto {entry.get('type') or 'przegląd / serwis'}"
+                f" | plan: {entry.get('planned_date') or '—'}"
+            )
+            if entry.get("description"):
+                note += f" | {entry.get('description')}"
+
+            entry["status"] = "in_progress"
+            entry["started_at"] = _machine_now_iso()
+            entry["started_by"] = _active_login_for_machine(root)
+
+            updated = dict(machine)
+            updated["reviews"] = list(_machine_reviews(machine))
+            _apply_machine_status_change(
+                updated,
+                "alert",
+                actor=_active_login_for_machine(root),
+                note=note,
+                photos=[],
+            )
+            machine.update(updated)
+            _persist_machine_after_review_change(updated)
+            _refresh_reviews_tree()
+
+        def _persist_machine_reviews() -> None:
+            updated = dict(machine)
+            updated["reviews"] = list(_machine_reviews(machine))
+            _persist_machine_after_review_change(updated)
 
         def _open_add_review_dialog() -> None:
             dialog = tk.Toplevel(win)
@@ -3648,7 +3702,25 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 entry["completed_at"] = _machine_now_iso()
                 entry["completed_by"] = completed_by
                 entry["result_note"] = txt_result.get("1.0", "end").strip()
-                _persist_machine_reviews()
+
+                updated = dict(machine)
+                updated["reviews"] = list(_machine_reviews(machine))
+                if _normalize_machine_status(updated.get("status")) == "alert":
+                    note = (
+                        f"Wykonano {entry.get('type') or 'przegląd / serwis'}"
+                        f" | plan: {entry.get('planned_date') or '—'}"
+                    )
+                    if entry.get("result_note"):
+                        note += f" | {entry.get('result_note')}"
+                    _apply_machine_status_change(
+                        updated,
+                        "ok",
+                        actor=", ".join(completed_by),
+                        note=note,
+                        photos=[],
+                    )
+                machine.update(updated)
+                _persist_machine_after_review_change(updated)
                 _refresh_reviews_tree()
                 dialog.destroy()
 
@@ -3669,6 +3741,11 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             reviews_actions,
             text="Dodaj przegląd / serwis",
             command=_open_add_review_dialog,
+        ).pack(side="left", padx=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Rozpocznij przegląd / serwis",
+            command=_start_selected_review,
         ).pack(side="left", padx=(0, 6))
         ttk.Button(
             reviews_actions,
