@@ -10,3 +10,6 @@ python-escpos
 
 openai
 python-dotenv
+
+# Plan Monitor: silnik dla starszych plików Excel .xls
+xlrd

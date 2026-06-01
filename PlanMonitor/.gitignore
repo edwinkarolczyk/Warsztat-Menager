@@ -1,0 +1,9 @@
+# Dane generowane lokalnie przez niezależny Plan Monitor.
+logs/*
+!logs/.gitkeep
+reports/*
+!reports/.gitkeep
+snapshots/*
+!snapshots/.gitkeep
+data/*
+!data/.gitkeep
