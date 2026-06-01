@@ -428,6 +428,103 @@ def _copy_machine_status_photos(
     return copied
 
 
+REVIEW_TYPES = (
+    "Przegląd okresowy",
+    "Serwis planowany",
+    "Konserwacja",
+    "Kalibracja",
+    "Czyszczenie",
+    "Inne",
+)
+
+
+def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Zwraca lokalne przeglądy zapisane bezpośrednio w rekordzie maszyny."""
+
+    reviews = machine.get("reviews")
+    if isinstance(reviews, list):
+        return [item for item in reviews if isinstance(item, dict)]
+    return []
+
+
+def _new_review_id() -> str:
+    return "rev_" + dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _split_csv_people(value: object) -> List[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+def _load_wm_user_logins() -> List[str]:
+    """Czyta loginy użytkowników WM z ROOT-a. Fallback: pusta lista."""
+
+    candidates: List[str] = []
+    try:
+        from core import root_paths as wm_root_paths
+
+        data_root = wm_root_paths.get_data_root()
+        if data_root:
+            candidates.extend(
+                [
+                    os.path.join(str(data_root), "profiles.json"),
+                    os.path.join(str(data_root), "uzytkownicy.json"),
+                    os.path.join(str(data_root), "users.json"),
+                    os.path.join(str(data_root), "profile", "profiles.json"),
+                ]
+            )
+    except Exception:
+        pass
+
+    try:
+        from config_manager import ConfigManager
+
+        data_root = ConfigManager().path_data()
+        if data_root:
+            candidates.extend(
+                [
+                    os.path.join(str(data_root), "profiles.json"),
+                    os.path.join(str(data_root), "uzytkownicy.json"),
+                    os.path.join(str(data_root), "users.json"),
+                    os.path.join(str(data_root), "profile", "profiles.json"),
+                ]
+            )
+    except Exception:
+        pass
+
+    logins: List[str] = []
+    for path in candidates:
+        if not path or not os.path.exists(path):
+            continue
+        payload = _safe_read_json(path, default={})
+        raw_items = []
+        if isinstance(payload, list):
+            raw_items = payload
+        elif isinstance(payload, dict):
+            for key in ("users", "uzytkownicy", "profiles", "items"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    raw_items = value
+                    break
+            if not raw_items:
+                raw_items = list(payload.values())
+
+        for item in raw_items:
+            if isinstance(item, dict):
+                login = str(
+                    item.get("login")
+                    or item.get("username")
+                    or item.get("user")
+                    or item.get("name")
+                    or item.get("nazwa")
+                    or ""
+                ).strip()
+            else:
+                login = str(item or "").strip()
+            if login and login not in logins:
+                logins.append(login)
+    return logins
+
+
 def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
     rows: List[tuple] = []
     history = machine.get("status_history")
@@ -3304,8 +3401,283 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             command=_show_history_photos,
         ).pack(side="left")
 
+        reviews_box = ttk.LabelFrame(outer, text="Przeglądy / serwis maszyny")
+        reviews_box.grid(
+            row=4, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
+        )
+
+        reviews_cols = (
+            "date", "type", "status", "suggested", "done_by", "done", "desc"
+        )
+        reviews_tree = ttk.Treeview(
+            reviews_box,
+            columns=reviews_cols,
+            show="headings",
+            height=5,
+        )
+        reviews_setup = {
+            "date": ("Data", 105, "center"),
+            "type": ("Typ", 150, "w"),
+            "status": ("Status", 100, "center"),
+            "suggested": ("Sugerowani", 140, "w"),
+            "done_by": ("Wykonali", 140, "w"),
+            "done": ("Wykonano", 125, "center"),
+            "desc": ("Opis", 300, "w"),
+        }
+        for col, (label, width, anchor) in reviews_setup.items():
+            reviews_tree.heading(col, text=label)
+            reviews_tree.column(col, width=width, anchor=anchor)
+        reviews_tree.pack(fill="both", expand=True, padx=6, pady=6)
+
+        review_items: Dict[str, Dict[str, Any]] = {}
+
+        def _review_status_label(value: object) -> str:
+            raw = str(value or "").strip().lower()
+            if raw in {"done", "wykonany", "completed"}:
+                return "Wykonany"
+            return "Planowany"
+
+        def _people_text(value: object) -> str:
+            if isinstance(value, list):
+                return ", ".join(
+                    str(item) for item in value if str(item).strip()
+                )
+            return str(value or "")
+
+        def _refresh_reviews_tree() -> None:
+            review_items.clear()
+            for iid in reviews_tree.get_children():
+                reviews_tree.delete(iid)
+            for entry in _machine_reviews(machine):
+                values = (
+                    str(entry.get("planned_date") or "—"),
+                    str(entry.get("type") or ""),
+                    _review_status_label(entry.get("status")),
+                    _people_text(entry.get("suggested_workers")),
+                    _people_text(entry.get("completed_by")),
+                    str(entry.get("completed_at") or "—").replace("T", " ")[:16],
+                    str(entry.get("description") or entry.get("result_note") or ""),
+                )
+                iid = reviews_tree.insert("", "end", values=values)
+                review_items[iid] = entry
+
+        def _selected_review_entry() -> Optional[Dict[str, Any]]:
+            sel = reviews_tree.selection()
+            if not sel:
+                return None
+            return review_items.get(sel[0])
+
+        def _persist_machine_reviews() -> None:
+            nonlocal rows_cache
+            updated = dict(machine)
+            updated["reviews"] = list(_machine_reviews(machine))
+            new_rows = upsert_machine(rows_cache, updated)
+            persisted = _save_rows(new_rows)
+            rows_cache = list(persisted)
+            _on_rows_changed()
+            _set_selected_machine(machine_id)
+
+        def _open_add_review_dialog() -> None:
+            dialog = tk.Toplevel(win)
+            dialog.title("Dodaj przegląd / serwis")
+            dialog.geometry("620x420")
+            dialog.transient(win)
+            dialog.grab_set()
+
+            frm = ttk.Frame(dialog, padding=12)
+            frm.pack(fill="both", expand=True)
+            frm.columnconfigure(1, weight=1)
+
+            ttk.Label(frm, text="Typ:").grid(
+                row=0, column=0, sticky="e", padx=4, pady=4
+            )
+            var_type = tk.StringVar(value=REVIEW_TYPES[0])
+            ttk.Combobox(
+                frm,
+                textvariable=var_type,
+                values=REVIEW_TYPES,
+                state="readonly",
+            ).grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+
+            ttk.Label(frm, text="Planowana data:").grid(
+                row=1, column=0, sticky="e", padx=4, pady=4
+            )
+            var_date = tk.StringVar(value=dt.date.today().isoformat())
+            ttk.Entry(frm, textvariable=var_date).grid(
+                row=1, column=1, sticky="ew", padx=4, pady=4
+            )
+
+            ttk.Label(frm, text="Sugerowani:").grid(
+                row=2, column=0, sticky="e", padx=4, pady=4
+            )
+            suggested = machine.get("review_workers")
+            if isinstance(suggested, list):
+                suggested_text = ", ".join(
+                    str(x) for x in suggested if str(x).strip()
+                )
+            else:
+                suggested_text = str(suggested or "")
+            var_suggested = tk.StringVar(value=suggested_text)
+            ttk.Entry(frm, textvariable=var_suggested).grid(
+                row=2, column=1, sticky="ew", padx=4, pady=4
+            )
+            ttk.Label(
+                frm,
+                text=(
+                    "To tylko sugestia. Faktycznych wykonawców wybierasz "
+                    "dopiero przy wykonaniu."
+                ),
+            ).grid(row=3, column=1, sticky="w", padx=4, pady=(0, 6))
+
+            ttk.Label(frm, text="Zakres / opis:").grid(
+                row=4, column=0, sticky="ne", padx=4, pady=4
+            )
+            txt_desc = tk.Text(frm, height=8, wrap="word")
+            txt_desc.grid(row=4, column=1, sticky="nsew", padx=4, pady=4)
+            frm.rowconfigure(4, weight=1)
+
+            def _save_review() -> None:
+                parsed = _parse_schedule_date(var_date.get().strip())
+                if parsed is None:
+                    messagebox.showwarning(
+                        "Przegląd / serwis",
+                        "Podaj poprawną datę, np. 2026-06-01.",
+                        parent=dialog,
+                    )
+                    return
+                entry = {
+                    "id": _new_review_id(),
+                    "type": var_type.get().strip() or REVIEW_TYPES[0],
+                    "planned_date": parsed.isoformat(),
+                    "status": "planned",
+                    "suggested_workers": _split_csv_people(var_suggested.get()),
+                    "description": txt_desc.get("1.0", "end").strip(),
+                    "completed_at": "",
+                    "completed_by": [],
+                    "result_note": "",
+                    "photos": [],
+                }
+                reviews = list(_machine_reviews(machine))
+                reviews.append(entry)
+                machine["reviews"] = reviews
+                _persist_machine_reviews()
+                _refresh_reviews_tree()
+                dialog.destroy()
+
+            btns = ttk.Frame(frm)
+            btns.grid(row=5, column=0, columnspan=2, sticky="e", pady=(10, 0))
+            ttk.Button(btns, text="Zapisz", command=_save_review).pack(
+                side="left", padx=4
+            )
+            ttk.Button(btns, text="Anuluj", command=dialog.destroy).pack(
+                side="left", padx=4
+            )
+
+        def _open_complete_review_dialog() -> None:
+            entry = _selected_review_entry()
+            if not entry:
+                messagebox.showinfo("Przegląd / serwis", "Wybierz wpis.", parent=win)
+                return
+            if str(entry.get("status") or "").lower() in {
+                "done", "wykonany", "completed"
+            }:
+                messagebox.showinfo(
+                    "Przegląd / serwis", "Ten wpis jest już wykonany.", parent=win
+                )
+                return
+
+            dialog = tk.Toplevel(win)
+            dialog.title("Oznacz przegląd / serwis jako wykonany")
+            dialog.geometry("620x520")
+            dialog.transient(win)
+            dialog.grab_set()
+
+            frm = ttk.Frame(dialog, padding=12)
+            frm.pack(fill="both", expand=True)
+            frm.columnconfigure(1, weight=1)
+
+            ttk.Label(frm, text="Wykonali:").grid(
+                row=0, column=0, sticky="ne", padx=4, pady=4
+            )
+            users_box = ttk.Frame(frm)
+            users_box.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+
+            user_logins = _load_wm_user_logins()
+            actor = _active_login_for_machine(root)
+            if actor and actor not in user_logins:
+                user_logins.insert(0, actor)
+            if not user_logins:
+                user_logins = [actor or "system"]
+
+            selected_vars: Dict[str, tk.BooleanVar] = {}
+            for idx, login in enumerate(user_logins):
+                var = tk.BooleanVar(value=(login == actor))
+                selected_vars[login] = var
+                ttk.Checkbutton(
+                    users_box,
+                    text=login,
+                    variable=var,
+                ).grid(
+                    row=idx // 3,
+                    column=idx % 3,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
+            ttk.Label(frm, text="Co wykonano:").grid(
+                row=1, column=0, sticky="ne", padx=4, pady=4
+            )
+            txt_result = tk.Text(frm, height=10, wrap="word")
+            txt_result.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
+            frm.rowconfigure(1, weight=1)
+
+            def _save_completed() -> None:
+                completed_by = [
+                    login for login, var in selected_vars.items() if bool(var.get())
+                ]
+                if not completed_by:
+                    messagebox.showwarning(
+                        "Przegląd / serwis",
+                        "Wybierz przynajmniej jedną osobę, która wykonała "
+                        "przegląd/serwis.",
+                        parent=dialog,
+                    )
+                    return
+                entry["status"] = "done"
+                entry["completed_at"] = _machine_now_iso()
+                entry["completed_by"] = completed_by
+                entry["result_note"] = txt_result.get("1.0", "end").strip()
+                _persist_machine_reviews()
+                _refresh_reviews_tree()
+                dialog.destroy()
+
+            btns = ttk.Frame(frm)
+            btns.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
+            ttk.Button(
+                btns, text="Zapisz wykonanie", command=_save_completed
+            ).pack(side="left", padx=4)
+            ttk.Button(btns, text="Anuluj", command=dialog.destroy).pack(
+                side="left", padx=4
+            )
+
+        _refresh_reviews_tree()
+
+        reviews_actions = ttk.Frame(reviews_box)
+        reviews_actions.pack(fill="x", padx=6, pady=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Dodaj przegląd / serwis",
+            command=_open_add_review_dialog,
+        ).pack(side="left", padx=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Oznacz jako wykonany",
+            command=_open_complete_review_dialog,
+        ).pack(side="left")
+
         buttons = ttk.Frame(outer)
-        buttons.grid(row=4, column=0, columnspan=2, sticky="e")
+        buttons.grid(row=5, column=0, columnspan=2, sticky="e")
         ttk.Button(
             buttons,
             text="Zmień status",
