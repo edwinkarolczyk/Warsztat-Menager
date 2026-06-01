@@ -491,6 +491,67 @@ from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 import logger as app_logger
 
+
+def _external_tool_id_variants(tool_id: str) -> set[str]:
+    """Warianty ID narzędzia do porównania: 42 / 042."""
+    raw = str(tool_id or "").strip()
+    variants = {raw}
+    if raw.isdigit():
+        variants.add(raw.zfill(3))
+        variants.add(str(int(raw)))
+    return {item for item in variants if item}
+
+
+def _external_get_tool_id(tool: Mapping[str, Any]) -> str:
+    return str(tool.get("id") or tool.get("nr") or tool.get("numer") or "").strip()
+
+
+def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
+    """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
+    variants = _external_tool_id_variants(tool_id)
+
+    try:
+        cfg = get_config()
+        rows, _primary = load_tools_rows_with_fallback(cfg, resolve_rel)
+    except Exception:
+        rows = []
+
+    for row in rows or []:
+        if not isinstance(row, Mapping):
+            continue
+        row_id = _external_get_tool_id(row)
+        if row_id in variants:
+            return dict(row)
+        if row_id.isdigit() and str(int(row_id)) in variants:
+            return dict(row)
+
+    return None
+
+
+def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
+    """
+    Publiczny helper dla Dyspozycji.
+
+    Otwiera ten sam widok szczegółów narzędzia, którego używa lista narzędzi,
+    bez wymogu wcześniejszego otwarcia modułu Narzędzia.
+    """
+    tool = _external_find_tool_by_id(tool_id)
+    if not tool:
+        return False
+
+    try:
+        from tools_templates import load_default_templates
+
+        templates = load_default_templates()
+    except Exception:
+        templates = []
+
+    from narzedzia_ui.detail_view import open_tool_detail
+
+    open_tool_detail(master, tool, templates=templates)
+    return True
+
+
 logger = getLogger(__name__)
 if not hasattr(logger, "log_akcja"):
     setattr(logger, "log_akcja", getattr(app_logger, "log_akcja", lambda *args, **kwargs: None))
@@ -6894,6 +6955,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 __all__ = [
     "panel_narzedzia",
     "open_tool_editor_by_id",
+    "open_tool_from_external_context",
     "_profiles_usernames",
     "_current_user",
     "_selected_task",
