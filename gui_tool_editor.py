@@ -234,11 +234,15 @@ class ToolEditorDialog(tk.Toplevel):
         )
         self.btn_save.pack()
         # Kropka stanu zapisu (zielona = zapisane, czerwona = niezapisane) – tk.Label (pewne w każdym motywie)
+        try:
+            btns_bg = btns.cget("background")
+        except tk.TclError:
+            btns_bg = None
         self.lbl_save_state = tk.Label(
             btns,
             text="●",
             fg="#44cc44", # start = clean
-            bg=btns.cget("background"),
+            bg=btns_bg if btns_bg else "#1f1f1f",
             font=("Segoe UI", 12, "bold"),
         )
         self.lbl_save_state.pack(side="right", padx=(0, 6))
