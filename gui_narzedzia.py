@@ -582,27 +582,8 @@ def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
 
 
 def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
-    """
-    Publiczny helper dla Dyspozycji.
-
-    Otwiera ten sam widok szczegółów narzędzia, którego używa lista narzędzi,
-    bez wymogu wcześniejszego otwarcia modułu Narzędzia.
-    """
-    tool = _external_find_tool_by_id(tool_id)
-    if not tool:
-        return False
-
-    try:
-        from tools_templates import load_default_templates
-
-        templates = load_default_templates()
-    except Exception:
-        templates = []
-
-    from narzedzia_ui.detail_view import open_tool_detail
-
-    open_tool_detail(master, tool, templates=templates)
-    return True
+    """Otwiera pełny edytor narzędzia podpięty do głównej listy narzędzi."""
+    return open_tool_editor_by_id(master, tool_id)
 
 
 logger = getLogger(__name__)
