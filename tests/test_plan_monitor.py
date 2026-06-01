@@ -1,13 +1,14 @@
 """Tests for the independent Plan Monitor engine."""
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from PlanMonitor.main import (PlanMonitor, append_dispositions, compare_plans,
                               export_changes, load_config, read_plan,
-                              resolve_mapping, save_config)
+                              resolve_mapping, safe_date, save_config)
 
 
 def row(order="306", symbol="1.670.93 REMS", quantity=336,
@@ -47,6 +48,27 @@ def test_read_plan_normalizes_excel_and_infers_columns(tmp_path):
     }).to_excel(plan, index=False)
 
     assert read_plan(plan) == [row(quantity=450.5, deadline="2026-06-13")]
+
+
+def test_safe_date_handles_empty_text_and_datetime_values():
+    assert safe_date(None) == ""
+    assert safe_date(pd.NaT) == ""
+    assert safe_date(float("nan")) == ""
+    assert safe_date(" 10 cze ") == "10 cze"
+    assert safe_date(datetime(2026, 6, 10)) == "2026-06-10"
+    assert safe_date(pd.Timestamp("2026-06-10")) == "2026-06-10"
+
+
+def test_read_plan_accepts_empty_excel_deadline(tmp_path):
+    plan = tmp_path / "plan.xlsx"
+    pd.DataFrame({
+        "Nr zlecenia": [306.0],
+        "Symbol": ["1.670.93 REMS"],
+        "Ilość": [336],
+        "Termin": [pd.NaT],
+    }).to_excel(plan, index=False)
+
+    assert read_plan(plan) == [row(deadline="")]
 
 
 def test_check_saves_snapshot_history_and_disposition(tmp_path):

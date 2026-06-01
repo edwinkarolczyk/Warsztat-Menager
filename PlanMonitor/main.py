@@ -126,17 +126,26 @@ def normalize_quantity(value: Any) -> int | float | str:
     return int(number) if number.is_integer() else number
 
 
+def safe_date(value: Any) -> str:
+    """Format a spreadsheet date safely, including empty pandas values."""
+    if value is None or pd.isna(value):
+        return ""
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+    return str(value).strip()
+
+
 def normalize_deadline(value: Any) -> str:
     """Represent dates consistently in ISO format when possible."""
-    if value is None or (isinstance(value, float) and math.isnan(value)):
+    if value is None or pd.isna(value):
         return ""
     if isinstance(value, (datetime, date, pd.Timestamp)):
-        return value.strftime("%Y-%m-%d")
+        return safe_date(value)
     text = normalize_text(value)
     if not text:
         return ""
     parsed = pd.to_datetime(text, dayfirst=True, errors="coerce")
-    return parsed.strftime("%Y-%m-%d") if not pd.isna(parsed) else text
+    return safe_date(parsed) if not pd.isna(parsed) else text
 
 
 def normalize_header(value: Any) -> str:
