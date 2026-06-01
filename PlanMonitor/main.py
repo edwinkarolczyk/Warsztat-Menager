@@ -43,11 +43,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
 }
 COLUMN_ALIASES = {
-    "order": ("nr zlecenia", "numer zlecenia", "zlecenie", "order"),
-    "symbol": ("symbol", "opis", "produkt", "nazwa"),
-    "quantity": ("ilosc", "ilość", "szt", "quantity"),
-    "deadline": ("termin", "data", "deadline"),
+    "order": ("order", "nr zlecenia", "numer zlecenia", "nr zlec",
+              "nr zlec.", "zlecenie"),
+    "symbol": ("symbol", "opis", "nazwa", "pozycja", "wyrób", "detal",
+               "produkt"),
+    "quantity": ("quantity", "ilość", "ilosc", "szt", "szt."),
+    "deadline": ("date", "termin", "data", "data wysyłki", "data wysylki",
+                 "deadline"),
+    "process": ("process", "proces", "status"),
 }
+REQUIRED_COLUMNS = ("order", "symbol", "quantity", "deadline")
+OPTIONAL_COLUMNS = ("process",)
 CHANGE_LABELS = {
     "new": "NOWE",
     "removed": "USUNIĘTE",
@@ -138,16 +144,36 @@ def normalize_header(value: Any) -> str:
     return re.sub(r"\s+", " ", normalize_text(value).lower()).strip()
 
 
+def excel_column_index(reference: Any) -> int | None:
+    """Convert an Excel column reference such as ``B`` or ``AA`` to an index."""
+    normalized = normalize_text(reference).upper()
+    if not re.fullmatch(r"[A-Z]+", normalized):
+        return None
+    index = 0
+    for character in normalized:
+        index = index * 26 + ord(character) - ord("A") + 1
+    return index - 1
+
+
 def resolve_mapping(
     columns: Iterable[Any], configured: dict[str, str]
 ) -> dict[str, str]:
     """Resolve configured columns or infer common Polish/English titles."""
-    available = {normalize_header(column): str(column) for column in columns}
+    columns = [str(column) for column in columns]
+    available = {normalize_header(column): column for column in columns}
     mapping: dict[str, str] = {}
-    for field, aliases in COLUMN_ALIASES.items():
+    for field in REQUIRED_COLUMNS:
+        aliases = COLUMN_ALIASES[field]
         selected = configured.get(field, "")
-        if selected and selected in columns:
-            mapping[field] = selected
+        if field == "deadline":
+            selected = selected or configured.get("date", "")
+        selected_header = normalize_header(selected)
+        if selected_header in available:
+            mapping[field] = available[selected_header]
+            continue
+        selected_index = excel_column_index(selected)
+        if selected_index is not None and selected_index < len(columns):
+            mapping[field] = columns[selected_index]
             continue
         match = next(
             (original for normalized, original in available.items()
@@ -159,6 +185,14 @@ def resolve_mapping(
                 f"Nie znaleziono kolumny: {field}. Ustaw mapowanie kolumn."
             )
         mapping[field] = match
+    for field in OPTIONAL_COLUMNS:
+        match = next(
+            (original for normalized, original in available.items()
+             if normalized in COLUMN_ALIASES[field]),
+            "",
+        )
+        if match:
+            mapping[field] = match
     return mapping
 
 
