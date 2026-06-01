@@ -7,7 +7,7 @@ import pandas as pd
 
 from PlanMonitor.main import (PlanMonitor, append_dispositions, compare_plans,
                               export_changes, load_config, read_plan,
-                              save_config)
+                              resolve_mapping, save_config)
 
 
 def row(order="306", symbol="1.670.93 REMS", quantity=336,
@@ -88,3 +88,29 @@ def test_export_csv_and_txt(tmp_path):
         encoding="utf-8-sig"
     )
     assert "NOWE" in (tmp_path / "report.txt").read_text(encoding="utf-8")
+
+
+def test_read_plan_recognizes_polish_column_aliases(tmp_path):
+    plan = tmp_path / "plan.xlsx"
+    pd.DataFrame({
+        "Nr zlec.": [306.0],
+        "Detal": [" 1.670.93 REMS "],
+        "Szt.": ["450,5"],
+        "Data wysyłki": [pd.Timestamp("2026-06-13")],
+        "Proces": ["Produkcja"],
+    }).to_excel(plan, index=False)
+
+    assert read_plan(plan) == [row(quantity=450.5, deadline="2026-06-13")]
+    assert resolve_mapping(pd.read_excel(plan).columns, {})["process"] == "Proces"
+
+
+def test_read_plan_accepts_excel_letter_for_manual_symbol_mapping(tmp_path):
+    plan = tmp_path / "plan.xlsx"
+    pd.DataFrame({
+        "Nr zlec.": [306.0],
+        "Unnamed: 1": [" 1.670.93 REMS "],
+        "Ilość": [336],
+        "Data wysyłki": [pd.Timestamp("2026-06-11")],
+    }).to_excel(plan, index=False)
+
+    assert read_plan(plan, {"symbol": "B"}) == [row()]

@@ -233,7 +233,7 @@ class SettingsDialog(tk.Toplevel):
             ("Interwał sprawdzania (sekundy)", "check_interval_seconds"),
             ("Słowa kluczowe działu (po przecinku)", "department_keywords"),
             ("Kolumna: nr zlecenia", "order"),
-            ("Kolumna: symbol / opis", "symbol"),
+            ("Kolumna: symbol / opis (np. B)", "symbol"),
             ("Kolumna: ilość", "quantity"),
             ("Kolumna: termin", "deadline"),
         )
