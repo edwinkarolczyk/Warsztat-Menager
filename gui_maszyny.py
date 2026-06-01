@@ -2715,6 +2715,19 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.e_x = row_entry(5, "x (px):", "x")
             self.e_y = row_entry(6, "y (px):", "y")
 
+            ttk.Label(frm, text="Domyślny typ przeglądu:", width=18, anchor="e").grid(
+                row=7, column=0, padx=6, pady=4, sticky="e"
+            )
+            self.cb_default_review_type = ttk.Combobox(
+                frm, values=REVIEW_TYPES, state="readonly", width=34
+            )
+            self.cb_default_review_type.set(
+                str(self._row.get("default_review_type") or REVIEW_TYPES[0])
+            )
+            self.cb_default_review_type.grid(
+                row=7, column=1, padx=6, pady=4, sticky="w"
+            )
+
             selected_review_months = set(
                 _normalize_review_months(
                     self._row.get("review_months")
@@ -2725,7 +2738,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.review_month_vars: Dict[int, tk.BooleanVar] = {}
             review_box = ttk.LabelFrame(frm, text="Przeglądy cykliczne")
             review_box.grid(
-                row=8, column=0, columnspan=2, sticky="ew", pady=(10, 4)
+                row=9, column=0, columnspan=2, sticky="ew", pady=(10, 4)
             )
             review_box.columnconfigure(1, weight=1)
             ttk.Label(review_box, text="Miesiące przeglądu:").grid(
@@ -2769,7 +2782,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
 
             btns = ttk.Frame(frm)
-            btns.grid(row=9, column=0, columnspan=2, pady=(14, 0))
+            btns.grid(row=10, column=0, columnspan=2, pady=(14, 0))
             ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
             ttk.Button(
                 btns,
@@ -2799,6 +2812,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 "status": self._old_status,
                 "x": x,
                 "y": y,
+                "default_review_type": (
+                    self.cb_default_review_type.get().strip() or REVIEW_TYPES[0]
+                ),
                 "review_months": [
                     month
                     for month, var in self.review_month_vars.items()
@@ -3499,7 +3515,10 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             ttk.Label(frm, text="Typ:").grid(
                 row=0, column=0, sticky="e", padx=4, pady=4
             )
-            var_type = tk.StringVar(value=REVIEW_TYPES[0])
+            default_review_type = str(
+                machine.get("default_review_type") or REVIEW_TYPES[0]
+            )
+            var_type = tk.StringVar(value=default_review_type)
             ttk.Combobox(
                 frm,
                 textvariable=var_type,
