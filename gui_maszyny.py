@@ -2151,14 +2151,14 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     ttk.Label(toolbar, textvariable=mode_hint_var).pack(side="left", padx=(0, 12))
 
     btn_import = ttk.Button(toolbar, text="Importuj harmonogram…")
-    btn_import.pack(side="left", padx=(12, 0))
+    # Stary import harmonogramu ukryty. Docelowym modelem są machine["reviews"].
 
     btn_add, btn_edit, btn_del, btn_save = (
         ttk.Button(toolbar, text=text)
         for text in ("Dodaj", "Edytuj", "Usuń", "Zapisz")
     )
     btn_change_status = ttk.Button(toolbar, text="Zmień status")
-    edit_mode_buttons = [btn_import, btn_add, btn_edit, btn_del, btn_save]
+    edit_mode_buttons = [btn_add, btn_edit, btn_del, btn_save]
     for button in (btn_save, btn_del, btn_edit, btn_change_status, btn_add):
         button.pack(side="right", padx=4)
 
@@ -2466,7 +2466,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     hall.render()
 
     details = ttk.LabelFrame(right, text="Przeglądy")
-    details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    # Stary panel harmonogramu 2025 jest wyłączony, żeby nie mieszać go z nowym
+    # modelem machine["reviews"] w oknie Użytkowanie maszyny.
+    # details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
     summary_var = tk.StringVar(value="Wybierz maszynę, aby zobaczyć harmonogram.")
     ttk.Label(details, textvariable=summary_var).pack(fill="x", padx=8, pady=(6, 4))
 
@@ -2702,9 +2704,15 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             ttk.Label(frm, text="Status:", width=18, anchor="e").grid(
                 row=4, column=0, padx=6, pady=4, sticky="e"
             )
-            self.cb_status = ttk.Combobox(frm, values=self.STATUSES, state="readonly", width=34)
+            self.cb_status = ttk.Combobox(
+                frm, values=self.STATUSES, state="disabled", width=34
+            )
             self.cb_status.set(_machine_status_edit_label(self._row.get("status")))
             self.cb_status.grid(row=4, column=1, padx=6, pady=4, sticky="w")
+            ttk.Label(
+                frm,
+                text="Status zmieniaj w trybie Użytkowanie maszyny.",
+            ).grid(row=4, column=2, sticky="w", padx=(8, 0))
 
             def int_or_none(value: str):
                 try:
@@ -2767,18 +2775,48 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             review_workers = self._row.get("review_workers") or []
             if not isinstance(review_workers, list):
                 review_workers = [review_workers]
-            self.var_review_workers = tk.StringVar(
-                master=self,
-                value=", ".join(
-                    str(worker) for worker in review_workers if str(worker).strip()
-                ),
-            )
-            ttk.Entry(
-                review_box, textvariable=self.var_review_workers, width=60
-            ).grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+            selected_workers = {
+                str(worker).strip()
+                for worker in review_workers
+                if str(worker).strip()
+            }
+
+            self.review_worker_vars: Dict[str, tk.BooleanVar] = {}
+            workers_frame = ttk.Frame(review_box)
+            workers_frame.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+
+            user_logins = _load_wm_user_logins()
+            actor = _active_login_for_machine(master)
+            if actor and actor not in user_logins:
+                user_logins.insert(0, actor)
+            for worker in sorted(selected_workers):
+                if worker and worker not in user_logins:
+                    user_logins.append(worker)
+
+            if not user_logins:
+                user_logins = [actor or "system"]
+
+            for idx, login in enumerate(user_logins):
+                var = tk.BooleanVar(master=self, value=(login in selected_workers))
+                self.review_worker_vars[login] = var
+                ttk.Checkbutton(
+                    workers_frame,
+                    text=login,
+                    variable=var,
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
             ttk.Label(
                 review_box,
-                text="Wpisz kilka osób po przecinku, np. Edwin, Marek, Dawid.",
+                text=(
+                    "Zaznacz sugerowanych serwisantów. Faktycznych wykonawców "
+                    "wybierasz przy wykonaniu."
+                ),
             ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
 
             btns = ttk.Frame(frm)
@@ -2821,9 +2859,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                     if bool(var.get())
                 ],
                 "review_workers": [
-                    worker.strip()
-                    for worker in self.var_review_workers.get().split(",")
-                    if worker.strip()
+                    login
+                    for login, var in self.review_worker_vars.items()
+                    if bool(var.get())
                 ],
             }
             for key in ("status_history", "status_current"):
