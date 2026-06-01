@@ -32,7 +32,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Sequence, Tuple
 
 import tkinter as tk
 from tkinter import filedialog
@@ -3875,6 +3875,22 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
     return None
 
 # ===================== UI GŁÓWNY =====================
+_OPEN_TOOL_EDITOR_BY_ID: Callable[[str], bool] | None = None
+
+
+def open_tool_editor_by_id(
+    master: tk.Misc | None,
+    tool_id: str,
+    current_user: str = "",
+    current_role: str | None = None,
+) -> bool:
+    """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
+    del master, current_user, current_role
+    if _OPEN_TOOL_EDITOR_BY_ID is None:
+        raise RuntimeError("Moduł Narzędzia nie został jeszcze otwarty.")
+    return _OPEN_TOOL_EDITOR_BY_ID(str(tool_id or "").strip())
+
+
 def panel_narzedzia(root, frame, login=None, rola=None):
     try:
         from gui_panel import wm_set_module_source
@@ -4025,9 +4041,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         _refresh_tools_view()
         return True
 
-    def _open_tool_by_id(tool_id: str) -> None:
+    def _open_tool_by_id(tool_id: str) -> bool:
         if not tool_id:
-            return
+            return False
         normalized = str(tool_id).strip()
         for tool in tools_provider():
             if not isinstance(tool, dict):
@@ -4039,10 +4055,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 continue
             if candidate == normalized or candidate.zfill(3) == normalized.zfill(3):
                 open_tool_dialog(_as_tool_dict(tool))
-                return
+                return True
         try:
             file_name = f"{normalized.zfill(3)}.json"
             path_str = str(Path(_resolve_tools_dir()) / file_name)
+            if not Path(path_str).exists():
+                return False
             norm_path = _normalize_path(path_str)
             if norm_path in STATE.tools_docs_cache:
                 doc = STATE.tools_docs_cache[norm_path]
@@ -4052,8 +4070,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     STATE.tools_docs_cache[norm_path] = doc
             if isinstance(doc, dict):
                 open_tool_dialog(_as_tool_dict(doc))
+                return True
         except Exception:
-            return
+            return False
+        return False
 
     class _ToolsViewFallback:
         def _refresh_all(self) -> None:
@@ -6867,10 +6887,13 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     btn_add.configure(command=choose_mode_and_add)
     if tools_view is not None:
         tools_view.bind_open_detail(_open_tool_by_id)
+    global _OPEN_TOOL_EDITOR_BY_ID
+    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
     refresh_list()
 
 __all__ = [
     "panel_narzedzia",
+    "open_tool_editor_by_id",
     "_profiles_usernames",
     "_current_user",
     "_selected_task",

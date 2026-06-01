@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
@@ -36,25 +35,15 @@ def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
         return
 
     try:
-        from config_manager import ConfigManager
-        from gui_tool_editor import ToolEditorDialog
+        from gui_narzedzia import open_tool_editor_by_id
 
-        cfg = ConfigManager()
-        tool_path = Path(cfg.path_data("narzedzia")) / f"{tool_id}.json"
-        if not tool_path.exists():
-            alt = Path(cfg.path_data("narzedzia")) / f"{tool_id.zfill(3)}.json"
-            if alt.exists():
-                tool_path = alt
-
-        if not tool_path.exists():
+        opened = open_tool_editor_by_id(master.winfo_toplevel(), tool_id)
+        if not opened:
             messagebox.showwarning(
                 "Dyspozycje",
-                f"Nie znaleziono pliku narzędzia: {tool_id}",
+                f"Nie znaleziono narzędzia: {tool_id}",
                 parent=master,
             )
-            return
-
-        ToolEditorDialog(master.winfo_toplevel(), str(tool_path))
     except Exception as exc:
         messagebox.showerror(
             "Dyspozycje",
