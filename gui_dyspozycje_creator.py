@@ -13,13 +13,46 @@ from dyspozycje_sources import (
     load_tool_choices,
     load_zlecenie_wykonania_choices,
 )
-from dyspozycje_store import add_dyspozycja, make_dyspozycja, update_dyspozycja
+from dyspozycje_store import (
+    add_dyspozycja,
+    close_dyspozycja,
+    make_dyspozycja,
+    update_dyspozycja,
+)
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
 except Exception:  # pragma: no cover
     load_profiles_users = None  # type: ignore
     resolve_profiles_path = None  # type: ignore
+
+
+def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
+    """Otwiera normalny widok narzędzia używany przez moduł Narzędzia."""
+    tool_id = str(object_id or "").strip()
+    if not tool_id:
+        messagebox.showwarning("Dyspozycje", "Brak numeru narzędzia.", parent=master)
+        return
+
+    try:
+        from gui_narzedzia import open_tool_from_external_context
+
+        opened = open_tool_from_external_context(
+            master.winfo_toplevel(),
+            tool_id,
+        )
+        if not opened:
+            messagebox.showwarning(
+                "Dyspozycje",
+                f"Nie znaleziono narzędzia: {tool_id}",
+                parent=master,
+            )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się otworzyć edytora narzędzia:\n{exc}",
+            parent=master,
+        )
 
 
 def _load_user_logins() -> list[str]:
@@ -58,6 +91,28 @@ def _options_for_type(typ: str) -> tuple[str, str, list[tuple[str, str]]]:
     return ("", "Obiekt:", [])
 
 
+def _try_open_machine_usage(
+    master: tk.Widget, object_id: str, object_label: str = ""
+) -> None:
+    """Otwiera istniejący moduł maszyn z kontekstem wybranej maszyny."""
+    machine_id = str(object_id or "").strip()
+    label = str(object_label or "").strip()
+    if not machine_id and not label:
+        messagebox.showwarning("Dyspozycje", "Brak wybranej maszyny.", parent=master)
+        return
+
+    try:
+        from gui_maszyny import open_machine_usage
+
+        open_machine_usage(master.winfo_toplevel(), machine_id, label=label)
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się otworzyć użytkowania maszyny:\n{exc}",
+            parent=master,
+        )
+
+
 def open_dyspozycje_creator(
     master: tk.Widget | None = None,
     *,
@@ -80,6 +135,7 @@ def open_dyspozycje_creator(
     frame = ttk.Frame(win, padding=12)
     frame.pack(fill="both", expand=True)
     frame.columnconfigure(1, weight=1)
+    frame.rowconfigure(9, weight=1)
 
     ttk.Label(
         frame,
@@ -112,10 +168,10 @@ def open_dyspozycje_creator(
     )
     cb_object.grid(row=3, column=1, sticky="ew", pady=4)
 
-    var_tool_search = tk.StringVar()
-    ent_tool_search = ttk.Entry(frame, textvariable=var_tool_search)
-    ent_tool_search.grid(row=2, column=1, sticky="ew", pady=4)
-    ent_tool_search.grid_remove()
+    var_object_search = tk.StringVar()
+    ent_object_search = ttk.Entry(frame, textvariable=var_object_search)
+    ent_object_search.grid(row=2, column=1, sticky="ew", pady=4)
+    ent_object_search.grid_remove()
 
     ttk.Label(frame, text="Opis:").grid(row=4, column=0, sticky="nw", pady=4)
     txt_desc = tk.Text(frame, height=6, width=54)
@@ -154,9 +210,76 @@ def open_dyspozycje_creator(
     )
     cb_assigned.grid(row=8, column=1, sticky="w", pady=4)
 
+    object_panel = ttk.LabelFrame(frame, text="Powiązany obiekt dyspozycji")
+    object_panel.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=(14, 0))
+    object_panel.columnconfigure(0, weight=1)
+
+    var_object_panel_info = tk.StringVar(
+        value="Wybierz typ i obiekt dyspozycji, aby zobaczyć powiązany element."
+    )
+    lbl_object_panel_info = ttk.Label(
+        object_panel,
+        textvariable=var_object_panel_info,
+        wraplength=900,
+        justify="left",
+    )
+    lbl_object_panel_info.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
+
+    object_panel_buttons = ttk.Frame(object_panel)
+    object_panel_buttons.grid(row=1, column=0, sticky="w", padx=10, pady=(0, 10))
+
     options_map: dict[str, str] = {}
     all_labels: list[str] = []
     source_module = {"value": ""}
+
+    btn_open_tool = ttk.Button(
+        object_panel_buttons,
+        text="Otwórz edytor narzędzia",
+        command=lambda: _try_open_tool_editor(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
+        ),
+    )
+    btn_open_machine = ttk.Button(
+        object_panel_buttons,
+        text="Otwórz użytkowanie maszyny",
+        command=lambda: _try_open_machine_usage(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
+            var_object_display.get().strip(),
+        ),
+    )
+
+    if not edit_mode:
+        object_panel.grid_remove()
+
+    def _refresh_object_panel(*_args) -> None:
+        if not edit_mode:
+            return
+        typ = var_type.get().strip().lower()
+        selected_label = var_object_display.get().strip()
+        object_id = options_map.get(selected_label, "").strip()
+
+        for child in object_panel_buttons.winfo_children():
+            child.pack_forget()
+
+        if typ == "narzedzie":
+            var_object_panel_info.set(
+                "Narzędzie powiązane z dyspozycją: "
+                f"{selected_label or object_id or 'brak wyboru'}"
+            )
+            btn_open_tool.pack(side="left")
+        elif typ == "maszyna":
+            var_object_panel_info.set(
+                "Maszyna powiązana z dyspozycją: "
+                f"{selected_label or object_id or 'brak wyboru'}"
+            )
+            btn_open_machine.pack(side="left")
+        else:
+            var_object_panel_info.set(
+                "Dla tego typu dyspozycji nie ma jeszcze edytora "
+                "kontekstowego w dolnym panelu."
+            )
 
     def _toggle_assigned(*_args) -> None:
         if var_all.get():
@@ -179,11 +302,11 @@ def open_dyspozycje_creator(
         all_labels = [label for _object_id, label in options]
         labels = list(all_labels)
         cb_object.configure(values=labels)
-        var_tool_search.set("")
-        if source_key == "narzedzia":
-            ent_tool_search.grid()
+        var_object_search.set("")
+        if source_key in {"narzedzia", "maszyny"}:
+            ent_object_search.grid()
         else:
-            ent_tool_search.grid_remove()
+            ent_object_search.grid_remove()
 
         ctx_object_id = str(ctx.get("obiekt_id") or "").strip()
         picked = ""
@@ -195,20 +318,25 @@ def open_dyspozycje_creator(
         if not picked and labels:
             picked = labels[0]
         var_object_display.set(picked)
+        _refresh_object_panel()
 
     _toggle_assigned()
     var_all.trace_add("write", _toggle_assigned)
     cb_type.bind("<<ComboboxSelected>>", _refresh_object_choices)
     _refresh_object_choices()
 
-    def _filter_tools(*_args) -> None:
-        if source_module["value"] != "narzedzia":
+    def _filter_objects(*_args) -> None:
+        if source_module["value"] not in {"narzedzia", "maszyny"}:
             return
-        query = var_tool_search.get().strip().lower()
+        query = var_object_search.get().strip().lower()
         if not query:
             filtered = list(all_labels)
         else:
-            filtered = [label for label in all_labels if query in label.lower()]
+            filtered = [
+                label
+                for label in all_labels
+                if query in label.lower()
+            ]
         cb_object.configure(values=filtered)
         if filtered:
             current = var_object_display.get().strip()
@@ -216,11 +344,54 @@ def open_dyspozycje_creator(
                 var_object_display.set(filtered[0])
         else:
             var_object_display.set("")
+        _refresh_object_panel()
 
-    var_tool_search.trace_add("write", _filter_tools)
+    var_object_search.trace_add("write", _filter_objects)
+    cb_object.bind("<<ComboboxSelected>>", _refresh_object_panel)
+    _refresh_object_panel()
 
     btns = ttk.Frame(win, padding=(12, 0, 12, 12))
     btns.pack(fill="x")
+
+    def _event_updated() -> None:
+        try:
+            win.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
+        except Exception:
+            pass
+
+    def _actor_login() -> str:
+        for candidate in (
+            autor,
+            ctx.get("autor"),
+            getattr(root, "active_login", ""),
+            getattr(root, "_wm_login", ""),
+            getattr(root, "login", ""),
+        ):
+            text = str(candidate or "").strip()
+            if text:
+                return text
+        return ""
+
+    def _close_current() -> None:
+        if not edit_mode or not existing_id:
+            return
+        if not messagebox.askyesno(
+            "Dyspozycje",
+            "Zamknąć tę dyspozycję?",
+            parent=win,
+        ):
+            return
+        changed = close_dyspozycja(existing_id, closed_by=_actor_login())
+        if not changed:
+            messagebox.showerror(
+                "Dyspozycje",
+                "Nie udało się zamknąć Dyspozycji.",
+                parent=win,
+            )
+            return
+        _event_updated()
+        messagebox.showinfo("Dyspozycje", "Dyspozycja została zamknięta.", parent=win)
+        win.destroy()
 
     def _save() -> None:
         selected_label = var_object_display.get().strip()
@@ -261,11 +432,7 @@ def open_dyspozycje_creator(
             item = make_dyspozycja(**payload)
             add_dyspozycja(item)
 
-        try:
-            # NOWY event dla Dyspozycji (zamiast OrdersUpdated)
-            win.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
-        except Exception:
-            pass
+        _event_updated()
         messagebox.showinfo(
             "Dyspozycje",
             "Dyspozycja została zaktualizowana." if edit_mode else "Dyspozycja została zapisana.",
@@ -275,6 +442,10 @@ def open_dyspozycje_creator(
 
     ttk.Button(btns, text="Anuluj", command=win.destroy).pack(side="right", padx=(8, 0))
     ttk.Button(btns, text="Zapisz", command=_save).pack(side="right")
+    if edit_mode and existing_id:
+        ttk.Button(btns, text="Zamknij dyspozycję", command=_close_current).pack(
+            side="left"
+        )
 
     cb_object.focus_set()
     win.transient(root)

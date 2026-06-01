@@ -84,6 +84,9 @@ TAB_PATHS = "Ścieżki"
 TAB_BACKUP = "Kopia zapasowa"
 TAB_UI = "UI i wygląd"
 TAB_MODULES = "Moduły"
+TAB_DISPATCHES = "Dyspozycje"
+TAB_FEEDBACK = "Opinie"
+TAB_STATISTICS = "Statystyki"
 TAB_JARVIS = "Jarvis / powiadomienia"
 TAB_ADVANCED = "Zaawansowane / Dev"
 
@@ -2240,9 +2243,13 @@ class SettingsPanel:
         self.tab_ui = ttk.Frame(self.nb)
         self.tab_paths = ttk.Frame(self.nb)
         self.tab_modules = ttk.Frame(self.nb)
+        self.tab_dispatches = ttk.Frame(self.nb)
+        self.tab_warehouse = ttk.Frame(self.nb)
         self.tab_users = ttk.Frame(self.nb)
         self.tab_tools = ttk.Frame(self.nb)
         self.tab_backup = ttk.Frame(self.nb)
+        self.tab_feedback = ttk.Frame(self.nb)
+        self.tab_statistics = ttk.Frame(self.nb)
         self.tab_jarvis = ttk.Frame(self.nb)
         self.tab_advanced = ttk.Frame(self.nb)
 
@@ -2263,7 +2270,11 @@ class SettingsPanel:
             (self.tab_paths, "Ścieżki", ""),
             (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
+            (self.tab_dispatches, "Dyspozycje", ""),
+            (self.tab_warehouse, "Magazyn", ""),
             (self.tab_backup, "Backup", ""),
+            (self.tab_feedback, "Opinie", ""),
+            (self.tab_statistics, "Statystyki", ""),
             (self.tab_jarvis, "Jarvis", ""),
             (self.tab_advanced, "Zaawansowane", ""),
         ]
@@ -2312,6 +2323,33 @@ class SettingsPanel:
         )
         self._backup_container.pack(fill="both", expand=True, padx=8, pady=8)
 
+        _scroll__dispatches_container = ScrolledFrame(self.tab_dispatches)
+        _scroll__dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._dispatches_container = ttk.LabelFrame(
+            _scroll__dispatches_container.inner,
+            text="Dyspozycje — wygląd i miganie",
+        )
+        self._dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        _scroll__feedback_container = ScrolledFrame(self.tab_feedback)
+        _scroll__feedback_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._feedback_container = ttk.LabelFrame(
+            _scroll__feedback_container.inner,
+            text="Opinie użytkowników",
+        )
+        self._feedback_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._feedback_tree = None
+        self._feedback_details = None
+
+        _scroll__statistics_container = ScrolledFrame(self.tab_statistics)
+        _scroll__statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._statistics_container = ttk.LabelFrame(
+            _scroll__statistics_container.inner,
+            text="📊 Statystyki WM",
+        )
+        self._statistics_container.pack(fill="both", expand=True, padx=8, pady=8)
+        self._statistics_text = None
+
         _scroll__ui_container = ScrolledFrame(self.tab_ui)
         _scroll__ui_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._ui_container = ttk.LabelFrame(
@@ -2321,7 +2359,17 @@ class SettingsPanel:
         self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._modules_nb = ttk.Notebook(self.tab_modules)
         self._modules_nb.pack(fill="both", expand=True, padx=8, pady=8)
-        self._modules_nb.bind("<<NotebookTabChanged>>", self._on_modules_tab_change, add="+")
+        self._modules_nb.bind(
+            "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
+        )
+
+        self._warehouse_nb = ttk.Notebook(self.tab_warehouse)
+        self._warehouse_nb.pack(fill="both", expand=True, padx=8, pady=8)
+        self._warehouse_diag_tab = None
+        self._warehouse_nb.bind(
+            "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
+        )
+
         _scroll__jarvis_container = ScrolledFrame(self.tab_jarvis)
         _scroll__jarvis_container.pack(fill="both", expand=True, padx=8, pady=8)
         self._jarvis_container = ttk.LabelFrame(
@@ -2356,6 +2404,9 @@ class SettingsPanel:
             "jarvis.enabled",
         }
         self._build_manual_config_fields()
+        self._build_dispatches_settings_tab()
+        self._build_feedback_settings_tab()
+        self._build_statistics_settings_tab()
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -2367,11 +2418,60 @@ class SettingsPanel:
         modules_ids = {
             "maszyny",
             "zlecenia",
+            "dyspo",
+        }
+
+        warehouse_ids = {
             "magazyn",
             "zamowienia",
             "produkty",
-            "dyspo",
         }
+        self._build_warehouse_diagnostics_tab()
+
+        def _debug_settings_modules_tab(tab: dict[str, Any]) -> None:
+            """Loguje, jak zakładka z configu trafia do Ustawienia → Moduły.
+
+            Etap 1 audytu: tylko diagnostyka, bez zmiany działania UI.
+            """
+
+            try:
+                tab_id = str(tab.get("id") or "").strip().lower()
+                title = str(
+                    tab.get("title") or tab.get("label") or tab_id or ""
+                ).strip()
+                handler = handlers.get(tab_id)
+                handler_name = (
+                    getattr(handler, "__name__", "generic")
+                    if handler
+                    else "generic"
+                )
+                groups_count = len(tab.get("groups") or [])
+                fields_count = len(tab.get("fields") or [])
+                subtabs_count = len(tab.get("subtabs") or [])
+                if tab_id in modules_ids:
+                    status = "MODULES"
+                elif tab_id in warehouse_ids:
+                    status = "WAREHOUSE"
+                else:
+                    status = "OUTSIDE_MODULES"
+                print(
+                    "[WM-DBG][SETTINGS][MODULES] "
+                    f"id={tab_id or '-'} | "
+                    f"title={title or '-'} | "
+                    f"target={status} | "
+                    f"handler={handler_name} | "
+                    f"groups={groups_count} | "
+                    f"fields={fields_count} | "
+                    f"subtabs={subtabs_count}"
+                )
+            except Exception as exc:
+                try:
+                    print(
+                        "[WM-DBG][SETTINGS][MODULES][WARN] "
+                        f"debug failed: {exc}"
+                    )
+                except Exception:
+                    pass
 
         # allow_users policzone wyżej – tutaj już tylko używamy tej wartości
         if allow_users:
@@ -2386,6 +2486,7 @@ class SettingsPanel:
             users_nb.add(users_profile_frame, text="Profil użytkownika")
 
         for tab in schema.get("tabs", []):
+            _debug_settings_modules_tab(tab)
             tab_id_raw = tab.get("id")
             tab_id = str(tab_id_raw or "").strip().lower()
             title = tab.get("title", tab.get("id", ""))
@@ -2411,10 +2512,33 @@ class SettingsPanel:
                 if counts:
                     self._log_tab_stats(title, *counts)
                 continue
+            if tab_id in warehouse_ids:
+                frame = ttk.Frame(self._warehouse_nb)
+                self._warehouse_nb.add(frame, text=title)
+                self._register_nested_tab(
+                    title, self.tab_warehouse, self._warehouse_nb, frame
+                )
+                print(
+                    "[WM-DBG][SETTINGS] add warehouse tab: "
+                    f"{title} groups={len(tab.get('groups', []))} "
+                    f"fields={len(tab.get('fields', []))}"
+                )
+                path_key = tuple(filter(None, [tab_id]))
+                self._remember_tab_frame(path_key, frame)
+                handler = handlers.get(tab_id)
+                if handler is None:
+                    counts = self._handle_generic_tab(frame, tab, path_key)
+                else:
+                    counts = handler(frame, tab, path_key)
+                if counts:
+                    self._log_tab_stats(title, *counts)
+                continue
             if tab_id in modules_ids:
                 frame = ttk.Frame(self._modules_nb)
                 self._modules_nb.add(frame, text=title)
-                self._register_nested_tab(title, self.tab_modules, self._modules_nb, frame)
+                self._register_nested_tab(
+                    title, self.tab_modules, self._modules_nb, frame
+                )
                 path_key = tuple(filter(None, [tab_id]))
                 self._remember_tab_frame(path_key, frame)
                 handler = handlers.get(tab_id)
@@ -2642,6 +2766,179 @@ class SettingsPanel:
             if counts:
                 self._log_tab_stats(title, *counts)
 
+    def _build_dispatches_settings_tab(self) -> None:
+        parent = getattr(self, "_dispatches_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        cfg = getattr(self, "cfg", None) or ConfigManager()
+
+        def _cfg_get(key: str, default: Any) -> Any:
+            getter = getattr(cfg, "get_path", None)
+            if callable(getter):
+                return getter(key, default)
+            getter = getattr(cfg, "get", None)
+            if callable(getter):
+                return getter(key, default)
+            return default
+
+        def _cfg_set(key: str, value: Any) -> None:
+            setter = getattr(cfg, "set_path", None)
+            if callable(setter):
+                setter(key, value)
+                return
+            setter = getattr(cfg, "set", None)
+            if callable(setter):
+                setter(key, value)
+
+        ttk.Label(
+            parent,
+            text=(
+                "Ustawienia wyglądu listy dyspozycji. Zmiany zapisują się "
+                "do config.json i będą użyte po odświeżeniu panelu Dyspozycji."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 10))
+
+        fields = ttk.LabelFrame(parent, text="Kolory")
+        fields.pack(fill="x", padx=8, pady=8)
+        fields.columnconfigure(1, weight=1)
+
+        blink = ttk.LabelFrame(parent, text="Miganie")
+        blink.pack(fill="x", padx=8, pady=8)
+        blink.columnconfigure(1, weight=1)
+
+        values = {
+            "dyspozycje.ui.closed_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.closed_foreground", "#9ca3af"))
+            ),
+            "dyspozycje.ui.new_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.new_foreground", "#facc15"))
+            ),
+            "dyspozycje.ui.new_blink_foreground": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.new_blink_foreground", "#ffffff")
+                )
+            ),
+            "dyspozycje.ui.overdue_foreground": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.overdue_foreground", "#ef4444"))
+            ),
+            "dyspozycje.ui.overdue_blink_foreground": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.overdue_blink_foreground", "#ffffff")
+                )
+            ),
+            "dyspozycje.ui.overdue_blink_background": tk.StringVar(
+                value=str(
+                    _cfg_get("dyspozycje.ui.overdue_blink_background", "#7f1d1d")
+                )
+            ),
+            "dyspozycje.ui.new_blink_ms": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.new_blink_ms", 2000))
+            ),
+            "dyspozycje.ui.overdue_blink_ms": tk.StringVar(
+                value=str(_cfg_get("dyspozycje.ui.overdue_blink_ms", 500))
+            ),
+        }
+
+        blink_enabled = tk.BooleanVar(
+            value=bool(_cfg_get("dyspozycje.ui.blink_enabled", True))
+        )
+
+        def _row(parent_widget, row: int, label: str, key: str):
+            ttk.Label(parent_widget, text=label).grid(
+                row=row, column=0, sticky="w", padx=8, pady=4
+            )
+            ent = ttk.Entry(parent_widget, textvariable=values[key], width=18)
+            ent.grid(row=row, column=1, sticky="w", padx=8, pady=4)
+            return ent
+
+        _row(fields, 0, "Zamknięte — tekst:", "dyspozycje.ui.closed_foreground")
+        _row(fields, 1, "Nowe — tekst:", "dyspozycje.ui.new_foreground")
+        _row(
+            fields,
+            2,
+            "Nowe miganie — tekst:",
+            "dyspozycje.ui.new_blink_foreground",
+        )
+        _row(fields, 3, "Po terminie — tekst:", "dyspozycje.ui.overdue_foreground")
+        _row(
+            fields,
+            4,
+            "Po terminie miganie — tekst:",
+            "dyspozycje.ui.overdue_blink_foreground",
+        )
+        _row(
+            fields,
+            5,
+            "Po terminie miganie — tło:",
+            "dyspozycje.ui.overdue_blink_background",
+        )
+
+        ttk.Checkbutton(
+            blink,
+            text="Włącz miganie dyspozycji",
+            variable=blink_enabled,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=8, pady=4)
+
+        _row(blink, 1, "Miganie nowych [ms]:", "dyspozycje.ui.new_blink_ms")
+        _row(blink, 2, "Miganie po terminie [ms]:", "dyspozycje.ui.overdue_blink_ms")
+
+        ttk.Label(
+            parent,
+            text=(
+                "Kolory wpisuj jako HEX, np. #ef4444. Częstotliwość "
+                "w milisekundach: 2000 = 2 sekundy, 500 = pół sekundy."
+            ),
+        ).pack(anchor="w", padx=8, pady=(4, 8))
+
+        def _safe_int(
+            value: str,
+            default: int,
+            min_value: int = 100,
+            max_value: int = 10000,
+        ) -> int:
+            try:
+                parsed = int(str(value).strip())
+            except Exception:
+                parsed = default
+            return max(min_value, min(max_value, parsed))
+
+        def _save_dispatches_ui() -> None:
+            try:
+                _cfg_set("dyspozycje.ui.blink_enabled", bool(blink_enabled.get()))
+                for key, var in values.items():
+                    if key.endswith("_ms"):
+                        default = 2000 if key.endswith("new_blink_ms") else 500
+                        _cfg_set(key, _safe_int(var.get(), default))
+                    else:
+                        _cfg_set(key, str(var.get()).strip() or "#ffffff")
+                saver = getattr(cfg, "save", None)
+                if callable(saver):
+                    saver()
+                messagebox.showinfo(
+                    "Dyspozycje",
+                    "Zapisano ustawienia wyglądu dyspozycji.",
+                    parent=self.win,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "[SETTINGS][DYSP] Nie udało się zapisać ustawień dyspozycji"
+                )
+                messagebox.showerror(
+                    "Dyspozycje",
+                    f"Nie udało się zapisać ustawień: {exc}",
+                    parent=self.win,
+                )
+
+        ttk.Button(
+            parent,
+            text="Zapisz ustawienia Dyspozycji",
+            command=_save_dispatches_ui,
+        ).pack(anchor="w", padx=8, pady=(4, 12))
+
     def _build_manual_config_fields(self) -> None:
         """Insert hand-crafted widgets tied to configuration keys."""
 
@@ -2860,6 +3157,613 @@ class SettingsPanel:
 
         self._last_tab = self.nb.select()
 
+    def _build_warehouse_diagnostics_tab(self) -> None:
+        """Diagnostyka plików Magazynu/BOM w Ustawienia → Magazyn."""
+
+        nb = getattr(self, "_warehouse_nb", None)
+        if nb is None:
+            return
+
+        try:
+            if self._warehouse_diag_tab is not None:
+                nb.forget(self._warehouse_diag_tab)
+        except Exception:
+            pass
+
+        frame = ttk.Frame(nb)
+        self._warehouse_diag_tab = frame
+        nb.add(frame, text="Diagnostyka")
+
+        box = ttk.LabelFrame(frame, text="Magazyn — diagnostyka danych")
+        box.pack(fill="both", expand=True, padx=8, pady=8)
+
+        ttk.Label(
+            box,
+            text=(
+                "Podgląd tylko do odczytu. Ta sekcja pokazuje, z jakich "
+                "plików Magazyn i BOM korzystają oraz ile danych realnie "
+                "w nich wykryto."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 6))
+
+        status_var = tk.StringVar(value="Nie odświeżono diagnostyki.")
+        ttk.Label(box, textvariable=status_var).pack(anchor="w", padx=8, pady=(0, 8))
+
+        grid = ttk.Frame(box)
+        grid.pack(fill="x", padx=8, pady=(0, 8))
+        grid.columnconfigure(1, weight=1)
+
+        rows: dict[str, tk.StringVar] = {}
+
+        def _add_row(row: int, label: str, key: str) -> None:
+            ttk.Label(grid, text=f"{label}:").grid(
+                row=row, column=0, sticky="nw", padx=(0, 8), pady=3
+            )
+            var = tk.StringVar(value="—")
+            rows[key] = var
+            ttk.Label(grid, textvariable=var, wraplength=900).grid(
+                row=row, column=1, sticky="ew", pady=3
+            )
+
+        _add_row(0, "ROOT", "root")
+        _add_row(1, "DATA", "data")
+        _add_row(2, "Plik magazynu", "warehouse")
+        _add_row(3, "Plik BOM", "bom")
+        _add_row(4, "Magazyn istnieje", "warehouse_exists")
+        _add_row(5, "BOM istnieje", "bom_exists")
+        _add_row(6, "Format magazynu", "warehouse_format")
+        _add_row(7, "Pozycje magazynu", "warehouse_count")
+        _add_row(8, "Pozycje BOM", "bom_count")
+
+        details = tk.Text(box, height=8, wrap="word")
+        details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        details.configure(state="disabled")
+
+        def _set_details(value: str) -> None:
+            try:
+                details.configure(state="normal")
+                details.delete("1.0", "end")
+                details.insert("1.0", value)
+                details.configure(state="disabled")
+            except Exception:
+                logger.exception(
+                    "[SETTINGS][MAGAZYN] Nie udało się ustawić diagnostyki"
+                )
+
+        def _path_info() -> dict[str, Any]:
+            out = {
+                "root": "",
+                "data": "",
+                "warehouse": "",
+                "bom": "",
+            }
+
+            try:
+                from core import root_paths as wm_root_paths
+
+                for name, func_name in (
+                    ("root", "get_root_anchor"),
+                    ("data", "get_data_root"),
+                    ("warehouse", "path_warehouse"),
+                    ("bom", "path_bom"),
+                ):
+                    func = getattr(wm_root_paths, func_name, None)
+                    if callable(func):
+                        value = func()
+                        if value:
+                            out[name] = str(value)
+            except Exception:
+                pass
+
+            try:
+                from config_manager import ConfigManager, resolve_rel
+
+                cm = ConfigManager()
+                cfg = cm.load()
+                if not out["data"] and hasattr(cm, "path_data"):
+                    out["data"] = str(cm.path_data())
+                if not out["warehouse"]:
+                    out["warehouse"] = str(resolve_rel(cfg, "warehouse_stock"))
+            except Exception:
+                pass
+
+            if not out["bom"] and out["data"]:
+                out["bom"] = os.path.join(out["data"], "produkty", "bom.json")
+            if not out["warehouse"] and out["data"]:
+                out["warehouse"] = os.path.join(
+                    out["data"], "magazyn", "magazyn.json"
+                )
+
+            return out
+
+        def _load_json(path: str) -> Any:
+            if not path or not os.path.exists(path):
+                return None
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    return json.load(handle)
+            except Exception as exc:
+                return {"__error__": str(exc)}
+
+        def _detect_warehouse(payload: Any) -> tuple[str, int]:
+            if payload is None:
+                return "missing", 0
+            if isinstance(payload, dict) and payload.get("__error__"):
+                return "broken_json", 0
+            if isinstance(payload, dict):
+                if isinstance(payload.get("items"), dict):
+                    return "items", len(payload.get("items") or {})
+                if isinstance(payload.get("pozycje"), dict):
+                    return "pozycje", len(payload.get("pozycje") or {})
+                if isinstance(payload.get("items"), list):
+                    return "items_list", len(payload.get("items") or [])
+                if isinstance(payload.get("pozycje"), list):
+                    return "pozycje_list", len(payload.get("pozycje") or [])
+                if not payload:
+                    return "empty", 0
+                flat_count = sum(
+                    1 for value in payload.values() if isinstance(value, dict)
+                )
+                if flat_count:
+                    return "flat_dict", flat_count
+                return "unknown_dict", 0
+            if isinstance(payload, list):
+                return "list", len(payload)
+            return type(payload).__name__, 0
+
+        def _detect_bom(payload: Any) -> tuple[str, int]:
+            if payload is None:
+                return "missing", 0
+            if isinstance(payload, dict) and payload.get("__error__"):
+                return "broken_json", 0
+            if isinstance(payload, list):
+                return "list", len(payload)
+            if isinstance(payload, dict):
+                for key in ("items", "produkty", "products", "bom"):
+                    value = payload.get(key)
+                    if isinstance(value, dict):
+                        return key, len(value)
+                    if isinstance(value, list):
+                        return f"{key}_list", len(value)
+                if not payload:
+                    return "empty", 0
+                flat_count = sum(
+                    1 for value in payload.values() if isinstance(value, dict)
+                )
+                if flat_count:
+                    return "flat_dict", flat_count
+                return "unknown_dict", 0
+            return type(payload).__name__, 0
+
+        def _refresh() -> None:
+            paths = _path_info()
+            warehouse_path = paths.get("warehouse") or ""
+            bom_path = paths.get("bom") or ""
+
+            warehouse_payload = _load_json(warehouse_path)
+            bom_payload = _load_json(bom_path)
+
+            warehouse_format, warehouse_count = _detect_warehouse(warehouse_payload)
+            bom_format, bom_count = _detect_bom(bom_payload)
+
+            warehouse_exists = bool(warehouse_path and os.path.exists(warehouse_path))
+            bom_exists = bool(bom_path and os.path.exists(bom_path))
+
+            rows["root"].set(paths.get("root") or "—")
+            rows["data"].set(paths.get("data") or "—")
+            rows["warehouse"].set(warehouse_path or "—")
+            rows["bom"].set(bom_path or "—")
+            rows["warehouse_exists"].set("TAK" if warehouse_exists else "NIE")
+            rows["bom_exists"].set("TAK" if bom_exists else "NIE")
+            rows["warehouse_format"].set(warehouse_format)
+            rows["warehouse_count"].set(str(warehouse_count))
+            rows["bom_count"].set(f"{bom_count} ({bom_format})")
+
+            problems = []
+            if not warehouse_exists:
+                problems.append("Nie znaleziono pliku magazynu.")
+            if warehouse_exists and warehouse_count == 0:
+                problems.append(
+                    "Plik magazynu istnieje, ale diagnostyka nie wykryła pozycji."
+                )
+            if not bom_exists:
+                problems.append("Nie znaleziono pliku BOM.")
+            if bom_exists and bom_count == 0:
+                problems.append(
+                    "Plik BOM istnieje, ale diagnostyka nie wykryła pozycji."
+                )
+
+            if problems:
+                detail_text = "Wykryte uwagi:\n" + "\n".join(
+                    f"- {item}" for item in problems
+                )
+            else:
+                detail_text = "Brak podstawowych problemów w diagnostyce Magazyn/BOM."
+
+            _set_details(detail_text)
+            status_var.set("Diagnostyka odświeżona.")
+
+            try:
+                print(
+                    "[WM-DBG][SETTINGS][MAGAZYN] "
+                    f"warehouse={warehouse_path} exists={int(warehouse_exists)} "
+                    f"format={warehouse_format} count={warehouse_count} | "
+                    f"bom={bom_path} exists={int(bom_exists)} "
+                    f"format={bom_format} count={bom_count}"
+                )
+            except Exception:
+                pass
+
+        ttk.Button(
+            box,
+            text="Odśwież diagnostykę",
+            command=_refresh,
+        ).pack(anchor="w", padx=8, pady=(0, 8))
+
+        _refresh()
+
+    def _build_feedback_settings_tab(self) -> None:
+        """Podgląd opinii zapisanych z modułu 'Wyślij opinię'."""
+
+        parent = getattr(self, "_feedback_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        ttk.Label(
+            parent,
+            text=(
+                "Opinie zapisane lokalnie przez moduł 'Wyślij opinię'. "
+                "Źródło: aktywny ROOT/data/opinie.json."
+            ),
+        ).pack(anchor="w", padx=8, pady=(8, 6))
+
+        top = ttk.Frame(parent)
+        top.pack(fill="x", padx=8, pady=(0, 8))
+
+        info_var = tk.StringVar(value="")
+        ttk.Label(top, textvariable=info_var).pack(side="left")
+
+        columns = ("ts", "login", "rola", "message")
+        tree = ttk.Treeview(parent, columns=columns, show="headings", height=14)
+        tree.heading("ts", text="Data")
+        tree.heading("login", text="Login")
+        tree.heading("rola", text="Rola")
+        tree.heading("message", text="Opinia")
+
+        tree.column("ts", width=170, anchor="w")
+        tree.column("login", width=120, anchor="w")
+        tree.column("rola", width=130, anchor="w")
+        tree.column("message", width=650, anchor="w")
+
+        tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        details_box = ttk.LabelFrame(parent, text="Treść opinii")
+        details_box.pack(fill="x", expand=False, padx=8, pady=(0, 8))
+
+        details = tk.Text(details_box, height=7, wrap="word")
+        details.pack(fill="x", expand=True, padx=8, pady=8)
+        details.configure(state="disabled")
+
+        self._feedback_tree = tree
+        self._feedback_details = details
+
+        rows_cache: list[dict] = []
+
+        def _opinie_path() -> str:
+            try:
+                data_root = self.cfg.path_data()
+            except Exception:
+                try:
+                    data_root = ConfigManager().path_data()
+                except Exception:
+                    data_root = "data"
+            return os.path.join(data_root, "opinie.json")
+
+        def _load_rows() -> list[dict]:
+            path = _opinie_path()
+            if not os.path.exists(path):
+                info_var.set(f"Brak pliku opinii: {path}")
+                return []
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+            except Exception as exc:
+                info_var.set(f"Błąd odczytu opinii: {exc}")
+                return []
+            if isinstance(payload, list):
+                return [item for item in payload if isinstance(item, dict)]
+            info_var.set(f"Nieobsługiwany format pliku opinii: {path}")
+            return []
+
+        def _set_details(text_value: str) -> None:
+            try:
+                details.configure(state="normal")
+                details.delete("1.0", "end")
+                details.insert("1.0", text_value)
+                details.configure(state="disabled")
+            except Exception:
+                logger.exception(
+                    "[SETTINGS][FEEDBACK] Nie udało się ustawić treści opinii"
+                )
+
+        def _refresh() -> None:
+            nonlocal rows_cache
+            tree.delete(*tree.get_children())
+            rows_cache = _load_rows()
+            rows_cache.sort(
+                key=lambda item: str(item.get("ts") or ""),
+                reverse=True,
+            )
+
+            for idx, row in enumerate(rows_cache):
+                message = str(row.get("message") or "")
+                short = message.replace("\n", " ").strip()
+                if len(short) > 140:
+                    short = short[:140] + "…"
+                tree.insert(
+                    "",
+                    "end",
+                    iid=str(idx),
+                    values=(
+                        str(row.get("ts") or ""),
+                        str(row.get("login") or ""),
+                        str(row.get("rola") or ""),
+                        short,
+                    ),
+                )
+
+            info_var.set(
+                f"Wczytano opinii: {len(rows_cache)} | Plik: {_opinie_path()}"
+            )
+            _set_details("")
+
+        def _show_selected(_event=None) -> None:
+            selected = tree.selection()
+            if not selected:
+                return
+            try:
+                row = rows_cache[int(selected[0])]
+            except Exception:
+                return
+
+            text_value = (
+                f"Data: {row.get('ts', '')}\n"
+                f"Login: {row.get('login', '')}\n"
+                f"Rola: {row.get('rola', '')}\n\n"
+                f"{row.get('message', '')}"
+            )
+            _set_details(text_value)
+
+        ttk.Button(top, text="Odśwież", command=_refresh).pack(side="right")
+        tree.bind("<<TreeviewSelect>>", _show_selected)
+        _refresh()
+
+    def _build_statistics_settings_tab(self) -> None:
+        """Czytelny podgląd statystyk WM: kafelki + diagnostyka + JSON."""
+
+        parent = getattr(self, "_statistics_container", None)
+        if parent is None:
+            return
+
+        for child in parent.winfo_children():
+            child.destroy()
+
+        header = ttk.Frame(parent)
+        header.pack(fill="x", padx=8, pady=(8, 6))
+
+        ttk.Label(
+            header,
+            text="📊 Statystyki WM",
+            font=("", 14, "bold"),
+        ).pack(anchor="w")
+
+        ttk.Label(
+            header,
+            text=(
+                "Podgląd tylko do odczytu. Statystyki nic nie zapisują "
+                "i nie naprawiają danych automatycznie."
+            ),
+        ).pack(anchor="w", pady=(2, 0))
+
+        actions = ttk.Frame(parent)
+        actions.pack(fill="x", padx=8, pady=(0, 8))
+
+        status_var = tk.StringVar(value="Nie odświeżono jeszcze statystyk.")
+        ttk.Label(actions, textvariable=status_var).pack(side="left")
+
+        body_nb = ttk.Notebook(parent)
+        body_nb.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        tab_overview = ttk.Frame(body_nb)
+        tab_diagnostics = ttk.Frame(body_nb)
+        tab_json = ttk.Frame(body_nb)
+
+        body_nb.add(tab_overview, text="Przegląd")
+        body_nb.add(tab_diagnostics, text="Diagnostyka")
+        body_nb.add(tab_json, text="JSON")
+
+        overview_frame = ttk.Frame(tab_overview)
+        overview_frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        diagnostics_text = scrolledtext.ScrolledText(tab_diagnostics, height=22, wrap="word")
+        diagnostics_text.pack(fill="both", expand=True, padx=8, pady=8)
+        diagnostics_text.configure(state="disabled")
+
+        json_text = scrolledtext.ScrolledText(tab_json, height=22, wrap="word")
+        json_text.pack(fill="both", expand=True, padx=8, pady=8)
+        json_text.configure(state="disabled")
+        self._statistics_text = json_text
+
+        def _set_text(widget, value: str) -> None:
+            try:
+                widget.configure(state="normal")
+                widget.delete("1.0", "end")
+                widget.insert("1.0", value)
+                widget.configure(state="disabled")
+            except Exception:
+                logger.exception("[SETTINGS][STAT] Nie udało się ustawić tekstu")
+
+        def _clear_overview() -> None:
+            for child in overview_frame.winfo_children():
+                child.destroy()
+
+        def _card(parent_widget, title: str, value: object, hint: str = "") -> None:
+            frame = ttk.LabelFrame(parent_widget, text=title)
+            frame.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+
+            ttk.Label(
+                frame,
+                text=str(value),
+                font=("", 18, "bold"),
+            ).pack(anchor="center", pady=(8, 2))
+
+            if hint:
+                ttk.Label(frame, text=hint).pack(anchor="center", pady=(0, 8))
+
+        def _section(parent_widget, title: str, rows: list[tuple[str, object]]) -> None:
+            box = ttk.LabelFrame(parent_widget, text=title)
+            box.pack(fill="x", expand=False, padx=4, pady=6)
+            box.columnconfigure(1, weight=1)
+
+            for row_idx, (label, value) in enumerate(rows):
+                ttk.Label(box, text=f"{label}:").grid(
+                    row=row_idx,
+                    column=0,
+                    sticky="w",
+                    padx=8,
+                    pady=2,
+                )
+                ttk.Label(box, text=str(value)).grid(
+                    row=row_idx,
+                    column=1,
+                    sticky="w",
+                    padx=8,
+                    pady=2,
+                )
+
+        def _top_dict_lines(data: dict, limit: int = 8) -> str:
+            if not isinstance(data, dict) or not data:
+                return "—"
+            items = sorted(data.items(), key=lambda item: str(item[0]).lower())[:limit]
+            return "\n".join(f"• {key}: {value}" for key, value in items)
+
+        def _refresh() -> None:
+            try:
+                from services.statistics_service import collect_statistics
+
+                data = collect_statistics()
+            except Exception as exc:
+                logger.exception("[SETTINGS][STAT] Błąd ładowania statystyk")
+                status_var.set("Błąd ładowania statystyk.")
+                _clear_overview()
+                _set_text(diagnostics_text, str(exc))
+                _set_text(json_text, str(exc))
+                return
+
+            narzedzia = data.get("narzedzia", {}) or {}
+            zadania = data.get("zadania", {}) or {}
+            wizyty = data.get("wizyty", {}) or {}
+            dyspozycje = data.get("dyspozycje", {}) or {}
+            maszyny = data.get("maszyny", {}) or {}
+            zlecenia = data.get("zlecenia", {}) or {}
+            operatorzy = data.get("operatorzy", {}) or {}
+            diagnostyka = data.get("diagnostyka", {}) or {}
+
+            _clear_overview()
+
+            cards = ttk.Frame(overview_frame)
+            cards.pack(fill="x", padx=0, pady=(0, 8))
+
+            _card(cards, "Narzędzia", narzedzia.get("count", 0), "wszystkie")
+            _card(cards, "W toku", narzedzia.get("in_progress_count", 0), "aktywne")
+            _card(cards, "Zadania otwarte", zadania.get("open_count", 0), "do zrobienia")
+            _card(cards, "Wizyty", wizyty.get("count", 0), "łącznie")
+            _card(cards, "Dyspozycje", dyspozycje.get("open_count", 0), "otwarte")
+            _card(cards, "Problemy", diagnostyka.get("problem_count", 0), "diagnostyka")
+
+            _section(
+                overview_frame,
+                "Narzędzia",
+                [
+                    ("Razem", narzedzia.get("count", 0)),
+                    ("W toku", narzedzia.get("in_progress_count", 0)),
+                    ("Spoczynkowe / sprawne", narzedzia.get("idle_count", 0)),
+                    ("Z otwartymi zadaniami", narzedzia.get("with_open_tasks_count", 0)),
+                    ("Bez zadań", narzedzia.get("without_tasks_count", 0)),
+                    ("Duplikaty numerów", ", ".join(narzedzia.get("duplicate_ids", []) or []) or "—"),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Zadania i wizyty",
+                [
+                    ("Zadania razem", zadania.get("count", 0)),
+                    ("Wykonane", zadania.get("done_count", 0)),
+                    ("Otwarte", zadania.get("open_count", 0)),
+                    ("Wykonanie", f"{zadania.get('done_pct', 0)}%"),
+                    ("Wizyty otwarte", wizyty.get("open_count", 0)),
+                    ("Wizyty zamknięte", wizyty.get("closed_count", 0)),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Pozostałe moduły",
+                [
+                    ("Dyspozycje razem", dyspozycje.get("count", 0)),
+                    ("Dyspozycje po terminie", dyspozycje.get("overdue_count", 0)),
+                    ("Maszyny", maszyny.get("count", 0)),
+                    ("Zlecenia", zlecenia.get("count", 0)),
+                    ("Operatorzy", operatorzy.get("count", 0)),
+                ],
+            )
+
+            _section(
+                overview_frame,
+                "Rozkład statusów / typów",
+                [
+                    ("Statusy narzędzi", "\n" + _top_dict_lines(narzedzia.get("per_status", {}))),
+
+                    ("Typy narzędzi", "\n" + _top_dict_lines(narzedzia.get("per_type", {}))),
+
+                    ("Role użytkowników", "\n" + _top_dict_lines(operatorzy.get("per_role", {}))),
+
+                ],
+            )
+
+            problems = diagnostyka.get("problems", []) or []
+            if not problems:
+                diag_output = "Brak problemów danych wykrytych przez statystyki."
+            else:
+                lines = []
+                for idx, problem in enumerate(problems, start=1):
+                    level = problem.get("level", "?")
+                    code = problem.get("code", "?")
+                    message = problem.get("message", "")
+                    path = problem.get("path", "")
+                    lines.append(f"{idx}. [{level}] {code}\n   {message}")
+                    if path:
+                        lines.append(f"   Plik: {path}")
+                diag_output = "\n\n".join(lines)
+
+            _set_text(diagnostics_text, diag_output)
+            _set_text(json_text, json.dumps(data, ensure_ascii=False, indent=2))
+
+            generated_at = data.get("generated_at", "")
+            status_var.set(f"Ostatnie odświeżenie: {generated_at or 'teraz'}")
+
+        ttk.Button(
+            actions,
+            text="Odśwież statystyki",
+            command=_refresh,
+        ).pack(side="right")
+
+        _refresh()
+
     def _build_user_profile_settings(self, parent: tk.Widget) -> None:
         """Extend the Users tab with global profile settings."""
 
@@ -3067,9 +3971,14 @@ class SettingsPanel:
         root.bind_all("<Key-p>", _make_handler("Użytkownicy"))
 
     def _on_modules_tab_change(self, _event=None):
-        if self._magazyn_frame is not None and not self._magazyn_initialized:
-            if self._modules_nb.select() == str(self._magazyn_frame):
-                self._init_magazyn_tab()
+        if self._magazyn_frame is None or self._magazyn_initialized:
+            return
+        try:
+            current_tab = self._warehouse_nb.select()
+        except Exception:
+            current_tab = ""
+        if current_tab == str(self._magazyn_frame):
+            self._init_magazyn_tab()
 
     def _handle_magazyn_tab(
         self, frame: tk.Widget, tab: dict[str, Any], tab_path: tuple[str, ...]
@@ -3251,15 +4160,17 @@ class SettingsPanel:
 
     def _add_magazyn_tab(self) -> None:
         try:
-            frame = MagazynSettingsFrame(self._modules_nb, self.cfg)
+            frame = MagazynSettingsFrame(self._warehouse_nb, self.cfg)
         except Exception as e:
             import tkinter as tk
             from tkinter import ttk
-            frame = ttk.Frame(self._modules_nb)
+            frame = ttk.Frame(self._warehouse_nb)
             lbl = ttk.Label(frame, text=f"Błąd ładowania zakładki Magazyn:\n{e}")
             lbl.pack(padx=12, pady=12)
-        self._modules_nb.add(frame, text="Magazyn")
-        self._register_nested_tab("Magazyn", self.tab_modules, self._modules_nb, frame)
+        self._warehouse_nb.add(frame, text="Magazyn")
+        self._register_nested_tab(
+            "Magazyn", self.tab_warehouse, self._warehouse_nb, frame
+        )
 
     def _coerce_default_for_var(self, opt: dict[str, Any], default: Any) -> Any:
         """Return value adjusted for Tk variable according to option definition."""
@@ -5430,9 +6341,9 @@ class SettingsPanel:
 
         if self._magazyn_frame is not None and not self._magazyn_initialized:
             current_top = self.nb.select()
-            if current_top == str(self.tab_modules):
+            if current_top == str(self.tab_warehouse):
                 try:
-                    current_inner = self._modules_nb.select()
+                    current_inner = self._warehouse_nb.select()
                 except Exception:
                     current_inner = ""
                 if current_inner == str(self._magazyn_frame):

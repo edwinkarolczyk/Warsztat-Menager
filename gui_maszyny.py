@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import shutil
 import subprocess
 import tkinter as tk
 from logging import getLogger
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from core.settings_manager import Settings
@@ -74,19 +75,68 @@ GRID_BASE_BG_PX_Y = 25
 
 DEFAULT_BG_COLOR = "#1e1e1e"
 
+MACHINE_STATUS_ALIASES = {
+    "ok": "ok",
+    "sprawna": "ok",
+    "sprawne": "ok",
+    "sprawny": "ok",
+    "dziala": "ok",
+    "działa": "ok",
+    "alert": "alert",
+    "serwis": "alert",
+    "przeglad": "alert",
+    "przegląd": "alert",
+    "serwis/przeglad": "alert",
+    "serwis/przegląd": "alert",
+    "warn": "warn",
+    "warm": "warn",
+    "warning": "warn",
+    "awaria": "warn",
+    "uszkodzona": "warn",
+    "uszkodzone": "warn",
+    "stop": "warn",
+}
+
+MACHINE_STATUS_LABELS = {
+    "ok": "Sprawna",
+    "alert": "Serwis / przegląd",
+    "warn": "Awaria",
+}
+
+MACHINE_STATUS_COLORS = {
+    "ok": "#16a34a",
+    "alert": "#ca8a04",
+    "warn": "#dc2626",
+}
+
+MACHINE_STATUS_ROW_COLORS = {
+    "ok": {"background": "#dcfce7", "foreground": "#166534"},
+    "alert": {"background": "#fef3c7", "foreground": "#854d0e"},
+    "warn": {"background": "#fee2e2", "foreground": "#7f1d1d"},
+}
+
+MACHINE_STATUS_EDIT_LABELS = {
+    "Sprawna": "ok",
+    "Serwis / przegląd": "alert",
+    "Awaria": "warn",
+}
+
+MACHINE_STATUS_EDIT_VALUES = list(MACHINE_STATUS_EDIT_LABELS.keys())
+
+
 SCHEDULE_YEAR = 2025
 SCHEDULE_SOON_THRESHOLD_DAYS = 7
 SCHEDULE_STATUS_COLORS = {
-    "overdue": "#dc2626",
-    "soon": "#ca8a04",
-    "ok": "#16a34a",
+    "overdue": MACHINE_STATUS_COLORS["warn"],
+    "soon": MACHINE_STATUS_COLORS["alert"],
+    "ok": MACHINE_STATUS_COLORS["ok"],
     "done": "#0f766e",
     "none": "#64748b",
 }
 SCHEDULE_STATUS_ROW_COLORS = {
-    "overdue": {"background": "#fee2e2", "foreground": "#7f1d1d"},
-    "soon": {"background": "#fef3c7", "foreground": "#854d0e"},
-    "ok": {"background": "#dcfce7", "foreground": "#166534"},
+    "overdue": MACHINE_STATUS_ROW_COLORS["warn"],
+    "soon": MACHINE_STATUS_ROW_COLORS["alert"],
+    "ok": MACHINE_STATUS_ROW_COLORS["ok"],
     "done": {"background": "#e0f2fe", "foreground": "#0c4a6e"},
     "none": {"background": "#e2e8f0", "foreground": "#475569"},
 }
@@ -113,6 +163,418 @@ def _canvas_bounds(canvas) -> tuple[int, int]:
         return (800, 600)
 
 logger = getLogger(__name__)
+
+
+def _normalize_machine_status(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return "ok"
+    key = raw.replace("_", " ").replace("-", " ")
+    key = " ".join(key.split())
+    direct = MACHINE_STATUS_ALIASES.get(key)
+    if direct:
+        return direct
+    compact = key.replace(" ", "")
+    return MACHINE_STATUS_ALIASES.get(compact, key)
+
+
+def _machine_status_label(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_LABELS.get(key, str(value or "Sprawna"))
+
+
+def _machine_status_edit_label(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_LABELS.get(key, "Sprawna")
+
+
+MONTH_LABELS_PL = [
+    (1, "Styczeń"),
+    (2, "Luty"),
+    (3, "Marzec"),
+    (4, "Kwiecień"),
+    (5, "Maj"),
+    (6, "Czerwiec"),
+    (7, "Lipiec"),
+    (8, "Sierpień"),
+    (9, "Wrzesień"),
+    (10, "Październik"),
+    (11, "Listopad"),
+    (12, "Grudzień"),
+]
+
+
+def _normalize_review_months(value: object) -> List[int]:
+    if isinstance(value, list):
+        raw_values = value
+    elif value in (None, ""):
+        raw_values = []
+    else:
+        raw_values = [value]
+    out: List[int] = []
+    for item in raw_values:
+        try:
+            month = int(item)
+        except Exception:
+            continue
+        if 1 <= month <= 12 and month not in out:
+            out.append(month)
+    return sorted(out)
+
+
+def _machine_now_iso() -> str:
+    return dt.datetime.now().replace(microsecond=0).isoformat()
+
+
+def _parse_machine_dt(value: object) -> Optional[dt.datetime]:
+    if isinstance(value, dt.datetime):
+        return value
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1]
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return dt.datetime.strptime(text[:19], fmt)
+        except ValueError:
+            pass
+    try:
+        return dt.datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _duration_minutes(started_at: object, ended_at: object) -> int:
+    start = _parse_machine_dt(started_at)
+    end = _parse_machine_dt(ended_at)
+    if not start or not end:
+        return 0
+    return max(0, int((end - start).total_seconds())) // 60
+
+
+def _format_duration_minutes(minutes: object) -> str:
+    try:
+        total = int(minutes or 0)
+    except Exception:
+        total = 0
+    if total < 60:
+        return f"{total} min"
+    hours, mins = divmod(total, 60)
+    if hours < 24:
+        return f"{hours}h {mins}m"
+    days, hours = divmod(hours, 24)
+    if days < 30:
+        return f"{days}d {hours}h"
+    months, days = divmod(days, 30)
+    return f"{months} mies. {days}d"
+
+
+def _active_login_for_machine(root: tk.Misc | None = None) -> str:
+    candidates = [root]
+    try:
+        if root is not None and hasattr(root, "winfo_toplevel"):
+            candidates.append(root.winfo_toplevel())
+    except Exception:
+        pass
+    for source in candidates:
+        if source is None:
+            continue
+        for attr in ("active_login", "_wm_login", "login"):
+            value = str(getattr(source, attr, "") or "").strip()
+            if value:
+                return value
+    return "system"
+
+
+def _ensure_status_current(machine: Dict[str, Any], *, actor: str = "system") -> None:
+    if isinstance(machine.get("status_current"), dict):
+        return
+    status = _normalize_machine_status(machine.get("status"))
+    machine["status_current"] = {
+        "status": status,
+        "label": _machine_status_label(status),
+        "started_at": _machine_now_iso(),
+        "changed_by": actor,
+        "note": "",
+        "photos": [],
+    }
+
+
+def _apply_machine_status_change(
+    machine: Dict[str, Any],
+    new_status: str,
+    *,
+    actor: str,
+    note: str,
+    photos: Optional[List[str]] = None,
+) -> bool:
+    photos = list(photos or [])
+    old_status = _normalize_machine_status(machine.get("status"))
+    new_status = _normalize_machine_status(new_status)
+    if old_status == new_status:
+        machine["status"] = new_status
+        _ensure_status_current(machine, actor=actor)
+        return False
+
+    now = _machine_now_iso()
+    history = machine.get("status_history")
+    if not isinstance(history, list):
+        history = []
+        machine["status_history"] = history
+
+    current = machine.get("status_current")
+    if not isinstance(current, dict):
+        current = {
+            "status": old_status,
+            "label": _machine_status_label(old_status),
+            "started_at": now,
+            "changed_by": actor,
+            "note": "",
+            "photos": [],
+        }
+
+    closed = dict(current)
+    closed.setdefault("status", old_status)
+    closed.setdefault("label", _machine_status_label(old_status))
+    closed["ended_at"] = now
+    closed["duration_minutes"] = _duration_minutes(closed.get("started_at"), now)
+    closed["closed_by"] = actor
+    closed["close_note"] = note or ""
+    history.append(closed)
+
+    machine["status"] = new_status
+    machine["status_current"] = {
+        "status": new_status,
+        "label": _machine_status_label(new_status),
+        "started_at": now,
+        "changed_by": actor,
+        "note": note or "",
+        "photos": photos,
+    }
+    return True
+
+
+def _machine_attachment_root() -> str:
+    """Zwraca katalog ROOT/data/maszyny/attachments."""
+
+    try:
+        from core import root_paths as wm_root_paths
+
+        data_root = wm_root_paths.get_data_root()
+        if data_root:
+            return os.path.join(str(data_root), "maszyny", "attachments")
+    except Exception:
+        pass
+
+    try:
+        from config_manager import ConfigManager
+
+        data_root = ConfigManager().path_data()
+        if data_root:
+            return os.path.join(str(data_root), "maszyny", "attachments")
+    except Exception:
+        pass
+
+    return os.path.join("data", "maszyny", "attachments")
+
+
+def _safe_machine_file_part(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        text = "machine"
+    out = []
+    for ch in text:
+        if ch.isalnum() or ch in ("-", "_"):
+            out.append(ch)
+        else:
+            out.append("_")
+    return "".join(out).strip("_") or "machine"
+
+
+def _copy_machine_status_photos(
+    machine_id: object, source_paths: Iterable[str]
+) -> List[str]:
+    """Kopiuje zdjęcia statusu do ROOT/data/maszyny/attachments."""
+
+    copied: List[str] = []
+    valid_sources = [
+        str(path) for path in source_paths or [] if str(path or "").strip()
+    ]
+    if not valid_sources:
+        return copied
+
+    ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    machine_part = _safe_machine_file_part(machine_id)
+    target_dir = os.path.join(_machine_attachment_root(), machine_part, ts)
+    os.makedirs(target_dir, exist_ok=True)
+
+    for idx, src in enumerate(valid_sources, start=1):
+        if not os.path.exists(src):
+            continue
+        ext = os.path.splitext(src)[1].lower() or ".jpg"
+        filename = f"status_{idx:02d}{ext}"
+        dst = os.path.join(target_dir, filename)
+        try:
+            shutil.copy2(src, dst)
+            copied.append(dst)
+        except Exception:
+            logger.exception(
+                "[MASZYNY][STATUS_PHOTO] Nie udało się skopiować zdjęcia: %s",
+                src,
+            )
+    return copied
+
+
+REVIEW_TYPES = (
+    "Przegląd okresowy",
+    "Serwis planowany",
+    "Konserwacja",
+    "Kalibracja",
+    "Czyszczenie",
+    "Inne",
+)
+
+
+def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Zwraca lokalne przeglądy zapisane bezpośrednio w rekordzie maszyny."""
+
+    reviews = machine.get("reviews")
+    if isinstance(reviews, list):
+        return [item for item in reviews if isinstance(item, dict)]
+    return []
+
+
+def _new_review_id() -> str:
+    return "rev_" + dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def _split_csv_people(value: object) -> List[str]:
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+def _load_wm_user_logins() -> List[str]:
+    """Czyta loginy użytkowników WM z ROOT-a. Fallback: pusta lista."""
+
+    candidates: List[str] = []
+    try:
+        from core import root_paths as wm_root_paths
+
+        data_root = wm_root_paths.get_data_root()
+        if data_root:
+            candidates.extend(
+                [
+                    os.path.join(str(data_root), "profiles.json"),
+                    os.path.join(str(data_root), "uzytkownicy.json"),
+                    os.path.join(str(data_root), "users.json"),
+                    os.path.join(str(data_root), "profile", "profiles.json"),
+                ]
+            )
+    except Exception:
+        pass
+
+    try:
+        from config_manager import ConfigManager
+
+        data_root = ConfigManager().path_data()
+        if data_root:
+            candidates.extend(
+                [
+                    os.path.join(str(data_root), "profiles.json"),
+                    os.path.join(str(data_root), "uzytkownicy.json"),
+                    os.path.join(str(data_root), "users.json"),
+                    os.path.join(str(data_root), "profile", "profiles.json"),
+                ]
+            )
+    except Exception:
+        pass
+
+    logins: List[str] = []
+    for path in candidates:
+        if not path or not os.path.exists(path):
+            continue
+        payload = _safe_read_json(path, default={})
+        raw_items = []
+        if isinstance(payload, list):
+            raw_items = payload
+        elif isinstance(payload, dict):
+            for key in ("users", "uzytkownicy", "profiles", "items"):
+                value = payload.get(key)
+                if isinstance(value, list):
+                    raw_items = value
+                    break
+            if not raw_items:
+                raw_items = list(payload.values())
+
+        for item in raw_items:
+            if isinstance(item, dict):
+                login = str(
+                    item.get("login")
+                    or item.get("username")
+                    or item.get("user")
+                    or item.get("name")
+                    or item.get("nazwa")
+                    or ""
+                ).strip()
+            else:
+                login = str(item or "").strip()
+            if login and login not in logins:
+                logins.append(login)
+    return logins
+
+
+def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
+    rows: List[tuple] = []
+    history = machine.get("status_history")
+    if isinstance(history, list):
+        for item in history:
+            if not isinstance(item, dict):
+                continue
+            status = _machine_status_label(item.get("status"))
+            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
+            stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+            duration = _format_duration_minutes(item.get("duration_minutes"))
+            who = str(item.get("closed_by") or item.get("changed_by") or "—")
+            note = str(item.get("close_note") or item.get("note") or "")
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            photo_txt = f" | zdjęcia: {len(photos)}" if photos else ""
+            rows.append((status, start, stop, duration, who, note + photo_txt))
+
+    current = machine.get("status_current")
+    if isinstance(current, dict):
+        start_raw = current.get("started_at")
+        now = _machine_now_iso()
+        rows.append(
+            (
+                _machine_status_label(current.get("status")),
+                str(start_raw or "—").replace("T", " ")[:16],
+                "w toku",
+                _format_duration_minutes(_duration_minutes(start_raw, now)),
+                str(current.get("changed_by") or "—"),
+                str(current.get("note") or "")
+                + (
+                    f" | zdjęcia: {len(current.get('photos') or [])}"
+                    if isinstance(current.get("photos"), list)
+                    and current.get("photos")
+                    else ""
+                ),
+            )
+        )
+    return rows
+
+
+def _machine_status_color(value: object) -> str:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_COLORS.get(key, MACHINE_STATUS_COLORS["ok"])
+
+
+def _machine_status_row_colors(value: object) -> dict[str, str]:
+    key = _normalize_machine_status(value)
+    return MACHINE_STATUS_ROW_COLORS.get(key, MACHINE_STATUS_ROW_COLORS["ok"])
 
 
 def _normalize_machine_key(value: object) -> str:
@@ -411,6 +873,18 @@ def _ensure_tree_schedule_tag(tree: ttk.Treeview, status_key: str) -> str:
     if tag in _TREE_STATUS_TAG_CACHE:
         return tag
     colors = SCHEDULE_STATUS_ROW_COLORS.get(status_key)
+    if colors:
+        tree.tag_configure(tag, **colors)
+    _TREE_STATUS_TAG_CACHE[tag] = True
+    return tag
+
+
+def _ensure_tree_machine_status_tag(tree: ttk.Treeview, status_value: object) -> str:
+    status_key = _normalize_machine_status(status_value)
+    tag = f"MACHINE_STATUS::{status_key}"
+    if tag in _TREE_STATUS_TAG_CACHE:
+        return tag
+    colors = _machine_status_row_colors(status_key)
     if colors:
         tree.tag_configure(tag, **colors)
     _TREE_STATUS_TAG_CACHE[tag] = True
@@ -1022,17 +1496,18 @@ def _tree_insert_row(tree: ttk.Treeview, machine: dict) -> str:
             return status_label
         if col == "id":
             return machine.get("id", "") or machine.get("nr_ewid", "") or ""
+        if col == "status":
+            return _machine_status_label(machine.get("status"))
         return machine.get(col, "")
 
     values = tuple(_value_for(col) for col in columns)
     identifier = str(machine.get("id") or machine.get("nr_ewid") or "")
     item_id = tree.insert("", "end", iid=identifier or None, values=values)
     tag_identifier = identifier or item_id
-    schedule_key = _schedule_status_key(machine)
-    schedule_tag = _ensure_tree_schedule_tag(tree, schedule_key)
+    machine_status_tag = _ensure_tree_machine_status_tag(tree, machine.get("status"))
     tags = [f"ROW::{tag_identifier}"]
-    if schedule_tag:
-        tags.append(schedule_tag)
+    if machine_status_tag:
+        tags.append(machine_status_tag)
     tree.item(item_id, tags=tuple(tags))
     return item_id
 
@@ -1299,8 +1774,9 @@ class MachineHallRenderer:
         return clamped_x, clamped_y
 
     def _status_color(self, status):
-        key = str(status or "").strip().upper()
-        return self.COLORS.get(key, self.COLORS["_"])
+        """Kolor kółka maszyny zgodny z polskimi statusami WM."""
+
+        return _machine_status_color(status)
 
     def _node_center(self, r: Dict, idx: int, radius: int) -> tuple[int, int]:
         cols, cell_w, cell_h, pad_x, pad_y = 6, 120, 110, 70, 70
@@ -1376,7 +1852,7 @@ class MachineHallRenderer:
                 cy - radius,
                 cx + radius,
                 cy + radius,
-                fill=_status_color(r),
+                fill=self._status_color(r.get("status")),
                 outline="#0b0c0f",
                 width=1,
             )
@@ -1607,7 +2083,13 @@ def _detect_real_source(rows_from_fallback: List[Dict], primary_path: str, cfg: 
     return primary_path
 
 
-def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
+def _open_machines_panel(
+    root: tk.Misc,
+    container: tk.Misc,
+    Renderer=None,
+    *,
+    initial_machine_id: str = "",
+):
     for child in container.winfo_children():
         child.destroy()
 
@@ -1622,8 +2104,34 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     info = tk.StringVar(value="Maszyny")
     ttk.Label(toolbar, textvariable=info).pack(side="left")
 
+    search_var = tk.StringVar(value="")
+    ttk.Label(toolbar, text="Szukaj:").pack(side="left", padx=(12, 4))
+    entry_search = ttk.Entry(toolbar, textvariable=search_var, width=28)
+    entry_search.pack(side="left", padx=(0, 6))
+    btn_clear_search = ttk.Button(toolbar, text="Wyczyść")
+    btn_clear_search.pack(side="left", padx=(0, 8))
+
     filter_var = tk.StringVar(value="Wszystkie")
-    ttk.Label(toolbar, text="Filtr:").pack(side="left", padx=(12, 4))
+    machine_mode_var = tk.StringVar(value="Użytkowanie")
+
+    def _is_machine_edit_mode() -> bool:
+        return machine_mode_var.get() == "Edycja maszyn"
+
+    def _require_machine_edit_mode() -> bool:
+        if _is_machine_edit_mode():
+            return True
+        messagebox.showinfo(
+            "Maszyny",
+            (
+                "Jesteś w trybie Użytkowanie.\n\n"
+                "Przełącz na „Edycja maszyn”, żeby dodawać, edytować, usuwać "
+                "albo importować dane techniczne maszyn."
+            ),
+            parent=root,
+        )
+        return False
+
+    ttk.Label(toolbar, text="Filtr:").pack(side="left", padx=(4, 4))
     filter_box = ttk.Combobox(
         toolbar,
         state="readonly",
@@ -1633,12 +2141,42 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     )
     filter_box.pack(side="left")
 
-    btn_import = ttk.Button(toolbar, text="Importuj harmonogram…")
-    btn_import.pack(side="left", padx=(12, 0))
+    ttk.Label(toolbar, text="Tryb:").pack(side="left", padx=(8, 4))
+    mode_box = ttk.Combobox(
+        toolbar,
+        textvariable=machine_mode_var,
+        values=("Użytkowanie", "Edycja maszyn"),
+        state="readonly",
+        width=18,
+    )
+    mode_box.pack(side="left", padx=(0, 12))
 
-    btn_add, btn_edit, btn_del, btn_save = (ttk.Button(toolbar, text=t) for t in ("Dodaj", "Edytuj", "Usuń", "Zapisz"))
-    for button in (btn_save, btn_del, btn_edit, btn_add):
+    mode_hint_var = tk.StringVar(
+        value="Tryb bezpieczny: można przeglądać i obsługiwać statusy."
+    )
+    ttk.Label(toolbar, textvariable=mode_hint_var).pack(side="left", padx=(0, 12))
+
+    btn_import = ttk.Button(toolbar, text="Importuj harmonogram…")
+    # Stary import harmonogramu ukryty. Docelowym modelem są machine["reviews"].
+
+    btn_add, btn_edit, btn_del, btn_save = (
+        ttk.Button(toolbar, text=text)
+        for text in ("Dodaj", "Edytuj", "Usuń", "Zapisz")
+    )
+    btn_change_status = ttk.Button(toolbar, text="Zmień status")
+    edit_mode_buttons = [btn_add, btn_edit, btn_del, btn_save]
+    for button in (btn_save, btn_del, btn_edit, btn_change_status, btn_add):
         button.pack(side="right", padx=4)
+
+    def _refresh_machine_mode_ui(*_args) -> None:
+        edit_mode = _is_machine_edit_mode()
+        for button in edit_mode_buttons:
+            button.state(["!disabled"] if edit_mode else ["disabled"])
+        mode_hint_var.set(
+            "Tryb edycji: można zmieniać dane techniczne maszyn."
+            if edit_mode
+            else "Tryb bezpieczny: można przeglądać i obsługiwać statusy."
+        )
 
     schedule_info = tk.StringVar(value="")
     ttk.Label(left, textvariable=schedule_info).pack(fill="x", padx=8, pady=(4, 4))
@@ -1745,6 +2283,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     def _recompute_visible_rows() -> None:
         nonlocal visible_rows
         mode = filter_var.get()
+        query = search_var.get().strip().lower()
 
         def predicate(machine: Dict[str, Any]) -> bool:
             key = _schedule_status_key(machine)
@@ -1758,7 +2297,39 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 return key == "done"
             return True
 
-        visible_rows = [row for row in rows_cache if predicate(row)]
+        def matches_search(machine: Dict[str, Any]) -> bool:
+            if not query:
+                return True
+            summary = machine.get("__schedule_summary") or {}
+            haystack = " ".join(
+                str(value or "")
+                for value in (
+                    machine.get("id"),
+                    machine.get("nr_ewid"),
+                    machine.get("nr"),
+                    machine.get("nazwa"),
+                    machine.get("typ"),
+                    machine.get("status"),
+                    machine.get("lokalizacja"),
+                    summary.get("next_label"),
+                    summary.get("status_label"),
+                )
+            ).lower()
+            return query in haystack
+
+        visible_rows = [
+            row for row in rows_cache if predicate(row) and matches_search(row)
+        ]
+
+    def _focus_first_machine_row() -> bool:
+        children = tree.get_children("")
+        if not children:
+            return False
+        first = children[0]
+        tree.selection_set(first)
+        tree.focus(first)
+        tree.see(first)
+        return True
 
     def _find_machine(machine_id: Optional[str]) -> Optional[Dict]:
         if not machine_id:
@@ -1859,6 +2430,27 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             else:
                 _populate_details(None)
 
+    def _apply_search(*_args) -> None:
+        _apply_filter()
+        if not selected_machine_id:
+            _focus_first_machine_row()
+
+    def _clear_search() -> None:
+        search_var.set("")
+        _apply_filter()
+        _focus_first_machine_row()
+
+    def _on_search_enter(_event=None) -> str:
+        children = tree.get_children("")
+        if not children:
+            return "break"
+        current = tree.selection()
+        if not current or current[0] != children[0]:
+            _focus_first_machine_row()
+        else:
+            _on_edit()
+        return "break"
+
     def _drag_commit(mid: str, x: int, y: int) -> None:
         nonlocal rows_cache
         update = None
@@ -1880,7 +2472,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     hall.render()
 
     details = ttk.LabelFrame(right, text="Przeglądy")
-    details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    # Stary panel harmonogramu 2025 jest wyłączony, żeby nie mieszać go z nowym
+    # modelem machine["reviews"] w oknie Użytkowanie maszyny.
+    # details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
     summary_var = tk.StringVar(value="Wybierz maszynę, aby zobaczyć harmonogram.")
     ttk.Label(details, textvariable=summary_var).pack(fill="x", padx=8, pady=(6, 4))
 
@@ -2054,6 +2648,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _do_import() -> None:
         nonlocal schedule_entries, schedule_year, schedule_path
+        if not _require_machine_edit_mode():
+            return
         path = filedialog.askopenfilename(
             parent=root,
             title="Wybierz plik harmonogramu",
@@ -2080,16 +2676,20 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
         messagebox.showinfo("Import harmonogramu", f"Zaimportowano {len(schedule_entries)} wpisów.")
 
     class MachineEditDialog(tk.Toplevel):
-        STATUSES = ("OK", "WARN", "ALERT")
+        STATUSES = MACHINE_STATUS_EDIT_VALUES
 
         def __init__(self, master: tk.Misc, row: dict | None, on_ok):
             super().__init__(master)
             self.title("Edycja maszyny")
+            self.geometry("920x520")
+            self.minsize(820, 480)
             self.resizable(False, False)
             self.transient(master)
             self.grab_set()
             self._row = dict(row or {})
             self._on_ok = on_ok
+            self._actor = _active_login_for_machine(master)
+            self._old_status = _normalize_machine_status(self._row.get("status"))
             frm = ttk.Frame(self)
             frm.pack(fill="both", expand=True, padx=12, pady=12)
 
@@ -2110,10 +2710,15 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             ttk.Label(frm, text="Status:", width=18, anchor="e").grid(
                 row=4, column=0, padx=6, pady=4, sticky="e"
             )
-            self.cb_status = ttk.Combobox(frm, values=self.STATUSES, state="readonly", width=34)
-            cur_status = str(self._row.get("status") or "").upper()
-            self.cb_status.set(cur_status if cur_status in self.STATUSES else "OK")
+            self.cb_status = ttk.Combobox(
+                frm, values=self.STATUSES, state="disabled", width=34
+            )
+            self.cb_status.set(_machine_status_edit_label(self._row.get("status")))
             self.cb_status.grid(row=4, column=1, padx=6, pady=4, sticky="w")
+            ttk.Label(
+                frm,
+                text="Status zmieniaj w trybie Użytkowanie maszyny.",
+            ).grid(row=4, column=2, sticky="w", padx=(8, 0))
 
             def int_or_none(value: str):
                 try:
@@ -2124,10 +2729,117 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.e_x = row_entry(5, "x (px):", "x")
             self.e_y = row_entry(6, "y (px):", "y")
 
-            _build_edit_footer(frm, self._row, lambda: None)
+            ttk.Label(frm, text="Domyślny typ przeglądu:", width=18, anchor="e").grid(
+                row=7, column=0, padx=6, pady=4, sticky="e"
+            )
+            self.cb_default_review_type = ttk.Combobox(
+                frm, values=REVIEW_TYPES, state="readonly", width=34
+            )
+            self.cb_default_review_type.set(
+                str(self._row.get("default_review_type") or REVIEW_TYPES[0])
+            )
+            self.cb_default_review_type.grid(
+                row=7, column=1, padx=6, pady=4, sticky="w"
+            )
+
+            image_frame = ttk.Frame(frm)
+            image_frame.grid(
+                row=8, column=0, columnspan=3, sticky="w", padx=6, pady=4
+            )
+            ttk.Button(
+                image_frame,
+                text="Ustaw zdjęcie...",
+                command=self._choose_image,
+            ).pack(side="left")
+            self.image_label = ttk.Label(image_frame)
+            self.image_label.pack(side="left", padx=(12, 0))
+            self._refresh_image_label()
+
+            selected_review_months = set(
+                _normalize_review_months(
+                    self._row.get("review_months")
+                    if "review_months" in self._row
+                    else self._row.get("review_month")
+                )
+            )
+            self.review_month_vars: Dict[int, tk.BooleanVar] = {}
+            review_box = ttk.LabelFrame(frm, text="Przeglądy cykliczne")
+            review_box.grid(
+                row=9, column=0, columnspan=2, sticky="ew", pady=(10, 4)
+            )
+            review_box.columnconfigure(1, weight=1)
+            ttk.Label(review_box, text="Miesiące przeglądu:").grid(
+                row=0, column=0, sticky="nw", padx=6, pady=6
+            )
+            months_frame = ttk.Frame(review_box)
+            months_frame.grid(row=0, column=1, sticky="w", padx=6, pady=6)
+            for idx, (month_number, month_label) in enumerate(MONTH_LABELS_PL):
+                var = tk.BooleanVar(
+                    master=self, value=month_number in selected_review_months
+                )
+                self.review_month_vars[month_number] = var
+                ttk.Checkbutton(
+                    months_frame, text=month_label, variable=var
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
+            ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
+                row=1, column=0, sticky="e", padx=6, pady=6
+            )
+            review_workers = self._row.get("review_workers") or []
+            if not isinstance(review_workers, list):
+                review_workers = [review_workers]
+            selected_workers = {
+                str(worker).strip()
+                for worker in review_workers
+                if str(worker).strip()
+            }
+
+            self.review_worker_vars: Dict[str, tk.BooleanVar] = {}
+            workers_frame = ttk.Frame(review_box)
+            workers_frame.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+
+            user_logins = _load_wm_user_logins()
+            actor = _active_login_for_machine(master)
+            if actor and actor not in user_logins:
+                user_logins.insert(0, actor)
+            for worker in sorted(selected_workers):
+                if worker and worker not in user_logins:
+                    user_logins.append(worker)
+
+            if not user_logins:
+                user_logins = [actor or "system"]
+
+            for idx, login in enumerate(user_logins):
+                var = tk.BooleanVar(master=self, value=(login in selected_workers))
+                self.review_worker_vars[login] = var
+                ttk.Checkbutton(
+                    workers_frame,
+                    text=login,
+                    variable=var,
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
+            ttk.Label(
+                review_box,
+                text=(
+                    "Zaznacz sugerowanych serwisantów. Faktycznych wykonawców "
+                    "wybierasz przy wykonaniu."
+                ),
+            ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
 
             btns = ttk.Frame(frm)
-            btns.grid(row=8, column=0, columnspan=2, pady=(10, 0))
+            btns.grid(row=10, column=0, columnspan=2, pady=(14, 0))
             ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
             ttk.Button(
                 btns,
@@ -2140,7 +2852,22 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             )
             self.bind("<Escape>", lambda *_: self.destroy())
 
+        def _choose_image(self) -> None:
+            path = pick_machine_image(self)
+            if not path:
+                return
+            self._row["image"] = os.path.normpath(path)
+            self._refresh_image_label()
+
+        def _refresh_image_label(self) -> None:
+            image_path = self._row.get("image") or self._row.get("obraz")
+            image_name = os.path.basename(image_path) if image_path else "brak"
+            self.image_label.configure(text=f"Zdjęcie: {image_name}")
+
         def _ok(self, x, y):
+            new_status = MACHINE_STATUS_EDIT_LABELS.get(
+                self.cb_status.get().strip(), "ok"
+            )
             row = {
                 "id": (
                     self.e_id.get().strip()
@@ -2151,10 +2878,75 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
                 "nazwa": self.e_nazwa.get().strip(),
                 "typ": self.e_typ.get().strip(),
                 "lokalizacja": self.e_lok.get().strip(),
-                "status": self.cb_status.get().strip() or "OK",
+                "status": self._old_status,
                 "x": x,
                 "y": y,
+                "default_review_type": (
+                    self.cb_default_review_type.get().strip() or REVIEW_TYPES[0]
+                ),
+                "review_months": [
+                    month
+                    for month, var in self.review_month_vars.items()
+                    if bool(var.get())
+                ],
+                "review_workers": [
+                    login
+                    for login, var in self.review_worker_vars.items()
+                    if bool(var.get())
+                ],
             }
+            for key in ("status_history", "status_current"):
+                if key in self._row:
+                    row[key] = self._row[key]
+            if new_status != self._old_status:
+                note = simpledialog.askstring(
+                    "Zmiana statusu maszyny",
+                    "Opis zmiany statusu:\n"
+                    f"{_machine_status_label(self._old_status)} → "
+                    f"{_machine_status_label(new_status)}",
+                    parent=self,
+                )
+                if note is None:
+                    return
+                if new_status in {"alert", "warn"} and not note.strip():
+                    messagebox.showwarning(
+                        "Maszyny",
+                        "Przy zmianie na Serwis / przegląd albo Awarię "
+                        "opis jest wymagany.",
+                        parent=self,
+                    )
+                    return
+                status_photos: List[str] = []
+                try:
+                    wants_photos = messagebox.askyesno(
+                        "Zdjęcia serwisu / przeglądu",
+                        "Czy dodać zdjęcia do tej zmiany statusu?",
+                        parent=self,
+                    )
+                except Exception:
+                    wants_photos = False
+                if wants_photos:
+                    selected_photos = filedialog.askopenfilenames(
+                        parent=self,
+                        title="Wybierz zdjęcia do historii maszyny",
+                        filetypes=[
+                            ("Obrazy", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                            ("Wszystkie pliki", "*.*"),
+                        ],
+                    )
+                    status_photos = _copy_machine_status_photos(
+                        row["id"], selected_photos
+                    )
+                _apply_machine_status_change(
+                    row,
+                    new_status,
+                    actor=self._actor,
+                    note=note.strip(),
+                    photos=status_photos,
+                )
+            else:
+                row["status"] = new_status
+                _ensure_status_current(row, actor=self._actor)
             row.setdefault("nr_hali", "1")
             if isinstance(self._row.get("zadania"), list):
                 row["zadania"] = self._row["zadania"]
@@ -2168,6 +2960,9 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             self.destroy()
 
     def _on_add() -> None:
+        if not _require_machine_edit_mode():
+            return
+
         def commit(new_row: Dict) -> None:
             nonlocal rows_cache
             if not new_row.get("id"):
@@ -2181,6 +2976,982 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
         MachineEditDialog(container, row=None, on_ok=commit)
 
+    def _open_machine_usage_window(machine: Dict[str, Any]) -> None:
+        """Show the daily machine usage window with status and history."""
+
+        if not machine:
+            messagebox.showinfo("Maszyny", "Wybierz maszynę.", parent=root)
+            return
+
+        machine_id = str(
+            machine.get("id") or machine.get("nr_ewid") or ""
+        ).strip()
+        if not machine_id:
+            messagebox.showwarning(
+                "Maszyny",
+                "Maszyna nie ma ID / nr_ewid.",
+                parent=root,
+            )
+            return
+
+        win = tk.Toplevel(root)
+        win.title(f"Użytkowanie maszyny — {machine_id}")
+        win._machine_photo_img = None
+        win.geometry("980x720")
+        win.minsize(840, 620)
+        win.transient(root)
+
+        outer = ttk.Frame(win, padding=12)
+        outer.pack(fill="both", expand=True)
+        outer.columnconfigure(1, weight=1)
+        outer.rowconfigure(2, weight=1)
+
+        photo_frame = ttk.LabelFrame(outer, text="Zdjęcie")
+        photo_frame.grid(
+            row=0, column=0, rowspan=2, sticky="nsw",
+            padx=(0, 12), pady=(0, 8)
+        )
+        photo_label = ttk.Label(
+            photo_frame, text="brak zdjęcia", anchor="center"
+        )
+        photo_label.configure(width=24)
+        photo_label.pack(fill="both", expand=True, padx=8, pady=8)
+
+        def _resolve_machine_image_absolute(path_value: object) -> str:
+            raw = str(path_value or "").strip()
+            if not raw:
+                return ""
+            if os.path.isabs(raw) and os.path.exists(raw):
+                return os.path.normpath(raw)
+
+            raw_norm = os.path.normpath(raw)
+            raw_base = os.path.basename(raw_norm)
+            machines_dir = os.path.dirname(primary_path)
+            data_root = os.path.dirname(machines_dir)
+
+            candidates: List[str] = []
+
+            # 1) katalog, z którego realnie czytamy maszyny.json
+            candidates.extend(
+                [
+                    os.path.join(machines_dir, raw_norm),
+                    os.path.join(machines_dir, raw_base),
+                    os.path.join(machines_dir, "zdjecia", raw_norm),
+                    os.path.join(machines_dir, "zdjecia", raw_base),
+                    os.path.join(machines_dir, "zdjęcia", raw_norm),
+                    os.path.join(machines_dir, "zdjęcia", raw_base),
+                    os.path.join(machines_dir, "images", raw_norm),
+                    os.path.join(machines_dir, "images", raw_base),
+                    os.path.join(machines_dir, "photos", raw_norm),
+                    os.path.join(machines_dir, "photos", raw_base),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_norm
+                    ),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_base
+                    ),
+                ]
+            )
+
+            # 2) ROOT/data jako fallback
+            candidates.extend(
+                [
+                    os.path.join(data_root, "maszyny", raw_norm),
+                    os.path.join(data_root, "maszyny", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_base),
+                    os.path.join(data_root, "maszyny", "images", raw_norm),
+                    os.path.join(data_root, "maszyny", "images", raw_base),
+                    os.path.join(data_root, "maszyny", "photos", raw_norm),
+                    os.path.join(data_root, "maszyny", "photos", raw_base),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_norm
+                    ),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_base
+                    ),
+                ]
+            )
+
+            try:
+                cfg_data_root = (
+                    cfg_manager.path_data() if cfg_manager is not None else ""
+                )
+                if cfg_data_root:
+                    candidates.extend(
+                        [
+                            os.path.join(cfg_data_root, "maszyny", raw_norm),
+                            os.path.join(cfg_data_root, "maszyny", raw_base),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_norm,
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_base,
+                            ),
+                        ]
+                    )
+            except Exception:
+                pass
+
+            candidates.append(raw_norm)
+
+            seen: set[str] = set()
+            for candidate in candidates:
+                candidate = os.path.normpath(candidate)
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                if os.path.exists(candidate):
+                    return candidate
+
+            # 3) ostatnia deska ratunku: szybkie szukanie po nazwie pliku
+            #    w data/maszyny. Przydatne, gdy w JSON jest samo
+            #    "100004526.jpg", a folder zdjęć jest inny.
+            if raw_base:
+                search_roots = [
+                    machines_dir,
+                    os.path.join(data_root, "maszyny"),
+                ]
+                for search_root in search_roots:
+                    if not search_root or not os.path.isdir(search_root):
+                        continue
+                    try:
+                        for dirpath, _dirnames, filenames in os.walk(
+                            search_root
+                        ):
+                            if raw_base in filenames:
+                                return os.path.normpath(
+                                    os.path.join(dirpath, raw_base)
+                                )
+                    except Exception:
+                        pass
+            return ""
+
+        image_path = (
+            machine.get("image") or machine.get("obraz")
+            or machine.get("photo")
+        )
+        if image_path:
+            try:
+                resolved_image = _resolve_machine_image_absolute(image_path)
+                image_exists = bool(
+                    resolved_image and os.path.exists(resolved_image)
+                )
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO] "
+                        f"id={machine_id} raw={image_path!r} "
+                        f"resolved={resolved_image!r} "
+                        f"exists={int(image_exists)} "
+                        f"pil={int(bool(Image and ImageTk))}"
+                    )
+                except Exception:
+                    pass
+                if image_exists and Image and ImageTk:
+                    img = Image.open(resolved_image)
+                    img.thumbnail((180, 180), Image.LANCZOS)
+                    photo_img = ImageTk.PhotoImage(img)
+                    win._machine_photo_img = photo_img
+                    photo_label.configure(image=photo_img, text="")
+                elif image_exists:
+                    photo_label.configure(
+                        text=os.path.basename(resolved_image)
+                    )
+                else:
+                    photo_label.configure(text=f"Nie znaleziono:\n{image_path}")
+            except Exception as exc:
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO][ERR] "
+                        f"id={machine_id} raw={image_path!r} error={exc}"
+                    )
+                except Exception:
+                    pass
+                photo_label.configure(text=str(image_path))
+
+        header = ttk.Frame(outer)
+        header.grid(row=0, column=1, sticky="new")
+        header.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            header, text=machine_id, font=("TkDefaultFont", 28, "bold")
+        ).grid(row=0, column=0, sticky="w", padx=(0, 16))
+        title_text = f"{machine.get('nazwa') or machine.get('name') or ''}"
+        typ_text = f"{machine.get('typ') or machine.get('type') or ''}"
+        ttk.Label(
+            header, text=title_text, font=("TkDefaultFont", 18, "bold")
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Label(header, text=typ_text).grid(
+            row=1, column=1, sticky="w", pady=(2, 0)
+        )
+
+        status_key = _normalize_machine_status(machine.get("status"))
+        status_label = _machine_status_label(status_key)
+        status_box = ttk.LabelFrame(outer, text="Aktualny status")
+        status_box.grid(row=1, column=1, sticky="ew", pady=(8, 8))
+        ttk.Label(
+            status_box,
+            text=status_label,
+            foreground=_machine_status_color(status_key),
+            font=("TkDefaultFont", 24, "bold"),
+        ).pack(anchor="w", padx=10, pady=8)
+
+        summary = machine.get("__schedule_summary") or {}
+        next_review = str(summary.get("next_label") or "—")
+        review_status = str(
+            summary.get("status_text") or "Brak danych przeglądu"
+        )
+        review_box = ttk.LabelFrame(outer, text="Najbliższy przegląd")
+        review_box.grid(
+            row=2, column=0, columnspan=2, sticky="new", pady=(0, 8)
+        )
+        ttk.Label(review_box, text=f"Termin: {next_review}").pack(
+            anchor="w", padx=8, pady=(6, 2)
+        )
+        ttk.Label(review_box, text=review_status).pack(
+            anchor="w", padx=8, pady=(0, 6)
+        )
+
+        history_box = ttk.LabelFrame(outer, text="Historia statusów")
+        history_box.grid(
+            row=3, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
+        )
+        outer.rowconfigure(3, weight=1)
+        hist_cols = (
+            "status", "start", "stop", "czas", "kto", "zdjecia", "opis"
+        )
+        hist_tree = ttk.Treeview(
+            history_box, columns=hist_cols, show="headings", height=12
+        )
+        hist_setup = {
+            "status": ("Status", 150, "w"),
+            "start": ("Start", 140, "center"),
+            "stop": ("Stop", 140, "center"),
+            "czas": ("Czas", 110, "center"),
+            "kto": ("Kto", 110, "w"),
+            "zdjecia": ("Zdjęcia", 80, "center"),
+            "opis": ("Opis", 420, "w"),
+        }
+        for col, (label, width, anchor) in hist_setup.items():
+            hist_tree.heading(col, text=label)
+            hist_tree.column(col, width=width, anchor=anchor)
+        hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
+
+        history_items: Dict[str, Dict[str, Any]] = {}
+
+        def _history_entries_for_usage(
+            src: Dict[str, Any]
+        ) -> List[Dict[str, Any]]:
+            entries: List[Dict[str, Any]] = []
+            raw_history = src.get("status_history")
+            if isinstance(raw_history, list):
+                for item in raw_history:
+                    if isinstance(item, dict):
+                        entries.append(dict(item))
+            current = src.get("status_current")
+            if isinstance(current, dict):
+                item = dict(current)
+                item["__current"] = True
+                entries.append(item)
+            return entries
+
+        def _history_entry_values(item: Dict[str, Any]) -> tuple:
+            status = _machine_status_label(item.get("status"))
+            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
+            if item.get("__current"):
+                stop = "w toku"
+                duration = _format_duration_minutes(
+                    _duration_minutes(item.get("started_at"), _machine_now_iso())
+                )
+                who = str(item.get("changed_by") or "—")
+                note = str(item.get("note") or "")
+            else:
+                stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+                duration = _format_duration_minutes(item.get("duration_minutes"))
+                who = str(item.get("closed_by") or item.get("changed_by") or "—")
+                note = str(item.get("close_note") or item.get("note") or "")
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            photos_text = f"📷 {len(photos)}" if photos else "—"
+            return status, start, stop, duration, who, photos_text, note
+
+        entries = _history_entries_for_usage(machine)
+        if entries:
+            for item in entries:
+                iid = hist_tree.insert(
+                    "", "end", values=_history_entry_values(item)
+                )
+                history_items[iid] = item
+        else:
+            hist_tree.insert(
+                "",
+                "end",
+                values=(
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "—",
+                    "Brak historii. Pierwszy wpis powstanie przy zmianie "
+                    "statusu.",
+                ),
+            )
+
+        def _selected_history_item() -> Optional[Dict[str, Any]]:
+            selected = hist_tree.selection()
+            if not selected:
+                return None
+            return history_items.get(selected[0])
+
+        def _show_history_photos() -> None:
+            item = _selected_history_item()
+            if not item:
+                messagebox.showinfo(
+                    "Zdjęcia historii",
+                    "Wybierz wpis historii.",
+                    parent=win,
+                )
+                return
+            photos = (
+                item.get("photos") if isinstance(item.get("photos"), list) else []
+            )
+            if not photos:
+                messagebox.showinfo(
+                    "Zdjęcia historii",
+                    "Ten wpis historii nie ma zdjęć.",
+                    parent=win,
+                )
+                return
+
+            photo_win = tk.Toplevel(win)
+            photo_win.title("Zdjęcia z historii maszyny")
+            photo_win.geometry("760x520")
+            photo_win.minsize(640, 420)
+            photo_win.transient(win)
+            photo_win._thumbs = []
+
+            header_text = (
+                f"{_machine_status_label(item.get('status'))} | "
+                f"{str(item.get('started_at') or '—').replace('T', ' ')[:16]}"
+            )
+            ttk.Label(
+                photo_win,
+                text=header_text,
+                font=("TkDefaultFont", 14, "bold"),
+            ).pack(anchor="w", padx=10, pady=(10, 4))
+
+            holder = ttk.Frame(photo_win, padding=8)
+            holder.pack(fill="both", expand=True)
+
+            for idx, raw_path in enumerate(photos, start=1):
+                resolved = _resolve_machine_image_absolute(raw_path)
+                if not resolved:
+                    resolved = _resolve_card_absolute(str(raw_path), cfg_manager)
+                exists = bool(resolved and os.path.exists(resolved))
+
+                tile = ttk.LabelFrame(holder, text=f"Zdjęcie {idx}")
+                tile.grid(
+                    row=(idx - 1) // 4,
+                    column=(idx - 1) % 4,
+                    padx=6,
+                    pady=6,
+                    sticky="nsew",
+                )
+
+                if exists and Image and ImageTk:
+                    try:
+                        img = Image.open(resolved)
+                        img.thumbnail((140, 140), Image.LANCZOS)
+                        thumb = ImageTk.PhotoImage(img)
+                        photo_win._thumbs.append(thumb)
+                        ttk.Button(
+                            tile,
+                            image=thumb,
+                            command=lambda p=resolved: _open_external(p),
+                        ).pack(padx=6, pady=6)
+                    except Exception:
+                        ttk.Button(
+                            tile,
+                            text=os.path.basename(resolved),
+                            command=lambda p=resolved: _open_external(p),
+                        ).pack(padx=6, pady=6)
+                elif exists:
+                    ttk.Button(
+                        tile,
+                        text=os.path.basename(resolved),
+                        command=lambda p=resolved: _open_external(p),
+                    ).pack(padx=6, pady=6)
+                else:
+                    ttk.Label(
+                        tile,
+                        text=f"Nie znaleziono:\n{raw_path}",
+                        wraplength=150,
+                    ).pack(padx=6, pady=6)
+
+            ttk.Button(
+                photo_win, text="Zamknij", command=photo_win.destroy
+            ).pack(anchor="e", padx=10, pady=(0, 10))
+
+        hist_tree.bind("<Double-1>", lambda _event: _show_history_photos())
+
+        history_actions = ttk.Frame(history_box)
+        history_actions.pack(fill="x", padx=6, pady=(0, 6))
+        ttk.Button(
+            history_actions,
+            text="Pokaż zdjęcia",
+            command=_show_history_photos,
+        ).pack(side="left")
+
+        reviews_box = ttk.LabelFrame(outer, text="Przeglądy / serwis maszyny")
+        reviews_box.grid(
+            row=4, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
+        )
+
+        reviews_cols = (
+            "date", "type", "status", "suggested", "done_by", "done", "desc"
+        )
+        reviews_tree = ttk.Treeview(
+            reviews_box,
+            columns=reviews_cols,
+            show="headings",
+            height=5,
+        )
+        reviews_setup = {
+            "date": ("Data", 105, "center"),
+            "type": ("Typ", 150, "w"),
+            "status": ("Status", 100, "center"),
+            "suggested": ("Sugerowani", 140, "w"),
+            "done_by": ("Wykonali", 140, "w"),
+            "done": ("Wykonano", 125, "center"),
+            "desc": ("Opis", 300, "w"),
+        }
+        for col, (label, width, anchor) in reviews_setup.items():
+            reviews_tree.heading(col, text=label)
+            reviews_tree.column(col, width=width, anchor=anchor)
+        reviews_tree.pack(fill="both", expand=True, padx=6, pady=6)
+
+        review_items: Dict[str, Dict[str, Any]] = {}
+
+        def _review_status_label(value: object) -> str:
+            raw = str(value or "").strip().lower()
+            if raw in {"done", "wykonany", "completed"}:
+                return "Wykonany"
+            if raw in {"in_progress", "w_trakcie", "w trakcie"}:
+                return "W trakcie"
+            return "Planowany"
+
+        def _people_text(value: object) -> str:
+            if isinstance(value, list):
+                return ", ".join(
+                    str(item) for item in value if str(item).strip()
+                )
+            return str(value or "")
+
+        def _refresh_reviews_tree() -> None:
+            review_items.clear()
+            for iid in reviews_tree.get_children():
+                reviews_tree.delete(iid)
+            for entry in _machine_reviews(machine):
+                values = (
+                    str(entry.get("planned_date") or "—"),
+                    str(entry.get("type") or ""),
+                    _review_status_label(entry.get("status")),
+                    _people_text(entry.get("suggested_workers")),
+                    _people_text(entry.get("completed_by")),
+                    str(entry.get("completed_at") or "—").replace("T", " ")[:16],
+                    str(entry.get("description") or entry.get("result_note") or ""),
+                )
+                iid = reviews_tree.insert("", "end", values=values)
+                review_items[iid] = entry
+
+        def _selected_review_entry() -> Optional[Dict[str, Any]]:
+            sel = reviews_tree.selection()
+            if not sel:
+                return None
+            return review_items.get(sel[0])
+
+        def _persist_machine_after_review_change(
+            updated_machine: Dict[str, Any],
+        ) -> None:
+            nonlocal rows_cache
+            new_rows = upsert_machine(rows_cache, updated_machine)
+            persisted = _save_rows(new_rows)
+            rows_cache = list(persisted)
+            _on_rows_changed()
+            _set_selected_machine(machine_id)
+
+        def _start_selected_review() -> None:
+            entry = _selected_review_entry()
+            if not entry:
+                messagebox.showinfo("Przegląd / serwis", "Wybierz wpis.", parent=win)
+                return
+            if str(entry.get("status") or "").lower() in {
+                "done", "wykonany", "completed"
+            }:
+                messagebox.showinfo(
+                    "Przegląd / serwis",
+                    "Ten wpis jest już wykonany.",
+                    parent=win,
+                )
+                return
+            if _normalize_machine_status(machine.get("status")) == "warn":
+                messagebox.showwarning(
+                    "Przegląd / serwis",
+                    "Maszyna jest w statusie Awaria. Najpierw zamknij "
+                    "awarię albo zmień status ręcznie.",
+                    parent=win,
+                )
+                return
+
+            note = (
+                f"Rozpoczęto {entry.get('type') or 'przegląd / serwis'}"
+                f" | plan: {entry.get('planned_date') or '—'}"
+            )
+            if entry.get("description"):
+                note += f" | {entry.get('description')}"
+
+            entry["status"] = "in_progress"
+            entry["started_at"] = _machine_now_iso()
+            entry["started_by"] = _active_login_for_machine(root)
+
+            updated = dict(machine)
+            updated["reviews"] = list(_machine_reviews(machine))
+            _apply_machine_status_change(
+                updated,
+                "alert",
+                actor=_active_login_for_machine(root),
+                note=note,
+                photos=[],
+            )
+            machine.update(updated)
+            _persist_machine_after_review_change(updated)
+            _refresh_reviews_tree()
+
+        def _persist_machine_reviews() -> None:
+            updated = dict(machine)
+            updated["reviews"] = list(_machine_reviews(machine))
+            _persist_machine_after_review_change(updated)
+
+        def _open_add_review_dialog() -> None:
+            dialog = tk.Toplevel(win)
+            dialog.title("Dodaj przegląd / serwis")
+            dialog.geometry("620x420")
+            dialog.transient(win)
+            dialog.grab_set()
+
+            frm = ttk.Frame(dialog, padding=12)
+            frm.pack(fill="both", expand=True)
+            frm.columnconfigure(1, weight=1)
+
+            ttk.Label(frm, text="Typ:").grid(
+                row=0, column=0, sticky="e", padx=4, pady=4
+            )
+            default_review_type = str(
+                machine.get("default_review_type") or REVIEW_TYPES[0]
+            )
+            var_type = tk.StringVar(value=default_review_type)
+            ttk.Combobox(
+                frm,
+                textvariable=var_type,
+                values=REVIEW_TYPES,
+                state="readonly",
+            ).grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+
+            ttk.Label(frm, text="Planowana data:").grid(
+                row=1, column=0, sticky="e", padx=4, pady=4
+            )
+            var_date = tk.StringVar(value=dt.date.today().isoformat())
+            ttk.Entry(frm, textvariable=var_date).grid(
+                row=1, column=1, sticky="ew", padx=4, pady=4
+            )
+
+            ttk.Label(frm, text="Sugerowani:").grid(
+                row=2, column=0, sticky="e", padx=4, pady=4
+            )
+            suggested = machine.get("review_workers")
+            if isinstance(suggested, list):
+                suggested_text = ", ".join(
+                    str(x) for x in suggested if str(x).strip()
+                )
+            else:
+                suggested_text = str(suggested or "")
+            var_suggested = tk.StringVar(value=suggested_text)
+            ttk.Entry(frm, textvariable=var_suggested).grid(
+                row=2, column=1, sticky="ew", padx=4, pady=4
+            )
+            ttk.Label(
+                frm,
+                text=(
+                    "To tylko sugestia. Faktycznych wykonawców wybierasz "
+                    "dopiero przy wykonaniu."
+                ),
+            ).grid(row=3, column=1, sticky="w", padx=4, pady=(0, 6))
+
+            ttk.Label(frm, text="Zakres / opis:").grid(
+                row=4, column=0, sticky="ne", padx=4, pady=4
+            )
+            txt_desc = tk.Text(frm, height=8, wrap="word")
+            txt_desc.grid(row=4, column=1, sticky="nsew", padx=4, pady=4)
+            frm.rowconfigure(4, weight=1)
+
+            def _save_review() -> None:
+                parsed = _parse_schedule_date(var_date.get().strip())
+                if parsed is None:
+                    messagebox.showwarning(
+                        "Przegląd / serwis",
+                        "Podaj poprawną datę, np. 2026-06-01.",
+                        parent=dialog,
+                    )
+                    return
+                entry = {
+                    "id": _new_review_id(),
+                    "type": var_type.get().strip() or REVIEW_TYPES[0],
+                    "planned_date": parsed.isoformat(),
+                    "status": "planned",
+                    "suggested_workers": _split_csv_people(var_suggested.get()),
+                    "description": txt_desc.get("1.0", "end").strip(),
+                    "completed_at": "",
+                    "completed_by": [],
+                    "result_note": "",
+                    "photos": [],
+                }
+                reviews = list(_machine_reviews(machine))
+                reviews.append(entry)
+                machine["reviews"] = reviews
+                _persist_machine_reviews()
+                _refresh_reviews_tree()
+                dialog.destroy()
+
+            btns = ttk.Frame(frm)
+            btns.grid(row=5, column=0, columnspan=2, sticky="e", pady=(10, 0))
+            ttk.Button(btns, text="Zapisz", command=_save_review).pack(
+                side="left", padx=4
+            )
+            ttk.Button(btns, text="Anuluj", command=dialog.destroy).pack(
+                side="left", padx=4
+            )
+
+        def _open_complete_review_dialog() -> None:
+            entry = _selected_review_entry()
+            if not entry:
+                messagebox.showinfo("Przegląd / serwis", "Wybierz wpis.", parent=win)
+                return
+            if str(entry.get("status") or "").lower() in {
+                "done", "wykonany", "completed"
+            }:
+                messagebox.showinfo(
+                    "Przegląd / serwis", "Ten wpis jest już wykonany.", parent=win
+                )
+                return
+
+            dialog = tk.Toplevel(win)
+            dialog.title("Oznacz przegląd / serwis jako wykonany")
+            dialog.geometry("620x520")
+            dialog.transient(win)
+            dialog.grab_set()
+
+            frm = ttk.Frame(dialog, padding=12)
+            frm.pack(fill="both", expand=True)
+            frm.columnconfigure(1, weight=1)
+
+            ttk.Label(frm, text="Wykonali:").grid(
+                row=0, column=0, sticky="ne", padx=4, pady=4
+            )
+            users_box = ttk.Frame(frm)
+            users_box.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+
+            user_logins = _load_wm_user_logins()
+            actor = _active_login_for_machine(root)
+            if actor and actor not in user_logins:
+                user_logins.insert(0, actor)
+            if not user_logins:
+                user_logins = [actor or "system"]
+
+            selected_vars: Dict[str, tk.BooleanVar] = {}
+            for idx, login in enumerate(user_logins):
+                var = tk.BooleanVar(value=(login == actor))
+                selected_vars[login] = var
+                ttk.Checkbutton(
+                    users_box,
+                    text=login,
+                    variable=var,
+                ).grid(
+                    row=idx // 3,
+                    column=idx % 3,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+
+            ttk.Label(frm, text="Co wykonano:").grid(
+                row=1, column=0, sticky="ne", padx=4, pady=4
+            )
+            txt_result = tk.Text(frm, height=10, wrap="word")
+            txt_result.grid(row=1, column=1, sticky="nsew", padx=4, pady=4)
+            frm.rowconfigure(1, weight=1)
+
+            def _save_completed() -> None:
+                completed_by = [
+                    login for login, var in selected_vars.items() if bool(var.get())
+                ]
+                if not completed_by:
+                    messagebox.showwarning(
+                        "Przegląd / serwis",
+                        "Wybierz przynajmniej jedną osobę, która wykonała "
+                        "przegląd/serwis.",
+                        parent=dialog,
+                    )
+                    return
+                entry["status"] = "done"
+                entry["completed_at"] = _machine_now_iso()
+                entry["completed_by"] = completed_by
+                entry["result_note"] = txt_result.get("1.0", "end").strip()
+
+                updated = dict(machine)
+                updated["reviews"] = list(_machine_reviews(machine))
+                if _normalize_machine_status(updated.get("status")) == "alert":
+                    note = (
+                        f"Wykonano {entry.get('type') or 'przegląd / serwis'}"
+                        f" | plan: {entry.get('planned_date') or '—'}"
+                    )
+                    if entry.get("result_note"):
+                        note += f" | {entry.get('result_note')}"
+                    _apply_machine_status_change(
+                        updated,
+                        "ok",
+                        actor=", ".join(completed_by),
+                        note=note,
+                        photos=[],
+                    )
+                machine.update(updated)
+                _persist_machine_after_review_change(updated)
+                _refresh_reviews_tree()
+                dialog.destroy()
+
+            btns = ttk.Frame(frm)
+            btns.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
+            ttk.Button(
+                btns, text="Zapisz wykonanie", command=_save_completed
+            ).pack(side="left", padx=4)
+            ttk.Button(btns, text="Anuluj", command=dialog.destroy).pack(
+                side="left", padx=4
+            )
+
+        _refresh_reviews_tree()
+
+        reviews_actions = ttk.Frame(reviews_box)
+        reviews_actions.pack(fill="x", padx=6, pady=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Dodaj przegląd / serwis",
+            command=_open_add_review_dialog,
+        ).pack(side="left", padx=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Rozpocznij przegląd / serwis",
+            command=_start_selected_review,
+        ).pack(side="left", padx=(0, 6))
+        ttk.Button(
+            reviews_actions,
+            text="Oznacz jako wykonany",
+            command=_open_complete_review_dialog,
+        ).pack(side="left")
+
+        buttons = ttk.Frame(outer)
+        buttons.grid(row=5, column=0, columnspan=2, sticky="e")
+        ttk.Button(
+            buttons,
+            text="Zmień status",
+            command=lambda: (
+                win.destroy(), _open_status_change_dialog(machine)
+            ),
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            buttons, text="Zamknij", command=win.destroy
+        ).pack(side="left", padx=4)
+
+    def _open_status_change_dialog(machine: Dict[str, Any]) -> None:
+        """Change only the operational status, without technical editing."""
+
+        nonlocal rows_cache
+
+        machine_id = str(
+            machine.get("id") or machine.get("nr_ewid") or ""
+        ).strip()
+        if not machine_id:
+            messagebox.showwarning(
+                "Maszyny",
+                "Maszyna nie ma ID / nr_ewid.",
+                parent=root,
+            )
+            return
+
+        old_status = _normalize_machine_status(machine.get("status"))
+        win = tk.Toplevel(root)
+        win.title("Zmień status maszyny")
+        win.geometry("520x260")
+        win.transient(root)
+        win.grab_set()
+
+        box = ttk.Frame(win, padding=12)
+        box.pack(fill="both", expand=True)
+        box.columnconfigure(1, weight=1)
+        box.rowconfigure(3, weight=1)
+
+        ttk.Label(box, text="Maszyna:").grid(
+            row=0, column=0, sticky="e", padx=4, pady=4
+        )
+        ttk.Label(
+            box,
+            text=(
+                f"{machine_id} — "
+                f"{machine.get('nazwa') or machine.get('name') or ''}"
+            ),
+        ).grid(row=0, column=1, sticky="w", padx=4, pady=4)
+        ttk.Label(box, text="Aktualny status:").grid(
+            row=1, column=0, sticky="e", padx=4, pady=4
+        )
+        ttk.Label(box, text=_machine_status_label(old_status)).grid(
+            row=1, column=1, sticky="w", padx=4, pady=4
+        )
+        ttk.Label(box, text="Nowy status:").grid(
+            row=2, column=0, sticky="e", padx=4, pady=4
+        )
+        status_var = tk.StringVar(
+            value=_machine_status_edit_label(old_status)
+        )
+        status_box = ttk.Combobox(
+            box,
+            textvariable=status_var,
+            values=MACHINE_STATUS_EDIT_VALUES,
+            state="readonly",
+            width=32,
+        )
+        status_box.grid(row=2, column=1, sticky="ew", padx=4, pady=4)
+        ttk.Label(box, text="Opis:").grid(
+            row=3, column=0, sticky="ne", padx=4, pady=4
+        )
+        note_text = tk.Text(box, height=5, wrap="word")
+        note_text.grid(row=3, column=1, sticky="nsew", padx=4, pady=4)
+
+        def _save_status() -> None:
+            nonlocal rows_cache
+
+            new_status = MACHINE_STATUS_EDIT_LABELS.get(
+                status_var.get().strip(), "ok"
+            )
+            note = note_text.get("1.0", "end").strip()
+            if new_status == old_status:
+                win.destroy()
+                return
+            if new_status in {"alert", "warn"} and not note:
+                messagebox.showwarning(
+                    "Maszyny",
+                    "Przy zmianie na Serwis / przegląd albo Awarię "
+                    "opis jest wymagany.",
+                    parent=win,
+                )
+                return
+
+            status_photos: List[str] = []
+            try:
+                wants_photos = messagebox.askyesno(
+                    "Zdjęcia serwisu / przeglądu",
+                    "Czy dodać zdjęcia do tej zmiany statusu?",
+                    parent=win,
+                )
+            except Exception:
+                wants_photos = False
+            if wants_photos:
+                selected_photos = filedialog.askopenfilenames(
+                    parent=win,
+                    title="Wybierz zdjęcia do historii maszyny",
+                    filetypes=[
+                        ("Obrazy", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                        ("Wszystkie pliki", "*.*"),
+                    ],
+                )
+                status_photos = _copy_machine_status_photos(
+                    machine_id, selected_photos
+                )
+
+            payload = dict(machine)
+            payload["status"] = old_status
+            _apply_machine_status_change(
+                payload,
+                new_status,
+                actor=_active_login_for_machine(root),
+                note=note,
+                photos=status_photos,
+            )
+            new_rows = upsert_machine(rows_cache, payload)
+            persisted = _save_rows(new_rows)
+            rows_cache = list(persisted)
+            _on_rows_changed()
+            _set_selected_machine(machine_id)
+            win.destroy()
+
+        buttons = ttk.Frame(box)
+        buttons.grid(
+            row=4, column=0, columnspan=2, sticky="e", pady=(10, 0)
+        )
+        ttk.Button(buttons, text="Zapisz", command=_save_status).pack(
+            side="left", padx=4
+        )
+        ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(
+            side="left", padx=4
+        )
+
+    def _on_change_status() -> None:
+        machine_id = _selected_id()
+        machine = _find_machine(machine_id) if machine_id else None
+        if not machine:
+            messagebox.showinfo(
+                "Maszyny",
+                "Wybierz maszynę do zmiany statusu.",
+                parent=root,
+            )
+            return
+        _open_status_change_dialog(machine)
+
     def _on_edit() -> None:
         nonlocal rows_cache
         mid = _selected_id()
@@ -2188,6 +3959,11 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
             return
         current = _find_machine(mid)
         if not current:
+            return
+        if not _is_machine_edit_mode():
+            _open_machine_usage_window(current)
+            return
+        if not _require_machine_edit_mode():
             return
 
         def commit(upd: Dict) -> None:
@@ -2204,6 +3980,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_del() -> None:
         nonlocal rows_cache
+        if not _require_machine_edit_mode():
+            return
         mid = _selected_id()
         if not mid:
             return
@@ -2215,6 +3993,8 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     def _on_save() -> None:
         nonlocal rows_cache
+        if not _require_machine_edit_mode():
+            return
         for row in rows_cache:
             if "nr_hali" not in row or row.get("nr_hali") in (None, ""):
                 row["nr_hali"] = "1"
@@ -2228,6 +4008,7 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
 
     btn_import.configure(command=_do_import)
     btn_add.configure(command=_on_add)
+    btn_change_status.configure(command=_on_change_status)
     btn_edit.configure(command=_on_edit)
     btn_del.configure(command=_on_del)
     btn_save.configure(command=_on_save)
@@ -2235,20 +4016,49 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     btn_restore.configure(command=_restore_plan)
     btn_assign_card.configure(command=_assign_card)
     btn_open_card.configure(command=_open_selected_card)
+    btn_clear_search.configure(command=_clear_search)
 
     tree.bind("<<TreeviewSelect>>", _on_tree_select)
     tree.bind("<Double-1>", lambda _e: _on_edit())
     upcoming_tree.bind("<<TreeviewSelect>>", _on_upcoming_select)
     history_tree.bind("<<TreeviewSelect>>", _on_history_select)
     filter_box.bind("<<ComboboxSelected>>", _apply_filter)
+    entry_search.bind("<KeyRelease>", lambda _event: _apply_search())
+    entry_search.bind("<Return>", _on_search_enter)
+    machine_mode_var.trace_add("write", _refresh_machine_mode_ui)
 
+    _refresh_machine_mode_ui()
     _refresh_schedule_info()
     _recompute_visible_rows()
     _refresh_tree()
-    _populate_details(None)
+    initial_machine = _find_machine(initial_machine_id)
+    if initial_machine is None:
+        _populate_details(None)
+    else:
+        selected_id = str(
+            initial_machine.get("id") or initial_machine.get("nr_ewid") or ""
+        ).strip()
+        _set_selected_machine(selected_id)
+        _refresh_tree()
+        _open_machine_usage_window(initial_machine)
 
     logger.info("[Maszyny] Panel otwarty; rekordów: %d", len(rows_cache))
     return tree
+
+
+def open_machine_usage(
+    master: tk.Misc, machine_id: str, *, label: str = ""
+) -> tk.Toplevel:
+    """Otwórz panel maszyn oraz użytkowanie wskazanej maszyny."""
+    win = tk.Toplevel(master)
+    win.title(f"Użytkowanie maszyny – {label or machine_id}")
+    win.geometry("1200x800")
+    win.resizable(True, True)
+
+    container = ttk.Frame(win)
+    container.pack(fill="both", expand=True)
+    _open_machines_panel(win, container, initial_machine_id=machine_id)
+    return win
 
 
 def panel_maszyny(root, frame, login=None, rola=None):

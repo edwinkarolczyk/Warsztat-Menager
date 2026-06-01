@@ -32,7 +32,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Sequence, Tuple
 
 import tkinter as tk
 from tkinter import filedialog
@@ -229,6 +229,78 @@ def _maybe_open_dyspo(root, context):
         return
     open_dyspo_wizard(target, context=context)
 
+
+def _wm_humanize_duration_seconds(seconds: float | int | None) -> str:
+    """Zwraca czytelny czas wizyty: godziny -> dni -> miesiące -> lata."""
+
+    try:
+        total_seconds = float(seconds or 0)
+    except (TypeError, ValueError):
+        total_seconds = 0.0
+
+    if total_seconds <= 0:
+        return "0h"
+
+    total_minutes = int(total_seconds // 60)
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+
+    if hours < 24:
+        if minutes:
+            return f"{max(0, hours)}h {minutes}m"
+        return f"{max(1, hours)}h"
+
+    days = hours // 24
+    rem_hours = hours % 24
+
+    if days < 30:
+        if rem_hours:
+            return f"{days}d {rem_hours}h"
+        return f"{days}d"
+
+    months = days // 30
+    rem_days = days % 30
+
+    if months < 12:
+        if rem_days:
+            return f"{months} mies. {rem_days}d"
+        return f"{months} mies."
+
+    years = months // 12
+    rem_months = months % 12
+
+    if rem_months:
+        return f"{years}r {rem_months} mies."
+    return f"{years}r"
+
+
+def _wm_humanize_duration_text(value: object) -> str:
+    """Konwertuje stare teksty typu '29h 29m' / '29h' na czytelny format."""
+
+    raw = str(value or "").strip()
+    if not raw or raw == "—":
+        return raw or "—"
+    if "w toku" in raw.lower():
+        return raw
+
+    import re
+
+    hours = 0
+    minutes = 0
+
+    match_h = re.search(r"(\d+)\s*h", raw, re.IGNORECASE)
+    match_m = re.search(r"(\d+)\s*m", raw, re.IGNORECASE)
+    if match_h:
+        hours = int(match_h.group(1))
+    if match_m:
+        minutes = int(match_m.group(1))
+
+    if not match_h and not match_m:
+        return raw
+
+    return _wm_humanize_duration_seconds(hours * 3600 + minutes * 60)
+
+
 try:
     from utils.tool_mode_helpers import infer_mode_from_id, validate_number
 except ImportError as exc:  # pragma: no cover - fallback przy brakującym helperze
@@ -418,6 +490,67 @@ from ui_theme import apply_theme_safe as apply_theme
 from utils.gui_helpers import clear_frame
 from utils import error_dialogs
 import logger as app_logger
+
+
+def _external_tool_id_variants(tool_id: str) -> set[str]:
+    """Warianty ID narzędzia do porównania: 42 / 042."""
+    raw = str(tool_id or "").strip()
+    variants = {raw}
+    if raw.isdigit():
+        variants.add(raw.zfill(3))
+        variants.add(str(int(raw)))
+    return {item for item in variants if item}
+
+
+def _external_get_tool_id(tool: Mapping[str, Any]) -> str:
+    return str(tool.get("id") or tool.get("nr") or tool.get("numer") or "").strip()
+
+
+def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
+    """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
+    variants = _external_tool_id_variants(tool_id)
+
+    try:
+        cfg = get_config()
+        rows, _primary = load_tools_rows_with_fallback(cfg, resolve_rel)
+    except Exception:
+        rows = []
+
+    for row in rows or []:
+        if not isinstance(row, Mapping):
+            continue
+        row_id = _external_get_tool_id(row)
+        if row_id in variants:
+            return dict(row)
+        if row_id.isdigit() and str(int(row_id)) in variants:
+            return dict(row)
+
+    return None
+
+
+def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
+    """
+    Publiczny helper dla Dyspozycji.
+
+    Otwiera ten sam widok szczegółów narzędzia, którego używa lista narzędzi,
+    bez wymogu wcześniejszego otwarcia modułu Narzędzia.
+    """
+    tool = _external_find_tool_by_id(tool_id)
+    if not tool:
+        return False
+
+    try:
+        from tools_templates import load_default_templates
+
+        templates = load_default_templates()
+    except Exception:
+        templates = []
+
+    from narzedzia_ui.detail_view import open_tool_detail
+
+    open_tool_detail(master, tool, templates=templates)
+    return True
+
 
 logger = getLogger(__name__)
 if not hasattr(logger, "log_akcja"):
@@ -3803,6 +3936,22 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
     return None
 
 # ===================== UI GŁÓWNY =====================
+_OPEN_TOOL_EDITOR_BY_ID: Callable[[str], bool] | None = None
+
+
+def open_tool_editor_by_id(
+    master: tk.Misc | None,
+    tool_id: str,
+    current_user: str = "",
+    current_role: str | None = None,
+) -> bool:
+    """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
+    del master, current_user, current_role
+    if _OPEN_TOOL_EDITOR_BY_ID is None:
+        raise RuntimeError("Moduł Narzędzia nie został jeszcze otwarty.")
+    return _OPEN_TOOL_EDITOR_BY_ID(str(tool_id or "").strip())
+
+
 def panel_narzedzia(root, frame, login=None, rola=None):
     try:
         from gui_panel import wm_set_module_source
@@ -3953,9 +4102,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         _refresh_tools_view()
         return True
 
-    def _open_tool_by_id(tool_id: str) -> None:
+    def _open_tool_by_id(tool_id: str) -> bool:
         if not tool_id:
-            return
+            return False
         normalized = str(tool_id).strip()
         for tool in tools_provider():
             if not isinstance(tool, dict):
@@ -3967,10 +4116,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 continue
             if candidate == normalized or candidate.zfill(3) == normalized.zfill(3):
                 open_tool_dialog(_as_tool_dict(tool))
-                return
+                return True
         try:
             file_name = f"{normalized.zfill(3)}.json"
             path_str = str(Path(_resolve_tools_dir()) / file_name)
+            if not Path(path_str).exists():
+                return False
             norm_path = _normalize_path(path_str)
             if norm_path in STATE.tools_docs_cache:
                 doc = STATE.tools_docs_cache[norm_path]
@@ -3980,8 +4131,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     STATE.tools_docs_cache[norm_path] = doc
             if isinstance(doc, dict):
                 open_tool_dialog(_as_tool_dict(doc))
+                return True
         except Exception:
-            return
+            return False
+        return False
 
     class _ToolsViewFallback:
         def _refresh_all(self) -> None:
@@ -4527,7 +4680,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         ttk.Label(visits_header, textvariable=visits_count_var, style="WM.Card.TLabel").pack(side="left")
         visits_base_var = tk.StringVar(master=dialog_master, value="")
         ttk.Label(visits_header, textvariable=visits_base_var, style="WM.Muted.TLabel").pack(side="right")
-        visits_total_var = tk.StringVar(master=dialog_master, value="Łączny czas wizyt: 0m")
+        visits_total_var = tk.StringVar(master=dialog_master, value="Łączny czas wizyt: 0h")
 
         visits_cols = ("ts", "by", "from", "duration", "comment")
         visits_tree = ttk.Treeview(
@@ -4613,24 +4766,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 return ts_value.strftime("%d-%m-%y %H:%M")
             return raw
 
-        def _format_duration(delta) -> str:
-            if delta is None:
-                return "0m"
-
-            # FIX: bywa int (sekundy) zamiast timedelta
-            if isinstance(delta, (int, float)):
-                total_seconds = max(int(delta), 0)
-            else:
-                try:
-                    total_seconds = max(int(delta.total_seconds()), 0)
-                except Exception:
-                    return "0m"
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            if hours:
-                return f"{hours}h {minutes}m"
-            return f"{minutes}m"
-
         def _refresh_visits_comments() -> None:
             visits_comments_list.delete(0, "end")
             visits = []
@@ -4688,7 +4823,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                         if duration < 0:
                             duration = 0
                         total_duration += duration
-                        dur_txt = _format_duration(duration)
+                        dur_txt = _wm_humanize_duration_seconds(duration)
                     else:
                         dur_txt = "w toku"
 
@@ -4704,7 +4839,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
                 visits_count_var.set(f"Liczba wizyt: {len(visits_rows)}")
                 visits_total_var.set(
-                    f"Łączny czas wizyt: {_format_duration(total_duration) if total_duration else '0m'}"
+                    f"Łączny czas wizyt: {_wm_humanize_duration_seconds(total_duration)}"
                 )
 
                 for row in visits_rows:
@@ -4757,7 +4892,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                                 _format_ts(end_dt, change.get("ts", "")),
                                 who,
                                 prev_status or "—",
-                                _format_duration(duration),
+                                _wm_humanize_duration_seconds(duration),
                                 comment_text,
                             )
                         )
@@ -4765,7 +4900,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
             visits_count_var.set(f"Liczba wizyt: {len(visits_rows)}")
             visits_total_var.set(
-                f"Łączny czas wizyt: {_format_duration(total_duration) if total_duration else '0m'}"
+                f"Łączny czas wizyt: {_wm_humanize_duration_seconds(total_duration)}"
             )
 
             for row in visits_rows:
@@ -6813,10 +6948,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     btn_add.configure(command=choose_mode_and_add)
     if tools_view is not None:
         tools_view.bind_open_detail(_open_tool_by_id)
+    global _OPEN_TOOL_EDITOR_BY_ID
+    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
     refresh_list()
 
 __all__ = [
     "panel_narzedzia",
+    "open_tool_editor_by_id",
+    "open_tool_from_external_context",
     "_profiles_usernames",
     "_current_user",
     "_selected_task",

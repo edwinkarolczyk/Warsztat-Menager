@@ -124,6 +124,85 @@ def _get_app_version() -> str:
 APP_VERSION = _get_app_version()
 
 
+def _wm_get_current_theme() -> str:
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        if cm is not None:
+            value = cm.get("ui.theme", None)
+            if value:
+                return str(value)
+            value = cm.get("theme", None)
+            if value:
+                return str(value)
+    except Exception:
+        pass
+    return "default"
+
+
+def _wm_save_theme(theme_name: str) -> bool:
+    theme = str(theme_name or "").strip() or "default"
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        if cm is None:
+            return False
+        if hasattr(cm, "set_path"):
+            cm.set_path("ui.theme", theme)
+        elif hasattr(cm, "set"):
+            cm.set("ui.theme", theme)
+        else:
+            data = getattr(cm, "merged", None)
+            if not isinstance(data, dict):
+                data = getattr(cm, "global_cfg", None)
+            if not isinstance(data, dict):
+                data = cm.load() if hasattr(cm, "load") else {}
+            if not isinstance(data, dict):
+                return False
+            ui = data.setdefault("ui", {})
+            if not isinstance(ui, dict):
+                data["ui"] = {}
+                ui = data["ui"]
+            ui["theme"] = theme
+            try:
+                setattr(cm, "merged", data)
+            except Exception:
+                pass
+            try:
+                setattr(cm, "global_cfg", data)
+            except Exception:
+                pass
+        if hasattr(cm, "save"):
+            cm.save()
+        elif hasattr(cm, "save_config"):
+            cm.save_config()
+        else:
+            return False
+        try:
+            print(f"[WM-DBG][THEME] quick theme saved: ui.theme={theme}")
+        except Exception:
+            pass
+        return True
+    except Exception as exc:
+        try:
+            print(f"[WM-DBG][THEME][WARN] quick theme save failed: {exc}")
+        except Exception:
+            pass
+        return False
+
+
+def _wm_theme_values() -> list[str]:
+    values = ["default", "dark", "light"]
+    try:
+        cm = globals().get("CONFIG_MANAGER")
+        raw = cm.get("ui.available_themes", None) if cm is not None else None
+        if isinstance(raw, (list, tuple)):
+            out = [str(x).strip() for x in raw if str(x).strip()]
+            if out:
+                return out
+    except Exception:
+        pass
+    return values
+
+
 def _wm_short_path(path: str | None, max_len: int = 95) -> str:
     """Skróć długą ścieżkę do paska statusu bez zmiany samej wartości."""
     text = str(path or "").strip()
@@ -787,6 +866,46 @@ def uruchom_panel(root, login, rola):
     ttk.Label(session_wrap, textvariable=session_var, style="WM.Muted.TLabel").pack(
         side="left", padx=(0, 8)
     )
+    ttk.Label(session_wrap, text="Motyw:", style="WM.Muted.TLabel").pack(
+        side="left", padx=(8, 4)
+    )
+    theme_var = tk.StringVar(master=root, value=_wm_get_current_theme())
+    theme_box = ttk.Combobox(
+        session_wrap,
+        textvariable=theme_var,
+        values=_wm_theme_values(),
+        state="readonly",
+        width=12,
+    )
+    theme_box.pack(side="left", padx=(0, 8))
+
+    def _on_quick_theme_change(_event=None):
+        selected = theme_var.get().strip() or "default"
+        saved = _wm_save_theme(selected)
+        try:
+            apply_theme(root)
+        except Exception:
+            pass
+        try:
+            ensure_theme_applied(root)
+        except Exception:
+            pass
+        try:
+            root.event_generate("<<ThemeChanged>>", when="tail")
+        except Exception:
+            pass
+        if not saved:
+            try:
+                messagebox.showwarning(
+                    "Motyw",
+                    "Motyw został zastosowany tylko tymczasowo. "
+                    "Nie udało się zapisać configu.",
+                    parent=root,
+                )
+            except Exception:
+                pass
+
+    theme_box.bind("<<ComboboxSelected>>", _on_quick_theme_change)
 
     root_status_text, root_status_warn = _wm_build_root_status_text()
     root_status_var = tk.StringVar(master=root, value=root_status_text)
@@ -1084,8 +1203,46 @@ def uruchom_panel(root, login, rola):
             except Exception:
                 sent = False
             if not sent:
-                os.makedirs("data", exist_ok=True)
-                path = os.path.join("data", "opinie.json")
+                def _feedback_data_root() -> str:
+                    """Zwraca aktywny ROOT/data dla lokalnego zapisu opinii."""
+
+                    try:
+                        from core import root_paths as wm_root_paths
+
+                        data_root = wm_root_paths.get_data_root()
+                        if data_root:
+                            return str(data_root)
+                    except Exception:
+                        pass
+
+                    try:
+                        cm = globals().get("CONFIG_MANAGER")
+                        if cm is not None:
+                            data_root = cm.path_data()
+                            if data_root:
+                                return str(data_root)
+                    except Exception:
+                        pass
+
+                    try:
+                        env_data_root = os.environ.get("WM_DATA_ROOT")
+                        if env_data_root:
+                            return str(env_data_root)
+                    except Exception:
+                        pass
+
+                    return "data"
+
+                try:
+                    data_root = _feedback_data_root()
+                except Exception:
+                    data_root = "data"
+                os.makedirs(data_root, exist_ok=True)
+                path = os.path.join(data_root, "opinie.json")
+                try:
+                    print(f"[WM-ROOT][FEEDBACK] zapis opinii: {path}")
+                except Exception:
+                    pass
                 try:
                     with open(path, "r", encoding="utf-8") as fh:
                         data = json.load(fh)
