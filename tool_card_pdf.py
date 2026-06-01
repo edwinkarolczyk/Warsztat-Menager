@@ -101,10 +101,56 @@ def _draw_wrapped_line(canvas_obj, text: str, x: float, y: float, max_chars: int
     return y
 
 
+def _register_reportlab_unicode_fonts() -> tuple[str, str]:
+    """
+    Rejestruje fonty TTF z polskimi znakami dla ReportLab.
+
+    Domyślne PDF-owe Helvetica/Helvetica-Bold nie gwarantują poprawnych znaków PL.
+    Na Windows najczęściej dostępne są Arial, Calibri albo Segoe UI.
+    """
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    candidates = [
+        (
+            "WMArial",
+            "WMArial-Bold",
+            r"C:\Windows\Fonts\arial.ttf",
+            r"C:\Windows\Fonts\arialbd.ttf",
+        ),
+        (
+            "WMCalibri",
+            "WMCalibri-Bold",
+            r"C:\Windows\Fonts\calibri.ttf",
+            r"C:\Windows\Fonts\calibrib.ttf",
+        ),
+        (
+            "WMSegoeUI",
+            "WMSegoeUI-Bold",
+            r"C:\Windows\Fonts\segoeui.ttf",
+            r"C:\Windows\Fonts\segoeuib.ttf",
+        ),
+    ]
+
+    for regular_name, bold_name, regular_path, bold_path in candidates:
+        if not (os.path.exists(regular_path) and os.path.exists(bold_path)):
+            continue
+        try:
+            pdfmetrics.registerFont(TTFont(regular_name, regular_path))
+            pdfmetrics.registerFont(TTFont(bold_name, bold_path))
+            return (regular_name, bold_name)
+        except Exception:
+            continue
+
+    return ("Helvetica", "Helvetica-Bold")
+
+
 def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
+
+    font_regular, font_bold = _register_reportlab_unicode_fonts()
 
     c = canvas.Canvas(str(output_path), pagesize=A4)
     width, height = A4
@@ -123,9 +169,9 @@ def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
         ("Data dodania", _first_value(tool, "data_dodania", "date_added", "created_at")),
     ]
 
-    c.setFont("Helvetica-Bold", 28)
+    c.setFont(font_bold, 28)
     c.drawString(left, y, f"NR NARZĘDZIA: {nr}")
-    c.setFont("Helvetica-Bold", 18)
+    c.setFont(font_bold, 18)
     c.drawRightString(right, y, "KARTA NARZĘDZIA")
     y -= 34
 
@@ -133,19 +179,19 @@ def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
     c.line(left, y, right, y)
     y -= 28
 
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont(font_bold, 12)
     c.drawString(left, y, "DANE NARZĘDZIA")
     y -= 22
 
     for label, value in rows:
-        c.setFont("Helvetica-Bold", 10)
+        c.setFont(font_bold, 10)
         c.drawString(left, y, f"{label}:")
-        c.setFont("Helvetica", 10)
+        c.setFont(font_regular, 10)
         c.drawString(left + 95, y, value or "—")
         y -= 18
 
     y -= 12
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont(font_bold, 12)
     c.drawString(left, y, "ZADANIA DO WYKONANIA")
     y -= 24
 
@@ -153,16 +199,16 @@ def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
     if not tasks:
         tasks = ["Brak zadań przypisanych do narzędzia"]
 
-    c.setFont("Helvetica", 10)
+    c.setFont(font_regular, 10)
     for idx, task in enumerate(tasks, start=1):
         if y < 170:
             c.showPage()
             y = height - 18 * mm
-            c.setFont("Helvetica-Bold", 18)
+            c.setFont(font_bold, 18)
             c.drawString(left, y, f"NR NARZĘDZIA: {nr}")
             c.drawRightString(right, y, "KARTA NARZĘDZIA - ZADANIA")
             y -= 34
-            c.setFont("Helvetica", 10)
+            c.setFont(font_regular, 10)
 
         box = "[x]" if _task_done(task) else "[ ]"
         title = _task_title(task) or f"Zadanie {idx}"
@@ -175,7 +221,7 @@ def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
         c.showPage()
         y = height - 18 * mm
 
-    c.setFont("Helvetica-Bold", 12)
+    c.setFont(font_bold, 12)
     c.drawString(left, y, "UWAGI")
     y -= 24
 
@@ -184,11 +230,11 @@ def _generate_pdf_reportlab(tool: dict[str, Any], output_path: Path) -> Path:
         y -= 24
 
     y -= 10
-    c.setFont("Helvetica-Bold", 11)
+    c.setFont(font_bold, 11)
     c.drawString(left, y, "DATA / PODPIS:")
     c.line(left + 95, y, right, y)
 
-    c.setFont("Helvetica", 8)
+    c.setFont(font_regular, 8)
     c.drawRightString(
         right,
         10 * mm,
