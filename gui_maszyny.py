@@ -2083,7 +2083,13 @@ def _detect_real_source(rows_from_fallback: List[Dict], primary_path: str, cfg: 
     return primary_path
 
 
-def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
+def _open_machines_panel(
+    root: tk.Misc,
+    container: tk.Misc,
+    Renderer=None,
+    *,
+    initial_machine_id: str = "",
+):
     for child in container.winfo_children():
         child.destroy()
 
@@ -4025,10 +4031,34 @@ def _open_machines_panel(root: tk.Misc, container: tk.Misc, Renderer=None):
     _refresh_schedule_info()
     _recompute_visible_rows()
     _refresh_tree()
-    _populate_details(None)
+    initial_machine = _find_machine(initial_machine_id)
+    if initial_machine is None:
+        _populate_details(None)
+    else:
+        selected_id = str(
+            initial_machine.get("id") or initial_machine.get("nr_ewid") or ""
+        ).strip()
+        _set_selected_machine(selected_id)
+        _refresh_tree()
+        _open_machine_usage_window(initial_machine)
 
     logger.info("[Maszyny] Panel otwarty; rekordów: %d", len(rows_cache))
     return tree
+
+
+def open_machine_usage(
+    master: tk.Misc, machine_id: str, *, label: str = ""
+) -> tk.Toplevel:
+    """Otwórz panel maszyn oraz użytkowanie wskazanej maszyny."""
+    win = tk.Toplevel(master)
+    win.title(f"Użytkowanie maszyny – {label or machine_id}")
+    win.geometry("1200x800")
+    win.resizable(True, True)
+
+    container = ttk.Frame(win)
+    container.pack(fill="both", expand=True)
+    _open_machines_panel(win, container, initial_machine_id=machine_id)
+    return win
 
 
 def panel_maszyny(root, frame, login=None, rola=None):
