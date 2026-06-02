@@ -216,12 +216,6 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
     ).pack(side="right", padx=(0, 6))
     ttk.Button(
         toolbar,
-        text="Dodaj",
-        command=owner._add_item,
-        style="WM.Side.TButton",
-    ).pack(side="right", padx=(0, 6))
-    ttk.Button(
-        toolbar,
         text="Wyczyść",
         command=owner._clear_filters,
         style="WM.Side.TButton",
@@ -230,6 +224,12 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
         toolbar,
         text="Odśwież",
         command=owner.refresh,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Dodaj",
+        command=owner._add_item,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
 
