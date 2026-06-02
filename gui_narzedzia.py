@@ -492,6 +492,10 @@ from utils import error_dialogs
 import logger as app_logger
 
 
+_ACTIVE_TOOL_EDITOR_OPENER = None
+_ACTIVE_TOOL_EDITOR_ROOT = None
+
+
 def _external_tool_id_variants(tool_id: str) -> set[str]:
     """Warianty ID narzędzia do porównania: 42 / 042."""
     raw = str(tool_id or "").strip()
@@ -625,33 +629,36 @@ def _external_find_tool_path(tool: Mapping[str, Any]) -> str:
     return ""
 
 
-def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
-    """Otwiera pełny edytor narzędzia podpięty do głównej listy narzędzi."""
+def _active_tool_editor_available() -> bool:
+    root = globals().get("_ACTIVE_TOOL_EDITOR_ROOT")
+    opener = globals().get("_ACTIVE_TOOL_EDITOR_OPENER")
+    if not callable(opener):
+        return False
     try:
-        return open_tool_editor_by_id(master, tool_id)
-    except Exception as exc:
-        if "Moduł Narzędzia nie został jeszcze otwarty" not in str(exc):
-            raise
+        if root is not None and hasattr(root, "winfo_exists"):
+            return bool(root.winfo_exists())
+    except Exception:
+        return False
+    return root is not None
 
+
+def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
+    """
+    Publiczny helper dla Dyspozycji.
+    Otwiera pełny edytor narzędzia z modułu Narzędzia.
+    """
     tool = _external_find_tool_by_id(tool_id)
     if not tool:
         return False
 
-    tool_path = _external_find_tool_path(tool)
-
-    editor = globals().get("open_tool_editor")
-    if callable(editor):
-        try:
-            editor(master, tool, tool_path=tool_path, editing=True)
-        except TypeError:
-            try:
-                editor(master, tool, tool_path, True)
-            except TypeError:
-                editor(master, tool)
+    opener = globals().get("_ACTIVE_TOOL_EDITOR_OPENER")
+    if callable(opener) and _active_tool_editor_available():
+        opener(tool)
         return True
 
     raise RuntimeError(
-        "Nie znaleziono funkcji open_tool_editor dla pełnego edytora narzędzia."
+        "Pełny edytor narzędzia jest dostępny dopiero po otwarciu modułu Narzędzia. "
+        "Otwórz moduł Narzędzia raz, potem wróć do Dyspozycji."
     )
 
 
@@ -7045,6 +7052,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         dlg.bind("<Escape>", _kb_close)
         dlg.bind("<Control-w>", _kb_close)
         dlg.bind("<F5>", _kb_refresh)
+
+    global _ACTIVE_TOOL_EDITOR_OPENER, _ACTIVE_TOOL_EDITOR_ROOT
+    _ACTIVE_TOOL_EDITOR_ROOT = root
+    _ACTIVE_TOOL_EDITOR_OPENER = lambda tool: open_tool_dialog(tool)
 
     # ===================== BINDY / START =====================
     _dbg("Init panel_narzedzia – start listy")
