@@ -581,9 +581,78 @@ def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _external_find_tool_path(tool: Mapping[str, Any]) -> str:
+    """Zwraca ścieżkę pliku narzędzia dla pełnego edytora."""
+    path = str(tool.get("_path") or tool.get("path") or tool.get("plik") or "").strip()
+    if path:
+        return path
+
+    tool_id = _external_get_tool_id(tool)
+    if not tool_id:
+        return ""
+
+    candidates: list[Path] = []
+    try:
+        base = Path(_resolve_tools_dir())
+        candidates.extend(
+            [
+                base / f"{tool_id}.json",
+                base / f"{tool_id.zfill(3)}.json"
+                if tool_id.isdigit()
+                else base / f"{tool_id}.json",
+            ]
+        )
+    except Exception:
+        pass
+
+    try:
+        for entry in iter_tools_json():
+            if isinstance(entry, tuple):
+                candidate_path = Path(str(entry[0]))
+            else:
+                candidate_path = Path(str(entry))
+            if candidate_path.stem in _external_tool_id_variants(tool_id):
+                candidates.append(candidate_path)
+    except Exception:
+        pass
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                return str(candidate)
+        except Exception:
+            continue
+    return ""
+
+
 def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
     """Otwiera pełny edytor narzędzia podpięty do głównej listy narzędzi."""
-    return open_tool_editor_by_id(master, tool_id)
+    try:
+        return open_tool_editor_by_id(master, tool_id)
+    except Exception as exc:
+        if "Moduł Narzędzia nie został jeszcze otwarty" not in str(exc):
+            raise
+
+    tool = _external_find_tool_by_id(tool_id)
+    if not tool:
+        return False
+
+    tool_path = _external_find_tool_path(tool)
+
+    editor = globals().get("open_tool_editor")
+    if callable(editor):
+        try:
+            editor(master, tool, tool_path=tool_path, editing=True)
+        except TypeError:
+            try:
+                editor(master, tool, tool_path, True)
+            except TypeError:
+                editor(master, tool)
+        return True
+
+    raise RuntimeError(
+        "Nie znaleziono funkcji open_tool_editor dla pełnego edytora narzędzia."
+    )
 
 
 logger = getLogger(__name__)
