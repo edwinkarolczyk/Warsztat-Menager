@@ -27,6 +27,82 @@ except Exception:  # pragma: no cover
     resolve_profiles_path = None  # type: ignore
 
 
+def _normalize_object_id(value: str) -> set[str]:
+    raw = str(value or "").strip()
+    out = {raw} if raw else set()
+    if raw.isdigit():
+        out.add(raw.zfill(3))
+        out.add(str(int(raw)))
+    return {item for item in out if item}
+
+
+def _find_tool_preview(tool_id: str) -> dict[str, str]:
+    variants = _normalize_object_id(tool_id)
+    if not variants:
+        return {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+    except Exception:
+        return {}
+    try:
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        rid_variants = _normalize_object_id(rid)
+        if not variants.intersection(rid_variants):
+            continue
+        return {
+            "ID": rid or tool_id,
+            "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
+            "Typ": str(row.get("typ") or row.get("type") or "—"),
+            "Status": str(row.get("status") or "—"),
+        }
+    return {}
+
+
+def _find_machine_preview(machine_id: str) -> dict[str, str]:
+    variants = _normalize_object_id(machine_id)
+    if not variants:
+        return {}
+    try:
+        rows = load_machine_choices()
+    except Exception:
+        rows = []
+    for object_id, label in rows or []:
+        oid = str(object_id or "").strip()
+        if variants.intersection(_normalize_object_id(oid)):
+            return {
+                "ID": oid or machine_id,
+                "Nazwa": str(label or "—"),
+                "Typ": "—",
+                "Status": "—",
+                "Lokalizacja": "—",
+            }
+    try:
+        from gui_maszyny import load_machines_rows
+        machines = load_machines_rows()
+    except Exception:
+        machines = []
+    for row in machines or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr_ewid") or "").strip()
+        if not variants.intersection(_normalize_object_id(rid)):
+            continue
+        return {
+            "ID": rid or machine_id,
+            "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
+            "Typ": str(row.get("typ") or row.get("type") or "—"),
+            "Status": str(row.get("status") or "—"),
+            "Lokalizacja": str(row.get("lokalizacja") or row.get("hala") or "—"),
+        }
+    return {}
+
+
 def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
     """Otwiera normalny widok narzędzia używany przez moduł Narzędzia."""
     tool_id = str(object_id or "").strip()
@@ -213,6 +289,7 @@ def open_dyspozycje_creator(
     object_panel = ttk.LabelFrame(frame, text="Powiązany obiekt dyspozycji")
     object_panel.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=(14, 0))
     object_panel.columnconfigure(0, weight=1)
+    object_panel.rowconfigure(1, weight=1)
 
     var_object_panel_info = tk.StringVar(
         value="Wybierz typ i obiekt dyspozycji, aby zobaczyć powiązany element."
@@ -225,12 +302,41 @@ def open_dyspozycje_creator(
     )
     lbl_object_panel_info.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
 
+    object_card = ttk.Frame(object_panel)
+    object_card.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 8))
+    object_card.columnconfigure(1, weight=1)
+
     object_panel_buttons = ttk.Frame(object_panel)
-    object_panel_buttons.grid(row=1, column=0, sticky="w", padx=10, pady=(0, 10))
+    object_panel_buttons.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 10))
 
     options_map: dict[str, str] = {}
     all_labels: list[str] = []
     source_module = {"value": ""}
+
+    def _clear_object_card() -> None:
+        for child in object_card.winfo_children():
+            child.destroy()
+
+    def _render_object_card(title: str, data: dict[str, str]) -> None:
+        _clear_object_card()
+        ttk.Label(
+            object_card,
+            text=title,
+            font=("Segoe UI", 11, "bold"),
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        if not data:
+            ttk.Label(
+                object_card,
+                text="Nie znaleziono danych powiązanego obiektu.",
+            ).grid(row=1, column=0, columnspan=2, sticky="w")
+            return
+        for idx, (label, value) in enumerate(data.items(), start=1):
+            ttk.Label(object_card, text=f"{label}:").grid(
+                row=idx, column=0, sticky="e", padx=(0, 8), pady=2
+            )
+            ttk.Label(object_card, text=value).grid(
+                row=idx, column=1, sticky="w", pady=2
+            )
 
     btn_open_tool = ttk.Button(
         object_panel_buttons,
@@ -262,17 +368,26 @@ def open_dyspozycje_creator(
 
         for child in object_panel_buttons.winfo_children():
             child.pack_forget()
+        _clear_object_card()
 
         if typ == "narzedzie":
             var_object_panel_info.set(
                 "Narzędzie powiązane z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
             )
+            _render_object_card(
+                "Karta narzędzia",
+                _find_tool_preview(object_id),
+            )
             btn_open_tool.pack(side="left")
         elif typ == "maszyna":
             var_object_panel_info.set(
                 "Maszyna powiązana z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
+            )
+            _render_object_card(
+                "Karta maszyny",
+                _find_machine_preview(object_id),
             )
             btn_open_machine.pack(side="left")
         else:
