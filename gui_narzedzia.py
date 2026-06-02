@@ -673,21 +673,7 @@ def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> boo
     Otwiera pełny edytor narzędzia z modułu Narzędzia.
     """
     print(f"[WM-DBG][DYSPO->NARZ] open_tool_from_external_context tool_id={tool_id!r}")
-    print(f"[WM-DBG][DYSPO->NARZ] _OPEN_TOOL_EDITOR_BY_ID callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
-    print(f"[WM-DBG][DYSPO->NARZ] moduł Narzędzia aktywny={_active_tool_editor_available()}")
-    tool = _external_find_tool_by_id(tool_id)
-    if not tool:
-        return False
-
-    opener = globals().get("_ACTIVE_TOOL_EDITOR_OPENER")
-    if callable(opener) and _active_tool_editor_available():
-        opener(tool)
-        return True
-
-    raise RuntimeError(
-        "Pełny edytor narzędzia jest dostępny dopiero po otwarciu modułu Narzędzia. "
-        "Otwórz moduł Narzędzia raz, potem wróć do Dyspozycji."
-    )
+    return open_tool_editor_by_id(master, tool_id)
 
 
 logger = getLogger(__name__)
@@ -4084,8 +4070,6 @@ def open_tool_editor_by_id(
     current_role: str | None = None,
 ) -> bool:
     """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
-    del current_user, current_role
-
     print(f"[WM-DBG][DYSPO->NARZ] open_tool_editor_by_id tool_id={tool_id!r}")
     print(f"[WM-DBG][DYSPO->NARZ] opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
     print(f"[WM-DBG][DYSPO->NARZ] master={master!r}")
@@ -4106,12 +4090,22 @@ def open_tool_editor_by_id(
             frame = ttk.Frame(win, style="WM.TFrame")
             frame.pack(fill="both", expand=True)
 
-            panel_narzedzia(win, frame, login=None, rola=None)
+            panel_narzedzia(
+                win,
+                frame,
+                login=current_user or None,
+                rola=current_role,
+            )
             print(f"[WM-DBG][DYSPO->NARZ] panel_narzedzia zbudowany, opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
             print(f"[WM-DBG][DYSPO->NARZ] planuję ponowne otwarcie tool_id={tool_id!r} za 300ms")
             win.after(
                 300,
-                lambda: open_tool_editor_by_id(win, tool_id),
+                lambda: open_tool_editor_by_id(
+                    win,
+                    tool_id,
+                    current_user=current_user,
+                    current_role=current_role,
+                ),
             )
             return True
         except Exception as exc:
