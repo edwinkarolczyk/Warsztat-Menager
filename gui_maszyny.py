@@ -1131,6 +1131,19 @@ from utils_maszyny import (
     merge_rows_union_by_id,
     resolve_schedule_path,
 )
+
+
+def load_machines_rows() -> list[dict]:
+    """Wczytaj rekordy maszyn z aktywnego źródła danych aplikacji."""
+
+    cfg = get_config() or {}
+    rows, _primary_path = load_machines_rows_with_fallback(cfg, resolve_rel)
+    if rows:
+        return rows
+    fallback_rows, _mode, _primary_count, _legacy_count = load_machines()
+    return fallback_rows
+
+
 def _iter_inspection_dates(machine: dict) -> list[dt.date]:
     """
     Zwraca listę poprawnych dat (datetime.date) z machine['zadania'].
