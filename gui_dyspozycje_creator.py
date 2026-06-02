@@ -146,7 +146,11 @@ def _cards_output_dir() -> Path:
     return base
 
 
-def _print_tool_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
+def _print_tool_card_from_dyspo(
+    master: tk.Widget,
+    object_id: str,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
     tool_id = str(object_id or "").strip()
     if not tool_id:
         messagebox.showwarning("Dyspozycje", "Brak numeru narzędzia.", parent=master)
@@ -161,7 +165,12 @@ def _print_tool_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
         return
     try:
         from tool_card_pdf import generate_tool_card
-        generate_tool_card(tool, _cards_output_dir(), open_after=True)
+        generate_tool_card(
+            tool,
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
     except Exception as exc:
         messagebox.showerror(
             "Dyspozycje",
@@ -170,7 +179,11 @@ def _print_tool_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
         )
 
 
-def _print_machine_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
+def _print_machine_card_from_dyspo(
+    master: tk.Widget,
+    object_id: str,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
     machine_id = str(object_id or "").strip()
     if not machine_id:
         messagebox.showwarning("Dyspozycje", "Brak numeru maszyny.", parent=master)
@@ -185,7 +198,12 @@ def _print_machine_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
         return
     try:
         from machine_card_pdf import generate_machine_card
-        generate_machine_card(machine, _cards_output_dir(), open_after=True)
+        generate_machine_card(
+            machine,
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
     except Exception as exc:
         messagebox.showerror(
             "Dyspozycje",
@@ -404,6 +422,17 @@ def open_dyspozycje_creator(
     all_labels: list[str] = []
     source_module = {"value": ""}
 
+    def _current_dyspozycja_for_print() -> dict[str, Any]:
+        return {
+            "opis": txt_desc.get("1.0", "end").strip(),
+            "termin": var_deadline.get().strip(),
+            "przypisane_do": (
+                "" if var_all.get() else var_assigned.get().strip()
+            ),
+            "priorytet": var_priority.get().strip(),
+            "autor": str(autor or ctx.get("autor") or "").strip(),
+        }
+
     def _clear_object_card() -> None:
         for child in object_card.winfo_children():
             child.destroy()
@@ -443,6 +472,7 @@ def open_dyspozycje_creator(
         command=lambda: _print_tool_card_from_dyspo(
             win,
             options_map.get(var_object_display.get().strip(), ""),
+            _current_dyspozycja_for_print(),
         ),
     )
     btn_open_machine = ttk.Button(
@@ -461,6 +491,7 @@ def open_dyspozycje_creator(
         command=lambda: _print_machine_card_from_dyspo(
             win,
             options_map.get(var_object_display.get().strip(), ""),
+            _current_dyspozycja_for_print(),
         ),
     )
 
@@ -635,7 +666,9 @@ def open_dyspozycje_creator(
             "tytul": title,
             "opis": txt_desc.get("1.0", "end").strip(),
             "autor": str(autor or ctx.get("autor") or "").strip(),
-            "przypisane_do": "" if var_all.get() else var_assigned.get().strip(),
+            "przypisane_do": (
+                "" if var_all.get() else var_assigned.get().strip()
+            ),
             "dla_wszystkich": bool(var_all.get()),
             "termin": var_deadline.get().strip(),
             "priorytet": var_priority.get().strip(),

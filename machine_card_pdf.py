@@ -139,7 +139,11 @@ def _format_list(value: Any) -> str:
     return str(value)
 
 
-def _generate_pdf_reportlab(machine: dict[str, Any], output_path: Path) -> Path:
+def _generate_pdf_reportlab(
+    machine: dict[str, Any],
+    output_path: Path,
+    dyspozycja: dict[str, Any] | None = None,
+) -> Path:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas
@@ -184,6 +188,26 @@ def _generate_pdf_reportlab(machine: dict[str, Any], output_path: Path) -> Path:
         c.setFont(font_regular, 10)
         y = _draw_wrapped_line(c, value or "—", left + 120, y, 80)
         y -= 4
+
+    if dyspozycja:
+        y -= 12
+        c.setFont(font_bold, 12)
+        c.drawString(left, y, "DANE DYSPOZYCJI")
+        y -= 22
+
+        rows_dysp = [
+            ("Opis", str(dyspozycja.get("opis", ""))),
+            ("Termin", str(dyspozycja.get("termin", ""))),
+            ("Przypisane do", str(dyspozycja.get("przypisane_do", ""))),
+            ("Priorytet", str(dyspozycja.get("priorytet", ""))),
+            ("Autor", str(dyspozycja.get("autor", ""))),
+        ]
+        for label, value in rows_dysp:
+            c.setFont(font_bold, 10)
+            c.drawString(left, y, f"{label}:")
+            c.setFont(font_regular, 10)
+            y = _draw_wrapped_line(c, value or "—", left + 120, y, 80)
+            y -= 4
 
     y -= 12
     c.setFont(font_bold, 12)
@@ -246,7 +270,11 @@ def _generate_pdf_reportlab(machine: dict[str, Any], output_path: Path) -> Path:
     return output_path
 
 
-def _generate_html_fallback(machine: dict[str, Any], output_path: Path) -> Path:
+def _generate_html_fallback(
+    machine: dict[str, Any],
+    output_path: Path,
+    dyspozycja: dict[str, Any] | None = None,
+) -> Path:
     html_path = output_path.with_suffix(".html")
     nr = html.escape(_machine_number(machine))
     rows = [
@@ -262,6 +290,24 @@ def _generate_html_fallback(machine: dict[str, Any], output_path: Path) -> Path:
         f"<tr><th>{html.escape(label)}</th><td>{html.escape(value or '—')}</td></tr>"
         for label, value in rows
     )
+    dysp_html = ""
+    if dyspozycja:
+        rows_dysp = [
+            ("Opis", str(dyspozycja.get("opis", ""))),
+            ("Termin", str(dyspozycja.get("termin", ""))),
+            ("Przypisane do", str(dyspozycja.get("przypisane_do", ""))),
+            ("Priorytet", str(dyspozycja.get("priorytet", ""))),
+            ("Autor", str(dyspozycja.get("autor", ""))),
+        ]
+        rows_dysp_html = "\n".join(
+            f"<tr><th>{html.escape(label)}</th><td>{html.escape(value or '—')}</td></tr>"
+            for label, value in rows_dysp
+        )
+        dysp_html = f"""
+<h2>DANE DYSPOZYCJI</h2>
+<table>{rows_dysp_html}</table>
+"""
+
     content = f"""<!doctype html>
 <html lang="pl">
 <head>
@@ -290,6 +336,7 @@ h2 {{ font-size: 17px; margin-top: 22px; }}
 <hr>
 <h2>DANE MASZYNY</h2>
 <table>{rows_html}</table>
+{dysp_html}
 <h2>UWAGI</h2>
 <div class="line"></div>
 <div class="line"></div>
@@ -310,6 +357,7 @@ def generate_machine_card(
     machine: dict[str, Any],
     output_dir: str | Path,
     *,
+    dyspozycja: dict[str, Any] | None = None,
     open_after: bool = True,
 ) -> Path:
     output_base = Path(output_dir)
@@ -320,9 +368,13 @@ def generate_machine_card(
     output_path = output_base / f"karta_maszyny_{nr}_{stamp}.pdf"
 
     try:
-        generated = _generate_pdf_reportlab(machine, output_path)
+        generated = _generate_pdf_reportlab(
+            machine, output_path, dyspozycja=dyspozycja
+        )
     except Exception:
-        generated = _generate_html_fallback(machine, output_path)
+        generated = _generate_html_fallback(
+            machine, output_path, dyspozycja=dyspozycja
+        )
 
     if open_after:
         _open_file(generated)
