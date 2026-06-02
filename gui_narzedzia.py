@@ -4064,6 +4064,24 @@ _OPEN_TOOL_EDITOR_BY_ID: Callable[[str], bool] | None = None
 _OPEN_TOOL_EDITOR_OWNER: tk.Misc | None = None
 
 
+def _safe_tool_editor_parent(master: tk.Misc | None) -> tk.Misc | None:
+    """Zwraca żywego parenta dla Toplevel albo None, gdy master jest martwy."""
+    if master is None:
+        return None
+    try:
+        if hasattr(master, "winfo_exists") and not master.winfo_exists():
+            return None
+    except Exception:
+        return None
+    try:
+        top = master.winfo_toplevel()
+        if hasattr(top, "winfo_exists") and top.winfo_exists():
+            return top
+    except Exception:
+        return None
+    return master
+
+
 def _tool_editor_opener_alive() -> bool:
     opener = globals().get("_OPEN_TOOL_EDITOR_BY_ID")
     owner = globals().get("_OPEN_TOOL_EDITOR_OWNER")
@@ -4109,7 +4127,13 @@ def open_tool_editor_by_id(
     if _OPEN_TOOL_EDITOR_BY_ID is None:
         print("[WM-DBG][DYSPO->NARZ] Brak aktywnego callbacka edytora, tworzę moduł Narzędzia w Toplevel")
         try:
-            win = tk.Toplevel(master) if master is not None else tk.Toplevel()
+            parent = _safe_tool_editor_parent(master)
+            print(f"[WM-DBG][DYSPO->NARZ] safe parent={parent!r}")
+            try:
+                win = tk.Toplevel(parent) if parent is not None else tk.Toplevel()
+            except tk.TclError as exc:
+                print(f"[WM-DBG][DYSPO->NARZ][WARN] parent Toplevel failed: {exc}; retry without parent")
+                win = tk.Toplevel()
             win.title("Narzędzia")
             win.geometry("1400x850")
             win.resizable(True, True)
