@@ -208,6 +208,7 @@ class Renderer:
         self._blink_on  = True
 
         self._edit_mode = False
+        self.show_grid = False
         self._drag_mid: str | None = None
         self._drag_off = (0, 0)
 
@@ -314,7 +315,7 @@ class Renderer:
         self.canvas.delete("all")
         self._items_by_id.clear()
 
-        # tło + siatka
+        # tło + opcjonalna siatka
         if self._bg_image is not None:
             self.canvas.create_image(
                 0,
@@ -323,7 +324,13 @@ class Renderer:
                 anchor="nw",
                 tags=("background", "background-image"),
             )
-            draw_grid(self.canvas, grid_size=24, line="#1e293b")
+            should_draw_grid = bool(self.show_grid or self._edit_mode)
+            print(
+                f"[WM-HALA][GRID] show_grid={self.show_grid} "
+                f"edit_mode={self._edit_mode} draw={should_draw_grid}"
+            )
+            if should_draw_grid:
+                draw_grid(self.canvas, grid_size=24, line="#1e293b")
         else:
             draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
 
