@@ -204,14 +204,20 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
     ).pack(side="right", padx=(0, 6))
     ttk.Button(
         toolbar,
-        text="Zwolnij rez.",
-        command=owner._rez_release,
+        text="Edytuj",
+        command=owner._edit_selected_item,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
     ttk.Button(
         toolbar,
-        text="Edytuj",
-        command=owner._edit_selected_item,
+        text="Dodaj",
+        command=owner._add_item,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Zwolnij rez.",
+        command=owner._rez_release,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
     ttk.Button(
@@ -224,12 +230,6 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
         toolbar,
         text="Odśwież",
         command=owner.refresh,
-        style="WM.Side.TButton",
-    ).pack(side="right", padx=(0, 6))
-    ttk.Button(
-        toolbar,
-        text="Dodaj",
-        command=owner._add_item,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
 
@@ -793,11 +793,6 @@ class MagazynFrame(ttk.Frame):
         return self.tree.item(sel[0], "values")[0]
 
     def _rez_do_polproduktu(self):
-        if not _can(self, "reserve"):
-            messagebox.showwarning(
-                "Uprawnienia", "Brak uprawnień do rezerwacji."
-            )
-            return
         item_id = self._selected_item_id()
         if not item_id:
             return
@@ -805,11 +800,6 @@ class MagazynFrame(ttk.Frame):
         self.refresh()
 
     def _rez_release(self):
-        if not _can(self, "unreserve"):
-            messagebox.showwarning(
-                "Uprawnienia", "Brak uprawnień do zwolnienia rezerwacji."
-            )
-            return
         item_id = self._selected_item_id()
         if not item_id:
             return
