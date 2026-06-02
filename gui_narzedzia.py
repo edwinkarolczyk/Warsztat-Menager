@@ -4056,9 +4056,34 @@ def open_tool_editor_by_id(
     current_role: str | None = None,
 ) -> bool:
     """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
-    del master, current_user, current_role
+    del current_user, current_role
+
     if _OPEN_TOOL_EDITOR_BY_ID is None:
-        raise RuntimeError("Moduł Narzędzia nie został jeszcze otwarty.")
+        try:
+            win = tk.Toplevel(master) if master is not None else tk.Toplevel()
+            win.title("Narzędzia")
+            win.geometry("1400x850")
+            win.resizable(True, True)
+            try:
+                apply_theme(win)
+                ensure_theme_applied(win)
+            except Exception:
+                pass
+
+            frame = ttk.Frame(win, style="WM.TFrame")
+            frame.pack(fill="both", expand=True)
+
+            panel_narzedzia(win, frame, login=None, rola=None)
+            win.after(
+                300,
+                lambda: open_tool_editor_by_id(win, tool_id),
+            )
+            return True
+        except Exception as exc:
+            raise RuntimeError(
+                "Nie udało się automatycznie otworzyć modułu Narzędzia dla edycji narzędzia."
+            ) from exc
+
     return _OPEN_TOOL_EDITOR_BY_ID(str(tool_id or "").strip())
 
 
@@ -4245,6 +4270,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         except Exception:
             return False
         return False
+
+    global _OPEN_TOOL_EDITOR_BY_ID
+    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
 
     class _ToolsViewFallback:
         def _refresh_all(self) -> None:
@@ -7062,8 +7090,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     btn_add.configure(command=choose_mode_and_add)
     if tools_view is not None:
         tools_view.bind_open_detail(_open_tool_by_id)
-    global _OPEN_TOOL_EDITOR_BY_ID
-    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
     refresh_list()
 
 __all__ = [
