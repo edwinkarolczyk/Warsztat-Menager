@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime as _dt
 import logging
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
@@ -86,8 +87,6 @@ def _dysp_is_overdue(item: dict[str, Any]) -> bool:
     if not raw:
         return False
     try:
-        import datetime as _dt
-
         deadline = _dt.date.fromisoformat(raw[:10])
         return deadline < _dt.date.today()
     except Exception:
@@ -101,6 +100,59 @@ def _dysp_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str, str]:
     termin = str(item.get("termin") or "")
     created = str(item.get("utworzono") or "")
     return (closed, overdue, new, termin, created)
+
+
+def _dysp_type_label(item: dict[str, Any]) -> str:
+    value = str(item.get("typ_dyspozycji") or item.get("typ") or "").strip()
+    if value == "zlecenie_wykonania":
+        return "zlecenie wykonania"
+    return value or "—"
+
+
+def _dysp_title_label(item: dict[str, Any]) -> str:
+    return str(item.get("tytul") or item.get("opis") or "Dyspozycja").strip()
+
+
+def _dysp_object_label(item: dict[str, Any]) -> str:
+    return str(
+        item.get("obiekt_id")
+        or item.get("object_id")
+        or item.get("narzedzie_id")
+        or item.get("maszyna_id")
+        or "—"
+    ).strip() or "—"
+
+
+def _dysp_assigned_label(item: dict[str, Any]) -> str:
+    if item.get("dla_wszystkich") is True:
+        return "wszyscy"
+    return str(item.get("przypisane_do") or "—").strip() or "—"
+
+
+def _dysp_due_in_label(item: dict[str, Any]) -> str:
+    if _dysp_is_closed(item):
+        return "—"
+    raw = str(item.get("termin") or item.get("deadline") or "").strip()
+    if not raw:
+        return "—"
+    try:
+        deadline = _dt.date.fromisoformat(raw[:10])
+    except Exception:
+        return "—"
+    days = (deadline - _dt.date.today()).days
+    if days == 0:
+        return "dziś"
+    if days == 1:
+        return "jutro"
+    return f"{days} dni"
+
+
+def _dysp_priority_label(item: dict[str, Any]) -> str:
+    return str(item.get("priorytet") or "normalny").strip() or "normalny"
+
+
+def _dysp_author_label(item: dict[str, Any]) -> str:
+    return str(item.get("autor") or item.get("created_by") or "—").strip() or "—"
 
 
 def _resolve_creator() -> Callable[..., tk.Toplevel] | None:
@@ -213,11 +265,49 @@ class ZleceniaView(ttk.Frame):
         )
 
     def _build_tree(self) -> None:
-        columns = ("typ", "status", "tytul", "przypisane", "termin")
+        columns = (
+            "dyspozycja",
+            "status",
+            "typ",
+            "obiekt",
+            "przypisane",
+            "termin",
+            "za_ile",
+            "priorytet",
+            "autor",
+        )
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
+
+        headings = {
+            "dyspozycja": "Dyspozycja",
+            "status": "Status",
+            "typ": "Typ",
+            "obiekt": "Obiekt",
+            "przypisane": "Przypisane",
+            "termin": "Termin",
+            "za_ile": "Za ile",
+            "priorytet": "Priorytet",
+            "autor": "Autor",
+        }
+        widths = {
+            "dyspozycja": 420,
+            "status": 105,
+            "typ": 130,
+            "obiekt": 95,
+            "przypisane": 135,
+            "termin": 110,
+            "za_ile": 85,
+            "priorytet": 95,
+            "autor": 115,
+        }
         for column in columns:
-            self.tree.heading(column, text=column.capitalize())
-            self.tree.column(column, anchor="center")
+            self.tree.heading(column, text=headings[column])
+            self.tree.column(
+                column,
+                width=widths[column],
+                anchor="w" if column == "dyspozycja" else "center",
+                stretch=column == "dyspozycja",
+            )
         self._apply_dysp_ui_config()
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self._on_double_click, add=True)
@@ -226,6 +316,18 @@ class ZleceniaView(ttk.Frame):
     def _apply_dysp_ui_config(self) -> None:
         self._dysp_ui = _dysp_ui_config()
         ui = self._dysp_ui
+        try:
+            style = ttk.Style(self.tree)
+            style.configure(
+                "Dyspozycje.Treeview", font=("Segoe UI", 11), rowheight=30
+            )
+            style.configure(
+                "Dyspozycje.Treeview.Heading", font=("Segoe UI", 11, "bold")
+            )
+            self.tree.configure(style="Dyspozycje.Treeview")
+        except Exception:
+            pass
+
         self.tree.tag_configure("dysp_closed", foreground=ui["closed_foreground"])
         self.tree.tag_configure("dysp_new", foreground=ui["new_foreground"])
         self.tree.tag_configure(
@@ -317,17 +419,6 @@ class ZleceniaView(ttk.Frame):
         for idx, order in enumerate(sorted(rows, key=_dysp_sort_key)):
             if not isinstance(order, dict):
                 continue
-            rodzaj = str(order.get("typ_dyspozycji") or "")
-            if rodzaj == "zlecenie_wykonania":
-                rodzaj = "zlecenie wykonania"
-            status_txt = str(order.get("status") or "")
-            tytul = str(order.get("tytul") or "")
-            przypisane = (
-                "wszyscy"
-                if order.get("dla_wszystkich") is True
-                else str(order.get("przypisane_do") or "")
-            )
-            termin = str(order.get("termin") or "")
             order_id = (
                 order.get("id")
                 or order.get("nr")
@@ -347,7 +438,17 @@ class ZleceniaView(ttk.Frame):
                 self.tree.insert(
                     "",
                     "end",
-                    values=(rodzaj, status_txt, tytul, przypisane, termin),
+                    values=(
+                        _dysp_title_label(order),
+                        str(order.get("status") or "—"),
+                        _dysp_type_label(order),
+                        _dysp_object_label(order),
+                        _dysp_assigned_label(order),
+                        str(order.get("termin") or "—"),
+                        _dysp_due_in_label(order),
+                        _dysp_priority_label(order),
+                        _dysp_author_label(order),
+                    ),
                     iid=iid,
                     tags=tuple(tags),
                 )
