@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
 
@@ -101,6 +102,96 @@ def _find_machine_preview(machine_id: str) -> dict[str, str]:
             "Lokalizacja": str(row.get("lokalizacja") or row.get("hala") or "—"),
         }
     return {}
+
+
+def _tool_data_for_card(tool_id: str) -> dict[str, Any]:
+    variants = _normalize_object_id(tool_id)
+    if not variants:
+        return {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        if variants.intersection(_normalize_object_id(rid)):
+            return dict(row)
+    return {}
+
+
+def _machine_data_for_card(machine_id: str) -> dict[str, Any]:
+    variants = _normalize_object_id(machine_id)
+    if not variants:
+        return {}
+    try:
+        from gui_maszyny import load_machines_rows
+        rows = load_machines_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr_ewid") or "").strip()
+        if variants.intersection(_normalize_object_id(rid)):
+            return dict(row)
+    return {}
+
+
+def _cards_output_dir() -> Path:
+    base = Path.cwd() / "wydruki" / "karty"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _print_tool_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
+    tool_id = str(object_id or "").strip()
+    if not tool_id:
+        messagebox.showwarning("Dyspozycje", "Brak numeru narzędzia.", parent=master)
+        return
+    tool = _tool_data_for_card(tool_id)
+    if not tool:
+        messagebox.showwarning(
+            "Dyspozycje",
+            f"Nie znaleziono danych narzędzia: {tool_id}",
+            parent=master,
+        )
+        return
+    try:
+        from tool_card_pdf import generate_tool_card
+        generate_tool_card(tool, _cards_output_dir(), open_after=True)
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować karty narzędzia:\n{exc}",
+            parent=master,
+        )
+
+
+def _print_machine_card_from_dyspo(master: tk.Widget, object_id: str) -> None:
+    machine_id = str(object_id or "").strip()
+    if not machine_id:
+        messagebox.showwarning("Dyspozycje", "Brak numeru maszyny.", parent=master)
+        return
+    machine = _machine_data_for_card(machine_id)
+    if not machine:
+        messagebox.showwarning(
+            "Dyspozycje",
+            f"Nie znaleziono danych maszyny: {machine_id}",
+            parent=master,
+        )
+        return
+    try:
+        from machine_card_pdf import generate_machine_card
+        generate_machine_card(machine, _cards_output_dir(), open_after=True)
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować karty maszyny:\n{exc}",
+            parent=master,
+        )
 
 
 def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
@@ -346,6 +437,14 @@ def open_dyspozycje_creator(
             options_map.get(var_object_display.get().strip(), ""),
         ),
     )
+    btn_print_tool_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj kartę narzędzia",
+        command=lambda: _print_tool_card_from_dyspo(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
+        ),
+    )
     btn_open_machine = ttk.Button(
         object_panel_buttons,
         text="Otwórz użytkowanie maszyny",
@@ -353,6 +452,15 @@ def open_dyspozycje_creator(
             win,
             options_map.get(var_object_display.get().strip(), ""),
             var_object_display.get().strip(),
+        ),
+    )
+
+    btn_print_machine_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj kartę maszyny",
+        command=lambda: _print_machine_card_from_dyspo(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
         ),
     )
 
@@ -380,6 +488,7 @@ def open_dyspozycje_creator(
                 _find_tool_preview(object_id),
             )
             btn_open_tool.pack(side="left")
+            btn_print_tool_card.pack(side="left", padx=(8, 0))
         elif typ == "maszyna":
             var_object_panel_info.set(
                 "Maszyna powiązana z dyspozycją: "
@@ -390,6 +499,7 @@ def open_dyspozycje_creator(
                 _find_machine_preview(object_id),
             )
             btn_open_machine.pack(side="left")
+            btn_print_machine_card.pack(side="left", padx=(8, 0))
         else:
             var_object_panel_info.set(
                 "Dla tego typu dyspozycji nie ma jeszcze edytora "
