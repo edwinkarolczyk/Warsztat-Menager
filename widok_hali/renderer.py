@@ -184,7 +184,7 @@ class Renderer:
       - kolor kropki = status,
       - mruganie dla 'awaria',
       - focus/select, drag&drop (w trybie edycji),
-      - lekkie tło + siatka.
+      - tło hali + opcjonalna siatka pomocnicza.
     Callbacki:
       - on_select(mid: str)
       - on_move(mid: str, new_pos: {"x": int, "y": int})
@@ -311,6 +311,19 @@ class Renderer:
             w = 640
         return max(10, min(16, w // 70))
 
+    def _should_draw_grid(self) -> bool:
+        """
+        Siatka jest tylko warstwą pomocniczą.
+        Normalny widok hali ma być czysty, bez kratki.
+        W trybie edycji siatka pomaga ustawiać maszyny.
+        """
+        draw = bool(self.show_grid or self._edit_mode)
+        print(
+            f"[WM-HALA][GRID] show_grid={self.show_grid} "
+            f"edit_mode={self._edit_mode} draw={draw}"
+        )
+        return draw
+
     def _draw_all(self):
         self.canvas.delete("all")
         self._items_by_id.clear()
@@ -324,12 +337,7 @@ class Renderer:
                 anchor="nw",
                 tags=("background", "background-image"),
             )
-            should_draw_grid = bool(self.show_grid or self._edit_mode)
-            print(
-                f"[WM-HALA][GRID] show_grid={self.show_grid} "
-                f"edit_mode={self._edit_mode} draw={should_draw_grid}"
-            )
-            if should_draw_grid:
+            if self._should_draw_grid():
                 draw_grid(self.canvas, grid_size=24, line="#1e293b")
         else:
             draw_background(self.canvas, grid_size=24, bg="#0f172a", line="#1e293b")
@@ -400,6 +408,11 @@ class Renderer:
     # ---------- API publiczne ----------
     def set_edit_mode(self, on: bool):
         self._edit_mode = bool(on)
+        self._draw_all()
+
+    def set_grid_visible(self, on: bool):
+        self.show_grid = bool(on)
+        self._draw_all()
 
     def reload(self, machines: list | None = None):
         self._configure_data_sources(machines)
