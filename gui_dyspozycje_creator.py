@@ -37,6 +37,82 @@ def _normalize_object_id(value: str) -> set[str]:
     return {item for item in out if item}
 
 
+def _task_title(task: Any) -> str:
+    if isinstance(task, dict):
+        return str(
+            task.get("tytul")
+            or task.get("title")
+            or task.get("text")
+            or task.get("nazwa")
+            or task.get("opis")
+            or ""
+        ).strip()
+    return str(task or "").strip()
+
+
+def _task_done(task: Any) -> bool:
+    if isinstance(task, dict):
+        return bool(task.get("done") or task.get("wykonane"))
+    return False
+
+
+def _extract_tool_tasks(tool: dict[str, Any]) -> list[str]:
+    raw = tool.get("zadania")
+    tasks: list[Any] = []
+    if isinstance(raw, list):
+        tasks = raw
+    elif isinstance(raw, dict):
+        for value in raw.values():
+            if isinstance(value, list):
+                tasks.extend(value)
+            elif isinstance(value, dict):
+                for title, done in value.items():
+                    tasks.append({"tytul": str(title), "done": bool(done)})
+            elif isinstance(value, str) and value.strip():
+                tasks.append(value.strip())
+    elif isinstance(raw, str) and raw.strip():
+        tasks = [line.strip() for line in raw.splitlines() if line.strip()]
+
+    out: list[str] = []
+    for task in tasks:
+        title = _task_title(task)
+        if not title:
+            continue
+        mark = "☑" if _task_done(task) else "☐"
+        out.append(f"{mark} {title}")
+    return out
+
+
+def _format_machine_months(value: Any) -> str:
+    months = {
+        1: "Styczeń",
+        2: "Luty",
+        3: "Marzec",
+        4: "Kwiecień",
+        5: "Maj",
+        6: "Czerwiec",
+        7: "Lipiec",
+        8: "Sierpień",
+        9: "Wrzesień",
+        10: "Październik",
+        11: "Listopad",
+        12: "Grudzień",
+    }
+    if not value:
+        return "—"
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        return str(value)
+    out: list[str] = []
+    for item in value:
+        try:
+            out.append(months.get(int(item), str(item)))
+        except (TypeError, ValueError):
+            out.append(str(item))
+    return ", ".join(out) if out else "—"
+
+
 def _find_tool_preview(tool_id: str) -> dict[str, str]:
     variants = _normalize_object_id(tool_id)
     if not variants:
@@ -56,12 +132,24 @@ def _find_tool_preview(tool_id: str) -> dict[str, str]:
         rid_variants = _normalize_object_id(rid)
         if not variants.intersection(rid_variants):
             continue
-        return {
+        preview = {
             "ID": rid or tool_id,
             "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
             "Typ": str(row.get("typ") or row.get("type") or "—"),
             "Status": str(row.get("status") or "—"),
         }
+        tasks = _extract_tool_tasks(row)
+        if tasks:
+            preview["Zadania narzędzia"] = "\n".join(tasks[:12])
+            if len(tasks) > 12:
+                preview["Zadania narzędzia"] += (
+                    f"\n… oraz {len(tasks) - 12} więcej"
+                )
+        else:
+            preview["Zadania narzędzia"] = (
+                "Brak zadań przypisanych do narzędzia"
+            )
+        return preview
     return {}
 
 
@@ -94,12 +182,29 @@ def _find_machine_preview(machine_id: str) -> dict[str, str]:
         rid = str(row.get("id") or row.get("nr_ewid") or "").strip()
         if not variants.intersection(_normalize_object_id(rid)):
             continue
+        workers = row.get("review_workers") or []
+        if isinstance(workers, list):
+            workers_text = ", ".join(
+                str(item) for item in workers if str(item).strip()
+            )
+        else:
+            workers_text = str(workers or "—")
         return {
             "ID": rid or machine_id,
             "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
             "Typ": str(row.get("typ") or row.get("type") or "—"),
             "Status": str(row.get("status") or "—"),
             "Lokalizacja": str(row.get("lokalizacja") or row.get("hala") or "—"),
+            "Domyślny typ przeglądu": str(
+                row.get("default_review_type") or "—"
+            ),
+            "Miesiące przeglądu": _format_machine_months(
+                row.get("review_months")
+            ),
+            "Sugerowani serwisanci": workers_text or "—",
+            "Wpisy serwisowe": str(
+                len(row.get("reviews") or row.get("zadania") or [])
+            ),
         }
     return {}
 
@@ -494,9 +599,9 @@ def open_dyspozycje_creator(
             ttk.Label(object_card, text=f"{label}:").grid(
                 row=idx, column=0, sticky="e", padx=(0, 8), pady=2
             )
-            ttk.Label(object_card, text=value).grid(
-                row=idx, column=1, sticky="w", pady=2
-            )
+            ttk.Label(
+                object_card, text=value, justify="left", wraplength=900
+            ).grid(row=idx, column=1, sticky="w", pady=2)
 
     btn_open_tool = ttk.Button(
         object_panel_buttons,
