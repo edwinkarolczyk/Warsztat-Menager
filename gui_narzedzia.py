@@ -2967,6 +2967,7 @@ class _TaskTemplateUI:
         self._types: list[dict] = []
         self._statuses: list[dict] = []
         self._ui_updating = False
+        self._initial_render = True
         self.tasks_state: list[dict] = []
 
         self.var_collection = tk.StringVar()
@@ -2989,6 +2990,7 @@ class _TaskTemplateUI:
         self.lst.pack(fill="both", expand=True)
 
         self._render_collections_initial()
+        self._initial_render = False
 
     # ===================== helpers =====================
     @contextmanager
@@ -3064,7 +3066,7 @@ class _TaskTemplateUI:
             self._set_info("")
         else:
             self._set_info("Brak typów narzędzi w ustawieniach.")
-            if cid:
+            if cid and not self._initial_render:
                 _notify_missing_configuration(
                     "types",
                     (
@@ -3101,13 +3103,14 @@ class _TaskTemplateUI:
         else:
             if tid:
                 self._set_info("Brak statusów w ustawieniach dla wybranego typu.")
-                _notify_missing_configuration(
-                    "statuses",
-                    (
-                        "Brak zdefiniowanych statusów dla wybranego typu. "
-                        "Dodaj statusy w module Ustawienia → Narzędzia."
-                    ),
-                )
+                if not self._initial_render:
+                    _notify_missing_configuration(
+                        "statuses",
+                        (
+                            "Brak zdefiniowanych statusów dla wybranego typu. "
+                            "Dodaj statusy w module Ustawienia → Narzędzia."
+                        ),
+                    )
             else:
                 self._set_info("")
         with self._suspend_ui():
@@ -3161,13 +3164,14 @@ class _TaskTemplateUI:
             else:
                 if cid and tid and sid:
                     self._set_info("Brak zadań w ustawieniach dla wybranego statusu.")
-                    _notify_missing_configuration(
-                        "tasks",
-                        (
-                            "Brak zdefiniowanych zadań dla wybranego statusu. "
-                            "Dodaj zadania w module Ustawienia → Narzędzia."
-                        ),
-                    )
+                    if not self._initial_render:
+                        _notify_missing_configuration(
+                            "tasks",
+                            (
+                                "Brak zdefiniowanych zadań dla wybranego statusu. "
+                                "Dodaj zadania w module Ustawienia → Narzędzia."
+                            ),
+                        )
                 else:
                     self._set_info("")
                 self.lst.insert(tk.END, "-- brak zadań --")
