@@ -2838,14 +2838,21 @@ def _open_machines_panel(
                 ),
             ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
 
-            btns = ttk.Frame(frm)
-            btns.grid(row=10, column=0, columnspan=2, pady=(14, 0))
-            ttk.Button(btns, text="Anuluj", command=self.destroy).pack(side="right", padx=6)
+            footer = ttk.Frame(self, padding=(12, 8))
+            footer.pack(side="bottom", fill="x")
+            ttk.Button(footer, text="Zamknij", command=self.destroy).pack(
+                side="right", padx=(6, 0)
+            )
+            ttk.Button(footer, text="Anuluj", command=self.destroy).pack(
+                side="right", padx=(6, 0)
+            )
             ttk.Button(
-                btns,
+                footer,
                 text="Zapisz",
-                command=lambda: self._ok(int_or_none(self.e_x.get()), int_or_none(self.e_y.get())),
-            ).pack(side="right", padx=6)
+                command=lambda: self._ok(
+                    int_or_none(self.e_x.get()), int_or_none(self.e_y.get())
+                ),
+            ).pack(side="right")
             self.bind(
                 "<Return>",
                 lambda *_: self._ok(int_or_none(self.e_x.get()), int_or_none(self.e_y.get())),
