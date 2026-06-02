@@ -517,20 +517,34 @@ def _external_load_tools_rows() -> list[Mapping[str, Any]]:
     Ma być odporne na różne sygnatury load_tools_rows_with_fallback()
     i nie może wymagać wcześniej otwartego modułu Narzędzia.
     """
+    print("[WM-DBG][DYSPO->NARZ] _external_load_tools_rows start")
     attempts = []
 
     try:
         cfg = get_config()
-        attempts.append(lambda: load_tools_rows_with_fallback(cfg, resolve_rel))
-    except Exception:
-        pass
+        attempts.append(
+            (
+                "[WM-DBG][DYSPO->NARZ] próba "
+                "load_tools_rows_with_fallback(cfg, resolve_rel)",
+                lambda: load_tools_rows_with_fallback(cfg, resolve_rel),
+            )
+        )
+    except Exception as exc:
+        print(f"[WM-DBG][DYSPO->NARZ][ERR] próba ładowania narzędzi nieudana: {exc}")
 
-    attempts.append(lambda: load_tools_rows_with_fallback())
+    attempts.append(
+        (
+            "[WM-DBG][DYSPO->NARZ] próba load_tools_rows_with_fallback()",
+            lambda: load_tools_rows_with_fallback(),
+        )
+    )
 
-    for attempt in attempts:
+    for diagnostic, attempt in attempts:
+        print(diagnostic)
         try:
             result = attempt()
-        except Exception:
+        except Exception as exc:
+            print(f"[WM-DBG][DYSPO->NARZ][ERR] próba ładowania narzędzi nieudana: {exc}")
             continue
 
         if isinstance(result, tuple):
@@ -539,11 +553,13 @@ def _external_load_tools_rows() -> list[Mapping[str, Any]]:
             rows = result
 
         if isinstance(rows, list):
+            print(f"[WM-DBG][DYSPO->NARZ] załadowano rows={len(rows)} typ={type(result)}")
             return [row for row in rows if isinstance(row, Mapping)]
 
     rows: list[Mapping[str, Any]] = []
+    print("[WM-DBG][DYSPO->NARZ] fallback iter_tools_json()")
     try:
-        for entry in iter_tools_json():
+        for idx, entry in enumerate(iter_tools_json()):
             if isinstance(entry, tuple):
                 path, data = entry
             else:
@@ -552,6 +568,8 @@ def _external_load_tools_rows() -> list[Mapping[str, Any]]:
                     data = _safe_read_json(str(path), {})
                 except Exception:
                     data = {}
+            if idx < 10:
+                print(f"[WM-DBG][DYSPO->NARZ] iter_tools_json[{idx}] path={path}")
             if isinstance(data, Mapping):
                 row = dict(data)
                 row.setdefault("_path", str(path))
@@ -564,24 +582,31 @@ def _external_load_tools_rows() -> list[Mapping[str, Any]]:
     except Exception:
         pass
 
+    print(f"[WM-DBG][DYSPO->NARZ] _external_load_tools_rows koniec rows={len(rows)}")
     return rows
 
 
 def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
     """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
     variants = _external_tool_id_variants(tool_id)
+    print(f"[WM-DBG][DYSPO->NARZ] szukam narzędzia tool_id={tool_id!r}, variants={variants}")
 
     rows = _external_load_tools_rows()
 
-    for row in rows or []:
+    for idx, row in enumerate(rows or []):
         if not isinstance(row, Mapping):
             continue
         row_id = _external_get_tool_id(row)
+        if idx < 10:
+            print(f"[WM-DBG][DYSPO->NARZ] row[{idx}] id={row_id!r}")
         if row_id in variants:
+            print(f"[WM-DBG][DYSPO->NARZ] znaleziono narzędzie row_id={row_id!r}")
             return dict(row)
         if row_id.isdigit() and str(int(row_id)) in variants:
+            print(f"[WM-DBG][DYSPO->NARZ] znaleziono narzędzie row_id={row_id!r}")
             return dict(row)
 
+    print(f"[WM-DBG][DYSPO->NARZ][WARN] nie znaleziono narzędzia tool_id={tool_id!r}")
     return None
 
 
@@ -647,6 +672,9 @@ def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> boo
     Publiczny helper dla Dyspozycji.
     Otwiera pełny edytor narzędzia z modułu Narzędzia.
     """
+    print(f"[WM-DBG][DYSPO->NARZ] open_tool_from_external_context tool_id={tool_id!r}")
+    print(f"[WM-DBG][DYSPO->NARZ] _OPEN_TOOL_EDITOR_BY_ID callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
+    print(f"[WM-DBG][DYSPO->NARZ] moduł Narzędzia aktywny={_active_tool_editor_available()}")
     tool = _external_find_tool_by_id(tool_id)
     if not tool:
         return False
@@ -4058,7 +4086,12 @@ def open_tool_editor_by_id(
     """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
     del current_user, current_role
 
+    print(f"[WM-DBG][DYSPO->NARZ] open_tool_editor_by_id tool_id={tool_id!r}")
+    print(f"[WM-DBG][DYSPO->NARZ] opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
+    print(f"[WM-DBG][DYSPO->NARZ] master={master!r}")
+
     if _OPEN_TOOL_EDITOR_BY_ID is None:
+        print("[WM-DBG][DYSPO->NARZ] Brak aktywnego callbacka edytora, tworzę moduł Narzędzia w Toplevel")
         try:
             win = tk.Toplevel(master) if master is not None else tk.Toplevel()
             win.title("Narzędzia")
@@ -4074,6 +4107,8 @@ def open_tool_editor_by_id(
             frame.pack(fill="both", expand=True)
 
             panel_narzedzia(win, frame, login=None, rola=None)
+            print(f"[WM-DBG][DYSPO->NARZ] panel_narzedzia zbudowany, opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
+            print(f"[WM-DBG][DYSPO->NARZ] planuję ponowne otwarcie tool_id={tool_id!r} za 300ms")
             win.after(
                 300,
                 lambda: open_tool_editor_by_id(win, tool_id),
@@ -4273,6 +4308,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
 
     global _OPEN_TOOL_EDITOR_BY_ID
     _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
+    print("[WM-DBG][DYSPO->NARZ] zarejestrowano _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id")
 
     class _ToolsViewFallback:
         def _refresh_all(self) -> None:
