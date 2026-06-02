@@ -49,7 +49,11 @@ def _dysp_date_text(row: dict[str, Any]) -> str:
 
 
 def _dysp_title_text(row: dict[str, Any]) -> str:
-    return str(row.get("tytul") or row.get("opis") or "Dyspozycja").strip()
+    return str(row.get("tytul") or "Dyspozycja").strip()
+
+
+def _dysp_description_text(row: dict[str, Any]) -> str:
+    return str(row.get("opis") or row.get("description") or "").strip()
 
 
 def _dysp_assignee_text(row: dict[str, Any]) -> str:
@@ -118,13 +122,17 @@ def _format_dyspozycje_history(rows: list[dict[str, Any]]) -> str:
         priority = str(row.get("priorytet") or "normalny").strip()
         status = str(row.get("status") or "—").strip()
         title = _dysp_title_text(row)
+        opis = _dysp_description_text(row)
         assignee = _dysp_assignee_text(row)
 
-        lines.append(
+        block = (
             f"{date_text or '—'} | {priority} | {status}\n"
-            f"{title}\n"
-            f"Przypisane: {assignee}"
+            f"{title}"
         )
+        if opis and opis != title:
+            block += f"\nOpis: {opis}"
+        block += f"\nPrzypisane: {assignee}"
+        lines.append(block)
 
     return "\n\n".join(lines)
 
