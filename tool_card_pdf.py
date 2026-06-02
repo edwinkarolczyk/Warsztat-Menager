@@ -396,3 +396,36 @@ def generate_tool_card(
         _open_file(generated)
 
     return generated
+
+
+def generate_blank_tool_card(
+    output_dir: str | Path,
+    *,
+    dyspozycja: dict[str, Any] | None = None,
+    open_after: bool = True,
+) -> Path:
+    """Generuje pustą kartę narzędzia do ręcznego wypełnienia."""
+    blank_tool: dict[str, Any] = {
+        "id": "---",
+        "nr": "---",
+        "numer": "---",
+        "nazwa": "",
+        "typ": "",
+        "tryb": "",
+        "status": "",
+        "pracownik": "",
+        "data_dodania": "",
+        "zadania": [
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+        ],
+    }
+    return generate_tool_card(
+        blank_tool,
+        output_dir,
+        dyspozycja=dyspozycja,
+        open_after=open_after,
+    )

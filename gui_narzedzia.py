@@ -4202,6 +4202,27 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     bridge = _TOOLS_BRIDGE
     STATE.current_login = login
     STATE.current_role = rola
+
+    def _cards_output_dir() -> Path:
+        base = Path.cwd() / "wydruki" / "karty"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def _print_blank_tool_card_from_tools() -> None:
+        try:
+            from tool_card_pdf import generate_blank_tool_card
+
+            generate_blank_tool_card(
+                _cards_output_dir(),
+                open_after=True,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Narzędzia",
+                f"Nie udało się wygenerować pustej karty narzędzia:\n{exc}",
+                parent=root if hasattr(root, "winfo_exists") else None,
+            )
+
     STATE.assign_tree = None
     STATE.assign_row_data.clear()
     STATE.cmb_user_var = None
@@ -4384,8 +4405,17 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         def bind_open_detail(self, *_args: object, **_kwargs: object) -> None:
             return None
 
+    tools_actions = ttk.Frame(frame, style="WM.TFrame")
+    tools_actions.pack(fill="x", padx=10, pady=(10, 0))
+    ttk.Button(
+        tools_actions,
+        text="Drukuj pustą kartę narzędzia",
+        command=_print_blank_tool_card_from_tools,
+        style="WM.Side.TButton",
+    ).pack(side="left")
+
     tools_wrap = ttk.Frame(frame, style="WM.Card.TFrame")
-    tools_wrap.pack(fill="both", expand=True, padx=10, pady=10)
+    tools_wrap.pack(fill="both", expand=True, padx=10, pady=(6, 10))
     try:
         tools_view = ToolsThreeTabsView(
             tools_wrap,
