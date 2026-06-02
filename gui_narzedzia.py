@@ -1190,6 +1190,17 @@ _TOOLS_CFG_CACHE: dict | None = None
 _TOOLS_PRIMARY_PATH: str | None = None
 _TOOLS_MIGRATED = False
 _TOOLS_BRIDGE = ToolDataBridge()
+_SUPPRESS_TOOL_CONFIG_POPUPS = 0
+
+
+@contextmanager
+def _suppress_tool_config_popups():
+    global _SUPPRESS_TOOL_CONFIG_POPUPS
+    _SUPPRESS_TOOL_CONFIG_POPUPS += 1
+    try:
+        yield
+    finally:
+        _SUPPRESS_TOOL_CONFIG_POPUPS = max(0, _SUPPRESS_TOOL_CONFIG_POPUPS - 1)
 
 
 def _init_tools_data(cfg: dict | None = None) -> tuple[dict, list[dict], str, bool]:
@@ -2327,6 +2338,13 @@ except Exception:  # pragma: no cover - tolerancja środowiska
 def _notify_missing_configuration(category: str, message: str) -> None:
     """Show one-time warning for missing configuration pieces."""
 
+    if _SUPPRESS_TOOL_CONFIG_POPUPS:
+        try:
+            print(f"[WM-DBG][NARZ][WARN] {message}")
+        except Exception:
+            pass
+        return
+
     key = category.strip().lower()
     if not key:
         key = message.strip().lower()
@@ -3226,7 +3244,8 @@ def build_task_template(parent):
     """Build simple comboboxes for collection/type/status and a tasks list."""
 
     LZ.invalidate_cache()
-    ui = _TaskTemplateUI(parent)
+    with _suppress_tool_config_popups():
+        ui = _TaskTemplateUI(parent)
     return {
         "cb_collection": ui.cb_collection,
         "cb_type": ui.cb_type,
