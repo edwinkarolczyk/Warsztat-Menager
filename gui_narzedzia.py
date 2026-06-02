@@ -4061,6 +4061,20 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 _OPEN_TOOL_EDITOR_BY_ID: Callable[[str], bool] | None = None
+_OPEN_TOOL_EDITOR_OWNER: tk.Misc | None = None
+
+
+def _tool_editor_opener_alive() -> bool:
+    opener = globals().get("_OPEN_TOOL_EDITOR_BY_ID")
+    owner = globals().get("_OPEN_TOOL_EDITOR_OWNER")
+    if not callable(opener):
+        return False
+    if owner is None:
+        return False
+    try:
+        return bool(owner.winfo_exists())
+    except Exception:
+        return False
 
 
 def open_tool_editor_by_id(
@@ -4070,9 +4084,27 @@ def open_tool_editor_by_id(
     current_role: str | None = None,
 ) -> bool:
     """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
+    global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
+
     print(f"[WM-DBG][DYSPO->NARZ] open_tool_editor_by_id tool_id={tool_id!r}")
     print(f"[WM-DBG][DYSPO->NARZ] opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
     print(f"[WM-DBG][DYSPO->NARZ] master={master!r}")
+
+    normalized = str(tool_id or "").strip()
+    if not normalized:
+        return False
+
+    if _tool_editor_opener_alive():
+        try:
+            opened = _OPEN_TOOL_EDITOR_BY_ID(normalized)  # type: ignore[misc]
+        except Exception as exc:
+            print(f"[WM-DBG][DYSPO->NARZ][ERR] opener failed: {exc}")
+            opened = False
+        if opened:
+            return True
+
+    _OPEN_TOOL_EDITOR_BY_ID = None
+    _OPEN_TOOL_EDITOR_OWNER = None
 
     if _OPEN_TOOL_EDITOR_BY_ID is None:
         print("[WM-DBG][DYSPO->NARZ] Brak aktywnego callbacka edytora, tworzę moduł Narzędzia w Toplevel")
@@ -4089,6 +4121,15 @@ def open_tool_editor_by_id(
 
             frame = ttk.Frame(win, style="WM.TFrame")
             frame.pack(fill="both", expand=True)
+
+            def _clear_external_opener_on_close() -> None:
+                global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
+                if _OPEN_TOOL_EDITOR_OWNER is win:
+                    _OPEN_TOOL_EDITOR_BY_ID = None
+                    _OPEN_TOOL_EDITOR_OWNER = None
+                win.destroy()
+
+            win.protocol("WM_DELETE_WINDOW", _clear_external_opener_on_close)
 
             panel_narzedzia(
                 win,
@@ -4113,7 +4154,7 @@ def open_tool_editor_by_id(
                 "Nie udało się automatycznie otworzyć modułu Narzędzia dla edycji narzędzia."
             ) from exc
 
-    return _OPEN_TOOL_EDITOR_BY_ID(str(tool_id or "").strip())
+    return False
 
 
 def panel_narzedzia(root, frame, login=None, rola=None):
@@ -4300,8 +4341,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             return False
         return False
 
-    global _OPEN_TOOL_EDITOR_BY_ID
+    global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
     _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
+    try:
+        _OPEN_TOOL_EDITOR_OWNER = frame.winfo_toplevel()
+    except Exception:
+        _OPEN_TOOL_EDITOR_OWNER = root
     print("[WM-DBG][DYSPO->NARZ] zarejestrowano _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id")
 
     class _ToolsViewFallback:
