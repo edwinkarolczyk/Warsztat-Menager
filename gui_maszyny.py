@@ -2681,17 +2681,36 @@ def _open_machines_panel(
         def __init__(self, master: tk.Misc, row: dict | None, on_ok):
             super().__init__(master)
             self.title("Edycja maszyny")
-            self.geometry("920x520")
-            self.minsize(820, 480)
-            self.resizable(False, False)
+            self.geometry("1100x720")
+            self.minsize(980, 620)
+            self.resizable(True, True)
             self.transient(master)
             self.grab_set()
             self._row = dict(row or {})
             self._on_ok = on_ok
             self._actor = _active_login_for_machine(master)
             self._old_status = _normalize_machine_status(self._row.get("status"))
+            self._dirty = False
+
+            def _mark_dirty(*_args) -> None:
+                self._dirty = True
+
+            def _confirm_close() -> None:
+                if self._dirty:
+                    if not messagebox.askyesno(
+                        "Edycja maszyny",
+                        "Masz niezapisane zmiany. Zamknąć bez zapisu?",
+                        parent=self,
+                    ):
+                        return
+                self.destroy()
+
+            self.protocol("WM_DELETE_WINDOW", _confirm_close)
+
             frm = ttk.Frame(self)
-            frm.pack(fill="both", expand=True, padx=12, pady=12)
+            frm.pack(side="top", fill="both", expand=True, padx=12, pady=(12, 4))
+            frm.columnconfigure(1, weight=1)
+            frm.columnconfigure(2, weight=1)
 
             def row_entry(r, label, key):
                 ttk.Label(frm, text=label, width=18, anchor="e").grid(
@@ -2700,6 +2719,7 @@ def _open_machines_panel(
                 ent = ttk.Entry(frm, width=36)
                 ent.grid(row=r, column=1, padx=6, pady=4, sticky="w")
                 ent.insert(0, str(self._row.get(key, "")))
+                ent.bind("<KeyRelease>", _mark_dirty)
                 return ent
 
             self.e_id = row_entry(0, "ID / nr_ewid:", "id")
@@ -2741,6 +2761,7 @@ def _open_machines_panel(
             self.cb_default_review_type.grid(
                 row=7, column=1, padx=6, pady=4, sticky="w"
             )
+            self.cb_default_review_type.bind("<<ComboboxSelected>>", _mark_dirty)
 
             image_frame = ttk.Frame(frm)
             image_frame.grid(
@@ -2787,6 +2808,7 @@ def _open_machines_panel(
                     padx=(0, 12),
                     pady=2,
                 )
+                var.trace_add("write", _mark_dirty)
 
             ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
                 row=1, column=0, sticky="e", padx=6, pady=6
@@ -2829,6 +2851,7 @@ def _open_machines_panel(
                     padx=(0, 12),
                     pady=2,
                 )
+                var.trace_add("write", _mark_dirty)
 
             ttk.Label(
                 review_box,
@@ -2840,10 +2863,10 @@ def _open_machines_panel(
 
             footer = ttk.Frame(self, padding=(12, 8))
             footer.pack(side="bottom", fill="x")
-            ttk.Button(footer, text="Zamknij", command=self.destroy).pack(
+            ttk.Button(footer, text="Zamknij", command=_confirm_close).pack(
                 side="right", padx=(6, 0)
             )
-            ttk.Button(footer, text="Anuluj", command=self.destroy).pack(
+            ttk.Button(footer, text="Anuluj", command=_confirm_close).pack(
                 side="right", padx=(6, 0)
             )
             ttk.Button(
