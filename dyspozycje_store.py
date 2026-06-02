@@ -31,6 +31,10 @@ except Exception:  # pragma: no cover
     wm_root_paths = None  # type: ignore
 
 
+_DYSP_DEBUG_STORE = False
+_DYSP_LEGACY_WARNED = False
+
+
 DISP_FILE_NAME = "dyspozycje.json"
 DISP_DIR_NAME = "dyspozycje"
 DISP_ALLOWED_TYPES = {
@@ -57,26 +61,29 @@ def _runtime_cfg_manager():
         if start_mod is not None:
             mgr = getattr(start_mod, "CONFIG_MANAGER", None)
             if mgr is not None:
-                try:
-                    print(
-                        "[WM-DBG][DYSP][STORE] runtime manager=start.CONFIG_MANAGER "
-                        f"{type(mgr).__name__}"
-                    )
-                except Exception:
-                    pass
+                if _DYSP_DEBUG_STORE:
+                    try:
+                        print(
+                            "[WM-DBG][DYSP][STORE] "
+                            "runtime manager=start.CONFIG_MANAGER "
+                            f"{type(mgr).__name__}"
+                        )
+                    except Exception:
+                        pass
                 return mgr
     except Exception:
         pass
     if ConfigManager is not None:
         try:
             mgr = ConfigManager()
-            try:
-                print(
-                    "[WM-DBG][DYSP][STORE] runtime manager=ConfigManager() "
-                    f"{type(mgr).__name__}"
-                )
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(
+                        "[WM-DBG][DYSP][STORE] runtime manager=ConfigManager() "
+                        f"{type(mgr).__name__}"
+                    )
+                except Exception:
+                    pass
             return mgr
         except Exception:
             pass
@@ -88,10 +95,11 @@ def _data_root() -> Path:
     if mgr is not None:
         try:
             path = Path(mgr.path_data())
-            try:
-                print(f"[WM-DBG][DYSP][STORE] data_root={path}")
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(f"[WM-DBG][DYSP][STORE] data_root={path}")
+                except Exception:
+                    pass
             return path
         except Exception:
             pass
@@ -107,10 +115,11 @@ def _anchor_root() -> Path:
                 continue
             try:
                 path = Path(method())
-                try:
-                    print(f"[WM-DBG][DYSP][STORE] anchor_root={path}")
-                except Exception:
-                    pass
+                if _DYSP_DEBUG_STORE:
+                    try:
+                        print(f"[WM-DBG][DYSP][STORE] anchor_root={path}")
+                    except Exception:
+                        pass
                 return path
             except Exception:
                 continue
@@ -135,6 +144,8 @@ def _active_dyspozycje_path() -> Path:
 
 
 def _migrate_legacy_if_needed(target: Path) -> None:
+    global _DYSP_LEGACY_WARNED
+
     legacy_candidates = [
         _legacy_root_dyspozycje_path(),
         _legacy_dyspozycje_path(),
@@ -153,37 +164,39 @@ def _migrate_legacy_if_needed(target: Path) -> None:
         if not legacy.exists():
             continue
         if target.exists():
-            try:
+            if not _DYSP_LEGACY_WARNED:
                 print(
                     "[WM-DBG][DYSP][STORE][WARN] legacy dyspozycje exists "
                     f"but active is data dyspozycje: {legacy}"
                 )
-            except Exception:
-                pass
+                _DYSP_LEGACY_WARNED = True
             continue
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(legacy, target)
-            print(
-                "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
-                f"{legacy} -> {target}"
-            )
+            if _DYSP_DEBUG_STORE:
+                print(
+                    "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
+                    f"{legacy} -> {target}"
+                )
             return
         except Exception as exc:
-            try:
-                print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
+                except Exception:
+                    pass
 
 
 def get_dyspozycje_path() -> Path:
     path = _active_dyspozycje_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_if_needed(path)
-    try:
-        print(f"[WM-DBG][DYSP][STORE] dyspozycje_path={path}")
-    except Exception:
-        pass
+    if _DYSP_DEBUG_STORE:
+        try:
+            print(f"[WM-DBG][DYSP][STORE] dyspozycje_path={path}")
+        except Exception:
+            pass
     return path
 
 
