@@ -5915,12 +5915,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 f"status={status_clean} → {len(defaults)} zadań"
             )
             if not defaults:
-                _notify_missing_configuration(
-                    "tasks",
-                    (
-                        "Brak zdefiniowanych zadań dla wybranego statusu. "
-                        "Dodaj zadania w module Ustawienia → Narzędzia."
-                    ),
+                print(
+                    "[WM-DBG][NARZ][WARN] Brakuje ustawień dla zadania "
+                    f"{status_clean!r}. Uzupełnij je w module Ustawienia — Narzędzia."
                 )
             added = False
             for title in defaults:
