@@ -212,6 +212,46 @@ def _print_machine_card_from_dyspo(
         )
 
 
+def _print_blank_tool_card_from_dyspo(
+    master: tk.Widget,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    try:
+        from tool_card_pdf import generate_blank_tool_card
+
+        generate_blank_tool_card(
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować pustej karty narzędzia:\n{exc}",
+            parent=master,
+        )
+
+
+def _print_blank_machine_card_from_dyspo(
+    master: tk.Widget,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    try:
+        from machine_card_pdf import generate_blank_machine_card
+
+        generate_blank_machine_card(
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować pustej karty maszyny:\n{exc}",
+            parent=master,
+        )
+
+
 def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
     """Otwiera normalny widok narzędzia używany przez moduł Narzędzia."""
     tool_id = str(object_id or "").strip()
@@ -475,6 +515,15 @@ def open_dyspozycje_creator(
             _current_dyspozycja_for_print(),
         ),
     )
+    btn_print_blank_tool_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj pustą kartę narzędzia",
+        command=lambda: _print_blank_tool_card_from_dyspo(
+            win,
+            _current_dyspozycja_for_print(),
+        ),
+    )
+
     btn_open_machine = ttk.Button(
         object_panel_buttons,
         text="Otwórz użytkowanie maszyny",
@@ -491,6 +540,15 @@ def open_dyspozycje_creator(
         command=lambda: _print_machine_card_from_dyspo(
             win,
             options_map.get(var_object_display.get().strip(), ""),
+            _current_dyspozycja_for_print(),
+        ),
+    )
+
+    btn_print_blank_machine_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj pustą kartę maszyny",
+        command=lambda: _print_blank_machine_card_from_dyspo(
+            win,
             _current_dyspozycja_for_print(),
         ),
     )
@@ -520,6 +578,7 @@ def open_dyspozycje_creator(
             )
             btn_open_tool.pack(side="left")
             btn_print_tool_card.pack(side="left", padx=(8, 0))
+            btn_print_blank_tool_card.pack(side="left", padx=(8, 0))
         elif typ == "maszyna":
             var_object_panel_info.set(
                 "Maszyna powiązana z dyspozycją: "
@@ -531,6 +590,7 @@ def open_dyspozycje_creator(
             )
             btn_open_machine.pack(side="left")
             btn_print_machine_card.pack(side="left", padx=(8, 0))
+            btn_print_blank_machine_card.pack(side="left", padx=(8, 0))
         else:
             var_object_panel_info.set(
                 "Dla tego typu dyspozycji nie ma jeszcze edytora "

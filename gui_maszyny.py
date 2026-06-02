@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tkinter as tk
 from logging import getLogger
+from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -2214,6 +2215,27 @@ def _open_machines_panel(
         wm_set_module_source(root, "Maszyny", primary_path)
     except Exception:
         pass
+
+    def _cards_output_dir() -> Path:
+        base = Path.cwd() / "wydruki" / "karty"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def _print_blank_machine_card_from_machines() -> None:
+        try:
+            from machine_card_pdf import generate_blank_machine_card
+
+            generate_blank_machine_card(
+                _cards_output_dir(),
+                open_after=True,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Maszyny",
+                f"Nie udało się wygenerować pustej karty maszyny:\n{exc}",
+                parent=root if hasattr(root, "winfo_exists") else None,
+            )
+
     had_rows = bool(rows)
     rows = ensure_machines_sample_if_empty(rows, primary_path)
     source_path = _detect_real_source(rows, primary_path, cfg)
@@ -2267,6 +2289,14 @@ def _open_machines_panel(
     info.set(
         f"Wczytano {len(rows_cache)} maszyn." if had_rows else "Brak danych – dodano przykładowe pozycje."
     )
+
+    machine_actions = ttk.Frame(left)
+    machine_actions.pack(fill="x", pady=(0, 6))
+    ttk.Button(
+        machine_actions,
+        text="Drukuj pustą kartę maszyny",
+        command=_print_blank_machine_card_from_machines,
+    ).pack(side="left")
 
     tree = _build_tree(left, visible_rows)
     _bind_tree_tooltips(tree, visible_rows, root)

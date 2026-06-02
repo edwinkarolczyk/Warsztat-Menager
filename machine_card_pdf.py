@@ -380,3 +380,38 @@ def generate_machine_card(
         _open_file(generated)
 
     return generated
+
+
+def generate_blank_machine_card(
+    output_dir: str | Path,
+    *,
+    dyspozycja: dict[str, Any] | None = None,
+    open_after: bool = True,
+) -> Path:
+    """Generuje pustą kartę maszyny do ręcznego wypełnienia."""
+    blank_machine: dict[str, Any] = {
+        "id": "---",
+        "nr_ewid": "---",
+        "numer": "---",
+        "nazwa": "",
+        "typ": "",
+        "status": "",
+        "lokalizacja": "",
+        "hala": "",
+        "default_review_type": "",
+        "review_months": [],
+        "review_workers": [],
+        "reviews": [
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+            "................................................................................",
+        ],
+    }
+    return generate_machine_card(
+        blank_machine,
+        output_dir,
+        dyspozycja=dyspozycja,
+        open_after=open_after,
+    )
