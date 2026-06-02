@@ -17,6 +17,7 @@ from dyspozycje_sources import (
 from dyspozycje_store import (
     add_dyspozycja,
     close_dyspozycja,
+    load_dyspozycje,
     make_dyspozycja,
     update_dyspozycja,
 )
@@ -35,6 +36,97 @@ def _normalize_object_id(value: str) -> set[str]:
         out.add(raw.zfill(3))
         out.add(str(int(raw)))
     return {item for item in out if item}
+
+
+def _dysp_date_text(row: dict[str, Any]) -> str:
+    return str(
+        row.get("updated_at")
+        or row.get("created_at")
+        or row.get("utworzono")
+        or row.get("data")
+        or ""
+    ).strip()
+
+
+def _dysp_title_text(row: dict[str, Any]) -> str:
+    return str(row.get("tytul") or row.get("opis") or "Dyspozycja").strip()
+
+
+def _dysp_assignee_text(row: dict[str, Any]) -> str:
+    if bool(row.get("dla_wszystkich")):
+        return "wszyscy"
+    return str(row.get("przypisane_do") or "—").strip() or "—"
+
+
+def _find_recent_dyspozycje_for_object(
+    typ: str,
+    object_id: str,
+    *,
+    limit: int = 5,
+    skip_id: str = "",
+) -> list[dict[str, Any]]:
+    typ_norm = str(typ or "").strip().lower()
+    variants = _normalize_object_id(object_id)
+    if not typ_norm or not variants:
+        return []
+
+    try:
+        rows = load_dyspozycje()
+    except Exception:
+        rows = []
+
+    matched: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+
+        row_id = str(row.get("id") or "").strip()
+        if skip_id and row_id == skip_id:
+            continue
+
+        row_typ = str(
+            row.get("typ_dyspozycji") or row.get("typ") or ""
+        ).strip().lower()
+        if row_typ != typ_norm:
+            continue
+
+        row_object_id = str(
+            row.get("obiekt_id")
+            or row.get("object_id")
+            or row.get("narzedzie_id")
+            or row.get("maszyna_id")
+            or ""
+        ).strip()
+        if not variants.intersection(_normalize_object_id(row_object_id)):
+            continue
+
+        matched.append(row)
+
+    matched.sort(key=_dysp_date_text, reverse=True)
+    return matched[:limit]
+
+
+def _format_dyspozycje_history(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "Brak wcześniejszych dyspozycji dla tego obiektu"
+
+    lines: list[str] = []
+    for row in rows:
+        date_text = _dysp_date_text(row)
+        if len(date_text) >= 10:
+            date_text = date_text[:10]
+        priority = str(row.get("priorytet") or "normalny").strip()
+        status = str(row.get("status") or "—").strip()
+        title = _dysp_title_text(row)
+        assignee = _dysp_assignee_text(row)
+
+        lines.append(
+            f"{date_text or '—'} | {priority} | {status}\n"
+            f"{title}\n"
+            f"Przypisane: {assignee}"
+        )
+
+    return "\n\n".join(lines)
 
 
 def _task_title(task: Any) -> str:
@@ -677,9 +769,18 @@ def open_dyspozycje_creator(
                 "Narzędzie powiązane z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
             )
+            tool_preview = _find_tool_preview(object_id)
+            history = _find_recent_dyspozycje_for_object(
+                "narzedzie",
+                object_id,
+                skip_id=existing_id,
+            )
+            tool_preview["Ostatnie dyspozycje"] = _format_dyspozycje_history(
+                history
+            )
             _render_object_card(
                 "Karta narzędzia",
-                _find_tool_preview(object_id),
+                tool_preview,
             )
             btn_open_tool.pack(side="left")
             btn_print_tool_card.pack(side="left", padx=(8, 0))
@@ -689,9 +790,18 @@ def open_dyspozycje_creator(
                 "Maszyna powiązana z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
             )
+            machine_preview = _find_machine_preview(object_id)
+            history = _find_recent_dyspozycje_for_object(
+                "maszyna",
+                object_id,
+                skip_id=existing_id,
+            )
+            machine_preview["Ostatnie dyspozycje"] = (
+                _format_dyspozycje_history(history)
+            )
             _render_object_card(
                 "Karta maszyny",
-                _find_machine_preview(object_id),
+                machine_preview,
             )
             btn_open_machine.pack(side="left")
             btn_print_machine_card.pack(side="left", padx=(8, 0))
