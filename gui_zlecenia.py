@@ -102,6 +102,27 @@ def _dysp_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str, str]:
     return (closed, overdue, new, termin, created)
 
 
+def _dysp_object_label(item: dict[str, Any]) -> str:
+    object_id = str(
+        item.get("obiekt_id")
+        or item.get("object_id")
+        or item.get("narzedzie_id")
+        or item.get("maszyna_id")
+        or ""
+    ).strip()
+    if object_id:
+        return object_id
+    return "—"
+
+
+def _dysp_title_label(item: dict[str, Any]) -> str:
+    return str(item.get("tytul") or item.get("opis") or "Dyspozycja").strip()
+
+
+def _dysp_status_label(item: dict[str, Any]) -> str:
+    return str(item.get("status") or "nowa").strip() or "nowa"
+
+
 def _dysp_type_label(item: dict[str, Any]) -> str:
     value = str(item.get("typ_dyspozycji") or item.get("typ") or "").strip()
     if value == "zlecenie_wykonania":
@@ -109,24 +130,22 @@ def _dysp_type_label(item: dict[str, Any]) -> str:
     return value or "—"
 
 
-def _dysp_title_label(item: dict[str, Any]) -> str:
-    return str(item.get("tytul") or item.get("opis") or "Dyspozycja").strip()
-
-
-def _dysp_object_label(item: dict[str, Any]) -> str:
-    return str(
-        item.get("obiekt_id")
-        or item.get("object_id")
-        or item.get("narzedzie_id")
-        or item.get("maszyna_id")
-        or "—"
-    ).strip() or "—"
-
-
 def _dysp_assigned_label(item: dict[str, Any]) -> str:
     if item.get("dla_wszystkich") is True:
         return "wszyscy"
     return str(item.get("przypisane_do") or "—").strip() or "—"
+
+
+def _dysp_related_status_label(item: dict[str, Any]) -> str:
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    return str(
+        item.get("status_obiektu")
+        or item.get("status_narzedzia")
+        or item.get("status_maszyny")
+        or meta.get("status_obiektu")
+        or meta.get("status")
+        or "—"
+    ).strip() or "—"
 
 
 def _dysp_due_in_label(item: dict[str, Any]) -> str:
@@ -149,10 +168,6 @@ def _dysp_due_in_label(item: dict[str, Any]) -> str:
 
 def _dysp_priority_label(item: dict[str, Any]) -> str:
     return str(item.get("priorytet") or "normalny").strip() or "normalny"
-
-
-def _dysp_author_label(item: dict[str, Any]) -> str:
-    return str(item.get("autor") or item.get("created_by") or "—").strip() or "—"
 
 
 def _resolve_creator() -> Callable[..., tk.Toplevel] | None:
@@ -266,45 +281,46 @@ class ZleceniaView(ttk.Frame):
 
     def _build_tree(self) -> None:
         columns = (
-            "dyspozycja",
-            "status",
-            "typ",
             "obiekt",
+            "dyspozycja",
+            "status_dyspozycji",
+            "typ",
             "przypisane",
+            "status_obiektu",
             "termin",
             "za_ile",
             "priorytet",
-            "autor",
         )
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
 
         headings = {
-            "dyspozycja": "Dyspozycja",
-            "status": "Status",
-            "typ": "Typ",
             "obiekt": "Obiekt",
+            "dyspozycja": "Dyspozycja",
+            "status_dyspozycji": "Status dyspozycji",
+            "typ": "Typ",
             "przypisane": "Przypisane",
+            "status_obiektu": "Status narzędzia/maszyny",
             "termin": "Termin",
             "za_ile": "Za ile",
             "priorytet": "Priorytet",
-            "autor": "Autor",
         }
         widths = {
+            "obiekt": 90,
             "dyspozycja": 420,
-            "status": 105,
+            "status_dyspozycji": 150,
             "typ": 130,
-            "obiekt": 95,
             "przypisane": 135,
+            "status_obiektu": 210,
             "termin": 110,
             "za_ile": 85,
-            "priorytet": 95,
-            "autor": 115,
+            "priorytet": 100,
         }
         for column in columns:
             self.tree.heading(column, text=headings[column])
             self.tree.column(
                 column,
                 width=widths[column],
+                minwidth=widths[column],
                 anchor="w" if column == "dyspozycja" else "center",
                 stretch=column == "dyspozycja",
             )
@@ -439,15 +455,15 @@ class ZleceniaView(ttk.Frame):
                     "",
                     "end",
                     values=(
-                        _dysp_title_label(order),
-                        str(order.get("status") or "—"),
-                        _dysp_type_label(order),
                         _dysp_object_label(order),
+                        _dysp_title_label(order),
+                        _dysp_status_label(order),
+                        _dysp_type_label(order),
                         _dysp_assigned_label(order),
+                        _dysp_related_status_label(order),
                         str(order.get("termin") or "—"),
                         _dysp_due_in_label(order),
                         _dysp_priority_label(order),
-                        _dysp_author_label(order),
                     ),
                     iid=iid,
                     tags=tuple(tags),
