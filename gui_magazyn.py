@@ -64,13 +64,13 @@ COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
 
 
 ROLE_PERMS = {
-    "view": "brygadzista",
-    "add": "magazynier",
-    "edit": "magazynier",
-    "pz": "magazynier",
-    "reserve": "brygadzista",
-    "unreserve": "brygadzista",
-    "to_orders": "brygadzista",
+    "view": "",
+    "add": "",
+    "edit": "",
+    "pz": "",
+    "reserve": "",
+    "unreserve": "",
+    "to_orders": "",
 }
 
 
@@ -206,6 +206,18 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
         toolbar,
         text="Zwolnij rez.",
         command=owner._rez_release,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Edytuj",
+        command=owner._edit_selected_item,
+        style="WM.Side.TButton",
+    ).pack(side="right", padx=(0, 6))
+    ttk.Button(
+        toolbar,
+        text="Dodaj",
+        command=owner._add_item,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
     ttk.Button(
@@ -758,16 +770,20 @@ class MagazynFrame(ttk.Frame):
             _tag_low_stock(self, node, item)
 
     def _on_double_click(self, _e):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        if not _can(self, "edit"):
-            messagebox.showwarning(
-                "Uprawnienia", "Tylko magazynier może edytować pozycje."
+        self._edit_selected_item()
+
+    def _add_item(self):
+        open_edit_dialog(self, None, on_saved=lambda _id=None: self.refresh())
+
+    def _edit_selected_item(self):
+        item_id = self._selected_item_id()
+        if not item_id:
+            messagebox.showinfo(
+                "Magazyn",
+                "Najpierw wybierz pozycję magazynową do edycji.",
+                parent=self,
             )
             return
-        values = self.tree.item(sel[0], "values")
-        item_id = values[0]
         open_edit_dialog(self, item_id, on_saved=lambda _id=item_id: self.refresh())
 
     def _selected_item_id(self):
