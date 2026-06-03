@@ -113,6 +113,24 @@ def test_surowce_check_and_reserve(tmp_path, monkeypatch):
     assert updated["SR002"] == mag_after["SR002"]["stan"]
 
 
+def test_machine_status_cache_uses_machine_status_label(monkeypatch):
+    monkeypatch.setattr(gui_zlecenia, "_DYSP_MACHINE_STATUS_CACHE", None)
+
+    def fake_loader():
+        return (
+            [{"nr_ewid": "27", "status": "awaria_serwis"}],
+            lambda v: f"label:{v}",
+        )
+
+    monkeypatch.setattr(
+        gui_zlecenia, "_load_machine_rows_with_status_label", fake_loader
+    )
+
+    cache = gui_zlecenia._load_machine_status_cache()
+
+    assert cache["27"] == "label:awaria_serwis"
+
+
 def test_role_without_permission_cannot_edit(monkeypatch):
     try:
         import tkinter as tk

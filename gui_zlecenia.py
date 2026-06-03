@@ -158,6 +158,14 @@ def _load_tool_status_cache() -> dict[str, str]:
     return cache
 
 
+def _load_machine_rows_with_status_label() -> tuple[
+    list[dict], Callable[[Any], str] | None
+]:
+    from gui_maszyny import _machine_status_label, load_machines_rows
+
+    return load_machines_rows(), _machine_status_label
+
+
 def _load_machine_status_cache() -> dict[str, str]:
     global _DYSP_MACHINE_STATUS_CACHE
     if _DYSP_MACHINE_STATUS_CACHE is not None:
@@ -165,11 +173,10 @@ def _load_machine_status_cache() -> dict[str, str]:
 
     cache: dict[str, str] = {}
     try:
-        from gui_maszyny import load_machines_rows
-
-        rows = load_machines_rows()
+        rows, machine_status_label = _load_machine_rows_with_status_label()
     except Exception:
         rows = []
+        machine_status_label = None
 
     for row in rows or []:
         if not isinstance(row, dict):
@@ -181,7 +188,11 @@ def _load_machine_status_cache() -> dict[str, str]:
             or row.get("numer")
             or ""
         ).strip()
-        status = str(row.get("status") or "").strip()
+        raw_status = row.get("status")
+        if machine_status_label is not None:
+            status = machine_status_label(raw_status)
+        else:
+            status = str(raw_status or "").strip()
         if not rid or not status:
             continue
         for key in _normalize_object_id(rid):
