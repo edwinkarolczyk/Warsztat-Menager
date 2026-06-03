@@ -2497,17 +2497,20 @@ def _open_machines_panel(
     )
     ttk.Label(toolbar, textvariable=mode_hint_var).pack(side="left", padx=(0, 12))
 
+    actions_toolbar = ttk.Frame(left)
+    actions_toolbar.pack(fill="x", padx=8, pady=(4, 0))
+
     btn_import = ttk.Button(toolbar, text="Importuj harmonogram…")
     # Stary import harmonogramu ukryty. Docelowym modelem są machine["reviews"].
 
     btn_add, btn_edit, btn_del, btn_save = (
-        ttk.Button(toolbar, text=text)
+        ttk.Button(actions_toolbar, text=text)
         for text in ("Dodaj", "Edytuj", "Usuń", "Zapisz")
     )
-    btn_change_status = ttk.Button(toolbar, text="Zmień status")
+    btn_change_status = ttk.Button(actions_toolbar, text="Zmień status")
     edit_mode_buttons = [btn_add, btn_edit, btn_del, btn_save]
-    for button in (btn_save, btn_del, btn_edit, btn_change_status, btn_add):
-        button.pack(side="right", padx=4)
+    for button in (btn_add, btn_change_status, btn_edit, btn_del, btn_save):
+        button.pack(side="left", padx=(0, 6))
 
     def _refresh_machine_mode_ui(*_args) -> None:
         edit_mode = _is_machine_edit_mode()
