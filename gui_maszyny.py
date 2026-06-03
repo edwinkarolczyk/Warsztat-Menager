@@ -438,6 +438,18 @@ REVIEW_TYPES = (
     "Inne",
 )
 
+REVIEW_STATUS_PLANNED = "planned"
+REVIEW_STATUS_DONE = "done"
+REVIEW_STATUS_CANCELLED = "cancelled"
+
+REVIEW_SOURCE_CYCLE = "cycle"
+REVIEW_SOURCE_MANUAL = "manual"
+
+REVIEW_SOURCE_LABELS = {
+    REVIEW_SOURCE_CYCLE: "Cykliczny",
+    REVIEW_SOURCE_MANUAL: "Ręczny",
+}
+
 
 def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Zwraca lokalne przeglądy zapisane bezpośrednio w rekordzie maszyny."""
@@ -446,6 +458,269 @@ def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
     if isinstance(reviews, list):
         return [item for item in reviews if isinstance(item, dict)]
     return []
+
+
+def _machine_default_review_type(machine: Dict[str, Any]) -> str:
+    value = (
+        machine.get("default_review_type")
+        or machine.get("domyslny_typ_przegladu")
+        or machine.get("typ_przegladu")
+        or "Przegląd okresowy"
+    )
+    text = str(value or "").strip()
+    return text if text else "Przegląd okresowy"
+
+
+def _machine_suggested_service_people(machine: Dict[str, Any]) -> List[str]:
+    value = (
+        machine.get("suggested_service_people")
+        or machine.get("serwisanci")
+        or machine.get("wykonawcy_serwis")
+        or machine.get("wykonawcy")
+        or []
+    )
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item or "").strip()]
+    return _split_csv_people(value)
+
+
+def _review_status_key(value: object) -> str:
+    raw = str(value or "").strip().lower()
+    raw = raw.replace("_", " ").replace("-", " ")
+    raw = " ".join(raw.split())
+    if raw in (
+        "done",
+        "wykonany",
+        "wykonane",
+        "zrobione",
+        "zamkniety",
+        "zamknięty",
+        "completed",
+    ):
+        return REVIEW_STATUS_DONE
+    if raw in ("cancelled", "canceled", "anulowany", "anulowane"):
+        return REVIEW_STATUS_CANCELLED
+    return REVIEW_STATUS_PLANNED
+
+
+def _review_date(value: object) -> Optional[dt.date]:
+    return _parse_schedule_date(value)
+
+
+def _machine_review_months(machine: Dict[str, Any]) -> List[int]:
+    value = (
+        machine.get("review_months")
+        or machine.get("inspection_months")
+        or machine.get("miesiace_przegladu")
+        or machine.get("miesiące_przeglądu")
+        or machine.get("months")
+        or []
+    )
+    return _normalize_review_months(value)
+
+
+def _review_month_done(
+    machine: Dict[str, Any],
+    *,
+    year: int,
+    month: int,
+    review_type: str,
+) -> bool:
+    wanted_type = str(review_type or "").strip().lower()
+    for review in _machine_reviews(machine):
+        if _review_status_key(review.get("status")) != REVIEW_STATUS_DONE:
+            continue
+        date_value = _review_date(
+            review.get("date")
+            or review.get("data")
+            or review.get("planned_date")
+            or review.get("completed_at")
+            or review.get("done_at")
+        )
+        if not date_value:
+            continue
+        if date_value.year != year or date_value.month != month:
+            continue
+        current_type = str(review.get("type") or review.get("typ") or "").strip().lower()
+        if not current_type or current_type == wanted_type:
+            return True
+    return False
+
+
+def _combined_machine_review_entries(
+    machine: Dict[str, Any],
+    *,
+    today: Optional[dt.date] = None,
+    years_ahead: int = 1,
+) -> List[Dict[str, Any]]:
+    """
+    Wspólna lista harmonogramu maszyny:
+    - ręczne wpisy machine["reviews"],
+    - planowane wpisy cykliczne wygenerowane z miesięcy przeglądu.
+    """
+
+    today = today or dt.date.today()
+    entries: List[Dict[str, Any]] = []
+
+    for review in _machine_reviews(machine):
+        date_value = _review_date(
+            review.get("date")
+            or review.get("data")
+            or review.get("planned_date")
+            or review.get("completed_at")
+            or review.get("done_at")
+        )
+        if date_value is None:
+            continue
+
+        entry = dict(review)
+        entry["date"] = date_value.isoformat()
+        entry["type"] = str(review.get("type") or review.get("typ") or "Przegląd okresowy")
+        entry["status"] = _review_status_key(review.get("status"))
+        entry["source"] = str(review.get("source") or REVIEW_SOURCE_MANUAL)
+        entries.append(entry)
+
+    default_type = _machine_default_review_type(machine)
+    suggested_people = _machine_suggested_service_people(machine)
+    months = _machine_review_months(machine)
+    years = range(today.year, today.year + max(1, years_ahead) + 1)
+
+    for year in years:
+        for month in months:
+            if _review_month_done(machine, year=year, month=month, review_type=default_type):
+                continue
+
+            planned_date = dt.date(year, month, 1)
+            entries.append(
+                {
+                    "id": f"cycle_{year}_{month:02d}",
+                    "date": planned_date.isoformat(),
+                    "type": default_type,
+                    "status": REVIEW_STATUS_PLANNED,
+                    "source": REVIEW_SOURCE_CYCLE,
+                    "suggested_people": suggested_people,
+                }
+            )
+
+    entries.sort(
+        key=lambda item: (
+            _review_date(item.get("date")) or dt.date(9999, 12, 31),
+            str(item.get("type") or ""),
+            str(item.get("source") or ""),
+        )
+    )
+    return entries
+
+
+def _next_machine_review_entry(
+    machine: Dict[str, Any],
+    *,
+    today: Optional[dt.date] = None,
+) -> Optional[Dict[str, Any]]:
+    today = today or dt.date.today()
+    planned: List[Dict[str, Any]] = []
+
+    for entry in _combined_machine_review_entries(machine, today=today):
+        if _review_status_key(entry.get("status")) != REVIEW_STATUS_PLANNED:
+            continue
+        if _review_date(entry.get("date")) is None:
+            continue
+        planned.append(entry)
+
+    if not planned:
+        return None
+
+    return min(
+        planned,
+        key=lambda item: _review_date(item.get("date")) or dt.date(9999, 12, 31),
+    )
+
+
+def _combined_machine_schedule_summary(machine: Dict[str, Any]) -> Dict[str, Any]:
+    today = dt.date.today()
+    entries = _combined_machine_review_entries(machine, today=today)
+    entry = _next_machine_review_entry(machine, today=today)
+
+    history = [
+        item
+        for item in entries
+        if _review_status_key(item.get("status")) == REVIEW_STATUS_DONE
+    ]
+    upcoming = [
+        item
+        for item in entries
+        if _review_status_key(item.get("status")) == REVIEW_STATUS_PLANNED
+    ]
+
+    if not entry:
+        return {
+            "upcoming": upcoming,
+            "history": history,
+            "next_entry": None,
+            "next_date": None,
+            "status": "none",
+            "key": "none",
+            "status_key": "none",
+            "next_label": "—",
+            "status_label": "Brak danych",
+            "status_text": "Brak zaplanowanych przeglądów",
+            "days": None,
+            "color": SCHEDULE_STATUS_COLORS["none"],
+        }
+
+    date_value = _review_date(entry.get("date"))
+    if date_value is None:
+        return {
+            "upcoming": upcoming,
+            "history": history,
+            "next_entry": None,
+            "next_date": None,
+            "status": "none",
+            "key": "none",
+            "status_key": "none",
+            "next_label": "—",
+            "status_label": "Brak danych",
+            "status_text": "Brak danych harmonogramu",
+            "days": None,
+            "color": SCHEDULE_STATUS_COLORS["none"],
+        }
+
+    days = (date_value - today).days
+    if days < 0:
+        status = "overdue"
+        label = "Po terminie"
+    elif days <= SCHEDULE_SOON_THRESHOLD_DAYS:
+        status = "soon"
+        label = "Wkrótce"
+    else:
+        status = "ok"
+        label = "Planowane"
+
+    type_label = str(entry.get("type") or "Przegląd okresowy")
+    source_label = REVIEW_SOURCE_LABELS.get(
+        str(entry.get("source") or ""),
+        str(entry.get("source") or ""),
+    )
+
+    parts = [label, type_label]
+    if source_label:
+        parts.append(source_label)
+
+    status_label = " • ".join(parts)
+    return {
+        "upcoming": upcoming,
+        "history": history,
+        "next_entry": entry,
+        "next_date": date_value,
+        "status": status,
+        "key": status,
+        "status_key": status,
+        "next_label": date_value.isoformat(),
+        "status_label": status_label,
+        "status_text": f"{status_label} – {date_value.isoformat()}",
+        "days": days,
+        "color": SCHEDULE_STATUS_COLORS.get(status, SCHEDULE_STATUS_COLORS["none"]),
+    }
 
 
 def _new_review_id() -> str:
@@ -864,9 +1139,18 @@ def _strip_schedule_fields(machine: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _schedule_status_key(machine: Dict[str, Any]) -> str:
-    summary = machine.get("__schedule_summary") if isinstance(machine, dict) else None
-    key = str((summary or {}).get("status_key") or "none")
-    return key
+    if not isinstance(machine, dict):
+        return "none"
+    summary = machine.get("__schedule_summary")
+    if not isinstance(summary, dict):
+        summary = _combined_machine_schedule_summary(machine)
+        machine["__schedule_summary"] = summary
+    return str(
+        summary.get("status")
+        or summary.get("key")
+        or summary.get("status_key")
+        or "none"
+    )
 
 
 def _ensure_tree_schedule_tag(tree: ttk.Treeview, status_key: str) -> str:
@@ -2327,6 +2611,9 @@ def _open_machines_panel(
     schedule_meta.setdefault("updated_at", schedule_meta.get("updated_at"))
 
     _attach_schedule(rows_cache, schedule_entries)
+    for row in rows_cache:
+        if isinstance(row, dict):
+            row["__schedule_summary"] = _combined_machine_schedule_summary(row)
     visible_rows: List[Dict] = list(rows_cache)
 
     info.set(
@@ -2466,6 +2753,9 @@ def _open_machines_panel(
 
     def _on_rows_changed() -> None:
         _attach_schedule(rows_cache, schedule_entries)
+        for row in rows_cache:
+            if isinstance(row, dict):
+                row["__schedule_summary"] = _combined_machine_schedule_summary(row)
         _recompute_visible_rows()
         _refresh_tree()
         if hall is not None:
