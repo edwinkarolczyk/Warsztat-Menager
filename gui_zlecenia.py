@@ -16,6 +16,7 @@ from dyspozycje_store import (
     get_dyspozycje_path,
     load_dyspozycje,
 )
+from dyspozycje_sources import load_machine_choices, load_tool_choices
 
 from ui_dialogs_safe import error_box
 
@@ -115,6 +116,102 @@ def _dysp_object_label(item: dict[str, Any]) -> str:
     return "—"
 
 
+_DYSP_TOOL_STATUS_CACHE: dict[str, str] | None = None
+_DYSP_MACHINE_STATUS_CACHE: dict[str, str] | None = None
+
+
+def _normalize_object_id(value: Any) -> set[str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return set()
+    out = {raw, raw.lower()}
+    if raw.isdigit():
+        out.add(str(int(raw)))
+        out.add(raw.zfill(3))
+    return {item for item in out if item}
+
+
+def _load_tool_status_cache() -> dict[str, str]:
+    global _DYSP_TOOL_STATUS_CACHE
+    if _DYSP_TOOL_STATUS_CACHE is not None:
+        return _DYSP_TOOL_STATUS_CACHE
+
+    cache: dict[str, str] = {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        status = str(row.get("status") or "").strip()
+        if not rid or not status:
+            continue
+        for key in _normalize_object_id(rid):
+            cache[key] = status
+
+    _DYSP_TOOL_STATUS_CACHE = cache
+    return cache
+
+
+def _load_machine_status_cache() -> dict[str, str]:
+    global _DYSP_MACHINE_STATUS_CACHE
+    if _DYSP_MACHINE_STATUS_CACHE is not None:
+        return _DYSP_MACHINE_STATUS_CACHE
+
+    cache: dict[str, str] = {}
+    try:
+        from gui_maszyny import load_machines_rows
+
+        rows = load_machines_rows()
+    except Exception:
+        rows = []
+
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(
+            row.get("id")
+            or row.get("nr_ewid")
+            or row.get("nr")
+            or row.get("numer")
+            or ""
+        ).strip()
+        status = str(row.get("status") or "").strip()
+        if not rid or not status:
+            continue
+        for key in _normalize_object_id(rid):
+            cache[key] = status
+
+    _DYSP_MACHINE_STATUS_CACHE = cache
+    return cache
+
+
+def _resolve_related_status(item: dict[str, Any]) -> str:
+    typ = str(item.get("typ_dyspozycji") or item.get("typ") or "").strip().lower()
+    object_id = _dysp_object_label(item)
+    variants = _normalize_object_id(object_id)
+    if not variants:
+        return "—"
+
+    if typ == "narzedzie":
+        cache = _load_tool_status_cache()
+    elif typ == "maszyna":
+        cache = _load_machine_status_cache()
+    else:
+        return "—"
+
+    for key in variants:
+        value = cache.get(key)
+        if value:
+            return value
+    return "—"
+
+
 def _dysp_title_label(item: dict[str, Any]) -> str:
     return str(item.get("tytul") or item.get("opis") or "Dyspozycja").strip()
 
@@ -138,14 +235,17 @@ def _dysp_assigned_label(item: dict[str, Any]) -> str:
 
 def _dysp_related_status_label(item: dict[str, Any]) -> str:
     meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
-    return str(
+    value = str(
         item.get("status_obiektu")
         or item.get("status_narzedzia")
         or item.get("status_maszyny")
         or meta.get("status_obiektu")
         or meta.get("status")
-        or "—"
-    ).strip() or "—"
+        or ""
+    ).strip()
+    if value:
+        return value
+    return _resolve_related_status(item)
 
 
 def _dysp_due_in_label(item: dict[str, Any]) -> str:
@@ -476,6 +576,9 @@ class ZleceniaView(ttk.Frame):
                 self._order_ids[iid] = order_key
 
     def _reload_orders(self) -> None:
+        global _DYSP_TOOL_STATUS_CACHE, _DYSP_MACHINE_STATUS_CACHE
+        _DYSP_TOOL_STATUS_CACHE = None
+        _DYSP_MACHINE_STATUS_CACHE = None
         self._apply_dysp_ui_config()
         self._ensure_blink_started()
         try:
