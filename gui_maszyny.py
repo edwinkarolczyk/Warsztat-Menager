@@ -1490,8 +1490,51 @@ def _ensure_tree_columns(tree: ttk.Treeview) -> None:
     columns = [cid for cid, _, _, _ in _TREE_COLUMN_LAYOUT]
     tree.configure(columns=columns)
     for cid, label, width, anchor in _TREE_COLUMN_LAYOUT:
-        tree.heading(cid, text=label)
+        tree.heading(
+            cid,
+            text=label,
+            command=lambda c=cid: _sort_treeview_by_column(tree, c),
+        )
         tree.column(cid, width=width, anchor=anchor)
+
+
+def _sort_treeview_by_column(tree: ttk.Treeview, column: str) -> None:
+    """Sortuje tabelę maszyn po kliknięciu nagłówka kolumny."""
+
+    columns = list(tree["columns"]) if tree["columns"] else []
+    if column not in columns:
+        return
+
+    col_index = columns.index(column)
+    reverse = bool(getattr(tree, "_wm_sort_reverse", False))
+    last_column = getattr(tree, "_wm_sort_column", None)
+    if last_column == column:
+        reverse = not reverse
+    else:
+        reverse = False
+
+    def _sort_key(item_id: str):
+        values = tree.item(item_id, "values") or []
+        value = values[col_index] if col_index < len(values) else ""
+        text = str(value or "").strip()
+
+        if column in ("id", "dni"):
+            digits = "".join(ch for ch in text if ch.isdigit() or ch == "-")
+            try:
+                return (0, int(digits))
+            except Exception:
+                return (1, text.lower())
+
+        return (0, text.lower())
+
+    items = list(tree.get_children(""))
+    items.sort(key=_sort_key, reverse=reverse)
+
+    for index, item_id in enumerate(items):
+        tree.move(item_id, "", index)
+
+    setattr(tree, "_wm_sort_column", column)
+    setattr(tree, "_wm_sort_reverse", reverse)
 
 
 def _tree_insert_row(tree: ttk.Treeview, machine: dict) -> str:
