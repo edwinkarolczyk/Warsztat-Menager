@@ -73,6 +73,10 @@ from config.paths import (
 )
 from gui_uzytkownicy import panel_uzytkownicy
 from gui_settings_users_tab import create_users_tab
+try:
+    from wm_watermark import set_enabled as _wm_set_watermark_enabled
+except Exception:
+    _wm_set_watermark_enabled = None
 
 logger = getLogger(__name__)
 
@@ -2357,6 +2361,58 @@ class SettingsPanel:
             text="🎨 Wygląd i UI"
         )
         self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # --- WM: znak wodny programu ---
+        watermark_box = ttk.LabelFrame(
+            self._ui_container,
+            text="🚧 Program w trakcie rozwoju",
+        )
+        watermark_box.pack(fill="x", padx=8, pady=(8, 4))
+
+        self._wm_watermark_var = tk.BooleanVar(
+            master=self.master,
+            value=bool(self.cfg.get("ui.show_development_watermark", True)),
+        )
+
+        def _toggle_wm_watermark():
+            enabled = bool(self._wm_watermark_var.get())
+            try:
+                if _wm_set_watermark_enabled is not None:
+                    _wm_set_watermark_enabled(enabled)
+                else:
+                    self.cfg.set("ui.show_development_watermark", enabled)
+                    self.cfg.save_all()
+            except Exception as exc:
+                logger.exception("[WM][WATERMARK] Nie udało się zapisać ustawienia")
+                messagebox.showerror(
+                    "Znak wodny",
+                    f"Nie udało się zapisać ustawienia:\n{exc}",
+                    parent=self.master,
+                )
+                self._wm_watermark_var.set(not enabled)
+                return
+
+            try:
+                top = self.master.winfo_toplevel()
+                overlay = getattr(top, "_wm_development_watermark", None)
+                if overlay is not None:
+                    overlay._refresh()
+                elif enabled:
+                    from wm_watermark import install as _install_wm_watermark
+                    _install_wm_watermark(top)
+            except Exception:
+                logger.debug("[WM][WATERMARK] Nie udało się odświeżyć warstwy", exc_info=True)
+
+        ttk.Checkbutton(
+            watermark_box,
+            text="Pokaż na środku ekranu znak wodny „PROGRAM W TRAKCIE ROZWOJU”",
+            variable=self._wm_watermark_var,
+            command=_toggle_wm_watermark,
+        ).pack(anchor="w", padx=10, pady=(10, 4))
+        ttk.Label(
+            watermark_box,
+            text="Duży, ukośny i półprzezroczysty napis. Zmiana działa od razu i jest zapisywana w konfiguracji.",
+        ).pack(anchor="w", padx=10, pady=(0, 10))
         self._modules_nb = ttk.Notebook(self.tab_modules)
         self._modules_nb.pack(fill="both", expand=True, padx=8, pady=8)
         self._modules_nb.bind(

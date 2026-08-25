@@ -801,15 +801,6 @@ def uruchom_panel(root, login, rola):
     except Exception:
         pass
     clear_frame(root)
-    # Globalny znak wodny: PROGRAM W TRAKCIE ROZWOJU.
-    try:
-        if install_development_watermark is not None:
-            install_development_watermark(root)
-        if patch_settings_module is not None:
-            import gui_settings as _wm_gui_settings
-            patch_settings_module(_wm_gui_settings)
-    except Exception:
-        pass
     if _register_notification_root is not None:
         try:
             _register_notification_root(root)
@@ -1749,6 +1740,18 @@ def uruchom_panel(root, login, rola):
         root.update_idletasks()
 
     _build_sidebar(initial=True)
+
+    # Znak wodny musi zostać dodany PO zbudowaniu panelu — wcześniej clear_frame()
+    # usuwał go natychmiast. Instalacja przez after_idle gwarantuje, że warstwa
+    # znajduje się nad gotowym GUI.
+    def _wm_install_after_gui():
+        try:
+            if install_development_watermark is not None:
+                install_development_watermark(root)
+        except Exception:
+            pass
+
+    root.after_idle(_wm_install_after_gui)
     root.bind("<<SidebarReload>>", lambda _e: _build_sidebar(initial=False))
 
     def _should_ignore_shortcut(event) -> bool:
