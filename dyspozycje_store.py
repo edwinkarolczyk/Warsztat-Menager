@@ -1,4 +1,8 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Dodano kontrolowane przejścia statusów Nowa -> W toku -> Wstrzymana/Zamknięta.
+# - Każda zmiana statusu zapisuje użytkownika i czas w meta.historia_statusow.
+# - Zamknięcie korzysta ze wspólnego mechanizmu zmiany statusu.
 # -*- coding: utf-8 -*-
 """Wspólny store dla modułu Dyspozycje.
 
@@ -378,21 +382,81 @@ def update_dyspozycja(
     return deepcopy(changed)
 
 
+def set_dyspozycja_status(
+    dyspozycja_id: str,
+    new_status: str,
+    *,
+    changed_by: str = "",
+    uwagi: str = "",
+) -> dict[str, Any] | None:
+    """Zmień status zgodnie z obiegiem i dopisz historię kto/kiedy."""
+
+    target = str(new_status or "").strip().lower()
+    if target not in DISP_ALLOWED_STATUSES:
+        return None
+
+    current_item = get_dyspozycja(dyspozycja_id)
+    if not current_item:
+        return None
+
+    current = _normalize_status(current_item.get("status"))
+    if target == current:
+        return deepcopy(current_item)
+
+    allowed_transitions = {
+        "nowa": {"w_toku"},
+        "w_toku": {"wstrzymana", "zamknieta"},
+        "wstrzymana": {"w_toku", "zamknieta"},
+        "zamknieta": set(),
+    }
+    if target not in allowed_transitions.get(current, set()):
+        return None
+
+    now = _now_iso()
+    who = _normalize_login(changed_by)
+    meta = dict(current_item.get("meta") or {})
+    history_raw = meta.get("historia_statusow")
+    history = list(history_raw) if isinstance(history_raw, list) else []
+    history.append(
+        {
+            "z": current,
+            "na": target,
+            "kto": who,
+            "kiedy": now,
+        }
+    )
+    meta["historia_statusow"] = history
+
+    updates: dict[str, Any] = {
+        "status": target,
+        "meta": meta,
+    }
+    if target == "zamknieta":
+        updates.update(
+            {
+                "wykonano": now,
+                "zamknieto_at": now,
+                "zamkniete_przez": who,
+            }
+        )
+        if str(uwagi or "").strip():
+            updates["uwagi"] = str(uwagi).strip()
+
+    return update_dyspozycja(dyspozycja_id, updates)
+
+
 def close_dyspozycja(
     dyspozycja_id: str,
     *,
     uwagi: str = "",
     closed_by: str = "",
 ) -> dict[str, Any] | None:
-    updates = {
-        "status": "zamknieta",
-        "wykonano": _now_iso(),
-        "zamknieto_at": _now_iso(),
-        "zamkniete_przez": _normalize_login(closed_by),
-    }
-    if str(uwagi or "").strip():
-        updates["uwagi"] = str(uwagi).strip()
-    return update_dyspozycja(dyspozycja_id, updates)
+    return set_dyspozycja_status(
+        dyspozycja_id,
+        "zamknieta",
+        changed_by=closed_by,
+        uwagi=uwagi,
+    )
 
 
 def delete_dyspozycja(dyspozycja_id: str) -> bool:
@@ -469,6 +533,7 @@ __all__ = [
     "make_dyspozycja",
     "normalize_dyspozycja",
     "save_dyspozycje",
+    "set_dyspozycja_status",
     "update_dyspozycja",
     "visible_for_login",
 ]

@@ -1,4 +1,8 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Dodano obieg statusów: Nowa -> W toku -> Wstrzymana -> Zamknięta.
+# - Przyciski Rozpocznij/Wstrzymaj/Wznów/Zamknij są aktywne zależnie od statusu.
+# - Statusy mają czytelne polskie etykiety i kolory; zmiany zapisują kto i kiedy.
 # Zmiany 1.1:
 # - Nowe i zamykane Dyspozycje zapisują faktycznie zalogowanego użytkownika.
 # - Anulowanie okna uwag nie zamyka Dyspozycji.
@@ -14,10 +18,10 @@ from typing import Any, Callable
 
 from config_manager import ConfigManager
 from dyspozycje_store import (
-    close_dyspozycja,
     delete_dyspozycja,
     get_dyspozycje_path,
     load_dyspozycje,
+    set_dyspozycja_status,
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
 from services.profile_service import ProfileService
@@ -33,6 +37,8 @@ def _dysp_ui_config() -> dict[str, Any]:
         "blink_enabled": True,
         "closed_foreground": "#9ca3af",
         "new_foreground": "#facc15",
+        "in_progress_foreground": "#60a5fa",
+        "paused_foreground": "#fb923c",
         "new_blink_foreground": "#ffffff",
         "overdue_foreground": "#ef4444",
         "overdue_blink_foreground": "#ffffff",
@@ -83,6 +89,14 @@ def _dysp_is_closed(item: dict[str, Any]) -> bool:
 
 def _dysp_is_new(item: dict[str, Any]) -> bool:
     return _dysp_status(item) in {"nowa", "new"}
+
+
+def _dysp_is_in_progress(item: dict[str, Any]) -> bool:
+    return _dysp_status(item) == "w_toku"
+
+
+def _dysp_is_paused(item: dict[str, Any]) -> bool:
+    return _dysp_status(item) == "wstrzymana"
 
 
 def _dysp_is_overdue(item: dict[str, Any]) -> bool:
@@ -232,7 +246,14 @@ def _dysp_title_label(item: dict[str, Any]) -> str:
 
 
 def _dysp_status_label(item: dict[str, Any]) -> str:
-    return str(item.get("status") or "nowa").strip() or "nowa"
+    labels = {
+        "nowa": "Nowa",
+        "w_toku": "W toku",
+        "wstrzymana": "Wstrzymana",
+        "zamknieta": "Zamknięta",
+    }
+    status = _dysp_status(item) or "nowa"
+    return labels.get(status, str(item.get("status") or "Nowa").strip() or "Nowa")
 
 
 def _dysp_type_label(item: dict[str, Any]) -> str:
@@ -395,9 +416,20 @@ class ZleceniaView(ttk.Frame):
             btn_edit.state(["disabled"])
         btn_edit.pack(side="left", padx=(8, 0))
 
-        ttk.Button(toolbar, text="Zamknij Dyspozycję", command=self._on_close).pack(
-            side="left", padx=(8, 0)
+        self.btn_start = ttk.Button(toolbar, text="Rozpocznij", command=self._on_start)
+        self.btn_start.pack(side="left", padx=(8, 0))
+
+        self.btn_pause = ttk.Button(toolbar, text="Wstrzymaj", command=self._on_pause)
+        self.btn_pause.pack(side="left", padx=(8, 0))
+
+        self.btn_resume = ttk.Button(toolbar, text="Wznów", command=self._on_resume)
+        self.btn_resume.pack(side="left", padx=(8, 0))
+
+        self.btn_close = ttk.Button(
+            toolbar, text="Zamknij Dyspozycję", command=self._on_close
         )
+        self.btn_close.pack(side="left", padx=(8, 0))
+
         ttk.Button(toolbar, text="Usuń Dyspozycję", command=self._on_delete).pack(
             side="left", padx=(8, 0)
         )
@@ -450,6 +482,12 @@ class ZleceniaView(ttk.Frame):
         self._apply_dysp_ui_config()
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self._on_double_click, add=True)
+        self.tree.bind(
+            "<<TreeviewSelect>>",
+            lambda _event: self._update_status_actions(),
+            add=True,
+        )
+        self._update_status_actions()
         self._ensure_blink_started()
 
     def _apply_dysp_ui_config(self) -> None:
@@ -468,6 +506,10 @@ class ZleceniaView(ttk.Frame):
             pass
 
         self.tree.tag_configure("dysp_closed", foreground=ui["closed_foreground"])
+        self.tree.tag_configure(
+            "dysp_in_progress", foreground=ui["in_progress_foreground"]
+        )
+        self.tree.tag_configure("dysp_paused", foreground=ui["paused_foreground"])
         self.tree.tag_configure("dysp_new", foreground=ui["new_foreground"])
         self.tree.tag_configure(
             "dysp_new_blink", foreground=ui["new_blink_foreground"]
@@ -573,6 +615,10 @@ class ZleceniaView(ttk.Frame):
                 tags.append("dysp_overdue")
             elif _dysp_is_new(order):
                 tags.append("dysp_new")
+            elif _dysp_is_in_progress(order):
+                tags.append("dysp_in_progress")
+            elif _dysp_is_paused(order):
+                tags.append("dysp_paused")
             try:
                 self.tree.insert(
                     "",
@@ -597,6 +643,7 @@ class ZleceniaView(ttk.Frame):
             self._order_rows[iid] = order
             if order_key:
                 self._order_ids[iid] = order_key
+        self._update_status_actions()
 
     def _reload_orders(self) -> None:
         global _DYSP_TOOL_STATUS_CACHE, _DYSP_MACHINE_STATUS_CACHE
@@ -668,6 +715,63 @@ class ZleceniaView(ttk.Frame):
         mapped = dict(self._order_rows.get(iid, {}) or {})
         return mapped or None
 
+    def _update_status_actions(self) -> None:
+        mapped = self._selected_row()
+        status = _dysp_status(mapped or {})
+        enabled = {
+            "start": status == "nowa",
+            "pause": status == "w_toku",
+            "resume": status == "wstrzymana",
+            "close": status in {"w_toku", "wstrzymana"},
+        }
+        for button, key in (
+            (getattr(self, "btn_start", None), "start"),
+            (getattr(self, "btn_pause", None), "pause"),
+            (getattr(self, "btn_resume", None), "resume"),
+            (getattr(self, "btn_close", None), "close"),
+        ):
+            if button is None:
+                continue
+            try:
+                button.state(["!disabled"] if enabled[key] else ["disabled"])
+            except Exception:
+                pass
+
+    def _change_status(self, target: str) -> None:
+        mapped = self._selected_row()
+        if not mapped:
+            messagebox.showinfo(
+                "Dyspozycje",
+                "Najpierw wybierz Dyspozycję.",
+                parent=self,
+            )
+            return
+        dysp_id = str(mapped.get("id") or "").strip()
+        if not dysp_id:
+            return
+        who = self._login_user or str(mapped.get("autor") or "").strip()
+        changed = set_dyspozycja_status(dysp_id, target, changed_by=who)
+        if not changed:
+            messagebox.showerror(
+                "Dyspozycje",
+                "Ta zmiana statusu nie jest dozwolona.",
+                parent=self,
+            )
+            return
+        try:
+            self.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
+        except Exception:
+            self._reload_orders()
+
+    def _on_start(self) -> None:
+        self._change_status("w_toku")
+
+    def _on_pause(self) -> None:
+        self._change_status("wstrzymana")
+
+    def _on_resume(self) -> None:
+        self._change_status("w_toku")
+
     def _on_close(self) -> None:
         mapped = self._selected_row()
         if not mapped:
@@ -680,10 +784,10 @@ class ZleceniaView(ttk.Frame):
         dysp_id = str(mapped.get("id") or "").strip()
         if not dysp_id:
             return
-        if str(mapped.get("status") or "").strip().lower() == "zamknieta":
+        if _dysp_status(mapped) not in {"w_toku", "wstrzymana"}:
             messagebox.showinfo(
                 "Dyspozycje",
-                "Ta Dyspozycja jest już zamknięta.",
+                "Zamknąć można Dyspozycję W toku albo Wstrzymaną.",
                 parent=self,
             )
             return
@@ -695,10 +799,11 @@ class ZleceniaView(ttk.Frame):
         if note is None:
             return
         who = self._login_user or str(mapped.get("autor") or "").strip()
-        changed = close_dyspozycja(
+        changed = set_dyspozycja_status(
             dysp_id,
+            "zamknieta",
+            changed_by=who,
             uwagi=note or "",
-            closed_by=who,
         )
         if not changed:
             messagebox.showerror(
