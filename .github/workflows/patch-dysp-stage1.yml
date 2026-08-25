@@ -1,0 +1,32 @@
+name: One-shot Dyspozycje stage 1
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/patch-dysp-stage1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch Dyspozycje
+        run: python _patch_dysp_stage1.py
+      - name: Compile changed files
+        run: python -m py_compile gui_zlecenia.py gui_dyspozycje_creator.py
+      - name: Commit patch and cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gui_zlecenia.py gui_dyspozycje_creator.py
+          git rm .github/workflows/patch-dysp-stage1.yml _patch_dysp_stage1.py
+          git commit -m "fix: improve Dyspozycje stage 1 workflow"
+          git push origin HEAD:Rozwiniecie
