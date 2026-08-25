@@ -1,4 +1,8 @@
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - Zlecenie wykonania wybiera realne Zlecenie, Produkt albo Półprodukt i ilość do wykonania.
+# - Dyspozycja zapisuje nr zlecenia/poziom wykonania oraz podgląd zapotrzebowania z Magazynu.
+# - Wyszukiwarka działa również dla źródeł wykonania.
 # Zmiany 1.2:
 # - Nowa Dyspozycja pokazuje od razu bieżącą datę w polu terminu.
 # - Termin jest tylko do odczytu; zmiana odbywa się przez kalendarz lub szybkie przyciski.
@@ -24,6 +28,7 @@ from dyspozycje_sources import (
     load_machine_choices,
     load_tool_choices,
     load_zlecenie_wykonania_choices,
+    load_zlecenie_wykonania_context,
 )
 from dyspozycje_store import (
     add_dyspozycja,
@@ -633,6 +638,14 @@ def open_dyspozycje_creator(
     )
     cb_object.grid(row=3, column=1, sticky="ew", pady=4)
 
+    var_exec_qty = tk.StringVar(value=str(((ctx.get('meta') or {}).get('ilosc_do_wykonania') if isinstance(ctx.get('meta'), dict) else '') or '1'))
+    exec_qty_frame = ttk.Frame(frame)
+    exec_qty_frame.grid(row=3, column=2, sticky="w", padx=(10, 0), pady=4)
+    ttk.Label(exec_qty_frame, text="Ilość do wykonania:").pack(side="left")
+    ent_exec_qty = ttk.Entry(exec_qty_frame, textvariable=var_exec_qty, width=12)
+    ent_exec_qty.pack(side="left", padx=(6, 0))
+    exec_qty_frame.grid_remove()
+
     var_object_search = tk.StringVar()
     lbl_object_search = ttk.Label(frame, text="Wyszukaj:")
     lbl_object_search.grid(row=2, column=0, sticky="w", pady=4)
@@ -734,6 +747,8 @@ def open_dyspozycje_creator(
     options_map: dict[str, str] = {}
     all_labels: list[str] = []
     source_module = {"value": ""}
+    execution_context = {"value": {}}
+    execution_qty_touched = {"value": False}
 
     def _set_deadline_offset(days: int) -> None:
         target = _dt.date.today() + _dt.timedelta(days=int(days))
@@ -930,6 +945,31 @@ def open_dyspozycje_creator(
     if not edit_mode:
         object_panel.grid_remove()
 
+    def _execution_requirements(object_id: str, qty_value: str):
+        ctx_exec = load_zlecenie_wykonania_context(object_id) or {}
+        try:
+            qty = float(str(qty_value or '1').replace(',', '.'))
+        except (TypeError, ValueError):
+            return ctx_exec, None
+        try:
+            from produkty_store import ProductCatalog
+            from polprodukty_store import SemiProductCatalog
+            from planowanie_zapotrzebowanie import RequirementCalculator
+            pc = ProductCatalog()
+            calc = RequirementCalculator(pc, SemiProductCatalog(pc.cfg))
+            level = str(ctx_exec.get('poziom_wykonania') or '')
+            if level == 'zlecenie':
+                result = calc.calculate_with_stock(str(ctx_exec.get('product_code') or ''), qty)
+            elif level == 'produkt':
+                result = calc.calculate_with_stock(str(ctx_exec.get('product_code') or ''), qty)
+            elif level == 'polprodukt':
+                result = calc.calculate_semi_with_stock(str(ctx_exec.get('polprodukt_code') or ''), qty, ignore_root_stock=True)
+            else:
+                result = None
+        except Exception:
+            result = None
+        return ctx_exec, result
+
     def _refresh_object_panel(*_args) -> None:
         if not edit_mode:
             return
@@ -983,7 +1023,33 @@ def open_dyspozycje_creator(
             btn_open_machine.pack(side="left")
             btn_print_machine_card.pack(side="left", padx=(8, 0))
             btn_print_blank_machine_card.pack(side="left", padx=(8, 0))
+        elif typ == 'zlecenie_wykonania':
+            object_panel.grid()
+            ctx_exec, req = _execution_requirements(object_id, var_exec_qty.get())
+            execution_context['value'] = ctx_exec
+            level = str(ctx_exec.get('poziom_wykonania') or 'wykonanie')
+            preview = {
+                'Poziom': level,
+                'Nr zlecenia': str(ctx_exec.get('nr_zlecenia') or '—'),
+                'Produkt': str(ctx_exec.get('product_code') or '—'),
+                'Półprodukt': str(ctx_exec.get('polprodukt_code') or '—'),
+                'Ilość do wykonania': var_exec_qty.get(),
+            }
+            if isinstance(req, dict):
+                shortages = []
+                for row in req.get('rows') or []:
+                    try:
+                        missing = float(row.get('brak') or 0)
+                    except (TypeError, ValueError):
+                        missing = 0
+                    if missing > 0:
+                        shortages.append(f"{row.get('typ','')} {row.get('kod','')}: {missing:g} {row.get('jednostka','')}")
+                preview['Braki / do wykonania'] = '\n'.join(shortages[:18]) if shortages else 'Brak braków wg bieżącego Magazynu'
+            var_object_panel_info.set('Wykonanie powiązane z Planowaniem i bieżącym stanem Magazynu.')
+            _render_object_card('Wykonanie produkcyjne', preview)
         else:
+            if not edit_mode:
+                object_panel.grid_remove()
             var_object_panel_info.set(
                 "Dla tego typu dyspozycji nie ma jeszcze edytora "
                 "kontekstowego w dolnym panelu."
@@ -1011,7 +1077,7 @@ def open_dyspozycje_creator(
         labels = list(all_labels)
         cb_object.configure(values=labels)
         var_object_search.set("")
-        if source_key in {"narzedzia", "maszyny"}:
+        if source_key in {"narzedzia", "maszyny", "zlecenia"}:
             lbl_object_search.grid()
             ent_object_search.grid()
         else:
@@ -1028,6 +1094,15 @@ def open_dyspozycje_creator(
         if not picked and labels:
             picked = labels[0]
         var_object_display.set(picked)
+        if source_key == 'zlecenia':
+            exec_qty_frame.grid()
+            selected_id = options_map.get(picked, '')
+            selected_ctx = load_zlecenie_wykonania_context(selected_id) or {}
+            execution_context['value'] = selected_ctx
+            if not edit_mode and not execution_qty_touched['value']:
+                var_exec_qty.set(str(selected_ctx.get('ilosc_domyslna') or 1))
+        else:
+            exec_qty_frame.grid_remove()
         _refresh_object_panel()
 
     _toggle_assigned()
@@ -1036,7 +1111,7 @@ def open_dyspozycje_creator(
     _refresh_object_choices()
 
     def _filter_objects(*_args) -> None:
-        if source_module["value"] not in {"narzedzia", "maszyny"}:
+        if source_module["value"] not in {"narzedzia", "maszyny", "zlecenia"}:
             return
         query = var_object_search.get().strip().lower()
         if not query:
@@ -1056,6 +1131,12 @@ def open_dyspozycje_creator(
             var_object_display.set("")
         _refresh_object_panel()
 
+    def _mark_exec_qty(*_args):
+        execution_qty_touched['value'] = True
+        if var_type.get().strip().lower() == 'zlecenie_wykonania':
+            _refresh_object_panel()
+
+    var_exec_qty.trace_add('write', _mark_exec_qty)
     var_object_search.trace_add("write", _filter_objects)
     cb_object.bind("<<ComboboxSelected>>", _refresh_object_panel)
     _refresh_object_panel()
@@ -1084,6 +1165,13 @@ def open_dyspozycje_creator(
 
     def _close_current() -> None:
         if not edit_mode or not existing_id:
+            return
+        if var_type.get().strip().lower() == 'zlecenie_wykonania':
+            messagebox.showinfo(
+                'Dyspozycje',
+                'Dyspozycję wykonania zamknij z głównej listy Dyspozycji. Tam WM rozliczy ilość wykonaną i naddatek półproduktu.',
+                parent=win,
+            )
             return
         if not messagebox.askyesno(
             "Dyspozycje",
@@ -1132,7 +1220,37 @@ def open_dyspozycje_creator(
             if not var_all.get():
                 var_all.set(True)
 
-        title = str(ctx.get("tytul") or "").strip() or selected_label or var_type.get().strip()
+        meta_payload = dict(ctx.get("meta") or {}) if isinstance(ctx.get("meta"), dict) else {}
+        meta_payload["object_label"] = selected_label
+        exec_level = ""
+        if var_type.get().strip().lower() == "zlecenie_wykonania":
+            try:
+                exec_qty = float(var_exec_qty.get().strip().replace(",", "."))
+            except ValueError:
+                messagebox.showwarning("Dyspozycje", "Ilość do wykonania musi być liczbą.", parent=win)
+                return
+            if exec_qty <= 0:
+                messagebox.showwarning("Dyspozycje", "Ilość do wykonania musi być większa od zera.", parent=win)
+                return
+            if exec_qty.is_integer():
+                exec_qty = int(exec_qty)
+            exec_ctx, req = _execution_requirements(object_id, str(exec_qty))
+            meta_payload.update(exec_ctx)
+            meta_payload["ilosc_do_wykonania"] = exec_qty
+            exec_level = str(exec_ctx.get("poziom_wykonania") or "")
+            if isinstance(req, dict):
+                meta_payload["zapotrzebowanie"] = list(req.get("rows") or [])
+                meta_payload["zapotrzebowanie_uwagi"] = list(req.get("warnings") or [])
+
+        title = str(ctx.get("tytul") or "").strip()
+        if not title and var_type.get().strip().lower() == "zlecenie_wykonania":
+            if exec_level == "zlecenie":
+                title = f"Wykonaj Zlecenie {meta_payload.get('nr_zlecenia') or ''}".strip()
+            elif exec_level == "produkt":
+                title = f"Wykonaj produkt {meta_payload.get('product_code') or ''}".strip()
+            elif exec_level == "polprodukt":
+                title = f"Wykonaj półprodukt {meta_payload.get('polprodukt_code') or ''}".strip()
+        title = title or selected_label or var_type.get().strip()
         payload = {
             "typ_dyspozycji": var_type.get().strip(),
             "tytul": title,
@@ -1144,7 +1262,7 @@ def open_dyspozycje_creator(
             "priorytet": var_priority.get().strip(),
             "modul_zrodlowy": source_module["value"],
             "obiekt_id": object_id,
-            "meta": {"object_label": selected_label},
+            "meta": meta_payload,
         }
 
         if edit_mode and existing_id:

@@ -1,4 +1,8 @@
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Zamknięcie Dyspozycji wykonania zapisuje faktyczną ilość wykonaną.
+# - Dla półproduktu naddatek ponad plan automatycznie zwiększa stan Magazynu.
+# - Rozliczenie naddatku jest chronione przed podwójnym zaksięgowaniem po ID Dyspozycji.
 # Zmiany 1.4:
 # - Kolumna przypisania pokazuje osobno zleconego i faktycznego wykonawcę.
 # - Rozpoczęcie cudzej Dyspozycji wymaga potwierdzenia i nie zmienia przypisania.
@@ -30,9 +34,11 @@ from dyspozycje_store import (
     get_dyspozycje_path,
     load_dyspozycje,
     set_dyspozycja_status,
+    update_dyspozycja,
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
 from services.profile_service import ProfileService
+from planowanie_magazyn import WarehouseIntegrationError, add_semiproduct_surplus
 
 from ui_dialogs_safe import error_box
 
@@ -965,6 +971,52 @@ class ZleceniaView(ttk.Frame):
         if note is None:
             return
         who = self._login_user or str(mapped.get("autor") or "").strip()
+        typ = str(mapped.get("typ_dyspozycji") or "").strip().lower()
+        if typ == "zlecenie_wykonania":
+            meta = dict(mapped.get("meta") or {}) if isinstance(mapped.get("meta"), dict) else {}
+            try:
+                planned = float(str(meta.get("ilosc_do_wykonania") or 0).replace(",", "."))
+            except (TypeError, ValueError):
+                planned = 0.0
+            actual = simpledialog.askfloat(
+                "Rozlicz wykonanie",
+                "Ile faktycznie wykonano?",
+                initialvalue=planned if planned > 0 else 1,
+                minvalue=0.0,
+                parent=self,
+            )
+            if actual is None:
+                return
+            meta["ilosc_wykonana"] = actual
+            meta["brak_wykonania"] = max(0.0, planned - actual)
+            level = str(meta.get("poziom_wykonania") or "").strip().lower()
+            if level == "polprodukt":
+                surplus = max(0.0, actual - planned)
+                meta["naddatek"] = surplus
+                if surplus > 0:
+                    code = str(meta.get("polprodukt_code") or "").strip()
+                    name = str(meta.get("polprodukt_name") or code)
+                    try:
+                        result = add_semiproduct_surplus(
+                            code,
+                            surplus,
+                            name=name,
+                            user=who,
+                            context=f"Dyspozycja {dysp_id}",
+                            operation_id=dysp_id,
+                        )
+                    except WarehouseIntegrationError as exc:
+                        messagebox.showerror(
+                            "Rozliczenie produkcji",
+                            f"Nie udało się zaksięgować naddatku w Magazynie:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                            parent=self,
+                        )
+                        return
+                    meta["naddatek_zaksiegowany"] = bool(result.get("dodano") or result.get("already_settled"))
+            updated = update_dyspozycja(dysp_id, {"meta": meta})
+            if updated:
+                mapped = updated
+
         changed = set_dyspozycja_status(
             dysp_id,
             "zamknieta",

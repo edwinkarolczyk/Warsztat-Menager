@@ -1,7 +1,10 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
-# version: 1.5
+# version: 1.6
 # =========================================================
+# Zmiany 1.6:
+# - Brygadzista może tworzyć i edytować Zlecenia w Planowaniu zgodnie z rolą projektu.
+# - Z wybranego Zlecenia można otworzyć kreator Dyspozycji wykonania z gotowym kontekstem.
 # Zmiany 1.5:
 # - Zapotrzebowanie zlecenia porównuje półprodukty i surowce z istniejącym Magazynem.
 # - Naddatek półproduktu zmniejsza ilość do wykonania przed liczeniem surowców.
@@ -262,7 +265,7 @@ class PlanowanieUI:
         self.role = str(rola or "").strip().lower()
         self.is_manager = self.role in {"admin", "kierownik"}
         self.is_bryg = self.role == "brygadzista"
-        can_edit = self.role in EDIT_ROLES or self.is_manager
+        can_edit = self.role in EDIT_ROLES or self.is_manager or self.is_bryg
         self.access = RoleAccess(
             can_edit=can_edit,
             can_assign=True,
@@ -342,6 +345,7 @@ class PlanowanieUI:
         ttk.Button(top, text="Edytuj", command=self._edit_selected_order).pack(side="left", padx=3)
         ttk.Button(top, text="Usuń", command=self._delete_selected_order).pack(side="left", padx=3)
         ttk.Button(top, text="Archiwum", command=self._archive_selected_order).pack(side="left", padx=3)
+        ttk.Button(top, text="Dyspozycja wykonania", command=self._create_execution_disposition).pack(side="left", padx=(8, 3))
         if self.access.can_edit:
             ttk.Button(top, text="Blokada dnia", command=self._block_day).pack(side="left", padx=6)
 
@@ -875,6 +879,28 @@ class PlanowanieUI:
         self.store.data.setdefault("orders", []).append(order)
         self._persist_or_warn()
         self._refresh_orders_list()
+
+    def _create_execution_disposition(self):
+        order = self._selected_order()
+        if not order:
+            messagebox.showinfo("Planowanie", "Najpierw wybierz zlecenie.", parent=self.root)
+            return
+        number = str(order.get("number") or "").strip()
+        if not number:
+            return
+        try:
+            from gui_dyspozycje_creator import open_dyspozycje_creator
+            open_dyspozycje_creator(
+                self.frame,
+                autor=str(self.login or ""),
+                context={
+                    "typ_dyspozycji": "zlecenie_wykonania",
+                    "obiekt_id": f"zlecenie:{number}",
+                    "modul_zrodlowy": "planowanie",
+                },
+            )
+        except Exception as exc:
+            messagebox.showerror("Planowanie", f"Nie udało się otworzyć Dyspozycji wykonania:\n{exc}", parent=self.root)
 
     def _show_order_detail(self):
         sel = self.orders_tree.selection()

@@ -1,9 +1,13 @@
-# version: 1.0
+# version: 1.1
 # Moduł: planowanie_magazyn
 # Most Planowanie <-> istniejący Magazyn. Nie tworzy równoległej bazy stanów.
+# Zmiany 1.1: naddatek półproduktu może być księgowany idempotentnie po ID Dyspozycji.
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
 from typing import Any
 
 
@@ -52,13 +56,43 @@ def load_stock_snapshot() -> dict[str, dict[str, Any]]:
     return out
 
 
-def add_semiproduct_surplus(code: str, qty: float, *, name: str = '', user: str = '', context: str = '') -> dict[str, Any]:
+def _settlement_path() -> Path:
+    try:
+        from config_manager import ConfigManager
+        return Path(ConfigManager().path_data('magazyn', 'produkcja_rozliczenia.json'))
+    except Exception:
+        return Path('data') / 'magazyn' / 'produkcja_rozliczenia.json'
+
+def _load_settlements() -> dict[str, Any]:
+    path = _settlement_path()
+    try:
+        with path.open('r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+def _save_settlements(data: dict[str, Any]) -> None:
+    path = _settlement_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    with tmp.open('w', encoding='utf-8') as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+def add_semiproduct_surplus(code: str, qty: float, *, name: str = '', user: str = '', context: str = '', operation_id: str = '') -> dict[str, Any]:
     code = str(code or '').strip()
     qty = _num(qty)
     if not code:
         raise WarehouseIntegrationError('Brak kodu półproduktu dla naddatku.')
     if qty <= 0:
         return {'kod': code, 'dodano': 0.0}
+    operation_id = str(operation_id or '').strip()
+    if operation_id:
+        settlements = _load_settlements()
+        previous = settlements.get(operation_id)
+        if isinstance(previous, dict) and previous.get('status') == 'done':
+            return {'kod': code, 'dodano': 0.0, 'already_settled': True, 'previous': previous}
     try:
         import logika_magazyn as LM
         data = LM.load_magazyn(include_external=True)
@@ -112,4 +146,11 @@ def add_semiproduct_surplus(code: str, qty: float, *, name: str = '', user: str 
             logger('naddatek_polproduktu', {'item_id': code, 'ilosc': qty, 'by': user, 'ctx': context})
     except Exception:
         pass
-    return {'kod': code, 'dodano': qty, 'stan': _num((saved or {}).get('stan'))}
+    result = {'kod': code, 'dodano': qty, 'stan': _num((saved or {}).get('stan'))}
+    if operation_id:
+        settlements = _load_settlements()
+        settlements[operation_id] = {
+            'status': 'done', 'kod': code, 'ilosc': qty, 'user': str(user or ''), 'context': str(context or '')
+        }
+        _save_settlements(settlements)
+    return result
