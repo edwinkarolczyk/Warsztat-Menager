@@ -40,6 +40,10 @@ import gui_changelog
 from logger import log_akcja
 from profile_utils import ADMIN_ROLE_NAMES, SIDEBAR_MODULES, can_access_jarvis
 from ustawienia_systemu import panel_ustawien
+try:
+    from wm_watermark import install as install_development_watermark, patch_settings_module
+except Exception:
+    install_development_watermark = patch_settings_module = None
 from utils.moduly import module_active, zaladuj_manifest
 from wm_access import (
     get_disabled_modules_for,
@@ -797,6 +801,15 @@ def uruchom_panel(root, login, rola):
     except Exception:
         pass
     clear_frame(root)
+    # Globalny znak wodny: PROGRAM W TRAKCIE ROZWOJU.
+    try:
+        if install_development_watermark is not None:
+            install_development_watermark(root)
+        if patch_settings_module is not None:
+            import gui_settings as _wm_gui_settings
+            patch_settings_module(_wm_gui_settings)
+    except Exception:
+        pass
     if _register_notification_root is not None:
         try:
             _register_notification_root(root)

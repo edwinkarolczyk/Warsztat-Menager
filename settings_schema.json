@@ -517,6 +517,13 @@
                   "default": "dark"
                 },
                 {
+                  "type": "boolean",
+                  "key": "ui.show_development_watermark",
+                  "label": "Pokaż znak wodny „PROGRAM W TRAKCIE ROZWOJU”",
+                  "tooltip": "Pokazuje duży, ukośny znak wodny na środku programu. Ustawienie można zmienić bezpośrednio w Ustawieniach.",
+                  "default": true
+                },
+                {
                   "type": "select",
                   "key": "ui.language",
                   "label": "Język",
