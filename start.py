@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
-# version: 1.1.3
+# version: 1.1.4
 # Moduł: start
+# Zmiany 1.1.4:
+# - Przywrócono automatyczny git fetch/pull z gałęzi Rozwiniecie przy uruchomieniu WM.
+# - Aktualizacja wykonywana jest tylko raz, przed main(); późniejsze wywołania Git podczas budowy logowania pozostają blokowane.
 # Zmiany 1.1.3:
 # - Wyłączono synchroniczne operacje Git przy starcie aplikacji, aby sieć/repozytorium nie blokowały GUI.
 # - Aktualizacja repozytorium nie jest wykonywana automatycznie przed uruchomieniem okna WM.
@@ -1043,7 +1046,14 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[ERROR] Problem z manifestem modułów: {e}")
     # --- Koniec integracji manifestu ---
-    # Git check/pull przy starcie wyłączony: nie blokujemy uruchamiania WM.
+    # Przywrócony automatyczny Git check/pull przy starcie.
+    # Na czas tej jednej operacji wyłączamy blokadę bootstrapową z updates_utils,
+    # po czym włączamy ją z powrotem przed budową GUI/logowania.
+    BOOTSTRAP_ACTIVE = False
+    try:
+        _wm_git_check_on_start()
+    finally:
+        BOOTSTRAP_ACTIVE = True
     main()
 
 # ⏹ KONIEC KODU
