@@ -1,0 +1,30 @@
+name: One-shot fix settings schema refresh
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/fix-settings-schema-refresh.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch gui_settings.py
+        run: python _patch_settings_schema_refresh.py
+      - name: Commit patch and cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gui_settings.py
+          git rm .github/workflows/fix-settings-schema-refresh.yml _patch_settings_schema_refresh.py
+          git commit -m "fix: recover invalid settings schema path"
+          git push origin HEAD:Rozwiniecie
