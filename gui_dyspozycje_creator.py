@@ -1,4 +1,8 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Nowa Dyspozycja pokazuje od razu bieżącą datę w polu terminu.
+# - Termin jest tylko do odczytu; zmiana odbywa się przez kalendarz lub szybkie przyciski.
+# - Przy wyszukiwarce obiektu dodano etykietę „Wyszukaj:”.
 # Zmiany 1.1:
 # - Termin jest edytowany jako DD-MM-RR, z kalendarzem oraz skrótami +2 dni, +1 tydzień i +2 tygodnie.
 # - Do pliku termin nadal trafia jako YYYY-MM-DD; błędny format jest blokowany.
@@ -630,6 +634,9 @@ def open_dyspozycje_creator(
     cb_object.grid(row=3, column=1, sticky="ew", pady=4)
 
     var_object_search = tk.StringVar()
+    lbl_object_search = ttk.Label(frame, text="Wyszukaj:")
+    lbl_object_search.grid(row=2, column=0, sticky="w", pady=4)
+    lbl_object_search.grid_remove()
     ent_object_search = ttk.Entry(frame, textvariable=var_object_search)
     ent_object_search.grid(row=2, column=1, sticky="ew", pady=4)
     ent_object_search.grid_remove()
@@ -652,10 +659,18 @@ def open_dyspozycje_creator(
     cb_priority.grid(row=5, column=1, sticky="w", pady=4)
 
     ttk.Label(frame, text="Termin (DD-MM-RR):").grid(row=6, column=0, sticky="w", pady=4)
-    var_deadline = tk.StringVar(value=_deadline_to_display(ctx.get("termin") or ""))
+    initial_deadline = _deadline_to_display(ctx.get("termin") or "")
+    if not initial_deadline:
+        initial_deadline = _dt.date.today().strftime("%d-%m-%y")
+    var_deadline = tk.StringVar(value=initial_deadline)
     deadline_frame = ttk.Frame(frame)
     deadline_frame.grid(row=6, column=1, sticky="w", pady=4)
-    ent_deadline = ttk.Entry(deadline_frame, textvariable=var_deadline, width=14)
+    ent_deadline = ttk.Entry(
+        deadline_frame,
+        textvariable=var_deadline,
+        width=14,
+        state="readonly",
+    )
     ent_deadline.pack(side="left")
     ttk.Button(
         deadline_frame,
@@ -997,8 +1012,10 @@ def open_dyspozycje_creator(
         cb_object.configure(values=labels)
         var_object_search.set("")
         if source_key in {"narzedzia", "maszyny"}:
+            lbl_object_search.grid()
             ent_object_search.grid()
         else:
+            lbl_object_search.grid_remove()
             ent_object_search.grid_remove()
 
         ctx_object_id = str(ctx.get("obiekt_id") or "").strip()
