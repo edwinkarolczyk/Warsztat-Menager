@@ -1,6 +1,10 @@
 # WM-VERSION: 0.1
-# version: 1.1.6
+# version: 1.1.7
 # Moduł: start
+# Zmiany 1.1.7:
+# - Lokalne dane runtime (data/, wydruki/, logs/, backup/, wm_root.json) nie blokują już aktualizacji kodu.
+# - Przy samych zmianach runtime updater używa git pull --ff-only, który bezpiecznie odmawia przy konflikcie.
+# - Lokalne zmiany plików programu nadal blokują automatyczną aktualizację.
 # Zmiany 1.1.6:
 # - Po faktycznej aktualizacji ekran potwierdzenia pozostaje widoczny przez 2,5 s.
 # - Gdy repozytorium jest aktualne, szybkie przejście do WM pozostaje bez zmian.
@@ -680,6 +684,37 @@ def _auto_login_if_enabled(root) -> bool:
     return True
 
 
+def _wm_git_status_paths(status_text: str) -> list[str]:
+    """Wyciągnij ścieżki z `git status --porcelain`."""
+    paths: list[str] = []
+    for raw_line in str(status_text or "").splitlines():
+        if not raw_line.strip():
+            continue
+        path_text = raw_line[3:] if len(raw_line) >= 4 else raw_line
+        if " -> " in path_text:
+            path_text = path_text.split(" -> ", 1)[-1]
+        path_text = path_text.strip().strip('"').replace("\\", "/")
+        if path_text:
+            paths.append(path_text)
+    return paths
+
+
+def _wm_git_runtime_only_dirty(paths: list[str]) -> bool:
+    """True, gdy wszystkie lokalne zmiany dotyczą wyłącznie danych runtime WM."""
+    if not paths:
+        return False
+    runtime_prefixes = ("data/", "wydruki/", "logs/", "backup/")
+    runtime_files = {"wm_root.json"}
+    for value in paths:
+        normalized = str(value or "").strip().replace("\\", "/").lstrip("./")
+        if normalized in runtime_files:
+            continue
+        if any(normalized.startswith(prefix) for prefix in runtime_prefixes):
+            continue
+        return False
+    return True
+
+
 def _wm_git_check_on_start(
     preferred_branch: str | None = None,
     status_callback=None,
@@ -755,33 +790,61 @@ def _wm_git_check_on_start(
                 capture_output=True,
                 text=True,
             )
-            if status_proc.returncode == 0 and status_proc.stdout.strip():
+            dirty_paths = (
+                _wm_git_status_paths(status_proc.stdout)
+                if status_proc.returncode == 0
+                else []
+            )
+            runtime_only_dirty = _wm_git_runtime_only_dirty(dirty_paths)
+
+            if dirty_paths and not runtime_only_dirty:
                 print(
-                    "[WM-DBG][GIT] skipped: local changes (commit or stash required)"
+                    "[WM-DBG][GIT] skipped: local code/config changes "
+                    f"({', '.join(dirty_paths[:8])})"
                 )
+                _status("Pominięto aktualizację — zmieniony kod lokalny")
+                result = "skipped"
             else:
-                print(
-                    "[WM-DBG][GIT] Wykryto nowsze commity w origin, wykonuję git pull --rebase..."
-                )
-                _status("Pobieram aktualizację WM...")
-                pull_proc = subprocess.run(
-                    ["git", "pull", "--rebase", "origin", preferred_branch],
-                    check=False,
-                )
+                if runtime_only_dirty:
+                    print(
+                        "[WM-DBG][GIT] Lokalne zmiany dotyczą tylko danych runtime; "
+                        "próbuję bezpiecznego git pull --ff-only."
+                    )
+                    _status("Pobieram aktualizację WM — dane lokalne zostają...")
+                    pull_cmd = [
+                        "git", "pull", "--ff-only", "origin", preferred_branch
+                    ]
+                    pull_label = "git pull --ff-only"
+                else:
+                    print(
+                        "[WM-DBG][GIT] Wykryto nowsze commity w origin, "
+                        "wykonuję git pull --rebase..."
+                    )
+                    _status("Pobieram aktualizację WM...")
+                    pull_cmd = [
+                        "git", "pull", "--rebase", "origin", preferred_branch
+                    ]
+                    pull_label = "git pull --rebase"
+
+                pull_proc = subprocess.run(pull_cmd, check=False)
                 if pull_proc.returncode == 0:
                     print("[WM-DBG][GIT] Aktualizacja lokalnego repo zakończona.")
                     _status("Aktualizacja zakończona ✓")
                     result = "updated"
+                elif runtime_only_dirty:
+                    print(
+                        f"[WM-DBG][GIT] {pull_label} odmówił aktualizacji "
+                        f"(kod {pull_proc.returncode}) — lokalne dane pozostawione bez zmian."
+                    )
+                    _status("Aktualizacja zablokowana — konflikt z lokalnymi danymi")
+                    result = "blocked"
                 else:
                     print(
-                        "[WM-DBG][GIT] git pull --rebase zakończony kodem "
+                        f"[WM-DBG][GIT] {pull_label} zakończony kodem "
                         f"{pull_proc.returncode}."
                     )
                     _status("Błąd pobierania aktualizacji")
                     result = "error"
-            if status_proc.returncode == 0 and status_proc.stdout.strip():
-                _status("Pominięto aktualizację — lokalne zmiany")
-                result = "skipped"
         else:
             print("[WM-DBG][GIT] Repozytorium aktualne, brak zmian.")
             _status("WM jest aktualny ✓")
@@ -902,13 +965,17 @@ def _wm_git_update_splash() -> str:
                     elif value == "current":
                         status_var.set("WM jest aktualny ✓")
                     elif value == "skipped":
-                        status_var.set("Aktualizacja pominięta")
+                        status_var.set("Aktualizacja pominięta — zmieniony kod lokalny")
+                    elif value == "blocked":
+                        status_var.set("Aktualizacja zablokowana — konflikt z lokalnymi danymi")
                     else:
                         status_var.set("Nie udało się sprawdzić aktualizacji")
                     if value == "updated":
                         close_delay_ms = 2500
                     elif value == "current":
                         close_delay_ms = 650
+                    elif value in {"skipped", "blocked"}:
+                        close_delay_ms = 2200
                     else:
                         close_delay_ms = 1000
                     splash.after(close_delay_ms, splash.destroy)
