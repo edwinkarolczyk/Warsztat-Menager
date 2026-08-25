@@ -1,0 +1,46 @@
+name: Patch settings U1
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '_patch_settings_u1.py'
+      - '.github/workflows/patch-settings-u1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Apply U1 patch
+        run: python _patch_settings_u1.py
+
+      - name: Validate Python and JSON
+        run: |
+          python -m py_compile gui_settings.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('settings_schema.json').read_text(encoding='utf-8'))
+          ids = [str(t.get('id') or '') for t in data.get('tabs', [])]
+          assert 'produkty' not in ids
+          print('settings_schema.json OK')
+          PY
+          git diff --check
+
+      - name: Commit only approved U1 files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm _patch_settings_u1.py .github/workflows/patch-settings-u1.yml
+          git add gui_settings.py settings_schema.json
+          git commit -m "refactor: simplify settings UI U1"
+          git push origin Rozwiniecie
