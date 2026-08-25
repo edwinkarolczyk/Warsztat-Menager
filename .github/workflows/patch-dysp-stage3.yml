@@ -1,0 +1,34 @@
+name: One-shot Dyspozycje stage 3
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/patch-dysp-stage3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+      - name: Patch gui_zlecenia
+        run: python _patch_dysp_stage3.py
+      - name: Validate
+        run: |
+          python -m py_compile gui_zlecenia.py
+          git diff --check
+          git diff -- gui_zlecenia.py
+      - name: Commit final change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gui_zlecenia.py
+          git rm _patch_dysp_stage3.py .github/workflows/patch-dysp-stage3.yml
+          git commit -m "feat: add Dyspozycje stage 3 filters"
+          git push origin Rozwiniecie
