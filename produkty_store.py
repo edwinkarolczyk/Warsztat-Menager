@@ -1,4 +1,5 @@
-# version: 1.0
+# version: 1.1
+# U2A-2: zapis kanonicznego BOM produktu z kopią bezpieczeństwa i automatyczną rewizją.
 # Moduł: produkty_store
 # U2A-1:
 # - Jedno wejście do katalogu produktów z aktywnego WM_DATA_ROOT.
@@ -199,6 +200,72 @@ class ProductCatalog:
                 source.unlink()
 
         return self._normalise(payload, target)
+
+    def save_bom(self, product: dict[str, Any], entries: list[dict[str, Any]]) -> dict[str, Any]:
+        raw_path = product.get('_path')
+        if not raw_path:
+            raise ProductCatalogError('Nie można ustalić pliku produktu.')
+        path = Path(str(raw_path))
+        if not path.exists():
+            raise ProductCatalogError('Plik produktu już nie istnieje.')
+        raw = self._read_json(path)
+        if raw is None:
+            raise ProductCatalogError('Nie można odczytać pliku produktu.')
+
+        clean_entries: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            code = str(entry.get('kod') or entry.get('id') or entry.get('symbol') or '').strip()
+            if not code:
+                raise ProductCatalogError('Każda pozycja BOM musi mieć kod półproduktu.')
+            qty_raw = entry.get('ilosc_na_szt', entry.get('ilosc_na_sztuke', entry.get('ilosc', 1)))
+            try:
+                qty = float(qty_raw)
+            except (TypeError, ValueError):
+                raise ProductCatalogError(f"Nieprawidłowa ilość BOM dla '{code}'.") from None
+            if qty <= 0:
+                raise ProductCatalogError(f"Ilość BOM dla '{code}' musi być większa od zera.")
+            if qty.is_integer():
+                qty = int(qty)
+            row = dict(entry)
+            row['kod'] = code
+            row['ilosc_na_szt'] = qty
+            row.pop('id', None)
+            row.pop('symbol', None)
+            row.pop('ilosc_na_sztuke', None)
+            row.pop('ilosc', None)
+            clean_entries.append(row)
+
+        payload = dict(raw)
+        payload['polprodukty'] = clean_entries
+        try:
+            current_revision = int(payload.get('bom_revision') or 0)
+        except (TypeError, ValueError):
+            current_revision = 0
+        payload['bom_revision'] = max(0, current_revision) + 1
+
+        # Keep legacy alternate representations in sync when they already exist.
+        if isinstance(payload.get('bom'), dict):
+            payload['bom'] = {row['kod']: row['ilosc_na_szt'] for row in clean_entries}
+        if isinstance(payload.get('BOM'), list):
+            payload['BOM'] = [
+                {'typ': 'polprodukt', 'kod': row['kod'], 'ilosc_na_sztuke': row['ilosc_na_szt']}
+                for row in clean_entries
+            ]
+
+        self._backup(path)
+        tmp = path.with_suffix(path.suffix + '.tmp')
+        try:
+            with tmp.open('w', encoding='utf-8') as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+            os.replace(tmp, path)
+        finally:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return self._normalise(payload, path)
 
     def delete_product(self, product: dict[str, Any]) -> None:
         raw_path = product.get("_path")

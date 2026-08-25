@@ -1,7 +1,10 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
-# version: 1.1
+# version: 1.2
 # =========================================================
+# Zmiany 1.2:
+# - U2A-2: dodano Półprodukty i edytor BOM w Planowaniu.
+# - BOM odwołuje się do półproduktów zamiast dublować definicję materiału.
 # Zmiany 1.1:
 # - U2A-1: dodano zakładkę Produkty opartą o aktywny WM_DATA_ROOT.
 # - Produkty obsługują obecny format `kod` i starszy `symbol` bez automatycznej migracji.
@@ -29,6 +32,7 @@ from tkinter import messagebox, ttk, simpledialog
 
 from config_manager import ConfigManager
 from produkty_store import ProductCatalog, ProductCatalogError
+from gui_planowanie_bom import BomEditorPanel, SemiProductsPanel
 
 DEFAULT_WORKFLOW = [
     {
@@ -284,12 +288,27 @@ class PlanowanieUI:
         tab_cal = ttk.Frame(notebook)
         tab_ord = ttk.Frame(notebook)
         tab_prod = ttk.Frame(notebook)
+        tab_semi = ttk.Frame(notebook)
+        tab_bom = ttk.Frame(notebook)
         notebook.add(tab_cal, text="KALENDARZ")
         notebook.add(tab_ord, text="ZLECENIA")
         notebook.add(tab_prod, text="PRODUKTY")
+        notebook.add(tab_semi, text="PÓŁPRODUKTY")
+        notebook.add(tab_bom, text="BOM")
         self._build_calendar_tab(tab_cal)
         self._build_orders_tab(tab_ord)
         self._build_products_tab(tab_prod)
+        self.semi_products_panel = SemiProductsPanel(
+            tab_semi, product_catalog=self.product_catalog, can_manage=self.can_manage_products
+        )
+        self.semi_products_panel.pack(fill="both", expand=True)
+        self.bom_panel = BomEditorPanel(
+            tab_bom,
+            product_catalog=self.product_catalog,
+            semi_catalog=self.semi_products_panel.catalog,
+            can_manage=self.can_manage_products,
+        )
+        self.bom_panel.pack(fill="both", expand=True)
 
     def _open_planner_window(self):
         win = tk.Toplevel(self.root)
