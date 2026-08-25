@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
-# version: 1.1.7
+# version: 1.1.8
 # Moduł: start
+# Zmiany 1.1.8:
+# - Po faktycznym pobraniu aktualizacji WM uruchamia świeży proces zamiast kontynuować na starych modułach w pamięci.
+# - Restart po aktualizacji pomija drugi check Git w nowym procesie.
 # Zmiany 1.1.7:
 # - Lokalne dane runtime (data/, wydruki/, logs/, backup/, wm_root.json) nie blokują już aktualizacji kodu.
 # - Przy samych zmianach runtime updater używa git pull --ff-only, który bezpiecznie odmawia przy konflikcie.
@@ -998,6 +1001,24 @@ def _wm_git_update_splash() -> str:
     return result_box["value"]
 
 
+def _wm_restart_after_update() -> None:
+    """Uruchom świeży proces WM po zmianie plików programu przez Git."""
+
+    os.environ["WM_RESTARTED_AFTER_UPDATE"] = "1"
+    argv = [sys.executable, *sys.argv]
+    print("[WM-DBG][GIT] Restartuję WM po pobranej aktualizacji.")
+    try:
+        os.execv(sys.executable, argv)
+    except Exception as exc:
+        print(f"[WM-DBG][GIT] os.execv nieudany: {exc}; próbuję nowego procesu.")
+        try:
+            subprocess.Popen(argv, cwd=str(APP_ROOT))
+        except Exception as spawn_exc:
+            print(f"[WM-DBG][GIT] Restart WM nieudany: {spawn_exc}")
+            raise SystemExit(1) from spawn_exc
+        raise SystemExit(0)
+
+
 # ====== MAIN ======
 def main():
     _wm_startup_checkpoint("MAIN_ENTER")
@@ -1284,11 +1305,18 @@ if __name__ == "__main__":
     # Przywrócony automatyczny Git check/pull przy starcie.
     # Na czas tej jednej operacji wyłączamy blokadę bootstrapową z updates_utils,
     # po czym włączamy ją z powrotem przed budową GUI/logowania.
-    BOOTSTRAP_ACTIVE = False
-    try:
-        _wm_git_update_splash()
-    finally:
-        BOOTSTRAP_ACTIVE = True
+    restarted_after_update = os.environ.pop("WM_RESTARTED_AFTER_UPDATE", "") == "1"
+    update_result = "current"
+    if not restarted_after_update:
+        BOOTSTRAP_ACTIVE = False
+        try:
+            update_result = _wm_git_update_splash()
+        finally:
+            BOOTSTRAP_ACTIVE = True
+        if update_result == "updated":
+            _wm_restart_after_update()
+    else:
+        print("[WM-DBG][GIT] Świeży proces po aktualizacji — pomijam ponowny check Git.")
     main()
 
 # ⏹ KONIEC KODU
