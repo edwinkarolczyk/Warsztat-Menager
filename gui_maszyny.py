@@ -1,4 +1,6 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Główna lista Maszyn używa tej samej wielkości czcionki co Dyspozycje: Segoe UI 11, nagłówki 11 bold, wiersz 30 px.
 from __future__ import annotations
 
 import datetime as dt
@@ -2408,6 +2410,13 @@ def _build_tree(parent: tk.Misc, rows: List[Dict]) -> ttk.Treeview:
         height=18,
     )
     _ensure_tree_columns(tree)
+    try:
+        style = ttk.Style(tree)
+        style.configure("Maszyny.Treeview", font=("Segoe UI", 11), rowheight=30)
+        style.configure("Maszyny.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+        tree.configure(style="Maszyny.Treeview")
+    except Exception:
+        pass
     for r in rows:
         _tree_insert_row(tree, r)
     tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
