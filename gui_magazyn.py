@@ -1,5 +1,10 @@
 # Plik: gui_magazyn.py
-# version: 1.0
+# version: 1.8.0
+# Zmiany 1.8.0:
+# - Podział widoku Magazynu na sekcje: Surowce / Półprodukty / Produkty.
+# - Tabela pokazuje osobno: Stan, Zarezerwowane, Dostępne, Jednostkę i Lokalizację.
+# - Widok korzysta ze wspólnego loadera Magazynu z dołączeniem surowców i półproduktów.
+# - Brak zmian w mechanice rezerwacji i zapisu stanów.
 # Zmiany 1.7.0:
 # - Integracja z kreatorem zleceń (`open_order_creator`) zamiast lokalnego dialogu zamówień.
 # - Usunięto zależność od `gui_magazyn_order` (stary kreator zamówień).
@@ -60,7 +65,71 @@ except Exception as _e:
 
 from logika_zakupy import auto_order_missing
 
-COLUMNS = ("id", "typ", "rozmiar", "nazwa", "stan", "zadania")
+COLUMNS = (
+    "id",
+    "sekcja",
+    "typ",
+    "rozmiar",
+    "nazwa",
+    "stan",
+    "rezerwacje",
+    "dostepne",
+    "jednostka",
+    "lokalizacja",
+    "zadania",
+)
+
+WAREHOUSE_SECTIONS = ("(wszystkie)", "Surowce", "Półprodukty", "Produkty")
+
+
+def _warehouse_section(item: dict) -> str:
+    """Mapuje istniejące typy Magazynu na trzy sekcje robocze UI."""
+    raw = str(
+        item.get("typ")
+        or item.get("type")
+        or item.get("rodzaj")
+        or ""
+    ).strip().lower()
+    normalized = (
+        raw.replace("ł", "l")
+        .replace("ó", "o")
+        .replace("ą", "a")
+        .replace("ę", "e")
+        .replace("ś", "s")
+        .replace("ć", "c")
+        .replace("ń", "n")
+        .replace("ż", "z")
+        .replace("ź", "z")
+    )
+    normalized = " ".join(normalized.replace("_", " ").replace("-", " ").split())
+
+    if normalized in {
+        "surowiec", "surowce", "material", "materialy", "raw material", "raw materials"
+    }:
+        return "Surowce"
+    if normalized in {
+        "polprodukt", "polprodukty", "komponent", "komponenty", "semi product", "semiproduct"
+    }:
+        return "Półprodukty"
+    if normalized in {
+        "produkt", "produkty", "produkt gotowy", "produkty gotowe",
+        "wyrob", "wyroby", "wyrob gotowy", "gotowy", "finished product"
+    }:
+        return "Produkty"
+    return ""
+
+
+def _warehouse_number(value) -> float:
+    try:
+        if isinstance(value, str):
+            value = value.strip().replace(",", ".")
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _warehouse_number_text(value) -> str:
+    return f"{_warehouse_number(value):g}"
 
 
 ROLE_PERMS = {
@@ -163,6 +232,17 @@ def _add_orders_button(toolbar: ttk.Frame, owner):
 
 @ensure_magazyn_toolbar_once
 def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
+    ttk.Label(toolbar, text="Sekcja:", style="WM.TLabel").pack(side="left", padx=(0, 6))
+    owner.cbo_section = ttk.Combobox(
+        toolbar,
+        textvariable=owner._filter_section,
+        values=WAREHOUSE_SECTIONS,
+        state="readonly",
+        width=15,
+    )
+    owner.cbo_section.pack(side="left", padx=(0, 10))
+    owner.cbo_section.bind("<<ComboboxSelected>>", lambda _e: owner._apply_filters())
+
     ttk.Label(toolbar, text="Typ:", style="WM.TLabel").pack(side="left", padx=(0, 6))
     owner.cbo_typ = ttk.Combobox(
         toolbar,
@@ -407,31 +487,34 @@ def _normalize_magazyn_payload(data):
 
 
 def _load_data():
-    """Czyta magazyn; preferuje ``magazyn_io`` z fallbackiem na plik."""
+    """Czyta wspólny Magazyn, łącznie z surowcami i półproduktami."""
     path = get_path("warehouse.stock_source")
     _log_magazyn_paths("_load_data")
     print(f"[WM-ROOT][MAGAZYN] loader path from config.paths = {path}")
+
     data = {}
-    if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
-        try:
-            if path:
-                try:
-                    data = magazyn_io.load(path)
-                except TypeError:
+    try:
+        data = LM.load_magazyn(include_external=True)
+    except Exception as exc:
+        wm_err("gui.magazyn", "canonical stock load failed", exc, path=path)
+        data = {}
+
+    # Fallbacki tylko dla starszych instalacji / testów.
+    if not isinstance(data, dict) or not data:
+        if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
+            try:
+                if path:
+                    try:
+                        data = magazyn_io.load(path)
+                    except TypeError:
+                        data = magazyn_io.load()
+                else:
                     data = magazyn_io.load()
-            else:
-                data = magazyn_io.load()
-        except Exception:
-            data = {}
+            except Exception:
+                data = {}
 
     if not isinstance(data, dict) or not data:
         data = load_stock()
-
-    if not isinstance(data, dict) or not data:
-        try:
-            data = LM.load_magazyn()
-        except Exception:
-            data = {}
 
     items, order, format_name = _normalize_magazyn_payload(data)
     try:
@@ -445,29 +528,44 @@ def _load_data():
 
 
 def _format_row(item_id: str, item: dict):
-    """Mapowanie rekordu na 6 kolumn z miękkimi fallbackami."""
-    typ = (item.get("typ") or "").strip()
-    rozmiar = (item.get("rozmiar") or "").strip()
-    nazwa = (item.get("nazwa") or "").strip()
+    """Mapowanie rekordu na czytelny stan: fizyczny, rezerwacje i dostępne."""
+    sekcja = _warehouse_section(item)
+    typ = str(item.get("typ") or "").strip()
+    rozmiar = str(item.get("rozmiar") or "").strip()
+    nazwa = str(item.get("nazwa") or "").strip()
 
-    # Stan + jednostka (opcjonalnie)
-    stan_val = item.get("stan", "")
-    try:
-        stan_txt = f"{float(stan_val):g}"
-    except Exception:
-        stan_txt = str(stan_val)
-    jm = (item.get("jednostka") or "").strip()
-    if jm:
-        stan_txt = f"{stan_txt} {jm}"
+    stan = _warehouse_number(item.get("stan", item.get("ilosc", item.get("ilość", 0))))
+    rezerwacje = max(0.0, _warehouse_number(item.get("rezerwacje", 0)))
+    dostepne = max(0.0, stan - rezerwacje)
+    jednostka = str(item.get("jednostka") or item.get("jm") or "").strip()
+    lokalizacja = str(
+        item.get("lokalizacja")
+        or item.get("location")
+        or item.get("miejsce")
+        or item.get("regał")
+        or item.get("regal")
+        or ""
+    ).strip()
 
-    # Zadania (lista lub string)
     z = item.get("zadania", [])
     if isinstance(z, list):
         zadania = ", ".join([str(x).strip() for x in z if str(x).strip()])
     else:
         zadania = str(z).strip()
 
-    return (item_id, typ or "-", rozmiar or "-", nazwa or "-", stan_txt or "-", zadania)
+    return (
+        item_id,
+        sekcja or "-",
+        typ or "-",
+        rozmiar or "-",
+        nazwa or "-",
+        f"{stan:g}",
+        f"{rezerwacje:g}",
+        f"{dostepne:g}",
+        jednostka or "-",
+        lokalizacja or "-",
+        zadania,
+    )
 
 
 def _open_orders_for_shortages(self):
@@ -582,6 +680,7 @@ class MagazynFrame(ttk.Frame):
         self._quick_add_to_orders = _quick_add_to_orders.__get__(self, self.__class__)
 
         # stan filtrów
+        self._filter_section = tk.StringVar(value="(wszystkie)")
         self._filter_typ = tk.StringVar(value="(wszystkie)")
         self._filter_query = tk.StringVar(value="")
 
@@ -625,19 +724,29 @@ class MagazynFrame(ttk.Frame):
 
         # Nagłówki
         self.tree.heading("id", text="ID")
+        self.tree.heading("sekcja", text="Sekcja")
         self.tree.heading("typ", text="Typ")
         self.tree.heading("rozmiar", text="Rozmiar")
         self.tree.heading("nazwa", text="Nazwa")
         self.tree.heading("stan", text="Stan")
+        self.tree.heading("rezerwacje", text="Zarezerwowane")
+        self.tree.heading("dostepne", text="Dostępne")
+        self.tree.heading("jednostka", text="Jednostka")
+        self.tree.heading("lokalizacja", text="Lokalizacja")
         self.tree.heading("zadania", text="Tech. zadania")
 
         # Szerokości startowe
-        self.tree.column("id", width=110, anchor="w")
-        self.tree.column("typ", width=140, anchor="w")
-        self.tree.column("rozmiar", width=160, anchor="w")
-        self.tree.column("nazwa", width=380, anchor="w")
-        self.tree.column("stan", width=120, anchor="center")
-        self.tree.column("zadania", width=280, anchor="w")
+        self.tree.column("id", width=95, anchor="w")
+        self.tree.column("sekcja", width=115, anchor="w")
+        self.tree.column("typ", width=110, anchor="w")
+        self.tree.column("rozmiar", width=130, anchor="w")
+        self.tree.column("nazwa", width=240, anchor="w")
+        self.tree.column("stan", width=85, anchor="center")
+        self.tree.column("rezerwacje", width=110, anchor="center")
+        self.tree.column("dostepne", width=95, anchor="center")
+        self.tree.column("jednostka", width=80, anchor="center")
+        self.tree.column("lokalizacja", width=120, anchor="w")
+        self.tree.column("zadania", width=200, anchor="w")
 
         # Scrollbar pionowy
         vsb = ttk.Scrollbar(self.tree, orient="vertical", command=self.tree.yview)
@@ -661,8 +770,15 @@ class MagazynFrame(ttk.Frame):
 
     # Logika ------------------------------------------------
     def _clear_filters(self):
+        self._filter_section.set("(wszystkie)")
         self._filter_typ.set("(wszystkie)")
         self._filter_query.set("")
+        section = getattr(self, "cbo_section", None)
+        if section is not None:
+            try:
+                section.set(self._filter_section.get())
+            except Exception:
+                pass
         cbo = getattr(self, "cbo_typ", None)
         if cbo is not None:
             try:
@@ -732,12 +848,17 @@ class MagazynFrame(ttk.Frame):
 
         q = self._filter_query.get().strip().lower()
         cbo = getattr(self, "cbo_typ", None)
+        section_box = getattr(self, "cbo_section", None)
         if cbo is None:
             return
         try:
             t = cbo.get()
         except Exception:
             t = self._filter_typ.get()
+        try:
+            section = section_box.get() if section_box is not None else self._filter_section.get()
+        except Exception:
+            section = self._filter_section.get()
 
         # przygotuj regex „q” bezpiecznie (opcjonalne)
         rx = None
@@ -748,7 +869,12 @@ class MagazynFrame(ttk.Frame):
                 rx = None
 
         for item_id, item in getattr(self, "_all_rows", []):
-            # filtr po typie
+            # filtr po sekcji roboczej
+            section_val = _warehouse_section(item)
+            if section != "(wszystkie)" and section_val != section:
+                continue
+
+            # filtr po dokładnym typie źródłowym
             typ_val = str(item.get("typ", "")).strip()
             if t != "(wszystkie)" and typ_val.lower() != t.lower():
                 continue
