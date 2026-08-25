@@ -1,5 +1,7 @@
-# version: 1.0
+# version: 1.0.1
 # Moduł: gui_settings
+# Zmiany 1.0.1:
+# - refresh_panel sprawdza schema_path i używa settings_schema.json z katalogu programu, gdy ścieżka jest nieprawidłowa.
 # ⏹ KONIEC WSTĘPU
 
 from __future__ import annotations
@@ -6523,8 +6525,24 @@ class SettingsPanel:
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
 
+        schema_path = self.schema_path
+        try:
+            schema_candidate = Path(str(schema_path))
+            if not schema_candidate.is_file():
+                fallback = (Path(__file__).resolve().parent / "settings_schema.json").resolve()
+                print(
+                    f"[WM-DBG][SETTINGS] invalid schema_path={schema_path}; "
+                    f"fallback={fallback}"
+                )
+                schema_path = str(fallback)
+                self.schema_path = schema_path
+        except Exception:
+            fallback = (Path(__file__).resolve().parent / "settings_schema.json").resolve()
+            schema_path = str(fallback)
+            self.schema_path = schema_path
+
         self.cfg = ConfigManager.refresh(
-            config_path=self.config_path, schema_path=self.schema_path
+            config_path=self.config_path, schema_path=schema_path
         )
         self.vars.clear()
         self._initial.clear()
