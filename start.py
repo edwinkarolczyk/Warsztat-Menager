@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
-# version: 1.0
+# version: 1.1.3
 # Moduł: start
+# Zmiany 1.1.3:
+# - Wyłączono synchroniczne operacje Git przy starcie aplikacji, aby sieć/repozytorium nie blokowały GUI.
+# - Aktualizacja repozytorium nie jest wykonywana automatycznie przed uruchomieniem okna WM.
 # ⏹ KONIEC WSTĘPU
 
 # start.py
@@ -417,32 +420,12 @@ def show_startup_error(e):
 
 # ====== AUTO UPDATE ======
 def auto_update_on_start():
-    """Run git pull if ``updates.auto`` flag is enabled.
+    """Automatyczna aktualizacja przy starcie jest celowo wyłączona.
 
-    Returns ``True`` if the repository was updated, otherwise ``False``.
+    Aktualizacje Git wykonywane synchronicznie podczas startu potrafią zablokować
+    główny wątek aplikacji (np. oczekiwanie na sieć, Git lub blokadę repozytorium).
+    Zostawiamy updater dostępny dla późniejszego uruchomienia ręcznego/asynchronicznego.
     """
-    try:
-        cfg = ConfigManager()
-    except Exception as e:
-        _error(f"ConfigManager init failed: {e}")
-        return False
-    if cfg.get("updates.auto", False):
-        try:
-            output = _run_git_pull(Path.cwd(), _now_stamp())
-            if output and "Already up to date." not in output:
-                return True
-        except Exception as e:
-            _error(f"auto_update_on_start error: {e}")
-            msg = str(e).lower()
-            if "lokalne zmiany" in msg or "local changes" in msg:
-                try:
-                    r = tk.Tk()
-                    ensure_theme_applied(r)
-                    r.withdraw()
-                    error_dialogs.show_error_dialog("Aktualizacje", str(e))
-                    r.destroy()
-                except Exception:
-                    pass
     return False
 
 # ====== USER FILE (NOWE) ======
@@ -854,7 +837,8 @@ def main():
         except Exception as e:
             _error(f"Nie można wyświetlić changelog: {e}")
 
-    update_available = _git_has_updates(Path.cwd())
+    # Nie wykonujemy sieciowego Git check podczas startu GUI.
+    update_available = False
 
     # Wstępna inicjalizacja konfiguracji, jeśli masz ConfigManager, zostawiamy symbolicznie:
     try:
@@ -1041,7 +1025,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[ERROR] Problem z manifestem modułów: {e}")
     # --- Koniec integracji manifestu ---
-    _wm_git_check_on_start()
+    # Git check/pull przy starcie wyłączony: nie blokujemy uruchamiania WM.
     main()
 
 # ⏹ KONIEC KODU
