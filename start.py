@@ -34,6 +34,7 @@ from utils_json import ensure_json
 from utils import error_dialogs
 from config.paths import get_app_root, p_config, p_settings_schema
 from config_manager import ConfigManager
+from wm_startup_debug import checkpoint as _wm_startup_checkpoint
 try:
     from core import root_paths as wm_root_paths
 except Exception:  # pragma: no cover - awaryjnie nie blokuj startu
@@ -177,7 +178,9 @@ def _post_config_bootstrap() -> None:
     if _POST_CONFIG_BOOTSTRAP_DONE:
         return
 
+    _wm_startup_checkpoint("BEFORE_CONFIG_MANAGER")
     manager = _ensure_config_manager()
+    _wm_startup_checkpoint("AFTER_CONFIG_MANAGER", ok=manager is not None)
     if manager is None:
         return
 
@@ -236,6 +239,7 @@ from utils.moduly import zaladuj_manifest
 def _print_root_diagnostics(manager) -> None:
     """Emit podstawowe informacje diagnostyczne o ścieżkach <root>."""
 
+    _wm_startup_checkpoint("BEFORE_ROOT_BOOTSTRAP")
     if wm_root_paths is not None:
         try:
             wm_root_paths.print_root_diagnostics(ROOT_SNAPSHOT)
@@ -758,6 +762,7 @@ def _wm_git_check_on_start(
 
 # ====== MAIN ======
 def main():
+    _wm_startup_checkpoint("MAIN_ENTER")
     global SESSION_ID, BOOTSTRAP_ACTIVE
     init_crash_handler()
     # Opcjonalnie wycisz WARNING Qt
@@ -795,6 +800,7 @@ def main():
     manager = _ensure_config_manager()
     _print_root_diagnostics(manager)
     _post_config_bootstrap()
+    _wm_startup_checkpoint("AFTER_CONFIG_BOOTSTRAP")
     _info(f"Uzywam Pythona: {sys.executable or sys.version}")
     _info(f"Katalog roboczy: \"{os.getcwd()}\"")
     _info("Start programu Warsztat Menager (start.py 1.1.2)")
@@ -826,7 +832,11 @@ def main():
 
     # UWAGA: minimalizacja działa tylko w wersji .py, nie przeszkadza w EXE.
     time.sleep(0.3)
-    minimize_console()
+    _wm_startup_checkpoint("BEFORE_CONSOLE_MINIMIZE")
+    if os.environ.get("WM_STARTUP_DEBUG", "1").strip().lower() not in {"0", "false", "off", "no"}:
+        _wm_startup_checkpoint("CONSOLE_MINIMIZE_SKIPPED_DEBUG")
+    else:
+        minimize_console()
 
     updated = auto_update_on_start()
 
@@ -868,6 +878,7 @@ def main():
     except Exception:
         _error("ConfigManager: problem (pomijam)")
 
+    _wm_startup_checkpoint("AFTER_UPDATE_CHECKS_BEFORE_JARVIS")
     jarvis_stop_fn = None
     try:
         from core.jarvis_engine import run_jarvis_background, stop_jarvis as _stop_jarvis
@@ -887,7 +898,9 @@ def main():
 
     # === GUI start ===
     try:
+        _wm_startup_checkpoint("BEFORE_TK_CREATE")
         root = tk.Tk()
+        _wm_startup_checkpoint("AFTER_TK_CREATE")
         ensure_theme_applied(root)
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
@@ -939,6 +952,7 @@ def main():
             pass
 
         _show_tutorial_if_first_run(root)
+        _wm_startup_checkpoint("AFTER_TUTORIAL")
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 
@@ -963,8 +977,11 @@ def main():
                 embedded_login = False
 
         if not auto_logged and not (embedded_login and guest_start):
+            _wm_startup_checkpoint("BEFORE_LOGIN_IMPORT")
             import gui_logowanie
+            _wm_startup_checkpoint("AFTER_LOGIN_IMPORT")
 
+            _wm_startup_checkpoint("BEFORE_LOGIN_SCREEN")
             returned_root = gui_logowanie.ekran_logowania(
                 root,
                 on_login=lambda login, rola, extra=None: _on_login(
@@ -990,6 +1007,7 @@ def main():
 
         # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
         # to po prostu zostawiamy pętlę główną jak dotąd:
+        _wm_startup_checkpoint("BEFORE_MAINLOOP")
         root.mainloop()
 
         if jarvis_stop_fn:
