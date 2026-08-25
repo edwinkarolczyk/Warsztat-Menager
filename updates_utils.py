@@ -1,10 +1,11 @@
-# version: 1.0
+# version: 1.0.1
 """Utilities for retrieving last update information.
 
-This module provides a single function ``load_last_update_info`` which
-tries to determine the timestamp of the latest application update.  The
-information is retrieved from local JSON or text logs and finally falls
-back to the date of the last Git commit.
+This module provides helpers for update metadata and remote-branch checks.
+During WM bootstrap, Git subprocesses are intentionally short-circuited so
+network/repository operations cannot block the main application startup.
+Once ``start.py`` switches ``BOOTSTRAP_ACTIVE`` to ``False``, normal Git
+commands work unchanged.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
@@ -19,25 +21,38 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Preserve the real subprocess implementation. During startup, start.py sets
+# BOOTSTRAP_ACTIVE=True; Git commands are then replaced with instant successful
+# no-ops. This is deliberately scoped to Git commands only.
+_REAL_SUBPROCESS_RUN = subprocess.run
+
+
+def _wm_subprocess_run(*args, **kwargs):
+    cmd = args[0] if args else kwargs.get("args")
+    is_git = isinstance(cmd, (list, tuple)) and bool(cmd) and str(cmd[0]).lower().split("\\")[-1] in {"git", "git.exe"}
+    bootstrap = False
+    try:
+        bootstrap = bool(getattr(sys.modules.get("__main__"), "BOOTSTRAP_ACTIVE", False))
+    except Exception:
+        bootstrap = False
+
+    if is_git and bootstrap:
+        stdout = kwargs.get("stdout")
+        stderr = kwargs.get("stderr")
+        out_value = "" if stdout is not None else None
+        err_value = "" if stderr is not None else None
+        return subprocess.CompletedProcess(cmd, 0, stdout=out_value, stderr=err_value)
+
+    return _REAL_SUBPROCESS_RUN(*args, **kwargs)
+
+
+# Shared subprocess module object: start.py imports the same module, therefore
+# its direct Git calls are protected during bootstrap as well.
+subprocess.run = _wm_subprocess_run
+
 
 def remote_branch_exists(remote: str, branch: str, cwd: Path | None = None) -> bool:
-    """Check if ``branch`` exists on ``remote``.
-
-    Parameters
-    ----------
-    remote:
-        Nazwa zdalnego repozytorium, np. ``origin``.
-    branch:
-        Nazwa gałęzi do sprawdzenia.
-    cwd:
-        Katalog roboczy dla polecenia ``git``.
-
-    Returns
-    -------
-    bool
-        ``True`` jeśli gałąź istnieje na zdalnym repozytorium,
-        ``False`` w przeciwnym razie.
-    """
+    """Check if ``branch`` exists on ``remote``."""
 
     result = subprocess.run(
         ["git", "ls-remote", "--heads", remote, branch],
@@ -54,16 +69,9 @@ def load_last_update_info() -> Tuple[str, Optional[str]]:
     """Return information about the latest update.
 
     The function attempts three methods in order:
-
-    1. Read the last entry from ``logi_wersji.json``.
-    2. Parse the ``Data:`` line from ``CHANGES_PROFILES_UPDATE.txt``.
-    3. Use ``git log -1 --format=%ci`` (or ``git show -s --format=%ci HEAD``)
-       to obtain the date of the most recent commit.
-
-    Returns a tuple ``("Ostatnia aktualizacja: <date>", version)``.  If
-    the version could not be determined ``None`` is returned instead.  If
-    no method succeeds ``("brak danych o aktualizacjach", None)`` is
-    returned.
+    1. ``logi_wersji.json``
+    2. ``CHANGES_PROFILES_UPDATE.txt``
+    3. ``git log`` / ``git show`` as a fallback.
     """
 
     try:
