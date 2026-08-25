@@ -1,0 +1,103 @@
+name: Patch production dispositions integration
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '_patch_u2a5_dysp.py'
+      - '.github/workflows/patch-u2a5-dysp.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Apply approved patch
+        run: python _patch_u2a5_dysp.py
+
+      - name: Validate Python
+        run: |
+          python -m py_compile gui_planowanie.py gui_zlecenia.py gui_dyspozycje_creator.py dyspozycje_sources.py planowanie_magazyn.py
+          git diff --check
+
+      - name: Validate real execution source choices
+        run: |
+          python - <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+          import dyspozycje_sources as ds
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = Path(tmp)
+              (root/'planowanie').mkdir()
+              (root/'produkty').mkdir()
+              (root/'polprodukty').mkdir()
+              (root/'planowanie'/'plan.json').write_text(json.dumps({
+                  'orders':[{'id':'ord-1','number':'1254','product_code':'P1','qty':30,'client':'X'}]
+              }), encoding='utf-8')
+              (root/'produkty'/'P1.json').write_text(json.dumps({'kod':'P1','nazwa':'Produkt'}), encoding='utf-8')
+              (root/'polprodukty'/'PP1.json').write_text(json.dumps({'kod':'PP1','nazwa':'Zbijak'}), encoding='utf-8')
+              ds._data_path = lambda *parts: str(root.joinpath(*parts))
+              choices = dict(ds.load_zlecenie_wykonania_choices())
+              assert 'zlecenie:1254' in choices
+              assert 'produkt:P1' in choices
+              assert 'polprodukt:PP1' in choices
+              ctx = ds.load_zlecenie_wykonania_context('zlecenie:1254')
+              assert ctx['nr_zlecenia'] == '1254'
+              assert ctx['product_code'] == 'P1'
+              assert ctx['ilosc_domyslna'] == 30
+          print('Execution sources OK')
+          PY
+
+      - name: Validate surplus idempotency
+        run: |
+          python - <<'PY'
+          import sys, types, tempfile
+          from pathlib import Path
+
+          tmp = tempfile.TemporaryDirectory()
+          root = Path(tmp.name)
+          class FakeCfg:
+              def path_data(self, *parts):
+                  return str(root.joinpath('data', *parts))
+          cfg_mod = types.ModuleType('config_manager')
+          cfg_mod.ConfigManager = FakeCfg
+          sys.modules['config_manager'] = cfg_mod
+
+          state = {'PP1': {'id':'PP1','nazwa':'Zbijak','typ':'półprodukt','jednostka':'szt','stan':10,'rezerwacje':0}}
+          lm = types.ModuleType('logika_magazyn')
+          lm.load_magazyn = lambda include_external=True: {'items': {k:dict(v) for k,v in state.items()}}
+          def upsert(item):
+              state[item['id']] = dict(item)
+              return state[item['id']]
+          lm.upsert_item = upsert
+          lm._log_mag = lambda *args, **kwargs: None
+          sys.modules['logika_magazyn'] = lm
+
+          import planowanie_magazyn as pm
+          r1 = pm.add_semiproduct_surplus('PP1', 5, operation_id='DYSP-1', user='test')
+          assert state['PP1']['stan'] == 15
+          r2 = pm.add_semiproduct_surplus('PP1', 5, operation_id='DYSP-1', user='test')
+          assert state['PP1']['stan'] == 15
+          assert r2.get('already_settled') is True
+          print('Surplus idempotency OK')
+          tmp.cleanup()
+          PY
+
+      - name: Commit approved source files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm _patch_u2a5_dysp.py .github/workflows/patch-u2a5-dysp.yml
+          git add gui_planowanie.py gui_zlecenia.py gui_dyspozycje_creator.py dyspozycje_sources.py planowanie_magazyn.py
+          git commit -m "feat: connect production planning with dispositions"
+          git push origin Rozwiniecie
