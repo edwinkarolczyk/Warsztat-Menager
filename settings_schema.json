@@ -517,13 +517,6 @@
                   "default": "dark"
                 },
                 {
-                  "type": "boolean",
-                  "key": "ui.show_development_watermark",
-                  "label": "Pokaż znak wodny „PROGRAM W TRAKCIE ROZWOJU”",
-                  "tooltip": "Pokazuje duży, ukośny znak wodny na środku programu. Ustawienie można zmienić bezpośrednio w Ustawieniach.",
-                  "default": true
-                },
-                {
                   "type": "select",
                   "key": "ui.language",
                   "label": "Język",
@@ -539,34 +532,6 @@
                     }
                   ],
                   "default": "pl"
-                },
-                {
-                  "type": "boolean",
-                  "key": "ui.debug_enabled",
-                  "label": "Włącz logi debug (WM)",
-                  "default": true,
-                  "tooltip": "Gęstsze logi w konsoli: kliknięcia, parametry, wejścia/wyjścia."
-                },
-                {
-                  "type": "select",
-                  "key": "ui.log_level",
-                  "label": "Poziom logów (WM)",
-                  "default": "debug",
-                  "options": [
-                    {
-                      "label": "debug",
-                      "value": "debug"
-                    },
-                    {
-                      "label": "info",
-                      "value": "info"
-                    },
-                    {
-                      "label": "error",
-                      "value": "error"
-                    }
-                  ],
-                  "tooltip": "Minimalny poziom emitowanych logów."
                 },
                 {
                   "type": "boolean",
@@ -1047,81 +1012,6 @@
               ]
             }
           ]
-        },
-        {
-          "id": "kreator",
-          "title": "Kreator ZN/ZM/ZZ/ZW",
-          "groups": [
-            {
-              "title": "Opcje kreatora",
-              "fields": [
-                {
-                  "type": "text",
-                  "key": "orders.wizard_import",
-                  "label": "Moduł kreatora",
-                  "default": "gui_zlecenia"
-                },
-                {
-                  "type": "text",
-                  "key": "orders.wizard_func",
-                  "label": "Funkcja kreatora",
-                  "default": "open_order_creator"
-                },
-                {
-                  "type": "bool",
-                  "key": "orders.wizard_autobind",
-                  "label": "Auto-podpinanie w Magazynie",
-                  "default": false
-                },
-                {
-                  "type": "boolean",
-                  "key": "orders.wizard_dark",
-                  "label": "Ciemny motyw",
-                  "default": true
-                },
-                {
-                  "type": "boolean",
-                  "key": "orders.wizard_separate_window",
-                  "label": "Osobne okno",
-                  "default": true
-                },
-                {
-                  "type": "array",
-                  "key": "orders.required_fields",
-                  "label": "Pola wymagane",
-                  "default": [
-                    "klient",
-                    "opis",
-                    "termin"
-                  ]
-                },
-                {
-                  "type": "select",
-                  "key": "orders.default_type",
-                  "label": "Domyślny typ zlecenia",
-                  "options": [
-                    {
-                      "label": "ZN – nowe",
-                      "value": "ZN"
-                    },
-                    {
-                      "label": "ZM – modernizacja",
-                      "value": "ZM"
-                    },
-                    {
-                      "label": "ZZ – zaplanowane",
-                      "value": "ZZ"
-                    },
-                    {
-                      "label": "ZW – wewnętrzne",
-                      "value": "ZW"
-                    }
-                  ],
-                  "default": "ZN"
-                }
-              ]
-            }
-          ]
         }
       ]
     },
@@ -1159,91 +1049,6 @@
                   "default": 100,
                   "min": 10,
                   "max": 300
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "produkty_bom",
-          "title": "Produkty (BOM)",
-          "groups": [
-            {
-              "title": "Źródło i format",
-              "fields": [
-                {
-                  "type": "select",
-                  "key": "bom.default_format",
-                  "label": "Format BOM",
-                  "options": [
-                    {
-                      "label": "JSON",
-                      "value": "json"
-                    },
-                    {
-                      "label": "CSV",
-                      "value": "csv"
-                    },
-                    {
-                      "label": "XLSX",
-                      "value": "xlsx"
-                    }
-                  ],
-                  "default": "json"
-                },
-                {
-                  "type": "boolean",
-                  "key": "bom.validation_enabled",
-                  "label": "Walidacja przy imporcie",
-                  "default": true
-                }
-              ]
-            },
-            {
-              "title": "Zamienniki i widoki",
-              "fields": [
-                {
-                  "type": "boolean",
-                  "key": "bom.allow_partial_subst",
-                  "label": "Zezwól na częściowe zamienniki",
-                  "default": false
-                },
-                {
-                  "type": "array",
-                  "key": "bom.columns_visible",
-                  "label": "Widoczne kolumny",
-                  "default": [
-                    "kod",
-                    "nazwa",
-                    "ilość",
-                    "jedn",
-                    "zamiennik"
-                  ]
-                }
-              ]
-            },
-            {
-              "title": "Import/Eksport",
-              "fields": [
-                {
-                  "type": "button",
-                  "key": "bom.btn_import",
-                  "label": "Importuj BOM…",
-                  "action": "bom.import_dialog",
-                  "params": {
-                    "write_to_key": "bom.file",
-                    "filters": [
-                      "*.json",
-                      "*.csv",
-                      "*.xlsx"
-                    ]
-                  }
-                },
-                {
-                  "type": "button",
-                  "key": "bom.btn_export",
-                  "label": "Eksportuj BOM",
-                  "action": "bom.export_current"
                 }
               ]
             }
@@ -1388,6 +1193,108 @@
             {
               "title": "Narzędzia testowe",
               "fields": []
+            },
+            {
+              "title": "Logowanie i debug",
+              "fields": [
+                {
+                  "type": "boolean",
+                  "key": "ui.debug_enabled",
+                  "label": "Włącz logi debug (WM)",
+                  "default": true,
+                  "tooltip": "Gęstsze logi w konsoli: kliknięcia, parametry, wejścia/wyjścia."
+                },
+                {
+                  "type": "select",
+                  "key": "ui.log_level",
+                  "label": "Poziom logów (WM)",
+                  "default": "debug",
+                  "options": [
+                    {
+                      "label": "debug",
+                      "value": "debug"
+                    },
+                    {
+                      "label": "info",
+                      "value": "info"
+                    },
+                    {
+                      "label": "error",
+                      "value": "error"
+                    }
+                  ],
+                  "tooltip": "Minimalny poziom emitowanych logów."
+                }
+              ]
+            },
+            {
+              "title": "Zlecenia — techniczne",
+              "fields": [
+                {
+                  "type": "text",
+                  "key": "orders.wizard_import",
+                  "label": "Moduł kreatora",
+                  "default": "gui_zlecenia"
+                },
+                {
+                  "type": "text",
+                  "key": "orders.wizard_func",
+                  "label": "Funkcja kreatora",
+                  "default": "open_order_creator"
+                },
+                {
+                  "type": "bool",
+                  "key": "orders.wizard_autobind",
+                  "label": "Auto-podpinanie w Magazynie",
+                  "default": false
+                },
+                {
+                  "type": "boolean",
+                  "key": "orders.wizard_dark",
+                  "label": "Ciemny motyw",
+                  "default": true
+                },
+                {
+                  "type": "boolean",
+                  "key": "orders.wizard_separate_window",
+                  "label": "Osobne okno",
+                  "default": true
+                },
+                {
+                  "type": "array",
+                  "key": "orders.required_fields",
+                  "label": "Pola wymagane",
+                  "default": [
+                    "klient",
+                    "opis",
+                    "termin"
+                  ]
+                },
+                {
+                  "type": "select",
+                  "key": "orders.default_type",
+                  "label": "Domyślny typ zlecenia",
+                  "options": [
+                    {
+                      "label": "ZN – nowe",
+                      "value": "ZN"
+                    },
+                    {
+                      "label": "ZM – modernizacja",
+                      "value": "ZM"
+                    },
+                    {
+                      "label": "ZZ – zaplanowane",
+                      "value": "ZZ"
+                    },
+                    {
+                      "label": "ZW – wewnętrzne",
+                      "value": "ZW"
+                    }
+                  ],
+                  "default": "ZN"
+                }
+              ]
             }
           ]
         },
@@ -1408,52 +1315,6 @@
                   "type": "info",
                   "key": "audit.info",
                   "text": "Wymaga modułu backend: wm_audit_runtime."
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "produkty",
-      "title": "Produkty i surowce",
-      "icon": "package",
-      "description": "Konfiguracja danych produktowych.",
-      "subtabs": [
-        {
-          "id": "produkty_def",
-          "title": "Produkty",
-          "groups": [
-            {
-              "title": "Definicje produktów",
-              "fields": []
-            }
-          ]
-        },
-        {
-          "id": "surowce",
-          "title": "Surowce",
-          "groups": [
-            {
-              "title": "Parametry surowców",
-              "fields": [
-                {
-                  "type": "array",
-                  "key": "materials.units",
-                  "label": "Jednostki surowców",
-                  "default": [
-                    "szt",
-                    "kg",
-                    "m",
-                    "m2"
-                  ]
-                },
-                {
-                  "type": "boolean",
-                  "key": "materials.allow_subst",
-                  "label": "Zezwól na zamienniki surowców",
-                  "default": true
                 }
               ]
             }

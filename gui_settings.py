@@ -1,5 +1,10 @@
-# version: 1.0.2
+# version: 1.0.3
 # Moduł: gui_settings
+# Zmiany 1.0.3:
+# - U1: uproszczono główne Ustawienia do: Ogólne, Wygląd, Użytkownicy, Moduły, Backup, Zaawansowane.
+# - Narzędzia, Magazyn, Dyspozycje i Jarvis przeniesiono pod Moduły bez zmiany ich danych.
+# - Opinie, Statystyki, BOM i znak wodny ukryto z normalnego widoku Ustawień.
+# - Techniczne opcje aktualizacji/debug przeniesiono do Zaawansowanych.
 # Zmiany 1.0.2:
 # - Dodano stały przycisk 'Zapisz wszystko' w stopce Ustawień.
 # - Dodano status ostatniego zapisu z czasem i nazwą aktywnej zakładki.
@@ -2277,19 +2282,12 @@ class SettingsPanel:
         tabs_config = [
             (self.tab_ogolne, "Ogólne", ""),
             (self.tab_ui, "Wygląd", ""),
-            (self.tab_paths, "Ścieżki", ""),
-            (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
-            (self.tab_dispatches, "Dyspozycje", ""),
-            (self.tab_warehouse, "Magazyn", ""),
             (self.tab_backup, "Backup", ""),
-            (self.tab_feedback, "Opinie", ""),
-            (self.tab_statistics, "Statystyki", ""),
-            (self.tab_jarvis, "Jarvis", ""),
             (self.tab_advanced, "Zaawansowane", ""),
         ]
         if allow_users:
-            tabs_config.insert(3, (self.tab_users, "Użytkownicy", ""))
+            tabs_config.insert(2, (self.tab_users, "Użytkownicy", ""))
 
         for frame, title, subtitle in tabs_config:
             if frame is not None:
@@ -2373,7 +2371,7 @@ class SettingsPanel:
             self._ui_container,
             text="🚧 Program w trakcie rozwoju",
         )
-        watermark_box.pack(fill="x", padx=8, pady=(8, 4))
+        # U1: kontrolka watermarku pozostaje kompatybilna, ale jest ukryta z UI.
 
         self._wm_watermark_var = tk.BooleanVar(
             master=self.master,
@@ -2425,6 +2423,23 @@ class SettingsPanel:
             "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
         )
 
+        # U1: ręczne sekcje modułowe trafiają do jednego notebooka „Moduły”.
+        self._dispatches_module_frame = ttk.Frame(self._modules_nb)
+        self._modules_nb.add(self._dispatches_module_frame, text="Dyspozycje")
+        self._dispatches_container = ttk.LabelFrame(
+            self._dispatches_module_frame,
+            text="Dyspozycje — ustawienia",
+        )
+        self._dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        self._jarvis_module_frame = ttk.Frame(self._modules_nb)
+        self._modules_nb.add(self._jarvis_module_frame, text="Jarvis")
+        self._jarvis_container = ttk.LabelFrame(
+            self._jarvis_module_frame,
+            text="Jarvis i powiadomienia",
+        )
+        self._jarvis_container.pack(fill="both", expand=True, padx=8, pady=8)
+
         self._warehouse_nb = ttk.Notebook(self.tab_warehouse)
         self._warehouse_nb.pack(fill="both", expand=True, padx=8, pady=8)
         self._warehouse_diag_tab = None
@@ -2467,8 +2482,7 @@ class SettingsPanel:
         }
         self._build_manual_config_fields()
         self._build_dispatches_settings_tab()
-        self._build_feedback_settings_tab()
-        self._build_statistics_settings_tab()
+        # U1: Opinie i Statystyki nie są już budowane w Ustawieniach.
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -2486,7 +2500,6 @@ class SettingsPanel:
         warehouse_ids = {
             "magazyn",
             "zamowienia",
-            "produkty",
         }
         self._build_warehouse_diagnostics_tab()
 
@@ -2564,10 +2577,18 @@ class SettingsPanel:
             if tab_id == "system":
                 self._render_system_tab(tab, handlers)
                 continue
+            if tab_id == "produkty":
+                print("[WM-DBG][SETTINGS] U1: pomijam Produkty/BOM w Ustawieniach")
+                continue
+            if tab_id == "dyspo":
+                # U1: aktywna konfiguracja Dyspozycji jest w ręcznej sekcji Moduły.
+                continue
             if tab_id == "narzedzia":
-                frame = self._tools_container
-                for child in frame.winfo_children():
-                    child.destroy()
+                frame = ttk.Frame(self._modules_nb)
+                self._modules_nb.add(frame, text=title)
+                self._register_nested_tab(
+                    title, self.tab_modules, self._modules_nb, frame
+                )
                 path_key = (tab_id,)
                 self._remember_tab_frame(path_key, frame)
                 counts = self._handle_tools_tab(frame, tab, path_key)
@@ -2575,10 +2596,10 @@ class SettingsPanel:
                     self._log_tab_stats(title, *counts)
                 continue
             if tab_id in warehouse_ids:
-                frame = ttk.Frame(self._warehouse_nb)
-                self._warehouse_nb.add(frame, text=title)
+                frame = ttk.Frame(self._modules_nb)
+                self._modules_nb.add(frame, text=title)
                 self._register_nested_tab(
-                    title, self.tab_warehouse, self._warehouse_nb, frame
+                    title, self.tab_modules, self._modules_nb, frame
                 )
                 print(
                     "[WM-DBG][SETTINGS] add warehouse tab: "
@@ -2612,13 +2633,47 @@ class SettingsPanel:
                     self._log_tab_stats(title, *counts)
                 continue
             if tab_id == "aktualizacje":
-                frame = ttk.LabelFrame(self._backup_container, text=title)
-                frame.pack(fill="both", expand=True, padx=8, pady=6)
-                path_key = (tab_id,)
-                self._remember_tab_frame(path_key, frame)
-                counts = self._handle_generic_tab(frame, tab, path_key)
-                if counts:
-                    self._log_tab_stats(title, *counts)
+                backup_tab = copy.deepcopy(tab)
+                backup_groups = []
+                for group in backup_tab.get("groups", []):
+                    if str(group.get("title") or "") != "Automatyzacja":
+                        continue
+                    group = copy.deepcopy(group)
+                    group["fields"] = [
+                        field for field in group.get("fields", [])
+                        if str(field.get("key") or "") != "backup.keep_last"
+                    ]
+                    backup_groups.append(group)
+                backup_tab["groups"] = backup_groups
+
+                if backup_groups:
+                    frame = ttk.LabelFrame(self._backup_container, text=title)
+                    frame.pack(fill="both", expand=True, padx=8, pady=6)
+                    path_key = (tab_id, "u1_backup")
+                    self._remember_tab_frame(path_key, frame)
+                    counts = self._handle_generic_tab(frame, backup_tab, path_key)
+                    if counts:
+                        self._log_tab_stats(title, *counts)
+
+                advanced_tab = copy.deepcopy(tab)
+                advanced_tab["groups"] = [
+                    copy.deepcopy(group)
+                    for group in tab.get("groups", [])
+                    if str(group.get("title") or "") in {"Ścieżki danych", "Operacje"}
+                ]
+                if advanced_tab["groups"]:
+                    adv_frame = ttk.LabelFrame(
+                        self._advanced_container,
+                        text="Aktualizacje — techniczne",
+                    )
+                    adv_frame.pack(fill="both", expand=True, padx=8, pady=6)
+                    adv_path = (tab_id, "u1_advanced")
+                    self._remember_tab_frame(adv_path, adv_frame)
+                    counts = self._handle_generic_tab(
+                        adv_frame, advanced_tab, adv_path
+                    )
+                    if counts:
+                        self._log_tab_stats("Aktualizacje — techniczne", *counts)
                 continue
             if tab_id == "testy_audyt":
                 frame = ttk.LabelFrame(self._advanced_container, text=title)
