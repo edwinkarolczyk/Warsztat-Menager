@@ -1,7 +1,11 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
-# version: 1.3
+# version: 1.4
 # =========================================================
+# Zmiany 1.4:
+# - U2A-3: zlecenie wybiera produkt i pokazuje wyliczone zapotrzebowanie.
+# - Duplikaty numerów dostają automatycznie sufiks _2, _3, ... bez prefiksu ZL.
+# - Wyliczenie nie wykonuje ruchów magazynowych ani nie tworzy Dyspozycji.
 # Zmiany 1.3:
 # - Nazwa widoczna BOM została zmieniona na Skład produktu; dane wewnętrzne pozostają bez zmian.
 # - W Planowaniu doprecyzowano Nr zlecenia oraz nazewnictwo rewizji/składu.
@@ -36,6 +40,7 @@ from tkinter import messagebox, ttk, simpledialog
 from config_manager import ConfigManager
 from produkty_store import ProductCatalog, ProductCatalogError
 from gui_planowanie_bom import BomEditorPanel, SemiProductsPanel
+from planowanie_zapotrzebowanie import RequirementCalculator, RequirementError, unique_order_number
 
 DEFAULT_WORKFLOW = [
     {
@@ -262,6 +267,7 @@ class PlanowanieUI:
         )
         self.store = PlanStore()
         self.product_catalog = ProductCatalog()
+        self.requirement_calculator = RequirementCalculator(self.product_catalog)
         self.can_manage_products = (
             not self.role
             or self.role in {"admin", "administrator", "kierownik", "brygadzista"}
@@ -337,7 +343,7 @@ class PlanowanieUI:
 
         self.orders_tree = ttk.Treeview(tab, columns=("number", "symbol", "client", "qty", "ship", "status"), show="headings", height=12)
         self.orders_tree.heading("number", text="Nr zlecenia")
-        self.orders_tree.heading("symbol", text="Symbol")
+        self.orders_tree.heading("symbol", text="Produkt")
         self.orders_tree.heading("client", text="Klient")
         self.orders_tree.heading("qty", text="Ilość")
         self.orders_tree.heading("ship", text="Termin")
@@ -347,8 +353,22 @@ class PlanowanieUI:
 
         detail = ttk.LabelFrame(tab, text="Szczegóły zlecenia")
         detail.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-        self.detail_text = tk.Text(detail, height=12)
+        self.detail_text = tk.Text(detail, height=8)
         self.detail_text.pack(fill="both", expand=True)
+
+        req = ttk.LabelFrame(tab, text="Zapotrzebowanie zlecenia — podgląd bez stanów magazynowych")
+        req.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        req_cols = ("typ", "kod", "nazwa", "ilosc", "jednostka", "zrodlo")
+        self.requirements_tree = ttk.Treeview(req, columns=req_cols, show="headings", height=8)
+        for key, label, width in (
+            ("typ", "Typ", 90), ("kod", "Kod", 150), ("nazwa", "Nazwa", 180),
+            ("ilosc", "Potrzeba", 100), ("jednostka", "Jedn.", 70), ("zrodlo", "Wynika z", 260),
+        ):
+            self.requirements_tree.heading(key, text=label)
+            self.requirements_tree.column(key, width=width, anchor="w")
+        self.requirements_tree.pack(fill="both", expand=True, padx=6, pady=(6, 2))
+        self.requirements_status_var = tk.StringVar(value="Wybierz zlecenie.")
+        ttk.Label(req, textvariable=self.requirements_status_var, wraplength=1050).pack(anchor="w", padx=6, pady=(2, 6))
 
         stats = ttk.LabelFrame(tab, text="Statystyki")
         stats.pack(fill="x", padx=8, pady=(0, 8))
@@ -626,6 +646,7 @@ class PlanowanieUI:
         for o in self.store.data.get("orders", []):
             blob = " ".join([
                 str(o.get("number", "")),
+                str(o.get("product_code") or o.get("symbol") or ""),
                 str(o.get("client", "")),
                 str(o.get("status", "")),
                 " ".join(s.get("name", "") for s in o.get("stages", [])),
@@ -639,9 +660,50 @@ class PlanowanieUI:
         for i in self.orders_tree.get_children():
             self.orders_tree.delete(i)
         for order in self._filtered_orders():
-            self.orders_tree.insert("", "end", iid=order["id"], values=(order.get("number"), order.get("symbol"), order.get("client"), order.get("qty"), order.get("ship_date"), order.get("status", "aktywne")))
+            product_code = order.get("product_code") or order.get("symbol") or ""
+            self.orders_tree.insert("", "end", iid=order["id"], values=(order.get("number"), product_code, order.get("client"), order.get("qty"), order.get("ship_date"), order.get("status", "aktywne")))
         self._refresh_stats()
         self._render_calendar()
+
+    @staticmethod
+    def _format_requirement_qty(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return str(value or "")
+        if number.is_integer():
+            return str(int(number))
+        return f"{number:.3f}".rstrip("0").rstrip(".")
+
+    def _refresh_requirement_preview(self, order):
+        if not hasattr(self, "requirements_tree"):
+            return
+        self.requirements_tree.delete(*self.requirements_tree.get_children())
+        product_code = str(order.get("product_code") or order.get("symbol") or "").strip()
+        qty = order.get("qty", 0)
+        try:
+            result = self.requirement_calculator.calculate(product_code, qty)
+        except RequirementError as exc:
+            self.requirements_status_var.set(str(exc))
+            return
+        except Exception as exc:
+            self.requirements_status_var.set(f"Nie udało się policzyć zapotrzebowania: {exc}")
+            return
+        for idx, row in enumerate(result.get("rows") or []):
+            self.requirements_tree.insert("", "end", iid=f"req-{idx}", values=(
+                row.get("typ", ""), row.get("kod", ""), row.get("nazwa", ""),
+                self._format_requirement_qty(row.get("ilosc")), row.get("jednostka", ""), row.get("zrodlo", ""),
+            ))
+        warnings = result.get("warnings") or []
+        text = (
+            f"Produkt {result.get('product_code','')} × {self._format_requirement_qty(result.get('product_qty'))} "
+            f"| rewizja składu {result.get('composition_revision', 1)}"
+        )
+        if warnings:
+            text += " | UWAGI: " + " ; ".join(str(x) for x in warnings[:4])
+            if len(warnings) > 4:
+                text += f" ; +{len(warnings) - 4} kolejnych"
+        self.requirements_status_var.set(text)
 
     def _refresh_stats(self):
         orders = self.store.data.get("orders", [])
@@ -659,29 +721,78 @@ class PlanowanieUI:
             return None
         win = tk.Toplevel(self.root)
         win.title("Dodaj/Edytuj zlecenie")
+        win.transient(self.root)
         default_date = day_date.isoformat() if day_date else _today()
         values = order or {}
-        fields = {}
         form = ttk.Frame(win, padding=8)
         form.pack(fill="both", expand=True)
-        for idx, (label, key, default) in enumerate([
-            ("Nr zlecenia", "number", ""),
-            ("Symbol elementu", "symbol", ""),
-            ("Klient", "client", ""),
-            ("Ilość", "qty", "1"),
-            ("Termin wysyłki", "ship_date", default_date),
-            ("Data startu", "start_date", default_date),
-        ]):
-            ttk.Label(form, text=label).grid(row=idx, column=0, sticky="w", pady=3)
-            var = tk.StringVar(value=str(values.get(key, default)))
-            ttk.Entry(form, textvariable=var, width=40).grid(row=idx, column=1, sticky="ew", pady=3)
-            if key in {"ship_date", "start_date"}:
-                ttk.Button(form, text="📅", command=lambda v=var: v.set(_today())).grid(row=idx, column=2, padx=4)
-            fields[key] = var
         form.columnconfigure(1, weight=1)
+
+        number_var = tk.StringVar(value=str(values.get("number") or ""))
+        client_var = tk.StringVar(value=str(values.get("client") or ""))
+        qty_var = tk.StringVar(value=str(values.get("qty") or "1"))
+        ship_var = tk.StringVar(value=str(values.get("ship_date") or default_date))
+        start_var = tk.StringVar(value=str(values.get("start_date") or default_date))
+
+        product_labels, product_by_label = [], {}
+        current_code = str(values.get("product_code") or values.get("symbol") or "").strip()
+        try:
+            products = self.product_catalog.list_products()
+        except Exception as exc:
+            products = []
+            messagebox.showerror("Zlecenie", f"Nie udało się wczytać produktów:\n{exc}", parent=win)
+        for product in sorted(products, key=lambda p: str(p.get("kod") or "").casefold()):
+            code = str(product.get("kod") or "").strip()
+            if not code:
+                continue
+            label = f"{code} — {product.get('nazwa','')}"
+            product_labels.append(label)
+            product_by_label[label] = code
+        selected = next((label for label, code in product_by_label.items() if code.casefold() == current_code.casefold()), "")
+        if current_code and not selected:
+            selected = current_code
+            product_labels.append(selected)
+            product_by_label[selected] = current_code
+        product_var = tk.StringVar(value=selected)
+
+        rows = (
+            (0, "Nr zlecenia:", number_var),
+            (2, "Klient:", client_var),
+            (3, "Ilość produktu:", qty_var),
+            (4, "Termin wysyłki:", ship_var),
+            (5, "Data startu:", start_var),
+        )
+        for row, label, var in rows:
+            ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", pady=3)
+            ttk.Entry(form, textvariable=var, width=40).grid(row=row, column=1, sticky="ew", pady=3)
+        ttk.Label(form, text="Produkt:").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Combobox(form, textvariable=product_var, values=product_labels, state="readonly", width=48).grid(row=1, column=1, sticky="ew", pady=3)
+        ttk.Button(form, text="📅", command=lambda: ship_var.set(_today())).grid(row=4, column=2, padx=4)
+        ttk.Button(form, text="📅", command=lambda: start_var.set(_today())).grid(row=5, column=2, padx=4)
+        ttk.Label(form, text="Opis jest stały: Zlecenie + nadany nr. Duplikat dostanie _2, _3 itd.", wraplength=560).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 2))
+
         result = {"value": None}
         def save_form():
-            result["value"] = {k: v.get().strip() for k, v in fields.items()}
+            number = number_var.get().strip()
+            if not number:
+                messagebox.showerror("Zlecenie", "Podaj nr zlecenia.", parent=win)
+                return
+            product_code = product_by_label.get(product_var.get().strip(), "")
+            if not product_code:
+                messagebox.showerror("Zlecenie", "Wybierz produkt z katalogu produktów.", parent=win)
+                return
+            try:
+                qty = int(qty_var.get().strip())
+            except ValueError:
+                messagebox.showerror("Zlecenie", "Ilość produktu musi być liczbą całkowitą.", parent=win)
+                return
+            if qty <= 0:
+                messagebox.showerror("Zlecenie", "Ilość produktu musi być większa od zera.", parent=win)
+                return
+            result["value"] = {
+                "number": number, "product_code": product_code, "client": client_var.get().strip(),
+                "qty": qty, "ship_date": ship_var.get().strip(), "start_date": start_var.get().strip(),
+            }
             win.destroy()
         ttk.Button(form, text="Zapisz", command=save_form).grid(row=7, column=1, sticky="e", pady=8)
         win.grab_set()
@@ -727,23 +838,31 @@ class PlanowanieUI:
         payload = self._open_order_form(day_date=day_date)
         if not payload:
             return
-        qty = int(payload.get("qty") or 0)
-        stages = self._build_stages()
+        requested = payload.get("number") or ""
+        try:
+            number = unique_order_number(requested, self.store.data.get("orders", []))
+        except RequirementError as exc:
+            messagebox.showerror("Zlecenie", str(exc), parent=self.root)
+            return
+        if number != requested:
+            messagebox.showinfo("Nr zlecenia", f"Nr '{requested}' już istnieje. Nadano nr '{number}'.", parent=self.root)
+        product_code = str(payload.get("product_code") or "").strip()
         order = {
             "id": f"ord-{int(datetime.now().timestamp() * 1000)}",
-            "number": payload.get("number"),
-            "symbol": payload.get("symbol"),
+            "opis": "Zlecenie",
+            "number": number,
+            "product_code": product_code,
+            "symbol": product_code,
             "client": payload.get("client"),
-            "qty": qty,
+            "qty": int(payload.get("qty") or 0),
             "start_date": payload.get("start_date") or _today(),
             "ship_date": payload.get("ship_date") or _today(),
             "status": "aktywne",
             "attachments": [],
-            "stages": stages,
+            "stages": self._build_stages(),
             "history": [],
         }
-        sats = set(self.store.data.get("working_saturdays", []))
-        _build_schedule(order, sats)
+        _build_schedule(order, set(self.store.data.get("working_saturdays", [])))
         self.store.data.setdefault("orders", []).append(order)
         self._persist_or_warn()
         self._refresh_orders_list()
@@ -756,7 +875,11 @@ class PlanowanieUI:
         if not order:
             return
         self.detail_text.delete("1.0", "end")
+        number = str(order.get("number") or "")
+        product_code = str(order.get("product_code") or order.get("symbol") or "")
+        self.detail_text.insert("end", f"Zlecenie {number}\nProdukt: {product_code}\nIlość: {order.get('qty', '')}\n\n")
         self.detail_text.insert("end", json.dumps(order, ensure_ascii=False, indent=2))
+        self._refresh_requirement_preview(order)
 
     def _block_day(self):
         d = simpledialog.askstring("Blokada", "Data YYYY-MM-DD:", parent=self.frame)
@@ -778,16 +901,25 @@ class PlanowanieUI:
 
     def _edit_selected_order(self):
         order = self._selected_order()
-        if not order:
-            return
-        if not self.access.can_edit:
+        if not order or not self.access.can_edit:
             return
         payload = self._open_order_form(order=order)
         if not payload:
             return
+        requested = payload.get("number") or order.get("number") or ""
+        try:
+            number = unique_order_number(requested, self.store.data.get("orders", []), exclude_id=str(order.get("id") or ""))
+        except RequirementError as exc:
+            messagebox.showerror("Zlecenie", str(exc), parent=self.root)
+            return
+        if number != requested:
+            messagebox.showinfo("Nr zlecenia", f"Nr '{requested}' już istnieje. Nadano nr '{number}'.", parent=self.root)
+        product_code = str(payload.get("product_code") or "").strip()
         order.update({
-            "number": payload.get("number"),
-            "symbol": payload.get("symbol"),
+            "opis": "Zlecenie",
+            "number": number,
+            "product_code": product_code,
+            "symbol": product_code,
             "client": payload.get("client"),
             "qty": int(payload.get("qty") or order.get("qty") or 0),
             "ship_date": payload.get("ship_date") or order.get("ship_date"),
