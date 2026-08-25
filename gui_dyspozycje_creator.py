@@ -1,8 +1,15 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Termin jest edytowany jako DD-MM-RR, z kalendarzem oraz skrótami +2 dni, +1 tydzień i +2 tygodnie.
+# - Do pliku termin nadal trafia jako YYYY-MM-DD; błędny format jest blokowany.
+# - Brak przypisanego użytkownika automatycznie ustawia Dyspozycję dla wszystkich.
+# - Autor zapisu jest pobierany z bieżącej sesji.
 """Wspólny kreator Dyspozycji z dynamicznymi listami obiektów."""
 
 from __future__ import annotations
 
+import calendar
+import datetime as _dt
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -27,6 +34,30 @@ try:
 except Exception:  # pragma: no cover
     load_profiles_users = None  # type: ignore
     resolve_profiles_path = None  # type: ignore
+
+
+def _deadline_to_display(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d-%m-%y", "%d-%m-%Y"):
+        try:
+            return _dt.datetime.strptime(raw, fmt).strftime("%d-%m-%y")
+        except ValueError:
+            continue
+    return raw
+
+
+def _deadline_to_iso(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%d-%m-%y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return _dt.datetime.strptime(raw, fmt).date().isoformat()
+        except ValueError:
+            continue
+    raise ValueError("Termin musi mieć format DD-MM-RR, np. 27-08-26.")
 
 
 def _normalize_object_id(value: str) -> set[str]:
@@ -620,10 +651,32 @@ def open_dyspozycje_creator(
     )
     cb_priority.grid(row=5, column=1, sticky="w", pady=4)
 
-    ttk.Label(frame, text="Termin (YYYY-MM-DD):").grid(row=6, column=0, sticky="w", pady=4)
-    var_deadline = tk.StringVar(value=str(ctx.get("termin") or ""))
-    ent_deadline = ttk.Entry(frame, textvariable=var_deadline, width=24)
-    ent_deadline.grid(row=6, column=1, sticky="w", pady=4)
+    ttk.Label(frame, text="Termin (DD-MM-RR):").grid(row=6, column=0, sticky="w", pady=4)
+    var_deadline = tk.StringVar(value=_deadline_to_display(ctx.get("termin") or ""))
+    deadline_frame = ttk.Frame(frame)
+    deadline_frame.grid(row=6, column=1, sticky="w", pady=4)
+    ent_deadline = ttk.Entry(deadline_frame, textvariable=var_deadline, width=14)
+    ent_deadline.pack(side="left")
+    ttk.Button(
+        deadline_frame,
+        text="📅 Kalendarz",
+        command=lambda: _open_deadline_calendar(),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+2 dni",
+        command=lambda: _set_deadline_offset(2),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+1 tydzień",
+        command=lambda: _set_deadline_offset(7),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+2 tygodnie",
+        command=lambda: _set_deadline_offset(14),
+    ).pack(side="left", padx=(8, 0))
 
     var_all = tk.BooleanVar(value=bool(ctx.get("dla_wszystkich", False)))
     chk_all = ttk.Checkbutton(frame, text="Dyspozycja dla wszystkich", variable=var_all)
@@ -667,13 +720,114 @@ def open_dyspozycje_creator(
     all_labels: list[str] = []
     source_module = {"value": ""}
 
+    def _set_deadline_offset(days: int) -> None:
+        target = _dt.date.today() + _dt.timedelta(days=int(days))
+        var_deadline.set(target.strftime("%d-%m-%y"))
+
+    def _open_deadline_calendar() -> None:
+        try:
+            initial_iso = _deadline_to_iso(var_deadline.get())
+            initial = _dt.date.fromisoformat(initial_iso) if initial_iso else _dt.date.today()
+        except Exception:
+            initial = _dt.date.today()
+
+        picker = tk.Toplevel(win)
+        picker.title("Wybierz termin")
+        picker.resizable(False, False)
+        picker.transient(win)
+        state = {"year": initial.year, "month": initial.month}
+        month_names = [
+            "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+            "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
+        ]
+
+        top = ttk.Frame(picker, padding=(10, 10, 10, 4))
+        top.pack(fill="x")
+        title_var = tk.StringVar()
+        ttk.Button(top, text="◀", width=3, command=lambda: _move_month(-1)).pack(side="left")
+        ttk.Label(top, textvariable=title_var, width=20, anchor="center").pack(side="left", padx=8)
+        ttk.Button(top, text="▶", width=3, command=lambda: _move_month(1)).pack(side="left")
+
+        body = ttk.Frame(picker, padding=(10, 4, 10, 10))
+        body.pack(fill="both", expand=True)
+
+        def _close_picker() -> None:
+            try:
+                picker.grab_release()
+            except Exception:
+                pass
+            try:
+                picker.destroy()
+            finally:
+                try:
+                    win.grab_set()
+                except Exception:
+                    pass
+
+        def _pick_day(day: int) -> None:
+            chosen = _dt.date(state["year"], state["month"], int(day))
+            var_deadline.set(chosen.strftime("%d-%m-%y"))
+            _close_picker()
+
+        def _render_month() -> None:
+            for child in body.winfo_children():
+                child.destroy()
+            title_var.set(f"{month_names[state['month'] - 1]} {state['year']}")
+            for col, label in enumerate(("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")):
+                ttk.Label(body, text=label, width=4, anchor="center").grid(
+                    row=0, column=col, padx=1, pady=(0, 4)
+                )
+            weeks = calendar.monthcalendar(state["year"], state["month"])
+            for row_idx, week in enumerate(weeks, start=1):
+                for col_idx, day in enumerate(week):
+                    if day == 0:
+                        ttk.Label(body, text="", width=4).grid(row=row_idx, column=col_idx)
+                    else:
+                        ttk.Button(
+                            body,
+                            text=str(day),
+                            width=4,
+                            command=lambda d=day: _pick_day(d),
+                        ).grid(row=row_idx, column=col_idx, padx=1, pady=1)
+
+        def _move_month(delta: int) -> None:
+            month = state["month"] + int(delta)
+            year = state["year"]
+            if month < 1:
+                month = 12
+                year -= 1
+            elif month > 12:
+                month = 1
+                year += 1
+            state["year"] = year
+            state["month"] = month
+            _render_month()
+
+        picker.protocol("WM_DELETE_WINDOW", _close_picker)
+        _render_month()
+        picker.update_idletasks()
+        try:
+            x = win.winfo_rootx() + max(0, (win.winfo_width() - picker.winfo_width()) // 2)
+            y = win.winfo_rooty() + max(0, (win.winfo_height() - picker.winfo_height()) // 2)
+            picker.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+        try:
+            picker.grab_set()
+        except Exception:
+            pass
+
     def _current_dyspozycja_for_print() -> dict[str, Any]:
+        try:
+            deadline = _deadline_to_iso(var_deadline.get())
+        except ValueError:
+            deadline = var_deadline.get().strip()
+        assigned = var_assigned.get().strip()
+        for_all = bool(var_all.get()) or not assigned
         return {
             "opis": txt_desc.get("1.0", "end").strip(),
-            "termin": var_deadline.get().strip(),
-            "przypisane_do": (
-                "" if var_all.get() else var_assigned.get().strip()
-            ),
+            "termin": deadline,
+            "przypisane_do": "" if for_all else assigned,
             "priorytet": var_priority.get().strip(),
             "autor": str(autor or ctx.get("autor") or "").strip(),
         }
@@ -900,11 +1054,11 @@ def open_dyspozycje_creator(
 
     def _actor_login() -> str:
         for candidate in (
-            autor,
-            ctx.get("autor"),
             getattr(root, "active_login", ""),
             getattr(root, "_wm_login", ""),
             getattr(root, "login", ""),
+            autor,
+            ctx.get("autor"),
         ):
             text = str(candidate or "").strip()
             if text:
@@ -943,17 +1097,33 @@ def open_dyspozycje_creator(
             )
             return
 
+        try:
+            deadline_iso = _deadline_to_iso(var_deadline.get())
+        except ValueError:
+            messagebox.showwarning(
+                "Dyspozycje",
+                "Termin musi mieć format DD-MM-RR, np. 27-08-26.",
+                parent=win,
+            )
+            ent_deadline.focus_set()
+            return
+
+        assigned = var_assigned.get().strip()
+        for_all = bool(var_all.get()) or not assigned
+        if for_all:
+            assigned = ""
+            if not var_all.get():
+                var_all.set(True)
+
         title = str(ctx.get("tytul") or "").strip() or selected_label or var_type.get().strip()
         payload = {
             "typ_dyspozycji": var_type.get().strip(),
             "tytul": title,
             "opis": txt_desc.get("1.0", "end").strip(),
-            "autor": str(autor or ctx.get("autor") or "").strip(),
-            "przypisane_do": (
-                "" if var_all.get() else var_assigned.get().strip()
-            ),
-            "dla_wszystkich": bool(var_all.get()),
-            "termin": var_deadline.get().strip(),
+            "autor": _actor_login(),
+            "przypisane_do": assigned,
+            "dla_wszystkich": for_all,
+            "termin": deadline_iso,
             "priorytet": var_priority.get().strip(),
             "modul_zrodlowy": source_module["value"],
             "obiekt_id": object_id,

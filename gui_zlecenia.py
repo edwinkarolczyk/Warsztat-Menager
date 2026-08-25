@@ -1,4 +1,7 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Nowe i zamykane Dyspozycje zapisują faktycznie zalogowanego użytkownika.
+# - Anulowanie okna uwag nie zamyka Dyspozycji.
 """Panel Dyspozycji (dawniej: Zlecenia) – lista oparta o wspólny store Dyspozycji."""
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from dyspozycje_store import (
     load_dyspozycje,
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
+from services.profile_service import ProfileService
 
 from ui_dialogs_safe import error_box
 
@@ -345,12 +349,16 @@ class ZleceniaView(ttk.Frame):
         self._schedule_refresh()
 
     def _resolve_login_user(self) -> str:
-        candidates = [
-            getattr(self.master, "login_sesji", None),
-            getattr(self.master, "current_user", None),
-            getattr(self.master, "user_login", None),
-        ]
-        for value in candidates:
+        attrs = (
+            "login_sesji",
+            "current_user",
+            "user_login",
+            "active_login",
+            "_wm_login",
+            "login",
+        )
+        for attr in attrs:
+            value = getattr(self.master, attr, None)
             if isinstance(value, str) and value.strip():
                 return value.strip()
         try:
@@ -358,11 +366,15 @@ class ZleceniaView(ttk.Frame):
         except Exception:
             root = None
         if root is not None:
-            for attr in ("login_sesji", "current_user", "user_login"):
+            for attr in attrs:
                 value = getattr(root, attr, None)
                 if isinstance(value, str) and value.strip():
                     return value.strip()
-        return ""
+        try:
+            active = ProfileService.ensure_active_user_or_none()
+        except Exception:
+            active = None
+        return str(active or "").strip()
 
     # region UI helpers -------------------------------------------------
     def _build_toolbar(self) -> None:
@@ -607,7 +619,7 @@ class ZleceniaView(ttk.Frame):
         try:
             self._open_order_creator(
                 self,
-                autor="uzytkownik",
+                autor=self._login_user,
                 context={"modul_zrodlowy": "dyspozycje"},
             )
         except Exception as exc:  # pragma: no cover - wymagane GUI
@@ -637,7 +649,7 @@ class ZleceniaView(ttk.Frame):
         try:
             self._open_order_creator(
                 self,
-                autor=str(mapped.get("autor") or ""),
+                autor=self._login_user or str(mapped.get("autor") or ""),
                 context=mapped,
             )
         except Exception as exc:  # pragma: no cover - wymagane GUI
@@ -680,6 +692,8 @@ class ZleceniaView(ttk.Frame):
             "Uwagi przy zamknięciu (opcjonalnie):",
             parent=self,
         )
+        if note is None:
+            return
         who = self._login_user or str(mapped.get("autor") or "").strip()
         changed = close_dyspozycja(
             dysp_id,
