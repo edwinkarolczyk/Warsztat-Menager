@@ -41,9 +41,9 @@ from logger import log_akcja
 from profile_utils import ADMIN_ROLE_NAMES, SIDEBAR_MODULES, can_access_jarvis
 from ustawienia_systemu import panel_ustawien
 try:
-    from wm_watermark import install as install_development_watermark, patch_settings_module
+    from wm_watermark import install as install_development_watermark
 except Exception:
-    install_development_watermark = patch_settings_module = None
+    install_development_watermark = None
 from utils.moduly import module_active, zaladuj_manifest
 from wm_access import (
     get_disabled_modules_for,
