@@ -1,6 +1,9 @@
-# version: 1.0
+# version: 1.1
 # Moduł: gui_planowanie_bom
 # U2A-2: Półprodukty i edytor BOM w Planowaniu.
+# Zmiany 1.1:
+# - W interfejsie BOM nazwano Składem produktu, a materiał Surowcem.
+# - Nazwy wewnętrzne pozostają bez zmian dla zgodności danych.
 
 from __future__ import annotations
 
@@ -39,7 +42,7 @@ class SemiProductsPanel(ttk.Frame):
         cols = ('kod', 'nazwa', 'material', 'ilosc', 'jednostka', 'strata', 'czynnosci')
         self.tree = ttk.Treeview(self, columns=cols, show='headings', height=17)
         for key, label, width in (
-            ('kod', 'Kod', 170), ('nazwa', 'Nazwa', 260), ('material', 'Materiał', 150),
+            ('kod', 'Kod', 170), ('nazwa', 'Nazwa', 260), ('material', 'Surowiec', 150),
             ('ilosc', 'Na szt.', 80), ('jednostka', 'Jedn.', 70), ('strata', 'Strata %', 75),
             ('czynnosci', 'Czynności', 260),
         ):
@@ -107,8 +110,8 @@ class SemiProductsPanel(ttk.Frame):
             'czynnosci': tk.StringVar(value=', '.join(values.get('czynnosci') or [])),
         }
         labels = (
-            ('Kod półproduktu:', 'kod'), ('Nazwa:', 'nazwa'), ('Kod materiału:', 'material_kod'),
-            ('Ilość materiału na szt.:', 'material_ilosc'), ('Jednostka:', 'material_jednostka'),
+            ('Kod półproduktu:', 'kod'), ('Nazwa:', 'nazwa'), ('Kod surowca:', 'material_kod'),
+            ('Ilość surowca na szt.:', 'material_ilosc'), ('Jednostka:', 'material_jednostka'),
             ('Norma strat [%]:', 'norma_strat_proc'), ('Czynności (po przecinku):', 'czynnosci'),
         )
         for row, (label, key) in enumerate(labels):
@@ -149,7 +152,7 @@ class SemiProductsPanel(ttk.Frame):
         except Exception:
             pass
         if used_by:
-            messagebox.showerror('Półprodukt', 'Nie można usunąć — półprodukt jest używany w BOM: ' + ', '.join(used_by[:12]), parent=self)
+            messagebox.showerror('Półprodukt', 'Nie można usunąć — półprodukt jest używany w składzie produktu: ' + ', '.join(used_by[:12]), parent=self)
             return
         if not messagebox.askyesno('Usuń półprodukt', f"Usunąć '{code}'?\nPrzed usunięciem zostanie wykonana kopia.", parent=self):
             return
@@ -185,7 +188,7 @@ class BomEditorPanel(ttk.Frame):
         self.product_cb.bind('<<ComboboxSelected>>', self._on_product_selected)
         ttk.Button(top, text='Odśwież', command=self.refresh_products).pack(side='left', padx=3)
         if self.can_manage:
-            ttk.Button(top, text='Zapisz BOM', command=self._save_bom).pack(side='right')
+            ttk.Button(top, text='Zapisz skład', command=self._save_bom).pack(side='right')
             ttk.Button(top, text='Usuń pozycję', command=self._remove_entry).pack(side='right', padx=3)
             ttk.Button(top, text='Edytuj pozycję', command=self._edit_entry).pack(side='right', padx=3)
             ttk.Button(top, text='Dodaj pozycję', command=self._add_entry).pack(side='right', padx=3)
@@ -194,7 +197,7 @@ class BomEditorPanel(ttk.Frame):
         self.tree = ttk.Treeview(self, columns=cols, show='headings', height=17)
         for key, label, width in (
             ('pp', 'Półprodukt', 180), ('nazwa', 'Nazwa', 260), ('ilosc', 'Ilość na produkt', 110),
-            ('material', 'Materiał z półproduktu', 220), ('czynnosci', 'Czynności', 280),
+            ('material', 'Surowiec z półproduktu', 220), ('czynnosci', 'Czynności', 280),
         ):
             self.tree.heading(key, text=label)
             self.tree.column(key, width=width, anchor='w')
@@ -203,7 +206,7 @@ class BomEditorPanel(ttk.Frame):
         ttk.Label(self, textvariable=self.status_var).pack(anchor='w', padx=8, pady=(0, 8))
 
     def refresh_products(self):
-        if self.dirty and not messagebox.askyesno('BOM', 'Masz niezapisane zmiany BOM. Odrzucić je?', parent=self):
+        if self.dirty and not messagebox.askyesno('Skład produktu', 'Masz niezapisane zmiany składu produktu. Odrzucić je?', parent=self):
             return
         old_code = str((self.current_product or {}).get('kod') or '')
         self.products_by_label = {}
@@ -211,7 +214,7 @@ class BomEditorPanel(ttk.Frame):
         try:
             products = self.product_catalog.list_products()
         except Exception as exc:
-            messagebox.showerror('BOM', f'Nie udało się wczytać produktów:\n{exc}', parent=self)
+            messagebox.showerror('Skład produktu', f'Nie udało się wczytać produktów:\n{exc}', parent=self)
             return
         for product in sorted(products, key=lambda p: str(p.get('kod') or '').casefold()):
             label = f"{product.get('kod','')} — {product.get('nazwa','')}"
@@ -236,7 +239,7 @@ class BomEditorPanel(ttk.Frame):
         selected = self.products_by_label.get(self.product_var.get())
         if not selected:
             return
-        if self.dirty and not messagebox.askyesno('BOM', 'Masz niezapisane zmiany BOM. Odrzucić je i przejść do innego produktu?', parent=self):
+        if self.dirty and not messagebox.askyesno('Skład produktu', 'Masz niezapisane zmiany składu produktu. Odrzucić je i przejść do innego produktu?', parent=self):
             current_code = str((self.current_product or {}).get('kod') or '')
             label = next((lbl for lbl, p in self.products_by_label.items() if str(p.get('kod') or '') == current_code), '')
             self.product_var.set(label)
@@ -248,7 +251,7 @@ class BomEditorPanel(ttk.Frame):
         self.entries = copy.deepcopy(product.get('polprodukty') or [])
         self.dirty = False
         self._render()
-        self.status_var.set(f"BOM produktu {product.get('kod','')} | rewizja {product.get('bom_revision', 1)}")
+        self.status_var.set(f"Skład produktu {product.get('kod','')} | rewizja {product.get('bom_revision', 1)}")
 
     def _semi_map(self):
         try:
@@ -301,7 +304,7 @@ class BomEditorPanel(ttk.Frame):
         if current_code and current_code not in semi_codes:
             semi_codes.append(current_code)
         win = tk.Toplevel(self)
-        win.title('Pozycja BOM')
+        win.title('Pozycja składu produktu')
         win.transient(self.winfo_toplevel())
         win.grab_set()
         form = ttk.Frame(win, padding=12)
@@ -314,23 +317,23 @@ class BomEditorPanel(ttk.Frame):
         ttk.Combobox(form, textvariable=code_var, values=semi_codes, state='normal', width=42).grid(row=0, column=1, sticky='ew', pady=4)
         ttk.Label(form, text='Ilość na produkt:').grid(row=1, column=0, sticky='w', padx=(0, 8), pady=4)
         ttk.Entry(form, textvariable=qty_var).grid(row=1, column=1, sticky='ew', pady=4)
-        ttk.Label(form, text='Czynności BOM (opcjonalne):').grid(row=2, column=0, sticky='w', padx=(0, 8), pady=4)
+        ttk.Label(form, text='Czynności składu (opcjonalne):').grid(row=2, column=0, sticky='w', padx=(0, 8), pady=4)
         ttk.Entry(form, textvariable=ops_var).grid(row=2, column=1, sticky='ew', pady=4)
-        ttk.Label(form, text='Materiał nie jest kopiowany do BOM — pochodzi z definicji półproduktu.', wraplength=520).grid(row=3, column=0, columnspan=2, sticky='w', pady=(6, 10))
+        ttk.Label(form, text='Surowiec nie jest kopiowany do składu produktu — pochodzi z definicji półproduktu.', wraplength=520).grid(row=3, column=0, columnspan=2, sticky='w', pady=(6, 10))
         form.columnconfigure(1, weight=1)
 
         def accept():
             code = code_var.get().strip()
             if not code:
-                messagebox.showerror('BOM', 'Wybierz lub wpisz kod półproduktu.', parent=win)
+                messagebox.showerror('Skład produktu', 'Wybierz lub wpisz kod półproduktu.', parent=win)
                 return
             try:
                 qty = float(qty_var.get())
             except ValueError:
-                messagebox.showerror('BOM', 'Ilość musi być liczbą.', parent=win)
+                messagebox.showerror('Skład produktu', 'Ilość musi być liczbą.', parent=win)
                 return
             if qty <= 0:
-                messagebox.showerror('BOM', 'Ilość musi być większa od zera.', parent=win)
+                messagebox.showerror('Skład produktu', 'Ilość musi być większa od zera.', parent=win)
                 return
             if qty.is_integer():
                 qty = int(qty)
@@ -353,7 +356,7 @@ class BomEditorPanel(ttk.Frame):
                 self.entries[idx] = row
             self.dirty = True
             self._render()
-            self.status_var.set('Niezapisane zmiany BOM.')
+            self.status_var.set('Niezapisane zmiany składu produktu.')
             win.destroy()
 
         btns = ttk.Frame(form)
@@ -368,7 +371,7 @@ class BomEditorPanel(ttk.Frame):
         del self.entries[idx]
         self.dirty = True
         self._render()
-        self.status_var.set('Niezapisane zmiany BOM.')
+        self.status_var.set('Niezapisane zmiany składu produktu.')
 
     def _save_bom(self):
         if not self.current_product or not self.can_manage:
@@ -379,13 +382,13 @@ class BomEditorPanel(ttk.Frame):
         try:
             saved = self.product_catalog.save_bom(self.current_product, self.entries)
         except ProductCatalogError as exc:
-            messagebox.showerror('BOM', str(exc), parent=self)
+            messagebox.showerror('Skład produktu', str(exc), parent=self)
             return
         except Exception as exc:
-            messagebox.showerror('BOM', f'Nie udało się zapisać BOM:\n{exc}', parent=self)
+            messagebox.showerror('Skład produktu', f'Nie udało się zapisać składu produktu:\n{exc}', parent=self)
             return
         self.current_product = saved
         self.entries = copy.deepcopy(saved.get('polprodukty') or [])
         self.dirty = False
         self._render()
-        self.status_var.set(f"Zapisano BOM | rewizja {saved.get('bom_revision', 1)}")
+        self.status_var.set(f"Zapisano skład produktu | rewizja {saved.get('bom_revision', 1)}")

@@ -1,7 +1,10 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
-# version: 1.2
+# version: 1.3
 # =========================================================
+# Zmiany 1.3:
+# - Nazwa widoczna BOM została zmieniona na Skład produktu; dane wewnętrzne pozostają bez zmian.
+# - W Planowaniu doprecyzowano Nr zlecenia oraz nazewnictwo rewizji/składu.
 # Zmiany 1.2:
 # - U2A-2: dodano Półprodukty i edytor BOM w Planowaniu.
 # - BOM odwołuje się do półproduktów zamiast dublować definicję materiału.
@@ -294,7 +297,7 @@ class PlanowanieUI:
         notebook.add(tab_ord, text="ZLECENIA")
         notebook.add(tab_prod, text="PRODUKTY")
         notebook.add(tab_semi, text="PÓŁPRODUKTY")
-        notebook.add(tab_bom, text="BOM")
+        notebook.add(tab_bom, text="SKŁAD PRODUKTU")
         self._build_calendar_tab(tab_cal)
         self._build_orders_tab(tab_ord)
         self._build_products_tab(tab_prod)
@@ -333,7 +336,7 @@ class PlanowanieUI:
             ttk.Button(top, text="Blokada dnia", command=self._block_day).pack(side="left", padx=6)
 
         self.orders_tree = ttk.Treeview(tab, columns=("number", "symbol", "client", "qty", "ship", "status"), show="headings", height=12)
-        self.orders_tree.heading("number", text="Nr")
+        self.orders_tree.heading("number", text="Nr zlecenia")
         self.orders_tree.heading("symbol", text="Symbol")
         self.orders_tree.heading("client", text="Klient")
         self.orders_tree.heading("qty", text="Ilość")
@@ -383,8 +386,8 @@ class PlanowanieUI:
             ("kod", "Oznaczenie", 180),
             ("nazwa", "Nazwa", 320),
             ("version", "Wersja", 90),
-            ("bom_revision", "Rewizja BOM", 100),
-            ("bom_count", "Pozycji BOM", 100),
+            ("bom_revision", "Rewizja składu", 110),
+            ("bom_count", "Pozycji składu", 110),
         ):
             self.products_tree.heading(key, text=label)
             self.products_tree.column(key, width=width, anchor="w")
@@ -394,9 +397,9 @@ class PlanowanieUI:
         info = ttk.LabelFrame(tab, text="Informacja")
         info.pack(fill="x", padx=8, pady=(0, 8))
         text = (
-            "Ta zakładka zarządza metadanymi produktów. Istniejący BOM produktu "
-            "nie jest tu przepisywany ani usuwany; osobny edytor BOM zostanie "
-            "podpięty w kolejnym etapie."
+            "Ta zakładka zarządza metadanymi produktów. Istniejący skład produktu "
+            "nie jest tu przepisywany ani usuwany; edycja składu jest dostępna "
+            "w zakładce Skład produktu."
         )
         ttk.Label(info, text=text, wraplength=1000).pack(anchor="w", padx=8, pady=8)
 
@@ -483,7 +486,7 @@ class PlanowanieUI:
             ("Oznaczenie:", kod_var),
             ("Nazwa:", nazwa_var),
             ("Wersja:", version_var),
-            ("Rewizja BOM:", revision_var),
+            ("Rewizja składu:", revision_var),
         )):
             ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
             ttk.Entry(form, textvariable=var, width=48).grid(row=row, column=1, sticky="ew", pady=4)
