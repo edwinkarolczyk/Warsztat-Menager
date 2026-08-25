@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
-# version: 1.1.5
+# version: 1.1.6
 # Moduł: start
+# Zmiany 1.1.6:
+# - Po faktycznej aktualizacji ekran potwierdzenia pozostaje widoczny przez 2,5 s.
+# - Gdy repozytorium jest aktualne, szybkie przejście do WM pozostaje bez zmian.
 # Zmiany 1.1.5:
 # - Dodano ekran sprawdzania aktualizacji z dużym animowanym spinnerem przed uruchomieniem WM.
 # - Status pokazuje sprawdzanie, pobieranie oraz wynik aktualizacji; operacje Git działają poza wątkiem GUI.
@@ -902,7 +905,13 @@ def _wm_git_update_splash() -> str:
                         status_var.set("Aktualizacja pominięta")
                     else:
                         status_var.set("Nie udało się sprawdzić aktualizacji")
-                    splash.after(650 if value in {"updated", "current"} else 1000, splash.destroy)
+                    if value == "updated":
+                        close_delay_ms = 2500
+                    elif value == "current":
+                        close_delay_ms = 650
+                    else:
+                        close_delay_ms = 1000
+                    splash.after(close_delay_ms, splash.destroy)
                     return
         except queue.Empty:
             pass
