@@ -543,7 +543,7 @@ new_close_mid = '''        who = self._login_user or str(mapped.get("autor") or 
                     except WarehouseIntegrationError as exc:
                         messagebox.showerror(
                             "Rozliczenie produkcji",
-                            f"Nie udało się zaksięgować naddatku w Magazynie:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                            f"Nie udało się zaksięgować naddatku w Magazynie:\\n{exc}\\n\\nDyspozycja nie została zamknięta.",
                             parent=self,
                         )
                         return
