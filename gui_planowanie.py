@@ -1,6 +1,11 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
+# version: 1.1
 # =========================================================
+# Zmiany 1.1:
+# - U2A-1: dodano zakładkę Produkty opartą o aktywny WM_DATA_ROOT.
+# - Produkty obsługują obecny format `kod` i starszy `symbol` bez automatycznej migracji.
+# - Oznaczenia produktów nie są ograniczone do jednego firmowego schematu.
 # Zmiany:
 # - pełnoekranowy kalendarz
 # - edycja zleceń
@@ -23,6 +28,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk, simpledialog
 
 from config_manager import ConfigManager
+from produkty_store import ProductCatalog, ProductCatalogError
 
 DEFAULT_WORKFLOW = [
     {
@@ -248,10 +254,17 @@ class PlanowanieUI:
             can_archive=can_edit,
         )
         self.store = PlanStore()
+        self.product_catalog = ProductCatalog()
+        self.can_manage_products = (
+            not self.role
+            or self.role in {"admin", "administrator", "kierownik", "brygadzista"}
+        )
         self.calendar_year = date.today().year
         self.calendar_month = date.today().month
         self.search_var = tk.StringVar(value="")
         self.filter_status = tk.StringVar(value="")
+        self.product_search_var = tk.StringVar(value="")
+        self._product_rows: dict[str, dict] = {}
         self._build_ui()
 
     def _notify_no_access(self):
@@ -270,10 +283,13 @@ class PlanowanieUI:
         notebook.pack(fill="both", expand=True, padx=8, pady=8)
         tab_cal = ttk.Frame(notebook)
         tab_ord = ttk.Frame(notebook)
+        tab_prod = ttk.Frame(notebook)
         notebook.add(tab_cal, text="KALENDARZ")
         notebook.add(tab_ord, text="ZLECENIA")
+        notebook.add(tab_prod, text="PRODUKTY")
         self._build_calendar_tab(tab_cal)
         self._build_orders_tab(tab_ord)
+        self._build_products_tab(tab_prod)
 
     def _open_planner_window(self):
         win = tk.Toplevel(self.root)
@@ -318,6 +334,199 @@ class PlanowanieUI:
         ttk.Label(stats, textvariable=self.stats_var).pack(anchor="w", padx=8, pady=8)
 
         self._refresh_orders_list()
+
+    def _build_products_tab(self, tab):
+        top = ttk.Frame(tab)
+        top.pack(fill="x", padx=8, pady=8)
+
+        ttk.Label(top, text="Szukaj:").pack(side="left")
+        ent = ttk.Entry(top, textvariable=self.product_search_var)
+        ent.pack(side="left", fill="x", expand=True, padx=6)
+        ent.bind("<KeyRelease>", lambda _e: self._refresh_products_list())
+
+        ttk.Button(top, text="Odśwież", command=self._refresh_products_list).pack(
+            side="right", padx=(3, 0)
+        )
+        if self.can_manage_products:
+            ttk.Button(top, text="Usuń", command=self._delete_selected_product).pack(
+                side="right", padx=3
+            )
+            ttk.Button(top, text="Edytuj", command=self._edit_selected_product).pack(
+                side="right", padx=3
+            )
+            ttk.Button(top, text="Dodaj", command=self._add_product).pack(
+                side="right", padx=3
+            )
+
+        cols = ("kod", "nazwa", "version", "bom_revision", "bom_count")
+        self.products_tree = ttk.Treeview(tab, columns=cols, show="headings", height=16)
+        for key, label, width in (
+            ("kod", "Oznaczenie", 180),
+            ("nazwa", "Nazwa", 320),
+            ("version", "Wersja", 90),
+            ("bom_revision", "Rewizja BOM", 100),
+            ("bom_count", "Pozycji BOM", 100),
+        ):
+            self.products_tree.heading(key, text=label)
+            self.products_tree.column(key, width=width, anchor="w")
+        self.products_tree.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self.products_tree.bind("<Double-1>", lambda _e: self._edit_selected_product())
+
+        info = ttk.LabelFrame(tab, text="Informacja")
+        info.pack(fill="x", padx=8, pady=(0, 8))
+        text = (
+            "Ta zakładka zarządza metadanymi produktów. Istniejący BOM produktu "
+            "nie jest tu przepisywany ani usuwany; osobny edytor BOM zostanie "
+            "podpięty w kolejnym etapie."
+        )
+        ttk.Label(info, text=text, wraplength=1000).pack(anchor="w", padx=8, pady=8)
+
+        self._refresh_products_list()
+
+    def _refresh_products_list(self):
+        if not hasattr(self, "products_tree"):
+            return
+        self.products_tree.delete(*self.products_tree.get_children())
+        self._product_rows = {}
+        query = self.product_search_var.get().strip().lower()
+        try:
+            products = self.product_catalog.list_products()
+        except Exception as exc:
+            messagebox.showerror("Produkty", f"Nie udało się wczytać produktów:\n{exc}")
+            return
+
+        visible = []
+        for product in products:
+            blob = f"{product.get('kod', '')} {product.get('nazwa', '')}".lower()
+            if query and query not in blob:
+                continue
+            visible.append(product)
+
+        visible.sort(key=lambda p: (str(p.get("kod") or "").lower(), str(p.get("nazwa") or "").lower()))
+        for idx, product in enumerate(visible):
+            iid = f"prd-{idx}"
+            self._product_rows[iid] = product
+            self.products_tree.insert(
+                "",
+                "end",
+                iid=iid,
+                values=(
+                    product.get("kod", ""),
+                    product.get("nazwa", ""),
+                    product.get("version", ""),
+                    product.get("bom_revision", 1),
+                    len(product.get("polprodukty") or []),
+                ),
+            )
+
+    def _selected_product(self):
+        if not hasattr(self, "products_tree"):
+            return None
+        selected = self.products_tree.selection()
+        if not selected:
+            return None
+        return self._product_rows.get(selected[0])
+
+    def _add_product(self):
+        if not self.can_manage_products:
+            return
+        self._open_product_form()
+
+    def _edit_selected_product(self):
+        if not self.can_manage_products:
+            return
+        product = self._selected_product()
+        if not product:
+            return
+        self._open_product_form(product)
+
+    def _open_product_form(self, product=None):
+        if not self.can_manage_products:
+            return
+
+        values = product or {}
+        win = tk.Toplevel(self.root)
+        win.title("Produkt" if product else "Nowy produkt")
+        win.transient(self.root)
+        win.grab_set()
+
+        form = ttk.Frame(win, padding=12)
+        form.pack(fill="both", expand=True)
+        form.columnconfigure(1, weight=1)
+
+        kod_var = tk.StringVar(value=str(values.get("kod") or ""))
+        nazwa_var = tk.StringVar(value=str(values.get("nazwa") or ""))
+        version_var = tk.StringVar(value=str(values.get("version") or "1.0"))
+        revision_var = tk.StringVar(value=str(values.get("bom_revision") or 1))
+        default_var = tk.BooleanVar(value=bool(values.get("is_default", True)))
+
+        for row, (label, var) in enumerate((
+            ("Oznaczenie:", kod_var),
+            ("Nazwa:", nazwa_var),
+            ("Wersja:", version_var),
+            ("Rewizja BOM:", revision_var),
+        )):
+            ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
+            ttk.Entry(form, textvariable=var, width=48).grid(row=row, column=1, sticky="ew", pady=4)
+
+        ttk.Checkbutton(form, text="Domyślna wersja produktu", variable=default_var).grid(
+            row=4, column=1, sticky="w", pady=4
+        )
+        ttk.Label(
+            form,
+            text="Oznaczenie jest tekstem; ograniczenia dotyczą tylko znaków niedozwolonych w nazwach plików Windows.",
+            wraplength=520,
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(6, 10))
+
+        def save():
+            payload = {
+                "kod": kod_var.get(),
+                "nazwa": nazwa_var.get(),
+                "version": version_var.get(),
+                "bom_revision": revision_var.get(),
+                "is_default": default_var.get(),
+            }
+            try:
+                self.product_catalog.save_product(
+                    payload,
+                    original_path=(values.get("_path") if product else None),
+                )
+            except ProductCatalogError as exc:
+                messagebox.showerror("Produkt", str(exc), parent=win)
+                return
+            except Exception as exc:
+                messagebox.showerror("Produkt", f"Nie udało się zapisać produktu:\n{exc}", parent=win)
+                return
+            win.destroy()
+            self._refresh_products_list()
+
+        buttons = ttk.Frame(form)
+        buttons.grid(row=6, column=0, columnspan=2, sticky="e", pady=(8, 0))
+        ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(side="right", padx=(6, 0))
+        ttk.Button(buttons, text="Zapisz", command=save).pack(side="right")
+
+    def _delete_selected_product(self):
+        if not self.can_manage_products:
+            return
+        product = self._selected_product()
+        if not product:
+            return
+        code = str(product.get("kod") or "")
+        if not messagebox.askyesno(
+            "Usuń produkt",
+            f"Usunąć produkt '{code}'?\n\nPrzed usunięciem zostanie wykonana kopia pliku.",
+            parent=self.root,
+        ):
+            return
+        try:
+            self.product_catalog.delete_product(product)
+        except ProductCatalogError as exc:
+            messagebox.showerror("Produkty", str(exc), parent=self.root)
+            return
+        except Exception as exc:
+            messagebox.showerror("Produkty", f"Nie udało się usunąć produktu:\n{exc}", parent=self.root)
+            return
+        self._refresh_products_list()
 
     def _build_calendar_tab(self, tab):
         nav = ttk.Frame(tab)
