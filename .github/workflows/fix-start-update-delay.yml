@@ -1,0 +1,30 @@
+name: One-shot startup update delay
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/fix-start-update-delay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch start.py
+        run: python _patch_start_update_delay.py
+      - name: Commit patch and cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add start.py
+          git rm .github/workflows/fix-start-update-delay.yml _patch_start_update_delay.py
+          git commit -m "fix: keep update confirmation visible"
+          git push origin HEAD:Rozwiniecie
