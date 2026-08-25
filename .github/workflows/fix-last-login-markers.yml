@@ -1,0 +1,57 @@
+name: One-shot fix last-login markers
+on:
+  workflow_dispatch:
+  push:
+    branches: [Rozwiniecie]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: "!startsWith(github.event.head_commit.message, 'fix: separate last-login markers')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch gui_panel.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('gui_panel.py')
+          s = p.read_text(encoding='utf-8')
+
+          old_header = '''# WM-VERSION: 0.1\n# Plik: gui_panel.py\n# version: 1.0\n# Zmiany 1.6.17:\n# - Dodano przycisk w stopce otwierający changelog.\n# - Zapamiętywanie czasu ostatniego obejrzenia changeloga.\n'''
+          new_header = '''# WM-VERSION: 0.1\n# Plik: gui_panel.py\n# version: 1.6.18\n# Zmiany 1.6.18:\n# - Rozdzielono oznaczenia zmian od mechanizmu ostatniego logowania.\n# - Zamknięcie changeloga nie zmienia już „ostatniej wizyty” użytkownika.\n# - Czas poprzedniego logowania jest używany do oznaczeń zmian bieżącej sesji.\n'''
+          if old_header not in s:
+              raise SystemExit('Nie znaleziono oczekiwanego nagłówka 1.6.17')
+          s = s.replace(old_header, new_header, 1)
+
+          old_clear = '''    def _clear_markers() -> None:\n        nonlocal last_visit\n        for dot in markers:\n            try:\n                dot.destroy()\n            except Exception:\n                pass\n        markers.clear()\n        last_visit = datetime.now(timezone.utc)\n        _save_last_visit(login, last_visit)\n'''
+          new_clear = '''    def _clear_markers() -> None:\n        # Usuwamy wizualne znaczniki bez zmiany czasu ostatniego logowania.\n        for dot in markers:\n            try:\n                dot.destroy()\n            except Exception:\n                pass\n        markers.clear()\n'''
+          if old_clear not in s:
+              raise SystemExit('Nie znaleziono funkcji _clear_markers')
+          s = s.replace(old_clear, new_clear, 1)
+
+          old_close = '''        if btn_changelog and btn_changelog.winfo_exists():\n            btn_changelog.config(text="Pokaż zmiany")\n        _clear_markers()\n        try:\n            CONFIG_MANAGER.set(\n'''
+          new_close = '''        if btn_changelog and btn_changelog.winfo_exists():\n            btn_changelog.config(text="Pokaż zmiany")\n        # Changelog jest niezależny od znaczników „zmiany od ostatniego logowania”.\n        try:\n            CONFIG_MANAGER.set(\n'''
+          if old_close not in s:
+              raise SystemExit('Nie znaleziono miejsca zamknięcia changeloga')
+          s = s.replace(old_close, new_close, 1)
+
+          old_sidebar = '''    _build_sidebar(initial=True)\n    root.bind("<<SidebarReload>>", lambda _e: _build_sidebar(initial=False))\n'''
+          new_sidebar = '''    _build_sidebar(initial=True)\n    # Najpierw pokazujemy zmiany od poprzedniego logowania, dopiero potem\n    # zapisujemy początek bieżącej sesji jako punkt odniesienia na następną.\n    if not is_guest and login:\n        _save_last_visit(login, datetime.now(timezone.utc))\n    root.bind("<<SidebarReload>>", lambda _e: _build_sidebar(initial=False))\n'''
+          if old_sidebar not in s:
+              raise SystemExit('Nie znaleziono końca pierwszego budowania sidebaru')
+          s = s.replace(old_sidebar, new_sidebar, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Remove one-shot workflow and commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/fix-last-login-markers.yml
+          git add gui_panel.py .github/workflows/fix-last-login-markers.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: separate last-login markers from changelog'
+          git push origin HEAD:Rozwiniecie
