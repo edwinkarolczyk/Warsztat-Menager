@@ -1,0 +1,63 @@
+name: One-shot disable changelog GUI
+on:
+  push:
+    branches: [Rozwiniecie]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, 'fix: disable changelog GUI')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch gui_panel.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('gui_panel.py')
+          s = p.read_text(encoding='utf-8')
+
+          old_head = '''# WM-VERSION: 0.1\n# Plik: gui_panel.py\n# version: 1.0\n# Zmiany 1.6.17:\n'''
+          new_head = '''# WM-VERSION: 0.1\n# Plik: gui_panel.py\n# version: 1.6.18\n# Zmiany 1.6.18:\n# - Tymczasowo wyłączono w GUI mechanizm „Pokaż zmiany”.\n# - Wyłączono automatyczne otwieranie changeloga po starcie panelu.\n# - Wyłączono markery „zmienione od ostatniej wizyty” i ich zapis do profilu.\n# Zmiany 1.6.17:\n'''
+          if old_head not in s:
+              raise SystemExit('Nie znaleziono nagłówka gui_panel.py')
+          s = s.replace(old_head, new_head, 1)
+
+          s = s.replace('import gui_changelog\n', '# gui_changelog: mechanizm GUI tymczasowo wyłączony w 1.6.18\ngui_changelog = None\n', 1)
+
+          old_markers = '''    last_visit = _load_last_visit(login)\n    profile = get_user(login) or {}\n    modules_disabled = set()\n    if isinstance(profile, dict):\n        modules_disabled = set(profile.get("modules_disabled", []))\n    disabled_modules: set[str] = set()\n    markers: list[tk.Widget] = []\n    def _clear_markers() -> None:\n        nonlocal last_visit\n        for dot in markers:\n            try:\n                dot.destroy()\n            except Exception:\n                pass\n        markers.clear()\n        last_visit = datetime.now(timezone.utc)\n        _save_last_visit(login, last_visit)\n\n    def _maybe_mark_button(widget: tk.Widget) -> None:\n        lm = getattr(widget, "last_modified", None)\n        if isinstance(lm, datetime) and lm > last_visit:\n            try:\n                bg = widget.cget("background")\n            except tk.TclError:\n                try:\n                    bg = widget.master.cget("bg")\n                except Exception:\n                    bg = None\n            dot_kwargs = {"text": "\\u25CF", "fg": "#e53935"}\n            if bg is not None:\n                dot_kwargs["bg"] = bg\n            dot = tk.Label(widget, **dot_kwargs)\n            dot.place(relx=1, x=-4, y=4, anchor="ne")\n            markers.append(dot)\n'''
+          new_markers = '''    # Mechanizm „zmiany od ostatniej wizyty” jest tymczasowo wyłączony.\n    # Nie odczytujemy ani nie zapisujemy ostatnia_wizyta podczas budowy panelu.\n    last_visit = datetime.now(timezone.utc)\n    profile = get_user(login) or {}\n    modules_disabled = set()\n    if isinstance(profile, dict):\n        modules_disabled = set(profile.get("modules_disabled", []))\n    disabled_modules: set[str] = set()\n    markers: list[tk.Widget] = []\n\n    def _clear_markers() -> None:\n        for dot in markers:\n            try:\n                dot.destroy()\n            except Exception:\n                pass\n        markers.clear()\n\n    def _maybe_mark_button(widget: tk.Widget) -> None:\n        # Wyłączone w 1.6.18 — brak markerów zmian w GUI.\n        return\n'''
+          if old_markers not in s:
+              raise SystemExit('Nie znaleziono bloku markerów')
+          s = s.replace(old_markers, new_markers, 1)
+
+          old_changelog_button = '''    btn_changelog = ttk.Button(\n        footer_btns,\n        text="Pokaż zmiany",\n        command=_toggle_changelog,\n        style="WM.Side.TButton",\n    )\n    btn_changelog.last_modified = datetime(2025, 9, 1, tzinfo=timezone.utc)\n    btn_changelog.pack(side="right", padx=(6, 0))\n    _maybe_mark_button(btn_changelog)\n    root.after(100, lambda: _toggle_changelog(auto=True))\n'''
+          new_changelog_button = '''    # „Pokaż zmiany” tymczasowo ukryte w GUI (1.6.18).\n    # Nie tworzymy przycisku i nie uruchamiamy automatycznie okna changeloga.\n    btn_changelog = None\n'''
+          if old_changelog_button not in s:
+              raise SystemExit('Nie znaleziono bloku przycisku changeloga')
+          s = s.replace(old_changelog_button, new_changelog_button, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Verify no automatic changelog GUI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s = Path('gui_panel.py').read_text(encoding='utf-8')
+          assert '# version: 1.6.18' in s
+          assert 'root.after(100, lambda: _toggle_changelog(auto=True))' not in s
+          assert 'text="Pokaż zmiany",\n        command=_toggle_changelog' not in s
+          print('OK: changelog GUI disabled')
+          PY
+      - name: Commit patch and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/disable-changelog-gui.yml
+          git add gui_panel.py .github/workflows/disable-changelog-gui.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: disable changelog GUI'
+          git push origin HEAD:Rozwiniecie
