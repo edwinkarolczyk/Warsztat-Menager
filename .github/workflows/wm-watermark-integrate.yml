@@ -1,0 +1,58 @@
+name: One-shot integrate development watermark
+on:
+  push:
+    branches: [Rozwiniecie]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    if: "!startsWith(github.event.head_commit.message, 'feat: integrate development watermark')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Integrate watermark
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          p = Path('gui_panel.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'from ustawienia_systemu import panel_ustawien\n'
+          new = old + 'try:\n    from wm_watermark import install as install_development_watermark, patch_settings_module\nexcept Exception:\n    install_development_watermark = patch_settings_module = None\n'
+          if 'from wm_watermark import install as install_development_watermark' not in s:
+              if old not in s: raise SystemExit('Nie znaleziono punktu importu ustawien_systemu.py')
+              s = s.replace(old, new, 1)
+          old2 = '    clear_frame(root)\n'
+          new2 = '''    clear_frame(root)\n    # Globalny znak wodny: PROGRAM W TRAKCIE ROZWOJU.\n    try:\n        if install_development_watermark is not None:\n            install_development_watermark(root)\n        if patch_settings_module is not None:\n            import gui_settings as _wm_gui_settings\n            patch_settings_module(_wm_gui_settings)\n    except Exception:\n        pass\n'''
+          if 'install_development_watermark(root)' not in s:
+              if old2 not in s: raise SystemExit('Nie znaleziono clear_frame(root) w uruchom_panel')
+              s = s.replace(old2, new2, 1)
+          p.write_text(s, encoding='utf-8')
+          sp = Path('settings_schema.json')
+          data = json.loads(sp.read_text(encoding='utf-8'))
+          field = {'type':'boolean','key':'ui.show_development_watermark','label':'Pokaż znak wodny „PROGRAM W TRAKCIE ROZWOJU”','tooltip':'Pokazuje duży, ukośny znak wodny na środku programu. Ustawienie można zmienić bezpośrednio w Ustawieniach.','default':True}
+          def add_after_theme(node):
+              if isinstance(node, dict):
+                  fields = node.get('fields')
+                  if isinstance(fields, list):
+                      for i,item in enumerate(fields):
+                          if isinstance(item, dict) and item.get('key') == 'ui.theme':
+                              if not any(isinstance(x,dict) and x.get('key') == field['key'] for x in fields): fields.insert(i+1, field)
+                              return True
+                  return any(add_after_theme(v) for v in node.values())
+              if isinstance(node, list): return any(add_after_theme(v) for v in node)
+              return False
+          if not add_after_theme(data): raise SystemExit('Nie znaleziono pola ui.theme w settings_schema.json')
+          sp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Commit integration and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/wm-watermark-integrate.yml
+          git add gui_panel.py settings_schema.json .github/workflows/wm-watermark-integrate.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'feat: integrate development watermark'
+          git push origin HEAD:Rozwiniecie
