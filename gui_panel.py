@@ -1,6 +1,10 @@
 # WM-VERSION: 0.1
 # Plik: gui_panel.py
-# version: 1.0
+# version: 1.6.18
+# Zmiany 1.6.18:
+# - Tymczasowo wyłączono w GUI mechanizm „Pokaż zmiany”.
+# - Wyłączono automatyczne otwieranie changeloga po starcie panelu.
+# - Wyłączono markery „zmienione od ostatniej wizyty” i ich zapis do profilu.
 # Zmiany 1.6.17:
 # - Dodano przycisk w stopce otwierający changelog.
 # - Zapamiętywanie czasu ostatniego obejrzenia changeloga.
@@ -36,7 +40,8 @@ except Exception:  # pragma: no cover
     append_message = read_messages = get_unread_count = mark_read = None  # type: ignore
 # [PR-1165-MERGE-FIX] unikajmy zbyt szerokiego importu z start (ryzyko cyklu)
 from start import CONFIG_MANAGER
-import gui_changelog
+# gui_changelog: mechanizm GUI tymczasowo wyłączony w 1.6.18
+gui_changelog = None
 from logger import log_akcja
 from profile_utils import ADMIN_ROLE_NAMES, SIDEBAR_MODULES, can_access_jarvis
 from ustawienia_systemu import panel_ustawien
@@ -808,40 +813,27 @@ def uruchom_panel(root, login, rola):
             pass
     setattr(root, "current_shift", _current_shift_label(datetime.now()))
 
-    last_visit = _load_last_visit(login)
+    # Mechanizm „zmiany od ostatniej wizyty” jest tymczasowo wyłączony.
+    # Nie odczytujemy ani nie zapisujemy ostatnia_wizyta podczas budowy panelu.
+    last_visit = datetime.now(timezone.utc)
     profile = get_user(login) or {}
     modules_disabled = set()
     if isinstance(profile, dict):
         modules_disabled = set(profile.get("modules_disabled", []))
     disabled_modules: set[str] = set()
     markers: list[tk.Widget] = []
+
     def _clear_markers() -> None:
-        nonlocal last_visit
         for dot in markers:
             try:
                 dot.destroy()
             except Exception:
                 pass
         markers.clear()
-        last_visit = datetime.now(timezone.utc)
-        _save_last_visit(login, last_visit)
 
     def _maybe_mark_button(widget: tk.Widget) -> None:
-        lm = getattr(widget, "last_modified", None)
-        if isinstance(lm, datetime) and lm > last_visit:
-            try:
-                bg = widget.cget("background")
-            except tk.TclError:
-                try:
-                    bg = widget.master.cget("bg")
-                except Exception:
-                    bg = None
-            dot_kwargs = {"text": "\u25CF", "fg": "#e53935"}
-            if bg is not None:
-                dot_kwargs["bg"] = bg
-            dot = tk.Label(widget, **dot_kwargs)
-            dot.place(relx=1, x=-4, y=4, anchor="ne")
-            markers.append(dot)
+        # Wyłączone w 1.6.18 — brak markerów zmian w GUI.
+        return
 
     def _is_guest_role(role_value) -> bool:
         return str(role_value or "").strip().lower() in {"guest", "gość", "gosc", ""}
@@ -1039,16 +1031,9 @@ def uruchom_panel(root, login, rola):
     ttk.Button(
         footer_btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
     ).pack(side="right")
-    btn_changelog = ttk.Button(
-        footer_btns,
-        text="Pokaż zmiany",
-        command=_toggle_changelog,
-        style="WM.Side.TButton",
-    )
-    btn_changelog.last_modified = datetime(2025, 9, 1, tzinfo=timezone.utc)
-    btn_changelog.pack(side="right", padx=(6, 0))
-    _maybe_mark_button(btn_changelog)
-    root.after(100, lambda: _toggle_changelog(auto=True))
+    # „Pokaż zmiany” tymczasowo ukryte w GUI (1.6.18).
+    # Nie tworzymy przycisku i nie uruchamiamy automatycznie okna changeloga.
+    btn_changelog = None
     session_btn_text = "Zaloguj" if is_guest else "Wyloguj"
     session_btn_cmd = _open_login_popup if is_guest else _logout
     ttk.Button(
