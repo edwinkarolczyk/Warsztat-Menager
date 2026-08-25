@@ -32,8 +32,14 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import sys
           import tempfile
+          import types
           from pathlib import Path
+
+          fake_config = types.ModuleType('config_manager')
+          fake_config.ConfigManager = object
+          sys.modules['config_manager'] = fake_config
           from produkty_store import ProductCatalog
 
           class FakeCfg:
