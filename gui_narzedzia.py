@@ -1,5 +1,9 @@
 # Plik: gui_narzedzia.py
-# version: 1.0
+# version: 1.5.32
+# Zmiany 1.5.32:
+# - [NARZĘDZIA] Walidacja przy wejściu nie wymaga wycofanego płaskiego klucza zadań serwisowych.
+# - Zadania serwisowe nadal są pobierane z aktualnych definicji typ/status i istniejących fallbacków.
+#
 # Zmiany 1.5.31:
 # - [NARZĘDZIA] Przywrócono kompatybilność ze starymi plikami JSON (listy i klucz "items").
 #
@@ -2417,8 +2421,10 @@ def _maybe_seed_config_templates():
         missing.append("zadania (produkcja)")
     else:
         _dbg("[WM-DBG][narzedzia] pomijam warning 'zadania (produkcja)' – dane istnieją")
-    if not _clean_list(cfg.get("szablony_zadan_narzedzia_stare")):
-        missing.append("zadania (serwis)")
+    # Zadania serwisowe nie są już wymagane jako płaski klucz
+    # ``szablony_zadan_narzedzia_stare``. Aktualny moduł pobiera je z
+    # definicji typ/status (z zachowaniem istniejących fallbacków), więc brak
+    # starego klucza nie może blokować wejścia do Narzędzi fałszywym popupem.
     if not _clean_list(cfg.get("typy_narzedzi")):
         try:
             default_collection = getattr(LZ, "get_default_collection", lambda: "")()
