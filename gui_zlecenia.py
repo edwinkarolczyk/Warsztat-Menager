@@ -1,4 +1,8 @@
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - Kolumna przypisania pokazuje osobno zleconego i faktycznego wykonawcę.
+# - Rozpoczęcie cudzej Dyspozycji wymaga potwierdzenia i nie zmienia przypisania.
+# - Dyspozycja dla wszystkich po rozpoczęciu pokazuje osobę, która ją podjęła.
 # Zmiany 1.3:
 # - Dodano filtry widoku: Moje + Dla wszystkich, Moje, Dla wszystkich oraz Wszystkie dla brygadzisty/administratora.
 # - Dodano filtr statusu: Aktywne, Nowa, W toku, Wstrzymana, Zamknięte i Wszystkie statusy.
@@ -282,9 +286,19 @@ def _dysp_type_label(item: dict[str, Any]) -> str:
 
 
 def _dysp_assigned_label(item: dict[str, Any]) -> str:
-    if item.get("dla_wszystkich") is True:
-        return "wszyscy"
-    return str(item.get("przypisane_do") or "—").strip() or "—"
+    for_all = item.get("dla_wszystkich") is True
+    assigned = str(item.get("przypisane_do") or "").strip()
+    base = "wszyscy" if for_all else (assigned or "—")
+    performer = str(item.get("wykonuje") or "").strip()
+    if not performer:
+        return base
+    mismatch = bool(
+        not for_all
+        and assigned
+        and assigned.lower() != performer.lower()
+    )
+    prefix = "⚠ " if mismatch else ""
+    return f"{prefix}{base} → {performer}"
 
 
 def _dysp_related_status_label(item: dict[str, Any]) -> str:
@@ -541,7 +555,7 @@ class ZleceniaView(ttk.Frame):
             "dyspozycja": 420,
             "status_dyspozycji": 150,
             "typ": 130,
-            "przypisane": 135,
+            "przypisane": 190,
             "status_obiektu": 210,
             "termin": 110,
             "za_ile": 85,
@@ -890,6 +904,32 @@ class ZleceniaView(ttk.Frame):
             self._reload_orders()
 
     def _on_start(self) -> None:
+        mapped = self._selected_row()
+        if not mapped:
+            messagebox.showinfo(
+                "Dyspozycje",
+                "Najpierw wybierz Dyspozycję.",
+                parent=self,
+            )
+            return
+        who = str(self._login_user or mapped.get("autor") or "").strip()
+        assigned = str(mapped.get("przypisane_do") or "").strip()
+        for_all = mapped.get("dla_wszystkich") is True
+        if (
+            not for_all
+            and assigned
+            and who
+            and assigned.lower() != who.lower()
+        ):
+            ok = messagebox.askyesno(
+                "Rozpocznij cudzą Dyspozycję",
+                f"Dyspozycja jest przypisana do: {assigned}.\n"
+                f"Jesteś zalogowany jako: {who}.\n\n"
+                "Czy na pewno chcesz ją rozpocząć?",
+                parent=self,
+            )
+            if not ok:
+                return
         self._change_status("w_toku")
 
     def _on_pause(self) -> None:

@@ -1,4 +1,7 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Przy rozpoczęciu Dyspozycji zapisywany jest wykonawca i czas rozpoczęcia.
+# - Przypisanie pozostaje bez zmian; wykonawca jest osobnym polem rekordu.
 # Zmiany 1.1:
 # - Dodano kontrolowane przejścia statusów Nowa -> W toku -> Wstrzymana/Zamknięta.
 # - Każda zmiana statusu zapisuje użytkownika i czas w meta.historia_statusow.
@@ -269,6 +272,8 @@ def make_dyspozycja(
         "modul_zrodlowy": str(modul_zrodlowy or "").strip().lower(),
         "obiekt_id": str(obiekt_id or "").strip(),
         "utworzono": _now_iso(),
+        "wykonuje": "",
+        "rozpoczal_at": "",
         "wykonano": "",
         "zamknieto_at": "",
         "zamkniete_przez": "",
@@ -294,6 +299,8 @@ def normalize_dyspozycja(item: dict[str, Any] | None) -> dict[str, Any]:
         "modul_zrodlowy": str(src.get("modul_zrodlowy") or "").strip().lower(),
         "obiekt_id": str(src.get("obiekt_id") or "").strip(),
         "utworzono": str(src.get("utworzono") or _now_iso()).strip(),
+        "wykonuje": _normalize_login(src.get("wykonuje")),
+        "rozpoczal_at": str(src.get("rozpoczal_at") or "").strip(),
         "wykonano": str(src.get("wykonano") or "").strip(),
         "zamknieto_at": str(src.get("zamknieto_at") or "").strip(),
         "zamkniete_przez": _normalize_login(src.get("zamkniete_przez")),
@@ -431,6 +438,9 @@ def set_dyspozycja_status(
         "status": target,
         "meta": meta,
     }
+    if current == "nowa" and target == "w_toku":
+        updates["wykonuje"] = who
+        updates["rozpoczal_at"] = now
     if target == "zamknieta":
         updates.update(
             {
