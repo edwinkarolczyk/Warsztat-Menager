@@ -8,6 +8,13 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def replace_exact(text: str, old: str, new: str, expected: int, label: str) -> str:
+    count = text.count(old)
+    if count != expected:
+        raise RuntimeError(f"{label}: expected exactly {expected} matches, got {count}")
+    return text.replace(old, new)
+
+
 plan_path = Path("gui_planowanie.py")
 plan = plan_path.read_text(encoding="utf-8")
 plan = replace_once(plan, "# version: 1.2\n", "# version: 1.3\n", "plan version")
@@ -61,8 +68,6 @@ replacements = [
     ("messagebox.showerror('BOM', 'Wybierz lub wpisz kod półproduktu.'", "messagebox.showerror('Skład produktu', 'Wybierz lub wpisz kod półproduktu.'", "entry code error"),
     ("messagebox.showerror('BOM', 'Ilość musi być liczbą.'", "messagebox.showerror('Skład produktu', 'Ilość musi być liczbą.'", "entry qty error"),
     ("messagebox.showerror('BOM', 'Ilość musi być większa od zera.'", "messagebox.showerror('Skład produktu', 'Ilość musi być większa od zera.'", "entry qty positive"),
-    ("self.status_var.set('Niezapisane zmiany BOM.')", "self.status_var.set('Niezapisane zmiany składu produktu.')", "dirty status 1"),
-    ("self.status_var.set('Niezapisane zmiany BOM.')", "self.status_var.set('Niezapisane zmiany składu produktu.')", "dirty status 2"),
     ("messagebox.showerror('BOM', str(exc), parent=self)", "messagebox.showerror('Skład produktu', str(exc), parent=self)", "save error title"),
     ("messagebox.showerror('BOM', f'Nie udało się zapisać BOM:\\n{exc}', parent=self)", "messagebox.showerror('Skład produktu', f'Nie udało się zapisać składu produktu:\\n{exc}', parent=self)", "save exception"),
     ("self.status_var.set(f\"Zapisano BOM | rewizja {saved.get('bom_revision', 1)}\")", "self.status_var.set(f\"Zapisano skład produktu | rewizja {saved.get('bom_revision', 1)}\")", "saved status"),
@@ -70,6 +75,13 @@ replacements = [
 ]
 for old, new, label in replacements:
     bom = replace_once(bom, old, new, label)
+bom = replace_exact(
+    bom,
+    "self.status_var.set('Niezapisane zmiany BOM.')",
+    "self.status_var.set('Niezapisane zmiany składu produktu.')",
+    2,
+    "dirty statuses",
+)
 bom_path.write_text(bom, encoding="utf-8")
 
 print("Terminology patch prepared")
