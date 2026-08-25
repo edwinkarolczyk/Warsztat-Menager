@@ -119,7 +119,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm _patch_u2a6_reservations.py _fix_u2a6_helper_guard.py .github/workflows/patch-u2a6-reservations.yml .github/workflows/patch-u2a6-reservations-v2.yml
+          git rm -f _patch_u2a6_reservations.py _fix_u2a6_helper_guard.py .github/workflows/patch-u2a6-reservations.yml .github/workflows/patch-u2a6-reservations-v2.yml
           git add planowanie_zapotrzebowanie.py planowanie_magazyn.py gui_zlecenia.py
           git commit -m "feat: settle production reservations with warehouse"
           git push origin Rozwiniecie
