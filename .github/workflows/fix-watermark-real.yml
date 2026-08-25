@@ -1,0 +1,64 @@
+name: Fix development watermark integration
+on:
+  push:
+    branches: [Rozwiniecie]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: "!startsWith(github.event.head_commit.message, 'fix: wire development watermark')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch GUI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # --- gui_panel.py: clear_frame() currently destroys the watermark.
+          p = Path('gui_panel.py')
+          s = p.read_text(encoding='utf-8')
+          old = '''    clear_frame(root)\n    # Globalny znak wodny: PROGRAM W TRAKCIE ROZWOJU.\n    try:\n        if install_development_watermark is not None:\n            install_development_watermark(root)\n        if patch_settings_module is not None:\n            import gui_settings as _wm_gui_settings\n            patch_settings_module(_wm_gui_settings)\n    except Exception:\n        pass\n'''
+          new = '''    clear_frame(root)\n'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'install_development_watermark(root)' in s:
+              raise SystemExit('Watermark call exists but expected block was not found')
+
+          anchor = '    _build_sidebar(initial=True)\n'
+          insert = '''    _build_sidebar(initial=True)\n\n    # Znak wodny musi zostać dodany PO zbudowaniu panelu — wcześniej clear_frame()\n    # usuwał go natychmiast. Instalacja przez after_idle gwarantuje, że warstwa\n    # znajduje się nad gotowym GUI.\n    def _wm_install_after_gui():\n        try:\n            if install_development_watermark is not None:\n                install_development_watermark(root)\n        except Exception:\n            pass\n\n    root.after_idle(_wm_install_after_gui)\n'''
+          if anchor not in s:
+              raise SystemExit('Nie znaleziono _build_sidebar(initial=True)')
+          if '_wm_install_after_gui' not in s:
+              s = s.replace(anchor, insert, 1)
+          p.write_text(s, encoding='utf-8')
+
+          # --- gui_settings.py: explicit control in the existing "Wygląd" tab.
+          p = Path('gui_settings.py')
+          s = p.read_text(encoding='utf-8')
+          import_anchor = 'from gui_settings_users_tab import create_users_tab\n'
+          import_new = import_anchor + '''try:\n    from wm_watermark import set_enabled as _wm_set_watermark_enabled\nexcept Exception:\n    _wm_set_watermark_enabled = None\n'''
+          if 'from wm_watermark import set_enabled as _wm_set_watermark_enabled' not in s:
+              if import_anchor not in s:
+                  raise SystemExit('Nie znaleziono punktu importu gui_settings_users_tab')
+              s = s.replace(import_anchor, import_new, 1)
+
+          anchor = '''        self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)\n'''
+          block = '''        self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)\n\n        # --- WM: znak wodny programu ---\n        watermark_box = ttk.LabelFrame(\n            self._ui_container,\n            text="🚧 Program w trakcie rozwoju",\n        )\n        watermark_box.pack(fill="x", padx=8, pady=(8, 4))\n\n        self._wm_watermark_var = tk.BooleanVar(\n            master=self.master,\n            value=bool(self.cfg.get("ui.show_development_watermark", True)),\n        )\n\n        def _toggle_wm_watermark():\n            enabled = bool(self._wm_watermark_var.get())\n            try:\n                if _wm_set_watermark_enabled is not None:\n                    _wm_set_watermark_enabled(enabled)\n                else:\n                    self.cfg.set("ui.show_development_watermark", enabled)\n                    self.cfg.save_all()\n            except Exception as exc:\n                logger.exception("[WM][WATERMARK] Nie udało się zapisać ustawienia")\n                messagebox.showerror(\n                    "Znak wodny",\n                    f"Nie udało się zapisać ustawienia:\\n{exc}",\n                    parent=self.master,\n                )\n                self._wm_watermark_var.set(not enabled)\n                return\n\n            try:\n                top = self.master.winfo_toplevel()\n                overlay = getattr(top, "_wm_development_watermark", None)\n                if overlay is not None:\n                    overlay._refresh()\n                elif enabled:\n                    from wm_watermark import install as _install_wm_watermark\n                    _install_wm_watermark(top)\n            except Exception:\n                logger.debug("[WM][WATERMARK] Nie udało się odświeżyć warstwy", exc_info=True)\n\n        ttk.Checkbutton(\n            watermark_box,\n            text="Pokaż na środku ekranu znak wodny „PROGRAM W TRAKCIE ROZWOJU”",\n            variable=self._wm_watermark_var,\n            command=_toggle_wm_watermark,\n        ).pack(anchor="w", padx=10, pady=(10, 4))\n        ttk.Label(\n            watermark_box,\n            text="Duży, ukośny i półprzezroczysty napis. Zmiana działa od razu i jest zapisywana w konfiguracji.",\n        ).pack(anchor="w", padx=10, pady=(0, 10))\n'''
+          if 'self._wm_watermark_var = tk.BooleanVar' not in s:
+              if anchor not in s:
+                  raise SystemExit('Nie znaleziono self._ui_container.pack')
+              s = s.replace(anchor, block, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/fix-watermark-real.yml
+          git add gui_panel.py gui_settings.py .github/workflows/fix-watermark-real.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: wire development watermark into panel and UI settings'
+          git push origin HEAD:Rozwiniecie
