@@ -1,5 +1,9 @@
-# version: 1.0.1
+# version: 1.0.2
 # Moduł: gui_settings
+# Zmiany 1.0.2:
+# - Dodano stały przycisk 'Zapisz wszystko' w stopce Ustawień.
+# - Dodano status ostatniego zapisu z czasem i nazwą aktywnej zakładki.
+# - Log zapisu rozróżnia zapis wykonany od zapisu oczekującego na debounce.
 # Zmiany 1.0.1:
 # - refresh_panel sprawdza schema_path i używa settings_schema.json z katalogu programu, gdy ścieżka jest nieprawidłowa.
 # ⏹ KONIEC WSTĘPU
@@ -2690,7 +2694,19 @@ class SettingsPanel:
             side="left", padx=5
         )
 
-        self.btn_save: ttk.Button | None = None
+        if not hasattr(self, "_save_status_text"):
+            self._save_status_text = "Brak zapisu w tej sesji"
+
+        right_btns = ttk.Frame(self.btns)
+        right_btns.pack(side="right", padx=5)
+        self._save_status_var = tk.StringVar(value=self._save_status_text)
+        ttk.Label(right_btns, textvariable=self._save_status_var).pack(
+            side="left", padx=(5, 12)
+        )
+        self.btn_save = ttk.Button(
+            right_btns, text="Zapisz wszystko", command=self._save_from_footer
+        )
+        self.btn_save.pack(side="left", padx=5)
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -4308,6 +4324,7 @@ class SettingsPanel:
     # ------------------------------------------------------------------
     def _mark_dirty(self) -> None:
         self._dirty = True
+        self._mark_save_dirty()
 
     def _resolve_autosave_delay(self) -> int:
         try:
@@ -6366,6 +6383,58 @@ class SettingsPanel:
         _refresh_backups()
         _append("[WM-DBG] [SETTINGS] zakładka Patche: OK")
 
+    def _active_settings_tab_name(self) -> str:
+        """Return the visible top-level settings tab name."""
+
+        try:
+            selected = self.nb.select()
+            name = str(self.nb.tab(selected, "text") or "").strip()
+            return name or "Ustawienia"
+        except Exception:
+            return "Ustawienia"
+
+    def _set_save_status_text(self, text: str) -> None:
+        self._save_status_text = str(text)
+        var = getattr(self, "_save_status_var", None)
+        if var is not None:
+            try:
+                var.set(self._save_status_text)
+            except Exception:
+                pass
+
+    def _mark_save_dirty(self) -> None:
+        self._set_save_status_text("Niezapisane zmiany")
+
+    def _save_from_footer(self) -> None:
+        try:
+            self.save()
+        except Exception as exc:
+            self._set_save_status_text(f"Błąd zapisu: {exc}")
+            logger.exception("[SETTINGS] ręczny zapis wszystkich ustawień nie powiódł się")
+            messagebox.showerror(
+                "Ustawienia",
+                f"Nie udało się zapisać ustawień:\n{exc}",
+                parent=self.master,
+            )
+
+    def _record_settings_save(self, source_tab: str) -> None:
+        now = datetime.datetime.now()
+        pending = bool(getattr(self.cfg, "_pending_save", False))
+        state_text = "Zapis oczekuje" if pending else "Zapisano"
+        self._set_save_status_text(
+            f"{state_text}: {now:%H:%M:%S} | zakładka: {source_tab}"
+        )
+        state_log = "queued" if pending else "saved"
+        message = (
+            f"[SETTINGS] SAVE | zakładka={source_tab} | "
+            f"czas={now:%Y-%m-%d %H:%M:%S} | stan={state_log}"
+        )
+        logger.info(message)
+        try:
+            log_akcja(message)
+        except Exception:
+            logger.debug("[SETTINGS] Nie udało się dopisać wpisu log_akcja", exc_info=True)
+
     def _confirm_save_changes(self, *, parent=None, allow_cancel: bool = False) -> bool:
         dirty = getattr(self, "_dirty", False)
         unsaved = getattr(self, "_unsaved", False)
@@ -6466,6 +6535,7 @@ class SettingsPanel:
         log_akcja(f"[SETTINGS] zastosowano moduły {uid}: {', '.join(disabled)}")
 
     def save(self) -> None:
+        source_tab = self._active_settings_tab_name()
         special_orders: dict[str, Any] = {}
         drive_only_re = re.compile(r"^[A-Za-z]:$")
         for key, var in self.vars.items():
@@ -6521,6 +6591,7 @@ class SettingsPanel:
                 log_akcja(
                     f"[SETTINGS] zapisano moduły {uid}: {', '.join(disabled)}"
                 )
+        self._record_settings_save(source_tab)
 
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
