@@ -1,4 +1,8 @@
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - Rozpoczęcie Dyspozycji wykonania rezerwuje potrzebne dostępne stany Magazynu.
+# - Zamknięcie rozlicza faktyczną ilość, zużywa rezerwacje i dopiero potem księguje naddatek półproduktu.
+# - Usunięcie aktywnej Dyspozycji wykonania zwalnia jej rezerwacje; edycja po rozpoczęciu jest blokowana.
 # Zmiany 1.5:
 # - Zamknięcie Dyspozycji wykonania zapisuje faktyczną ilość wykonaną.
 # - Dla półproduktu naddatek ponad plan automatycznie zwiększa stan Magazynu.
@@ -38,7 +42,15 @@ from dyspozycje_store import (
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
 from services.profile_service import ProfileService
-from planowanie_magazyn import WarehouseIntegrationError, add_semiproduct_surplus
+from planowanie_magazyn import (
+    WarehouseIntegrationError,
+    add_semiproduct_surplus,
+    get_operation_settlement,
+    reconcile_and_consume_execution,
+    release_execution_reservations,
+    reserve_execution_requirements,
+    stock_snapshot_for_operation,
+)
 
 from ui_dialogs_safe import error_box
 
@@ -838,6 +850,16 @@ class ZleceniaView(ttk.Frame):
         mapped = dict(self._order_rows.get(iid, {}) or {})
         if not mapped:
             return
+        if (
+            str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania"
+            and _dysp_status(mapped) != "nowa"
+        ):
+            messagebox.showinfo(
+                "Dyspozycje",
+                "Dyspozycji wykonania nie można edytować po rozpoczęciu, ponieważ ma już powiązane rezerwacje Magazynu.",
+                parent=self,
+            )
+            return
         mapped["edit_mode"] = True
         try:
             self._open_order_creator(
@@ -883,7 +905,7 @@ class ZleceniaView(ttk.Frame):
             except Exception:
                 pass
 
-    def _change_status(self, target: str) -> None:
+    def _change_status(self, target: str) -> bool:
         mapped = self._selected_row()
         if not mapped:
             messagebox.showinfo(
@@ -891,10 +913,10 @@ class ZleceniaView(ttk.Frame):
                 "Najpierw wybierz Dyspozycję.",
                 parent=self,
             )
-            return
+            return False
         dysp_id = str(mapped.get("id") or "").strip()
         if not dysp_id:
-            return
+            return False
         who = self._login_user or str(mapped.get("autor") or "").strip()
         changed = set_dyspozycja_status(dysp_id, target, changed_by=who)
         if not changed:
@@ -903,11 +925,32 @@ class ZleceniaView(ttk.Frame):
                 "Ta zmiana statusu nie jest dozwolona.",
                 parent=self,
             )
-            return
+            return False
         try:
             self.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
         except Exception:
             self._reload_orders()
+        return True
+
+    def _calculate_execution_requirements(self, mapped: dict[str, Any], qty: float, *, stock_snapshot=None) -> dict[str, Any]:
+        meta = dict(mapped.get("meta") or {}) if isinstance(mapped.get("meta"), dict) else {}
+        level = str(meta.get("poziom_wykonania") or "").strip().lower()
+        from produkty_store import ProductCatalog
+        from polprodukty_store import SemiProductCatalog
+        from planowanie_zapotrzebowanie import RequirementCalculator, RequirementError
+        products = ProductCatalog()
+        calc = RequirementCalculator(products, SemiProductCatalog(products.cfg))
+        if level in {"zlecenie", "produkt"}:
+            code = str(meta.get("product_code") or "").strip()
+            if not code:
+                raise RequirementError("Brak produktu w Dyspozycji wykonania.")
+            return calc.calculate_with_stock(code, qty, stock_snapshot=stock_snapshot)
+        if level == "polprodukt":
+            code = str(meta.get("polprodukt_code") or "").strip()
+            if not code:
+                raise RequirementError("Brak półproduktu w Dyspozycji wykonania.")
+            return calc.calculate_semi_with_stock(code, qty, ignore_root_stock=True, stock_snapshot=stock_snapshot)
+        raise RequirementError("Nieznany poziom wykonania Dyspozycji.")
 
     def _on_start(self) -> None:
         mapped = self._selected_row()
@@ -936,7 +979,41 @@ class ZleceniaView(ttk.Frame):
             )
             if not ok:
                 return
-        self._change_status("w_toku")
+        dysp_id = str(mapped.get("id") or "").strip()
+        is_execution = str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania"
+        if is_execution:
+            meta = dict(mapped.get("meta") or {}) if isinstance(mapped.get("meta"), dict) else {}
+            try:
+                planned = float(str(meta.get("ilosc_do_wykonania") or 0).replace(",", "."))
+                requirements = self._calculate_execution_requirements(mapped, planned)
+                reservations = reserve_execution_requirements(
+                    dysp_id,
+                    list(requirements.get("rows") or []),
+                    user=who,
+                    context=f"Rozpoczęcie Dyspozycji {dysp_id}",
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Rezerwacja Magazynu",
+                    f"Nie udało się przygotować Dyspozycji wykonania:\n{exc}",
+                    parent=self,
+                )
+                return
+            meta["zapotrzebowanie_start"] = list(requirements.get("rows") or [])
+            meta["magazyn_rezerwacje"] = reservations
+            updated = update_dyspozycja(dysp_id, {"meta": meta})
+            if not updated:
+                try:
+                    release_execution_reservations(dysp_id, user=who, context="Błąd zapisu Dyspozycji")
+                except Exception:
+                    pass
+                messagebox.showerror("Dyspozycje", "Nie udało się zapisać rezerwacji w Dyspozycji.", parent=self)
+                return
+        if not self._change_status("w_toku") and is_execution:
+            try:
+                release_execution_reservations(dysp_id, user=who, context="Nieudane rozpoczęcie Dyspozycji")
+            except Exception:
+                pass
 
     def _on_pause(self) -> None:
         self._change_status("wstrzymana")
@@ -990,6 +1067,76 @@ class ZleceniaView(ttk.Frame):
             meta["ilosc_wykonana"] = actual
             meta["brak_wykonania"] = max(0.0, planned - actual)
             level = str(meta.get("poziom_wykonania") or "").strip().lower()
+
+            try:
+                if actual <= 0:
+                    release_execution_reservations(
+                        dysp_id,
+                        user=who,
+                        context=f"Zamknięcie bez wykonania {dysp_id}",
+                    )
+                    requirements_actual = {"rows": [], "warnings": []}
+                    consumption = []
+                else:
+                    own_snapshot = stock_snapshot_for_operation(dysp_id)
+                    requirements_actual = self._calculate_execution_requirements(
+                        mapped,
+                        actual,
+                        stock_snapshot=own_snapshot,
+                    )
+                    raw_shortages = []
+                    for row in requirements_actual.get("rows") or []:
+                        if str(row.get("typ") or "").strip().lower() != "surowiec":
+                            continue
+                        try:
+                            missing = float(row.get("brak") or 0)
+                        except (TypeError, ValueError):
+                            missing = 0.0
+                        if missing > 1e-9:
+                            raw_shortages.append(
+                                f"{row.get('kod','')}: {missing:g} {row.get('jednostka','')}"
+                            )
+                    critical_warnings = [
+                        str(x) for x in (requirements_actual.get("warnings") or [])
+                        if str(x).startswith("Brak definicji półproduktu")
+                        or "nie ma surowca ani własnego składu" in str(x)
+                    ]
+                    if raw_shortages or critical_warnings:
+                        details = []
+                        if raw_shortages:
+                            details.append("Braki surowców:\n" + "\n".join(raw_shortages[:15]))
+                        if critical_warnings:
+                            details.append("Braki definicji:\n" + "\n".join(critical_warnings[:10]))
+                        messagebox.showerror(
+                            "Rozliczenie produkcji",
+                            "Nie można zamknąć wykonania, bo Magazyn/Skład nie pozwala rozliczyć podanej ilości.\n\n"
+                            + "\n\n".join(details),
+                            parent=self,
+                        )
+                        return
+                    consumption = reconcile_and_consume_execution(
+                        dysp_id,
+                        list(requirements_actual.get("rows") or []),
+                        user=who,
+                        context=f"Dyspozycja {dysp_id}",
+                    )
+            except WarehouseIntegrationError as exc:
+                messagebox.showerror(
+                    "Rozliczenie produkcji",
+                    f"Nie udało się rozliczyć Magazynu:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                    parent=self,
+                )
+                return
+            except Exception as exc:
+                messagebox.showerror(
+                    "Rozliczenie produkcji",
+                    f"Nie udało się przeliczyć wykonanej ilości:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                    parent=self,
+                )
+                return
+
+            meta["zapotrzebowanie_wykonane"] = list(requirements_actual.get("rows") or [])
+            meta["magazyn_zuzycie"] = consumption
             if level == "polprodukt":
                 surplus = max(0.0, actual - planned)
                 meta["naddatek"] = surplus
@@ -1008,7 +1155,8 @@ class ZleceniaView(ttk.Frame):
                     except WarehouseIntegrationError as exc:
                         messagebox.showerror(
                             "Rozliczenie produkcji",
-                            f"Nie udało się zaksięgować naddatku w Magazynie:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                            f"Zużycie zostało rozliczone, ale nie udało się zaksięgować naddatku:\n{exc}\n\n"
+                            "Dyspozycja nie została zamknięta. Ponowna próba nie zużyje materiału drugi raz.",
                             parent=self,
                         )
                         return
@@ -1052,6 +1200,16 @@ class ZleceniaView(ttk.Frame):
         dysp_id = str(mapped.get("id") or "").strip()
         if not dysp_id:
             return
+        if str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania":
+            settlement = get_operation_settlement(dysp_id)
+            settlement_status = str(settlement.get("status") or "")
+            if settlement_status in {"consumed", "done"} and not _dysp_is_closed(mapped):
+                messagebox.showerror(
+                    "Dyspozycje",
+                    "Ta Dyspozycja ma już rozliczone zużycie Magazynu. Najpierw dokończ jej zamknięcie.",
+                    parent=self,
+                )
+                return
         ok = messagebox.askyesno(
             "Usuń Dyspozycję",
             f"Czy na pewno usunąć Dyspozycję:\n{dysp_id}?",
@@ -1059,6 +1217,20 @@ class ZleceniaView(ttk.Frame):
         )
         if not ok:
             return
+        if str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania":
+            try:
+                release_execution_reservations(
+                    dysp_id,
+                    user=self._login_user or str(mapped.get("autor") or ""),
+                    context=f"Usunięcie Dyspozycji {dysp_id}",
+                )
+            except WarehouseIntegrationError as exc:
+                messagebox.showerror(
+                    "Dyspozycje",
+                    f"Nie można usunąć Dyspozycji, bo nie udało się zwolnić jej rezerwacji:\n{exc}",
+                    parent=self,
+                )
+                return
         deleted = delete_dyspozycja(dysp_id)
         if not deleted:
             messagebox.showerror(

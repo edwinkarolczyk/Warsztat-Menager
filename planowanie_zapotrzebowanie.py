@@ -1,10 +1,12 @@
-# version: 1.1
+# version: 1.2
 # Moduł: planowanie_zapotrzebowanie
 # U2A-3: wyliczanie zapotrzebowania bez ruchów magazynowych i bez Dyspozycji.
 # Zmiany 1.1:
 # - Zapotrzebowanie może uwzględniać wolne stany istniejącego Magazynu.
 # - Naddatek półproduktu jest wykorzystywany przed rozwinięciem go do niższych poziomów i surowców.
 # - Obsługa wielopoziomowego składu półproduktu oraz agregacji surowców.
+# Zmiany 1.2:
+# - Kalkulator może dostać kontrolowany snapshot Magazynu do rozliczenia własnych rezerwacji Dyspozycji.
 
 from __future__ import annotations
 
@@ -101,10 +103,15 @@ class RequirementCalculator:
     def calculate(self, product_code: str, product_qty: int | float) -> dict[str, Any]:
         return self._calculate_product(product_code, product_qty, use_stock=False)
 
-    def calculate_with_stock(self, product_code: str, product_qty: int | float) -> dict[str, Any]:
-        return self._calculate_product(product_code, product_qty, use_stock=True)
+    def calculate_with_stock(
+        self, product_code: str, product_qty: int | float, *, stock_snapshot: dict[str, dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
+        return self._calculate_product(product_code, product_qty, use_stock=True, stock_snapshot=stock_snapshot)
 
-    def calculate_semi_with_stock(self, semi_code: str, qty: int | float, *, ignore_root_stock: bool = True) -> dict[str, Any]:
+    def calculate_semi_with_stock(
+        self, semi_code: str, qty: int | float, *, ignore_root_stock: bool = True,
+        stock_snapshot: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         code = str(semi_code or '').strip()
         if not code:
             raise RequirementError('Brak kodu półproduktu.')
@@ -126,9 +133,13 @@ class RequirementCalculator:
             semi_map=semi_map,
             use_stock=True,
             root_ignore_stock={code.casefold()} if ignore_root_stock else set(),
+            stock_snapshot=stock_snapshot,
         )
 
-    def _calculate_product(self, product_code: str, product_qty: int | float, *, use_stock: bool) -> dict[str, Any]:
+    def _calculate_product(
+        self, product_code: str, product_qty: int | float, *, use_stock: bool,
+        stock_snapshot: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         code = str(product_code or '').strip()
         if not code:
             raise RequirementError('Zlecenie nie ma wybranego produktu.')
@@ -164,11 +175,18 @@ class RequirementCalculator:
             semi_map=self._semi_map(),
             use_stock=use_stock,
             root_ignore_stock=set(),
+            stock_snapshot=stock_snapshot,
         )
 
-    def _calculate_from_roots(self, *, roots, product_code, product_name, product_qty, revision, semi_map, use_stock, root_ignore_stock):
+    def _calculate_from_roots(
+        self, *, roots, product_code, product_name, product_qty, revision, semi_map, use_stock, root_ignore_stock,
+        stock_snapshot: dict[str, dict[str, Any]] | None = None,
+    ):
         try:
-            stock = load_stock_snapshot() if use_stock else {}
+            if use_stock and stock_snapshot is not None:
+                stock = {str(key): dict(value) for key, value in stock_snapshot.items() if isinstance(value, dict)}
+            else:
+                stock = load_stock_snapshot() if use_stock else {}
         except Exception as exc:
             stock = {}
             stock_error = str(exc)
