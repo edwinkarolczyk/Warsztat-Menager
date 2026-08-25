@@ -1,9 +1,12 @@
-# version: 1.1
+# version: 1.2
 # Moduł: gui_planowanie_bom
 # U2A-2: Półprodukty i edytor BOM w Planowaniu.
 # Zmiany 1.1:
 # - W interfejsie BOM nazwano Składem produktu, a materiał Surowcem.
 # - Nazwy wewnętrzne pozostają bez zmian dla zgodności danych.
+# Zmiany 1.2:
+# - Dodano edytor wielopoziomowego Składu półproduktu.
+# - Usuwanie półproduktu uwzględnia użycie w produktach i innych półproduktach.
 
 from __future__ import annotations
 
@@ -12,6 +15,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 from polprodukty_store import SemiProductCatalog, SemiProductCatalogError
+from gui_polprodukt_sklad import open_semiproduct_composition
 from produkty_store import ProductCatalog, ProductCatalogError
 
 
@@ -36,6 +40,7 @@ class SemiProductsPanel(ttk.Frame):
         ttk.Button(top, text='Odśwież', command=self.refresh).pack(side='right')
         if self.can_manage:
             ttk.Button(top, text='Usuń', command=self._delete).pack(side='right', padx=3)
+            ttk.Button(top, text='Skład półproduktu', command=self._composition).pack(side='right', padx=3)
             ttk.Button(top, text='Edytuj', command=self._edit).pack(side='right', padx=3)
             ttk.Button(top, text='Dodaj', command=self._add).pack(side='right', padx=3)
 
@@ -88,6 +93,15 @@ class SemiProductsPanel(ttk.Frame):
         item = self._selected()
         if item:
             self._form(item)
+
+    def _composition(self):
+        if not self.can_manage:
+            return
+        item = self._selected()
+        if not item:
+            messagebox.showinfo('Półprodukty', 'Najpierw wybierz półprodukt.', parent=self)
+            return
+        open_semiproduct_composition(self, self.catalog, item, on_saved=lambda _saved: self.refresh())
 
     def _form(self, item):
         values = item or {}
@@ -151,8 +165,17 @@ class SemiProductsPanel(ttk.Frame):
                     used_by.append(str(product.get('kod') or ''))
         except Exception:
             pass
+        try:
+            for parent in self.catalog.list_items():
+                parent_code = str(parent.get('kod') or '')
+                if parent_code.casefold() == code.casefold():
+                    continue
+                if any(str(row.get('kod') or '').casefold() == code.casefold() for row in (parent.get('sklad') or [])):
+                    used_by.append(f"półprodukt {parent_code}")
+        except Exception:
+            pass
         if used_by:
-            messagebox.showerror('Półprodukt', 'Nie można usunąć — półprodukt jest używany w składzie produktu: ' + ', '.join(used_by[:12]), parent=self)
+            messagebox.showerror('Półprodukt', 'Nie można usunąć — półprodukt jest używany w: ' + ', '.join(used_by[:12]), parent=self)
             return
         if not messagebox.askyesno('Usuń półprodukt', f"Usunąć '{code}'?\nPrzed usunięciem zostanie wykonana kopia.", parent=self):
             return

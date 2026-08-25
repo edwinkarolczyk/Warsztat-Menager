@@ -1,7 +1,11 @@
 # =========================================================
 # WM - PLANOWANIE PRODUKCJI (ROZBUDOWA MVP)
-# version: 1.4
+# version: 1.5
 # =========================================================
+# Zmiany 1.5:
+# - Zapotrzebowanie zlecenia porównuje półprodukty i surowce z istniejącym Magazynem.
+# - Naddatek półproduktu zmniejsza ilość do wykonania przed liczeniem surowców.
+# - Podgląd pokazuje stan, wolne, wykorzystanie z magazynu i brak/do wykonania.
 # Zmiany 1.4:
 # - U2A-3: zlecenie wybiera produkt i pokazuje wyliczone zapotrzebowanie.
 # - Duplikaty numerów dostają automatycznie sufiks _2, _3, ... bez prefiksu ZL.
@@ -358,11 +362,13 @@ class PlanowanieUI:
 
         req = ttk.LabelFrame(tab, text="Zapotrzebowanie zlecenia — podgląd bez stanów magazynowych")
         req.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-        req_cols = ("typ", "kod", "nazwa", "ilosc", "jednostka", "zrodlo")
+        req_cols = ("typ", "kod", "nazwa", "ilosc", "jednostka", "stan", "wolne", "z_magazynu", "brak", "zrodlo")
         self.requirements_tree = ttk.Treeview(req, columns=req_cols, show="headings", height=8)
         for key, label, width in (
-            ("typ", "Typ", 90), ("kod", "Kod", 150), ("nazwa", "Nazwa", 180),
-            ("ilosc", "Potrzeba", 100), ("jednostka", "Jedn.", 70), ("zrodlo", "Wynika z", 260),
+            ("typ", "Typ", 90), ("kod", "Kod", 140), ("nazwa", "Nazwa", 160),
+            ("ilosc", "Potrzeba", 90), ("jednostka", "Jedn.", 60), ("stan", "Stan", 80),
+            ("wolne", "Wolne", 80), ("z_magazynu", "Z magazynu", 95), ("brak", "Brak / do wyk.", 105),
+            ("zrodlo", "Wynika z", 220),
         ):
             self.requirements_tree.heading(key, text=label)
             self.requirements_tree.column(key, width=width, anchor="w")
@@ -682,7 +688,7 @@ class PlanowanieUI:
         product_code = str(order.get("product_code") or order.get("symbol") or "").strip()
         qty = order.get("qty", 0)
         try:
-            result = self.requirement_calculator.calculate(product_code, qty)
+            result = self.requirement_calculator.calculate_with_stock(product_code, qty)
         except RequirementError as exc:
             self.requirements_status_var.set(str(exc))
             return
@@ -692,12 +698,15 @@ class PlanowanieUI:
         for idx, row in enumerate(result.get("rows") or []):
             self.requirements_tree.insert("", "end", iid=f"req-{idx}", values=(
                 row.get("typ", ""), row.get("kod", ""), row.get("nazwa", ""),
-                self._format_requirement_qty(row.get("ilosc")), row.get("jednostka", ""), row.get("zrodlo", ""),
+                self._format_requirement_qty(row.get("ilosc")), row.get("jednostka", ""),
+                self._format_requirement_qty(row.get("stan")), self._format_requirement_qty(row.get("wolne")),
+                self._format_requirement_qty(row.get("z_magazynu")), self._format_requirement_qty(row.get("brak")),
+                row.get("zrodlo", ""),
             ))
         warnings = result.get("warnings") or []
         text = (
             f"Produkt {result.get('product_code','')} × {self._format_requirement_qty(result.get('product_qty'))} "
-            f"| rewizja składu {result.get('composition_revision', 1)}"
+            f"| rewizja składu {result.get('composition_revision', 1)} | Magazyn: sprawdzony"
         )
         if warnings:
             text += " | UWAGI: " + " ; ".join(str(x) for x in warnings[:4])

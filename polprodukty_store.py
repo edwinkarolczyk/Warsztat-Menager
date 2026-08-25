@@ -1,6 +1,9 @@
-# version: 1.0
+# version: 1.1
 # Moduł: polprodukty_store
 # U2A-2: jedno źródło półproduktów w aktywnym WM_DATA_ROOT/polprodukty.
+# Zmiany 1.1:
+# - Półprodukt może mieć własny wielopoziomowy skład z innych półproduktów.
+# - Dodano bezpieczny zapis składu z kopią pliku i bez migracji pozostałych danych.
 
 from __future__ import annotations
 
@@ -48,6 +51,26 @@ class SemiProductCatalog:
         return f'{value}.json'
 
     @staticmethod
+    def _normalise_sklad(raw: dict[str, Any]) -> list[dict[str, Any]]:
+        value = raw.get('sklad')
+        if not isinstance(value, list):
+            value = raw.get('polprodukty')
+        if not isinstance(value, list):
+            value = raw.get('BOM')
+        if not isinstance(value, list):
+            return []
+        out: list[dict[str, Any]] = []
+        for row in value:
+            if not isinstance(row, dict):
+                continue
+            code = str(row.get('kod') or row.get('id') or row.get('symbol') or '').strip()
+            if not code:
+                continue
+            qty = row.get('ilosc_na_szt', row.get('ilosc_na_sztuke', row.get('ilosc', 1)))
+            out.append({'kod': code, 'ilosc_na_szt': qty})
+        return out
+
+    @staticmethod
     def _normalise(raw: dict[str, Any], path: Path) -> dict[str, Any]:
         code = str(raw.get('kod') or raw.get('id') or path.stem).strip()
         name = str(raw.get('nazwa') or raw.get('name') or code).strip()
@@ -65,6 +88,7 @@ class SemiProductCatalog:
             'nazwa': name,
             'czynnosci': [str(x) for x in ops if str(x).strip()],
             'surowiec': dict(material),
+            'sklad': SemiProductCatalog._normalise_sklad(raw),
             'norma_strat_proc': loss,
             '_path': str(path),
             '_legacy_id': 'kod' not in raw and 'id' in raw,
@@ -182,6 +206,53 @@ class SemiProductCatalog:
             if not same:
                 source.unlink()
         return self._normalise(payload, target)
+
+    def save_sklad(self, item: dict[str, Any], entries: list[dict[str, Any]]) -> dict[str, Any]:
+        raw_path = item.get('_path')
+        if not raw_path:
+            raise SemiProductCatalogError('Nie można ustalić pliku półproduktu.')
+        path = Path(str(raw_path))
+        if not path.exists():
+            raise SemiProductCatalogError('Plik półproduktu już nie istnieje.')
+        raw = self._read_json(path)
+        if raw is None:
+            raise SemiProductCatalogError('Nie można odczytać pliku półproduktu.')
+        own_code = str(item.get('kod') or raw.get('kod') or raw.get('id') or '').strip()
+        clean: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            code = str(entry.get('kod') or entry.get('id') or entry.get('symbol') or '').strip()
+            if not code:
+                raise SemiProductCatalogError('Każda pozycja składu musi mieć kod półproduktu.')
+            if own_code and code.casefold() == own_code.casefold():
+                raise SemiProductCatalogError('Półprodukt nie może zawierać samego siebie.')
+            qty_raw = entry.get('ilosc_na_szt', entry.get('ilosc_na_sztuke', entry.get('ilosc', 1)))
+            try:
+                qty = float(str(qty_raw).replace(',', '.'))
+            except (TypeError, ValueError):
+                raise SemiProductCatalogError(f"Nieprawidłowa ilość składnika '{code}'.") from None
+            if qty <= 0:
+                raise SemiProductCatalogError(f"Ilość składnika '{code}' musi być większa od zera.")
+            if qty.is_integer():
+                qty = int(qty)
+            clean.append({'kod': code, 'ilosc_na_szt': qty})
+        payload = dict(raw)
+        payload['sklad'] = clean
+        if isinstance(payload.get('polprodukty'), list):
+            payload['polprodukty'] = [dict(row) for row in clean]
+        self._backup(path)
+        tmp = path.with_suffix(path.suffix + '.tmp')
+        try:
+            with tmp.open('w', encoding='utf-8') as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+            os.replace(tmp, path)
+        finally:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return self._normalise(payload, path)
 
     def delete(self, item: dict[str, Any]) -> None:
         raw_path = item.get('_path')
