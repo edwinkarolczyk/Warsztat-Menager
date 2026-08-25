@@ -1,0 +1,32 @@
+name: One-shot runtime-aware updater
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/patch-start-auto-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch start updater
+        run: python _patch_start_auto_runtime.py
+      - name: Compile start.py
+        run: python -m py_compile start.py
+      - name: Commit patch and cleanup
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add start.py
+          git rm .github/workflows/patch-start-auto-runtime.yml _patch_start_auto_runtime.py
+          git commit -m "fix: allow updates with local runtime data"
+          git push origin HEAD:Rozwiniecie
