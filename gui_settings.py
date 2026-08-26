@@ -1,5 +1,7 @@
-# version: 1.0.4
+# version: 1.0.5
 # Moduł: gui_settings
+# Zmiany 1.0.5:
+# - Naprawiono zapis ustawień Dyspozycji w osadzonym panelu: komunikaty używają istniejącego okna nadrzędnego zamiast nieistniejącego self.win.
 # Zmiany 1.0.4:
 # - Ustawienia → Moduły → Dyspozycje pozwalają ustawić liczbę dni przed cyklicznym przeglądem maszyny, kiedy ma powstać automatyczna Dyspozycja.
 # Zmiany 1.0.3:
@@ -3078,7 +3080,7 @@ class SettingsPanel:
                 messagebox.showinfo(
                     "Dyspozycje",
                     "Zapisano ustawienia wyglądu dyspozycji.",
-                    parent=self.win,
+                    parent=parent.winfo_toplevel(),
                 )
             except Exception as exc:
                 logger.exception(
@@ -3087,7 +3089,7 @@ class SettingsPanel:
                 messagebox.showerror(
                     "Dyspozycje",
                     f"Nie udało się zapisać ustawień: {exc}",
-                    parent=self.win,
+                    parent=parent.winfo_toplevel(),
                 )
 
         ttk.Button(

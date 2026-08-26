@@ -1,4 +1,6 @@
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - Karty/PDF maszyn zapisują się w centralnym ROOT WM: <root>/wydruki/karty, niezależnie od katalogu uruchomienia.
 # Zmiany 1.5:
 # - Cykliczny przegląd ma dokładny dzień miesiąca (domyślnie 1) i nadal powtarza się co roku.
 # - Serwis cykliczny i jego automatyczna Dyspozycja synchronizują rozpoczęcie oraz wykonanie.
@@ -2642,7 +2644,13 @@ def _open_machines_panel(
         pass
 
     def _cards_output_dir() -> Path:
-        base = Path.cwd() / "wydruki" / "karty"
+        try:
+            from config_manager import ConfigManager
+
+            base = Path(ConfigManager().path_root("wydruki", "karty"))
+        except Exception:
+            root = str(os.environ.get("WM_ROOT") or "").strip()
+            base = (Path(root) if root else Path.cwd()) / "wydruki" / "karty"
         base.mkdir(parents=True, exist_ok=True)
         return base
 
