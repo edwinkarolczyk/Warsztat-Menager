@@ -1,8 +1,11 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Domyślny rok harmonogramu jest pobierany z bieżącej daty zamiast stałego 2025.
 """Narzędzia wspólne dla modułu maszyn."""
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
@@ -128,10 +131,12 @@ def sort_machines(rows: Iterable[dict]) -> List[dict]:
     return [indexed[key] for key in keys]
 
 
-def resolve_schedule_path(year: int = 2025, cfg: Any | None = None) -> str:
+def resolve_schedule_path(year: int | None = None, cfg: Any | None = None) -> str:
     """Return absolute path to the maintenance schedule JSON for *year*."""
 
-    filename = f"harmonogram_{year}.json"
+    if year is None:
+        year = dt.date.today().year
+    filename = f"harmonogram_{int(year)}.json"
 
     try:
         if hasattr(cfg, "path_data") and callable(cfg.path_data):  # type: ignore[union-attr]

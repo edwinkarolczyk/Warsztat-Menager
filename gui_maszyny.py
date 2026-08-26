@@ -1,4 +1,12 @@
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Cykliczny przegląd ma dokładny dzień miesiąca (domyślnie 1) i nadal powtarza się co roku.
+# - Serwis cykliczny i jego automatyczna Dyspozycja synchronizują rozpoczęcie oraz wykonanie.
+# - Najbliższy przegląd i zaległość są czytelniejsze na głównej liście; dodano proste ostrzeżenie o terminach.
+# - Historia serwisowa pokazuje powiązaną Dyspozycję i pełniejsze szczegóły wpisu.
+# - Usunięto stare podpięcie wm.dyspo_wizard; przycisk Maszyn otwiera aktywny kreator Dyspozycji.
+# - Harmonogram pomocniczy używa bieżącego roku zamiast stałego 2025.
+# - Aktywne okno Użytkowanie maszyny używa formatu Start/Stop: Dzień DD-MM-RR HH:MM.
 # Zmiany 1.4:
 # - Start/Stop w historii statusów pokazują polski skrót dnia tygodnia oraz datę DD-MM-RR z godziną.
 # Zmiany 1.3:
@@ -12,6 +20,7 @@
 # - Główna lista Maszyn używa tej samej wielkości czcionki co Dyspozycje: Segoe UI 11, nagłówki 11 bold, wiersz 30 px.
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 import os
 import shutil
@@ -31,52 +40,44 @@ except Exception:  # pragma: no cover - PIL opcjonalne
     Image = None
     ImageTk = None
 
-try:  # pragma: no cover - opcjonalny moduł nowego kreatora
-    from wm.dyspo_wizard import open_dyspo_wizard
-except Exception:  # pragma: no cover - brak nowego modułu w starszych instalacjach
-    open_dyspo_wizard = None  # type: ignore
-
-try:  # pragma: no cover - skróty dostępne tylko w nowej wersji
-    from wm.gui.shortcuts import bind_ctrl_d
-except Exception:  # pragma: no cover - zachowaj kompatybilność
-    def bind_ctrl_d(*_args, **_kwargs):  # type: ignore
-        return None
-
-
 def _maybe_open_dyspo(root, context):
-    if open_dyspo_wizard is None:
+    """Otwórz aktywny kreator Dyspozycji z kontekstem Maszyn."""
+
+    try:
+        from gui_dyspozycje_creator import open_dyspozycje_creator
+    except Exception as exc:
+        messagebox.showerror(
+            "Maszyny",
+            f"Nie udało się otworzyć kreatora Dyspozycji:\n{exc}",
+            parent=root if getattr(root, "tk", None) is not None else None,
+        )
         return
+
     target = root
     if hasattr(root, "winfo_toplevel"):
         try:
             target = root.winfo_toplevel()
         except Exception:
             target = root
-    if getattr(target, "tk", None) is None:
-        local_tk = globals().get("tk")
-        local_ttk = globals().get("ttk")
-        dialog = None
-        if hasattr(local_tk, "Toplevel"):
-            try:
-                dialog = local_tk.Toplevel(target)
-            except Exception:
-                dialog = None
-        proceed = None
-        if hasattr(local_ttk, "Button"):
-            try:
-                proceed = lambda: None
-                local_ttk.Button(
-                    dialog or target, text="Dalej", command=proceed
-                )
-            except Exception:
-                proceed = None
-        if dialog is not None and hasattr(dialog, "bind") and proceed is not None:
-            try:
-                dialog.bind("<Return>", proceed)
-            except Exception:
-                pass
-        return
-    open_dyspo_wizard(target, context=context)
+
+    ctx = {
+        "typ_dyspozycji": "maszyna",
+        "modul_zrodlowy": "maszyny",
+    }
+    if isinstance(context, dict):
+        ctx.update(context)
+    try:
+        open_dyspozycje_creator(
+            target,
+            autor=_active_login_for_machine(target),
+            context=ctx,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Maszyny",
+            f"Nie udało się otworzyć kreatora Dyspozycji:\n{exc}",
+            parent=target if getattr(target, "tk", None) is not None else None,
+        )
 
 
 CANVAS_W = 1000
@@ -136,7 +137,7 @@ MACHINE_STATUS_EDIT_LABELS = {
 MACHINE_STATUS_EDIT_VALUES = list(MACHINE_STATUS_EDIT_LABELS.keys())
 
 
-SCHEDULE_YEAR = 2025
+SCHEDULE_YEAR = dt.date.today().year
 SCHEDULE_SOON_THRESHOLD_DAYS = 7
 SCHEDULE_STATUS_COLORS = {
     "overdue": MACHINE_STATUS_COLORS["warn"],
@@ -530,6 +531,15 @@ def _review_date(value: object) -> Optional[dt.date]:
     return _parse_schedule_date(value)
 
 
+def _format_machine_review_date(value: object) -> str:
+    parsed = _review_date(value)
+    if parsed is None:
+        raw = str(value or "").strip()
+        return raw[:10] if raw else "—"
+    weekday = _MACHINE_WEEKDAY_LABELS_PL[parsed.weekday()]
+    return f"{weekday} {parsed.strftime('%d-%m-%y')}"
+
+
 def _machine_review_months(machine: Dict[str, Any]) -> List[int]:
     value = (
         machine.get("review_months")
@@ -540,6 +550,19 @@ def _machine_review_months(machine: Dict[str, Any]) -> List[int]:
         or []
     )
     return _normalize_review_months(value)
+
+
+def _machine_review_day(machine: Dict[str, Any]) -> int:
+    try:
+        day = int(machine.get("review_day") or machine.get("inspection_day") or 1)
+    except (TypeError, ValueError):
+        day = 1
+    return max(1, min(31, day))
+
+
+def _cycle_review_date(year: int, month: int, day: int) -> dt.date:
+    last_day = calendar.monthrange(int(year), int(month))[1]
+    return dt.date(int(year), int(month), min(max(1, int(day)), last_day))
 
 
 def _review_month_done(
@@ -643,7 +666,9 @@ def _combined_machine_review_entries(
             if _review_month_done(machine, year=year, month=month, review_type=default_type):
                 continue
 
-            planned_date = dt.date(year, month, 1)
+            planned_date = _cycle_review_date(
+                year, month, _machine_review_day(machine)
+            )
             entries.append(
                 {
                     "id": f"cycle_{year}_{month:02d}",
@@ -741,25 +766,31 @@ def _combined_machine_schedule_summary(machine: Dict[str, Any]) -> Dict[str, Any
     days = (date_value - today).days
     if days < 0:
         status = "overdue"
-        label = "Po terminie"
+        label = f"Po terminie • {abs(days)} dni"
+    elif days == 0:
+        status = "soon"
+        label = "Dzisiaj"
+    elif days == 1:
+        status = "soon"
+        label = "Jutro"
     elif days <= SCHEDULE_SOON_THRESHOLD_DAYS:
         status = "soon"
-        label = "Wkrótce"
+        label = f"Za {days} dni"
     else:
         status = "ok"
-        label = "Planowane"
+        label = f"Za {days} dni"
 
     type_label = str(entry.get("type") or "Przegląd okresowy")
     source_label = REVIEW_SOURCE_LABELS.get(
         str(entry.get("source") or ""),
         str(entry.get("source") or ""),
     )
-
-    parts = [label, type_label]
+    date_label = _format_machine_review_date(date_value)
+    details = [type_label]
     if source_label:
-        parts.append(source_label)
+        details.append(source_label)
+    details.append(label)
 
-    status_label = " • ".join(parts)
     return {
         "upcoming": upcoming,
         "history": history,
@@ -768,9 +799,9 @@ def _combined_machine_schedule_summary(machine: Dict[str, Any]) -> Dict[str, Any
         "status": status,
         "key": status,
         "status_key": status,
-        "next_label": date_value.isoformat(),
-        "status_label": status_label,
-        "status_text": f"{status_label} – {date_value.isoformat()}",
+        "next_label": date_label,
+        "status_label": label,
+        "status_text": f"{' • '.join(details)} – {date_label}",
         "days": days,
         "color": SCHEDULE_STATUS_COLORS.get(status, SCHEDULE_STATUS_COLORS["none"]),
     }
@@ -1468,6 +1499,10 @@ from utils_maszyny import (
     delete_machine,
     merge_rows_union_by_id,
     resolve_schedule_path,
+)
+from maszyny_dyspozycje import (
+    find_cycle_dyspozycja_for_review,
+    sync_review_to_dyspozycja,
 )
 
 
@@ -2700,18 +2735,50 @@ def _open_machines_panel(
     history_items: Dict[str, Dict[str, Any]] = {}
 
     def _refresh_schedule_info() -> None:
-        year = schedule_meta.get("year", schedule_year)
-        if schedule_entries:
-            parts = [f"Harmonogram {year}: {len(schedule_entries)} wpisów"]
-        else:
-            parts = [f"Harmonogram {year}: brak danych"]
-        source = schedule_meta.get("source")
-        if source:
-            parts.append(f"Źródło: {source}")
-        imported = schedule_meta.get("imported_at")
-        if imported:
-            parts.append(f"Import: {imported}")
-        schedule_info.set(" • ".join(parts))
+        overdue = sum(1 for row in rows_cache if _schedule_status_key(row) == "overdue")
+        soon = sum(1 for row in rows_cache if _schedule_status_key(row) == "soon")
+        planned = sum(1 for row in rows_cache if _schedule_status_key(row) == "ok")
+        schedule_info.set(
+            f"Przeglądy maszyn: {overdue} po terminie • "
+            f"{soon} w ciągu {SCHEDULE_SOON_THRESHOLD_DAYS} dni • "
+            f"{planned} później"
+        )
+
+    def _show_review_notice_once() -> None:
+        if initial_machine_id:
+            return
+        overdue = sum(1 for row in rows_cache if _schedule_status_key(row) == "overdue")
+        soon = sum(1 for row in rows_cache if _schedule_status_key(row) == "soon")
+        if overdue <= 0 and soon <= 0:
+            return
+        try:
+            target = root.winfo_toplevel()
+        except Exception:
+            target = root
+        notice_key = f"{dt.date.today().isoformat()}:{overdue}:{soon}"
+        if getattr(target, "_wm_machine_review_notice_key", "") == notice_key:
+            return
+        try:
+            setattr(target, "_wm_machine_review_notice_key", notice_key)
+        except Exception:
+            pass
+        lines = []
+        if overdue:
+            lines.append(f"Po terminie: {overdue}")
+        if soon:
+            lines.append(
+                f"W ciągu {SCHEDULE_SOON_THRESHOLD_DAYS} dni: {soon}"
+            )
+        show_now = messagebox.askyesno(
+            "Przeglądy maszyn",
+            "\n".join(lines)
+            + "\n\nOdpowiednie Dyspozycje są tworzone automatycznie. "
+            + "Pokazać te maszyny teraz?",
+            parent=target if getattr(target, "tk", None) is not None else None,
+        )
+        if show_now:
+            filter_var.set("Po terminie" if overdue else "Wkrótce")
+            _apply_filter()
 
     def _update_info() -> None:
         info.set(f"Wczytano {len(rows_cache)} maszyn • widocznych: {len(visible_rows)}")
@@ -2821,6 +2888,7 @@ def _open_machines_panel(
                 row["__schedule_summary"] = _combined_machine_schedule_summary(row)
         _recompute_visible_rows()
         _refresh_tree()
+        _refresh_schedule_info()
         if hall is not None:
             hall.update_rows(rows_cache)
         if selected_machine_id:
@@ -3249,8 +3317,31 @@ def _open_machines_panel(
                 )
                 var.trace_add("write", _mark_dirty)
 
-            ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
+            ttk.Label(review_box, text="Dzień miesiąca:").grid(
                 row=1, column=0, sticky="e", padx=6, pady=6
+            )
+            review_day_frame = ttk.Frame(review_box)
+            review_day_frame.grid(row=1, column=1, sticky="w", padx=6, pady=6)
+            self.review_day_var = tk.StringVar(
+                master=self, value=str(_machine_review_day(self._row))
+            )
+            self.review_day_spin = ttk.Spinbox(
+                review_day_frame,
+                from_=1,
+                to=31,
+                width=5,
+                textvariable=self.review_day_var,
+                state="readonly",
+            )
+            self.review_day_spin.pack(side="left")
+            ttk.Label(
+                review_day_frame,
+                text="(dla krótszego miesiąca WM użyje ostatniego dnia)",
+            ).pack(side="left", padx=(8, 0))
+            self.review_day_var.trace_add("write", _mark_dirty)
+
+            ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
+                row=2, column=0, sticky="e", padx=6, pady=6
             )
             review_workers = self._row.get("review_workers") or []
             if not isinstance(review_workers, list):
@@ -3263,7 +3354,7 @@ def _open_machines_panel(
 
             self.review_worker_vars: Dict[str, tk.BooleanVar] = {}
             workers_frame = ttk.Frame(review_box)
-            workers_frame.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+            workers_frame.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
 
             user_logins = _load_wm_user_logins()
             actor = _active_login_for_machine(master)
@@ -3298,7 +3389,7 @@ def _open_machines_panel(
                     "Zaznacz sugerowanych serwisantów. Faktycznych wykonawców "
                     "wybierasz przy wykonaniu."
                 ),
-            ).grid(row=2, column=1, sticky="w", padx=6, pady=(0, 6))
+            ).grid(row=3, column=1, sticky="w", padx=6, pady=(0, 6))
 
             footer = ttk.Frame(self, padding=(12, 8))
             footer.pack(side="bottom", fill="x")
@@ -3358,13 +3449,14 @@ def _open_machines_panel(
                     for month, var in self.review_month_vars.items()
                     if bool(var.get())
                 ],
+                "review_day": max(1, min(31, int(self.review_day_var.get() or 1))),
                 "review_workers": [
                     login
                     for login, var in self.review_worker_vars.items()
                     if bool(var.get())
                 ],
             }
-            for key in ("status_history", "status_current"):
+            for key in ("status_history", "status_current", "reviews"):
                 if key in self._row:
                     row[key] = self._row[key]
             if new_status != self._old_status:
@@ -3728,8 +3820,8 @@ def _open_machines_panel(
         )
         hist_setup = {
             "status": ("Status", 135, "w"),
-            "start": ("Start", 125, "center"),
-            "stop": ("Stop", 125, "center"),
+            "start": ("Start", 155, "center"),
+            "stop": ("Stop", 155, "center"),
             "kto": ("Kto", 120, "w"),
             "zdarzenie": ("Powód / zdarzenie", 430, "w"),
         }
@@ -3758,13 +3850,13 @@ def _open_machines_panel(
 
         def _history_entry_values(item: Dict[str, Any]) -> tuple:
             status = _machine_status_label(item.get("status"))
-            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
+            start = _format_machine_history_dt(item.get("started_at"))
             if item.get("__current"):
                 stop = "w toku"
                 who = str(item.get("changed_by") or "—")
                 note = str(item.get("note") or "")
             else:
-                stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+                stop = _format_machine_history_dt(item.get("ended_at"))
                 who = str(item.get("closed_by") or item.get("changed_by") or "—")
                 note = str(item.get("close_note") or item.get("note") or "")
             photos = (
@@ -3947,6 +4039,19 @@ def _open_machines_panel(
                 )
             return str(value or "")
 
+        def _linked_dysp_id(entry: Dict[str, Any]) -> str:
+            direct = str(entry.get("dyspozycja_id") or "").strip()
+            if direct:
+                return direct
+            source = str(entry.get("source") or "").strip().lower()
+            if source != REVIEW_SOURCE_CYCLE:
+                return ""
+            try:
+                linked = find_cycle_dyspozycja_for_review(machine, entry)
+            except Exception:
+                linked = None
+            return str((linked or {}).get("id") or "").strip()
+
         def _refresh_reviews_tree() -> None:
             review_items.clear()
             for iid in reviews_tree.get_children():
@@ -3964,7 +4069,7 @@ def _open_machines_panel(
                     or entry.get("completed_at")
                 )
                 planned_text = (
-                    date_value.isoformat()
+                    _format_machine_review_date(date_value)
                     if date_value is not None
                     else str(entry.get("planned_date") or "—")
                 )
@@ -3983,7 +4088,7 @@ def _open_machines_panel(
                 status_label = _review_status_label(entry.get("status"))
                 if status_label == "Wykonany":
                     people = _people_text(entry.get("completed_by"))
-                    completed_at = str(entry.get("completed_at") or "").replace("T", " ")[:16]
+                    completed_at = _format_machine_history_dt(entry.get("completed_at")) if entry.get("completed_at") else ""
                     details = str(entry.get("result_note") or entry.get("description") or "")
                     if completed_at:
                         details = f"Wykonano: {completed_at}" + (f" | {details}" if details else "")
@@ -3991,7 +4096,7 @@ def _open_machines_panel(
                     people = str(entry.get("started_by") or "") or _people_text(
                         entry.get("suggested_workers") or entry.get("suggested_people")
                     )
-                    started_at = str(entry.get("started_at") or "").replace("T", " ")[:16]
+                    started_at = _format_machine_history_dt(entry.get("started_at")) if entry.get("started_at") else ""
                     details = str(entry.get("description") or "")
                     if started_at:
                         details = f"Rozpoczęto: {started_at}" + (f" | {details}" if details else "")
@@ -4003,6 +4108,9 @@ def _open_machines_panel(
 
                 if cycle_text and cycle_text.lower() not in details.lower():
                     details = cycle_text + (f" | {details}" if details else "")
+                dysp_id = _linked_dysp_id(entry)
+                if dysp_id and dysp_id.lower() not in details.lower():
+                    details = (details + " | " if details else "") + f"Dyspozycja: {dysp_id}"
 
                 values = (
                     planned_text,
@@ -4019,6 +4127,36 @@ def _open_machines_panel(
             if not sel:
                 return None
             return review_items.get(sel[0])
+
+        def _show_selected_review_details(_event=None) -> None:
+            entry = _selected_review_entry()
+            if not entry:
+                return
+            source = str(entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
+            source_label = REVIEW_SOURCE_LABELS.get(source, source or "Ręczny")
+            planned = _review_date(
+                entry.get("date") or entry.get("planned_date") or entry.get("completed_at")
+            )
+            lines = [
+                f"Maszyna: {machine_id} — {machine.get('nazwa') or machine.get('name') or ''}",
+                f"Plan: {_format_machine_review_date(planned) if planned else '—'}",
+                f"Typ: {entry.get('type') or 'Przegląd okresowy'}",
+                f"Źródło: {source_label}",
+                f"Status: {_review_status_label(entry.get('status'))}",
+                f"Dyspozycja: {_linked_dysp_id(entry) or '—'}",
+                f"Rozpoczął: {entry.get('started_by') or '—'}",
+                f"Start: {_format_machine_history_dt(entry.get('started_at')) if entry.get('started_at') else '—'}",
+                f"Wykonali: {_people_text(entry.get('completed_by')) or '—'}",
+                f"Wykonano: {_format_machine_history_dt(entry.get('completed_at')) if entry.get('completed_at') else '—'}",
+                f"Zakres / opis: {entry.get('description') or '—'}",
+                f"Wynik / uwagi: {entry.get('result_note') or '—'}",
+                f"Zdjęcia: {len(entry.get('photos') or []) if isinstance(entry.get('photos'), list) else 0}",
+            ]
+            messagebox.showinfo(
+                "Karta serwisowa maszyny",
+                "\n".join(lines),
+                parent=win,
+            )
 
         def _review_for_action(display_entry: Dict[str, Any]) -> Dict[str, Any]:
             wanted_id = str(display_entry.get("id") or "").strip()
@@ -4133,16 +4271,33 @@ def _open_machines_panel(
             if entry.get("description"):
                 note += f" | {entry.get('description')}"
 
+            actor = _active_login_for_machine(root)
             entry["status"] = "in_progress"
             entry["started_at"] = _machine_now_iso()
-            entry["started_by"] = _active_login_for_machine(root)
+            entry["started_by"] = actor
+            try:
+                linked = sync_review_to_dyspozycja(
+                    machine,
+                    entry,
+                    status="in_progress",
+                    actor=actor,
+                    note=note,
+                )
+            except Exception:
+                logger.exception(
+                    "[Maszyny][DYSP] Nie udało się rozpocząć powiązanej Dyspozycji."
+                )
+                linked = None
+            if linked:
+                entry["dyspozycja_id"] = str(linked.get("id") or "")
+                note += f" | Dyspozycja: {entry['dyspozycja_id']}"
 
             updated = dict(machine)
             updated["reviews"] = list(_machine_reviews(machine))
             _apply_machine_status_change(
                 updated,
                 "alert",
-                actor=_active_login_for_machine(root),
+                actor=actor,
                 note=note,
                 photos=[],
             )
@@ -4150,6 +4305,10 @@ def _open_machines_panel(
             _persist_machine_after_review_change(updated)
             _refresh_history_tree()
             _refresh_reviews_tree()
+            try:
+                root.event_generate("<<DyspozycjeUpdated>>", when="tail")
+            except Exception:
+                pass
 
         def _persist_machine_reviews() -> None:
             updated = dict(machine)
@@ -4332,19 +4491,37 @@ def _open_machines_panel(
                 target_entry["completed_by"] = completed_by
                 target_entry["result_note"] = txt_result.get("1.0", "end").strip()
 
+                actor = ", ".join(completed_by)
+                note = (
+                    f"Wykonano {target_entry.get('type') or 'przegląd / serwis'}"
+                    f" | plan: {target_entry.get('planned_date') or '—'}"
+                )
+                if target_entry.get("result_note"):
+                    note += f" | {target_entry.get('result_note')}"
+                try:
+                    linked = sync_review_to_dyspozycja(
+                        machine,
+                        target_entry,
+                        status="done",
+                        actor=actor,
+                        note=target_entry.get("result_note") or note,
+                    )
+                except Exception:
+                    logger.exception(
+                        "[Maszyny][DYSP] Nie udało się zamknąć powiązanej Dyspozycji."
+                    )
+                    linked = None
+                if linked:
+                    target_entry["dyspozycja_id"] = str(linked.get("id") or "")
+                    note += f" | Dyspozycja: {target_entry['dyspozycja_id']}"
+
                 updated = dict(machine)
                 updated["reviews"] = list(_machine_reviews(machine))
                 if _normalize_machine_status(updated.get("status")) == "alert":
-                    note = (
-                        f"Wykonano {target_entry.get('type') or 'przegląd / serwis'}"
-                        f" | plan: {target_entry.get('planned_date') or '—'}"
-                    )
-                    if target_entry.get("result_note"):
-                        note += f" | {target_entry.get('result_note')}"
                     _apply_machine_status_change(
                         updated,
                         "ok",
-                        actor=", ".join(completed_by),
+                        actor=actor,
                         note=note,
                         photos=[],
                     )
@@ -4352,6 +4529,10 @@ def _open_machines_panel(
                 _persist_machine_after_review_change(updated)
                 _refresh_history_tree()
                 _refresh_reviews_tree()
+                try:
+                    root.event_generate("<<DyspozycjeUpdated>>", when="tail")
+                except Exception:
+                    pass
                 dialog.destroy()
 
             btns = ttk.Frame(frm)
@@ -4364,6 +4545,7 @@ def _open_machines_panel(
             )
 
         _refresh_reviews_tree()
+        reviews_tree.bind("<Double-1>", _show_selected_review_details, add=True)
 
         reviews_actions = ttk.Frame(reviews_box)
         reviews_actions.pack(fill="x", padx=6, pady=(0, 6))
@@ -4619,6 +4801,11 @@ def _open_machines_panel(
     _refresh_schedule_info()
     _recompute_visible_rows()
     _refresh_tree()
+    if not initial_machine_id:
+        try:
+            root.after_idle(_show_review_notice_once)
+        except Exception:
+            pass
     initial_machine = _find_machine(initial_machine_id)
     if initial_machine is None:
         _populate_details(None)
@@ -4670,23 +4857,25 @@ def panel_maszyny(root, frame, login=None, rola=None):
     module_frame.pack(fill="both", expand=True)
 
     _open_maszyny = _open_machines_panel  # alias nazwy
-    if open_dyspo_wizard is not None:
-        toolbar = ttk.Frame(module_frame)
-        toolbar.pack(fill="x", padx=6, pady=(6, 0))
-        target = root
-        if hasattr(root, "winfo_toplevel"):
-            try:
-                target = root.winfo_toplevel()
-            except Exception:
-                target = root
-        ttk.Button(
-            toolbar,
-            text="Nowa dyspozycja…",
-            command=lambda: _maybe_open_dyspo(
-                target, {"module": "Maszyny"}
-            ),
-        ).pack(side=tk.RIGHT)
-        bind_ctrl_d(target, context={"module": "Maszyny"})
+    toolbar = ttk.Frame(module_frame)
+    toolbar.pack(fill="x", padx=6, pady=(6, 0))
+    target = root
+    if hasattr(root, "winfo_toplevel"):
+        try:
+            target = root.winfo_toplevel()
+        except Exception:
+            target = root
+    ttk.Button(
+        toolbar,
+        text="Nowa dyspozycja…",
+        command=lambda: _maybe_open_dyspo(
+            target,
+            {
+                "typ_dyspozycji": "maszyna",
+                "modul_zrodlowy": "maszyny",
+            },
+        ),
+    ).pack(side=tk.RIGHT)
 
     panel_container = ttk.Frame(module_frame)
     panel_container.pack(fill="both", expand=True)

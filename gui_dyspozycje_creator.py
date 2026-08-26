@@ -1,4 +1,6 @@
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - Zamknięcie automatycznej Dyspozycji przeglądu z kreatora aktualizuje również serwis maszyny.
 # Zmiany 1.3:
 # - Zlecenie wykonania wybiera realne Zlecenie, Produkt albo Półprodukt i ilość do wykonania.
 # - Dyspozycja zapisuje nr zlecenia/poziom wykonania oraz podgląd zapotrzebowania z Magazynu.
@@ -37,6 +39,7 @@ from dyspozycje_store import (
     make_dyspozycja,
     update_dyspozycja,
 )
+from maszyny_dyspozycje import sync_machine_review_from_dyspozycja
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
@@ -1187,6 +1190,12 @@ def open_dyspozycje_creator(
                 parent=win,
             )
             return
+        try:
+            sync_machine_review_from_dyspozycja(
+                changed, actor=_actor_login()
+            )
+        except Exception:
+            pass
         _event_updated()
         messagebox.showinfo("Dyspozycje", "Dyspozycja została zamknięta.", parent=win)
         win.destroy()

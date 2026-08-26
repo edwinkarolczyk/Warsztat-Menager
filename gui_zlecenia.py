@@ -1,4 +1,6 @@
-# version: 1.7
+# version: 1.8
+# Zmiany 1.8:
+# - Automatyczna Dyspozycja przeglądu maszyny synchronizuje start i zamknięcie z wpisem serwisowym maszyny.
 # Zmiany 1.7:
 # - Dyspozycje automatycznie dodają zadanie dla cyklicznego przeglądu maszyny do 7 dni przed terminem.
 # - Automatyczny wpis zachowuje typ Maszyna, konkretną maszynę, opis źródła oraz roczny klucz bez duplikatów.
@@ -44,7 +46,10 @@ from dyspozycje_store import (
     update_dyspozycja,
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
-from maszyny_dyspozycje import ensure_due_machine_cycle_dyspozycje
+from maszyny_dyspozycje import (
+    ensure_due_machine_cycle_dyspozycje,
+    sync_machine_review_from_dyspozycja,
+)
 from services.profile_service import ProfileService
 from planowanie_magazyn import (
     WarehouseIntegrationError,
@@ -931,6 +936,13 @@ class ZleceniaView(ttk.Frame):
             )
             return False
         try:
+            sync_machine_review_from_dyspozycja(changed, actor=who)
+        except Exception as exc:
+            logger.exception(
+                "[DYSP][MASZYNY] Nie udało się zsynchronizować statusu przeglądu: %s",
+                exc,
+            )
+        try:
             self.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
         except Exception:
             self._reload_orders()
@@ -1182,6 +1194,17 @@ class ZleceniaView(ttk.Frame):
                 parent=self,
             )
             return
+        try:
+            sync_machine_review_from_dyspozycja(
+                changed,
+                actor=who,
+                result_note=note or "",
+            )
+        except Exception as exc:
+            logger.exception(
+                "[DYSP][MASZYNY] Nie udało się zamknąć wpisu przeglądu maszyny: %s",
+                exc,
+            )
         try:
             self.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
         except Exception:
