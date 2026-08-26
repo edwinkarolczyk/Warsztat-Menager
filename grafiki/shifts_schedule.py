@@ -1,5 +1,7 @@
-# version: 1.0
+# version: 1.1
 # Plik: grafiki/shifts_schedule.py
+# Zmiany 1.1:
+# - Tryby 121 i 212 przełączają zmianę naprzemiennie co tydzień; 111 i 222 pozostają stałe.
 # Zmiany:
 # - Silnik rotacji zmian oraz API
 
@@ -18,8 +20,10 @@ from profile_utils import ensure_profiles_file
 _DEFAULT_PATTERNS = {
     "112": "112",
     "111": "111",
+    "222": "222",
     "12": "12",
     "121": "121",
+    "212": "212",
     "211": "211",
     "1212": "1212",
 }
@@ -273,10 +277,18 @@ def _week_idx(day: date) -> int:
 def _slot_for_mode(mode: str, week_idx: int) -> str:
     patterns = _available_patterns()
     pattern = patterns.get(mode, mode)
-    if not pattern:
-        pattern = "1"
-    idx = week_idx % len(pattern)
-    digit = pattern[idx]
+    digits = [c for c in str(pattern or "1") if c in ("1", "2")]
+    if not digits:
+        digits = ["1"]
+
+    normalized_mode = "".join(digits)
+    if normalized_mode in {"111", "222"}:
+        digit = normalized_mode[0]
+    elif normalized_mode in {"121", "212"}:
+        first = normalized_mode[0]
+        digit = first if week_idx % 2 == 0 else ("2" if first == "1" else "1")
+    else:
+        digit = digits[week_idx % len(digits)]
     return "RANO" if digit == "1" else "POPO"
 
 

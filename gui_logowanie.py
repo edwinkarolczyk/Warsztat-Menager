@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
-# version: 1.0
+# version: 1.4.13
 # Plik: gui_logowanie.py (beta)
+# Zmiany 1.4.13:
+# - Tryby 121 i 212 przełączają zmianę naprzemiennie co tydzień; 111 i 222 pozostają stałe.
 # Zmiany 1.4.12.1:
 # - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
 # - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
@@ -415,8 +417,9 @@ def _slot_for_user(profile: dict, now: datetime):
     if now.weekday() not in _user_workdays(profile):
         return None
 
-    # POPRAWKA: tryb zmian interpretujemy jako CYKL TYGODNIOWY (np. 121 / 212 / 111)
-    # a nie jako rozkład dni tygodnia
+    # Tryb jest tygodniowy. 121/212 oznacza naprzemienną zmianę co tydzień,
+    # a 111/222 oznacza stałą zmianę. Inne starsze wzorce zachowują
+    # dotychczasowe cykliczne działanie.
     mode = _user_shift_mode(profile)
     seq = [c for c in mode if c in ("1", "2")]
     if not seq:
@@ -430,8 +433,14 @@ def _slot_for_user(profile: dict, now: datetime):
         delta_days = (now.date() - start).days
         week_idx = max(0, delta_days // 7)
 
-    # wybieramy zmianę dla całego tygodnia
-    c = seq[week_idx % len(seq)]
+    normalized_mode = "".join(seq)
+    if normalized_mode in {"111", "222"}:
+        c = normalized_mode[0]
+    elif normalized_mode in {"121", "212"}:
+        first = normalized_mode[0]
+        c = first if week_idx % 2 == 0 else ("2" if first == "1" else "1")
+    else:
+        c = seq[week_idx % len(seq)]
     return "RANO" if c == "1" else "POPO"
 
 
