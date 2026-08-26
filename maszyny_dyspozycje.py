@@ -1,4 +1,6 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Liczba dni przed terminem dla automatycznej Dyspozycji jest pobierana z config.json (domyślnie 7, zakres 0–365).
 # Zmiany 1.1:
 # - Cykl przeglądu uwzględnia dokładny dzień miesiąca zapisany w maszynie.
 # - Dodano dwukierunkową synchronizację cyklicznego serwisu z automatyczną Dyspozycją.
@@ -13,6 +15,7 @@ import calendar
 import datetime as dt
 from typing import Any, Iterable
 
+from config_manager import ConfigManager
 from dyspozycje_store import (
     add_dyspozycja,
     load_dyspozycje,
@@ -23,6 +26,16 @@ from dyspozycje_store import (
 
 AUTO_SOURCE = "machine_cycle_review"
 AUTO_WINDOW_DAYS = 7
+AUTO_WINDOW_CONFIG_KEY = "dyspozycje.machine_cycle.days_before"
+
+def _configured_auto_window_days(default: int = AUTO_WINDOW_DAYS) -> int:
+    try:
+        value = ConfigManager().get(AUTO_WINDOW_CONFIG_KEY, default)
+        parsed = int(value)
+    except Exception:
+        parsed = int(default)
+    return max(0, min(365, parsed))
+
 
 _MONTH_NAMES = {
     1: "Styczeń",
@@ -589,9 +602,11 @@ def sync_machine_review_from_dyspozycja(
 def ensure_due_machine_cycle_dyspozycje(
     *,
     today: dt.date | None = None,
-    window_days: int = AUTO_WINDOW_DAYS,
+    window_days: int | None = None,
 ) -> list[dict[str, Any]]:
     """Dodaje brakujące cykliczne Dyspozycje i zwraca tylko nowo utworzone rekordy."""
+    if window_days is None:
+        window_days = _configured_auto_window_days()
 
     try:
         from gui_maszyny import load_machines_rows

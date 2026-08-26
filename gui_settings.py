@@ -1,5 +1,7 @@
-# version: 1.0.3
+# version: 1.0.4
 # Moduł: gui_settings
+# Zmiany 1.0.4:
+# - Ustawienia → Moduły → Dyspozycje pozwalają ustawić liczbę dni przed cyklicznym przeglądem maszyny, kiedy ma powstać automatyczna Dyspozycja.
 # Zmiany 1.0.3:
 # - U1: uproszczono główne Ustawienia do: Ogólne, Wygląd, Użytkownicy, Moduły, Backup, Zaawansowane.
 # - Narzędzia, Magazyn, Dyspozycje i Jarvis przeniesiono pod Moduły bez zmiany ich danych.
@@ -2939,6 +2941,10 @@ class SettingsPanel:
         blink.pack(fill="x", padx=8, pady=8)
         blink.columnconfigure(1, weight=1)
 
+        automation = ttk.LabelFrame(parent, text="Automatyzacja przeglądów maszyn")
+        automation.pack(fill="x", padx=8, pady=8)
+        automation.columnconfigure(1, weight=1)
+
         values = {
             "dyspozycje.ui.closed_foreground": tk.StringVar(
                 value=str(_cfg_get("dyspozycje.ui.closed_foreground", "#9ca3af"))
@@ -2974,6 +2980,9 @@ class SettingsPanel:
 
         blink_enabled = tk.BooleanVar(
             value=bool(_cfg_get("dyspozycje.ui.blink_enabled", True))
+        )
+        machine_cycle_days_before = tk.StringVar(
+            value=str(_cfg_get("dyspozycje.machine_cycle.days_before", 7))
         )
 
         def _row(parent_widget, row: int, label: str, key: str):
@@ -3015,6 +3024,21 @@ class SettingsPanel:
         _row(blink, 1, "Miganie nowych [ms]:", "dyspozycje.ui.new_blink_ms")
         _row(blink, 2, "Miganie po terminie [ms]:", "dyspozycje.ui.overdue_blink_ms")
 
+        ttk.Label(automation, text="Dodaj automatyczną Dyspozycję [dni przed terminem]:").grid(
+            row=0, column=0, sticky="w", padx=8, pady=4
+        )
+        ttk.Spinbox(
+            automation,
+            from_=0,
+            to=365,
+            textvariable=machine_cycle_days_before,
+            width=8,
+        ).grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        ttk.Label(
+            automation,
+            text="0 = w dniu przeglądu. Domyślnie: 7 dni. Zakres: 0–365.",
+        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 6))
+
         ttk.Label(
             parent,
             text=(
@@ -3038,6 +3062,10 @@ class SettingsPanel:
         def _save_dispatches_ui() -> None:
             try:
                 _cfg_set("dyspozycje.ui.blink_enabled", bool(blink_enabled.get()))
+                _cfg_set(
+                    "dyspozycje.machine_cycle.days_before",
+                    _safe_int(machine_cycle_days_before.get(), 7, 0, 365),
+                )
                 for key, var in values.items():
                     if key.endswith("_ms"):
                         default = 2000 if key.endswith("new_blink_ms") else 500

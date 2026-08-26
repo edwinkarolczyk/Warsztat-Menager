@@ -1,4 +1,7 @@
-# version: 1.9
+# version: 1.10
+# Zmiany 1.10:
+# - Widok Dyspozycji odpina globalny event po zniszczeniu i nie odświeża nieistniejącego Treeview.
+# - Usunięto TclError 'invalid command name' po ponownym otwieraniu/przełączaniu Dyspozycji.
 # Zmiany 1.9:
 # - Termin w tabeli Dyspozycji jest wyświetlany w formacie jak w Maszynach: dzień tygodnia + DD-MM-RR.
 # - Zapis terminu w danych pozostaje bez zmian (ISO), zmienia się wyłącznie prezentacja.
@@ -450,6 +453,8 @@ class ZleceniaView(ttk.Frame):
         self._order_ids: dict[str, str] = {}
         self._dysp_ui = _dysp_ui_config()
         self._open_order_creator = _resolve_creator()
+        self._dysp_event_root: tk.Misc | None = None
+        self._dysp_event_bind_id: str | None = None
         self._build_toolbar()
         self._build_tree()
         self._bind_orders_event()
@@ -721,21 +726,38 @@ class ZleceniaView(ttk.Frame):
 
     # endregion ---------------------------------------------------------
 
+    def _view_is_alive(self) -> bool:
+        try:
+            return bool(self.winfo_exists() and self.tree.winfo_exists())
+        except Exception:
+            return False
+
+    def _on_dyspozycje_updated(self, _event: Any = None) -> None:
+        if not self._view_is_alive():
+            return
+        self._reload_orders()
+
     def _bind_orders_event(self) -> None:
-        # kompatybilność wsteczna – jeśli gdzieś jeszcze leci OrdersUpdated
-        self.bind("<<OrdersUpdated>>", lambda _event: self._reload_orders(), add=True)
+        # kompatybilność wsteczna – lokalny bind znika razem z widokiem
+        self.bind("<<OrdersUpdated>>", self._on_dyspozycje_updated, add=True)
         try:
             root = self.winfo_toplevel()
         except Exception:
             root = None
         if not root:
             return
-        # nowy event dla Dyspozycji
-        root.bind(
-            "<<DyspozycjeUpdated>>",
-            lambda _event: self._reload_orders(),
-            add=True,
-        )
+        # Event jest emitowany na root, więc zapamiętujemy identyfikator binda
+        # i odpinamy dokładnie ten callback przy niszczeniu ZleceniaView.
+        try:
+            bind_id = root.bind(
+                "<<DyspozycjeUpdated>>",
+                self._on_dyspozycje_updated,
+                add="+",
+            )
+        except Exception:
+            bind_id = None
+        self._dysp_event_root = root
+        self._dysp_event_bind_id = str(bind_id) if bind_id else None
 
     def _on_filters_changed(self, _event: Any = None) -> None:
         self._refresh()
@@ -840,6 +862,8 @@ class ZleceniaView(ttk.Frame):
         self._update_status_actions()
 
     def _reload_orders(self) -> None:
+        if not self._view_is_alive():
+            return
         global _DYSP_TOOL_STATUS_CACHE, _DYSP_MACHINE_STATUS_CACHE
         _DYSP_TOOL_STATUS_CACHE = None
         _DYSP_MACHINE_STATUS_CACHE = None
@@ -1367,8 +1391,19 @@ class ZleceniaView(ttk.Frame):
 
     # endregion ---------------------------------------------------------
 
-    def _on_destroy(self, _event: Any) -> None:
+    def _on_destroy(self, event: Any) -> None:
+        if getattr(event, "widget", None) is not self:
+            return
         self._after.cancel_all()
+        root = self._dysp_event_root
+        bind_id = self._dysp_event_bind_id
+        self._dysp_event_root = None
+        self._dysp_event_bind_id = None
+        if root is not None and bind_id:
+            try:
+                root.unbind("<<DyspozycjeUpdated>>", bind_id)
+            except Exception:
+                pass
 
 
 def panel_zlecenia(parent: tk.Widget) -> ttk.Frame:
