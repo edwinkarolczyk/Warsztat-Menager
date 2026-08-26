@@ -1,4 +1,7 @@
-# version: 1.8
+# version: 1.9
+# Zmiany 1.9:
+# - Termin w tabeli Dyspozycji jest wyświetlany w formacie jak w Maszynach: dzień tygodnia + DD-MM-RR.
+# - Zapis terminu w danych pozostaje bez zmian (ISO), zmienia się wyłącznie prezentacja.
 # Zmiany 1.8:
 # - Automatyczna Dyspozycja przeglądu maszyny synchronizuje start i zamknięcie z wpisem serwisowym maszyny.
 # Zmiany 1.7:
@@ -341,6 +344,30 @@ def _dysp_related_status_label(item: dict[str, Any]) -> str:
     if value:
         return value
     return _resolve_related_status(item)
+
+
+_DYSP_WEEKDAY_LABELS_PL = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")
+
+
+def _format_dysp_deadline(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+    try:
+        parsed_date = _dt.date.fromisoformat(raw[:10])
+    except Exception:
+        return raw
+
+    weekday = _DYSP_WEEKDAY_LABELS_PL[parsed_date.weekday()]
+    date_text = parsed_date.strftime("%d-%m-%y")
+
+    time_text = ""
+    if len(raw) >= 16 and ("T" in raw[:16] or " " in raw[:16]):
+        candidate = raw[11:16]
+        if len(candidate) == 5 and candidate[2] == ":":
+            time_text = candidate
+
+    return f"{weekday} {date_text}" + (f" {time_text}" if time_text else "")
 
 
 def _dysp_due_in_label(item: dict[str, Any]) -> str:
@@ -797,7 +824,7 @@ class ZleceniaView(ttk.Frame):
                         _dysp_type_label(order),
                         _dysp_assigned_label(order),
                         _dysp_related_status_label(order),
-                        str(order.get("termin") or "—"),
+                        _format_dysp_deadline(order.get("termin") or order.get("deadline")),
                         _dysp_due_in_label(order),
                         _dysp_priority_label(order),
                     ),
