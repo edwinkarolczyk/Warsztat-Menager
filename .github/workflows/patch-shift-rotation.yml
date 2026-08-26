@@ -47,6 +47,7 @@ jobs:
 
           anchor = date(2026, 1, 5)
           ns_login = {
+              'datetime': datetime,
               '_user_workdays': lambda _p: list(range(7)),
               '_user_shift_mode': lambda p: p['tryb_zmian'],
               '_global_rotation_start': lambda: anchor,
