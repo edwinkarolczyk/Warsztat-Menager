@@ -1,4 +1,6 @@
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Zapis historii DOCX używa trybu zgodnego z dyskami sieciowymi/SMB.
 # Zmiany 1.4:
 # - Historia DOCX korzysta z bezpośredniego zapisu po wykonaniu przeglądu/naprawy.
 # - Dodano integrację wydruku planu przeglądów maszyn.
@@ -13,7 +15,14 @@ import sys
 import types
 from importlib import import_module
 
-from machine_history_runtime import install_gui_integration
+import machine_history_runtime as _history_runtime
+from machine_history_docx_io import append_history_entry as _append_history_entry
+
+# Runtime zapisuje zdarzenia bezpośrednio po wykonaniu przeglądu/naprawy.
+# Podmieniamy wyłącznie warstwę fizycznego zapisu DOCX, aby działała także
+# na udziałach sieciowych Windows/SMB, bez zmiany logiki Maszyn i Dyspozycji.
+_history_runtime.append_history_entry = _append_history_entry
+install_gui_integration = _history_runtime.install_gui_integration
 
 _core = import_module("_maszyny_dyspozycje_core")
 __all__ = [name for name in vars(_core) if not name.startswith("_")]
