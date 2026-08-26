@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Kosmetyka widoku historii w oknie Użytkowanie maszyny."""
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def _frame_text(widget: Any) -> str:
 
 
 def install_machine_history_layout(gui_module) -> bool:
-    """Zmniejsz pełne tabele historii i oznacz bieżący status jako Aktualny."""
+    """Ustaw responsywny układ historii i oznacz bieżący status jako Aktualny."""
     if gui_module is None:
         return False
 
@@ -34,20 +34,48 @@ def install_machine_history_layout(gui_module) -> bool:
         return True
 
     real_treeview = getattr(ttk_module, "Treeview", None)
-    if real_treeview is None:
+    real_labelframe = getattr(ttk_module, "LabelFrame", None)
+    if real_treeview is None or real_labelframe is None:
         return False
+
+    class _HistoryLabelFrame(real_labelframe):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._wm_history_box_text = _frame_text(self)
+
+        def pack(self, *args, **kwargs):
+            if self._wm_history_box_text not in _FULL_HISTORY_BOXES:
+                return super().pack(*args, **kwargs)
+
+            master = getattr(self, "master", None)
+            if master is None:
+                return super().pack(*args, **kwargs)
+
+            try:
+                master.columnconfigure(0, weight=1)
+                master.rowconfigure(0, weight=1, uniform="wm_history_rows")
+                master.rowconfigure(1, weight=1, uniform="wm_history_rows")
+
+                if self._wm_history_box_text == "Pełna historia statusów":
+                    row = 0
+                    pady = (0, 8)
+                else:
+                    row = 1
+                    pady = (0, 0)
+
+                return self.grid(
+                    row=row,
+                    column=0,
+                    sticky="nsew",
+                    pady=pady,
+                )
+            except Exception:
+                return super().pack(*args, **kwargs)
 
     class _HistoryTreeview(real_treeview):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self._wm_history_box_text = _frame_text(getattr(self, "master", None))
-            if self._wm_history_box_text in _FULL_HISTORY_BOXES:
-                # Domyślne okno Użytkowanie maszyny ma 980x720. Sześć wierszy
-                # pozwala pokazać obie pełne historie bez ręcznego rozciągania.
-                try:
-                    self.configure(height=6)
-                except Exception:
-                    pass
 
         def insert(self, parent, index, iid=None, **kw):
             values = kw.get("values")
@@ -71,6 +99,7 @@ def install_machine_history_layout(gui_module) -> bool:
         _wm_machine_history_layout_proxy = True
         _wm_base_ttk = ttk_module
         Treeview = _HistoryTreeview
+        LabelFrame = _HistoryLabelFrame
 
         def __getattr__(self, name: str):
             return getattr(ttk_module, name)
