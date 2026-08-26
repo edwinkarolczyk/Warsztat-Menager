@@ -1,4 +1,4 @@
-# version: 1.7.1
+# version: 1.7.2
 """GUI moduł profilu użytkownika.
 
 Publiczne funkcje:
@@ -21,7 +21,11 @@ Danych źródłowych w folderze danych nie modyfikujemy.
 """
 
 # Plik: gui_profile.py
-# Wersja: 1.7.1
+# Wersja: 1.7.2
+# Zmiany 1.7.2:
+# - Dwuklik pozostaje jedynym sposobem otwierania Dyspozycji z Profilu.
+# - Przycisk Otwórz zastąpiono akcjami Rozpocznij/Zakończ Dyspozycję.
+# - Lista Profilu używa tej samej konfiguracji kolorów statusów co moduł Dyspozycje.
 # Zmiany 1.7.1:
 # - Dwuklik i przycisk Otwórz Dyspozycję otwierają zaznaczony wpis w aktualnym kreatorze edycji.
 # Zmiany 1.7.0:
@@ -1687,6 +1691,49 @@ class ProfileView(ttk.Frame):
         tree.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
 
+        # Ta sama paleta co w głównym module Dyspozycje. Konfiguracja jest
+        # pobierana z dyspozycje.ui, więc zmiana kolorów w Ustawieniach
+        # automatycznie obejmuje również Profil.
+        try:
+            from gui_zlecenia import _dysp_ui_config
+
+            dysp_ui = _dysp_ui_config()
+        except Exception:
+            dysp_ui = {
+                "closed_foreground": "#9ca3af",
+                "new_foreground": "#facc15",
+                "in_progress_foreground": "#60a5fa",
+                "paused_foreground": "#fb923c",
+                "overdue_foreground": "#ef4444",
+            }
+        tree.tag_configure("dysp_closed", foreground=dysp_ui["closed_foreground"])
+        tree.tag_configure("dysp_new", foreground=dysp_ui["new_foreground"])
+        tree.tag_configure(
+            "dysp_in_progress",
+            foreground=dysp_ui["in_progress_foreground"],
+        )
+        tree.tag_configure("dysp_paused", foreground=dysp_ui["paused_foreground"])
+        tree.tag_configure("dysp_overdue", foreground=dysp_ui["overdue_foreground"])
+
+        def _dysp_row_tag(row: dict) -> str:
+            status = str(row.get("status") or "").strip().lower()
+            if status == "zamknieta":
+                return "dysp_closed"
+            raw_deadline = str(row.get("termin") or row.get("deadline") or "").strip()
+            if raw_deadline:
+                try:
+                    if _dt.strptime(raw_deadline[:10], "%Y-%m-%d").date() < _dt.now().date():
+                        return "dysp_overdue"
+                except Exception:
+                    pass
+            if status == "nowa":
+                return "dysp_new"
+            if status == "w_toku":
+                return "dysp_in_progress"
+            if status == "wstrzymana":
+                return "dysp_paused"
+            return ""
+
         active_rows = [row for row in rows if str(row.get("status") or "").strip().lower() != "zamknieta"]
         active_rows.sort(
             key=lambda row: (
@@ -1694,12 +1741,14 @@ class ProfileView(ttk.Frame):
                 str(row.get("tytul") or "").casefold(),
             )
         )
+        row_by_iid: dict[str, dict] = {}
         for row in active_rows:
             title = str(row.get("tytul") or row.get("opis") or row.get("id") or "Dyspozycja").strip()
             if bool(row.get("dla_wszystkich")):
                 title = f"{title} • dla wszystkich"
             priority = str(row.get("priorytet") or "normalny").strip().capitalize()
-            tree.insert(
+            tag = _dysp_row_tag(row)
+            iid = tree.insert(
                 "",
                 "end",
                 values=(
@@ -1709,21 +1758,25 @@ class ProfileView(ttk.Frame):
                     self._profile_status_label(row.get("status")),
                     priority,
                 ),
+                tags=(tag,) if tag else (),
             )
+            row_by_iid[str(iid)] = row
 
-        def _open_selected_dyspozycja(_event=None) -> None:
+        def _selected_dyspozycja(*, show_message: bool = True) -> dict | None:
             selected = tree.selection()
             if not selected:
-                messagebox.showinfo(
-                    "Profil",
-                    "Zaznacz Dyspozycję, którą chcesz otworzyć.",
-                    parent=self.winfo_toplevel(),
-                )
-                return
-            try:
-                index = tree.index(selected[0])
-                row = active_rows[index]
-            except (IndexError, tk.TclError):
+                if show_message:
+                    messagebox.showinfo(
+                        "Profil",
+                        "Zaznacz Dyspozycję.",
+                        parent=self.winfo_toplevel(),
+                    )
+                return None
+            return row_by_iid.get(str(selected[0]))
+
+        def _open_selected_dyspozycja(_event=None) -> None:
+            row = _selected_dyspozycja(show_message=False)
+            if not row:
                 return
             try:
                 from gui_dyspozycje_creator import open_dyspozycje_creator
@@ -1741,12 +1794,176 @@ class ProfileView(ttk.Frame):
                     parent=self.winfo_toplevel(),
                 )
 
+        def _emit_dyspozycje_updated() -> None:
+            try:
+                self.winfo_toplevel().event_generate(
+                    "<<DyspozycjeUpdated>>",
+                    when="tail",
+                )
+            except Exception:
+                pass
+
+        def _start_selected_dyspozycja() -> None:
+            row = _selected_dyspozycja()
+            if not row:
+                return
+            status = str(row.get("status") or "").strip().lower()
+            if status != "nowa":
+                messagebox.showinfo(
+                    "Profil",
+                    "Rozpocząć można tylko nową Dyspozycję.",
+                    parent=self.winfo_toplevel(),
+                )
+                return
+
+            assigned = str(row.get("przypisane_do") or "").strip()
+            for_all = row.get("dla_wszystkich") is True
+            who = str(self.login or row.get("autor") or "").strip()
+            if (
+                not for_all
+                and assigned
+                and who
+                and assigned.lower() != who.lower()
+            ):
+                if not messagebox.askyesno(
+                    "Rozpocznij cudzą Dyspozycję",
+                    f"Dyspozycja jest przypisana do: {assigned}.\n"
+                    f"Jesteś zalogowany jako: {who}.\n\n"
+                    "Czy na pewno chcesz ją rozpocząć?",
+                    parent=self.winfo_toplevel(),
+                ):
+                    return
+
+            try:
+                from dyspozycje_actions import (
+                    DyspozycjaActionError,
+                    start_dyspozycja,
+                )
+
+                start_dyspozycja(row, who=who)
+            except DyspozycjaActionError as exc:
+                messagebox.showerror(
+                    "Profil — Dyspozycja",
+                    str(exc),
+                    parent=self.winfo_toplevel(),
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Profil — Dyspozycja",
+                    f"Nie udało się rozpocząć Dyspozycji:\n{exc}",
+                    parent=self.winfo_toplevel(),
+                )
+            else:
+                _emit_dyspozycje_updated()
+            finally:
+                self._refresh_view()
+
+        def _finish_selected_dyspozycja() -> None:
+            row = _selected_dyspozycja()
+            if not row:
+                return
+            status = str(row.get("status") or "").strip().lower()
+            if status not in {"w_toku", "wstrzymana"}:
+                messagebox.showinfo(
+                    "Profil",
+                    "Zakończyć można Dyspozycję W toku albo Wstrzymaną.",
+                    parent=self.winfo_toplevel(),
+                )
+                return
+
+            from tkinter import simpledialog
+
+            note = simpledialog.askstring(
+                "Zakończ Dyspozycję",
+                "Uwagi przy zakończeniu (opcjonalnie):",
+                parent=self.winfo_toplevel(),
+            )
+            if note is None:
+                return
+
+            actual_qty = None
+            if str(row.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania":
+                meta = dict(row.get("meta") or {}) if isinstance(row.get("meta"), dict) else {}
+                try:
+                    planned = float(str(meta.get("ilosc_do_wykonania") or 0).replace(",", "."))
+                except (TypeError, ValueError):
+                    planned = 0.0
+                actual_qty = simpledialog.askfloat(
+                    "Rozlicz wykonanie",
+                    "Ile faktycznie wykonano?",
+                    initialvalue=planned if planned > 0 else 1,
+                    minvalue=0.0,
+                    parent=self.winfo_toplevel(),
+                )
+                if actual_qty is None:
+                    return
+
+            who = str(self.login or row.get("autor") or "").strip()
+            try:
+                from dyspozycje_actions import (
+                    DyspozycjaActionError,
+                    close_dyspozycja,
+                )
+
+                close_dyspozycja(
+                    row,
+                    who=who,
+                    note=note or "",
+                    actual_qty=actual_qty,
+                )
+            except DyspozycjaActionError as exc:
+                messagebox.showerror(
+                    "Profil — Dyspozycja",
+                    str(exc),
+                    parent=self.winfo_toplevel(),
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Profil — Dyspozycja",
+                    f"Nie udało się zakończyć Dyspozycji:\n{exc}",
+                    parent=self.winfo_toplevel(),
+                )
+            else:
+                _emit_dyspozycje_updated()
+                messagebox.showinfo(
+                    "Profil",
+                    "Dyspozycja została zakończona.",
+                    parent=self.winfo_toplevel(),
+                )
+            finally:
+                self._refresh_view()
+
+        action_row = ttk.Frame(box, style="WM.TFrame")
+        action_row.pack(fill="x", pady=(8, 0))
+        btn_start = ttk.Button(
+            action_row,
+            text="Rozpocznij Dyspozycję",
+            command=_start_selected_dyspozycja,
+        )
+        btn_start.pack(side="left")
+        btn_finish = ttk.Button(
+            action_row,
+            text="Zakończ Dyspozycję",
+            command=_finish_selected_dyspozycja,
+        )
+        btn_finish.pack(side="left", padx=(8, 0))
+
+        def _update_action_buttons(_event=None) -> None:
+            row = _selected_dyspozycja(show_message=False)
+            status = str((row or {}).get("status") or "").strip().lower()
+            try:
+                btn_start.state(["!disabled"] if status == "nowa" else ["disabled"])
+                btn_finish.state(
+                    ["!disabled"]
+                    if status in {"w_toku", "wstrzymana"}
+                    else ["disabled"]
+                )
+            except Exception:
+                pass
+
         tree.bind("<Double-1>", _open_selected_dyspozycja)
-        ttk.Button(
-            box,
-            text="Otwórz Dyspozycję",
-            command=_open_selected_dyspozycja,
-        ).pack(anchor="w", pady=(8, 0))
+        tree.bind("<<TreeviewSelect>>", _update_action_buttons, add="+")
+        _update_action_buttons()
 
         if not active_rows:
             ttk.Label(
