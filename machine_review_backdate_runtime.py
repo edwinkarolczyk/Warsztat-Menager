@@ -1,12 +1,30 @@
-# version: 1.0
+# version: 1.1
 """Data wykonania wstecz dla przeglądów maszyn - tylko Brygadzista."""
 
 from __future__ import annotations
 
+import calendar
 import datetime as dt
 import logging
 
 logger = logging.getLogger(__name__)
+
+_MONTHS_PL = (
+    "",
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień",
+)
+_WEEKDAYS_PL = ("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")
 
 
 def _normalize_role(value: object) -> str:
@@ -94,6 +112,147 @@ def _show_warning(gui_module, window, text: str) -> None:
         pass
 
 
+def _open_calendar_picker(window, gui_module, date_var) -> None:
+    """Pokaż mały kalendarz bez dodatkowej biblioteki zewnętrznej."""
+    ttk = getattr(gui_module, "ttk", None)
+    tk_module = getattr(gui_module, "tk", None)
+    if ttk is None or tk_module is None:
+        return
+
+    base_tk = getattr(tk_module, "_wm_base_tk", tk_module)
+    real_toplevel = getattr(base_tk, "Toplevel", None)
+    if real_toplevel is None:
+        return
+
+    today = dt.date.today()
+    selected = _parse_date(gui_module, date_var.get()) or today
+    if selected > today:
+        selected = today
+
+    picker = real_toplevel(window)
+    picker.title("Wybierz datę wykonania")
+    picker.transient(window)
+    picker.resizable(False, False)
+
+    try:
+        x = window.winfo_rootx() + 180
+        y = window.winfo_rooty() + 120
+        picker.geometry(f"+{x}+{y}")
+    except Exception:
+        pass
+
+    state = {"year": selected.year, "month": selected.month}
+
+    outer = ttk.Frame(picker, padding=8)
+    outer.pack(fill="both", expand=True)
+
+    header = ttk.Frame(outer)
+    header.grid(row=0, column=0, columnspan=7, sticky="ew", pady=(0, 6))
+    header.columnconfigure(1, weight=1)
+
+    month_var = base_tk.StringVar(master=picker)
+
+    def _set_month(delta: int) -> None:
+        year = int(state["year"])
+        month = int(state["month"]) + delta
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+
+        candidate = dt.date(year, month, 1)
+        current_month = dt.date(today.year, today.month, 1)
+        if candidate > current_month:
+            return
+
+        state["year"] = year
+        state["month"] = month
+        _render_month()
+
+    prev_button = ttk.Button(header, text="◀", width=3, command=lambda: _set_month(-1))
+    prev_button.grid(row=0, column=0, sticky="w")
+    ttk.Label(header, textvariable=month_var, anchor="center").grid(
+        row=0, column=1, sticky="ew", padx=8
+    )
+    next_button = ttk.Button(header, text="▶", width=3, command=lambda: _set_month(1))
+    next_button.grid(row=0, column=2, sticky="e")
+
+    for column, label in enumerate(_WEEKDAYS_PL):
+        ttk.Label(outer, text=label, anchor="center", width=4).grid(
+            row=1, column=column, padx=1, pady=(0, 2)
+        )
+
+    day_frame = ttk.Frame(outer)
+    day_frame.grid(row=2, column=0, columnspan=7)
+
+    def _choose(day: int) -> None:
+        chosen = dt.date(int(state["year"]), int(state["month"]), int(day))
+        if chosen > today:
+            return
+        date_var.set(_format_date(gui_module, chosen))
+        picker.destroy()
+
+    def _render_month() -> None:
+        for child in day_frame.winfo_children():
+            child.destroy()
+
+        year = int(state["year"])
+        month = int(state["month"])
+        month_var.set(f"{_MONTHS_PL[month]} {year}")
+
+        weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(year, month)
+        for row_idx, week in enumerate(weeks):
+            for col_idx, day in enumerate(week):
+                if not day:
+                    ttk.Label(day_frame, text="", width=4).grid(
+                        row=row_idx, column=col_idx, padx=1, pady=1
+                    )
+                    continue
+
+                value = dt.date(year, month, day)
+                btn = ttk.Button(
+                    day_frame,
+                    text=str(day),
+                    width=4,
+                    command=lambda d=day: _choose(d),
+                )
+                btn.grid(row=row_idx, column=col_idx, padx=1, pady=1)
+                if value > today:
+                    try:
+                        btn.state(["disabled"])
+                    except Exception:
+                        pass
+
+        current_month = dt.date(today.year, today.month, 1)
+        shown_month = dt.date(year, month, 1)
+        try:
+            if shown_month >= current_month:
+                next_button.state(["disabled"])
+            else:
+                next_button.state(["!disabled"])
+        except Exception:
+            pass
+
+    _render_month()
+
+    ttk.Button(
+        outer,
+        text="Dzisiaj",
+        command=lambda: (
+            date_var.set(_format_date(gui_module, today)),
+            picker.destroy(),
+        ),
+    ).grid(row=3, column=0, columnspan=7, pady=(8, 0))
+
+    try:
+        picker.grab_set()
+        picker.focus_set()
+    except Exception:
+        pass
+
+
 def _decorate_complete_dialog(window, gui_module) -> None:
     if getattr(window, "_wm_backdate_decorated", False):
         return
@@ -152,8 +311,18 @@ def _decorate_complete_dialog(window, gui_module) -> None:
     ttk.Label(form, text="Data wykonania:").grid(
         row=2, column=0, sticky="e", padx=4, pady=(6, 2)
     )
-    date_entry = ttk.Entry(form, textvariable=date_var, width=24)
-    date_entry.grid(row=2, column=1, sticky="w", padx=4, pady=(6, 2))
+
+    date_row = ttk.Frame(form)
+    date_row.grid(row=2, column=1, sticky="w", padx=4, pady=(6, 2))
+    date_entry = ttk.Entry(date_row, textvariable=date_var, width=20)
+    date_entry.pack(side="left")
+    ttk.Button(
+        date_row,
+        text="📅",
+        width=3,
+        command=lambda: _open_calendar_picker(window, gui_module, date_var),
+    ).pack(side="left", padx=(4, 0))
+
     ttk.Label(
         form,
         text="Tylko Brygadzista: dzisiejsza lub wcześniejsza data.",
@@ -162,11 +331,11 @@ def _decorate_complete_dialog(window, gui_module) -> None:
     original_now = getattr(gui_module, "_machine_now_iso", None)
 
     def _save_with_selected_date() -> None:
-        selected = _parse_date(gui_module, date_var.get())
-        if selected is None:
+        selected_date = _parse_date(gui_module, date_var.get())
+        if selected_date is None:
             _show_warning(gui_module, window, "Podaj poprawną datę wykonania.")
             return
-        if selected > dt.date.today():
+        if selected_date > dt.date.today():
             _show_warning(
                 gui_module,
                 window,
@@ -175,7 +344,7 @@ def _decorate_complete_dialog(window, gui_module) -> None:
             return
 
         now = dt.datetime.now().replace(microsecond=0)
-        performed_at = dt.datetime.combine(selected, now.time()).isoformat()
+        performed_at = dt.datetime.combine(selected_date, now.time()).isoformat()
 
         if callable(original_now):
             setattr(gui_module, "_machine_now_iso", lambda: performed_at)
