@@ -1,4 +1,4 @@
-# version: 1.7.0
+# version: 1.7.1
 """GUI moduł profilu użytkownika.
 
 Publiczne funkcje:
@@ -21,7 +21,9 @@ Danych źródłowych w folderze danych nie modyfikujemy.
 """
 
 # Plik: gui_profile.py
-# Wersja: 1.7.0
+# Wersja: 1.7.1
+# Zmiany 1.7.1:
+# - Dwuklik i przycisk Otwórz Dyspozycję otwierają zaznaczony wpis w aktualnym kreatorze edycji.
 # Zmiany 1.7.0:
 # - Aktywny Profil pokazuje tylko dane zalogowanego użytkownika i jego bieżące Dyspozycje.
 # - Usunięto z aktywnego widoku Oś/PW/Narzędzia/ranking oraz stare źródła zadań.
@@ -1708,6 +1710,43 @@ class ProfileView(ttk.Frame):
                     priority,
                 ),
             )
+
+        def _open_selected_dyspozycja(_event=None) -> None:
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo(
+                    "Profil",
+                    "Zaznacz Dyspozycję, którą chcesz otworzyć.",
+                    parent=self.winfo_toplevel(),
+                )
+                return
+            try:
+                index = tree.index(selected[0])
+                row = active_rows[index]
+            except (IndexError, tk.TclError):
+                return
+            try:
+                from gui_dyspozycje_creator import open_dyspozycje_creator
+
+                context = dict(row)
+                context["edit_mode"] = True
+                open_dyspozycje_creator(
+                    self.winfo_toplevel(),
+                    context=context,
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Profil",
+                    f"Nie udało się otworzyć Dyspozycji:\n{exc}",
+                    parent=self.winfo_toplevel(),
+                )
+
+        tree.bind("<Double-1>", _open_selected_dyspozycja)
+        ttk.Button(
+            box,
+            text="Otwórz Dyspozycję",
+            command=_open_selected_dyspozycja,
+        ).pack(anchor="w", pady=(8, 0))
 
         if not active_rows:
             ttk.Label(
