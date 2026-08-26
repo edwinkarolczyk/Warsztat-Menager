@@ -29,6 +29,11 @@ jobs:
           git diff --check
           test "$(git diff --name-only)" = "gui_maszyny.py"
 
+      - name: Install Tkinter for isolated import
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-tk
+
       - name: Validate cyclic review bridge
         run: |
           python - <<'PY'
