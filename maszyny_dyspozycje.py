@@ -1,4 +1,7 @@
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - Historia DOCX korzysta z bezpośredniego zapisu po wykonaniu przeglądu/naprawy.
+# - Dodano integrację wydruku planu przeglądów maszyn.
 # Zmiany 1.3:
 # - Podłączenie dodatkowej karty historii DOCX do modułu Maszyny.
 # - Właściwa logika Dyspozycji maszyn pozostaje bez zmian w module core.
@@ -10,7 +13,7 @@ import sys
 import types
 from importlib import import_module
 
-from machine_history_doc import install_gui_integration
+from machine_history_runtime import install_gui_integration
 
 _core = import_module("_maszyny_dyspozycje_core")
 __all__ = [name for name in vars(_core) if not name.startswith("_")]
