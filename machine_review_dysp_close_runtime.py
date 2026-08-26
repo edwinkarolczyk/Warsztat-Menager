@@ -1,4 +1,7 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Zamknięcie przeglądu z Dyspozycji zapisuje wpis P do DOCX bezpośrednio po historii WM.
+# - Wyłączono dla tego formularza pośredni hook DOCX, aby nie tworzyć podwójnych wpisów.
 """Zamykanie Dyspozycji przeglądu maszyny przez formularz wykonania serwisu."""
 
 from __future__ import annotations
@@ -127,6 +130,84 @@ def _patch_completed_review(
     return False
 
 
+def _find_completed_review_for_docx(
+    machine: dict[str, Any], *, dysp_id: str, auto_key: str
+) -> dict[str, Any] | None:
+    reviews = machine.get("reviews")
+    if not isinstance(reviews, list):
+        return None
+    for review in reviews:
+        if not isinstance(review, dict):
+            continue
+        if str(review.get("dyspozycja_id") or "").strip() == dysp_id:
+            return review
+    if auto_key:
+        for review in reviews:
+            if not isinstance(review, dict):
+                continue
+            if str(review.get("auto_key") or "").strip() == auto_key:
+                return review
+    return None
+
+
+def _write_docx_after_review(
+    gui_maszyny,
+    *,
+    machine_id: str,
+    dysp_id: str,
+    auto_key: str,
+    completed_at: str,
+    completed_by: list[str],
+    result_note: str,
+    parent=None,
+) -> bool:
+    """Dopisz P do przypisanego DOCX po poprawnym zapisie historii WM."""
+
+    try:
+        import machine_history_runtime as history_runtime
+
+        machine = history_runtime._find_machine(gui_maszyny, machine_id)
+        if not machine:
+            logger.warning(
+                "[DYSP][DOCX_HISTORY] Po zapisie nie znaleziono maszyny %s.",
+                machine_id,
+            )
+            return False
+
+        review = _find_completed_review_for_docx(
+            machine,
+            dysp_id=dysp_id,
+            auto_key=auto_key,
+        )
+        description = str(result_note or "").strip()
+        if not description and review:
+            description = str(
+                review.get("result_note")
+                or review.get("description")
+                or review.get("type")
+                or ""
+            ).strip()
+        if not description:
+            description = "Przegląd / serwis"
+
+        return bool(
+            history_runtime._write_event(
+                machine,
+                gui_maszyny,
+                entry_type="P",
+                performed_at=completed_at,
+                performed_by=completed_by,
+                description=description,
+                parent=parent,
+            )
+        )
+    except Exception:
+        logger.exception(
+            "[DYSP][DOCX_HISTORY] Nie udało się wykonać bezpośredniego zapisu P."
+        )
+        return False
+
+
 def _open_completion_dialog(parent, row: dict[str, Any], *, who: str) -> bool:
     try:
         import gui_maszyny
@@ -149,9 +230,7 @@ def _open_completion_dialog(parent, row: dict[str, Any], *, who: str) -> bool:
     if tk is None or ttk is None or messagebox is None:
         return False
 
-    # Ukryty właściciel zachowuje ten sam kontekst, którego używa integracja DOCX.
-    # Dzięki tytułowi runtime DOCX rozpoznaje ID maszyny również wtedy, gdy
-    # formularz został otwarty z modułu Dyspozycje.
+    # Ukryty właściciel zachowuje kontekst roli i ID maszyny.
     owner = tk.Toplevel(parent)
     owner.title(f"Użytkowanie maszyny — {machine_id}")
     _copy_role_to_owner(parent, owner)
@@ -162,6 +241,9 @@ def _open_completion_dialog(parent, row: dict[str, Any], *, who: str) -> bool:
 
     dialog = tk.Toplevel(owner)
     dialog.title("Oznacz przegląd / serwis jako wykonany")
+    # Ten formularz zapisuje DOCX bezpośrednio. Blokujemy tylko automatyczny
+    # hook DOCX, aby ten sam przegląd nie został dopisany drugi raz.
+    dialog._wm_docx_review_decorated = True
     dialog.geometry("620x520")
     dialog.transient(owner)
     dialog.grab_set()
@@ -277,7 +359,7 @@ def _open_completion_dialog(parent, row: dict[str, Any], *, who: str) -> bool:
             )
             return
 
-        _patch_completed_review(
+        patched = _patch_completed_review(
             gui_maszyny,
             machine_id=machine_id,
             dysp_id=dysp_id,
@@ -285,6 +367,25 @@ def _open_completion_dialog(parent, row: dict[str, Any], *, who: str) -> bool:
             completed_at=performed_at,
             completed_by=completed_by,
             result_note=result_note,
+        )
+        if not patched:
+            messagebox.showwarning(
+                "Dyspozycje / Maszyny",
+                "Dyspozycja została zamknięta, ale nie udało się zapisać dokładnej "
+                "daty/osób w historii przeglądu. Wpis DOCX nie został wykonany.",
+                parent=dialog,
+            )
+            return
+
+        _write_docx_after_review(
+            gui_maszyny,
+            machine_id=machine_id,
+            dysp_id=dysp_id,
+            auto_key=auto_key,
+            completed_at=performed_at,
+            completed_by=completed_by,
+            result_note=result_note,
+            parent=owner,
         )
 
         try:
