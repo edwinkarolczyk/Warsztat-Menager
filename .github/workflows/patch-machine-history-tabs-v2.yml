@@ -1,0 +1,87 @@
+name: Patch machine history tabs v2
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/patch-machine-history-tabs-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Rozwiniecie
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --ff-only origin Rozwiniecie
+
+      - name: Restore machine source before failed patch
+        run: |
+          git show 2ab408918bbae75ccdeeb96aaface73e937ad486:gui_maszyny.py > gui_maszyny.py
+          test "$(git hash-object gui_maszyny.py)" = "c4f86a85d1e13a6475c6b9225c16fd17578d0749"
+
+      - name: Apply corrected approved patch
+        run: python3 _patch_machine_history_tabs_v2.py
+
+      - name: Compile
+        run: python3 -m py_compile gui_maszyny.py
+
+      - name: Structural and behavior checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('gui_maszyny.py').read_text(encoding='utf-8')
+          assert '# version: 1.7' in text
+          assert 'def _recompute_visible_rows() -> None:' in text
+          assert 'def _open_machine_usage_window(machine: Dict[str, Any]) -> None:' in text
+          usage_start = text.index('    def _open_machine_usage_window(machine: Dict[str, Any]) -> None:')
+          usage_end = text.index('    def _open_status_change_dialog(machine: Dict[str, Any]) -> None:', usage_start)
+          usage = text[usage_start:usage_end]
+          before_usage = text[:usage_start]
+          assert 'notebook = ttk.Notebook(outer)' not in before_usage
+          assert usage.count('notebook = ttk.Notebook(outer)') == 1
+          assert 'notebook.add(overview_tab, text="Podgląd")' in usage
+          assert 'notebook.add(full_history_tab, text="Historia")' in usage
+          assert 'text="Ostatnia historia statusów"' in usage
+          assert 'text="Ostatnia historia przeglądów / serwisów"' in usage
+          assert 'text="Pełna historia statusów"' in usage
+          assert 'text="Pełna historia przeglądów / serwisów"' in usage
+          assert 'entries[:5]' in usage
+          assert 'done_entries[:5]' in usage
+          assert 'if status_key in {REVIEW_STATUS_DONE, REVIEW_STATUS_CANCELLED}:' in usage
+          assert 'tags=(("overdue" if overdue else "pending"),)' in usage
+          assert 'Następny: {_format_machine_review_date(next_date)}' in usage
+          assert 'var_date = tk.StringVar(value=_format_machine_review_date(dt.date.today()))' in usage
+          assert 'font=("Segoe UI", 11, "bold")' in text
+          assert '_MACHINE_MONTH_LABELS_PL' in text
+          print('Structural checks: OK')
+          PY
+
+      - name: Diff validation
+        run: |
+          git diff --check
+          python3 - <<'PY'
+          import subprocess
+          changed = set(filter(None, subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines()))
+          expected = {'gui_maszyny.py'}
+          if changed != expected:
+              raise SystemExit(f'Expected only {sorted(expected)}, got {sorted(changed)}')
+          print('Scope check: OK')
+          PY
+
+      - name: Commit corrected source and remove one-shot files
+        run: |
+          git add gui_maszyny.py
+          git rm _patch_machine_history_tabs_v2.py .github/workflows/patch-machine-history-tabs-v2.yml
+          git commit -m "fix: correctly split machine histories"
+          git push origin Rozwiniecie
