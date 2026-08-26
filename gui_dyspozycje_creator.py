@@ -1,4 +1,6 @@
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Kreator pokazuje polskie nazwy typów Dyspozycji, zachowując techniczne wartości w danych.
 # Zmiany 1.4:
 # - Zamknięcie automatycznej Dyspozycji przeglądu z kreatora aktualizuje również serwis maszyny.
 # Zmiany 1.3:
@@ -40,6 +42,28 @@ from dyspozycje_store import (
     update_dyspozycja,
 )
 from maszyny_dyspozycje import sync_machine_review_from_dyspozycja
+
+_DYSP_TYPE_LABELS = {
+    "narzedzie": "Narzędzie",
+    "maszyna": "Maszyna",
+    "magazyn": "Magazyn",
+    "zlecenie_wykonania": "Wykonanie produkcji",
+}
+
+
+def _dysp_type_value(value: Any) -> str:
+    raw = str(value or "").strip()
+    if raw == "zamowienie":
+        return "zlecenie_wykonania"
+    for key, label in _DYSP_TYPE_LABELS.items():
+        if raw.casefold() == label.casefold():
+            return key
+    return raw
+
+
+def _dysp_type_label(value: Any) -> str:
+    key = _dysp_type_value(value)
+    return _DYSP_TYPE_LABELS.get(key, str(value or ""))
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
@@ -617,11 +641,13 @@ def open_dyspozycje_creator(
     ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
     ttk.Label(frame, text="Typ Dyspozycji:").grid(row=1, column=0, sticky="w", pady=4)
-    var_type = tk.StringVar(value=str(ctx.get("typ_dyspozycji") or "narzedzie"))
+    initial_type = _dysp_type_value(ctx.get("typ_dyspozycji") or "narzedzie")
+    var_type = tk.StringVar(value=initial_type)
+    var_type_display = tk.StringVar(value=_dysp_type_label(initial_type))
     cb_type = ttk.Combobox(
         frame,
-        textvariable=var_type,
-        values=["narzedzie", "maszyna", "magazyn", "zlecenie_wykonania"],
+        textvariable=var_type_display,
+        values=list(_DYSP_TYPE_LABELS.values()),
         state="readonly",
         width=24,
     )
@@ -1110,7 +1136,11 @@ def open_dyspozycje_creator(
 
     _toggle_assigned()
     var_all.trace_add("write", _toggle_assigned)
-    cb_type.bind("<<ComboboxSelected>>", _refresh_object_choices)
+    def _on_type_selected(*_args) -> None:
+        var_type.set(_dysp_type_value(var_type_display.get()))
+        _refresh_object_choices()
+
+    cb_type.bind("<<ComboboxSelected>>", _on_type_selected)
     _refresh_object_choices()
 
     def _filter_objects(*_args) -> None:

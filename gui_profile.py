@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.7.0
 """GUI moduł profilu użytkownika.
 
 Publiczne funkcje:
@@ -21,7 +21,10 @@ Danych źródłowych w folderze danych nie modyfikujemy.
 """
 
 # Plik: gui_profile.py
-# Wersja: 1.6.4 (H2c FULL)
+# Wersja: 1.7.0
+# Zmiany 1.7.0:
+# - Aktywny Profil pokazuje tylko dane zalogowanego użytkownika i jego bieżące Dyspozycje.
+# - Usunięto z aktywnego widoku Oś/PW/Narzędzia/ranking oraz stare źródła zadań.
 
 import os
 import json
@@ -1390,7 +1393,7 @@ class ProfileView(ttk.Frame):
         self.rola = rola or ""
         self.zatrudniony_od = zatrudniony_od or ""
         self.staz_lata = staz_lata
-        self.active_tab = tk.StringVar(value="Oś")
+        self.active_tab = tk.StringVar(value="Dyspozycje")
         self._tab_widgets: dict[str, ttk.Frame] = {}
         self._tab_contents: dict[str, ttk.Frame] = {}
         self._tab_builders = {}
@@ -1398,27 +1401,20 @@ class ProfileView(ttk.Frame):
         self._tasks_cache: list[dict] = []
         self._inbox_cache: list[dict] = []
         self._sent_cache: list[dict] = []
+        self._dysp_cache: list[dict] = []
         self._staz_days: int = 0
         self._about_container = None
         self._shortcuts_container = None
         self._center_container = None
         self._header_container = None
+        self._simple_container = None
         self.btn_send_pw = None
 
         self._reload_profile_data()
-
         self._init_styles()
         self._build_cover_header()
-        self._build_tabs()
-        self._build_columns()
-        try:
-            footer_ctx = {"login": self.login, "rola": self.rola}
-            footer = create_user_footer(self, footer_ctx)
-            footer.pack(fill="x", padx=12, pady=(12, 0))
-            self._user_footer = footer
-        except Exception as exc:
-            log_akcja(f"[WM-DBG][PROFILE] Footer init failed: {exc}")
-        log_akcja("[WM-DBG][PROFILE] Widok profilu zainicjalizowany.")
+        self._build_simple_profile()
+        log_akcja("[WM-DBG][PROFILE] Uproszczony profil z Dyspozycjami zainicjalizowany.")
 
     def load_by_login(self, login: str) -> None:
         # FIX(PROFILE): widok Profil nie przełącza się na dowolny login.
@@ -1505,83 +1501,31 @@ class ProfileView(ttk.Frame):
         )
 
     def _build_header(self, parent: ttk.Frame) -> None:
-        self.btn_send_pw = None
-
         wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrap.pack(fill="x")
-
-        try:
-            if getattr(self, "avatar_image", None):
-                avatar_row = ttk.Frame(wrap)
-                avatar_row.pack(fill="x", pady=(8, 6))
-                ttk.Label(
-                    avatar_row,
-                    image=self.avatar_image,
-                    anchor="center",
-                ).pack(pady=(0, 6))
-        except Exception:
-            pass
 
         user = get_user(self.login) or {}
         display = (
             user.get("display_name")
-            or getattr(self, "display_name", None)
+            or self.display_name
+            or " ".join(
+                part
+                for part in (
+                    str(user.get("imie") or "").strip(),
+                    str(user.get("nazwisko") or "").strip(),
+                )
+                if part
+            )
             or self.login
+            or "—"
         )
-        if not display:
-            display = "—"
         role = user.get("rola") or self.rola or "—"
-        years = staz_years_floor_for_login(self.login) if self.login else 0
-        years = years or 0
-        ym = user.get("zatrudniony_od") or self.zatrudniony_od or "—"
         login_label = f"@{self.login}" if self.login else "@—"
 
-        # [SETTINGS] pokazuj imię w nagłówku (fallback na ui.profile.show_name_header)
-        try:
-            cfg = ConfigManager()
-            show_name = cfg.get("profiles.ui.show_name_in_header", None)
-            if show_name is None:
-                show_name = cfg.get("ui.profile.show_name_header", True)
-            show_name = bool(show_name)
-        except Exception:
-            show_name = True
+        ttk.Label(wrap, text=str(display), style="WM.H1.TLabel").pack(anchor="w")
+        ttk.Label(wrap, text=login_label, style="WM.Muted.TLabel").pack(anchor="w", pady=(2, 0))
+        ttk.Label(wrap, text=f"Rola: {role}", style="WM.Muted.TLabel").pack(anchor="w", pady=(2, 0))
 
-        if show_name:
-            ttk.Label(wrap, text=display, style="WM.H1.TLabel").pack(anchor="w")
-            ttk.Label(
-                wrap,
-                text=login_label,
-                style="WM.Muted.TLabel",
-            ).pack(anchor="w", pady=(2, 0))
-        else:
-            ttk.Label(wrap, text=login_label, style="WM.H1.TLabel").pack(anchor="w")
-        ttk.Label(
-            wrap,
-            text=f"Rola: {role}    Staż: {years} lat (od {ym})",
-            style="WM.Muted.TLabel",
-        ).pack(anchor="w", pady=(2, 0))
-
-        actions = ttk.Frame(wrap, style="WM.TFrame")
-        actions.pack(anchor="w", pady=(8, 0))
-        self.btn_send_pw = ttk.Button(
-            actions,
-            text="Wyślij PW",
-            command=self._on_send_pw,
-            style="WM.Side.TButton",
-            takefocus=False,
-        )
-        self.btn_send_pw.pack(side="left", padx=(0, 6))
-        ttk.Button(
-            actions,
-            text="Kto ma najmniej zadań?",
-            command=self._on_least_tasks,
-            style="WM.Side.TButton",
-            takefocus=False,
-        ).pack(side="left", padx=(0, 6))
-        # INFO: zarządzanie użytkownikami ma być tylko w module Ustawienia.
-        # W module Profil nie pokazujemy przejścia do ustawień administracyjnych.
-
-    # ---------- COVER + AVATAR + INFO + PRZYCISKI ----------
     def _build_cover_header(self) -> None:
         cover = ttk.Frame(self, style="WM.Cover.TFrame")
         cover.pack(fill="x", padx=16, pady=(16, 8))
@@ -1608,6 +1552,169 @@ class ProfileView(ttk.Frame):
 
         separator = tk.Frame(self, height=1, bg=WM_DIVIDER)
         separator.pack(fill="x", padx=16, pady=(8, 0))
+
+    def _profile_shift_text(self) -> str:
+        if not self.login:
+            return "—"
+        try:
+            now = datetime.now()
+            if now.weekday() == 6:
+                return "Wolne"
+            times = _shift_times()
+            mode = _user_mode(str(self.login))
+            slot = _slot_for_mode(mode, _week_idx(now.date()))
+            # Zachowujemy dotychczasową regułę soboty z modułu Profil.
+            if now.weekday() == 5:
+                slot = "RANO"
+            if slot == "RANO":
+                return f"1 zmiana {times['R_START'].strftime('%H:%M')}–{times['R_END'].strftime('%H:%M')}"
+            return f"2 zmiana {times['P_START'].strftime('%H:%M')}–{times['P_END'].strftime('%H:%M')}"
+        except Exception as exc:
+            log_akcja(f"[WM-DBG][PROFILE] Błąd ustalania zmiany: {exc}")
+            return "—"
+
+    @staticmethod
+    def _profile_deadline_display(value: object) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return "—"
+        try:
+            parsed = _dt.strptime(raw[:10], "%Y-%m-%d")
+        except Exception:
+            return raw
+        days = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")
+        return f"{days[parsed.weekday()]} {parsed.strftime('%d-%m-%y')}"
+
+    @staticmethod
+    def _profile_type_label(value: object) -> str:
+        labels = {
+            "narzedzie": "Narzędzie",
+            "maszyna": "Maszyna",
+            "magazyn": "Magazyn",
+            "zlecenie_wykonania": "Wykonanie produkcji",
+            "zamowienie": "Wykonanie produkcji",
+        }
+        raw = str(value or "").strip().lower()
+        return labels.get(raw, str(value or "—"))
+
+    @staticmethod
+    def _profile_status_label(value: object) -> str:
+        labels = {
+            "nowa": "Nowa",
+            "w_toku": "W toku",
+            "wstrzymana": "Wstrzymana",
+            "zamknieta": "Zamknięta",
+        }
+        raw = str(value or "").strip().lower()
+        return labels.get(raw, str(value or "—"))
+
+    def _build_simple_profile(self) -> None:
+        body = ttk.Frame(self, style="WM.Container.TFrame")
+        body.pack(fill="both", expand=True, padx=16, pady=(4, 16))
+        self._simple_container = body
+        self._render_simple_profile(body)
+
+    def _render_simple_profile(self, parent: ttk.Frame) -> None:
+        user = self._user_data or {}
+
+        work = ttk.LabelFrame(parent, text="Praca", style="WM.Section.TLabelframe", padding=12)
+        work.pack(fill="x", pady=(0, 10))
+
+        def info_row(label: str, value: str) -> None:
+            row = ttk.Frame(work, style="WM.TFrame")
+            row.pack(fill="x", pady=2)
+            ttk.Label(row, text=f"{label}:", style="WM.Muted.TLabel", width=20).pack(side="left")
+            ttk.Label(row, text=value or "—", style="WM.TLabel").pack(side="left")
+
+        employed = str(user.get("zatrudniony_od") or self.zatrudniony_od or "—")
+        if self._staz_days:
+            tenure = f"{self.staz_lata} lat ({self._staz_days} dni)"
+        else:
+            tenure = f"{self.staz_lata} lat"
+        info_row("Dzisiejsza zmiana", self._profile_shift_text())
+        info_row("Zatrudniony od", employed)
+        info_row("Staż", tenure)
+
+        box = ttk.LabelFrame(parent, text="Moje Dyspozycje", style="WM.Section.TLabelframe", padding=12)
+        box.pack(fill="both", expand=True)
+
+        rows = [row for row in self._dysp_cache if isinstance(row, dict)]
+        counts = {"nowa": 0, "w_toku": 0, "wstrzymana": 0, "zamknieta": 0}
+        for row in rows:
+            status = str(row.get("status") or "").strip().lower()
+            if status in counts:
+                counts[status] += 1
+
+        counters = ttk.Frame(box, style="WM.TFrame")
+        counters.pack(fill="x", pady=(0, 8))
+        for text_value in (
+            f"Nowe: {counts['nowa']}",
+            f"W toku: {counts['w_toku']}",
+            f"Wstrzymane: {counts['wstrzymana']}",
+            f"Zamknięte: {counts['zamknieta']}",
+        ):
+            ttk.Label(counters, text=text_value, style="WM.TLabel", relief="groove").pack(side="left", padx=(0, 8))
+
+        style = ttk.Style(self)
+        style.configure("Profile.Dyspozycje.Treeview", font=("Segoe UI", 11), rowheight=30)
+        style.configure("Profile.Dyspozycje.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+
+        table_wrap = ttk.Frame(box, style="WM.TFrame")
+        table_wrap.pack(fill="both", expand=True)
+        columns = ("termin", "dyspozycja", "typ", "status", "priorytet")
+        tree = ttk.Treeview(
+            table_wrap,
+            columns=columns,
+            show="headings",
+            style="Profile.Dyspozycje.Treeview",
+            height=12,
+        )
+        headings = {
+            "termin": "Termin",
+            "dyspozycja": "Dyspozycja",
+            "typ": "Typ",
+            "status": "Status",
+            "priorytet": "Priorytet",
+        }
+        widths = {"termin": 150, "dyspozycja": 480, "typ": 180, "status": 130, "priorytet": 120}
+        for key in columns:
+            tree.heading(key, text=headings[key])
+            tree.column(key, width=widths[key], anchor="w", stretch=(key == "dyspozycja"))
+        scroll = ttk.Scrollbar(table_wrap, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scroll.set)
+        tree.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        active_rows = [row for row in rows if str(row.get("status") or "").strip().lower() != "zamknieta"]
+        active_rows.sort(
+            key=lambda row: (
+                str(row.get("termin") or "9999-12-31"),
+                str(row.get("tytul") or "").casefold(),
+            )
+        )
+        for row in active_rows:
+            title = str(row.get("tytul") or row.get("opis") or row.get("id") or "Dyspozycja").strip()
+            if bool(row.get("dla_wszystkich")):
+                title = f"{title} • dla wszystkich"
+            priority = str(row.get("priorytet") or "normalny").strip().capitalize()
+            tree.insert(
+                "",
+                "end",
+                values=(
+                    self._profile_deadline_display(row.get("termin")),
+                    title,
+                    self._profile_type_label(row.get("typ_dyspozycji")),
+                    self._profile_status_label(row.get("status")),
+                    priority,
+                ),
+            )
+
+        if not active_rows:
+            ttk.Label(
+                box,
+                text="Brak aktywnych Dyspozycji dla tego użytkownika.",
+                style="WM.Muted.TLabel",
+            ).pack(anchor="w", pady=(8, 0))
 
     def _make_avatar(self, parent: tk.Widget) -> tk.Widget:
         # FIX(AVATAR): nie ukrywaj avatara tylko dlatego, że brak/wyłączony wpis
@@ -1649,20 +1756,19 @@ class ProfileView(ttk.Frame):
             self._tasks_cache = []
             self._inbox_cache = []
             self._sent_cache = []
+            self._dysp_cache = []
             self._staz_days = 0
             return
 
         self._user_data = get_user(self.login) or {}
-        self._tasks_cache = list(get_tasks_for(self.login) or [])
-        role_for_tasks = self._user_data.get("rola") or self.rola
+        self._tasks_cache = []
+        self._inbox_cache = []
+        self._sent_cache = []
         try:
-            tool_tasks = _collect_tool_tasks(self.login, role_for_tasks)
+            self._dysp_cache = list(visible_for_login(self.login) or [])
         except Exception as exc:
-            log_akcja(f"[WM-DBG][PROFILE] Nie udało się wczytać zadań narzędzi: {exc}")
-            tool_tasks = []
-        self._tasks_cache.extend(tool_tasks)
-        self._inbox_cache = list(list_inbox(self.login) or [])
-        self._sent_cache = list(list_sent(self.login) or [])
+            log_akcja(f"[WM-DBG][PROFILE] Nie udało się wczytać Dyspozycji: {exc}")
+            self._dysp_cache = []
         self._staz_days = staz_days_for_login(self.login)
         display_candidates = [
             self._user_data.get("display_name"),
@@ -1679,13 +1785,13 @@ class ProfileView(ttk.Frame):
             self.login,
         ]
         for candidate in display_candidates:
-            text = str(candidate or "").strip()
-            if text:
-                self.display_name = text
+            value = str(candidate or "").strip()
+            if value:
+                self.display_name = value
                 break
-        rola = self._user_data.get("rola")
-        if rola:
-            self.rola = str(rola)
+        role = self._user_data.get("rola")
+        if role:
+            self.rola = str(role)
         zatr = self._user_data.get("zatrudniony_od")
         if zatr:
             self.zatrudniony_od = str(zatr)
@@ -1706,17 +1812,10 @@ class ProfileView(ttk.Frame):
             for child in self._header_container.winfo_children():
                 child.destroy()
             self._build_header(self._header_container)
-        if self._about_container is not None:
-            for child in self._about_container.winfo_children():
+        if self._simple_container is not None:
+            for child in self._simple_container.winfo_children():
                 child.destroy()
-            self._build_about(self._about_container)
-        if self._shortcuts_container is not None:
-            for child in self._shortcuts_container.winfo_children():
-                child.destroy()
-            self._build_shortcuts(self._shortcuts_container)
-        for tab_name in self._tab_contents.keys():
-            self._render_tab(tab_name)
-        self._activate_tab(self.active_tab.get())
+            self._render_simple_profile(self._simple_container)
 
     def _parse_timestamp(self, value: str | None) -> datetime | None:
         if not value:

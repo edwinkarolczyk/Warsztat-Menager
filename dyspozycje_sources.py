@@ -1,5 +1,8 @@
-# version: 1.1
+# version: 1.2
 """Źródła danych dla Dyspozycji (bez GUI)."""
+# Zmiany 1.2:
+# - Lista Magazynu w kreatorze korzysta z logika_magazyn.load_magazyn(include_external=True).
+# - Klucze techniczne items/meta nie są już traktowane jak pozycje magazynowe.
 # Zmiany 1.1:
 # - Zlecenie wykonania korzysta z realnego Planowania oraz katalogów Produkt/Półprodukt.
 # - Dodano kontekst źródła: poziom wykonania, nr zlecenia, produkt i ilość.
@@ -370,110 +373,66 @@ def load_machine_choices() -> List[Tuple[str, str]]:
 # MAGAZYN
 # =========================================================
 def load_magazyn_choices() -> List[Tuple[str, str]]:
+    """Zwróć realne pozycje z tego samego loadera, którego używa moduł Magazyn."""
+    try:
+        from logika_magazyn import load_magazyn
+
+        data = load_magazyn(include_external=True) or {}
+    except Exception as exc:
+        try:
+            print(f"[WM-DBG][DYSP][SRC] canonical magazyn load failed: {exc}")
+        except Exception:
+            pass
+        return []
+
+    rows = data.get("pozycje") or data.get("items") or {}
+    if isinstance(rows, dict):
+        iterable = list(rows.items())
+    elif isinstance(rows, list):
+        iterable = [("", row) for row in rows]
+    else:
+        return []
+
+    type_labels = {
+        "surowiec": "Surowiec",
+        "półprodukt": "Półprodukt",
+        "polprodukt": "Półprodukt",
+        "produkt": "Produkt",
+    }
+    type_order = {"surowiec": 0, "półprodukt": 1, "polprodukt": 1, "produkt": 2}
     out: List[Tuple[str, str]] = []
     seen: set[str] = set()
 
-    candidates = [
-        _warehouse_file_path(),
-        os.path.join(_magazyn_dir_path(), "katalog.json"),
-        os.path.join(_magazyn_dir_path(), "stany.json"),
-    ]
-    try:
-        print(f"[WM-DBG][DYSP][SRC] magazyn_candidates={candidates}")
-    except Exception:
-        pass
-
-    for path in [p for p in candidates if p]:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
+    for key, raw in iterable:
+        if not isinstance(raw, dict):
             continue
+        code = str(
+            raw.get("id")
+            or raw.get("kod")
+            or raw.get("nr")
+            or raw.get("symbol")
+            or key
+            or ""
+        ).strip()
+        if not code:
+            continue
+        folded = code.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        name = str(raw.get("nazwa") or raw.get("name") or raw.get("opis") or "").strip()
+        raw_type = str(raw.get("typ") or "").strip().lower()
+        section = type_labels.get(raw_type, raw_type.capitalize() if raw_type else "Magazyn")
+        main = f"{code} - {name}" if name and name != code else code
+        out.append((code, f"{section} | {main}"))
 
-        rows = []
-        if isinstance(data, dict):
-            if isinstance(data.get("items"), list):
-                rows = data.get("items") or []
-            elif isinstance(data.get("pozycje"), list):
-                rows = data.get("pozycje") or []
-            elif isinstance(data.get("magazyn"), list):
-                rows = data.get("magazyn") or []
-            elif isinstance(data.get("produkty"), list):
-                rows = data.get("produkty") or []
-            elif isinstance(data.get("stany"), list):
-                rows = data.get("stany") or []
-            elif isinstance(data.get("lista"), list):
-                rows = data.get("lista") or []
-            elif isinstance(data.get("rows"), list):
-                rows = data.get("rows") or []
-            elif isinstance(data.get("data"), list):
-                rows = data.get("data") or []
-            else:
-                for key, row in data.items():
-                    if isinstance(row, dict):
-                        code = str(
-                            row.get("id")
-                            or row.get("kod")
-                            or row.get("nr")
-                            or row.get("symbol")
-                            or row.get("index")
-                            or row.get("numer")
-                            or key
-                        ).strip()
-                        if not code or code.lower() in seen:
-                            continue
-                        seen.add(code.lower())
-                        name = str(
-                            row.get("nazwa")
-                            or row.get("name")
-                            or row.get("opis")
-                            or row.get("typ")
-                            or row.get("material")
-                            or ""
-                        ).strip()
-                        label = f"{code} - {name}" if name else code
-                        out.append((code, label))
-                if out:
-                    return out
-                continue
-        elif isinstance(data, list):
-            rows = data
+    def _sort_key(item: Tuple[str, str]):
+        code, label = item
+        raw = rows.get(code) if isinstance(rows, dict) else None
+        typ = str((raw or {}).get("typ") or "").strip().lower() if isinstance(raw, dict) else ""
+        return (type_order.get(typ, 9), label.casefold())
 
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-
-            if isinstance(row.get("pozycja"), dict):
-                row = row.get("pozycja") or row
-            elif isinstance(row.get("item"), dict):
-                row = row.get("item") or row
-
-            code = str(
-                row.get("id")
-                or row.get("kod")
-                or row.get("nr")
-                or row.get("symbol")
-                or row.get("index")
-                or row.get("numer")
-                or ""
-            ).strip()
-            if not code or code.lower() in seen:
-                continue
-            seen.add(code.lower())
-            name = str(
-                row.get("nazwa")
-                or row.get("name")
-                or row.get("opis")
-                or row.get("typ")
-                or row.get("material")
-                or ""
-            ).strip()
-            label = f"{code} - {name}" if name else code
-            out.append((code, label))
-
-        if out:
-            return out
-
+    out.sort(key=_sort_key)
     return out
 
 
