@@ -1,4 +1,7 @@
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - Pełna historia statusów i przeglądów mieści się w domyślnym oknie Użytkowanie maszyny.
+# - Bieżący status pokazuje „Aktualny” zamiast mylącego „w toku”.
 # Zmiany 1.5:
 # - Zapis historii DOCX używa trybu zgodnego z dyskami sieciowymi/SMB.
 # Zmiany 1.4:
@@ -17,6 +20,7 @@ from importlib import import_module
 
 import machine_history_runtime as _history_runtime
 from machine_history_docx_io import append_history_entry as _append_history_entry
+from machine_history_layout_runtime import install_machine_history_layout
 
 # Runtime zapisuje zdarzenia bezpośrednio po wykonaniu przeglądu/naprawy.
 # Podmieniamy wyłącznie warstwę fizycznego zapisu DOCX, aby działała także
@@ -32,6 +36,7 @@ def _ensure_gui_integration() -> None:
     gui_module = sys.modules.get("gui_maszyny")
     if gui_module is not None:
         install_gui_integration(gui_module)
+        install_machine_history_layout(gui_module)
 
 
 class _IntegratedModule(types.ModuleType):
