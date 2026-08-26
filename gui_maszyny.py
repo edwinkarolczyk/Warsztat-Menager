@@ -1,4 +1,8 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Uproszczono okno Użytkowanie maszyny: mniej kolumn w historii i serwisach.
+# - Historia statusów pokazuje bezpośrednio powód / zdarzenie serwisowe.
+# - Historia statusów odświeża się od razu po rozpoczęciu i zakończeniu serwisu.
 # Zmiany 1.1:
 # - Główna lista Maszyn używa tej samej wielkości czcionki co Dyspozycje: Segoe UI 11, nagłówki 11 bold, wiersz 30 px.
 from __future__ import annotations
@@ -3671,20 +3675,16 @@ def _open_machines_panel(
             row=3, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
         )
         outer.rowconfigure(3, weight=1)
-        hist_cols = (
-            "status", "start", "stop", "czas", "kto", "zdjecia", "opis"
-        )
+        hist_cols = ("status", "start", "stop", "kto", "zdarzenie")
         hist_tree = ttk.Treeview(
-            history_box, columns=hist_cols, show="headings", height=12
+            history_box, columns=hist_cols, show="headings", height=9
         )
         hist_setup = {
-            "status": ("Status", 150, "w"),
-            "start": ("Start", 140, "center"),
-            "stop": ("Stop", 140, "center"),
-            "czas": ("Czas", 110, "center"),
-            "kto": ("Kto", 110, "w"),
-            "zdjecia": ("Zdjęcia", 80, "center"),
-            "opis": ("Opis", 420, "w"),
+            "status": ("Status", 135, "w"),
+            "start": ("Start", 125, "center"),
+            "stop": ("Stop", 125, "center"),
+            "kto": ("Kto", 120, "w"),
+            "zdarzenie": ("Powód / zdarzenie", 430, "w"),
         }
         for col, (label, width, anchor) in hist_setup.items():
             hist_tree.heading(col, text=label)
@@ -3714,44 +3714,45 @@ def _open_machines_panel(
             start = str(item.get("started_at") or "—").replace("T", " ")[:16]
             if item.get("__current"):
                 stop = "w toku"
-                duration = _format_duration_minutes(
-                    _duration_minutes(item.get("started_at"), _machine_now_iso())
-                )
                 who = str(item.get("changed_by") or "—")
                 note = str(item.get("note") or "")
             else:
                 stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
-                duration = _format_duration_minutes(item.get("duration_minutes"))
                 who = str(item.get("closed_by") or item.get("changed_by") or "—")
                 note = str(item.get("close_note") or item.get("note") or "")
             photos = (
                 item.get("photos") if isinstance(item.get("photos"), list) else []
             )
-            photos_text = f"📷 {len(photos)}" if photos else "—"
-            return status, start, stop, duration, who, photos_text, note
+            event_text = note.strip() or "Zmiana statusu"
+            if photos:
+                event_text += f" | zdjęcia: {len(photos)}"
+            return status, start, stop, who, event_text
 
-        entries = _history_entries_for_usage(machine)
-        if entries:
-            for item in entries:
-                iid = hist_tree.insert(
-                    "", "end", values=_history_entry_values(item)
+        def _refresh_history_tree() -> None:
+            history_items.clear()
+            for iid in hist_tree.get_children():
+                hist_tree.delete(iid)
+            entries = _history_entries_for_usage(machine)
+            if entries:
+                for item in entries:
+                    iid = hist_tree.insert(
+                        "", "end", values=_history_entry_values(item)
+                    )
+                    history_items[iid] = item
+            else:
+                hist_tree.insert(
+                    "",
+                    "end",
+                    values=(
+                        "—",
+                        "—",
+                        "—",
+                        "—",
+                        "Brak historii. Pierwszy wpis powstanie przy zmianie statusu.",
+                    ),
                 )
-                history_items[iid] = item
-        else:
-            hist_tree.insert(
-                "",
-                "end",
-                values=(
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "—",
-                    "Brak historii. Pierwszy wpis powstanie przy zmianie "
-                    "statusu.",
-                ),
-            )
+
+        _refresh_history_tree()
 
         def _selected_history_item() -> Optional[Dict[str, Any]]:
             selected = hist_tree.selection()
@@ -3863,23 +3864,19 @@ def _open_machines_panel(
             row=4, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
         )
 
-        reviews_cols = (
-            "date", "type", "status", "suggested", "done_by", "done", "desc"
-        )
+        reviews_cols = ("date", "type", "status", "people", "details")
         reviews_tree = ttk.Treeview(
             reviews_box,
             columns=reviews_cols,
             show="headings",
-            height=5,
+            height=6,
         )
         reviews_setup = {
             "date": ("Data", 105, "center"),
-            "type": ("Typ", 150, "w"),
-            "status": ("Status", 100, "center"),
-            "suggested": ("Sugerowani", 140, "w"),
-            "done_by": ("Wykonali", 140, "w"),
-            "done": ("Wykonano", 125, "center"),
-            "desc": ("Opis", 300, "w"),
+            "type": ("Typ", 165, "w"),
+            "status": ("Status", 105, "center"),
+            "people": ("Osoby", 190, "w"),
+            "details": ("Szczegóły", 420, "w"),
         }
         for col, (label, width, anchor) in reviews_setup.items():
             reviews_tree.heading(col, text=label)
@@ -3908,14 +3905,28 @@ def _open_machines_panel(
             for iid in reviews_tree.get_children():
                 reviews_tree.delete(iid)
             for entry in _machine_reviews(machine):
+                status_label = _review_status_label(entry.get("status"))
+                if status_label == "Wykonany":
+                    people = _people_text(entry.get("completed_by"))
+                    completed_at = str(entry.get("completed_at") or "").replace("T", " ")[:16]
+                    details = str(entry.get("result_note") or entry.get("description") or "")
+                    if completed_at:
+                        details = f"Wykonano: {completed_at}" + (f" | {details}" if details else "")
+                elif status_label == "W trakcie":
+                    people = str(entry.get("started_by") or "") or _people_text(entry.get("suggested_workers"))
+                    started_at = str(entry.get("started_at") or "").replace("T", " ")[:16]
+                    details = str(entry.get("description") or "")
+                    if started_at:
+                        details = f"Rozpoczęto: {started_at}" + (f" | {details}" if details else "")
+                else:
+                    people = _people_text(entry.get("suggested_workers"))
+                    details = str(entry.get("description") or "")
                 values = (
                     str(entry.get("planned_date") or "—"),
                     str(entry.get("type") or ""),
-                    _review_status_label(entry.get("status")),
-                    _people_text(entry.get("suggested_workers")),
-                    _people_text(entry.get("completed_by")),
-                    str(entry.get("completed_at") or "—").replace("T", " ")[:16],
-                    str(entry.get("description") or entry.get("result_note") or ""),
+                    status_label,
+                    people or "—",
+                    details or "—",
                 )
                 iid = reviews_tree.insert("", "end", values=values)
                 review_items[iid] = entry
@@ -3981,6 +3992,7 @@ def _open_machines_panel(
             )
             machine.update(updated)
             _persist_machine_after_review_change(updated)
+            _refresh_history_tree()
             _refresh_reviews_tree()
 
         def _persist_machine_reviews() -> None:
@@ -4181,6 +4193,7 @@ def _open_machines_panel(
                     )
                 machine.update(updated)
                 _persist_machine_after_review_change(updated)
+                _refresh_history_tree()
                 _refresh_reviews_tree()
                 dialog.destroy()
 
