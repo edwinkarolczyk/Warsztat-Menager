@@ -1,0 +1,51 @@
+name: Patch machine history date format
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '_patch_machine_history_dates.py'
+      - '.github/workflows/patch-machine-history-dates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Apply approved display-only patch
+        run: python _patch_machine_history_dates.py
+
+      - name: Validate Python and exact scope
+        run: |
+          python -m py_compile gui_maszyny.py
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('gui_maszyny.py').read_text(encoding='utf-8')
+          assert '# version: 1.4' in text
+          assert '_MACHINE_WEEKDAY_LABELS_PL = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")' in text
+          assert 'return f"{weekday} {parsed.strftime(\'%d-%m-%y %H:%M\')}"' in text
+          assert 'start = _format_machine_history_dt(item.get("started_at"))' in text
+          assert 'stop = _format_machine_history_dt(item.get("ended_at"))' in text
+          assert '_format_machine_history_dt(start_raw)' in text
+          PY
+          changed="$(git diff --name-only)"
+          test "$changed" = "gui_maszyny.py"
+
+      - name: Commit approved source and cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gui_maszyny.py
+          git rm _patch_machine_history_dates.py .github/workflows/patch-machine-history-dates.yml
+          git commit -m "style: improve machine status history dates"
+          git push origin Rozwiniecie
