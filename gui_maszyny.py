@@ -1,4 +1,6 @@
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - Start/Stop w historii statusów pokazują polski skrót dnia tygodnia oraz datę DD-MM-RR z godziną.
 # Zmiany 1.3:
 # - Cykliczne miesiące przeglądów są widoczne w dolnej liście serwisów jako Przegląd cykliczny.
 # - Rozpoczęcie lub wykonanie wpisu cyklicznego materializuje go do reviews bez duplikowania miesiąca.
@@ -255,6 +257,18 @@ def _parse_machine_dt(value: object) -> Optional[dt.datetime]:
         return dt.datetime.fromisoformat(text)
     except Exception:
         return None
+
+
+_MACHINE_WEEKDAY_LABELS_PL = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")
+
+
+def _format_machine_history_dt(value: object) -> str:
+    parsed = _parse_machine_dt(value)
+    if parsed is None:
+        raw = str(value or "").strip()
+        return raw.replace("T", " ")[:16] if raw else "—"
+    weekday = _MACHINE_WEEKDAY_LABELS_PL[parsed.weekday()]
+    return f"{weekday} {parsed.strftime('%d-%m-%y %H:%M')}"
 
 
 def _duration_minutes(started_at: object, ended_at: object) -> int:
@@ -848,8 +862,8 @@ def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
             if not isinstance(item, dict):
                 continue
             status = _machine_status_label(item.get("status"))
-            start = str(item.get("started_at") or "—").replace("T", " ")[:16]
-            stop = str(item.get("ended_at") or "—").replace("T", " ")[:16]
+            start = _format_machine_history_dt(item.get("started_at"))
+            stop = _format_machine_history_dt(item.get("ended_at"))
             duration = _format_duration_minutes(item.get("duration_minutes"))
             who = str(item.get("closed_by") or item.get("changed_by") or "—")
             note = str(item.get("close_note") or item.get("note") or "")
@@ -866,7 +880,7 @@ def _machine_status_history_rows(machine: Dict[str, Any]) -> List[tuple]:
         rows.append(
             (
                 _machine_status_label(current.get("status")),
-                str(start_raw or "—").replace("T", " ")[:16],
+                _format_machine_history_dt(start_raw),
                 "w toku",
                 _format_duration_minutes(_duration_minutes(start_raw, now)),
                 str(current.get("changed_by") or "—"),
