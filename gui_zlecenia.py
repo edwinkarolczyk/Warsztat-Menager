@@ -1,4 +1,7 @@
-# version: 1.6
+# version: 1.7
+# Zmiany 1.7:
+# - Dyspozycje automatycznie dodają zadanie dla cyklicznego przeglądu maszyny do 7 dni przed terminem.
+# - Automatyczny wpis zachowuje typ Maszyna, konkretną maszynę, opis źródła oraz roczny klucz bez duplikatów.
 # Zmiany 1.6:
 # - Rozpoczęcie Dyspozycji wykonania rezerwuje potrzebne dostępne stany Magazynu.
 # - Zamknięcie rozlicza faktyczną ilość, zużywa rezerwacje i dopiero potem księguje naddatek półproduktu.
@@ -41,6 +44,7 @@ from dyspozycje_store import (
     update_dyspozycja,
 )
 from dyspozycje_sources import load_machine_choices, load_tool_choices
+from maszyny_dyspozycje import ensure_due_machine_cycle_dyspozycje
 from services.profile_service import ProfileService
 from planowanie_magazyn import (
     WarehouseIntegrationError,
@@ -1267,6 +1271,13 @@ class ZleceniaView(ttk.Frame):
         self._apply_dysp_ui_config()
         self._ensure_blink_started()
         try:
+            try:
+                ensure_due_machine_cycle_dyspozycje(today=_dt.date.today())
+            except Exception as exc:
+                logger.exception(
+                    "[DYSP][MASZYNY] Nie udało się zsynchronizować cyklicznych przeglądów: %s",
+                    exc,
+                )
             rows = _load_orders_rows()
             try:
                 from gui_panel import wm_set_module_source
