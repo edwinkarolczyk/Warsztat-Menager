@@ -139,7 +139,7 @@ def _decorate_complete_dialog(window, gui_module) -> None:
         return
 
     try:
-        buttons_frame.grid_configure(row=3)
+        buttons_frame.grid_configure(row=4)
     except Exception:
         return
 
@@ -150,14 +150,14 @@ def _decorate_complete_dialog(window, gui_module) -> None:
     )
 
     ttk.Label(form, text="Data wykonania:").grid(
-        row=2, column=0, sticky="e", padx=4, pady=4
+        row=2, column=0, sticky="e", padx=4, pady=(6, 2)
     )
     date_entry = ttk.Entry(form, textvariable=date_var, width=24)
-    date_entry.grid(row=2, column=1, sticky="w", padx=4, pady=4)
+    date_entry.grid(row=2, column=1, sticky="w", padx=4, pady=(6, 2))
     ttk.Label(
         form,
         text="Tylko Brygadzista: dzisiejsza lub wcześniejsza data.",
-    ).grid(row=2, column=1, sticky="e", padx=4, pady=4)
+    ).grid(row=3, column=1, sticky="w", padx=4, pady=(0, 4))
 
     original_now = getattr(gui_module, "_machine_now_iso", None)
 
