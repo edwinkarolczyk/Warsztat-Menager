@@ -1,4 +1,6 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Okno szczegółów narzędzia ma większy rozmiar startowy i minimum, żeby nie ucinać treści.
 """Widok szczegółów narzędzia oparty o szablony zadań."""
 
 from __future__ import annotations
@@ -46,6 +48,9 @@ class ToolDetailWindow:
     ) -> None:
         self.window = tk.Toplevel(owner)
         self.window.title(f"Narzędzie {tool.get('id', '')}")
+        self.window.geometry("900x650")
+        self.window.minsize(800, 560)
+        self.window.resizable(True, True)
         ensure_theme_applied(self.window)
 
         top = ttk.Frame(self.window)

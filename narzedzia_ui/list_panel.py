@@ -1,4 +1,6 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Główne okno Narzędzi startuje większe i ma bezpieczny minimalny rozmiar.
 # Zmiany 1.1:
 # - Listy Narzędzi używają tej samej wielkości czcionki co Dyspozycje: Segoe UI 11, nagłówki 11 bold, wiersz 30 px.
 """Widok listy narzędzi wydzielony z głównego modułu GUI."""
@@ -1409,8 +1411,8 @@ class ToolsBatchLoader:
 class ToolsListWindow:
     """Okno prezentujące listę narzędzi wraz z paskiem przewijania."""
 
-    _DEFAULT_WIDTH = 900
-    _DEFAULT_HEIGHT = 540
+    _DEFAULT_WIDTH = 1180
+    _DEFAULT_HEIGHT = 700
 
     def __init__(
         self,
@@ -1423,6 +1425,8 @@ class ToolsListWindow:
         self.window = tk.Toplevel()
         self.window.title("Narzędzia")
         self.window.geometry(f"{self._DEFAULT_WIDTH}x{self._DEFAULT_HEIGHT}")
+        self.window.minsize(1000, 620)
+        self.window.resizable(True, True)
         ensure_theme_applied(self.window)
         self._center_on_primary_monitor()
         self.window.attributes("-topmost", True)

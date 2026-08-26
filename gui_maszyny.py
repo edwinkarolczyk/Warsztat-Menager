@@ -1,4 +1,6 @@
-# version: 1.7
+# version: 1.8
+# Zmiany 1.8:
+# - Czcionka tabel Maszyn zmniejszona z 11 do 9 pkt; pozostaje pogrubiona.
 # Zmiany 1.7:
 # - Daty w module Maszyny są wyświetlane jako DD Miesiąc RRr, z godziną tam gdzie potrzebna.
 # - Użytkowanie maszyny ma osobne zakładki Podgląd i Historia.
@@ -2529,8 +2531,8 @@ def _build_tree(parent: tk.Misc, rows: List[Dict]) -> ttk.Treeview:
     _ensure_tree_columns(tree)
     try:
         style = ttk.Style(tree)
-        style.configure("Maszyny.Treeview", font=("Segoe UI", 11, "bold"), rowheight=30)
-        style.configure("Maszyny.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+        style.configure("Maszyny.Treeview", font=("Segoe UI", 9, "bold"), rowheight=30)
+        style.configure("Maszyny.Treeview.Heading", font=("Segoe UI", 9, "bold"))
         tree.configure(style="Maszyny.Treeview")
     except Exception:
         pass
