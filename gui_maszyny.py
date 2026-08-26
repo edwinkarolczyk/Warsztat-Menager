@@ -1,4 +1,7 @@
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - Cykliczne miesiące przeglądów są widoczne w dolnej liście serwisów jako Przegląd cykliczny.
+# - Rozpoczęcie lub wykonanie wpisu cyklicznego materializuje go do reviews bez duplikowania miesiąca.
 # Zmiany 1.2:
 # - Uproszczono okno Użytkowanie maszyny: mniej kolumn w historii i serwisach.
 # - Historia statusów pokazuje bezpośrednio powód / zdarzenie serwisowe.
@@ -553,6 +556,32 @@ def _review_month_done(
     return False
 
 
+def _review_month_has_persisted_cycle(
+    machine: Dict[str, Any],
+    *,
+    year: int,
+    month: int,
+    review_type: str,
+) -> bool:
+    wanted_type = str(review_type or "").strip().lower()
+    for review in _machine_reviews(machine):
+        if str(review.get("source") or "").strip().lower() != REVIEW_SOURCE_CYCLE:
+            continue
+        date_value = _review_date(
+            review.get("date")
+            or review.get("data")
+            or review.get("planned_date")
+            or review.get("completed_at")
+            or review.get("done_at")
+        )
+        if not date_value or date_value.year != year or date_value.month != month:
+            continue
+        current_type = str(review.get("type") or review.get("typ") or "").strip().lower()
+        if not current_type or current_type == wanted_type:
+            return True
+    return False
+
+
 def _combined_machine_review_entries(
     machine: Dict[str, Any],
     *,
@@ -582,7 +611,7 @@ def _combined_machine_review_entries(
         entry = dict(review)
         entry["date"] = date_value.isoformat()
         entry["type"] = str(review.get("type") or review.get("typ") or "Przegląd okresowy")
-        entry["status"] = _review_status_key(review.get("status"))
+        entry["status"] = str(review.get("status") or REVIEW_STATUS_PLANNED)
         entry["source"] = str(review.get("source") or REVIEW_SOURCE_MANUAL)
         entries.append(entry)
 
@@ -593,6 +622,10 @@ def _combined_machine_review_entries(
 
     for year in years:
         for month in months:
+            if _review_month_has_persisted_cycle(
+                machine, year=year, month=month, review_type=default_type
+            ):
+                continue
             if _review_month_done(machine, year=year, month=month, review_type=default_type):
                 continue
 
@@ -3904,7 +3937,35 @@ def _open_machines_panel(
             review_items.clear()
             for iid in reviews_tree.get_children():
                 reviews_tree.delete(iid)
-            for entry in _machine_reviews(machine):
+            entries = _combined_machine_review_entries(
+                machine, today=dt.date.today(), years_ahead=1
+            )
+            month_names = dict(MONTH_LABELS_PL)
+            for entry in entries:
+                source = str(entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
+                is_cycle = source == REVIEW_SOURCE_CYCLE
+                date_value = _review_date(
+                    entry.get("date")
+                    or entry.get("planned_date")
+                    or entry.get("completed_at")
+                )
+                planned_text = (
+                    date_value.isoformat()
+                    if date_value is not None
+                    else str(entry.get("planned_date") or "—")
+                )
+                type_text = (
+                    "Przegląd cykliczny"
+                    if is_cycle
+                    else str(entry.get("type") or "")
+                )
+                cycle_text = ""
+                if is_cycle and date_value is not None:
+                    cycle_text = (
+                        f"Cykliczny: {month_names.get(date_value.month, str(date_value.month))} "
+                        f"{date_value.year}"
+                    )
+
                 status_label = _review_status_label(entry.get("status"))
                 if status_label == "Wykonany":
                     people = _people_text(entry.get("completed_by"))
@@ -3913,17 +3974,25 @@ def _open_machines_panel(
                     if completed_at:
                         details = f"Wykonano: {completed_at}" + (f" | {details}" if details else "")
                 elif status_label == "W trakcie":
-                    people = str(entry.get("started_by") or "") or _people_text(entry.get("suggested_workers"))
+                    people = str(entry.get("started_by") or "") or _people_text(
+                        entry.get("suggested_workers") or entry.get("suggested_people")
+                    )
                     started_at = str(entry.get("started_at") or "").replace("T", " ")[:16]
                     details = str(entry.get("description") or "")
                     if started_at:
                         details = f"Rozpoczęto: {started_at}" + (f" | {details}" if details else "")
                 else:
-                    people = _people_text(entry.get("suggested_workers"))
+                    people = _people_text(
+                        entry.get("suggested_workers") or entry.get("suggested_people")
+                    )
                     details = str(entry.get("description") or "")
+
+                if cycle_text and cycle_text.lower() not in details.lower():
+                    details = cycle_text + (f" | {details}" if details else "")
+
                 values = (
-                    str(entry.get("planned_date") or "—"),
-                    str(entry.get("type") or ""),
+                    planned_text,
+                    type_text,
                     status_label,
                     people or "—",
                     details or "—",
@@ -3936,6 +4005,77 @@ def _open_machines_panel(
             if not sel:
                 return None
             return review_items.get(sel[0])
+
+        def _review_for_action(display_entry: Dict[str, Any]) -> Dict[str, Any]:
+            wanted_id = str(display_entry.get("id") or "").strip()
+            source = str(display_entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
+            wanted_date = _review_date(
+                display_entry.get("date")
+                or display_entry.get("planned_date")
+                or display_entry.get("completed_at")
+            )
+            wanted_type = str(display_entry.get("type") or "Przegląd okresowy").strip()
+
+            for current in _machine_reviews(machine):
+                if wanted_id and str(current.get("id") or "").strip() == wanted_id:
+                    return current
+
+            if source != REVIEW_SOURCE_CYCLE or not wanted_id.startswith("cycle_"):
+                for current in _machine_reviews(machine):
+                    current_date = _review_date(
+                        current.get("date")
+                        or current.get("planned_date")
+                        or current.get("completed_at")
+                    )
+                    current_type = str(current.get("type") or "Przegląd okresowy").strip()
+                    if current_date == wanted_date and current_type == wanted_type:
+                        return current
+                return display_entry
+
+            if wanted_date is None:
+                return display_entry
+
+            for current in _machine_reviews(machine):
+                current_date = _review_date(
+                    current.get("date")
+                    or current.get("planned_date")
+                    or current.get("completed_at")
+                )
+                current_type = str(current.get("type") or "Przegląd okresowy").strip()
+                current_source = str(current.get("source") or "").strip().lower()
+                if (
+                    current_source == REVIEW_SOURCE_CYCLE
+                    and current_date is not None
+                    and current_date.year == wanted_date.year
+                    and current_date.month == wanted_date.month
+                    and current_type == wanted_type
+                ):
+                    return current
+
+            month_name = dict(MONTH_LABELS_PL).get(wanted_date.month, str(wanted_date.month))
+            persisted = {
+                "id": _new_review_id(),
+                "type": wanted_type or "Przegląd okresowy",
+                "planned_date": wanted_date.isoformat(),
+                "status": REVIEW_STATUS_PLANNED,
+                "source": REVIEW_SOURCE_CYCLE,
+                "cycle_year": wanted_date.year,
+                "cycle_month": wanted_date.month,
+                "suggested_workers": list(
+                    display_entry.get("suggested_workers")
+                    or display_entry.get("suggested_people")
+                    or []
+                ),
+                "description": f"Przegląd cykliczny: {month_name} {wanted_date.year}",
+                "completed_at": "",
+                "completed_by": [],
+                "result_note": "",
+                "photos": [],
+            }
+            reviews = list(_machine_reviews(machine))
+            reviews.append(persisted)
+            machine["reviews"] = reviews
+            return persisted
 
         def _persist_machine_after_review_change(
             updated_machine: Dict[str, Any],
@@ -3969,6 +4109,8 @@ def _open_machines_panel(
                     parent=win,
                 )
                 return
+
+            entry = _review_for_action(entry)
 
             note = (
                 f"Rozpoczęto {entry.get('type') or 'przegląd / serwis'}"
@@ -4170,20 +4312,21 @@ def _open_machines_panel(
                         parent=dialog,
                     )
                     return
-                entry["status"] = "done"
-                entry["completed_at"] = _machine_now_iso()
-                entry["completed_by"] = completed_by
-                entry["result_note"] = txt_result.get("1.0", "end").strip()
+                target_entry = _review_for_action(entry)
+                target_entry["status"] = "done"
+                target_entry["completed_at"] = _machine_now_iso()
+                target_entry["completed_by"] = completed_by
+                target_entry["result_note"] = txt_result.get("1.0", "end").strip()
 
                 updated = dict(machine)
                 updated["reviews"] = list(_machine_reviews(machine))
                 if _normalize_machine_status(updated.get("status")) == "alert":
                     note = (
-                        f"Wykonano {entry.get('type') or 'przegląd / serwis'}"
-                        f" | plan: {entry.get('planned_date') or '—'}"
+                        f"Wykonano {target_entry.get('type') or 'przegląd / serwis'}"
+                        f" | plan: {target_entry.get('planned_date') or '—'}"
                     )
-                    if entry.get("result_note"):
-                        note += f" | {entry.get('result_note')}"
+                    if target_entry.get("result_note"):
+                        note += f" | {target_entry.get('result_note')}"
                     _apply_machine_status_change(
                         updated,
                         "ok",
