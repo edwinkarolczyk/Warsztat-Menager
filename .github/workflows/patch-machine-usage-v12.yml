@@ -1,0 +1,54 @@
+name: Patch machine usage v1.2
+
+on:
+  push:
+    paths:
+      - '_patch_machine_usage_v12.py'
+      - '.github/workflows/patch-machine-usage-v12.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Apply approved machine usage patch
+        run: python _patch_machine_usage_v12.py
+
+      - name: Validate Python and approved scope
+        run: |
+          python -m py_compile gui_maszyny.py
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('gui_maszyny.py').read_text(encoding='utf-8')
+          checks = {
+              'version': '# version: 1.2' in text,
+              'history columns': 'hist_cols = ("status", "start", "stop", "kto", "zdarzenie")' in text,
+              'event heading': '"zdarzenie": ("Powód / zdarzenie", 430, "w")' in text,
+              'review columns': 'reviews_cols = ("date", "type", "status", "people", "details")' in text,
+              'history refresh function': 'def _refresh_history_tree() -> None:' in text,
+              'service refresh calls': text.count('_refresh_history_tree()') >= 4,
+          }
+          bad = [name for name, ok in checks.items() if not ok]
+          if bad:
+              raise SystemExit('Validation failed: ' + ', '.join(bad))
+          PY
+          changed=$(git diff --name-only)
+          test "$changed" = "gui_maszyny.py"
+
+      - name: Commit approved source and cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gui_maszyny.py
+          git rm -f _patch_machine_usage_v12.py .github/workflows/patch-machine-usage-v12.yml
+          git commit -m "fix: simplify machine service history"
+          git push origin HEAD:Rozwiniecie
