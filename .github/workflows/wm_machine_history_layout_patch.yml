@@ -1,0 +1,74 @@
+name: WM Machine history layout patch
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/wm_machine_history_layout_patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+      - name: Patch gui_maszyny history layout
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('gui_maszyny.py')
+          s = p.read_text(encoding='utf-8')
+
+          old = '# version: 1.8\n# Zmiany 1.8:'
+          new = ('# version: 1.8.1\n'
+                 '# Zmiany 1.8.1:\n'
+                 '# - W zakładce Historia obie pełne tabele mieszczą się w domyślnym oknie 980x720.\n'
+                 '# - Bieżący status maszyny pokazuje Stop: Aktualny zamiast mylącego w toku.\n'
+                 '# Zmiany 1.8:')
+          if old not in s:
+              raise SystemExit('Nie znaleziono nagłówka wersji 1.8')
+          s = s.replace(old, new, 1)
+
+          old_status_tree = 'full_status_box, columns=hist_cols, show="headings", height=10,'
+          new_status_tree = 'full_status_box, columns=hist_cols, show="headings", height=6,'
+          if old_status_tree not in s:
+              raise SystemExit('Nie znaleziono height=10 pełnej historii statusów')
+          s = s.replace(old_status_tree, new_status_tree, 1)
+
+          old_review_tree = 'full_review_history_box, columns=review_history_cols, show="headings", height=10,'
+          new_review_tree = 'full_review_history_box, columns=review_history_cols, show="headings", height=6,'
+          if old_review_tree not in s:
+              raise SystemExit('Nie znaleziono height=10 pełnej historii przeglądów')
+          s = s.replace(old_review_tree, new_review_tree, 1)
+
+          old_current = 'if item.get("__current"):\n                stop = "w toku"'
+          new_current = 'if item.get("__current"):\n                stop = "Aktualny"'
+          if old_current not in s:
+              raise SystemExit('Nie znaleziono stop=w toku w oknie Użytkowanie maszyny')
+          s = s.replace(old_current, new_current, 1)
+
+          old_helper = '                "w toku",\n                _format_duration_minutes(_duration_minutes(start_raw, now)),'
+          new_helper = '                "Aktualny",\n                _format_duration_minutes(_duration_minutes(start_raw, now)),'
+          if old_helper not in s:
+              raise SystemExit('Nie znaleziono w toku w helperze historii statusów')
+          s = s.replace(old_helper, new_helper, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Verify syntax and scope
+        run: |
+          python -m py_compile gui_maszyny.py
+          git diff --check
+          git diff -- gui_maszyny.py
+      - name: Commit patch and remove workflow
+        run: |
+          git config user.name "edwinkarolczyk"
+          git config user.email "edwinkarolczyk@gmail.com"
+          git add gui_maszyny.py
+          git rm .github/workflows/wm_machine_history_layout_patch.yml
+          git commit -m "WM: popraw widoczność historii maszyny"
+          git push origin HEAD:Rozwiniecie
