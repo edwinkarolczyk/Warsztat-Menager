@@ -270,18 +270,8 @@ def _parse_machine_dt(value: object) -> Optional[dt.datetime]:
 
 _MACHINE_WEEKDAY_LABELS_PL = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")
 _MACHINE_MONTH_LABELS_PL = (
-    "Styczeń",
-    "Luty",
-    "Marzec",
-    "Kwiecień",
-    "Maj",
-    "Czerwiec",
-    "Lipiec",
-    "Sierpień",
-    "Wrzesień",
-    "Październik",
-    "Listopad",
-    "Grudzień",
+    "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+    "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
 )
 
 
@@ -1003,7 +993,7 @@ def _parse_schedule_date(value: object) -> Optional[dt.date]:
         return value
     if isinstance(value, (int, float)):
         ordinal = int(value)
-        if ordinal > 59:  # Excel 1900 date system offset
+        if ordinal > 59:
             try:
                 return dt.date.fromordinal(ordinal + 693594)
             except ValueError:
@@ -1013,7 +1003,6 @@ def _parse_schedule_date(value: object) -> Optional[dt.date]:
         if not raw:
             return None
 
-        # Format użytkownika w Maszynach: "23 Sierpień 26r".
         clean = raw.replace(",", " ").replace(".", " ")
         parts = [part for part in clean.split() if part]
         if len(parts) >= 3:
@@ -1021,27 +1010,15 @@ def _parse_schedule_date(value: object) -> Optional[dt.date]:
                 name.casefold(): idx
                 for idx, name in enumerate(_MACHINE_MONTH_LABELS_PL, start=1)
             }
-            month_lookup.update(
-                {
-                    "styczen": 1,
-                    "luty": 2,
-                    "marzec": 3,
-                    "kwiecien": 4,
-                    "maj": 5,
-                    "czerwiec": 6,
-                    "lipiec": 7,
-                    "sierpien": 8,
-                    "wrzesien": 9,
-                    "pazdziernik": 10,
-                    "listopad": 11,
-                    "grudzien": 12,
-                }
-            )
+            month_lookup.update({
+                "styczen": 1, "luty": 2, "marzec": 3, "kwiecien": 4,
+                "maj": 5, "czerwiec": 6, "lipiec": 7, "sierpien": 8,
+                "wrzesien": 9, "pazdziernik": 10, "listopad": 11, "grudzien": 12,
+            })
             try:
                 day = int(parts[0])
                 month = month_lookup.get(parts[1].casefold())
-                year_token = parts[2].casefold().rstrip("r")
-                year = int(year_token)
+                year = int(parts[2].casefold().rstrip("r"))
                 if year < 100:
                     year += 2000
                 if month:
@@ -1050,13 +1027,8 @@ def _parse_schedule_date(value: object) -> Optional[dt.date]:
                 pass
 
         for fmt in (
-            "%Y-%m-%d",
-            "%d.%m.%Y",
-            "%Y.%m.%d",
-            "%d/%m/%Y",
-            "%Y/%m/%d",
-            "%d-%m-%Y",
-            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d", "%d.%m.%Y", "%Y.%m.%d", "%d/%m/%Y",
+            "%Y/%m/%d", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S",
         ):
             try:
                 return dt.datetime.strptime(raw, fmt).date()
@@ -2868,10 +2840,998 @@ def _open_machines_panel(
         def matches_search(machine: Dict[str, Any]) -> bool:
             if not query:
                 return True
-            notebook = ttk.Notebook(outer)
-        notebook.grid(
-            row=2, column=0, columnspan=2, sticky="nsew", pady=(0, 8)
+            summary = machine.get("__schedule_summary") or {}
+            haystack = " ".join(
+                str(value or "")
+                for value in (
+                    machine.get("id"),
+                    machine.get("nr_ewid"),
+                    machine.get("nr"),
+                    machine.get("nazwa"),
+                    machine.get("typ"),
+                    machine.get("status"),
+                    machine.get("lokalizacja"),
+                    summary.get("next_label"),
+                    summary.get("status_label"),
+                )
+            ).lower()
+            return query in haystack
+
+        visible_rows = [
+            row for row in rows_cache if predicate(row) and matches_search(row)
+        ]
+
+    def _focus_first_machine_row() -> bool:
+        children = tree.get_children("")
+        if not children:
+            return False
+        first = children[0]
+        tree.selection_set(first)
+        tree.focus(first)
+        tree.see(first)
+        return True
+
+    def _find_machine(machine_id: Optional[str]) -> Optional[Dict]:
+        if not machine_id:
+            return None
+        return next(
+            (
+                row
+                for row in rows_cache
+                if str(row.get("id") or row.get("nr_ewid") or "") == machine_id
+            ),
+            None,
         )
+
+    def _save_schedule_state() -> None:
+        nonlocal schedule_path, schedule_year
+        try:
+            schedule_year = int(schedule_meta.get("year", schedule_year) or schedule_year)
+        except Exception:
+            schedule_year = SCHEDULE_YEAR
+        schedule_path = resolve_schedule_path(schedule_year, cfg_manager)
+        payload = dict(schedule_meta)
+        payload["year"] = schedule_year
+        payload["entries"] = _serialize_schedule_entries(schedule_entries)
+        _safe_write_json(schedule_path, payload)
+
+    def _refresh_tree() -> None:
+        tree.delete(*tree.get_children())
+        _ensure_tree_columns(tree)
+        for row in visible_rows:
+            _tree_insert_row(tree, row)
+        _bind_tree_tooltips(tree, visible_rows, root)
+        visible_ids = {
+            str(row.get("id") or row.get("nr_ewid") or "")
+            for row in visible_rows
+        }
+        if selected_machine_id and selected_machine_id in visible_ids:
+            try:
+                tree.selection_set(selected_machine_id)
+            except Exception:
+                tree.selection_remove(tree.selection())
+        else:
+            tree.selection_remove(tree.selection())
+        _update_info()
+
+    def _reload_from(path: str) -> List[Dict]:
+        payload = _safe_read_json(path, default=[])
+        return normalize_doc_list_or_dict(payload, "maszyny", fallback_keys=("machines",))
+
+    def _on_rows_changed() -> None:
+        _attach_schedule(rows_cache, schedule_entries)
+        for row in rows_cache:
+            if isinstance(row, dict):
+                row["__schedule_summary"] = _combined_machine_schedule_summary(row)
+        _recompute_visible_rows()
+        _refresh_tree()
+        _refresh_schedule_info()
+        if hall is not None:
+            hall.update_rows(rows_cache)
+        if selected_machine_id:
+            machine = _find_machine(selected_machine_id)
+            _populate_details(machine)
+        else:
+            _populate_details(None)
+
+    def _on_schedule_changed(save: bool = True) -> None:
+        schedule_meta.setdefault("year", schedule_year)
+        schedule_meta["updated_at"] = dt.datetime.now().isoformat()
+        _on_rows_changed()
+        _refresh_schedule_info()
+        if save:
+            _save_schedule_state()
+
+    def _save_rows(rows_to_save: List[Dict]) -> List[Dict]:
+        nonlocal source_path
+        cleaned = [_strip_schedule_fields(row) for row in rows_to_save]
+        if os.path.normpath(source_path) != os.path.normpath(primary_path):
+            legacy_rows = _reload_from(source_path)
+            prim_rows = _reload_from(primary_path)
+            merged = merge_rows_union_by_id(prim_rows, legacy_rows)
+            merged = merge_rows_union_by_id(merged, cleaned)
+            if _save_machines(primary_path, merged):
+                source_path = primary_path
+                _attach_schedule(merged, schedule_entries)
+                return merged
+            return rows_to_save
+        if _save_machines(primary_path, cleaned):
+            _attach_schedule(cleaned, schedule_entries)
+            return cleaned
+        return rows_to_save
+
+    def _apply_filter(*_args) -> None:
+        _recompute_visible_rows()
+        _refresh_tree()
+        if selected_machine_id and not any(
+            str(row.get("id") or row.get("nr_ewid") or "") == selected_machine_id
+            for row in visible_rows
+        ):
+            _set_selected_machine(None)
+        else:
+            if selected_machine_id:
+                _populate_details(_find_machine(selected_machine_id))
+            else:
+                _populate_details(None)
+
+    def _apply_search(*_args) -> None:
+        _apply_filter()
+        if not selected_machine_id:
+            _focus_first_machine_row()
+
+    def _clear_search() -> None:
+        search_var.set("")
+        _apply_filter()
+        _focus_first_machine_row()
+
+    def _on_search_enter(_event=None) -> str:
+        children = tree.get_children("")
+        if not children:
+            return "break"
+        current = tree.selection()
+        if not current or current[0] != children[0]:
+            _focus_first_machine_row()
+        else:
+            _on_edit()
+        return "break"
+
+    def _drag_commit(mid: str, x: int, y: int) -> None:
+        nonlocal rows_cache
+        update = None
+        for row in rows_cache:
+            if str(row.get("id") or row.get("nr_ewid") or "") == mid:
+                update = dict(row)
+                update["x"], update["y"] = x, y
+                if "nr_hali" not in update or update.get("nr_hali") in (None, ""):
+                    update["nr_hali"] = "1"
+                break
+        if update is None:
+            return
+        new_rows = upsert_machine(rows_cache, update)
+        persisted = _save_rows(new_rows)
+        rows_cache = list(persisted)
+        _on_rows_changed()
+
+    hall = MachineHallRenderer(right, rows_cache, cfg=cfg, on_drag_commit=_drag_commit)
+    hall.render()
+
+    details = ttk.LabelFrame(right, text="Przeglądy")
+    # Stary panel harmonogramu 2025 jest wyłączony, żeby nie mieszać go z nowym
+    # modelem machine["reviews"] w oknie Użytkowanie maszyny.
+    # details.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    summary_var = tk.StringVar(value="Wybierz maszynę, aby zobaczyć harmonogram.")
+    ttk.Label(details, textvariable=summary_var).pack(fill="x", padx=8, pady=(6, 4))
+
+    columns_details = ("data", "typ", "status", "uwagi")
+    column_setup = {
+        "data": ("Data", 110, "center"),
+        "typ": ("Typ", 120, "center"),
+        "status": ("Status", 160, "w"),
+        "uwagi": ("Uwagi", 220, "w"),
+    }
+
+    upcoming_section = ttk.LabelFrame(details, text="Zaplanowane")
+    upcoming_section.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    upcoming_tree = ttk.Treeview(upcoming_section, columns=columns_details, show="headings", height=6, style="Maszyny.Treeview")
+    for cid, (label, width, anchor) in column_setup.items():
+        upcoming_tree.heading(cid, text=label)
+        upcoming_tree.column(cid, width=width, anchor=anchor)
+    upcoming_tree.pack(fill="both", expand=True, padx=6, pady=(0, 4))
+
+    upcoming_buttons = ttk.Frame(upcoming_section)
+    upcoming_buttons.pack(fill="x", padx=6, pady=(0, 4))
+    btn_mark_done = ttk.Button(upcoming_buttons, text="Oznacz jako wykonany", state="disabled")
+    btn_mark_done.pack(side="left")
+    btn_assign_card = ttk.Button(upcoming_buttons, text="Przypisz kartę…", state="disabled")
+    btn_assign_card.pack(side="left", padx=(6, 0))
+    btn_open_card = ttk.Button(upcoming_buttons, text="Otwórz kartę", state="disabled")
+    btn_open_card.pack(side="left", padx=(6, 0))
+
+    history_section = ttk.LabelFrame(details, text="Historia")
+    history_section.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    history_tree = ttk.Treeview(history_section, columns=columns_details, show="headings", height=5, style="Maszyny.Treeview")
+    for cid, (label, width, anchor) in column_setup.items():
+        history_tree.heading(cid, text=label)
+        history_tree.column(cid, width=width, anchor=anchor)
+    history_tree.pack(fill="both", expand=True, padx=6, pady=(0, 4))
+
+    history_buttons = ttk.Frame(history_section)
+    history_buttons.pack(fill="x", padx=6, pady=(0, 4))
+    btn_restore = ttk.Button(history_buttons, text="Przywróć jako planowany", state="disabled")
+    btn_restore.pack(side="left")
+
+    def _selected_upcoming_entry() -> Optional[Dict[str, Any]]:
+        sel = upcoming_tree.selection()
+        if not sel:
+            return None
+        return upcoming_items.get(sel[0])
+
+    def _selected_history_entry() -> Optional[Dict[str, Any]]:
+        sel = history_tree.selection()
+        if not sel:
+            return None
+        return history_items.get(sel[0])
+
+    def _selected_schedule_entry() -> Optional[Dict[str, Any]]:
+        entry = _selected_upcoming_entry()
+        if entry is not None:
+            return entry
+        return _selected_history_entry()
+
+    def _update_detail_buttons() -> None:
+        if _selected_upcoming_entry() is not None:
+            btn_mark_done.state(["!disabled"])
+        else:
+            btn_mark_done.state(["disabled"])
+        if _selected_history_entry() is not None:
+            btn_restore.state(["!disabled"])
+        else:
+            btn_restore.state(["disabled"])
+        entry = _selected_schedule_entry()
+        if entry is not None:
+            btn_assign_card.state(["!disabled"])
+            if entry.get("card"):
+                btn_open_card.state(["!disabled"])
+            else:
+                btn_open_card.state(["disabled"])
+        else:
+            btn_assign_card.state(["disabled"])
+            btn_open_card.state(["disabled"])
+
+    def _populate_details(machine: Optional[Dict]) -> None:
+        upcoming_items.clear()
+        history_items.clear()
+        for tree_view in (upcoming_tree, history_tree):
+            for item in tree_view.get_children():
+                tree_view.delete(item)
+        if not machine:
+            summary_var.set("Wybierz maszynę, aby zobaczyć harmonogram.")
+            _update_detail_buttons()
+            return
+        summary = machine.get("__schedule_summary") or {}
+        summary_var.set(summary.get("status_text") or "Brak danych harmonogramu")
+        for entry in summary.get("upcoming", []):
+            date_text = _format_machine_review_date(entry.get("date"))
+            typ = entry.get("type") or ""
+            status_text, _status_key = _describe_entry_status(entry)
+            notes = entry.get("notes") or ""
+            iid = upcoming_tree.insert("", "end", values=(date_text, typ, status_text, notes))
+            upcoming_items[iid] = entry
+        for entry in summary.get("history", []):
+            date_text = _format_machine_review_date(entry.get("date"))
+            typ = entry.get("type") or ""
+            status_text, _status_key = _describe_entry_status(entry)
+            notes = entry.get("notes") or ""
+            iid = history_tree.insert("", "end", values=(date_text, typ, status_text, notes))
+            history_items[iid] = entry
+        _update_detail_buttons()
+
+    def _set_selected_machine(machine_id: Optional[str]) -> None:
+        nonlocal selected_machine_id
+        selected_machine_id = machine_id
+        if hall is not None:
+            hall.select(machine_id)
+        _populate_details(_find_machine(machine_id))
+
+    def _mark_done() -> None:
+        entry = _selected_upcoming_entry()
+        if not entry:
+            return
+        entry["status"] = "wykonany"
+        entry["completed_at"] = dt.datetime.now().isoformat()
+        _on_schedule_changed()
+
+    def _restore_plan() -> None:
+        entry = _selected_history_entry()
+        if not entry:
+            return
+        entry["status"] = "planowany"
+        entry.pop("completed_at", None)
+        _on_schedule_changed()
+
+    def _assign_card() -> None:
+        entry = _selected_schedule_entry()
+        if not entry:
+            return
+        path = filedialog.askopenfilename(
+            parent=root,
+            title="Wybierz kartę przeglądu",
+            filetypes=(("Dokumenty", "*.pdf;*.doc;*.docx;*.xlsx;*.xls;*.txt"), ("Wszystkie pliki", "*.*")),
+        )
+        if not path:
+            return
+        stored = _resolve_card_storage(path, cfg_manager)
+        entry["card"] = stored
+        _on_schedule_changed()
+
+    def _open_selected_card() -> None:
+        entry = _selected_schedule_entry()
+        if not entry or not entry.get("card"):
+            messagebox.showinfo("Karta przeglądu", "Brak przypisanej karty do tego wpisu.")
+            return
+        absolute = _resolve_card_absolute(str(entry.get("card")), cfg_manager)
+        if not absolute or not os.path.exists(absolute):
+            messagebox.showerror("Karta przeglądu", f"Plik nie istnieje: {absolute}")
+            return
+        if not _open_external(absolute):
+            messagebox.showerror("Karta przeglądu", "Nie udało się otworzyć pliku.")
+
+    def _on_upcoming_select(_event=None) -> None:
+        if upcoming_tree.selection():
+            history_tree.selection_remove(history_tree.selection())
+        _update_detail_buttons()
+
+    def _on_history_select(_event=None) -> None:
+        if history_tree.selection():
+            upcoming_tree.selection_remove(upcoming_tree.selection())
+        _update_detail_buttons()
+
+    def _selected_id() -> Optional[str]:
+        sel = tree.selection()
+        return str(sel[0]) if sel else None
+
+    def _do_import() -> None:
+        nonlocal schedule_entries, schedule_year, schedule_path
+        if not _require_machine_edit_mode():
+            return
+        path = filedialog.askopenfilename(
+            parent=root,
+            title="Wybierz plik harmonogramu",
+            filetypes=(("Pliki Excel", "*.xlsx;*.xls;*.xlsm"), ("Wszystkie pliki", "*.*")),
+        )
+        if not path:
+            return
+        try:
+            new_entries, meta = _import_schedule_from_excel(path)
+        except RuntimeError as exc:
+            messagebox.showerror("Import harmonogramu", str(exc))
+            return
+        except ValueError as exc:
+            messagebox.showerror("Import harmonogramu", str(exc))
+            return
+        merged = _merge_schedule_status(new_entries, schedule_entries)
+        schedule_entries = list(merged)
+        schedule_meta["year"] = meta.get("year", schedule_meta.get("year", schedule_year))
+        schedule_year = int(schedule_meta.get("year", schedule_year) or schedule_year)
+        schedule_meta["source"] = meta.get("source", os.path.basename(path))
+        schedule_meta["imported_at"] = meta.get("imported_at")
+        schedule_path = resolve_schedule_path(schedule_year, cfg_manager)
+        _on_schedule_changed()
+        messagebox.showinfo("Import harmonogramu", f"Zaimportowano {len(schedule_entries)} wpisów.")
+
+    class MachineEditDialog(tk.Toplevel):
+        STATUSES = MACHINE_STATUS_EDIT_VALUES
+
+        def __init__(self, master: tk.Misc, row: dict | None, on_ok):
+            super().__init__(master)
+            self.title("Edycja maszyny")
+            self.geometry("1100x720")
+            self.minsize(980, 620)
+            self.resizable(True, True)
+            self.transient(master)
+            self.grab_set()
+            self._row = dict(row or {})
+            self._on_ok = on_ok
+            self._actor = _active_login_for_machine(master)
+            self._old_status = _normalize_machine_status(self._row.get("status"))
+            self._dirty = False
+
+            def _mark_dirty(*_args) -> None:
+                self._dirty = True
+
+            def _confirm_close() -> None:
+                if self._dirty:
+                    if not messagebox.askyesno(
+                        "Edycja maszyny",
+                        "Masz niezapisane zmiany. Zamknąć bez zapisu?",
+                        parent=self,
+                    ):
+                        return
+                self.destroy()
+
+            self.protocol("WM_DELETE_WINDOW", _confirm_close)
+
+            frm = ttk.Frame(self)
+            frm.pack(side="top", fill="both", expand=True, padx=12, pady=(12, 4))
+            frm.columnconfigure(1, weight=1)
+            frm.columnconfigure(2, weight=1)
+
+            def row_entry(r, label, key):
+                ttk.Label(frm, text=label, width=18, anchor="e").grid(
+                    row=r, column=0, padx=6, pady=4, sticky="e"
+                )
+                ent = ttk.Entry(frm, width=36)
+                ent.grid(row=r, column=1, padx=6, pady=4, sticky="w")
+                ent.insert(0, str(self._row.get(key, "")))
+                ent.bind("<KeyRelease>", _mark_dirty)
+                return ent
+
+            self.e_id = row_entry(0, "ID / nr_ewid:", "id")
+            self.e_nazwa = row_entry(1, "Nazwa:", "nazwa")
+            self.e_typ = row_entry(2, "Typ:", "typ")
+            self.e_lok = row_entry(3, "Lokalizacja:", "lokalizacja")
+
+            ttk.Label(frm, text="Status:", width=18, anchor="e").grid(
+                row=4, column=0, padx=6, pady=4, sticky="e"
+            )
+            self.cb_status = ttk.Combobox(
+                frm, values=self.STATUSES, state="disabled", width=34
+            )
+            self.cb_status.set(_machine_status_edit_label(self._row.get("status")))
+            self.cb_status.grid(row=4, column=1, padx=6, pady=4, sticky="w")
+            ttk.Label(
+                frm,
+                text="Status zmieniaj w trybie Użytkowanie maszyny.",
+            ).grid(row=4, column=2, sticky="w", padx=(8, 0))
+
+            def int_or_none(value: str):
+                try:
+                    return int(value.strip())
+                except Exception:
+                    return None
+
+            self.e_x = row_entry(5, "x (px):", "x")
+            self.e_y = row_entry(6, "y (px):", "y")
+
+            ttk.Label(frm, text="Domyślny typ przeglądu:", width=18, anchor="e").grid(
+                row=7, column=0, padx=6, pady=4, sticky="e"
+            )
+            self.cb_default_review_type = ttk.Combobox(
+                frm, values=REVIEW_TYPES, state="readonly", width=34
+            )
+            self.cb_default_review_type.set(
+                str(self._row.get("default_review_type") or REVIEW_TYPES[0])
+            )
+            self.cb_default_review_type.grid(
+                row=7, column=1, padx=6, pady=4, sticky="w"
+            )
+            self.cb_default_review_type.bind("<<ComboboxSelected>>", _mark_dirty)
+
+            image_frame = ttk.Frame(frm)
+            image_frame.grid(
+                row=8, column=0, columnspan=3, sticky="w", padx=6, pady=4
+            )
+            ttk.Button(
+                image_frame,
+                text="Ustaw zdjęcie...",
+                command=self._choose_image,
+            ).pack(side="left")
+            self.image_label = ttk.Label(image_frame)
+            self.image_label.pack(side="left", padx=(12, 0))
+            self._refresh_image_label()
+
+            selected_review_months = set(
+                _normalize_review_months(
+                    self._row.get("review_months")
+                    if "review_months" in self._row
+                    else self._row.get("review_month")
+                )
+            )
+            self.review_month_vars: Dict[int, tk.BooleanVar] = {}
+            review_box = ttk.LabelFrame(frm, text="Przeglądy cykliczne")
+            review_box.grid(
+                row=9, column=0, columnspan=2, sticky="ew", pady=(10, 4)
+            )
+            review_box.columnconfigure(1, weight=1)
+            ttk.Label(review_box, text="Miesiące przeglądu:").grid(
+                row=0, column=0, sticky="nw", padx=6, pady=6
+            )
+            months_frame = ttk.Frame(review_box)
+            months_frame.grid(row=0, column=1, sticky="w", padx=6, pady=6)
+            for idx, (month_number, month_label) in enumerate(MONTH_LABELS_PL):
+                var = tk.BooleanVar(
+                    master=self, value=month_number in selected_review_months
+                )
+                self.review_month_vars[month_number] = var
+                ttk.Checkbutton(
+                    months_frame, text=month_label, variable=var
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+                var.trace_add("write", _mark_dirty)
+
+            ttk.Label(review_box, text="Dzień miesiąca:").grid(
+                row=1, column=0, sticky="e", padx=6, pady=6
+            )
+            review_day_frame = ttk.Frame(review_box)
+            review_day_frame.grid(row=1, column=1, sticky="w", padx=6, pady=6)
+            self.review_day_var = tk.StringVar(
+                master=self, value=str(_machine_review_day(self._row))
+            )
+            self.review_day_spin = ttk.Spinbox(
+                review_day_frame,
+                from_=1,
+                to=31,
+                width=5,
+                textvariable=self.review_day_var,
+                state="readonly",
+            )
+            self.review_day_spin.pack(side="left")
+            ttk.Label(
+                review_day_frame,
+                text="(dla krótszego miesiąca WM użyje ostatniego dnia)",
+            ).pack(side="left", padx=(8, 0))
+            self.review_day_var.trace_add("write", _mark_dirty)
+
+            ttk.Label(review_box, text="Wykonawcy / serwis:").grid(
+                row=2, column=0, sticky="e", padx=6, pady=6
+            )
+            review_workers = self._row.get("review_workers") or []
+            if not isinstance(review_workers, list):
+                review_workers = [review_workers]
+            selected_workers = {
+                str(worker).strip()
+                for worker in review_workers
+                if str(worker).strip()
+            }
+
+            self.review_worker_vars: Dict[str, tk.BooleanVar] = {}
+            workers_frame = ttk.Frame(review_box)
+            workers_frame.grid(row=2, column=1, sticky="ew", padx=6, pady=6)
+
+            user_logins = _load_wm_user_logins()
+            actor = _active_login_for_machine(master)
+            if actor and actor not in user_logins:
+                user_logins.insert(0, actor)
+            for worker in sorted(selected_workers):
+                if worker and worker not in user_logins:
+                    user_logins.append(worker)
+
+            if not user_logins:
+                user_logins = [actor or "system"]
+
+            for idx, login in enumerate(user_logins):
+                var = tk.BooleanVar(master=self, value=(login in selected_workers))
+                self.review_worker_vars[login] = var
+                ttk.Checkbutton(
+                    workers_frame,
+                    text=login,
+                    variable=var,
+                ).grid(
+                    row=idx // 4,
+                    column=idx % 4,
+                    sticky="w",
+                    padx=(0, 12),
+                    pady=2,
+                )
+                var.trace_add("write", _mark_dirty)
+
+            ttk.Label(
+                review_box,
+                text=(
+                    "Zaznacz sugerowanych serwisantów. Faktycznych wykonawców "
+                    "wybierasz przy wykonaniu."
+                ),
+            ).grid(row=3, column=1, sticky="w", padx=6, pady=(0, 6))
+
+            footer = ttk.Frame(self, padding=(12, 8))
+            footer.pack(side="bottom", fill="x")
+            ttk.Button(footer, text="Zamknij", command=_confirm_close).pack(
+                side="right", padx=(6, 0)
+            )
+            ttk.Button(footer, text="Anuluj", command=_confirm_close).pack(
+                side="right", padx=(6, 0)
+            )
+            ttk.Button(
+                footer,
+                text="Zapisz",
+                command=lambda: self._ok(
+                    int_or_none(self.e_x.get()), int_or_none(self.e_y.get())
+                ),
+            ).pack(side="right")
+            self.bind(
+                "<Return>",
+                lambda *_: self._ok(int_or_none(self.e_x.get()), int_or_none(self.e_y.get())),
+            )
+            self.bind("<Escape>", lambda *_: self.destroy())
+
+        def _choose_image(self) -> None:
+            path = pick_machine_image(self)
+            if not path:
+                return
+            self._row["image"] = os.path.normpath(path)
+            self._refresh_image_label()
+
+        def _refresh_image_label(self) -> None:
+            image_path = self._row.get("image") or self._row.get("obraz")
+            image_name = os.path.basename(image_path) if image_path else "brak"
+            self.image_label.configure(text=f"Zdjęcie: {image_name}")
+
+        def _ok(self, x, y):
+            new_status = MACHINE_STATUS_EDIT_LABELS.get(
+                self.cb_status.get().strip(), "ok"
+            )
+            row = {
+                "id": (
+                    self.e_id.get().strip()
+                    or self._row.get("id")
+                    or self._row.get("nr_ewid")
+                    or ""
+                ),
+                "nazwa": self.e_nazwa.get().strip(),
+                "typ": self.e_typ.get().strip(),
+                "lokalizacja": self.e_lok.get().strip(),
+                "status": self._old_status,
+                "x": x,
+                "y": y,
+                "default_review_type": (
+                    self.cb_default_review_type.get().strip() or REVIEW_TYPES[0]
+                ),
+                "review_months": [
+                    month
+                    for month, var in self.review_month_vars.items()
+                    if bool(var.get())
+                ],
+                "review_day": max(1, min(31, int(self.review_day_var.get() or 1))),
+                "review_workers": [
+                    login
+                    for login, var in self.review_worker_vars.items()
+                    if bool(var.get())
+                ],
+            }
+            for key in ("status_history", "status_current", "reviews"):
+                if key in self._row:
+                    row[key] = self._row[key]
+            if new_status != self._old_status:
+                note = simpledialog.askstring(
+                    "Zmiana statusu maszyny",
+                    "Opis zmiany statusu:\n"
+                    f"{_machine_status_label(self._old_status)} → "
+                    f"{_machine_status_label(new_status)}",
+                    parent=self,
+                )
+                if note is None:
+                    return
+                if new_status in {"alert", "warn"} and not note.strip():
+                    messagebox.showwarning(
+                        "Maszyny",
+                        "Przy zmianie na Serwis / przegląd albo Awarię "
+                        "opis jest wymagany.",
+                        parent=self,
+                    )
+                    return
+                status_photos: List[str] = []
+                try:
+                    wants_photos = messagebox.askyesno(
+                        "Zdjęcia serwisu / przeglądu",
+                        "Czy dodać zdjęcia do tej zmiany statusu?",
+                        parent=self,
+                    )
+                except Exception:
+                    wants_photos = False
+                if wants_photos:
+                    selected_photos = filedialog.askopenfilenames(
+                        parent=self,
+                        title="Wybierz zdjęcia do historii maszyny",
+                        filetypes=[
+                            ("Obrazy", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                            ("Wszystkie pliki", "*.*"),
+                        ],
+                    )
+                    status_photos = _copy_machine_status_photos(
+                        row["id"], selected_photos
+                    )
+                _apply_machine_status_change(
+                    row,
+                    new_status,
+                    actor=self._actor,
+                    note=note.strip(),
+                    photos=status_photos,
+                )
+            else:
+                row["status"] = new_status
+                _ensure_status_current(row, actor=self._actor)
+            row.setdefault("nr_hali", "1")
+            if isinstance(self._row.get("zadania"), list):
+                row["zadania"] = self._row["zadania"]
+            image_path = self._row.get("image") or self._row.get("obraz")
+            if image_path:
+                norm_path = os.path.normpath(image_path)
+                row["image"] = norm_path
+                row["obraz"] = norm_path
+            if callable(self._on_ok):
+                self._on_ok(row)
+            self.destroy()
+
+    def _on_add() -> None:
+        if not _require_machine_edit_mode():
+            return
+
+        def commit(new_row: Dict) -> None:
+            nonlocal rows_cache
+            if not new_row.get("id"):
+                return
+            new_row.setdefault("nr_hali", "1")
+            new_row.setdefault("zadania", [])
+            new_rows = upsert_machine(rows_cache, new_row)
+            persisted = _save_rows(new_rows)
+            rows_cache = list(persisted)
+            _on_rows_changed()
+
+        MachineEditDialog(container, row=None, on_ok=commit)
+
+    def _open_machine_usage_window(machine: Dict[str, Any]) -> None:
+        """Show the daily machine usage window with status and history."""
+
+        if not machine:
+            messagebox.showinfo("Maszyny", "Wybierz maszynę.", parent=root)
+            return
+
+        machine_id = str(
+            machine.get("id") or machine.get("nr_ewid") or ""
+        ).strip()
+        if not machine_id:
+            messagebox.showwarning(
+                "Maszyny",
+                "Maszyna nie ma ID / nr_ewid.",
+                parent=root,
+            )
+            return
+
+        win = tk.Toplevel(root)
+        win.title(f"Użytkowanie maszyny — {machine_id}")
+        win._machine_photo_img = None
+        win.geometry("980x720")
+        win.minsize(840, 620)
+        win.transient(root)
+
+        outer = ttk.Frame(win, padding=12)
+        outer.pack(fill="both", expand=True)
+        outer.columnconfigure(1, weight=1)
+        outer.rowconfigure(2, weight=1)
+
+        photo_frame = ttk.LabelFrame(outer, text="Zdjęcie")
+        photo_frame.grid(
+            row=0, column=0, rowspan=2, sticky="nsw",
+            padx=(0, 12), pady=(0, 8)
+        )
+        photo_label = ttk.Label(
+            photo_frame, text="brak zdjęcia", anchor="center"
+        )
+        photo_label.configure(width=24)
+        photo_label.pack(fill="both", expand=True, padx=8, pady=8)
+
+        def _resolve_machine_image_absolute(path_value: object) -> str:
+            raw = str(path_value or "").strip()
+            if not raw:
+                return ""
+            if os.path.isabs(raw) and os.path.exists(raw):
+                return os.path.normpath(raw)
+
+            raw_norm = os.path.normpath(raw)
+            raw_base = os.path.basename(raw_norm)
+            machines_dir = os.path.dirname(primary_path)
+            data_root = os.path.dirname(machines_dir)
+
+            candidates: List[str] = []
+
+            # 1) katalog, z którego realnie czytamy maszyny.json
+            candidates.extend(
+                [
+                    os.path.join(machines_dir, raw_norm),
+                    os.path.join(machines_dir, raw_base),
+                    os.path.join(machines_dir, "zdjecia", raw_norm),
+                    os.path.join(machines_dir, "zdjecia", raw_base),
+                    os.path.join(machines_dir, "zdjęcia", raw_norm),
+                    os.path.join(machines_dir, "zdjęcia", raw_base),
+                    os.path.join(machines_dir, "images", raw_norm),
+                    os.path.join(machines_dir, "images", raw_base),
+                    os.path.join(machines_dir, "photos", raw_norm),
+                    os.path.join(machines_dir, "photos", raw_base),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_norm
+                    ),
+                    os.path.join(
+                        machines_dir, "attachments", machine_id, raw_base
+                    ),
+                ]
+            )
+
+            # 2) ROOT/data jako fallback
+            candidates.extend(
+                [
+                    os.path.join(data_root, "maszyny", raw_norm),
+                    os.path.join(data_root, "maszyny", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjecia", raw_base),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_norm),
+                    os.path.join(data_root, "maszyny", "zdjęcia", raw_base),
+                    os.path.join(data_root, "maszyny", "images", raw_norm),
+                    os.path.join(data_root, "maszyny", "images", raw_base),
+                    os.path.join(data_root, "maszyny", "photos", raw_norm),
+                    os.path.join(data_root, "maszyny", "photos", raw_base),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_norm
+                    ),
+                    os.path.join(
+                        data_root, "maszyny", "attachments", machine_id,
+                        raw_base
+                    ),
+                ]
+            )
+
+            try:
+                cfg_data_root = (
+                    cfg_manager.path_data() if cfg_manager is not None else ""
+                )
+                if cfg_data_root:
+                    candidates.extend(
+                        [
+                            os.path.join(cfg_data_root, "maszyny", raw_norm),
+                            os.path.join(cfg_data_root, "maszyny", raw_base),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjecia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "zdjęcia", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "images", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_norm
+                            ),
+                            os.path.join(
+                                cfg_data_root, "maszyny", "photos", raw_base
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_norm,
+                            ),
+                            os.path.join(
+                                cfg_data_root,
+                                "maszyny",
+                                "attachments",
+                                machine_id,
+                                raw_base,
+                            ),
+                        ]
+                    )
+            except Exception:
+                pass
+
+            candidates.append(raw_norm)
+
+            seen: set[str] = set()
+            for candidate in candidates:
+                candidate = os.path.normpath(candidate)
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                if os.path.exists(candidate):
+                    return candidate
+
+            # 3) ostatnia deska ratunku: szybkie szukanie po nazwie pliku
+            #    w data/maszyny. Przydatne, gdy w JSON jest samo
+            #    "100004526.jpg", a folder zdjęć jest inny.
+            if raw_base:
+                search_roots = [
+                    machines_dir,
+                    os.path.join(data_root, "maszyny"),
+                ]
+                for search_root in search_roots:
+                    if not search_root or not os.path.isdir(search_root):
+                        continue
+                    try:
+                        for dirpath, _dirnames, filenames in os.walk(
+                            search_root
+                        ):
+                            if raw_base in filenames:
+                                return os.path.normpath(
+                                    os.path.join(dirpath, raw_base)
+                                )
+                    except Exception:
+                        pass
+            return ""
+
+        image_path = (
+            machine.get("image") or machine.get("obraz")
+            or machine.get("photo")
+        )
+        if image_path:
+            try:
+                resolved_image = _resolve_machine_image_absolute(image_path)
+                image_exists = bool(
+                    resolved_image and os.path.exists(resolved_image)
+                )
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO] "
+                        f"id={machine_id} raw={image_path!r} "
+                        f"resolved={resolved_image!r} "
+                        f"exists={int(image_exists)} "
+                        f"pil={int(bool(Image and ImageTk))}"
+                    )
+                except Exception:
+                    pass
+                if image_exists and Image and ImageTk:
+                    img = Image.open(resolved_image)
+                    img.thumbnail((180, 180), Image.LANCZOS)
+                    photo_img = ImageTk.PhotoImage(img)
+                    win._machine_photo_img = photo_img
+                    photo_label.configure(image=photo_img, text="")
+                elif image_exists:
+                    photo_label.configure(
+                        text=os.path.basename(resolved_image)
+                    )
+                else:
+                    photo_label.configure(text=f"Nie znaleziono:\n{image_path}")
+            except Exception as exc:
+                try:
+                    print(
+                        "[WM-DBG][MASZYNY][PHOTO][ERR] "
+                        f"id={machine_id} raw={image_path!r} error={exc}"
+                    )
+                except Exception:
+                    pass
+                photo_label.configure(text=str(image_path))
+
+        header = ttk.Frame(outer)
+        header.grid(row=0, column=1, sticky="new")
+        header.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            header, text=machine_id, font=("TkDefaultFont", 28, "bold")
+        ).grid(row=0, column=0, sticky="w", padx=(0, 16))
+        title_text = f"{machine.get('nazwa') or machine.get('name') or ''}"
+        typ_text = f"{machine.get('typ') or machine.get('type') or ''}"
+        ttk.Label(
+            header, text=title_text, font=("TkDefaultFont", 18, "bold")
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Label(header, text=typ_text).grid(
+            row=1, column=1, sticky="w", pady=(2, 0)
+        )
+
+        status_key = _normalize_machine_status(machine.get("status"))
+        status_label = _machine_status_label(status_key)
+        status_box = ttk.LabelFrame(outer, text="Aktualny status")
+        status_box.grid(row=1, column=1, sticky="ew", pady=(8, 8))
+        ttk.Label(
+            status_box,
+            text=status_label,
+            foreground=_machine_status_color(status_key),
+            font=("TkDefaultFont", 24, "bold"),
+        ).pack(anchor="w", padx=10, pady=8)
+
+        notebook = ttk.Notebook(outer)
+        notebook.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(0, 8))
         overview_tab = ttk.Frame(notebook, padding=(6, 8))
         full_history_tab = ttk.Frame(notebook, padding=(6, 8))
         notebook.add(overview_tab, text="Podgląd")
@@ -2881,12 +3841,8 @@ def _open_machines_panel(
         review_box.pack(fill="x", pady=(0, 8))
         next_review_var = tk.StringVar(value="—")
         review_status_var = tk.StringVar(value="Brak danych przeglądu")
-        ttk.Label(review_box, textvariable=next_review_var).pack(
-            anchor="w", padx=8, pady=(6, 2)
-        )
-        ttk.Label(review_box, textvariable=review_status_var).pack(
-            anchor="w", padx=8, pady=(0, 6)
-        )
+        ttk.Label(review_box, textvariable=next_review_var).pack(anchor="w", padx=8, pady=(6, 2))
+        ttk.Label(review_box, textvariable=review_status_var).pack(anchor="w", padx=8, pady=(0, 6))
 
         active_reviews_slot = ttk.Frame(overview_tab)
         active_reviews_slot.pack(fill="both", expand=True, pady=(0, 8))
@@ -2894,12 +3850,10 @@ def _open_machines_panel(
         def _refresh_next_review_summary() -> None:
             summary = _combined_machine_schedule_summary(machine)
             machine["__schedule_summary"] = summary
-            next_review = str(summary.get("next_label") or "—")
-            review_status = str(
-                summary.get("status_text") or "Brak danych przeglądu"
+            next_review_var.set(f"Termin: {summary.get('next_label') or '—'}")
+            review_status_var.set(
+                str(summary.get("status_text") or "Brak danych przeglądu")
             )
-            next_review_var.set(f"Termin: {next_review}")
-            review_status_var.set(review_status)
 
         _refresh_next_review_summary()
 
@@ -2907,10 +3861,7 @@ def _open_machines_panel(
         history_box.pack(fill="both", expand=True, pady=(0, 8))
         hist_cols = ("status", "start", "stop", "kto", "zdarzenie")
         hist_tree = ttk.Treeview(
-            history_box,
-            columns=hist_cols,
-            show="headings",
-            height=5,
+            history_box, columns=hist_cols, show="headings", height=5,
             style="Maszyny.Treeview",
         )
         hist_setup = {
@@ -2925,15 +3876,10 @@ def _open_machines_panel(
             hist_tree.column(col, width=width, anchor=anchor)
         hist_tree.pack(fill="both", expand=True, padx=6, pady=6)
 
-        full_status_box = ttk.LabelFrame(
-            full_history_tab, text="Pełna historia statusów"
-        )
+        full_status_box = ttk.LabelFrame(full_history_tab, text="Pełna historia statusów")
         full_status_box.pack(fill="both", expand=True, pady=(0, 8))
         full_status_tree = ttk.Treeview(
-            full_status_box,
-            columns=hist_cols,
-            show="headings",
-            height=10,
+            full_status_box, columns=hist_cols, show="headings", height=10,
             style="Maszyny.Treeview",
         )
         for col, (label, width, anchor) in hist_setup.items():
@@ -2985,31 +3931,20 @@ def _open_machines_panel(
             for tree_view in (hist_tree, full_status_tree):
                 for iid in tree_view.get_children():
                     tree_view.delete(iid)
-
             entries = list(reversed(_history_entries_for_usage(machine)))
-            targets = (
+            for tree_view, mapping, rows_to_show in (
                 (hist_tree, history_items, entries[:5]),
                 (full_status_tree, full_history_items, entries),
-            )
-            for tree_view, mapping, rows_to_show in targets:
+            ):
                 if rows_to_show:
                     for item in rows_to_show:
-                        iid = tree_view.insert(
-                            "", "end", values=_history_entry_values(item)
-                        )
+                        iid = tree_view.insert("", "end", values=_history_entry_values(item))
                         mapping[iid] = item
                 else:
-                    tree_view.insert(
-                        "",
-                        "end",
-                        values=(
-                            "—",
-                            "—",
-                            "—",
-                            "—",
-                            "Brak historii. Pierwszy wpis powstanie przy zmianie statusu.",
-                        ),
-                    )
+                    tree_view.insert("", "end", values=(
+                        "—", "—", "—", "—",
+                        "Brak historii. Pierwszy wpis powstanie przy zmianie statusu.",
+                    ))
 
         _refresh_history_tree()
 
@@ -3122,17 +4057,12 @@ def _open_machines_panel(
             command=_show_history_photos,
         ).pack(side="left")
 
-        reviews_box = ttk.LabelFrame(
-            active_reviews_slot, text="Najbliższe przeglądy / serwis"
-        )
+        reviews_box = ttk.LabelFrame(active_reviews_slot, text="Najbliższe przeglądy / serwis")
         reviews_box.pack(fill="both", expand=True)
 
         reviews_cols = ("date", "type", "status", "people", "details")
         reviews_tree = ttk.Treeview(
-            reviews_box,
-            columns=reviews_cols,
-            show="headings",
-            height=5,
+            reviews_box, columns=reviews_cols, show="headings", height=5,
             style="Maszyny.Treeview",
         )
         reviews_setup = {
@@ -3146,12 +4076,8 @@ def _open_machines_panel(
             reviews_tree.heading(col, text=label)
             reviews_tree.column(col, width=width, anchor=anchor)
         reviews_tree.pack(fill="both", expand=True, padx=6, pady=6)
-        reviews_tree.tag_configure(
-            "overdue", background="#fee2e2", foreground="#7f1d1d"
-        )
-        reviews_tree.tag_configure(
-            "pending", background="#fef3c7", foreground="#854d0e"
-        )
+        reviews_tree.tag_configure("overdue", background="#fee2e2", foreground="#7f1d1d")
+        reviews_tree.tag_configure("pending", background="#fef3c7", foreground="#854d0e")
 
         review_history_box = ttk.LabelFrame(
             overview_tab, text="Ostatnia historia przeglądów / serwisów"
@@ -3166,10 +4092,7 @@ def _open_machines_panel(
             "details": ("Szczegóły", 360, "w"),
         }
         review_history_tree = ttk.Treeview(
-            review_history_box,
-            columns=review_history_cols,
-            show="headings",
-            height=5,
+            review_history_box, columns=review_history_cols, show="headings", height=5,
             style="Maszyny.Treeview",
         )
         for col, (label, width, anchor) in review_history_setup.items():
@@ -3182,10 +4105,7 @@ def _open_machines_panel(
         )
         full_review_history_box.pack(fill="both", expand=True)
         full_review_history_tree = ttk.Treeview(
-            full_review_history_box,
-            columns=review_history_cols,
-            show="headings",
-            height=10,
+            full_review_history_box, columns=review_history_cols, show="headings", height=10,
             style="Maszyny.Treeview",
         )
         for col, (label, width, anchor) in review_history_setup.items():
@@ -3228,42 +4148,24 @@ def _open_machines_panel(
         def _next_cycle_date_after(entry: Dict[str, Any]) -> Optional[dt.date]:
             if str(entry.get("source") or "").strip().lower() != REVIEW_SOURCE_CYCLE:
                 return None
-            base = _review_date(
-                entry.get("date")
-                or entry.get("planned_date")
-                or entry.get("completed_at")
-            )
+            base = _review_date(entry.get("date") or entry.get("planned_date") or entry.get("completed_at"))
             months = _machine_review_months(machine)
             if base is None or not months:
                 return None
             candidates: List[dt.date] = []
             for year in range(base.year, base.year + 3):
                 for month in months:
-                    candidate = _cycle_review_date(
-                        year, month, _machine_review_day(machine)
-                    )
+                    candidate = _cycle_review_date(year, month, _machine_review_day(machine))
                     if candidate > base:
                         candidates.append(candidate)
             return min(candidates) if candidates else None
 
         def _review_history_values(entry: Dict[str, Any]) -> tuple:
             source = str(entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
-            planned = _review_date(
-                entry.get("date")
-                or entry.get("planned_date")
-                or entry.get("completed_at")
-            )
+            planned = _review_date(entry.get("date") or entry.get("planned_date") or entry.get("completed_at"))
             planned_text = _format_machine_review_date(planned) if planned else "—"
-            completed_text = (
-                _format_machine_history_dt(entry.get("completed_at"))
-                if entry.get("completed_at")
-                else "—"
-            )
-            type_text = (
-                "Przegląd cykliczny"
-                if source == REVIEW_SOURCE_CYCLE
-                else str(entry.get("type") or "Przegląd / serwis")
-            )
+            completed_text = _format_machine_history_dt(entry.get("completed_at")) if entry.get("completed_at") else "—"
+            type_text = "Przegląd cykliczny" if source == REVIEW_SOURCE_CYCLE else str(entry.get("type") or "Przegląd / serwis")
             people = _people_text(entry.get("completed_by")) or "—"
             details = str(entry.get("result_note") or entry.get("description") or "").strip()
             dysp_id = _linked_dysp_id(entry)
@@ -3271,32 +4173,21 @@ def _open_machines_panel(
                 details = (details + " | " if details else "") + f"Dyspozycja: {dysp_id}"
             next_date = _next_cycle_date_after(entry)
             if next_date is not None:
-                details = (details + " | " if details else "") + (
-                    f"Następny: {_format_machine_review_date(next_date)}"
-                )
+                details = (details + " | " if details else "") + f"Następny: {_format_machine_review_date(next_date)}"
             return planned_text, completed_text, type_text, people, details or "—"
 
-        def _refresh_review_history_trees(
-            entries: List[Dict[str, Any]],
-        ) -> None:
+        def _refresh_review_history_trees(entries: List[Dict[str, Any]]) -> None:
             review_history_items.clear()
             full_review_history_items.clear()
             for tree_view in (review_history_tree, full_review_history_tree):
                 for iid in tree_view.get_children():
                     tree_view.delete(iid)
-
             done_entries = [
-                item
-                for item in entries
+                item for item in entries
                 if _review_status_key(item.get("status")) == REVIEW_STATUS_DONE
             ]
             done_entries.sort(
-                key=lambda item: str(
-                    item.get("completed_at")
-                    or item.get("planned_date")
-                    or item.get("date")
-                    or ""
-                ),
+                key=lambda item: str(item.get("completed_at") or item.get("planned_date") or item.get("date") or ""),
                 reverse=True,
             )
             for tree_view, mapping, rows_to_show in (
@@ -3304,102 +4195,57 @@ def _open_machines_panel(
                 (full_review_history_tree, full_review_history_items, done_entries),
             ):
                 for item in rows_to_show:
-                    iid = tree_view.insert(
-                        "", "end", values=_review_history_values(item)
-                    )
+                    iid = tree_view.insert("", "end", values=_review_history_values(item))
                     mapping[iid] = item
 
         def _refresh_reviews_tree() -> None:
             review_items.clear()
             for iid in reviews_tree.get_children():
                 reviews_tree.delete(iid)
-            entries = _combined_machine_review_entries(
-                machine, today=dt.date.today(), years_ahead=1
-            )
+            entries = _combined_machine_review_entries(machine, today=dt.date.today(), years_ahead=1)
             month_names = dict(MONTH_LABELS_PL)
             for entry in entries:
                 status_key = _review_status_key(entry.get("status"))
                 if status_key in {REVIEW_STATUS_DONE, REVIEW_STATUS_CANCELLED}:
                     continue
-
                 source = str(entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
                 is_cycle = source == REVIEW_SOURCE_CYCLE
-                date_value = _review_date(
-                    entry.get("date")
-                    or entry.get("planned_date")
-                    or entry.get("completed_at")
-                )
-                planned_text = (
-                    _format_machine_review_date(date_value)
-                    if date_value is not None
-                    else str(entry.get("planned_date") or "—")
-                )
-                type_text = (
-                    "Przegląd cykliczny"
-                    if is_cycle
-                    else str(entry.get("type") or "")
-                )
+                date_value = _review_date(entry.get("date") or entry.get("planned_date") or entry.get("completed_at"))
+                planned_text = _format_machine_review_date(date_value) if date_value is not None else str(entry.get("planned_date") or "—")
+                type_text = "Przegląd cykliczny" if is_cycle else str(entry.get("type") or "")
                 cycle_text = ""
                 if is_cycle and date_value is not None:
-                    cycle_text = (
-                        f"Cykliczny: {month_names.get(date_value.month, str(date_value.month))} "
-                        f"{date_value.year}"
-                    )
-
+                    cycle_text = f"Cykliczny: {month_names.get(date_value.month, str(date_value.month))} {date_value.year}"
                 status_label = _review_status_label(entry.get("status"))
                 if status_label == "W trakcie":
-                    people = str(entry.get("started_by") or "") or _people_text(
-                        entry.get("suggested_workers") or entry.get("suggested_people")
-                    )
-                    started_at = (
-                        _format_machine_history_dt(entry.get("started_at"))
-                        if entry.get("started_at")
-                        else ""
-                    )
+                    people = str(entry.get("started_by") or "") or _people_text(entry.get("suggested_workers") or entry.get("suggested_people"))
+                    started_at = _format_machine_history_dt(entry.get("started_at")) if entry.get("started_at") else ""
                     details = str(entry.get("description") or "")
                     if started_at:
-                        details = f"Rozpoczęto: {started_at}" + (
-                            f" | {details}" if details else ""
-                        )
+                        details = f"Rozpoczęto: {started_at}" + (f" | {details}" if details else "")
                 else:
-                    people = _people_text(
-                        entry.get("suggested_workers") or entry.get("suggested_people")
-                    )
+                    people = _people_text(entry.get("suggested_workers") or entry.get("suggested_people"))
                     details = str(entry.get("description") or "")
-
                 if cycle_text and cycle_text.lower() not in details.lower():
                     details = cycle_text + (f" | {details}" if details else "")
                 dysp_id = _linked_dysp_id(entry)
                 if dysp_id and dysp_id.lower() not in details.lower():
                     details = (details + " | " if details else "") + f"Dyspozycja: {dysp_id}"
-
-                values = (
-                    planned_text,
-                    type_text,
-                    status_label,
-                    people or "—",
-                    details or "—",
-                )
+                values = (planned_text, type_text, status_label, people or "—", details or "—")
                 overdue = bool(date_value is not None and date_value < dt.date.today())
-                tag = "overdue" if overdue else "pending"
-                iid = reviews_tree.insert("", "end", values=values, tags=(tag,))
+                iid = reviews_tree.insert("", "end", values=values, tags=(("overdue" if overdue else "pending"),))
                 review_items[iid] = entry
-
             _refresh_review_history_trees(entries)
             _refresh_next_review_summary()
 
-        def _selected_review_entry(
-            source_tree: Optional[ttk.Treeview] = None,
-        ) -> Optional[Dict[str, Any]]:
+        def _selected_review_entry(source_tree: Optional[ttk.Treeview] = None) -> Optional[Dict[str, Any]]:
             trees = (
                 (reviews_tree, review_items),
                 (review_history_tree, review_history_items),
                 (full_review_history_tree, full_review_history_items),
             )
             if source_tree is not None:
-                trees = tuple(
-                    pair for pair in trees if pair[0] is source_tree
-                ) or trees
+                trees = tuple(pair for pair in trees if pair[0] is source_tree) or trees
             for tree_view, mapping in trees:
                 sel = tree_view.selection()
                 if sel:
@@ -3408,9 +4254,7 @@ def _open_machines_panel(
 
         def _show_selected_review_details(_event=None) -> None:
             source_tree = getattr(_event, "widget", None) if _event is not None else None
-            entry = _selected_review_entry(
-                source_tree if isinstance(source_tree, ttk.Treeview) else None
-            )
+            entry = _selected_review_entry(source_tree if isinstance(source_tree, ttk.Treeview) else None)
             if not entry:
                 return
             source = str(entry.get("source") or REVIEW_SOURCE_MANUAL).strip().lower()
