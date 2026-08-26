@@ -1,0 +1,130 @@
+name: Patch machine service flow
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '_patch_machine_service_flow.py'
+      - '.github/workflows/patch-machine-service-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - name: Verify approved source revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object gui_maszyny.py)" = "c0d4266c993ef8b5cdc0f9807b5145aa4407afe2"
+          test "$(git hash-object maszyny_dyspozycje.py)" = "a670a70a034b3dbce90965c57c5f0b3fd3a7ff43"
+          test "$(git hash-object gui_zlecenia.py)" = "6e751f418d8ed1a34d15bc670e70b239c2ffa01e"
+          test "$(git hash-object gui_dyspozycje_creator.py)" = "3348b6d3d4832a24f5ce09f510aacd2a7ad1dbb7"
+          test "$(git hash-object utils_maszyny.py)" = "3396d23dd36847883e92bf217577f35adb448996"
+
+      - name: Apply approved changes
+        run: python _patch_machine_service_flow.py
+
+      - name: Validate Python and exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile gui_maszyny.py maszyny_dyspozycje.py gui_zlecenia.py gui_dyspozycje_creator.py utils_maszyny.py
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' gui_dyspozycje_creator.py gui_maszyny.py gui_zlecenia.py maszyny_dyspozycje.py utils_maszyny.py | sort)"
+          test "$changed" = "$expected"
+          ! grep -q 'from wm.dyspo_wizard' gui_maszyny.py
+          ! grep -q 'bind_ctrl_d' gui_maszyny.py
+          ! grep -q 'SCHEDULE_YEAR = 2025' gui_maszyny.py
+          ! grep -q 'year: int = 2025' utils_maszyny.py
+          grep -q '# version: 1.5' gui_maszyny.py
+          grep -q '# version: 1.1' maszyny_dyspozycje.py
+          grep -q '# version: 1.8' gui_zlecenia.py
+          grep -q '# version: 1.4' gui_dyspozycje_creator.py
+          grep -q '# version: 1.1' utils_maszyny.py
+
+      - name: Validate cycle dates and Dyspozycje keys
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          from maszyny_dyspozycje import (
+              _planned_cycle_date,
+              collect_due_machine_cycle_specs,
+          )
+
+          machine = {
+              'id': '65',
+              'nazwa': 'Wycinarka drutowa',
+              'typ': 'CTW 400 TB',
+              'review_months': [9],
+              'review_day': 15,
+              'default_review_type': 'Przegląd okresowy',
+              'reviews': [],
+          }
+          specs = collect_due_machine_cycle_specs(
+              [machine], [], today=dt.date(2026, 9, 8), window_days=7
+          )
+          assert len(specs) == 1, specs
+          spec = specs[0]
+          assert spec['termin'] == '2026-09-15', spec
+          assert spec['meta']['auto_key'] == 'machine-cycle-review:65:2026:09', spec
+
+          specs_dup = collect_due_machine_cycle_specs(
+              [machine],
+              [{'meta': {'auto_source': 'machine_cycle_review', 'auto_key': spec['meta']['auto_key']}}],
+              today=dt.date(2026, 9, 8),
+              window_days=7,
+          )
+          assert specs_dup == [], specs_dup
+
+          specs_2027 = collect_due_machine_cycle_specs(
+              [machine], [], today=dt.date(2027, 9, 8), window_days=7
+          )
+          assert len(specs_2027) == 1, specs_2027
+          assert specs_2027[0]['termin'] == '2027-09-15', specs_2027
+          assert specs_2027[0]['meta']['auto_key'] == 'machine-cycle-review:65:2027:09'
+
+          assert _planned_cycle_date(2027, 2, 31) == dt.date(2027, 2, 28)
+          assert _planned_cycle_date(2028, 2, 31) == dt.date(2028, 2, 29)
+          print('cycle date tests: OK')
+          PY
+
+      - name: Validate active history formatter source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('gui_maszyny.py').read_text(encoding='utf-8')
+          assert 'start = _format_machine_history_dt(item.get("started_at"))' in text
+          assert 'stop = _format_machine_history_dt(item.get("ended_at"))' in text
+          assert 'return f"{weekday} {parsed.strftime(\'%d-%m-%y %H:%M\')}"' in text
+          assert 'review_day' in text
+          assert 'sync_review_to_dyspozycja' in text
+          print('active history formatter source: OK')
+          PY
+
+      - name: Commit approved source and remove one-shot files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add gui_maszyny.py maszyny_dyspozycje.py gui_zlecenia.py gui_dyspozycje_creator.py utils_maszyny.py
+          git rm _patch_machine_service_flow.py .github/workflows/patch-machine-service-flow.yml
+          git diff --cached --check
+          staged="$(git diff --cached --name-only | sort)"
+          expected="$(printf '%s\n' .github/workflows/patch-machine-service-flow.yml _patch_machine_service_flow.py gui_dyspozycje_creator.py gui_maszyny.py gui_zlecenia.py maszyny_dyspozycje.py utils_maszyny.py | sort)"
+          test "$staged" = "$expected"
+          git commit -m 'feat: complete machine service workflow'
+          git push origin Rozwiniecie
