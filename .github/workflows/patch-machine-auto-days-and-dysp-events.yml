@@ -36,26 +36,22 @@ jobs:
         run: |
           python - <<'PY'
           import pathlib
-          import maszyny_dyspozycje as md
-
-          class FakeConfig:
-              def get(self, key, default=None):
-                  assert key == "dyspozycje.machine_cycle.days_before"
-                  return 14
-
-          old = md.ConfigManager
-          md.ConfigManager = FakeConfig
-          try:
-              assert md._configured_auto_window_days() == 14
-          finally:
-              md.ConfigManager = old
 
           z = pathlib.Path('gui_zlecenia.py').read_text(encoding='utf-8')
           assert 'root.unbind("<<DyspozycjeUpdated>>", bind_id)' in z
           assert 'if not self._view_is_alive():' in z
+          assert 'self._dysp_event_bind_id' in z
+
           s = pathlib.Path('gui_settings.py').read_text(encoding='utf-8')
           assert 'dyspozycje.machine_cycle.days_before' in s
           assert 'Automatyzacja przeglądów maszyn' in s
+          assert 'from_=0' in s and 'to=365' in s
+
+          m = pathlib.Path('maszyny_dyspozycje.py').read_text(encoding='utf-8')
+          assert 'AUTO_WINDOW_CONFIG_KEY = "dyspozycje.machine_cycle.days_before"' in m
+          assert 'window_days: int | None = None' in m
+          assert 'window_days = _configured_auto_window_days()' in m
+          assert 'return max(0, min(365, parsed))' in m
           PY
 
       - name: Diff check
