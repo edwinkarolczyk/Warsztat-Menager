@@ -38,12 +38,12 @@ old_refresh = '''            for entry in _machine_reviews(machine):\n          
 new_refresh = '''            for entry in _machine_reviews(machine):\n                status_label = _review_status_label(entry.get("status"))\n                if status_label == "Wykonany":\n                    people = _people_text(entry.get("completed_by"))\n                    completed_at = str(entry.get("completed_at") or "").replace("T", " ")[:16]\n                    details = str(entry.get("result_note") or entry.get("description") or "")\n                    if completed_at:\n                        details = f"Wykonano: {completed_at}" + (f" | {details}" if details else "")\n                elif status_label == "W trakcie":\n                    people = str(entry.get("started_by") or "") or _people_text(entry.get("suggested_workers"))\n                    started_at = str(entry.get("started_at") or "").replace("T", " ")[:16]\n                    details = str(entry.get("description") or "")\n                    if started_at:\n                        details = f"Rozpoczęto: {started_at}" + (f" | {details}" if details else "")\n                else:\n                    people = _people_text(entry.get("suggested_workers"))\n                    details = str(entry.get("description") or "")\n                values = (\n                    str(entry.get("planned_date") or "—"),\n                    str(entry.get("type") or ""),\n                    status_label,\n                    people or "—",\n                    details or "—",\n                )\n                iid = reviews_tree.insert("", "end", values=values)\n                review_items[iid] = entry\n'''
 replace_once(old_refresh, new_refresh, 'review refresh')
 
-# Both service state transitions must immediately refresh the open history table.
-old_call = '''            machine.update(updated)\n            _persist_machine_after_review_change(updated)\n            _refresh_reviews_tree()\n'''
-new_call = '''            machine.update(updated)\n            _persist_machine_after_review_change(updated)\n            _refresh_history_tree()\n            _refresh_reviews_tree()\n'''
-count = text.count(old_call)
-if count != 2:
-    raise SystemExit(f'service transition refresh: expected 2 matches, got {count}')
-text = text.replace(old_call, new_call)
+start_old = '''            machine.update(updated)\n            _persist_machine_after_review_change(updated)\n            _refresh_reviews_tree()\n'''
+start_new = '''            machine.update(updated)\n            _persist_machine_after_review_change(updated)\n            _refresh_history_tree()\n            _refresh_reviews_tree()\n'''
+replace_once(start_old, start_new, 'start service history refresh')
+
+complete_old = '''                machine.update(updated)\n                _persist_machine_after_review_change(updated)\n                _refresh_reviews_tree()\n                dialog.destroy()\n'''
+complete_new = '''                machine.update(updated)\n                _persist_machine_after_review_change(updated)\n                _refresh_history_tree()\n                _refresh_reviews_tree()\n                dialog.destroy()\n'''
+replace_once(complete_old, complete_new, 'complete service history refresh')
 
 path.write_text(text, encoding='utf-8')
