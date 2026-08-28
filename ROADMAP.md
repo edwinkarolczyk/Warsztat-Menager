@@ -1,6 +1,6 @@
 # ROADMAP — Warsztat Menager
 
-> **Aktualizacja:** 2026-08-25  
+> **Aktualizacja:** 2026-08-28  
 > **Gałąź robocza:** `Rozwiniecie`  
 > **Cel bieżący:** stabilizacja WM + dopięcie rzeczy wynikających z codziennego użycia programu.  
 > **Zasada:** najpierw rdzeń, spójność danych i niezawodność; dopiero potem nowe duże funkcje.
@@ -180,6 +180,7 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 - 🔴 pełna historia wykonanych przeglądów
 - 🔴 polskie, jednoznaczne statusy i alerty
 - 🔴 kreator zaległych przeglądów: lista → wykonano / pomiń → data → następny termin
+- ⚪ **Zakres przeglądu okresowego per maszyna** — każda karta maszyny ma własną checklistę punktów do wykonania; cykliczny przegląd/Dyspozycja pobiera tę checklistę i zapisuje wykonane punkty oraz uwagi. Docelowo osobne zakresy np. miesięczny / kwartalny / roczny.
 
 ## 5.3 Serwis / naprawy
 
