@@ -1,17 +1,24 @@
 # WM-VERSION: 0.1
-# version: 1.0
+# version: 1.1
 # Moduł: christmas_theme_runtime
+# Zmiany 1.1:
+# - Motyw Świąteczny korzysta zawsze z aktywnego ConfigManager, więc Toplevel/moduły
+#   nie cofają globalnych stylów ttk do "default".
+# - Dodano krótki opad śniegu po całym ekranie co ok. 20 s (Windows, click-through).
+# - Wyłączenie motywu zatrzymuje wszystkie timery i usuwa warstwę śniegu.
 #
 # Motyw Świąteczny dla Warsztat Menager:
 # - wybór „Świąteczny” w Ustawieniach zapisuje kanoniczne ui.theme=christmas,
 # - wykorzystuje centralny ui_theme zamiast tworzyć drugi system stylów,
 # - po zapisie stosuje motyw od razu,
-# - dekoruje główne okno lekką animacją tekstową: śnieg + Mikołaj + sanie,
+# - dekoruje główne okno animacją tekstową: śnieg + Mikołaj + sanie,
 # - przełączenie na inny motyw usuwa dekoracje i przywraca oryginalne tytuły.
 
 from __future__ import annotations
 
 import logging
+import random
+import time
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
@@ -50,7 +57,14 @@ _SLEIGH_FRAMES = (
 )
 _ANIMATION_MS = 650
 
+_SNOW_INTERVAL_MS = 20_000
+_SNOW_DURATION_MS = 6_500
+_SNOW_TICK_MS = 70
+_SNOW_FLAKES = 42
+_SNOW_TRANSPARENT = "#010203"
+
 _ORIGINAL_APPLY_THEME_SAFE = None
+_ORIGINAL_LOAD_THEME_NAME = None
 
 
 def _all_descendants(widget: tk.Misc):
@@ -98,6 +112,35 @@ def _main_root(target: Any = None) -> tk.Misc | None:
         return None
 
 
+def _runtime_theme_name(ui_theme_module: Any, fallback: Any = None) -> str:
+    """Odczytaj motyw z aktywnego ConfigManager, a nie z przypadkowego ./config.json."""
+    try:
+        from config_manager import ConfigManager
+
+        value = ConfigManager().get("ui.theme", None)
+        if value not in (None, ""):
+            canonical = _canonical_theme(value)
+            resolved = ui_theme_module.resolve_theme_name(canonical)
+            if resolved in ui_theme_module.THEMES:
+                return resolved
+    except Exception:
+        pass
+
+    if fallback not in (None, ""):
+        try:
+            canonical = _canonical_theme(fallback)
+            resolved = ui_theme_module.resolve_theme_name(canonical)
+            if resolved in ui_theme_module.THEMES:
+                return resolved
+        except Exception:
+            pass
+
+    active = str(getattr(ui_theme_module, "_ACTIVE_THEME_NAME", "") or "").strip()
+    if active in getattr(ui_theme_module, "THEMES", {}):
+        return active
+    return "default"
+
+
 def _existing_title_labels(root: tk.Misc) -> list[tk.Misc]:
     labels: list[tk.Misc] = []
     for child in _all_descendants(root):
@@ -137,6 +180,197 @@ def _restore_labels(root: tk.Misc) -> None:
         pass
 
 
+def _destroy_snow_overlay(root: tk.Misc) -> None:
+    overlay = getattr(root, "_wm_christmas_snow_overlay", None)
+    if overlay is not None:
+        try:
+            if overlay.winfo_exists():
+                overlay.destroy()
+        except Exception:
+            pass
+    try:
+        root._wm_christmas_snow_overlay = None
+    except Exception:
+        pass
+
+
+def _stop_snow(root: tk.Misc) -> None:
+    job = getattr(root, "_wm_christmas_snow_job", None)
+    if job:
+        try:
+            root.after_cancel(job)
+        except Exception:
+            pass
+    try:
+        root._wm_christmas_snow_job = None
+    except Exception:
+        pass
+    _destroy_snow_overlay(root)
+
+
+def _make_overlay_click_through(overlay: tk.Toplevel) -> None:
+    """Na Windows warstwa śniegu nie blokuje kliknięć w WM."""
+    try:
+        if str(overlay.tk.call("tk", "windowingsystem")) != "win32":
+            return
+    except Exception:
+        return
+
+    try:
+        import ctypes
+
+        overlay.update_idletasks()
+        hwnd = int(overlay.winfo_id())
+        parent_hwnd = int(ctypes.windll.user32.GetParent(hwnd))
+        if parent_hwnd:
+            hwnd = parent_hwnd
+
+        GWL_EXSTYLE = -20
+        WS_EX_TRANSPARENT = 0x00000020
+        WS_EX_LAYERED = 0x00080000
+        WS_EX_NOACTIVATE = 0x08000000
+
+        get_style = ctypes.windll.user32.GetWindowLongW
+        set_style = ctypes.windll.user32.SetWindowLongW
+        style = int(get_style(hwnd, GWL_EXSTYLE))
+        set_style(
+            hwnd,
+            GWL_EXSTYLE,
+            style | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE,
+        )
+    except Exception:
+        pass
+
+
+def _start_snow_burst(root: tk.Misc) -> None:
+    """Krótki opad śniegu nad całym głównym oknem."""
+    try:
+        if not root.winfo_exists() or not getattr(root, "_wm_christmas_active", False):
+            return
+        if str(root.tk.call("tk", "windowingsystem")) != "win32":
+            return
+    except Exception:
+        return
+
+    _destroy_snow_overlay(root)
+
+    try:
+        root.update_idletasks()
+        width = max(320, int(root.winfo_width()))
+        height = max(240, int(root.winfo_height()))
+        x = int(root.winfo_rootx())
+        y = int(root.winfo_rooty())
+
+        overlay = tk.Toplevel(root)
+        root._wm_christmas_snow_overlay = overlay
+        overlay.overrideredirect(True)
+        overlay.geometry(f"{width}x{height}+{x}+{y}")
+        overlay.configure(bg=_SNOW_TRANSPARENT)
+        try:
+            overlay.wm_attributes("-transparentcolor", _SNOW_TRANSPARENT)
+        except Exception:
+            overlay.destroy()
+            root._wm_christmas_snow_overlay = None
+            return
+        try:
+            overlay.attributes("-topmost", True)
+        except Exception:
+            pass
+
+        canvas = tk.Canvas(
+            overlay,
+            bg=_SNOW_TRANSPARENT,
+            highlightthickness=0,
+            bd=0,
+        )
+        canvas.pack(fill="both", expand=True)
+        overlay.update_idletasks()
+        _make_overlay_click_through(overlay)
+
+        flakes: list[dict[str, float | int]] = []
+        for _ in range(_SNOW_FLAKES):
+            fx = random.randint(0, width)
+            fy = random.randint(-height, 0)
+            size = random.randint(10, 22)
+            item = canvas.create_text(
+                fx,
+                fy,
+                text=random.choice(("❄", "❅", "❆")),
+                fill="white",
+                font=("Segoe UI Symbol", size),
+            )
+            flakes.append(
+                {
+                    "item": item,
+                    "x": float(fx),
+                    "y": float(fy),
+                    "speed": random.uniform(3.0, 8.0),
+                    "drift": random.uniform(-0.8, 0.8),
+                }
+            )
+
+        started = time.monotonic()
+
+        def _tick_snow() -> None:
+            try:
+                if (
+                    not getattr(root, "_wm_christmas_active", False)
+                    or not overlay.winfo_exists()
+                    or time.monotonic() - started >= (_SNOW_DURATION_MS / 1000.0)
+                ):
+                    _destroy_snow_overlay(root)
+                    return
+            except Exception:
+                _destroy_snow_overlay(root)
+                return
+
+            for flake in flakes:
+                try:
+                    flake["x"] = float(flake["x"]) + float(flake["drift"])
+                    flake["y"] = float(flake["y"]) + float(flake["speed"])
+                    if float(flake["y"]) > height + 25:
+                        flake["y"] = float(random.randint(-120, -10))
+                        flake["x"] = float(random.randint(0, width))
+                    canvas.coords(
+                        int(flake["item"]),
+                        float(flake["x"]),
+                        float(flake["y"]),
+                    )
+                except Exception:
+                    continue
+
+            try:
+                overlay.after(_SNOW_TICK_MS, _tick_snow)
+            except Exception:
+                _destroy_snow_overlay(root)
+
+        _tick_snow()
+    except Exception:
+        _destroy_snow_overlay(root)
+
+
+def _ensure_snow_scheduler(root: tk.Misc) -> None:
+    if getattr(root, "_wm_christmas_snow_job", None):
+        return
+
+    def _cycle() -> None:
+        try:
+            root._wm_christmas_snow_job = None
+            if not root.winfo_exists() or not getattr(root, "_wm_christmas_active", False):
+                return
+        except Exception:
+            return
+
+        _start_snow_burst(root)
+        try:
+            root._wm_christmas_snow_job = root.after(_SNOW_INTERVAL_MS, _cycle)
+        except Exception:
+            root._wm_christmas_snow_job = None
+
+    # Pierwszy opad od razu ułatwia sprawdzenie, potem kolejne co ok. 20 s.
+    _cycle()
+
+
 def _stop_christmas_animation(root: tk.Misc) -> None:
     job = getattr(root, "_wm_christmas_job", None)
     if job:
@@ -149,6 +383,8 @@ def _stop_christmas_animation(root: tk.Misc) -> None:
         root._wm_christmas_active = False
     except Exception:
         pass
+
+    _stop_snow(root)
 
     original_title = getattr(root, "_wm_christmas_original_title", None)
     if original_title is not None:
@@ -167,6 +403,7 @@ def _start_christmas_animation(root: tk.Misc) -> None:
         return
 
     if getattr(root, "_wm_christmas_active", False):
+        _ensure_snow_scheduler(root)
         return
 
     try:
@@ -177,6 +414,7 @@ def _start_christmas_animation(root: tk.Misc) -> None:
     root._wm_christmas_active = True
     root._wm_christmas_frame = 0
     root._wm_christmas_labels = _existing_title_labels(root)
+    _ensure_snow_scheduler(root)
 
     def _tick() -> None:
         try:
@@ -189,14 +427,16 @@ def _start_christmas_animation(root: tk.Misc) -> None:
         frame = int(getattr(root, "_wm_christmas_frame", 0) or 0)
         snow = _SNOW_FRAMES[frame % len(_SNOW_FRAMES)]
         sleigh = _SLEIGH_FRAMES[frame % len(_SLEIGH_FRAMES)]
-        base_title = str(getattr(root, "_wm_christmas_original_title", "Warsztat Menager") or "Warsztat Menager")
+        base_title = str(
+            getattr(root, "_wm_christmas_original_title", "Warsztat Menager")
+            or "Warsztat Menager"
+        )
 
         try:
             root.title(f"{snow}  {base_title}  •  Świąteczny  •  {sleigh}  {snow}")
         except Exception:
             pass
 
-        # Co kilka klatek odświeżamy listę, bo panel może przebudować nagłówek.
         if frame % 8 == 0:
             try:
                 root._wm_christmas_labels = _existing_title_labels(root)
@@ -207,7 +447,10 @@ def _start_christmas_animation(root: tk.Misc) -> None:
             try:
                 if not label.winfo_exists():
                     continue
-                original = str(getattr(label, "_wm_christmas_original_text", "") or "Warsztat Menager")
+                original = str(
+                    getattr(label, "_wm_christmas_original_text", "")
+                    or "Warsztat Menager"
+                )
                 label.configure(text=f"{original}   {snow}  {sleigh}")
             except Exception:
                 pass
@@ -232,7 +475,7 @@ def _sync_christmas_decorations(target: Any, scheme: Any) -> None:
 
 
 def _install_palette_and_theme_hook() -> None:
-    global _ORIGINAL_APPLY_THEME_SAFE
+    global _ORIGINAL_APPLY_THEME_SAFE, _ORIGINAL_LOAD_THEME_NAME
 
     try:
         import ui_theme
@@ -240,7 +483,6 @@ def _install_palette_and_theme_hook() -> None:
         logger.exception("[CHRISTMAS] Nie udało się zaimportować ui_theme")
         return
 
-    # Centralna paleta. Nie tworzymy równoległego stylowania widgetów.
     try:
         ui_theme.THEMES["christmas"] = {
             "bg": "#07150d",
@@ -267,6 +509,23 @@ def _install_palette_and_theme_hook() -> None:
     except Exception:
         logger.exception("[CHRISTMAS] Nie udało się zarejestrować palety")
 
+    # Ważne: stare aliasy apply_theme_safe (np. zaimportowane wcześniej przez
+    # gui_panel) nadal odwołują się do globalnego ui_theme.load_theme_name.
+    # Podmieniamy więc także ten odczyt, żeby nie korzystał z ./config.json.
+    if not getattr(ui_theme, "_wm_christmas_load_theme_hook", False):
+        original_load = getattr(ui_theme, "load_theme_name", None)
+        if callable(original_load):
+            _ORIGINAL_LOAD_THEME_NAME = original_load
+
+            def _load_theme_name_runtime(config_path):
+                active = _runtime_theme_name(ui_theme)
+                if active in ui_theme.THEMES:
+                    return active
+                return original_load(config_path)
+
+            ui_theme.load_theme_name = _load_theme_name_runtime
+            ui_theme._wm_christmas_load_theme_hook = True
+
     if getattr(ui_theme, "_wm_christmas_theme_hook", False):
         return
 
@@ -276,14 +535,10 @@ def _install_palette_and_theme_hook() -> None:
     _ORIGINAL_APPLY_THEME_SAFE = original
 
     def _apply_theme_safe_with_christmas(target=None, scheme=None, *, config_path=None):
-        result = original(target, scheme=scheme, config_path=config_path)
         effective = scheme
         if effective is None:
-            try:
-                from config_manager import ConfigManager
-                effective = ConfigManager().get("ui.theme", "dark")
-            except Exception:
-                effective = getattr(ui_theme, "_ACTIVE_THEME_NAME", "dark")
+            effective = _runtime_theme_name(ui_theme)
+        result = original(target, scheme=effective, config_path=config_path)
         _sync_christmas_decorations(target, effective)
         return result
 
@@ -323,7 +578,9 @@ def _decorate_theme_selector(panel: Any) -> None:
 
     def _sync_from_source(*_args: Any) -> None:
         canonical = _canonical_theme(source_var.get())
-        display_var.set(_VALUE_TO_DISPLAY.get(canonical, str(source_var.get() or canonical)))
+        display_var.set(
+            _VALUE_TO_DISPLAY.get(canonical, str(source_var.get() or canonical))
+        )
 
     def _apply_display_choice(_event=None) -> None:
         selected = str(display_var.get() or "").strip()
@@ -367,6 +624,7 @@ def _apply_saved_theme(panel: Any) -> None:
 
     try:
         import ui_theme
+
         ui_theme.apply_theme_safe(root, scheme=canonical)
     except Exception:
         logger.exception("[CHRISTMAS] Nie udało się zastosować zapisanego motywu")
