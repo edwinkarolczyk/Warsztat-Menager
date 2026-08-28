@@ -23,10 +23,7 @@ logger = logging.getLogger(__name__)
 _GUEST_LOGINS = {"", "guest", "gość", "gosc", "niezalogowany", "niezalogowana"}
 _GUEST_ROLES = {"", "guest", "gość", "gosc"}
 
-# Wbudowany gui_panel ma własny historyczny licznik. Ustawiamy mu bardzo długi
-# czas, żeby nie był drugim źródłem wylogowania. Prawdziwy timeout obsługuje
-# wyłącznie start._InactivityMonitor.
-_PANEL_TIMER_NEUTRAL_MIN = 525600  # 1 rok
+_PANEL_TIMER_NEUTRAL_MIN = 525600
 _COUNTDOWN_REFRESH_MS = 25
 
 
@@ -45,7 +42,6 @@ def _session_root(start_mod=None):
         return root
     try:
         import tkinter as tk
-
         return tk._default_root
     except Exception:
         return None
@@ -54,7 +50,6 @@ def _session_root(start_mod=None):
 def _session_values(root) -> tuple[str, str]:
     if root is None:
         return "", ""
-
     login = ""
     role = ""
     for attr in ("active_login", "current_user", "username", "_wm_login", "login"):
@@ -65,7 +60,6 @@ def _session_values(root) -> tuple[str, str]:
         if value:
             login = value
             break
-
     for attr in ("_wm_rola", "rola", "current_role", "active_role", "role"):
         try:
             value = str(getattr(root, attr, "") or "").strip()
@@ -74,7 +68,6 @@ def _session_values(root) -> tuple[str, str]:
         if value:
             role = value
             break
-
     return login, role
 
 
@@ -99,17 +92,14 @@ def _timeout_minutes_from_runtime(start_mod=None) -> int:
         managers.append(getattr(start_mod, "CONFIG_MANAGER", None))
     try:
         import gui_panel
-
         managers.append(getattr(gui_panel, "CONFIG_MANAGER", None))
     except Exception:
         pass
     try:
         from config_manager import ConfigManager
-
         managers.append(ConfigManager())
     except Exception:
         pass
-
     for manager in managers:
         if manager is None:
             continue
@@ -121,8 +111,6 @@ def _timeout_minutes_from_runtime(start_mod=None) -> int:
 
 
 def _patch_monitor_precision(start_mod) -> None:
-    """Odświeżaj monitor częściej niż raz na sekundę, bez zmiany jego logiki."""
-
     cls = getattr(start_mod, "_InactivityMonitor", None)
     if cls is None or getattr(cls, "_wm_precise_timeout_tick", False):
         return
@@ -145,17 +133,14 @@ def _restart_monitor(root, minutes: int | None = None) -> None:
     start_mod = sys.modules.get("start")
     if start_mod is None or root is None:
         return
-
     _patch_monitor_precision(start_mod)
     timeout_min = _normalize_minutes(
         minutes if minutes is not None else _timeout_minutes_from_runtime(start_mod)
     )
     total = timeout_min * 60
-
     try:
         monitor = getattr(start_mod, "_USER_ACTIVITY_MONITOR", None)
         if monitor is not None:
-            # Callback zawsze ustawiamy jawnie, żeby stary start.logout nie wrócił.
             monitor.callback = _timeout_logout
             restart = getattr(start_mod, "restart_user_activity_monitor", None)
             if callable(restart):
@@ -172,13 +157,10 @@ def _restart_monitor(root, minutes: int | None = None) -> None:
 
 
 def _timeout_logout() -> None:
-    """Callback monitora: wyloguj użytkownika, ale nigdy nie zamykaj WM."""
-
     start_mod = sys.modules.get("start")
     root = _session_root(start_mod)
     if root is None:
         return
-
     try:
         if hasattr(root, "winfo_exists") and not root.winfo_exists():
             return
@@ -186,8 +168,6 @@ def _timeout_logout() -> None:
         return
 
     if _is_guest_session(root):
-        # Gościa nie ma z czego wylogowywać. Monitor pozostaje uzbrojony,
-        # aby późniejsze logowanie miało aktywny timeout.
         try:
             root.after_idle(lambda: _restart_monitor(root))
         except Exception:
@@ -197,18 +177,14 @@ def _timeout_logout() -> None:
     login, role = _session_values(root)
     try:
         from presence import heartbeat
-
         heartbeat(login, role, logout=True)
     except Exception:
         pass
 
     try:
         import gui_panel
-
         gui_panel.uruchom_panel(root, login="Gość", rola="guest")
     except Exception:
-        # Krytyczna zasada: nawet gdy przełączenie panelu się nie uda,
-        # timeout nie może wywołać destroy()/quit().
         logger.exception("[AUTH][TIMEOUT] Nie udało się przełączyć do trybu Gościa.")
         return
 
@@ -219,18 +195,14 @@ def _timeout_logout() -> None:
 
 
 def _allow_one_minute_timeout(cfg=None) -> None:
-    """Ustaw minimum 1 min w aktywnym schemacie ConfigManagera/UI."""
-
     managers = []
     if cfg is not None:
         managers.append(cfg)
     try:
         from config_manager import ConfigManager
-
         managers.append(ConfigManager())
     except Exception:
         pass
-
     seen: set[int] = set()
     for manager in managers:
         if manager is None or id(manager) in seen:
@@ -246,8 +218,6 @@ def _allow_one_minute_timeout(cfg=None) -> None:
 
 
 def _flush_pending_save(cfg) -> None:
-    """Nie zostawiaj timeoutu tylko w debounce — utrwal go przed restartem WM."""
-
     if cfg is None:
         return
     try:
@@ -256,7 +226,6 @@ def _flush_pending_save(cfg) -> None:
         pending = False
     if not pending:
         return
-
     try:
         timer = getattr(cfg, "_debounce_timer", None)
         if timer is not None:
@@ -274,13 +243,8 @@ def _flush_pending_save(cfg) -> None:
 
 
 def apply_session_timeout(root, minutes: Any, cfg=None) -> int:
-    """Zastosuj nowy timeout od razu po zapisie Ustawień."""
-
     timeout_min = _normalize_minutes(minutes)
     _allow_one_minute_timeout(cfg)
-
-    # Ujednolicamy referencję managera używaną przez start i gui_panel,
-    # aby oba miejsca czytały tę samą, świeżo zapisaną wartość.
     if cfg is not None:
         start_mod = sys.modules.get("start")
         if start_mod is not None:
@@ -294,18 +258,14 @@ def apply_session_timeout(root, minutes: Any, cfg=None) -> int:
                 panel_mod.CONFIG_MANAGER = cfg
             except Exception:
                 pass
-
     _flush_pending_save(cfg)
     _restart_monitor(root, timeout_min)
     _install_countdown_display(root)
-
     logger.info("[AUTH][TIMEOUT] Zastosowano timeout sesji: %s min", timeout_min)
     return timeout_min
 
 
 class _PanelConfigProxy:
-    """Proxy neutralizujący wyłącznie stary lokalny timer gui_panel."""
-
     def __init__(self, manager):
         self._manager = manager
 
@@ -370,21 +330,15 @@ def _format_remaining_ms(delta_seconds: float) -> str:
 
 
 def _install_countdown_display(root) -> None:
-    """Pokazuj prawdziwy deadline monitora bezczynności jako MM:SS,SSS."""
-
     if root is None:
         return
     _cancel_countdown_display(root)
-
     label, reset_btn = _find_timeout_widgets(root)
     guest = _is_guest_session(root)
 
     if reset_btn is not None:
         try:
-            reset_btn.configure(
-                text="Zresetuj licznik",
-                command=lambda: _restart_monitor(root),
-            )
+            reset_btn.configure(command=lambda: _restart_monitor(root))
         except Exception:
             pass
 
@@ -454,15 +408,12 @@ def _install_panel_hook() -> bool:
     def _panel_with_single_timeout(root, login, rola, *args, **kwargs):
         manager = getattr(panel_mod, "CONFIG_MANAGER", None)
         proxy = _PanelConfigProxy(manager)
-
-        # Na czas budowy panelu neutralizujemy jego historyczny lokalny timer.
         try:
             panel_mod.CONFIG_MANAGER = proxy
             result = original(root, login, rola, *args, **kwargs)
         finally:
             panel_mod.CONFIG_MANAGER = manager
 
-        # Po każdym logowaniu/wylogowaniu zaczynamy rzeczywisty licznik od nowa.
         if _is_guest_values(login, rola):
             _restart_monitor(root)
         else:
@@ -479,12 +430,46 @@ def _install_panel_hook() -> bool:
     return True
 
 
+def _schedule_panel_hook_retry(start_mod=None) -> None:
+    root = _session_root(start_mod)
+    if root is None:
+        return
+    try:
+        if getattr(root, "_wm_session_panel_hook_retry", False):
+            return
+        root._wm_session_panel_hook_retry = True
+    except Exception:
+        pass
+
+    def _retry(attempt: int = 0) -> None:
+        if _install_panel_hook():
+            try:
+                root._wm_session_panel_hook_retry = False
+            except Exception:
+                pass
+            return
+        if attempt >= 50:
+            try:
+                root._wm_session_panel_hook_retry = False
+            except Exception:
+                pass
+            return
+        try:
+            root.after(100, lambda: _retry(attempt + 1))
+        except Exception:
+            pass
+
+    try:
+        root.after_idle(_retry)
+    except Exception:
+        _retry()
+
+
 def _install_settings_save_hook() -> bool:
     try:
         import gui_settings
     except Exception:
         return False
-
     cls = getattr(gui_settings, "SettingsPanel", None)
     if cls is None:
         return False
@@ -495,7 +480,6 @@ def _install_settings_save_hook() -> bool:
 
     def _save_with_session_timeout(self, *args, **kwargs):
         _allow_one_minute_timeout(getattr(self, "cfg", None))
-
         requested = None
         try:
             var = getattr(self, "vars", {}).get("auth.session_timeout_min")
@@ -505,7 +489,6 @@ def _install_settings_save_hook() -> bool:
             requested = None
 
         result = original_save(self, *args, **kwargs)
-
         cfg = getattr(self, "cfg", None)
         try:
             after = _normalize_minutes(
@@ -514,10 +497,7 @@ def _install_settings_save_hook() -> bool:
         except Exception:
             after = requested if requested is not None else 30
 
-        # ConfigManager ma debounce zapisu. Dla timeoutu zapis musi być fizycznie
-        # na dysku przed ewentualnym zamknięciem/restartem programu.
         _flush_pending_save(cfg)
-
         try:
             root = self.master.winfo_toplevel()
         except Exception:
@@ -532,8 +512,6 @@ def _install_settings_save_hook() -> bool:
 
 
 def install_session_timeout_runtime() -> bool:
-    """Podłącz jeden timeout, bezpieczne wylogowanie i precyzyjny licznik."""
-
     start_mod = sys.modules.get("start")
     if start_mod is not None:
         _patch_monitor_precision(start_mod)
@@ -551,7 +529,8 @@ def install_session_timeout_runtime() -> bool:
 
     _allow_one_minute_timeout()
     _install_settings_save_hook()
-    _install_panel_hook()
+    if not _install_panel_hook():
+        _schedule_panel_hook_retry(start_mod)
     return True
 
 
