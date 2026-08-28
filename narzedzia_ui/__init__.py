@@ -1,4 +1,6 @@
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - START wizyty narzędzia zachowuje bieżące zadania; lista jest czyszczona dopiero przy prawidłowym STOP.
 # Zmiany 1.3:
 # - Podłączono precyzyjne poprawki głównego edytora narzędzi NN/SN.
 # Zmiany 1.2:
@@ -16,6 +18,7 @@ from tkinter import messagebox as _messagebox
 
 from .state import ToolsPanelState, STATE
 from .editor_runtime import install_tools_editor_runtime
+from .visit_tasks_runtime import install_visit_tasks_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -32,7 +35,7 @@ def _wm_has_defined_tool_statuses() -> bool:
             ).strip()
             if not collection_id:
                 continue
-            for tool_type in _lz.get_tool_types(collection=collection_id) or []:
+            for tool_type in _lz.get_tool_types(collection=collection_id, ) or []:
                 if not isinstance(tool_type, dict):
                     continue
                 type_id = str(tool_type.get("id") or tool_type.get("name") or "").strip()
@@ -121,5 +124,6 @@ def _install_precise_visit_duration_formatter() -> None:
 _install_missing_global_status_warning_guard()
 _install_precise_visit_duration_formatter()
 install_tools_editor_runtime()
+install_visit_tasks_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
