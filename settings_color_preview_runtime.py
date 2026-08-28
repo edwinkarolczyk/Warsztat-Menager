@@ -1,6 +1,7 @@
-# version: 1.0
+# version: 1.0.1
 # Moduł: settings_color_preview_runtime
 # UI-only: podgląd kolorów i szybki wybór bez zmiany kluczy konfiguracji.
+# 1.0.1: po dodaniu pickera zmienia starą podpowiedź „wpisuj HEX” na wybór z podglądem.
 
 from __future__ import annotations
 
@@ -198,6 +199,24 @@ def _attach_dispatches_color_previews(panel: Any) -> None:
             "Kod HEX można nadal wpisać ręcznie."
         ),
     ).grid(row=6, column=0, columnspan=5, sticky="w", padx=8, pady=(4, 8))
+
+    for child in parent.winfo_children():
+        if not isinstance(child, ttk.Label):
+            continue
+        try:
+            old_text = str(child.cget("text") or "")
+        except Exception:
+            continue
+        if "Kolory wpisuj jako HEX" not in old_text:
+            continue
+        child.configure(
+            text=(
+                "Kolory wybieraj przyciskiem „Wybierz…” lub klikając próbkę; "
+                "HEX pozostaje opcją ręczną. Częstotliwość w milisekundach: "
+                "2000 = 2 sekundy, 500 = pół sekundy."
+            )
+        )
+        break
 
     setattr(colors_box, "_wm_color_preview_decorated", True)
 
