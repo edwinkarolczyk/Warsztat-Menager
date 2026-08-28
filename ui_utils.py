@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Utility helpers for Tkinter popups."""
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ class TopMost:
 
 
 def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
-    """Ensure ``widget`` window stays above its parent (or master toplevel)."""
+    """Raise ``widget`` above its owner without making the WM root topmost."""
 
     def _window(obj: tk.Misc | None) -> tk.Misc | None:
         try:
@@ -56,9 +56,22 @@ def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
         except Exception:
             return None
 
-    def _drop_topmost(win: tk.Misc) -> None:
+    def _drop_topmost(win: tk.Misc, owner_win: tk.Misc | None) -> None:
+        try:
+            if hasattr(win, "winfo_exists") and not win.winfo_exists():
+                return
+        except Exception:
+            return
         try:
             win.attributes("-topmost", False)
+        except Exception:
+            pass
+        # Po zdjęciu chwilowego topmost jeszcze raz utrzymaj relację dziecko → właściciel.
+        try:
+            if owner_win is not None and owner_win is not win:
+                win.lift(owner_win)
+            else:
+                win.lift()
         except Exception:
             pass
 
@@ -73,20 +86,30 @@ def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
                 window.transient(owner)
             except Exception:
                 pass
-            try:
-                owner.attributes("-topmost", True)
-            except Exception:
-                owner = None
-            else:
-                owner.after_idle(lambda: _drop_topmost(owner))
 
         try:
-            window.lift(owner)
+            if owner and owner is not window:
+                window.lift(owner)
+            else:
+                window.lift()
         except Exception:
-            window.lift()
-        window.focus_force()
-        window.attributes("-topmost", True)
-        window.after_idle(lambda: _drop_topmost(window))
+            try:
+                window.lift()
+            except Exception:
+                pass
+
+        try:
+            window.focus_force()
+        except Exception:
+            pass
+
+        # Topmost jest tylko krótkim impulsem dla dialogu. Nigdy nie ustawiamy
+        # topmost na właścicielu/głównym oknie WM, bo może ono przykryć własny dialog.
+        try:
+            window.attributes("-topmost", True)
+            window.after(150, lambda: _drop_topmost(window, owner))
+        except Exception:
+            pass
     except Exception:
         pass
 
