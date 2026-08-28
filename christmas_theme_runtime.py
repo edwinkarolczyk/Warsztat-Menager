@@ -1,24 +1,26 @@
 # WM-VERSION: 0.1
-# version: 1.1
+# version: 1.2
 # Moduł: christmas_theme_runtime
+# Zmiany 1.2:
+# - Śnieg pada bez przerw przez cały czas aktywnego motywu Świątecznego.
+# - Zwiększono liczbę płatków i dodano dekoracje: lampki, choinki, prezenty,
+#   napis świąteczny oraz Mikołaja z saniami przesuwającego się nad ekranem.
+# - Warstwa dekoracji pozostaje click-through na Windows i nie blokuje obsługi WM.
 # Zmiany 1.1:
 # - Motyw Świąteczny korzysta zawsze z aktywnego ConfigManager, więc Toplevel/moduły
 #   nie cofają globalnych stylów ttk do "default".
-# - Dodano krótki opad śniegu po całym ekranie co ok. 20 s (Windows, click-through).
-# - Wyłączenie motywu zatrzymuje wszystkie timery i usuwa warstwę śniegu.
+# - Wyłączenie motywu zatrzymuje animacje i usuwa warstwę dekoracji.
 #
 # Motyw Świąteczny dla Warsztat Menager:
 # - wybór „Świąteczny” w Ustawieniach zapisuje kanoniczne ui.theme=christmas,
 # - wykorzystuje centralny ui_theme zamiast tworzyć drugi system stylów,
 # - po zapisie stosuje motyw od razu,
-# - dekoruje główne okno animacją tekstową: śnieg + Mikołaj + sanie,
-# - przełączenie na inny motyw usuwa dekoracje i przywraca oryginalne tytuły.
+# - dekoruje główne okno bez ingerencji w logikę modułów.
 
 from __future__ import annotations
 
 import logging
 import random
-import time
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
@@ -57,11 +59,12 @@ _SLEIGH_FRAMES = (
 )
 _ANIMATION_MS = 650
 
-_SNOW_INTERVAL_MS = 20_000
-_SNOW_DURATION_MS = 6_500
 _SNOW_TICK_MS = 70
-_SNOW_FLAKES = 42
+_SNOW_FLAKES = 78
 _SNOW_TRANSPARENT = "#010203"
+_SNOW_SYMBOLS = ("❄", "❅", "❆", "·")
+_LIGHT_COLORS = ("#d62828", "#f6c945", "#2fa84f", "#ffffff")
+_FESTIVE_BANNER = "🎄  🎁  ✨  WESOŁYCH ŚWIĄT  ✨  🎁  🎄"
 
 _ORIGINAL_APPLY_THEME_SAFE = None
 _ORIGINAL_LOAD_THEME_NAME = None
@@ -190,11 +193,13 @@ def _destroy_snow_overlay(root: tk.Misc) -> None:
             pass
     try:
         root._wm_christmas_snow_overlay = None
+        root._wm_christmas_snow_starting = False
     except Exception:
         pass
 
 
 def _stop_snow(root: tk.Misc) -> None:
+    # Czyścimy także stary scheduler z wersji 1.1, gdyby runtime był przeładowany.
     job = getattr(root, "_wm_christmas_snow_job", None)
     if job:
         try:
@@ -209,7 +214,7 @@ def _stop_snow(root: tk.Misc) -> None:
 
 
 def _make_overlay_click_through(overlay: tk.Toplevel) -> None:
-    """Na Windows warstwa śniegu nie blokuje kliknięć w WM."""
+    """Na Windows warstwa dekoracji nie blokuje kliknięć w WM."""
     try:
         if str(overlay.tk.call("tk", "windowingsystem")) != "win32":
             return
@@ -242,8 +247,18 @@ def _make_overlay_click_through(overlay: tk.Toplevel) -> None:
         pass
 
 
-def _start_snow_burst(root: tk.Misc) -> None:
-    """Krótki opad śniegu nad całym głównym oknem."""
+def _root_geometry(root: tk.Misc) -> tuple[int, int, int, int]:
+    root.update_idletasks()
+    return (
+        max(320, int(root.winfo_width())),
+        max(240, int(root.winfo_height())),
+        int(root.winfo_rootx()),
+        int(root.winfo_rooty()),
+    )
+
+
+def _build_festive_overlay(root: tk.Misc) -> None:
+    """Uruchom stały śnieg i dekoracje nad głównym oknem."""
     try:
         if not root.winfo_exists() or not getattr(root, "_wm_christmas_active", False):
             return
@@ -252,14 +267,24 @@ def _start_snow_burst(root: tk.Misc) -> None:
     except Exception:
         return
 
-    _destroy_snow_overlay(root)
+    overlay = getattr(root, "_wm_christmas_snow_overlay", None)
+    if overlay is not None:
+        try:
+            if overlay.winfo_exists():
+                return
+        except Exception:
+            pass
+
+    # Toplevel sam uruchamia auto-theme. Sentinel zapobiega ponownemu wejściu.
+    if getattr(root, "_wm_christmas_snow_starting", False):
+        return
+    try:
+        root._wm_christmas_snow_starting = True
+    except Exception:
+        return
 
     try:
-        root.update_idletasks()
-        width = max(320, int(root.winfo_width()))
-        height = max(240, int(root.winfo_height()))
-        x = int(root.winfo_rootx())
-        y = int(root.winfo_rooty())
+        width, height, x, y = _root_geometry(root)
 
         overlay = tk.Toplevel(root)
         root._wm_christmas_snow_overlay = overlay
@@ -269,8 +294,7 @@ def _start_snow_burst(root: tk.Misc) -> None:
         try:
             overlay.wm_attributes("-transparentcolor", _SNOW_TRANSPARENT)
         except Exception:
-            overlay.destroy()
-            root._wm_christmas_snow_overlay = None
+            _destroy_snow_overlay(root)
             return
         try:
             overlay.attributes("-topmost", True)
@@ -290,12 +314,12 @@ def _start_snow_burst(root: tk.Misc) -> None:
         flakes: list[dict[str, float | int]] = []
         for _ in range(_SNOW_FLAKES):
             fx = random.randint(0, width)
-            fy = random.randint(-height, 0)
-            size = random.randint(10, 22)
+            fy = random.randint(-height, height)
+            size = random.randint(8, 19)
             item = canvas.create_text(
                 fx,
                 fy,
-                text=random.choice(("❄", "❅", "❆")),
+                text=random.choice(_SNOW_SYMBOLS),
                 fill="white",
                 font=("Segoe UI Symbol", size),
             )
@@ -304,19 +328,61 @@ def _start_snow_burst(root: tk.Misc) -> None:
                     "item": item,
                     "x": float(fx),
                     "y": float(fy),
-                    "speed": random.uniform(3.0, 8.0),
-                    "drift": random.uniform(-0.8, 0.8),
+                    "speed": random.uniform(1.8, 5.8),
+                    "drift": random.uniform(-0.7, 0.7),
                 }
             )
 
-        started = time.monotonic()
+        light_items: list[int] = []
+        for lx in range(14, width, 30):
+            ly = 11 + int(6 * ((lx // 30) % 2))
+            item = canvas.create_oval(
+                lx - 4,
+                ly - 4,
+                lx + 4,
+                ly + 4,
+                fill=_LIGHT_COLORS[(lx // 30) % len(_LIGHT_COLORS)],
+                outline="",
+            )
+            light_items.append(item)
+
+        banner = canvas.create_text(
+            width // 2,
+            38,
+            text=_FESTIVE_BANNER,
+            fill="#f6c945",
+            font=("Segoe UI Emoji", 13, "bold"),
+        )
+        left_corner = canvas.create_text(
+            38,
+            height - 42,
+            text="🎄🎁",
+            font=("Segoe UI Emoji", 25),
+        )
+        right_corner = canvas.create_text(
+            width - 38,
+            height - 42,
+            text="🎁🎄",
+            font=("Segoe UI Emoji", 25),
+        )
+        santa = canvas.create_text(
+            -120,
+            72,
+            text="🦌  🦌  🎅🛷",
+            font=("Segoe UI Emoji", 22),
+        )
+
+        state = {
+            "frame": 0,
+            "santa_x": -120.0,
+            "last_geometry": (width, height, x, y),
+        }
 
         def _tick_snow() -> None:
             try:
                 if (
                     not getattr(root, "_wm_christmas_active", False)
                     or not overlay.winfo_exists()
-                    or time.monotonic() - started >= (_SNOW_DURATION_MS / 1000.0)
                 ):
                     _destroy_snow_overlay(root)
                     return
@@ -324,13 +390,29 @@ def _start_snow_burst(root: tk.Misc) -> None:
                 _destroy_snow_overlay(root)
                 return
 
+            frame = int(state["frame"])
+            width_now, height_now, _, _ = state["last_geometry"]
+            if frame % 10 == 0:
+                try:
+                    current_width, current_height, rx, ry = _root_geometry(root)
+                    if (current_width, current_height, rx, ry) != state["last_geometry"]:
+                        overlay.geometry(f"{current_width}x{current_height}+{rx}+{ry}")
+                        state["last_geometry"] = (current_width, current_height, rx, ry)
+                    width_now, height_now = current_width, current_height
+                except Exception:
+                    pass
+
             for flake in flakes:
                 try:
                     flake["x"] = float(flake["x"]) + float(flake["drift"])
                     flake["y"] = float(flake["y"]) + float(flake["speed"])
-                    if float(flake["y"]) > height + 25:
-                        flake["y"] = float(random.randint(-120, -10))
-                        flake["x"] = float(random.randint(0, width))
+                    if float(flake["y"]) > height_now + 25:
+                        flake["y"] = float(random.randint(-140, -10))
+                        flake["x"] = float(random.randint(0, max(1, width_now)))
+                    if float(flake["x"]) < -25:
+                        flake["x"] = float(width_now + 20)
+                    elif float(flake["x"]) > width_now + 25:
+                        flake["x"] = -20.0
                     canvas.coords(
                         int(flake["item"]),
                         float(flake["x"]),
@@ -340,35 +422,39 @@ def _start_snow_burst(root: tk.Misc) -> None:
                     continue
 
             try:
+                state["santa_x"] = float(state["santa_x"]) + 3.2
+                if float(state["santa_x"]) > width_now + 180:
+                    state["santa_x"] = -180.0
+                canvas.coords(santa, float(state["santa_x"]), 72)
+                canvas.coords(banner, width_now // 2, 38)
+                canvas.coords(left_corner, 38, height_now - 42)
+                canvas.coords(right_corner, width_now - 38, height_now - 42)
+
+                if frame % 8 == 0:
+                    for idx, item in enumerate(light_items):
+                        canvas.itemconfigure(
+                            item,
+                            fill=_LIGHT_COLORS[(idx + (frame // 8)) % len(_LIGHT_COLORS)],
+                        )
+                state["frame"] = frame + 1
                 overlay.after(_SNOW_TICK_MS, _tick_snow)
             except Exception:
                 _destroy_snow_overlay(root)
 
+        root._wm_christmas_snow_starting = False
         _tick_snow()
     except Exception:
         _destroy_snow_overlay(root)
+    finally:
+        try:
+            root._wm_christmas_snow_starting = False
+        except Exception:
+            pass
 
 
 def _ensure_snow_scheduler(root: tk.Misc) -> None:
-    if getattr(root, "_wm_christmas_snow_job", None):
-        return
-
-    def _cycle() -> None:
-        try:
-            if not root.winfo_exists() or not getattr(root, "_wm_christmas_active", False):
-                root._wm_christmas_snow_job = None
-                return
-            # Następny cykl rezerwujemy PRZED utworzeniem Toplevel. Sam Toplevel
-            # przechodzi przez auto-theme, więc istniejący job blokuje re-entrancy.
-            root._wm_christmas_snow_job = root.after(_SNOW_INTERVAL_MS, _cycle)
-        except Exception:
-            root._wm_christmas_snow_job = None
-            return
-
-        _start_snow_burst(root)
-
-    # Pierwszy opad od razu ułatwia sprawdzenie, potem kolejne co ok. 20 s.
-    _cycle()
+    """Zgodna nazwa z 1.1; w 1.2 uruchamia stały opad bez przerw."""
+    _build_festive_overlay(root)
 
 
 def _stop_christmas_animation(root: tk.Misc) -> None:
@@ -433,7 +519,9 @@ def _start_christmas_animation(root: tk.Misc) -> None:
         )
 
         try:
-            root.title(f"{snow}  {base_title}  •  Świąteczny  •  {sleigh}  {snow}")
+            root.title(
+                f"🎄 {snow}  {base_title}  •  Świąteczny  •  {sleigh}  {snow} 🎁"
+            )
         except Exception:
             pass
 
@@ -451,7 +539,7 @@ def _start_christmas_animation(root: tk.Misc) -> None:
                     getattr(label, "_wm_christmas_original_text", "")
                     or "Warsztat Menager"
                 )
-                label.configure(text=f"{original}   {snow}  {sleigh}")
+                label.configure(text=f"🎄  {original}  🎁   {snow}  {sleigh}")
             except Exception:
                 pass
 
@@ -509,9 +597,6 @@ def _install_palette_and_theme_hook() -> None:
     except Exception:
         logger.exception("[CHRISTMAS] Nie udało się zarejestrować palety")
 
-    # Ważne: stare aliasy apply_theme_safe (np. zaimportowane wcześniej przez
-    # gui_panel) nadal odwołują się do globalnego ui_theme.load_theme_name.
-    # Podmieniamy więc także ten odczyt, żeby nie korzystał z ./config.json.
     if not getattr(ui_theme, "_wm_christmas_load_theme_hook", False):
         original_load = getattr(ui_theme, "load_theme_name", None)
         if callable(original_load):
