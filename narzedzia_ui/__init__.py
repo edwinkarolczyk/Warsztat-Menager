@@ -1,4 +1,7 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Łączny czas wizyt i czas ostatniej wizyty pokazują minuty zamiast zaokrąglać
+#   każdy czas poniżej godziny do 1h.
 # Zmiany 1.1:
 # - Nie pokazuj ostrzeżenia o braku globalnych statusów, gdy aktualne definicje
 #   typów narzędzi zawierają statusy. Ostrzeżenia o realnym braku statusów dla
@@ -68,6 +71,51 @@ def _install_missing_global_status_warning_guard() -> None:
     _messagebox._wm_tools_status_warning_guard = True
 
 
+def _install_precise_visit_duration_formatter() -> None:
+    """Podmień wyłącznie formatter czasu wizyt używany przez listę Narzędzi."""
+
+    try:
+        from . import list_panel as _list_panel
+    except Exception:
+        return
+
+    if getattr(_list_panel, "_wm_precise_visit_duration_installed", False):
+        return
+
+    def _precise_duration(seconds: float) -> str:
+        try:
+            total_seconds = max(0.0, float(seconds or 0))
+        except (TypeError, ValueError):
+            total_seconds = 0.0
+
+        total_minutes = int(total_seconds // 60)
+        if total_minutes < 60:
+            return f"{total_minutes}m"
+
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        if hours < 24:
+            return f"{hours}h {minutes:02d}m" if minutes else f"{hours}h"
+
+        days = hours // 24
+        rem_hours = hours % 24
+        if days < 30:
+            return f"{days}d {rem_hours}h" if rem_hours else f"{days}d"
+
+        months = days // 30
+        rem_days = days % 30
+        if months < 12:
+            return f"{months} mies. {rem_days}d" if rem_days else f"{months} mies."
+
+        years = months // 12
+        rem_months = months % 12
+        return f"{years}r {rem_months} mies." if rem_months else f"{years}r"
+
+    _list_panel._human_duration_from_seconds = _precise_duration
+    _list_panel._wm_precise_visit_duration_installed = True
+
+
 _install_missing_global_status_warning_guard()
+_install_precise_visit_duration_formatter()
 
 __all__ = ["ToolsPanelState", "STATE"]
