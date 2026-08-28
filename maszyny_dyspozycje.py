@@ -1,4 +1,6 @@
-# version: 1.10
+# version: 1.11
+# Zmiany 1.11:
+# - Zaległa Dyspozycja miga między czerwonym a normalnym kolorem swojego statusu.
 # Zmiany 1.10:
 # - Kreator Dodaj/Edytuj Dyspozycję otwiera się jako normalne, wyśrodkowane okno zamiast zoomed.
 # Zmiany 1.9:
@@ -30,6 +32,7 @@ from importlib import import_module
 
 import machine_history_runtime as _history_runtime
 from dysp_creator_window_runtime import install_dysp_creator_window_behavior
+from dyspozycje_blink_runtime import install_dyspozycje_status_blink
 from machine_history_docx_io import append_history_entry as _append_history_entry
 from machine_history_layout_runtime import install_machine_history_layout
 from machine_overdue_dysp_runtime import install_machine_overdue_dysp
@@ -58,6 +61,7 @@ def _ensure_gui_integration() -> None:
 
     dysp_module = sys.modules.get("gui_zlecenia")
     if dysp_module is not None:
+        install_dyspozycje_status_blink(dysp_module)
         install_machine_review_dysp_close(dysp_module)
 
 
