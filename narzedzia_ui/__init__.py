@@ -7,7 +7,7 @@
 # - Łączny czas wizyt i czas ostatniej wizyty pokazują minuty zamiast zaokrąglać
 #   każdy czas poniżej godziny do 1h.
 # Zmiany 1.1:
-# - Nie pokazuj ostrzeżenia o braku globalnych statusów, gdy aktualne definicje
+# - Nie pokazuj ostrzeżenia o braku globalnych statusów narzędzi, gdy aktualne definicje
 #   typów narzędzi zawierają statusy. Ostrzeżenia o realnym braku statusów dla
 #   konkretnego typu pozostają bez zmian.
 """Pakiet pomocniczy dla modułu GUI narzędzi."""
@@ -35,7 +35,7 @@ def _wm_has_defined_tool_statuses() -> bool:
             ).strip()
             if not collection_id:
                 continue
-            for tool_type in _lz.get_tool_types(collection=collection_id, ) or []:
+            for tool_type in _lz.get_tool_types(collection=collection_id) or []:
                 if not isinstance(tool_type, dict):
                     continue
                 type_id = str(tool_type.get("id") or tool_type.get("name") or "").strip()
