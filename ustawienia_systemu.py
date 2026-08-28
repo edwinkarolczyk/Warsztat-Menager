@@ -1,5 +1,7 @@
 # WM-VERSION: 0.1
-# version: 1.6
+# version: 1.7
+# Zmiany 1.7:
+# - Domknięto integrację Ustawień: wspólny stan zmian i ukrycie martwej zakładki Zamówienia.
 # Zmiany 1.6:
 # - Podłączono porządkowanie Narzędzi, Zleceń, Użytkowników/Profilu i wspólny UX Ustawień.
 # - Dodano wyszukiwarkę, domyślne dla sekcji, kalendarz daty rotacji i wspólny zapis Dyspozycji.
@@ -43,11 +45,30 @@ from settings_tools_runtime import install_settings_tools_runtime
 from settings_orders_runtime import install_settings_orders_runtime
 from settings_users_runtime import install_settings_users_runtime
 from settings_common_runtime import install_settings_common_runtime
+from settings_unused_runtime import install_settings_unused_runtime
 from settings_help_runtime import install_settings_help_runtime
 from utils.gui_helpers import clear_frame
 
+
+def _wm_mark_settings_dirty(self) -> None:
+    """Wspólne oznaczenie zmian używane przez nowe kontrolki Ustawień."""
+    self._dirty = True
+    self._unsaved = True
+    marker = getattr(self, "_mark_save_dirty", None)
+    if callable(marker):
+        try:
+            marker()
+        except Exception:
+            pass
+
+
+# Stary SettingsPanel nie miał publicznego helpera o tej nazwie; runtime'y UI
+# korzystają z niego, aby zachować identyczne zachowanie paska „Zapisz wszystko”.
+if not hasattr(SettingsPanel, "_mark_dirty"):
+    SettingsPanel._mark_dirty = _wm_mark_settings_dirty
+
 # Kolejność ma znaczenie: najpierw podstawowa struktura i moduły, potem elementy
-# wspólne, a podpowiedzi „?” dopiero na gotowym układzie.
+# wspólne, usunięcie martwych sekcji, a podpowiedzi „?” dopiero na gotowym układzie.
 install_settings_color_preview_runtime(SettingsPanel)
 install_settings_structure_runtime(SettingsPanel)
 install_settings_machines_runtime(SettingsPanel)
@@ -55,6 +76,7 @@ install_settings_tools_runtime(SettingsPanel)
 install_settings_orders_runtime(SettingsPanel)
 install_settings_users_runtime(SettingsPanel)
 install_settings_common_runtime(SettingsPanel)
+install_settings_unused_runtime(SettingsPanel)
 install_settings_help_runtime(SettingsPanel)
 install_christmas_theme_runtime(SettingsPanel)
 
@@ -87,7 +109,7 @@ def _normalize_schema(schema: dict) -> dict:
     """Return schema with options wrapped into a default tab.
 
     Older schema formats exposed a flat ``options`` list without top-level
-    ``tabs``.  The dynamic :class:`SettingsPanel` expects tab structures so the
+    ``tabs``.  The dynamic :class:`gui_settings.SettingsPanel` expects tab structures so the
     helper wraps such legacy definitions into a single tab with one group of
     fields.
     """
@@ -137,9 +159,6 @@ def panel_ustawien(
 
     clear_frame(frame)
 
-    # ------------------------------------------------------------------
-    # Load and normalize schema.  ``SettingsPanel`` expects a path so the
-    # normalized content is written to a temporary file.
     schema_file = Path(schema_path or SCHEMA_PATH)
     with open(schema_file, encoding="utf-8") as f:
         schema = json.load(f)
@@ -157,8 +176,6 @@ def panel_ustawien(
         except OSError:
             pass
 
-    # ``ProductsMaterialsTab`` is always appended by ``SettingsPanel``.  Remove
-    # it unless explicitly requested either via schema tabs or config flag.
     include_tab = any(
         tab.get("title") == "Produkty i materiały"
         for tab in schema.get("tabs", [])
@@ -169,7 +186,6 @@ def panel_ustawien(
                 panel.nb.forget(tab_id)
                 break
 
-    # Track dirty state using variable traces.
     panel._dirty = False
 
     def _mark_dirty(*_args):
@@ -178,7 +194,6 @@ def panel_ustawien(
     for var in panel.vars.values():
         var.trace_add("write", _mark_dirty)
 
-    # Intercept tab changes and window close to warn about unsaved changes.
     prev_tab = {"id": panel.nb.select()}
 
     def _on_tab_changed(event):
