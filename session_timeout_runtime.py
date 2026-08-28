@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Bezpieczny runtime automatycznego wylogowania WM.
 
 Zasady:
@@ -329,6 +329,31 @@ def _format_remaining_ms(delta_seconds: float) -> str:
     return f"{minutes:02d}:{seconds:02d},{millis:03d}"
 
 
+def _replace_legacy_timeout_label(label):
+    """Zniszcz starą etykietę, co anuluje jej prywatny after(), i utwórz nową."""
+    if label is None:
+        return None
+    if getattr(label, "_wm_session_runtime_label", False):
+        return label
+    try:
+        parent = label.master
+        style = str(label.cget("style") or "WM.Muted.TLabel")
+    except Exception:
+        return label
+    try:
+        label.destroy()
+    except Exception:
+        return label
+    try:
+        from tkinter import ttk
+        fresh = ttk.Label(parent, text="", style=style)
+        fresh._wm_session_runtime_label = True
+        fresh.pack(side="right", padx=(0, 6))
+        return fresh
+    except Exception:
+        return None
+
+
 def _install_countdown_display(root) -> None:
     if root is None:
         return
@@ -336,23 +361,29 @@ def _install_countdown_display(root) -> None:
     label, reset_btn = _find_timeout_widgets(root)
     guest = _is_guest_session(root)
 
+    if guest:
+        # Zniszczenie starej etykiety uruchamia jej <Destroy> i anuluje
+        # historyczny lokalny timer gui_panel. Gość nie potrzebuje licznika.
+        if label is not None:
+            try:
+                label.destroy()
+            except Exception:
+                pass
+        if reset_btn is not None:
+            try:
+                reset_btn.pack_forget()
+            except Exception:
+                pass
+        return
+
     if reset_btn is not None:
         try:
             reset_btn.configure(command=lambda: _restart_monitor(root))
         except Exception:
             pass
 
+    label = _replace_legacy_timeout_label(label)
     if label is None:
-        return
-
-    if guest:
-        try:
-            label.pack_forget()
-        except Exception:
-            try:
-                label.configure(text="")
-            except Exception:
-                pass
         return
 
     def _tick_display() -> None:
@@ -447,6 +478,10 @@ def _schedule_panel_hook_retry(start_mod=None) -> None:
                 root._wm_session_panel_hook_retry = False
             except Exception:
                 pass
+            # Panel mógł już zostać zbudowany przed dokończeniem importu.
+            # Przejmujemy więc również aktualnie widoczną etykietę/timer.
+            _restart_monitor(root)
+            _install_countdown_display(root)
             return
         if attempt >= 50:
             try:
@@ -470,6 +505,19 @@ def _install_settings_save_hook() -> bool:
         import gui_settings
     except Exception:
         return False
+
+    # settings_schema.json nadal ma historyczne min=5. Nadpisujemy wyłącznie
+    # definicję tego jednego pola podczas budowy UI, żeby 1 min było wpisywalne.
+    normalizer = getattr(gui_settings, "_normalize_field_definition", None)
+    if callable(normalizer) and not getattr(gui_settings, "_wm_timeout_normalizer_hook", False):
+        def _normalize_with_timeout_min(option):
+            normalized = normalizer(option)
+            if str(normalized.get("key") or "") == "auth.session_timeout_min":
+                normalized["min"] = 1
+            return normalized
+        gui_settings._normalize_field_definition = _normalize_with_timeout_min
+        gui_settings._wm_timeout_normalizer_hook = True
+
     cls = getattr(gui_settings, "SettingsPanel", None)
     if cls is None:
         return False
