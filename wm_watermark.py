@@ -1,6 +1,9 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.2 SAFE
+# Wersja: 1.0.3 SAFE
+# Zmiany 1.0.3:
+# - Bezpieczny hook po zbudowaniu panelu uruchamia centralną kartę logowania,
+#   gdy panel działa jako Gość. Sam znak wodny pozostaje wyłączony.
 # Zmiany 1.0.2:
 # - Tymczasowo wyłączono warstwę Toplevel odpowiedzialną za znak wodny.
 # - Powód: na części stanowisk Windows warstwa zasłaniała cały WM lub pokazywała czarny ekran.
@@ -68,14 +71,27 @@ class DevelopmentWatermark:
         return None
 
 
+def _install_guest_login(root) -> None:
+    """Uruchom integralną kartę logowania wyłącznie dla panelu Gościa."""
+    try:
+        from panel_guest_login_runtime import install_guest_login_card
+
+        install_guest_login_card(root)
+    except Exception:
+        # Logowanie w prawym górnym rogu pozostaje wtedy dostępne,
+        # więc ten dodatek nie może zablokować panelu.
+        pass
+
+
 def install(root) -> DevelopmentWatermark:
-    """Zachowaj zgodność API, ale nie twórz żadnej warstwy nad aplikacją."""
+    """Zachowaj zgodność API bez tworzenia warstwy znaku wodnego."""
     existing = getattr(root, "_wm_development_watermark", None)
     if existing is not None:
         try:
             existing.refresh()
         except Exception:
             pass
+        _install_guest_login(root)
         return existing
 
     overlay = DevelopmentWatermark(root)
@@ -83,4 +99,5 @@ def install(root) -> DevelopmentWatermark:
         setattr(root, "_wm_development_watermark", overlay)
     except Exception:
         pass
+    _install_guest_login(root)
     return overlay
