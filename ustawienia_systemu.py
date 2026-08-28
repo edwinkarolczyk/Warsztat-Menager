@@ -1,5 +1,9 @@
 # WM-VERSION: 0.1
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - Podłączono porządkowanie Narzędzi, Zleceń, Użytkowników/Profilu i wspólny UX Ustawień.
+# - Dodano wyszukiwarkę, domyślne dla sekcji, kalendarz daty rotacji i wspólny zapis Dyspozycji.
+# - Poprawiono leniwe ładowanie Moduły → Magazyn oraz rozmieszczenie Backup/Aktualizacje.
 # Zmiany 1.5:
 # - Podłączono porządkowanie Ustawienia → Moduły → Maszyny.
 # Zmiany 1.4:
@@ -35,12 +39,22 @@ from christmas_theme_runtime import install_christmas_theme_runtime
 from settings_color_preview_runtime import install_settings_color_preview_runtime
 from settings_structure_runtime import install_settings_structure_runtime
 from settings_machines_runtime import install_settings_machines_runtime
+from settings_tools_runtime import install_settings_tools_runtime
+from settings_orders_runtime import install_settings_orders_runtime
+from settings_users_runtime import install_settings_users_runtime
+from settings_common_runtime import install_settings_common_runtime
 from settings_help_runtime import install_settings_help_runtime
 from utils.gui_helpers import clear_frame
 
+# Kolejność ma znaczenie: najpierw podstawowa struktura i moduły, potem elementy
+# wspólne, a podpowiedzi „?” dopiero na gotowym układzie.
 install_settings_color_preview_runtime(SettingsPanel)
 install_settings_structure_runtime(SettingsPanel)
 install_settings_machines_runtime(SettingsPanel)
+install_settings_tools_runtime(SettingsPanel)
+install_settings_orders_runtime(SettingsPanel)
+install_settings_users_runtime(SettingsPanel)
+install_settings_common_runtime(SettingsPanel)
 install_settings_help_runtime(SettingsPanel)
 install_christmas_theme_runtime(SettingsPanel)
 
