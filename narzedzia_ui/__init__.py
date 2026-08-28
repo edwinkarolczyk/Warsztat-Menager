@@ -1,4 +1,6 @@
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Podłączono opcjonalny nowy widok edytora NN/SN z kartą i miniaturą; klasyczny widok pozostaje dostępny.
 # Zmiany 1.4:
 # - START wizyty narzędzia zachowuje bieżące zadania; lista jest czyszczona dopiero przy prawidłowym STOP.
 # Zmiany 1.3:
@@ -19,6 +21,7 @@ from tkinter import messagebox as _messagebox
 from .state import ToolsPanelState, STATE
 from .editor_runtime import install_tools_editor_runtime
 from .visit_tasks_runtime import install_visit_tasks_runtime
+from .editor_variant_runtime import install_tools_editor_variant_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -125,5 +128,6 @@ _install_missing_global_status_warning_guard()
 _install_precise_visit_duration_formatter()
 install_tools_editor_runtime()
 install_visit_tasks_runtime()
+install_tools_editor_variant_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
