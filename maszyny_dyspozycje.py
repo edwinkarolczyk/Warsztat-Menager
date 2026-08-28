@@ -1,4 +1,6 @@
-# version: 1.9
+# version: 1.10
+# Zmiany 1.10:
+# - Kreator Dodaj/Edytuj Dyspozycję otwiera się jako normalne, wyśrodkowane okno zamiast zoomed.
 # Zmiany 1.9:
 # - Zaległe cykliczne przeglądy mogą tworzyć brakujące Dyspozycje zbiorczo lub ręcznie.
 # - Automatyczne okno tworzenia Dyspozycji przed terminem pozostaje bez zmian.
@@ -27,6 +29,7 @@ import types
 from importlib import import_module
 
 import machine_history_runtime as _history_runtime
+from dysp_creator_window_runtime import install_dysp_creator_window_behavior
 from machine_history_docx_io import append_history_entry as _append_history_entry
 from machine_history_layout_runtime import install_machine_history_layout
 from machine_overdue_dysp_runtime import install_machine_overdue_dysp
@@ -44,6 +47,8 @@ __all__ = [name for name in vars(_core) if not name.startswith("_")]
 
 
 def _ensure_gui_integration() -> None:
+    install_dysp_creator_window_behavior()
+
     gui_module = sys.modules.get("gui_maszyny")
     if gui_module is not None:
         install_gui_integration(gui_module)
