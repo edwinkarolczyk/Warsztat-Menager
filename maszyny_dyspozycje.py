@@ -1,4 +1,7 @@
-# version: 1.13
+# version: 1.14
+# Zmiany 1.14:
+# - Timeout sesji wylogowuje zalogowanego użytkownika do Gościa zamiast zamykać WM.
+# - W trybie Gościa timeout nie zamyka programu; zapis czasu w Ustawieniach działa od razu.
 # Zmiany 1.13:
 # - Narzędzia korzystają z tego samego aktywnego kreatora Dyspozycji co Maszyny.
 # - Stary wm.dyspo_wizard pozostaje poza przepływem bieżącego GUI Narzędzi.
@@ -44,6 +47,7 @@ from machine_overdue_dysp_runtime import install_machine_overdue_dysp
 from machine_review_backdate_runtime import install_machine_review_backdate
 from machine_review_dysp_close_runtime import install_machine_review_dysp_close
 from profile_simple_runtime import install_profile_simple_runtime
+from session_timeout_runtime import install_session_timeout_runtime
 from tools_dysp_creator_runtime import install_tools_dysp_creator
 
 # Runtime zapisuje zdarzenia bezpośrednio po wykonaniu przeglądu/naprawy.
@@ -57,6 +61,7 @@ __all__ = [name for name in vars(_core) if not name.startswith("_")]
 
 
 def _ensure_gui_integration() -> None:
+    install_session_timeout_runtime()
     install_dysp_creator_window_behavior()
     install_profile_simple_runtime()
 
