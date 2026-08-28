@@ -1,4 +1,6 @@
-# version: 1.11
+# version: 1.12
+# Zmiany 1.12:
+# - Profil pokazuje najpierw osobiste Dyspozycje, dane pracy obok avatara oraz akcje avatar/PW.
 # Zmiany 1.11:
 # - Zaległa Dyspozycja miga między czerwonym a normalnym kolorem swojego statusu.
 # Zmiany 1.10:
@@ -38,6 +40,7 @@ from machine_history_layout_runtime import install_machine_history_layout
 from machine_overdue_dysp_runtime import install_machine_overdue_dysp
 from machine_review_backdate_runtime import install_machine_review_backdate
 from machine_review_dysp_close_runtime import install_machine_review_dysp_close
+from profile_simple_runtime import install_profile_simple_runtime
 
 # Runtime zapisuje zdarzenia bezpośrednio po wykonaniu przeglądu/naprawy.
 # Podmieniamy wyłącznie warstwę fizycznego zapisu DOCX, aby działała także
@@ -51,6 +54,7 @@ __all__ = [name for name in vars(_core) if not name.startswith("_")]
 
 def _ensure_gui_integration() -> None:
     install_dysp_creator_window_behavior()
+    install_profile_simple_runtime()
 
     gui_module = sys.modules.get("gui_maszyny")
     if gui_module is not None:
