@@ -1,6 +1,7 @@
-# version: 1.0
+# version: 1.1
 # Moduł: settings_help_runtime
 # UI-only: krótkie, zamykane podpowiedzi „?” przy trudniejszych ustawieniach.
+# 1.1: obsługa grid i pack oraz ponowne dekorowanie sekcji ładowanych leniwie.
 
 from __future__ import annotations
 
@@ -12,7 +13,7 @@ from typing import Any
 _HELP: dict[str, tuple[str, str]] = {
     "wymagaj logowania": (
         "Wymagaj logowania",
-        "Gdy opcja jest włączona, użytkownik musi przejść przez autoryzację przed uzyskaniem dostępu do chronionych funkcji WM. Wyłączenie tej opcji ma sens głównie w środowisku testowym albo na stanowisku bez danych wymagających ochrony.",
+        "Gdy opcja jest włączona, użytkownik musi przejść przez autoryzację przed dostępem do chronionych funkcji WM. Wyłączenie ma sens głównie w środowisku testowym lub na stanowisku bez danych wymagających ochrony.",
     ),
     "pomiń ekran logowania": (
         "Pomiń ekran logowania",
@@ -20,11 +21,19 @@ _HELP: dict[str, tuple[str, str]] = {
     ),
     "profil automatycznego logowania": (
         "Profil automatycznego logowania",
-        "To konto zostanie użyte przy starcie, jeśli włączone jest pomijanie ekranu logowania. Wybierz profil świadomie, ponieważ jego rola i uprawnienia będą aktywne od razu po uruchomieniu WM.",
+        "To konto zostanie użyte przy starcie, jeśli włączone jest pomijanie ekranu logowania. Jego rola i uprawnienia będą aktywne od razu po uruchomieniu WM.",
     ),
     "timeout sesji (min)": (
         "Automatyczne wylogowanie",
         "Określa, po jakim czasie bezczynności WM wyloguje aktualnego użytkownika. Krótszy czas zwiększa bezpieczeństwo, a dłuższy jest wygodniejszy na stanowisku używanym stale przez tę samą osobę.",
+    ),
+    "blokuj logowanie poza swoją zmianą": (
+        "Logowanie poza zmianą",
+        "Po włączeniu WM może odmówić logowania użytkownikowi poza przypisaną mu zmianą. Ustawienie wpływa na dostęp do programu, dlatego zmieniaj je świadomie po sprawdzeniu grafiku zmian.",
+    ),
+    "data startu rotacji zmian": (
+        "Start rotacji zmian",
+        "Ta data jest punktem odniesienia dla wyliczania rotacji zmian pracowników. Zmień ją tylko wtedy, gdy faktyczny cykl zmian w zakładzie zaczyna się od innego dnia.",
     ),
     "dodaj automatyczną dyspozycję [dni przed terminem]": (
         "Automatyczna Dyspozycja z przeglądu",
@@ -38,17 +47,41 @@ _HELP: dict[str, tuple[str, str]] = {
         "Miganie zaległych Dyspozycji",
         "To odstęp między zmianami koloru dla Dyspozycji po terminie, podany w milisekundach. Mniejsza wartość daje szybsze miganie i mocniej zwraca uwagę na zaległe zadania.",
     ),
+    "włącz miganie dyspozycji": (
+        "Miganie Dyspozycji",
+        "Włącza animowane zmiany kolorów dla wybranych stanów Dyspozycji, np. nowych lub zaległych. Wyłączenie pozostawia statyczne kolory.",
+    ),
     "próg alertu stanu (%)": (
         "Próg niskiego stanu",
-        "Po zejściu zapasu do tego poziomu Magazyn może traktować pozycję jako wymagającą uwagi. Ustawienie wpływa na sygnalizację niskiego stanu, dlatego zbyt wysoka wartość może generować zbyt wiele ostrzeżeń.",
+        "Po zejściu zapasu do tego poziomu Magazyn traktuje pozycję jako wymagającą uwagi. Zbyt wysoka wartość może powodować zbyt częste ostrzeżenia.",
+    ),
+    "próg alertu niskiego stanu": (
+        "Próg niskiego stanu",
+        "Określa poziom zapasu, przy którym Magazyn zgłasza niski stan. Im wyższy próg, tym wcześniej pojawi się ostrzeżenie.",
     ),
     "rezerwuj materiał przy zleceniu": (
         "Rezerwowanie materiału",
-        "Po włączeniu materiał potrzebny do zlecenia jest odkładany logicznie dla tego zlecenia i nie powinien być liczony jako swobodnie dostępny dla innych prac. Pomaga to uniknąć sytuacji, w której ten sam zapas zostanie zaplanowany dwa razy.",
+        "Po włączeniu materiał potrzebny do zlecenia jest odkładany logicznie dla tego zlecenia i nie powinien być liczony jako swobodnie dostępny. Pomaga to uniknąć zaplanowania tego samego zapasu dwa razy.",
+    ),
+    "automatyczne rezerwacje materiałów": (
+        "Automatyczne rezerwacje",
+        "Po włączeniu WM sam rezerwuje materiał zgodnie z regułami Magazynu i zleceń. Wyłączenie pozostawia decyzję o rezerwacji użytkownikowi.",
+    ),
+    "rezerwuj tylko dla rozpoczętych zleceń": (
+        "Rezerwacje rozpoczętych zleceń",
+        "Po włączeniu materiał jest rezerwowany dopiero dla zlecenia, które faktycznie rozpoczęto. Zapobiega blokowaniu zapasu przez zadania, które są jeszcze tylko planem.",
     ),
     "stan docelowy (%)": (
         "Stan docelowy magazynu",
         "To poziom, do którego WM może odnosić uzupełnianie zapasu po wykryciu braków lub niskiego stanu. Wartość powyżej 100% oznacza utrzymywanie dodatkowego zapasu względem poziomu bazowego.",
+    ),
+    "automatycznie twórz „zamówienie materiału” przy niskim stanie": (
+        "Automatyczne zamówienie materiału",
+        "Po włączeniu niski stan może uruchomić utworzenie pozycji zamówienia materiału. Wyłącz tę opcję, jeśli każde zamówienie ma być tworzone ręcznie.",
+    ),
+    "wymagaj ponownej autoryzacji przy pz/wz": (
+        "Autoryzacja dokumentów PZ/WZ",
+        "Po włączeniu operacje dokumentowe PZ/WZ wymagają ponownego potwierdzenia uprawnionego użytkownika. Zmniejsza to ryzyko przypadkowej lub nieuprawnionej zmiany stanów magazynowych.",
     ),
     "rozmiar kratki (px)": (
         "Rozmiar kratki hali",
@@ -56,27 +89,43 @@ _HELP: dict[str, tuple[str, str]] = {
     ),
     "przyciągaj do siatki": (
         "Przyciąganie do siatki",
-        "Po włączeniu przesuwane obiekty ustawiają się na najbliższych punktach siatki zamiast w dowolnym miejscu. Ułatwia to równe rozmieszczanie maszyn i utrzymanie porządku na planie hali.",
+        "Po włączeniu przesuwane obiekty ustawiają się na najbliższych punktach siatki zamiast w dowolnym miejscu. Ułatwia to równe rozmieszczanie maszyn na planie hali.",
     ),
     "dopasowanie tła": (
         "Dopasowanie tła hali",
-        "Określa, jak obraz planu hali jest dopasowywany do dostępnego obszaru. „Dopasuj” zachowuje cały obraz, „Wypełnij” może przyciąć brzegi, a „Rozciągnij” może zmienić jego proporcje.",
+        "Określa, jak obraz planu hali jest dopasowywany do dostępnego obszaru. „Dopasuj” zachowuje cały obraz, „Wypełnij” może przyciąć brzegi, a „Rozciągnij” może zmienić proporcje.",
     ),
     "przezroczystość tła (%)": (
         "Przezroczystość tła",
-        "Zmniejszenie wartości sprawia, że plan hali jest mniej dominujący wizualnie i łatwiej odczytać oznaczenia maszyn. Wysoka wartość pokazuje tło wyraźniej, ale może obniżyć kontrast znaczników.",
+        "Zmniejszenie wartości sprawia, że plan hali jest mniej dominujący i łatwiej odczytać oznaczenia maszyn. Wysoka wartość pokazuje tło wyraźniej, ale może zmniejszyć kontrast znaczników.",
+    ),
+    "zaznaczanie obszarem (lasso)": (
+        "Zaznaczanie obszarem",
+        "Pozwala przeciągnąć obszar na planie i zaznaczyć kilka elementów jednocześnie. Przydaje się przy grupowym przesuwaniu lub porządkowaniu obiektów.",
+    ),
+    "włącz warstwę pomieszczeń": (
+        "Warstwa pomieszczeń",
+        "Pokazuje na planie hali dodatkowe kontury pomieszczeń i ścian. Wyłączenie ukrywa tę warstwę, ale nie usuwa zapisanych danych pomieszczeń.",
     ),
     "statusy oznaczające wykonane zadania": (
         "Statusy kończące zadania",
-        "Tutaj określasz, przy których statusach narzędzia WM może automatycznie uznać zadania za wykonane. Lista powinna zawierać tylko statusy rzeczywiście oznaczające zakończenie pracy, aby nie odhaczać zadań zbyt wcześnie.",
+        "Tutaj określasz, przy których statusach narzędzia WM może automatycznie uznać zadania za wykonane. Lista powinna zawierać wyłącznie statusy rzeczywiście kończące pracę.",
     ),
     "odhaczaj zadania przy ostatnim statusie": (
         "Automatyczne odhaczanie zadań",
         "Po włączeniu przejście narzędzia na ostatni status z jego listy może automatycznie oznaczyć wszystkie zadania jako wykonane. Wyłącz tę opcję, jeśli zadania mają być zawsze potwierdzane ręcznie.",
     ),
-    "włącz miganie dyspozycji": (
-        "Miganie Dyspozycji",
-        "Włącza animowane zmiany kolorów dla wybranych stanów Dyspozycji, np. nowych lub zaległych. Wyłączenie pozostawia statyczne kolory i może być wygodniejsze, jeśli miganie rozprasza użytkownika.",
+    "szerokość id": (
+        "Szerokość numeru zlecenia",
+        "Określa liczbę cyfr w numerze zlecenia. Przykładowo szerokość 4 daje numer w rodzaju ZW-0001.",
+    ),
+    "sprawdzaj dostępność aktualizacji przy starcie": (
+        "Sprawdzanie aktualizacji",
+        "WM sprawdzi przy uruchomieniu, czy dostępna jest nowsza wersja. Samo sprawdzenie nie musi oznaczać automatycznego pobrania zmian.",
+    ),
+    "automatycznie pobieraj zmiany przy starcie": (
+        "Automatyczne pobieranie zmian",
+        "Po włączeniu WM może pobrać zmiany z repozytorium podczas startu. To ustawienie techniczne, dlatego znajduje się w Zaawansowanych.",
     ),
 }
 
@@ -94,8 +143,8 @@ def _all_descendants(widget: tk.Misc):
 def _center_window(win: tk.Toplevel, owner: tk.Misc) -> None:
     try:
         win.update_idletasks()
-        width = max(420, min(540, win.winfo_reqwidth()))
-        height = max(190, min(300, win.winfo_reqheight()))
+        width = max(420, min(560, win.winfo_reqwidth()))
+        height = max(190, min(320, win.winfo_reqheight()))
         top = owner.winfo_toplevel()
         top.update_idletasks()
         x = top.winfo_rootx() + max(0, (top.winfo_width() - width) // 2)
@@ -116,22 +165,13 @@ def _show_help(owner: tk.Misc, title: str, body: str) -> None:
 
     outer = ttk.Frame(win, padding=14)
     outer.pack(fill="both", expand=True)
-
     head = ttk.Frame(outer)
     head.pack(fill="x", pady=(0, 10))
     ttk.Label(head, text="?", font=("", 18, "bold")).pack(side="left", padx=(0, 10))
     ttk.Label(head, text=title, font=("", 11, "bold")).pack(side="left", anchor="w")
-
-    ttk.Label(
-        outer,
-        text=body,
-        wraplength=470,
-        justify="left",
-    ).pack(fill="x", anchor="w", pady=(0, 14))
-
+    ttk.Label(outer, text=body, wraplength=490, justify="left").pack(fill="x", anchor="w", pady=(0, 14))
     ttk.Separator(outer, orient="horizontal").pack(fill="x", pady=(0, 10))
     ttk.Button(outer, text="Zamknij", command=win.destroy).pack(side="right")
-
     win.bind("<Escape>", lambda _e: win.destroy())
     win.protocol("WM_DELETE_WINDOW", win.destroy)
     _center_window(win, owner)
@@ -150,12 +190,10 @@ def _attach_grid_help(widget: tk.Misc, title: str, body: str) -> bool:
         return False
     if not info:
         return False
-
     try:
         row = int(info.get("row", 0))
     except Exception:
         row = 0
-
     max_col = 0
     for sibling in parent.winfo_children():
         try:
@@ -167,22 +205,32 @@ def _attach_grid_help(widget: tk.Misc, title: str, body: str) -> bool:
             max_col = max(max_col, col + max(1, span) - 1)
         except Exception:
             continue
-
-    button = ttk.Button(
-        parent,
-        text="?",
-        width=3,
-        command=lambda o=widget, t=title, b=body: _show_help(o, t, b),
-    )
+    button = ttk.Button(parent, text="?", width=3, command=lambda o=widget, t=title, b=body: _show_help(o, t, b))
     button.grid(row=row, column=max_col + 1, sticky="w", padx=(4, 6), pady=info.get("pady", 4))
     return True
 
 
-def _decorate(panel: Any) -> None:
+def _attach_pack_help(widget: tk.Misc, title: str, body: str) -> bool:
+    parent = widget.master
+    try:
+        info = widget.pack_info()
+    except Exception:
+        return False
+    if not info:
+        return False
+    try:
+        button = ttk.Button(parent, text="?", width=3, command=lambda o=widget, t=title, b=body: _show_help(o, t, b))
+        button.pack(anchor="w", padx=8, pady=(0, 3), after=widget)
+        return True
+    except Exception:
+        return False
+
+
+def decorate_settings_help(panel: Any) -> None:
+    """Dodaj brakujące ?; można wywołać ponownie po leniwym zbudowaniu zakładki."""
     root = getattr(panel, "_content_area", None)
     if root is None:
         return
-
     for widget in list(_all_descendants(root)):
         if getattr(widget, "_wm_settings_help_done", False):
             continue
@@ -195,7 +243,10 @@ def _decorate(panel: Any) -> None:
         help_data = _HELP.get(_normalize(text))
         if help_data is None:
             continue
-        if _attach_grid_help(widget, help_data[0], help_data[1]):
+        attached = _attach_grid_help(widget, help_data[0], help_data[1])
+        if not attached:
+            attached = _attach_pack_help(widget, help_data[0], help_data[1])
+        if attached:
             setattr(widget, "_wm_settings_help_done", True)
 
 
@@ -203,7 +254,6 @@ def install_settings_help_runtime(settings_panel_cls: type) -> None:
     """Dodaj przyciski ? po zbudowaniu i uporządkowaniu całego panelu."""
     if getattr(settings_panel_cls, "_wm_settings_help_runtime", False):
         return
-
     original_build_ui = getattr(settings_panel_cls, "_build_ui", None)
     if not callable(original_build_ui):
         return
@@ -211,7 +261,7 @@ def install_settings_help_runtime(settings_panel_cls: type) -> None:
     def _build_ui_with_help(self, *args: Any, **kwargs: Any):
         result = original_build_ui(self, *args, **kwargs)
         try:
-            _decorate(self)
+            decorate_settings_help(self)
         except Exception:
             pass
         return result
