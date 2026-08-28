@@ -62,13 +62,15 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 - ✅ `settings_schema.json`
 - ✅ dynamiczne pola ustawień
 - ✅ zakładki systemowe / UI / moduły / backup / diagnostyka
+- ✅ pierwszy etap UX: podgląd motywu/czcionki oraz wybór kolorów z próbką i przywracaniem wartości domyślnej bez zmiany logiki zapisu
 - 🟡 ograniczyć ręczne wyjątki i równoległe mechanizmy konfiguracji
+- 🟡 zastępować ręczne wpisywanie gotowym wyborem: lista / checkbox / Spinbox / kalendarz / wybór pliku / wybór koloru
 - 🟡 każdy nowy parametr ma trafiać do schema + ConfigManager
 - 🟡 sprawdzić pełny cykl: zmień → zapisz → zamknij → uruchom → odczytaj
 - 🔴 pełna walidacja konfiguracji i czytelny komunikat o błędzie zapisu
 - 🔴 migracje konfiguracji między wersjami
 
-**DoD:** ustawienia mają jedno źródło prawdy i zachowują się identycznie w całym WM.
+**DoD:** ustawienia mają jedno źródło prawdy i zachowują się identycznie w całym WM; użytkownik wybiera wartości z gotowych kontrolek wszędzie tam, gdzie ręczne wpisywanie nie jest konieczne.
 
 ## 2.3 Refresh / lifecycle GUI
 
@@ -231,12 +233,38 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 
 ---
 
+# 7A. PROFIL / URLOPY / EWIDENCJA 🟠
+
+**Cel:** rozbudować Profil o planowane nieobecności i późniejsze rozliczenie czasu pracy bez tworzenia drugiego, równoległego źródła danych.
+
+- ✅ istnieje minimalna ewidencja obecności `attendance_utils.py` z planem zmiany, logowaniem, potwierdzaniem obecności oraz powodami `L4 / UR / UŻ / ŚW`
+- 🟡 wykorzystać istniejącą ewidencję obecności jako fundament i ustalić mapowanie istniejącego `UR` do docelowych typów urlopu; nie zmieniać historycznych danych bez migracji
+- 🔴 ujednolicić edycję profilu użytkownika w jednym miejscu
+- 🔴 dodać osobną zakładkę `Profil → Urlopy`
+- 🔴 na początek obsłużyć **urlopy planowane**: typ, data od, data do, liczba dni/godzin, uwaga i status planu
+- 🔴 użytkownik widzi swoje planowane nieobecności i wykorzystanie limitów; Brygadzista ma podgląd planowanych nieobecności pracowników
+- 🔴 widok roczny oparty o **rok kalendarzowy** z wyborem roku oraz podsumowaniem wykorzystania
+- 🔴 typ `U` — urlop wypoczynkowy: domyślny limit 20 albo 26 dni zależnie od uprawnienia pracownika; limit przechowywany per użytkownik, nie jako jedna sztywna wartość globalna
+- 🔴 typ `UŻ` — urlop na żądanie: do 4 dni w roku kalendarzowym, liczony w ramach puli urlopu wypoczynkowego `U`, a nie jako dodatkowe 4 dni
+- 🔴 typ `ŚW/SW` — zwolnienie z powodu siły wyższej: ewidencja limitu 2 dni albo 16 godzin w roku kalendarzowym oraz wykorzystania w wybranym sposobie rozliczania
+- 🔴 wartości prawne/limity muszą być konfigurowalne i przed wdrożeniem produkcyjnym zweryfikowane z aktualnym stanem polskiego prawa pracy — nie kodować ich bez możliwości zmiany
+- 🔴 walidacja nakładania się terminów urlopów oraz czytelny kalendarz/lista planów
+- ⚪ później: kalendarz zespołu dla Brygadzisty z jednoczesnymi nieobecnościami
+- ⚪ później: liczenie dniówek/czasu pracy na podstawie grafiku zmian, dni roboczych, świąt, obecności i zatwierdzonych nieobecności
+- ⚪ później: zestawienia miesięczne i roczne — plan / przepracowane / urlop / L4 / UŻ / ŚW / inne
+
+**DoD:** Profil pokazuje użytkownikowi i Brygadziście jednoznaczny plan nieobecności oraz roczne wykorzystanie limitów, a dane są zgodne z ewidencją obecności i nie są dublowane.
+
+---
+
 # 8. ETAP VII — UI / UX 🟡
 
 - ✅ centralny system motywów istnieje
 - ✅ globalny znak wodny jest konfigurowalny
+- ✅ Ustawienia — pierwszy etap wyboru kolorów ma próbkę, przycisk wyboru i przywracanie wartości domyślnej; Wygląd ma podgląd motywu/czcionki
 - 🟡 ujednolicić wizualnie: Dyspozycje / Narzędzia / Maszyny
 - 🟡 ujednolicić czcionki i nagłówki bez zmiany logiki
+- 🟡 Ustawienia — kontynuować zasadę „więcej wyboru, mniej wpisywania” dla list, dat, progów, statusów i ścieżek
 - 🔴 usunąć/ukryć zbędne skróty klawiszowe z Ustawień
 - 🔴 Enter wysyła opinię
 - 🔴 spójne komunikaty błędów i walidacji
@@ -274,6 +302,8 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 
 - ROOT Chatu i danych
 - ewidencję obecności
+- edycję Profilu i planowane urlopy
+- roczne limity/podsumowania `U / UŻ / ŚW` oraz przyszłe liczenie dniówek
 - szybkie daty Dyspozycji
 - zadania Dyspozycji
 - priorytety automatyczne
@@ -287,6 +317,7 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 - archiwalne etapy Narzędzi
 - wydruki Dyspozycji do ROOT
 - spójność UI
+- Ustawienia: więcej wyboru i podglądów, mniej ręcznego wpisywania
 
 ---
 
@@ -318,15 +349,16 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 7. Narzędzia 2.0
 8. Historia / Audyt biznesowy
 9. Uprawnienia
+10. Profil / Urlopy / Ewidencja
 
 ### 🟡 Faza D
-10. UI / UX
-11. Wydajność
+11. UI / UX
+12. Wydajność
 
 ### ⚪ Faza E
-12. Dokumentacja
-13. EXE / release
-14. `Rozwiniecie → main`
+13. Dokumentacja
+14. EXE / release
+15. `Rozwiniecie → main`
 
 ---
 
