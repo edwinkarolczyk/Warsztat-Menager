@@ -1,12 +1,15 @@
-# version: 1.0
+# version: 1.1
 # Moduł: settings_tools_runtime
 # UI-only: porządkowanie Ustawienia → Moduły → Narzędzia.
+# 1.1: dodano wspólny wybór Klasyczny / Nowy dla edytora NN i SN.
 
 from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
+
+from config_manager import ConfigManager
 
 
 def _all_descendants(widget: tk.Misc):
@@ -66,6 +69,7 @@ def _rename_groups(panel: Any) -> None:
         "podgląd zdjęć": "Wygląd — zdjęcia",
         "kolekcje narzędzi": "Logika — kolekcje NN / SN",
         "podgląd definicji nn/sn (tylko do odczytu)": "Definicje — typy, statusy i zadania",
+        "wersja panelu": "Wygląd — panel i edytor",
     }
     for child in _all_descendants(root):
         if not isinstance(child, ttk.LabelFrame):
@@ -238,12 +242,106 @@ def _friendly_preview_delay(panel: Any) -> None:
     setattr(box, "_wm_preview_delay_friendly", True)
 
 
+def _editor_variant_selector(panel: Any) -> None:
+    """Add one shared NN/SN editor selector without replacing the classic editor."""
+
+    root = _module_tab(panel, "Narzędzia")
+    if root is None:
+        return
+    box = _label_frame(root, "Wygląd — panel i edytor", "Wersja panelu")
+    if box is None or getattr(box, "_wm_editor_variant_selector", False):
+        return
+
+    rows: list[int] = []
+    for child in box.winfo_children():
+        try:
+            info = child.grid_info()
+            if info:
+                rows.append(int(info.get("row", 0)))
+        except Exception:
+            continue
+    row = max(rows, default=-1) + 1
+
+    ttk.Separator(box, orient="horizontal").grid(
+        row=row,
+        column=0,
+        columnspan=2,
+        sticky="ew",
+        padx=8,
+        pady=(10, 8),
+    )
+    row += 1
+
+    ttk.Label(box, text="Edytor NN / SN").grid(
+        row=row,
+        column=0,
+        sticky="w",
+        padx=8,
+        pady=6,
+    )
+
+    labels = {
+        "classic": "Klasyczny",
+        "card": "Nowy — karta z miniaturą",
+    }
+    reverse = {label: value for value, label in labels.items()}
+
+    try:
+        current = str(ConfigManager().get("tools.editor_variant", "classic") or "classic").strip().lower()
+    except Exception:
+        current = "classic"
+    if current not in labels:
+        current = "classic"
+
+    display = tk.StringVar(master=box, value=labels[current])
+    combo = ttk.Combobox(
+        box,
+        textvariable=display,
+        values=list(labels.values()),
+        state="readonly",
+        width=30,
+    )
+    combo.grid(row=row, column=1, sticky="ew", padx=8, pady=6)
+    try:
+        box.columnconfigure(1, weight=1)
+    except Exception:
+        pass
+
+    row += 1
+    ttk.Label(
+        box,
+        text=(
+            "Wspólny wybór dla NN i SN. Klasyczny widok pozostaje dostępny; "
+            "zmiana działa od następnego otwarcia edytora."
+        ),
+        wraplength=760,
+        justify="left",
+    ).grid(row=row, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8))
+
+    def _save_variant(_event=None) -> None:
+        value = reverse.get(str(display.get() or ""), "classic")
+        try:
+            cfg = ConfigManager()
+            cfg.set("tools.editor_variant", value, who="settings")
+            cfg.save_all()
+        except Exception:
+            return
+        try:
+            panel.event_generate("<<ConfigUpdated>>", when="tail")
+        except Exception:
+            pass
+
+    combo.bind("<<ComboboxSelected>>", _save_variant)
+    setattr(box, "_wm_editor_variant_selector", True)
+
+
 def _decorate(panel: Any) -> None:
     for action in (
         _rename_groups,
         _remove_global_statuses,
         _collections_checkboxes,
         _friendly_preview_delay,
+        _editor_variant_selector,
     ):
         try:
             action(panel)
