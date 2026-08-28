@@ -175,6 +175,25 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 - 🔴 lokalizacja maszyny — naprawić i ujednolicić
 - 🔴 lokalizacja widoczna w głównym widoku przed statusem
 
+### 5.1A Lokalizacje maszyn — docelowy model
+
+**Cel:** usunąć ręczne wpisywanie lokalizacji w każdej maszynie i zastąpić je centralnym, kontrolowanym słownikiem.
+
+- 🔴 dodać `Ustawienia → Moduły → Maszyny → Lokalizacje`
+- 🔴 w Ustawieniach umożliwić: **Dodaj / Edytuj / Usuń / Zmień kolejność / Aktywuj-Dezaktywuj** lokalizację
+- 🔴 każda lokalizacja ma trwałe `id` niezależne od nazwy wyświetlanej; maszyna przechowuje powiązanie po `id`, nie tylko po tekście
+- 🔴 minimalne pola lokalizacji: `id`, `nazwa`, `aktywna`, `kolejność`; opcjonalnie `kod`, `opis/uwagi`
+- 🔴 w formularzu Dodaj/Edytuj maszynę zastąpić wolny tekst `Lokalizacja` wyborem z listy zdefiniowanych lokalizacji
+- 🔴 umożliwić zmianę przypisania lokalizacji maszyny bez zmiany innych danych maszyny
+- 🔴 lokalizacja ma być widoczna na głównej liście Maszyn przed statusem oraz dostępna w wyszukiwaniu/filtrowaniu
+- 🔴 usuwanie lokalizacji używanej przez maszyny ma być blokowane albo wymagać przepięcia tych maszyn do innej lokalizacji; nigdy nie usuwać powiązań po cichu
+- 🔴 migracja istniejących wartości tekstowych: zebrać unikalne obecne `lokalizacja`, utworzyć z nich słownik i przypisać maszyny bez utraty danych
+- 🔴 po zmianie nazwy lokalizacji wszystkie maszyny mają automatycznie pokazywać nową nazwę dzięki powiązaniu po `id`
+- 🟡 rozważyć lokalizację nadrzędną / strukturę `hala → strefa → stanowisko`, ale nie komplikować pierwszej wersji, jeśli nie jest potrzebna
+- ⚪ później: opcjonalne powiązanie lokalizacji ze strefą na planie hali / współrzędnymi layoutu
+
+**Sugestia implementacyjna:** pierwsza wersja powinna być prosta — centralny plik/słownik lokalizacji w ROOT, stabilne ID, lista w Ustawieniach i readonly Combobox w edycji maszyny. Nie łączyć od razu z mapą hali; mapę dopiąć dopiero po ustabilizowaniu słownika.
+
 ## 5.2 Przeglądy
 
 - ✅ konfiguracja przeglądów została uproszczona w kodzie
