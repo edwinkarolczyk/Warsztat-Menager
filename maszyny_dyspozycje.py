@@ -1,4 +1,7 @@
-# version: 1.8
+# version: 1.9
+# Zmiany 1.9:
+# - Zaległe cykliczne przeglądy mogą tworzyć brakujące Dyspozycje zbiorczo lub ręcznie.
+# - Automatyczne okno tworzenia Dyspozycji przed terminem pozostaje bez zmian.
 # Zmiany 1.8:
 # - Zamknięcie Dyspozycji cyklicznego przeglądu maszyny otwiera formularz wykonania serwisu.
 # - Zwykłe Dyspozycje maszyn zachowują dotychczasowy sposób zamykania.
@@ -26,6 +29,7 @@ from importlib import import_module
 import machine_history_runtime as _history_runtime
 from machine_history_docx_io import append_history_entry as _append_history_entry
 from machine_history_layout_runtime import install_machine_history_layout
+from machine_overdue_dysp_runtime import install_machine_overdue_dysp
 from machine_review_backdate_runtime import install_machine_review_backdate
 from machine_review_dysp_close_runtime import install_machine_review_dysp_close
 
@@ -45,6 +49,7 @@ def _ensure_gui_integration() -> None:
         install_gui_integration(gui_module)
         install_machine_history_layout(gui_module)
         install_machine_review_backdate(gui_module)
+        install_machine_overdue_dysp(gui_module)
 
     dysp_module = sys.modules.get("gui_zlecenia")
     if dysp_module is not None:
