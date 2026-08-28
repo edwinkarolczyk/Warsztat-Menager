@@ -1,5 +1,7 @@
 # WM-VERSION: 0.1
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - Dodano zamykane podpowiedzi „?” przy trudniejszych pozycjach Ustawień.
 # Zmiany 1.2:
 # - Włączono porządkowanie Ustawień: Moduły → Główne, ukrycie Jarvisa,
 #   rozdzielenie Wygląd/Logika w Dyspozycjach, wybór timeoutu i podgląd kolorów.
@@ -27,10 +29,12 @@ from config_manager import ConfigManager
 from gui_settings import SettingsPanel, messagebox
 from settings_color_preview_runtime import install_settings_color_preview_runtime
 from settings_structure_runtime import install_settings_structure_runtime
+from settings_help_runtime import install_settings_help_runtime
 from utils.gui_helpers import clear_frame
 
 install_settings_color_preview_runtime(SettingsPanel)
 install_settings_structure_runtime(SettingsPanel)
+install_settings_help_runtime(SettingsPanel)
 
 # Path kept for tests that monkeypatch ``SCHEMA_PATH``.
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
