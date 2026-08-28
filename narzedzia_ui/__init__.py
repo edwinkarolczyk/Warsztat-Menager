@@ -1,4 +1,6 @@
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - Podłączono precyzyjne poprawki głównego edytora narzędzi NN/SN.
 # Zmiany 1.2:
 # - Łączny czas wizyt i czas ostatniej wizyty pokazują minuty zamiast zaokrąglać
 #   każdy czas poniżej godziny do 1h.
@@ -13,6 +15,7 @@ from __future__ import annotations
 from tkinter import messagebox as _messagebox
 
 from .state import ToolsPanelState, STATE
+from .editor_runtime import install_tools_editor_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -117,5 +120,6 @@ def _install_precise_visit_duration_formatter() -> None:
 
 _install_missing_global_status_warning_guard()
 _install_precise_visit_duration_formatter()
+install_tools_editor_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
