@@ -1,7 +1,12 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Nie zapisuj sztucznej wizyty utworzonej przy powrocie do statusu bazowego,
+#   jeżeli przed zapisem nie istniała żadna otwarta wizyta.
+# - Usuwany jest też odpowiadający jej techniczny wpis cycle_closed z historii.
 import json
 import os
 import zipfile
+from datetime import datetime
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -232,15 +237,111 @@ def save_tools_rows(primary_path: str, rows: List[Dict]) -> bool:
     return _w(primary_path, payload)
 
 
+def _parse_visit_timestamp(value) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _has_open_visit(visits) -> bool:
+    if not isinstance(visits, list):
+        return False
+    for visit in visits:
+        if not isinstance(visit, dict):
+            continue
+        start = visit.get("start_ts") or visit.get("start") or visit.get("ts")
+        end = (
+            visit.get("end_ts")
+            or visit.get("end")
+            or visit.get("closed_at")
+            or visit.get("stop")
+        )
+        if start and not end:
+            return True
+    return False
+
+
+def _drop_synthetic_visit_close(path: str, item: Dict) -> bool:
+    """Usuń techniczną wizytę 0 s, jeśli przed zapisem nie było otwartej wizyty."""
+
+    incoming = item.get("wizyty")
+    if not isinstance(incoming, list) or not incoming:
+        return False
+
+    existing = _r(path, default={}, ensure=False) if os.path.exists(path) else {}
+    existing_visits = existing.get("wizyty") if isinstance(existing, dict) else []
+    if not isinstance(existing_visits, list):
+        existing_visits = []
+
+    # Prawdziwe zamknięcie ma wcześniej zapisaną otwartą wizytę.
+    if _has_open_visit(existing_visits):
+        return False
+
+    # Sztuczny rekord z gui_narzedzia jest dokładnie jednym nowym wpisem,
+    # tworzonym i zamykanym w ramach tego samego zapisu.
+    if len(incoming) != len(existing_visits) + 1:
+        return False
+
+    candidate = incoming[-1]
+    if not isinstance(candidate, dict):
+        return False
+    start = _parse_visit_timestamp(candidate.get("start_ts"))
+    end = _parse_visit_timestamp(candidate.get("end_ts"))
+    if start is None or end is None:
+        return False
+
+    try:
+        duration = (end - start).total_seconds()
+    except TypeError:
+        return False
+    if duration < 0 or duration > 2.0:
+        return False
+
+    start_by = str(candidate.get("start_by") or "").strip()
+    end_by = str(candidate.get("end_by") or "").strip()
+    if start_by and end_by and start_by != end_by:
+        return False
+
+    item["wizyty"] = list(incoming[:-1])
+
+    historia = item.get("historia")
+    if isinstance(historia, list):
+        cleaned_history = list(historia)
+        for idx in range(len(cleaned_history) - 1, -1, -1):
+            row = cleaned_history[idx]
+            if not isinstance(row, dict):
+                continue
+            if row.get("action") == "visit" and row.get("typ") == "cycle_closed":
+                cleaned_history.pop(idx)
+                break
+        item["historia"] = cleaned_history
+
+    try:
+        print(
+            "[WM-DBG][NARZ][VISIT] Pominięto sztuczne zamknięcie wizyty "
+            f"bez wcześniejszego startu: {os.path.basename(path)}"
+        )
+    except Exception:
+        pass
+    return True
+
+
 def save_tool_item(cfg: Dict, item: Dict) -> str | None:
     """Save a single tool item into a dedicated JSON file inside tools dir."""
 
     tid = str(item.get("id") or item.get("numer") or item.get("nr") or "").strip()
     if not tid:
         return None
+    path = tools_file(cfg, f"{tid}.json")
+    _drop_synthetic_visit_close(path, item)
     data = dict(item)
     data.setdefault("id", tid)
-    path = tools_file(cfg, f"{tid}.json")
     _w(path, data)
     return path
 
