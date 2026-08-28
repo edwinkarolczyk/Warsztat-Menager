@@ -1,5 +1,7 @@
 # WM-VERSION: 0.1
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - Podłączono porządkowanie Ustawienia → Moduły → Maszyny.
 # Zmiany 1.4:
 # - Podłączono wybierany z Ustawień motyw Świąteczny z centralnego ui_theme.
 # Zmiany 1.3:
@@ -32,11 +34,13 @@ from gui_settings import SettingsPanel, messagebox
 from christmas_theme_runtime import install_christmas_theme_runtime
 from settings_color_preview_runtime import install_settings_color_preview_runtime
 from settings_structure_runtime import install_settings_structure_runtime
+from settings_machines_runtime import install_settings_machines_runtime
 from settings_help_runtime import install_settings_help_runtime
 from utils.gui_helpers import clear_frame
 
 install_settings_color_preview_runtime(SettingsPanel)
 install_settings_structure_runtime(SettingsPanel)
+install_settings_machines_runtime(SettingsPanel)
 install_settings_help_runtime(SettingsPanel)
 install_christmas_theme_runtime(SettingsPanel)
 
