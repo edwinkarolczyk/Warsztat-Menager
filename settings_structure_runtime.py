@@ -1,6 +1,8 @@
-# version: 1.0
+# version: 1.1
 # Moduł: settings_structure_runtime
 # UI-only: porządkowanie widoku Ustawień bez zmiany kluczy konfiguracji.
+# 1.1: ukrycie wyboru języka, podgląd współgrania kolorów Dyspozycji,
+#      Moduły → Główne oraz gotowy wybór timeoutu sesji także 4 h.
 
 from __future__ import annotations
 
@@ -36,6 +38,34 @@ def _frame_with_label(root: tk.Misc, text: str) -> tk.Misc | None:
         except Exception:
             continue
     return None
+
+
+def _variable_for_entry(entry: tk.Misc) -> tk.StringVar | None:
+    try:
+        var_name = str(entry.cget("textvariable") or "").strip()
+    except Exception:
+        return None
+    if not var_name:
+        return None
+    try:
+        return tk.StringVar(master=entry, name=var_name)
+    except Exception:
+        return None
+
+
+def _hide_widget(widget: tk.Misc) -> None:
+    try:
+        if widget.grid_info():
+            widget.grid_remove()
+            return
+    except Exception:
+        pass
+    try:
+        if widget.pack_info():
+            widget.pack_forget()
+            return
+    except Exception:
+        pass
 
 
 def _remove_jarvis_from_modules(panel: Any) -> None:
@@ -118,7 +148,115 @@ def _rename_dispatches_sections(panel: Any) -> None:
                 pass
 
 
-def _polish_only_language(panel: Any) -> None:
+def _add_dispatches_color_harmony(panel: Any) -> None:
+    """Pokaż razem statusy, aby od razu było widać czy kolory ze sobą grają."""
+    parent = getattr(panel, "_dispatches_container", None)
+    if parent is None or getattr(parent, "_wm_color_harmony_done", False):
+        return
+
+    colors_box = None
+    for child in parent.winfo_children():
+        if not isinstance(child, ttk.LabelFrame):
+            continue
+        try:
+            title = str(child.cget("text") or "").strip().lower()
+        except Exception:
+            continue
+        if title in {"kolory", "wygląd — kolory"}:
+            colors_box = child
+            break
+    if colors_box is None:
+        return
+
+    row_vars: dict[int, tk.StringVar] = {}
+    for child in colors_box.winfo_children():
+        if not isinstance(child, ttk.Entry):
+            continue
+        try:
+            row = int(child.grid_info().get("row"))
+        except Exception:
+            continue
+        var = _variable_for_entry(child)
+        if var is not None:
+            row_vars[row] = var
+
+    if not all(row in row_vars for row in (0, 1, 2, 3, 4, 5)):
+        return
+
+    box = ttk.LabelFrame(parent, text="Podgląd współgrania kolorów")
+    try:
+        box.pack(fill="x", padx=8, pady=(0, 8), after=colors_box)
+    except Exception:
+        box.pack(fill="x", padx=8, pady=(0, 8))
+
+    sample = tk.Frame(box, bd=1, relief="solid")
+    sample.pack(fill="x", padx=8, pady=8)
+
+    items = [
+        ("Zamknięta", 0, None),
+        ("Nowa", 1, None),
+        ("Nowa ↔", 2, None),
+        ("Po terminie", 3, None),
+        ("Po terminie ↔", 4, 5),
+    ]
+    labels: list[tuple[tk.Label, int, int | None]] = []
+    for text, fg_row, bg_row in items:
+        label = tk.Label(sample, text=text, padx=10, pady=7)
+        label.pack(side="left", padx=4, pady=5)
+        labels.append((label, fg_row, bg_row))
+
+    ttk.Label(
+        box,
+        text="Jednym rzutem oka widać, czy statusy są czytelne obok siebie.",
+    ).pack(anchor="w", padx=8, pady=(0, 8))
+
+    def _refresh(*_args: Any) -> None:
+        theme_var = getattr(panel, "var_theme", None)
+        try:
+            mode = str(theme_var.get() or "dark").strip().lower() if theme_var else "dark"
+        except Exception:
+            mode = "dark"
+        base_bg = "#ffffff" if mode == "light" else "#1b1f24"
+        try:
+            sample.configure(bg=base_bg)
+        except Exception:
+            pass
+
+        for label, fg_row, bg_row in labels:
+            fg = str(row_vars[fg_row].get() or "#ffffff").strip()
+            bg = base_bg
+            if bg_row is not None:
+                bg = str(row_vars[bg_row].get() or base_bg).strip()
+            try:
+                label.winfo_rgb(fg)
+            except Exception:
+                fg = "#ffffff" if mode != "light" else "#111111"
+            try:
+                label.winfo_rgb(bg)
+            except Exception:
+                bg = base_bg
+            try:
+                label.configure(fg=fg, bg=bg)
+            except Exception:
+                pass
+
+    _refresh()
+    for var in row_vars.values():
+        try:
+            var.trace_add("write", _refresh)
+        except Exception:
+            pass
+    theme_var = getattr(panel, "var_theme", None)
+    if theme_var is not None:
+        try:
+            theme_var.trace_add("write", _refresh)
+        except Exception:
+            pass
+
+    setattr(parent, "_wm_color_harmony_done", True)
+
+
+def _hide_language_choice(panel: Any) -> None:
     root = getattr(panel, "_general_container", None)
     if root is None:
         return
@@ -132,16 +270,7 @@ def _polish_only_language(panel: Any) -> None:
             lang_var.set("pl")
         except Exception:
             pass
-
-    for child in _all_descendants(frame):
-        if not isinstance(child, ttk.Combobox):
-            continue
-        try:
-            child.configure(values=("Polski",), state="readonly")
-            child.set("Polski")
-        except Exception:
-            pass
-        break
+    _hide_widget(frame)
 
 
 def _replace_session_timeout_with_choice(panel: Any) -> None:
@@ -223,7 +352,8 @@ def _decorate(panel: Any) -> None:
         _remove_jarvis_from_modules,
         _ensure_modules_general_tab,
         _rename_dispatches_sections,
-        _polish_only_language,
+        _add_dispatches_color_harmony,
+        _hide_language_choice,
         _replace_session_timeout_with_choice,
     ):
         try:
