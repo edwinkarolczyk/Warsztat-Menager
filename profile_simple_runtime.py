@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Układ aktywnego Profilu: osobiste Dyspozycje, dane pracy, avatar i PW."""
 
 from __future__ import annotations
@@ -120,6 +120,109 @@ def install_profile_simple_runtime() -> bool:
             except Exception:
                 pass
 
+    def _unread_pw_count(self) -> int:
+        login = str(self.login or "").strip()
+        if not login:
+            return 0
+        try:
+            inbox = gp.list_inbox(login) or []
+        except Exception:
+            inbox = []
+        return sum(
+            1
+            for msg in inbox
+            if isinstance(msg, dict) and not bool(msg.get("read"))
+        )
+
+    def _refresh_pw_button(self) -> None:
+        btn = getattr(self, "btn_open_pw", None)
+        if btn is None:
+            return
+        try:
+            if not btn.winfo_exists():
+                return
+        except Exception:
+            return
+        unread = _unread_pw_count(self)
+        try:
+            btn.configure(text=f"Wiadomości ({unread})" if unread else "Wiadomości")
+        except Exception:
+            pass
+
+    def _open_pw_window(self) -> None:
+        login = str(self.login or "").strip()
+        if not login:
+            messagebox.showwarning("Profil", "Brak zalogowanego użytkownika.", parent=self)
+            return
+
+        existing = getattr(self, "_wm_pw_window", None)
+        try:
+            if existing is not None and existing.winfo_exists():
+                existing.deiconify()
+                existing.lift()
+                existing.focus_force()
+                return
+        except Exception:
+            pass
+
+        try:
+            self._reload_profile_data()
+        except Exception:
+            pass
+
+        win = tk.Toplevel(self)
+        self._wm_pw_window = win
+        win.title(f"Wiadomości (PW) – {login}")
+        win.geometry("960x640")
+        win.minsize(760, 480)
+        try:
+            win.transient(self.winfo_toplevel())
+        except Exception:
+            pass
+        try:
+            gp.apply_theme(win)
+        except Exception:
+            pass
+
+        host = ttk.Frame(win, style="WM.Card.TFrame")
+        host.pack(fill="both", expand=True)
+
+        try:
+            self._build_pw_tab(host)
+        except Exception as exc:
+            logger.exception("[PROFILE][PW] Nie udało się zbudować skrzynki PW: %s", exc)
+            for child in host.winfo_children():
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+            ttk.Label(
+                host,
+                text=f"Nie udało się otworzyć skrzynki PW:\n{exc}",
+                style="WM.CardLabel.TLabel",
+                justify="left",
+            ).pack(anchor="w", padx=16, pady=16)
+
+        def _close_pw(_event=None) -> None:
+            try:
+                if win.winfo_exists():
+                    win.destroy()
+            except Exception:
+                pass
+            self._wm_pw_window = None
+            try:
+                self._reload_profile_data()
+            except Exception:
+                pass
+            _refresh_pw_button(self)
+
+        win.protocol("WM_DELETE_WINDOW", _close_pw)
+        win.bind("<Escape>", _close_pw, add="+")
+        try:
+            win.focus_set()
+        except Exception:
+            pass
+
     def _build_header(self, parent: ttk.Frame) -> None:
         wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
         wrap.pack(fill="both", expand=True)
@@ -161,13 +264,25 @@ def install_profile_simple_runtime() -> bool:
             style="WM.Muted.TLabel",
         ).pack(anchor="w", pady=(2, 8))
 
-        self.btn_send_pw = ttk.Button(
-            identity,
-            text="Wyślij wiadomość",
-            command=self._on_send_pw,
+        pw_actions = ttk.Frame(identity, style="WM.Card.TFrame")
+        pw_actions.pack(anchor="w", pady=(4, 0))
+
+        self.btn_open_pw = ttk.Button(
+            pw_actions,
+            text="Wiadomości",
+            command=self._wm_open_pw_window,
             style="WM.Button.TButton",
         )
-        self.btn_send_pw.pack(anchor="w", pady=(4, 0))
+        self.btn_open_pw.pack(side="left")
+
+        self.btn_send_pw = ttk.Button(
+            pw_actions,
+            text="Wyślij wiadomość",
+            command=self._on_send_pw,
+            style="WM.Outline.TButton",
+        )
+        self.btn_send_pw.pack(side="left", padx=(8, 0))
+        _refresh_pw_button(self)
 
         work = ttk.LabelFrame(
             wrap,
@@ -311,6 +426,9 @@ def install_profile_simple_runtime() -> bool:
 
     cls._make_avatar = _compact_avatar
     cls._wm_choose_avatar = _choose_avatar
+    cls._wm_unread_pw_count = _unread_pw_count
+    cls._wm_refresh_pw_button = _refresh_pw_button
+    cls._wm_open_pw_window = _open_pw_window
     cls._build_header = _build_header
     cls._build_cover_header = _build_cover_header
     cls._render_simple_profile = _render_simple_profile
