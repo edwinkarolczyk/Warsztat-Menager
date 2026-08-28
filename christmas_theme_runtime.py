@@ -355,17 +355,17 @@ def _ensure_snow_scheduler(root: tk.Misc) -> None:
 
     def _cycle() -> None:
         try:
-            root._wm_christmas_snow_job = None
             if not root.winfo_exists() or not getattr(root, "_wm_christmas_active", False):
+                root._wm_christmas_snow_job = None
                 return
-        except Exception:
-            return
-
-        _start_snow_burst(root)
-        try:
+            # Następny cykl rezerwujemy PRZED utworzeniem Toplevel. Sam Toplevel
+            # przechodzi przez auto-theme, więc istniejący job blokuje re-entrancy.
             root._wm_christmas_snow_job = root.after(_SNOW_INTERVAL_MS, _cycle)
         except Exception:
             root._wm_christmas_snow_job = None
+            return
+
+        _start_snow_burst(root)
 
     # Pierwszy opad od razu ułatwia sprawdzenie, potem kolejne co ok. 20 s.
     _cycle()
