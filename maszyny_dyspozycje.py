@@ -1,4 +1,7 @@
-# version: 1.12
+# version: 1.13
+# Zmiany 1.13:
+# - Narzędzia korzystają z tego samego aktywnego kreatora Dyspozycji co Maszyny.
+# - Stary wm.dyspo_wizard pozostaje poza przepływem bieżącego GUI Narzędzi.
 # Zmiany 1.12:
 # - Profil pokazuje najpierw osobiste Dyspozycje, dane pracy obok avatara oraz akcje avatar/PW.
 # Zmiany 1.11:
@@ -41,6 +44,7 @@ from machine_overdue_dysp_runtime import install_machine_overdue_dysp
 from machine_review_backdate_runtime import install_machine_review_backdate
 from machine_review_dysp_close_runtime import install_machine_review_dysp_close
 from profile_simple_runtime import install_profile_simple_runtime
+from tools_dysp_creator_runtime import install_tools_dysp_creator
 
 # Runtime zapisuje zdarzenia bezpośrednio po wykonaniu przeglądu/naprawy.
 # Podmieniamy wyłącznie warstwę fizycznego zapisu DOCX, aby działała także
@@ -55,6 +59,10 @@ __all__ = [name for name in vars(_core) if not name.startswith("_")]
 def _ensure_gui_integration() -> None:
     install_dysp_creator_window_behavior()
     install_profile_simple_runtime()
+
+    tools_module = sys.modules.get("gui_narzedzia")
+    if tools_module is not None:
+        install_tools_dysp_creator(tools_module)
 
     gui_module = sys.modules.get("gui_maszyny")
     if gui_module is not None:
