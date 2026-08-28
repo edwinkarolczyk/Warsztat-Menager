@@ -1,5 +1,8 @@
 # WM-VERSION: 0.1
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Włączono porządkowanie Ustawień: Moduły → Główne, ukrycie Jarvisa,
+#   rozdzielenie Wygląd/Logika w Dyspozycjach, wybór timeoutu i podgląd kolorów.
 # Zmiany 1.1:
 # - Włączono UI-only podgląd wyglądu oraz wybór kolorów z próbką i przywracaniem wartości domyślnej.
 from __future__ import annotations
@@ -23,9 +26,11 @@ from tkinter import ttk
 from config_manager import ConfigManager
 from gui_settings import SettingsPanel, messagebox
 from settings_color_preview_runtime import install_settings_color_preview_runtime
+from settings_structure_runtime import install_settings_structure_runtime
 from utils.gui_helpers import clear_frame
 
 install_settings_color_preview_runtime(SettingsPanel)
+install_settings_structure_runtime(SettingsPanel)
 
 # Path kept for tests that monkeypatch ``SCHEMA_PATH``.
 SCHEMA_PATH = Path(__file__).with_name("settings_schema.json")
