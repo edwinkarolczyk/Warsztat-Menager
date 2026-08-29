@@ -1,4 +1,9 @@
-# version: 2.5
+# version: 2.6
+# Zmiany 2.6:
+# - Pierwsze wypełnianie tabel Zadania/Historia/Wizyty odbywa się dopiero po wejściu w zakładkę.
+# - Powiązane narzędzia są materializowane dopiero po wejściu w ich zakładkę.
+# - Domknięto duży podgląd zdjęcia głównego do stałego pola 380×250.
+#
 # Zmiany 2.5:
 # - Ciężkie dane nowego edytora są odświeżane dopiero po wejściu w daną zakładkę.
 # - Podgląd pokazuje jedno większe zdjęcie główne bez automatycznej karuzeli.
@@ -62,6 +67,7 @@ from .editor_stability_runtime import install_editor_stability_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 from .editor_followup_runtime import install_editor_followup_runtime
 from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
+from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -177,5 +183,6 @@ install_editor_stability_runtime()
 install_tools_conversion_runtime()
 install_editor_followup_runtime()
 install_editor_lazy_media_runtime()
+install_editor_legacy_lazy_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
