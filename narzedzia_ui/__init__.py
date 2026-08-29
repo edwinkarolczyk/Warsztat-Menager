@@ -1,4 +1,6 @@
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - Zawersjonowano integrację przełączanego edytora NN/SN po podpięciu wariantu z miniaturą.
 # Zmiany 1.5:
 # - Podłączono opcjonalny nowy widok edytora NN/SN z kartą i miniaturą; klasyczny widok pozostaje dostępny.
 # Zmiany 1.4:
