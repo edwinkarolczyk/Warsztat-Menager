@@ -1,6 +1,7 @@
-# version: 1.2
+# version: 1.3
 # Moduł: settings_tools_runtime
 # UI-only: porządkowanie Ustawienia → Moduły → Narzędzia.
+# 1.3: wybór okna edycji NN/SN pokazuje dwa checkboxy: Stary widok / Nowy widok.
 # 1.2: zawersjonowano wybór Klasyczny / Nowy dla wspólnego edytora NN i SN.
 # 1.1: dodano wspólny wybór Klasyczny / Nowy dla edytora NN i SN.
 
@@ -244,7 +245,7 @@ def _friendly_preview_delay(panel: Any) -> None:
 
 
 def _editor_variant_selector(panel: Any) -> None:
-    """Add one shared NN/SN editor selector without replacing the classic editor."""
+    """Pokaż wybór okna edycji NN/SN jako dwa wzajemnie wykluczające checkboxy."""
 
     root = _module_tab(panel, "Narzędzia")
     if root is None:
@@ -273,7 +274,7 @@ def _editor_variant_selector(panel: Any) -> None:
     )
     row += 1
 
-    ttk.Label(box, text="Edytor NN / SN").grid(
+    ttk.Label(box, text="Okna edycji").grid(
         row=row,
         column=0,
         sticky="w",
@@ -281,46 +282,20 @@ def _editor_variant_selector(panel: Any) -> None:
         pady=6,
     )
 
-    labels = {
-        "classic": "Klasyczny",
-        "card": "Nowy — karta z miniaturą",
-    }
-    reverse = {label: value for value, label in labels.items()}
-
     try:
         current = str(ConfigManager().get("tools.editor_variant", "classic") or "classic").strip().lower()
     except Exception:
         current = "classic"
-    if current not in labels:
+    if current not in {"classic", "card"}:
         current = "classic"
 
-    display = tk.StringVar(master=box, value=labels[current])
-    combo = ttk.Combobox(
-        box,
-        textvariable=display,
-        values=list(labels.values()),
-        state="readonly",
-        width=30,
-    )
-    combo.grid(row=row, column=1, sticky="ew", padx=8, pady=6)
-    try:
-        box.columnconfigure(1, weight=1)
-    except Exception:
-        pass
+    holder = ttk.Frame(box)
+    holder.grid(row=row, column=1, sticky="w", padx=8, pady=6)
 
-    row += 1
-    ttk.Label(
-        box,
-        text=(
-            "Wspólny wybór dla NN i SN. Klasyczny widok pozostaje dostępny; "
-            "zmiana działa od następnego otwarcia edytora."
-        ),
-        wraplength=760,
-        justify="left",
-    ).grid(row=row, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8))
+    old_var = tk.BooleanVar(master=holder, value=current == "classic")
+    new_var = tk.BooleanVar(master=holder, value=current == "card")
 
-    def _save_variant(_event=None) -> None:
-        value = reverse.get(str(display.get() or ""), "classic")
+    def _save_variant(value: str) -> None:
         try:
             cfg = ConfigManager()
             cfg.set("tools.editor_variant", value, who="settings")
@@ -332,7 +307,33 @@ def _editor_variant_selector(panel: Any) -> None:
         except Exception:
             pass
 
-    combo.bind("<<ComboboxSelected>>", _save_variant)
+    def _choose_old() -> None:
+        if not old_var.get():
+            old_var.set(True)
+            return
+        new_var.set(False)
+        _save_variant("classic")
+
+    def _choose_new() -> None:
+        if not new_var.get():
+            new_var.set(True)
+            return
+        old_var.set(False)
+        _save_variant("card")
+
+    ttk.Checkbutton(
+        holder,
+        text="Stary widok",
+        variable=old_var,
+        command=_choose_old,
+    ).pack(side="left", padx=(0, 18))
+    ttk.Checkbutton(
+        holder,
+        text="Nowy widok",
+        variable=new_var,
+        command=_choose_new,
+    ).pack(side="left")
+
     setattr(box, "_wm_editor_variant_selector", True)
 
 
