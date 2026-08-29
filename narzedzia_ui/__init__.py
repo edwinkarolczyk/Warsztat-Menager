@@ -1,4 +1,6 @@
-# version: 1.8
+# version: 1.9
+# Zmiany 1.9:
+# - Podłączono odchudzenie nowego dashboardu NN/SN, usunięcie fioletu i poprawę obsługi zdjęć.
 # Zmiany 1.8:
 # - Podłączono pełny dashboard nowego edytora NN/SN i strażnika zgodności ze starszym runtime'em okna.
 # Zmiany 1.7:
@@ -29,6 +31,7 @@ from .editor_runtime import install_tools_editor_runtime
 from .visit_tasks_runtime import install_visit_tasks_runtime
 from .editor_variant_runtime import install_tools_editor_variant_runtime
 from .editor_variant_guard_runtime import install_editor_variant_guard_runtime
+from .editor_variant_tuning_runtime import install_editor_variant_tuning_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 
 
@@ -138,6 +141,7 @@ install_tools_editor_runtime()
 install_visit_tasks_runtime()
 install_editor_variant_guard_runtime()
 install_tools_editor_variant_runtime()
+install_editor_variant_tuning_runtime()
 install_tools_conversion_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
