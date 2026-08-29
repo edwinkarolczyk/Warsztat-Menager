@@ -1,6 +1,8 @@
-# version: 1.3
+# version: 1.4
 # Moduł: settings_tools_runtime
 # UI-only: porządkowanie Ustawienia → Moduły → Narzędzia.
+# 1.4: sekcja „Okna edycji” jest tworzona bezpośrednio w Moduły → Narzędzia,
+#      niezależnie od ukrytej/nieistniejącej sekcji „Wersja panelu”.
 # 1.3: wybór okna edycji NN/SN pokazuje dwa checkboxy: Stary widok / Nowy widok.
 # 1.2: zawersjonowano wybór Klasyczny / Nowy dla wspólnego edytora NN i SN.
 # 1.1: dodano wspólny wybór Klasyczny / Nowy dla edytora NN i SN.
@@ -244,43 +246,87 @@ def _friendly_preview_delay(panel: Any) -> None:
     setattr(box, "_wm_preview_delay_friendly", True)
 
 
+def _attach_section_after(anchor: tk.Misc, section: ttk.LabelFrame) -> None:
+    """Wstaw sekcję obok istniejących grup niezależnie od pack/grid."""
+
+    parent = anchor.master
+    try:
+        manager = str(anchor.winfo_manager() or "")
+    except Exception:
+        manager = ""
+
+    if manager == "pack":
+        try:
+            info = anchor.pack_info()
+        except Exception:
+            info = {}
+        try:
+            section.pack(
+                fill="x",
+                padx=info.get("padx", 0),
+                pady=(6, 6),
+                after=anchor,
+            )
+            return
+        except Exception:
+            pass
+
+    if manager == "grid":
+        max_row = -1
+        max_col = 0
+        try:
+            for sibling in parent.winfo_children():
+                if sibling is section:
+                    continue
+                info = sibling.grid_info()
+                if not info:
+                    continue
+                row = int(info.get("row", 0))
+                col = int(info.get("column", 0))
+                span = int(info.get("columnspan", 1))
+                max_row = max(max_row, row)
+                max_col = max(max_col, col + span - 1)
+            section.grid(
+                row=max_row + 1,
+                column=0,
+                columnspan=max_col + 1,
+                sticky="ew",
+                padx=6,
+                pady=6,
+            )
+            return
+        except Exception:
+            pass
+
+    # Fallback — aktualny układ Narzędzi używa sekcji ułożonych pionowo.
+    section.pack(fill="x", padx=6, pady=6)
+
+
 def _editor_variant_selector(panel: Any) -> None:
-    """Pokaż wybór okna edycji NN/SN jako dwa wzajemnie wykluczające checkboxy."""
+    """Pokaż bezpośrednio w Moduły → Narzędzia wybór Stary / Nowy widok."""
 
     root = _module_tab(panel, "Narzędzia")
-    if root is None:
-        return
-    box = _label_frame(root, "Wygląd — panel i edytor", "Wersja panelu")
-    if box is None or getattr(box, "_wm_editor_variant_selector", False):
+    if root is None or getattr(root, "_wm_editor_variant_selector", False):
         return
 
-    rows: list[int] = []
-    for child in box.winfo_children():
-        try:
-            info = child.grid_info()
-            if info:
-                rows.append(int(info.get("row", 0)))
-        except Exception:
-            continue
-    row = max(rows, default=-1) + 1
+    # Sekcja ma być zawsze widoczna. Kotwiczymy ją przy widocznym bloku zdjęć,
+    # zamiast przy opcjonalnej/ukrytej sekcji „Wersja panelu”.
+    anchor = _label_frame(root, "Wygląd — zdjęcia", "Podgląd zdjęć")
+    if anchor is None:
+        anchor = next(
+            (item for item in _all_descendants(root) if isinstance(item, ttk.LabelFrame)),
+            None,
+        )
+    if anchor is None:
+        return
 
-    ttk.Separator(box, orient="horizontal").grid(
-        row=row,
-        column=0,
-        columnspan=2,
-        sticky="ew",
-        padx=8,
-        pady=(10, 8),
-    )
-    row += 1
+    existing = _label_frame(root, "Okna edycji")
+    if existing is not None:
+        setattr(root, "_wm_editor_variant_selector", True)
+        return
 
-    ttk.Label(box, text="Okna edycji").grid(
-        row=row,
-        column=0,
-        sticky="w",
-        padx=8,
-        pady=6,
-    )
+    box = ttk.LabelFrame(anchor.master, text="Okna edycji", padding=(8, 6))
+    _attach_section_after(anchor, box)
 
     try:
         current = str(ConfigManager().get("tools.editor_variant", "classic") or "classic").strip().lower()
@@ -289,11 +335,8 @@ def _editor_variant_selector(panel: Any) -> None:
     if current not in {"classic", "card"}:
         current = "classic"
 
-    holder = ttk.Frame(box)
-    holder.grid(row=row, column=1, sticky="w", padx=8, pady=6)
-
-    old_var = tk.BooleanVar(master=holder, value=current == "classic")
-    new_var = tk.BooleanVar(master=holder, value=current == "card")
+    old_var = tk.BooleanVar(master=box, value=current == "classic")
+    new_var = tk.BooleanVar(master=box, value=current == "card")
 
     def _save_variant(value: str) -> None:
         try:
@@ -322,19 +365,19 @@ def _editor_variant_selector(panel: Any) -> None:
         _save_variant("card")
 
     ttk.Checkbutton(
-        holder,
+        box,
         text="Stary widok",
         variable=old_var,
         command=_choose_old,
-    ).pack(side="left", padx=(0, 18))
+    ).pack(side="left", padx=(6, 22), pady=4)
     ttk.Checkbutton(
-        holder,
+        box,
         text="Nowy widok",
         variable=new_var,
         command=_choose_new,
-    ).pack(side="left")
+    ).pack(side="left", padx=(0, 6), pady=4)
 
-    setattr(box, "_wm_editor_variant_selector", True)
+    setattr(root, "_wm_editor_variant_selector", True)
 
 
 def _decorate(panel: Any) -> None:
