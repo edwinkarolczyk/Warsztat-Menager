@@ -1,9 +1,10 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_number_policy_runtime
 # Zasada numeracji Narzędzi:
 # - numer zawsze ma dokładnie 3 cyfry (001–999),
 # - po pierwszym zapisie numer jest stałą tożsamością narzędzia,
-# - zapis nie może wykonać renumeracji istniejącego narzędzia.
+# - zapis nie może wykonać renumeracji istniejącego narzędzia,
+# - generator wolnych numerów nigdy nie proponuje 1000.
 
 from __future__ import annotations
 
@@ -41,6 +42,24 @@ def _previous_number(data: dict[str, Any]) -> str:
     return ""
 
 
+def _install_generator_cap(tools_gui) -> None:
+    current = getattr(tools_gui, "_next_free_in_range", None)
+    if not callable(current) or getattr(current, "_wm_three_digit_cap", False):
+        return
+    original = current
+
+    def _next_free_three_digits(start, end):
+        try:
+            capped_end = min(int(end), 999)
+        except (TypeError, ValueError):
+            capped_end = 999
+        return original(start, capped_end)
+
+    _next_free_three_digits._wm_three_digit_cap = True  # type: ignore[attr-defined]
+    _next_free_three_digits._wm_three_digit_original = original  # type: ignore[attr-defined]
+    tools_gui._next_free_in_range = _next_free_three_digits
+
+
 def _install_save_guard() -> None:
     """Załóż blokadę na centralny zapis, gdy gui_narzedzia jest już zbudowane."""
 
@@ -48,6 +67,8 @@ def _install_save_guard() -> None:
         import gui_narzedzia as tools_gui
     except Exception:
         return
+
+    _install_generator_cap(tools_gui)
 
     current = getattr(tools_gui, "_save_tool", None)
     if not callable(current) or getattr(current, "_wm_number_identity_guard", False):
@@ -134,7 +155,7 @@ def _install_editor_lock_hook() -> None:
 
     def _build_header_number_policy(window, header, colors):
         # Edytor powstaje dopiero po pełnym załadowaniu gui_narzedzia, więc tutaj
-        # można już bezpiecznie podpiąć centralną blokadę zapisu.
+        # można już bezpiecznie podpiąć centralną blokadę zapisu i generatora.
         _install_save_guard()
 
         result = original(window, header, colors)
