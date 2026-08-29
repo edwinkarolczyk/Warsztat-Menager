@@ -1,4 +1,9 @@
-# version: 2.2
+# version: 2.3
+# Zmiany 2.3:
+# - Naprawiono stabilność nowego edytora: współdzielone zmienne Tk nie są kasowane
+#   przez tymczasowe wrappery, podwójna edycja tego samego narzędzia jest blokowana,
+#   a konsola pokazuje czasy etapów i diagnostykę galerii zdjęć.
+#
 # Zmiany 2.2:
 # - Dodano karuzelę wielu zdjęć, pełny podgląd, wybór zdjęcia głównego i odświeżanie zdarzeniowe.
 #
@@ -43,6 +48,7 @@ from .editor_variant_guard_runtime import install_editor_variant_guard_runtime
 from .editor_variant_tuning_runtime import install_editor_variant_tuning_runtime
 from .multistage_runtime import install_multistage_runtime
 from .editor_performance_runtime import install_editor_performance_runtime
+from .editor_stability_runtime import install_editor_stability_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 
 
@@ -155,6 +161,7 @@ install_tools_editor_variant_runtime()
 install_editor_variant_tuning_runtime()
 install_multistage_runtime()
 install_editor_performance_runtime()
+install_editor_stability_runtime()
 install_tools_conversion_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
