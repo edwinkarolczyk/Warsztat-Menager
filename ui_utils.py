@@ -1,4 +1,6 @@
 # version: 1.2
+# Zmiany 1.2:
+# - Zawersjonowano poprawkę relacji okno dialogowe → główne okno WM; główne okno nie dostaje już topmost.
 """Utility helpers for Tkinter popups."""
 
 from __future__ import annotations
@@ -66,6 +68,7 @@ def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
             win.attributes("-topmost", False)
         except Exception:
             pass
+        # Po zdjęciu chwilowego topmost jeszcze raz utrzymaj relację dziecko → właściciel.
         try:
             if owner_win is not None and owner_win is not win:
                 win.lift(owner_win)
@@ -102,6 +105,8 @@ def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
         except Exception:
             pass
 
+        # Topmost jest tylko krótkim impulsem dla dialogu. Nigdy nie ustawiamy
+        # topmost na właścicielu/głównym oknie WM, bo może ono przykryć własny dialog.
         try:
             window.attributes("-topmost", True)
             window.after(150, lambda: _drop_topmost(window, owner))
@@ -112,12 +117,15 @@ def _ensure_topmost(widget: tk.Misc, parent: tk.Misc | None = None) -> None:
 
 
 def _msg_info(parent: tk.Misc, title: str, message: str, **kwargs: Any) -> str:
+    """Show an informational message box bound to ``parent``."""
     return messagebox.showinfo(title, message, parent=parent, **kwargs)
 
 
 def _msg_warning(parent: tk.Misc, title: str, message: str, **kwargs: Any) -> str:
+    """Show a warning message box bound to ``parent``."""
     return messagebox.showwarning(title, message, parent=parent, **kwargs)
 
 
 def _msg_error(parent: tk.Misc, title: str, message: str, **kwargs: Any) -> str:
+    """Show an error message box bound to ``parent``."""
     return messagebox.showerror(title, message, parent=parent, **kwargs)
