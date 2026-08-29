@@ -1,4 +1,8 @@
-# version: 2.6
+# version: 2.7
+# Zmiany 2.7:
+# - Powiązania etapowe zachowują kanoniczny numer narzędzia po przebudowie nagłówka.
+# - Numer narzędzia jest stały po pierwszym zapisie i zawsze mieści się w zakresie 001–999.
+#
 # Zmiany 2.6:
 # - Pierwsze wypełnianie tabel Zadania/Historia/Wizyty odbywa się dopiero po wejściu w zakładkę.
 # - Powiązane narzędzia są materializowane dopiero po wejściu w ich zakładkę.
@@ -66,6 +70,7 @@ from .editor_performance_runtime import install_editor_performance_runtime
 from .editor_stability_runtime import install_editor_stability_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 from .editor_followup_runtime import install_editor_followup_runtime
+from .editor_number_policy_runtime import install_editor_number_policy_runtime
 from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
 from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
 
@@ -182,6 +187,7 @@ install_editor_performance_runtime()
 install_editor_stability_runtime()
 install_tools_conversion_runtime()
 install_editor_followup_runtime()
+install_editor_number_policy_runtime()
 install_editor_lazy_media_runtime()
 install_editor_legacy_lazy_runtime()
 
