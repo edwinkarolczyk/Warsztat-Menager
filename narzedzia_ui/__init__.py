@@ -1,4 +1,9 @@
-# version: 2.4
+# version: 2.5
+# Zmiany 2.5:
+# - Ciężkie dane nowego edytora są odświeżane dopiero po wejściu w daną zakładkę.
+# - Podgląd pokazuje jedno większe zdjęcie główne bez automatycznej karuzeli.
+# - Pełna lista zdjęć jest ładowana dopiero w zakładce Pliki i zdjęcia.
+#
 # Zmiany 2.4:
 # - Powiązania etapowe korzystają z centralnego WM_ROOT.
 # - Usunięto blokujące odświeżanie Tk przy dopasowaniu nowego edytora.
@@ -56,6 +61,7 @@ from .editor_performance_runtime import install_editor_performance_runtime
 from .editor_stability_runtime import install_editor_stability_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 from .editor_followup_runtime import install_editor_followup_runtime
+from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -170,5 +176,6 @@ install_editor_performance_runtime()
 install_editor_stability_runtime()
 install_tools_conversion_runtime()
 install_editor_followup_runtime()
+install_editor_lazy_media_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
