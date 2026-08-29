@@ -1,6 +1,7 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_variant_runtime
 # Opcjonalny nowy widok edytora NN/SN. Klasyczny edytor pozostaje bez zmian.
+# 1.1: pierwsza zawersjonowana wersja po integracji z Ustawieniami i podglądem miniatury.
 
 from __future__ import annotations
 
