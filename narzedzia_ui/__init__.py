@@ -1,4 +1,7 @@
-# version: 2.0
+# version: 2.1
+# Zmiany 2.1:
+# - Wyłączono ciężkie pełne odświeżanie nowego dashboardu po każdym kliknięciu,
+#   FocusIn i samym przełączaniu zakładek; nagłówek aktualizuje się lekko z Tk variables.
 # Zmiany 2.0:
 # - Podłączono narzędzia wieloetapowe (maks. 6 etapów), większy numer w nagłówku
 #   oraz przywrócono podpowiedź wolnego numeru przy dodawaniu NN/SN.
@@ -36,6 +39,7 @@ from .editor_variant_runtime import install_tools_editor_variant_runtime
 from .editor_variant_guard_runtime import install_editor_variant_guard_runtime
 from .editor_variant_tuning_runtime import install_editor_variant_tuning_runtime
 from .multistage_runtime import install_multistage_runtime
+from .editor_performance_runtime import install_editor_performance_runtime
 from .conversion_runtime import install_tools_conversion_runtime
 
 
@@ -147,6 +151,7 @@ install_editor_variant_guard_runtime()
 install_tools_editor_variant_runtime()
 install_editor_variant_tuning_runtime()
 install_multistage_runtime()
+install_editor_performance_runtime()
 install_tools_conversion_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
