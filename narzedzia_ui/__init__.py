@@ -1,4 +1,7 @@
-# version: 2.1
+# version: 2.2
+# Zmiany 2.2:
+# - Dodano karuzelę wielu zdjęć, pełny podgląd, wybór zdjęcia głównego i odświeżanie zdarzeniowe.
+#
 # Zmiany 2.1:
 # - Wyłączono ciężkie pełne odświeżanie nowego dashboardu po każdym kliknięciu,
 #   FocusIn i samym przełączaniu zakładek; nagłówek aktualizuje się lekko z Tk variables.

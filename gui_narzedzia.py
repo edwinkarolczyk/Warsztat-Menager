@@ -1,5 +1,10 @@
 # Plik: gui_narzedzia.py
-# version: 1.5.32
+# version: 1.5.33
+# Zmiany 1.5.33:
+# - [NARZĘDZIA] Udostępniono nowemu edytorowi bieżącą listę zdjęć bez czekania na zapis JSON.
+# - Dodano zdarzenia odświeżania po dodaniu, usunięciu, zmianie kolejności zdjęć i zmianie DXF.
+# - Nowy widok może usunąć pojedyncze zdjęcie i ustawić wybrane zdjęcie jako główne.
+#
 # Zmiany 1.5.32:
 # - [NARZĘDZIA] Walidacja przy wejściu nie wymaga wycofanego płaskiego klucza zadań serwisowych.
 # - Zadania serwisowe nadal są pobierane z aktualnych definicji typ/status i istniejących fallbacków.
@@ -4711,8 +4716,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         var_op = tk.StringVar(master=dialog_master, value=start.get("opis", ""))
         var_pr = tk.StringVar(master=dialog_master, value=start.get("pracownik", login or ""))
         images = list(start.get("obrazy", []))
+        # Nowy widok korzysta z tej samej, żywej listy co klasyczny formularz.
+        # Dzięki temu miniatura i karuzela reagują przed zapisaniem pliku JSON.
+        dlg._wm_tool_images = images  # type: ignore[attr-defined]
         var_dxf = tk.StringVar(master=dialog_master, value=start.get("dxf", ""))
         var_dxf_png = tk.StringVar(master=dialog_master, value=start.get("dxf_png", ""))
+        dlg._wm_tool_dxf_preview_get = var_dxf_png.get  # type: ignore[attr-defined]
         wizyty_data = list((tool.get("wizyty") if editing else []) or [])
 
         main_container = ttk.Frame(dlg, padding=10, style="WM.TFrame")
@@ -5649,8 +5658,44 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         )
         dxf_lbl.pack(side="left", padx=6)
 
+        def _emit_tool_media_changed() -> None:
+            try:
+                dlg.event_generate("<<ToolMediaChanged>>", when="tail")
+            except Exception:
+                pass
+
         def _refresh_images_label() -> None:
             images_var.set(_format_images_label())
+            _emit_tool_media_changed()
+
+        def _get_live_images() -> List[str]:
+            return list(images)
+
+        def _set_primary_image(raw_path: str) -> bool:
+            wanted = str(raw_path or "").strip()
+            for index, value in enumerate(images):
+                if str(value or "").strip() != wanted:
+                    continue
+                if index:
+                    images.insert(0, images.pop(index))
+                    _refresh_images_label()
+                return True
+            return False
+
+        def _remove_live_image(raw_path: str) -> bool:
+            wanted = str(raw_path or "").strip()
+            for index, value in enumerate(images):
+                if str(value or "").strip() != wanted:
+                    continue
+                images.pop(index)
+                _refresh_images_label()
+                preview_tooltip.hide_tooltip()
+                return True
+            return False
+
+        dlg._wm_tool_images_get = _get_live_images  # type: ignore[attr-defined]
+        dlg._wm_tool_image_set_primary = _set_primary_image  # type: ignore[attr-defined]
+        dlg._wm_tool_image_remove = _remove_live_image  # type: ignore[attr-defined]
 
         def clear_images() -> None:
             if not images:
@@ -5725,9 +5770,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 var_dxf.set(rel)
                 dxf_lbl.config(text=os.path.basename(dest))
                 png = _generate_dxf_preview(dest)
-                if png:
-                    rel_png = os.path.relpath(png, _resolve_tools_dir())
-                    var_dxf_png.set(rel_png)
+                rel_png = os.path.relpath(png, _resolve_tools_dir()) if png else ""
+                var_dxf_png.set(rel_png)
+                _emit_tool_media_changed()
             except (OSError, shutil.Error) as e:
                 _dbg("Błąd kopiowania DXF:", e)
 
@@ -7087,6 +7132,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     data_obj["__prev_path__"] = str(tool_path or "")
 
                 _save_tool(data_obj)
+                try:
+                    dlg.event_generate("<<ToolSaved>>", when="tail")
+                except Exception:
+                    pass
 
                 if renamed:
                     # FIX(TOOLS): aktualizacja stanu po zmianie numeru

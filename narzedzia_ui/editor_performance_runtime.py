@@ -1,8 +1,8 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_performance_runtime
 # Wydajność nowego edytora NN/SN bez zmiany modelu danych ani starego widoku.
 # - blokuje ciężkie pełne odświeżanie po każdym kliknięciu i FocusIn,
-# - blokuje pełny sync przy samym przełączaniu zakładek,
+# - pozwala na pojedynczy sync przy zmianie zakładki, aby dashboard nie był nieaktualny,
 # - krótkotrwale buforuje dokument narzędzia, aby jeden sync nie czytał go kilka razy,
 # - nagłówek Numer/Nazwa/Typ/Status aktualizuje lekkimi trace zmiennych Tk.
 
@@ -18,7 +18,7 @@ from . import editor_variant_runtime as _variant
 
 _CACHE_TTL_SEC = 1.5
 _HEAVY_WINDOW_EVENTS = {"<FocusIn>", "<ButtonRelease-1>"}
-_HEAVY_NOTEBOOK_EVENTS = {"<<NotebookTabChanged>>"}
+_HEAVY_NOTEBOOK_EVENTS: set[str] = set()
 
 
 def _norm_nr(value: object) -> str:
@@ -163,7 +163,7 @@ def install_editor_performance_runtime() -> None:
 
         def _notebook_bind_filtered(sequence=None, func=None, add=None):
             if sequence in _HEAVY_NOTEBOOK_EVENTS and func is not None:
-                # Samo przełączenie zakładki nie może powodować ponownego czytania JSON/obrazów.
+                # Rezerwa dla przyszłych ciężkich zdarzeń notebooka.
                 return ""
             if real_notebook_bind is None:
                 return ""

@@ -1,16 +1,21 @@
-# version: 2.0
+# version: 3.0
 # Moduł: narzedzia_ui.editor_variant_runtime
 # Nowy widok edytora NN/SN. Klasyczny edytor pozostaje bez zmian.
+# 3.0: galeria wielu zdjęć z automatyczną karuzelą, nawigacją i podglądem pełnym.
 # 2.0: pełna karta narzędzia: miniatura, kolorowe statusy, dashboard,
 #      edycja danych podstawowych, statystyki zadań/wizyt, historia i pliki.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any, Callable
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 _EDITOR_TITLES = {
@@ -201,8 +206,28 @@ def _holder_label_value(holder: tk.Misc | None) -> str:
     return ""
 
 
-def _image_label_value(window: tk.Toplevel) -> str:
-    return _holder_label_value(_field_value_widget(window, "Obraz"))
+def _images_summary(values: list[str]) -> str:
+    names = [
+        Path(str(value).replace("\\", "/")).name
+        for value in values
+        if str(value or "").strip()
+    ]
+    if not names:
+        return "—"
+    if len(names) <= 3:
+        return ", ".join(names)
+    return f"{len(names)} plików"
+
+
+def _added_date(doc: dict[str, Any] | None) -> str:
+    if not isinstance(doc, dict):
+        return "—"
+    return str(
+        doc.get("data_dodania")
+        or doc.get("data")
+        or doc.get("date_added")
+        or "—"
+    )
 
 
 def _hide_grid(widget: tk.Misc | None) -> None:
@@ -267,10 +292,10 @@ def _candidate_path(base: Path, raw: str) -> Path | None:
     cleaned = str(raw or "").strip()
     if not cleaned:
         return None
-    candidate = Path(cleaned)
+    candidate = Path(cleaned.replace("\\", os.sep).replace("/", os.sep))
     if candidate.is_absolute() and candidate.is_file():
         return candidate
-    for value in (base / cleaned, base / "media" / candidate.name):
+    for value in (base / candidate, base / "media" / candidate.name):
         try:
             if value.is_file():
                 return value
@@ -292,24 +317,31 @@ def _current_doc(window: tk.Toplevel) -> dict[str, Any]:
         return {}
 
 
-def _preview_path(window: tk.Toplevel) -> Path | None:
+def _media_base() -> Path | None:
     try:
         import gui_narzedzia as tools_gui
 
-        base = Path(tools_gui._resolve_tools_dir())
+        return Path(tools_gui._resolve_tools_dir())
     except Exception:
         return None
 
-    current_label = _image_label_value(window)
-    if current_label == "—":
-        return None
-    if current_label and not current_label.lower().endswith(" pliki"):
-        first_name = current_label.split(",", 1)[0].strip()
-        resolved = _candidate_path(base, first_name)
-        if resolved is not None:
-            return resolved
 
-    doc = _current_doc(window)
+def _image_values(window: tk.Toplevel, doc: dict[str, Any] | None = None) -> list[str]:
+    """Return the current form images; use JSON only outside the editor form."""
+
+    live_getter = getattr(window, "_wm_tool_images_get", None)
+    if callable(live_getter):
+        try:
+            live_values = live_getter()
+        except Exception:
+            _LOGGER.exception("[TOOLS_EDITOR] Nie udało się odczytać bieżącej listy zdjęć")
+            live_values = []
+        if not isinstance(live_values, (list, tuple)):
+            return []
+        return [str(item).strip() for item in live_values if str(item or "").strip()]
+
+    if doc is None:
+        doc = _current_doc(window)
     candidates: list[str] = []
     images = doc.get("obrazy")
     if isinstance(images, list):
@@ -319,27 +351,112 @@ def _preview_path(window: tk.Toplevel) -> Path | None:
     legacy = doc.get("obraz")
     if isinstance(legacy, str) and legacy.strip() and legacy.strip() not in candidates:
         candidates.append(legacy.strip())
-    dxf_png = doc.get("dxf_png")
-    if isinstance(dxf_png, str) and dxf_png.strip():
-        candidates.append(dxf_png.strip())
+    return candidates
 
-    for candidate in candidates:
-        resolved = _candidate_path(base, candidate)
-        if resolved is not None:
-            return resolved
+
+def _preview_items(window: tk.Toplevel) -> list[tuple[str, Path, str]]:
+    """Return (stored value, resolved path, kind) for the live gallery."""
+
+    base = _media_base()
+    if base is None:
+        return []
+    live_getter = getattr(window, "_wm_tool_images_get", None)
+    dxf_getter = getattr(window, "_wm_tool_dxf_preview_get", None)
+    doc = (
+        {}
+        if callable(live_getter) and callable(dxf_getter)
+        else _current_doc(window)
+    )
+    result: list[tuple[str, Path, str]] = []
+    seen: set[str] = set()
+
+    for raw in _image_values(window, doc):
+        resolved = _candidate_path(base, raw)
+        if resolved is None:
+            candidate = Path(str(raw).replace("\\", os.sep).replace("/", os.sep))
+            resolved = candidate if candidate.is_absolute() else base / candidate
+            kind = "missing_image"
+        else:
+            kind = "image"
+        token = os.path.normcase(os.path.abspath(str(resolved)))
+        if token in seen:
+            continue
+        seen.add(token)
+        result.append((raw, resolved, kind))
+
+    # Zachowaj dotychczasowe zachowanie: gdy nie ma zdjęcia, pokaż miniaturę DXF.
+    if not result:
+        if callable(dxf_getter):
+            try:
+                dxf_png = str(dxf_getter() or "").strip()
+            except Exception:
+                dxf_png = ""
+        else:
+            dxf_png = str(doc.get("dxf_png") or "").strip()
+        if dxf_png:
+            resolved = _candidate_path(base, dxf_png)
+            if resolved is not None:
+                result.append((dxf_png, resolved, "dxf"))
+    return result
+
+
+def _gallery_index(window: tk.Toplevel, count: int | None = None) -> int:
+    if count is None:
+        count = len(_preview_items(window))
+    if count <= 0:
+        index = 0
+    else:
+        try:
+            index = int(getattr(window, "_wm_editor_gallery_index", 0) or 0) % count
+        except (TypeError, ValueError):
+            index = 0
+    try:
+        window._wm_editor_gallery_index = index  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    return index
+
+
+def _set_gallery_index(window: tk.Toplevel, index: int) -> int:
+    count = len(_preview_items(window))
+    value = int(index) % count if count else 0
+    try:
+        window._wm_editor_gallery_index = value  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    return value
+
+
+def _step_gallery(window: tk.Toplevel, delta: int) -> int:
+    count = len(_preview_items(window))
+    return _set_gallery_index(window, _gallery_index(window, count) + int(delta))
+
+
+def _current_preview_item(window: tk.Toplevel) -> tuple[str, Path, str] | None:
+    items = _preview_items(window)
+    if not items:
+        return None
+    return items[_gallery_index(window, len(items))]
+
+
+def _preview_path(window: tk.Toplevel) -> Path | None:
+    current = _current_preview_item(window)
+    if current is not None:
+        return current[1]
     return None
 
 
 def _load_photo(path: Path, master: tk.Misc, max_size: tuple[int, int]):
+    pil_error: Exception | None = None
     try:
-        from PIL import Image, ImageTk
+        from PIL import Image, ImageOps, ImageTk
 
         with Image.open(path) as source:
-            image = source.copy()
+            image = ImageOps.exif_transpose(source).copy()
         image.thumbnail(max_size)
         return ImageTk.PhotoImage(image, master=master)
-    except Exception:
-        pass
+    except Exception as exc:
+        pil_error = exc
 
     try:
         photo = tk.PhotoImage(master=master, file=str(path))
@@ -349,7 +466,13 @@ def _load_photo(path: Path, master: tk.Misc, max_size: tuple[int, int]):
         sy = max(1, (height + max_size[1] - 1) // max_size[1])
         factor = max(sx, sy)
         return photo.subsample(factor, factor) if factor > 1 else photo
-    except Exception:
+    except Exception as tk_error:
+        _LOGGER.warning(
+            "[TOOLS_EDITOR] Nie można wczytać obrazu %s (Pillow: %s; Tk: %s)",
+            path,
+            pil_error,
+            tk_error,
+        )
         return None
 
 
@@ -392,11 +515,172 @@ def _refresh_thumbnail(
         pass
 
 
-def _open_full_preview(window: tk.Toplevel) -> None:
-    path = _preview_path(window)
-    if path is None:
+def _carousel_delay_ms() -> int:
+    try:
+        from config_manager import ConfigManager
+
+        seconds = float(ConfigManager().get("tools.preview_delay_sec", 3) or 3)
+    except (TypeError, ValueError, ImportError):
+        seconds = 3.0
+    return int(max(1.0, min(seconds, 10.0)) * 1000)
+
+
+def _cancel_carousel(window: tk.Toplevel) -> None:
+    job_id = getattr(window, "_wm_editor_carousel_job", None)
+    if job_id:
+        try:
+            window.after_cancel(job_id)
+        except Exception:
+            pass
+    try:
+        window._wm_editor_carousel_job = None  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def _schedule_carousel(window: tk.Toplevel) -> None:
+    _cancel_carousel(window)
+    if getattr(window, "_wm_editor_carousel_paused", False):
+        return
+    if len(_preview_items(window)) <= 1:
         return
 
+    def _tick() -> None:
+        try:
+            window._wm_editor_carousel_job = None  # type: ignore[attr-defined]
+            if not window.winfo_exists():
+                return
+        except Exception:
+            return
+        _step_gallery(window, 1)
+        refresh = getattr(window, "_wm_editor_gallery_refresh", None)
+        if callable(refresh):
+            refresh()
+        _schedule_carousel(window)
+
+    try:
+        window._wm_editor_carousel_job = window.after(  # type: ignore[attr-defined]
+            _carousel_delay_ms(), _tick
+        )
+    except Exception:
+        window._wm_editor_carousel_job = None  # type: ignore[attr-defined]
+
+
+def _refresh_gallery_views(
+    window: tk.Toplevel,
+    header: tk.Misc | None,
+    media_tab: tk.Misc | None,
+) -> None:
+    items = _preview_items(window)
+    count = len(items)
+    index = _gallery_index(window, count)
+
+    if header is not None:
+        thumb = getattr(header, "_wm_thumb", None)
+        if thumb is not None:
+            _refresh_thumbnail(window, thumb, (180, 110))
+    if media_tab is not None:
+        thumb = getattr(media_tab, "_wm_thumb", None)
+        if thumb is not None:
+            _refresh_thumbnail(window, thumb, (460, 330))
+
+        counter = getattr(media_tab, "_wm_gallery_counter", None)
+        dots = getattr(media_tab, "_wm_gallery_dots", None)
+        previous = getattr(media_tab, "_wm_gallery_previous", None)
+        following = getattr(media_tab, "_wm_gallery_next", None)
+        primary = getattr(media_tab, "_wm_gallery_primary", None)
+        remove = getattr(media_tab, "_wm_gallery_remove", None)
+
+        if count:
+            raw, path, kind = items[index]
+            title = "Podgląd DXF" if kind == "dxf" else f"{index + 1} / {count}"
+            if counter is not None:
+                counter.configure(text=f"{title}  •  {path.name}")
+            if dots is not None:
+                if count <= 10:
+                    dots.configure(
+                        text=" ".join("●" if pos == index else "○" for pos in range(count))
+                    )
+                else:
+                    dots.configure(text=f"Zdjęcie {index + 1} z {count}")
+            is_image = kind in {"image", "missing_image"}
+            is_primary = is_image and index == 0
+        else:
+            raw = ""
+            if counter is not None:
+                counter.configure(text="Brak zdjęć")
+            if dots is not None:
+                dots.configure(text="")
+            is_image = False
+            is_primary = False
+
+        for button in (previous, following):
+            if button is not None:
+                button.state(["!disabled"] if count > 1 else ["disabled"])
+        if primary is not None:
+            primary.state(
+                ["!disabled"] if is_image and not is_primary else ["disabled"]
+            )
+        if remove is not None:
+            remove.state(["!disabled"] if is_image else ["disabled"])
+
+
+def _refresh_and_schedule_gallery(window: tk.Toplevel) -> None:
+    refresh = getattr(window, "_wm_editor_gallery_refresh", None)
+    if callable(refresh):
+        refresh()
+    _schedule_carousel(window)
+
+
+def _manual_gallery_step(window: tk.Toplevel, delta: int) -> None:
+    _step_gallery(window, delta)
+    _refresh_and_schedule_gallery(window)
+
+
+def _set_carousel_paused(window: tk.Toplevel, paused: bool) -> None:
+    try:
+        window._wm_editor_carousel_paused = bool(paused)  # type: ignore[attr-defined]
+    except Exception:
+        return
+    if paused:
+        _cancel_carousel(window)
+    else:
+        _schedule_carousel(window)
+
+
+def _set_current_image_as_primary(window: tk.Toplevel) -> None:
+    current = _current_preview_item(window)
+    setter = getattr(window, "_wm_tool_image_set_primary", None)
+    if current is None or current[2] not in {"image", "missing_image"} or not callable(setter):
+        return
+    if setter(current[0]):
+        _set_gallery_index(window, 0)
+        _refresh_and_schedule_gallery(window)
+
+
+def _remove_current_image(window: tk.Toplevel) -> None:
+    current = _current_preview_item(window)
+    remover = getattr(window, "_wm_tool_image_remove", None)
+    if current is None or current[2] not in {"image", "missing_image"} or not callable(remover):
+        return
+    if not messagebox.askyesno(
+        "Usuń zdjęcie",
+        f"Usunąć zdjęcie „{current[1].name}” z tego narzędzia?",
+        parent=window,
+    ):
+        return
+    if remover(current[0]):
+        _set_gallery_index(window, _gallery_index(window))
+        _refresh_and_schedule_gallery(window)
+
+
+def _open_full_preview(window: tk.Toplevel) -> None:
+    items = _preview_items(window)
+    if not items:
+        return
+
+    was_paused = bool(getattr(window, "_wm_editor_carousel_paused", False))
+    _set_carousel_paused(window, True)
     preview = tk.Toplevel(window)
     preview.title("Podgląd zdjęcia narzędzia")
     try:
@@ -420,23 +704,71 @@ def _open_full_preview(window: tk.Toplevel) -> None:
     except Exception:
         screen_w, screen_h = 1280, 800
     max_size = (min(1200, int(screen_w * 0.82)), min(820, int(screen_h * 0.78)))
-    photo = _load_photo(path, preview, max_size)
 
     image_label = ttk.Label(frame, style="WM.Card.TLabel", anchor="center")
     image_label.pack(fill="both", expand=True)
-    if photo is not None:
-        image_label.configure(image=photo)
-        image_label._wm_editor_photo = photo  # type: ignore[attr-defined]
-    else:
-        image_label.configure(text=f"Nie można otworzyć obrazu:\n{os.path.basename(path)}")
+
+    controls = ttk.Frame(frame, style="WM.TFrame")
+    controls.pack(fill="x", pady=(10, 0))
+    previous = ttk.Button(controls, text="‹ Poprzednie", style="WM.Side.TButton")
+    previous.pack(side="left")
+    counter = ttk.Label(controls, text="", style="WM.Muted.TLabel", anchor="center")
+    counter.pack(side="left", fill="x", expand=True, padx=10)
+    following = ttk.Button(controls, text="Następne ›", style="WM.Side.TButton")
+    following.pack(side="left", padx=(0, 10))
+
+    state = {"index": _gallery_index(window, len(items))}
+    close_state = {"closed": False}
+
+    def _close() -> None:
+        if close_state["closed"]:
+            return
+        close_state["closed"] = True
+        try:
+            preview.destroy()
+        finally:
+            _set_carousel_paused(window, was_paused)
 
     ttk.Button(
-        frame,
-        text="Zamknij",
-        command=preview.destroy,
-        style="WM.Side.TButton",
-    ).pack(anchor="e", pady=(10, 0))
-    preview.bind("<Escape>", lambda _event: preview.destroy())
+        controls, text="Zamknij", command=_close, style="WM.Side.TButton"
+    ).pack(side="right")
+
+    def _render() -> None:
+        index = int(state["index"]) % len(items)
+        state["index"] = index
+        _set_gallery_index(window, index)
+        refresh = getattr(window, "_wm_editor_gallery_refresh", None)
+        if callable(refresh):
+            refresh()
+        _raw, path, kind = items[index]
+        photo = _load_photo(path, preview, max_size)
+        if photo is not None:
+            image_label.configure(image=photo, text="")
+            image_label._wm_editor_photo = photo  # type: ignore[attr-defined]
+        else:
+            image_label.configure(
+                image="", text=f"Nie można otworzyć obrazu:\n{path.name}"
+            )
+            image_label._wm_editor_photo = None  # type: ignore[attr-defined]
+        label = "DXF" if kind == "dxf" else f"{index + 1} / {len(items)}"
+        counter.configure(text=f"{label}  •  {path.name}")
+        preview.title(f"Podgląd zdjęć narzędzia — {path.name}")
+
+    def _move(delta: int) -> None:
+        state["index"] = (int(state["index"]) + delta) % len(items)
+        _render()
+
+    previous.configure(command=lambda: _move(-1))
+    following.configure(command=lambda: _move(1))
+    if len(items) <= 1:
+        previous.state(["disabled"])
+        following.state(["disabled"])
+    _render()
+
+    preview.protocol("WM_DELETE_WINDOW", _close)
+    preview.bind("<Escape>", lambda _event: _close())
+    preview.bind("<Left>", lambda _event: _move(-1))
+    preview.bind("<Right>", lambda _event: _move(1))
 
     try:
         preview.update_idletasks()
@@ -701,15 +1033,69 @@ def _build_media_tab(
     )
     thumb.pack(fill="both", expand=True, padx=14, pady=(0, 10))
     thumb.bind("<Button-1>", lambda _event: _open_full_preview(window))
+    thumb.bind("<Enter>", lambda _event: _set_carousel_paused(window, True))
+    thumb.bind("<Leave>", lambda _event: _set_carousel_paused(window, False))
+
+    gallery_nav = ttk.Frame(left, style="WM.TFrame")
+    gallery_nav.pack(fill="x", padx=14, pady=(0, 6))
+    previous = ttk.Button(
+        gallery_nav,
+        text="‹",
+        command=lambda: _manual_gallery_step(window, -1),
+        style="WM.Side.TButton",
+        width=3,
+    )
+    previous.pack(side="left")
+    gallery_counter = ttk.Label(
+        gallery_nav,
+        text="Brak zdjęć",
+        style="WM.Muted.TLabel",
+        anchor="center",
+    )
+    gallery_counter.pack(side="left", fill="x", expand=True, padx=8)
+    following = ttk.Button(
+        gallery_nav,
+        text="›",
+        command=lambda: _manual_gallery_step(window, 1),
+        style="WM.Side.TButton",
+        width=3,
+    )
+    following.pack(side="right")
+    gallery_dots = ttk.Label(left, text="", style="WM.Muted.TLabel", anchor="center")
+    gallery_dots.pack(fill="x", padx=14, pady=(0, 8))
 
     img_choose = _find_button(image_holder, "Wybierz...")
-    img_preview = _find_button(image_holder, "Podgląd")
     img_clear = _find_button(image_holder, "Wyczyść")
     buttons = ttk.Frame(left, style="WM.TFrame")
     buttons.pack(fill="x", padx=14, pady=(0, 12))
-    _proxy_button(buttons, "Dodaj / zmień zdjęcie", img_choose).pack(side="left", padx=(0, 6))
-    _proxy_button(buttons, "Podgląd", img_preview).pack(side="left", padx=(0, 6))
-    _proxy_button(buttons, "Wyczyść", img_clear).pack(side="left")
+    file_actions = ttk.Frame(buttons, style="WM.TFrame")
+    file_actions.pack(fill="x")
+    edit_actions = ttk.Frame(buttons, style="WM.TFrame")
+    edit_actions.pack(fill="x", pady=(6, 0))
+    _proxy_button(file_actions, "Dodaj zdjęcia", img_choose).pack(
+        side="left", padx=(0, 6)
+    )
+    ttk.Button(
+        file_actions,
+        text="Pełny podgląd",
+        command=lambda: _open_full_preview(window),
+        style="WM.Side.TButton",
+    ).pack(side="left", padx=(0, 6))
+    primary = ttk.Button(
+        edit_actions,
+        text="Ustaw jako główne",
+        command=lambda: _set_current_image_as_primary(window),
+        style="WM.Side.TButton",
+    )
+    primary.pack(side="left", padx=(0, 6))
+    remove = ttk.Button(
+        edit_actions,
+        text="Usuń bieżące",
+        command=lambda: _remove_current_image(window),
+        style="WM.Danger.TButton",
+    )
+    remove.pack(side="left", padx=(0, 6))
+    _proxy_button(edit_actions, "Usuń wszystkie", img_clear).pack(side="left")
 
     right = _make_card(media, colors, accent=colors["purple"])
     right.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=2)
@@ -762,6 +1148,12 @@ def _build_media_tab(
     info.grid(row=4, column=0, columnspan=2, sticky="w", padx=16, pady=(8, 16))
 
     media._wm_thumb = thumb  # type: ignore[attr-defined]
+    media._wm_gallery_previous = previous  # type: ignore[attr-defined]
+    media._wm_gallery_next = following  # type: ignore[attr-defined]
+    media._wm_gallery_counter = gallery_counter  # type: ignore[attr-defined]
+    media._wm_gallery_dots = gallery_dots  # type: ignore[attr-defined]
+    media._wm_gallery_primary = primary  # type: ignore[attr-defined]
+    media._wm_gallery_remove = remove  # type: ignore[attr-defined]
     media._wm_images_text = images_text  # type: ignore[attr-defined]
     media._wm_dxf_text = dxf_text  # type: ignore[attr-defined]
     return media
@@ -953,6 +1345,8 @@ def _build_header(window: tk.Toplevel, header: ttk.Frame, colors: dict[str, str]
     )
     thumb.pack(padx=6, pady=6)
     thumb.bind("<Button-1>", lambda _event: _open_full_preview(window))
+    thumb.bind("<Enter>", lambda _event: _set_carousel_paused(window, True))
+    thumb.bind("<Leave>", lambda _event: _set_carousel_paused(window, False))
 
     identity = ttk.Frame(header, style="WM.Card.TFrame")
     identity.pack(side="left", fill="both", expand=True, padx=(0, 14))
@@ -1073,7 +1467,6 @@ def _sync_new_view(
         header._wm_summary_label.configure(  # type: ignore[attr-defined]
             text=f"Zadania: {done}/{total}  •  Wizyty: {visit_count}"
         )
-        _refresh_thumbnail(window, header._wm_thumb, (180, 110))  # type: ignore[attr-defined]
     except Exception:
         pass
 
@@ -1105,12 +1498,12 @@ def _sync_new_view(
             text="\n".join(recent) if recent else "Brak zapisanej historii"
         )
 
-        images = doc.get("obrazy") if isinstance(doc, dict) else []
-        image_count = len(images) if isinstance(images, list) else (1 if images else 0)
+        current_images = _image_values(window, doc)
+        image_count = len(current_images)
         archived = doc.get("zadania_archiwalne") if isinstance(doc, dict) else []
         archived_count = len(archived) if isinstance(archived, list) else 0
         employee = str(doc.get("pracownik") or "—") if isinstance(doc, dict) else "—"
-        date_value = str(doc.get("data") or doc.get("date_added") or "—") if isinstance(doc, dict) else "—"
+        date_value = _added_date(doc)
         dxf = str(doc.get("dxf") or "") if isinstance(doc, dict) else ""
         desc = str(doc.get("opis") or "").strip() if isinstance(doc, dict) else ""
         if len(desc) > 220:
@@ -1139,13 +1532,16 @@ def _sync_new_view(
         pass
 
     try:
-        _refresh_thumbnail(window, media_tab._wm_thumb, (460, 330))  # type: ignore[attr-defined]
-        images_label = _image_label_value(window) or "—"
+        current_images = _image_values(window, doc)
+        images_label = _images_summary(current_images)
         media_tab._wm_images_text.configure(text=images_label)  # type: ignore[attr-defined]
         dxf_label = _holder_label_value(_field_value_widget(window, "Plik DXF")) or "—"
         media_tab._wm_dxf_text.configure(text=dxf_label)  # type: ignore[attr-defined]
     except Exception:
         pass
+
+    _refresh_gallery_views(window, header, media_tab)
+    _schedule_carousel(window)
 
     try:
         window.title(f"Narzędzie {nr} — {name} [{mode}]")
@@ -1188,16 +1584,14 @@ def _rename_tabs(notebook: ttk.Notebook) -> None:
 def _fit_window(window: tk.Toplevel) -> None:
     try:
         window.update_idletasks()
-        sw = max(1024, int(window.winfo_screenwidth()))
-        sh = max(720, int(window.winfo_screenheight()))
-        width = min(1420, sw - 60)
-        height = min(900, sh - 90)
-        width = max(1180, width)
-        height = max(740, height)
+        sw = max(800, int(window.winfo_screenwidth()))
+        sh = max(600, int(window.winfo_screenheight()))
+        width = min(1420, max(760, sw - 60))
+        height = min(900, max(560, sh - 100))
         x = max(0, (sw - width) // 2)
         y = max(0, (sh - height) // 2)
         window.geometry(f"{width}x{height}+{x}+{y}")
-        window.minsize(min(1120, width), min(700, height))
+        window.minsize(min(1120, width), min(680, height))
     except Exception:
         pass
 
@@ -1225,6 +1619,17 @@ def _decorate_editor(window: tk.Toplevel) -> bool:
     _build_header(window, header, colors)
     dashboard = _build_dashboard(window, notebook, colors)
     media_tab = _build_media_tab(window, notebook, image_holder, dxf_holder, colors)
+    window._wm_editor_gallery_refresh = (  # type: ignore[attr-defined]
+        lambda: _refresh_gallery_views(window, header, media_tab)
+    )
+    def _on_window_destroy(event: tk.Event) -> None:
+        if getattr(event, "widget", None) is window:
+            _cancel_carousel(window)
+
+    try:
+        window.bind("<Destroy>", _on_window_destroy, add="+")
+    except Exception:
+        pass
     _rename_tabs(notebook)
     _hide_legacy_identity_rows(window)
     _fit_window(window)

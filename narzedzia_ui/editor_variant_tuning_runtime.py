@@ -1,6 +1,7 @@
-# version: 1.0
+# version: 2.0
 # Moduł: narzedzia_ui.editor_variant_tuning_runtime
 # Korekty nowego dashboardu NN/SN bez zmiany starego edytora i modelu danych.
+# - odświeża widok zdarzeniowo po zmianie zdjęć i zapisie narzędzia,
 # - usuwa fioletowe akcenty (używa głównego akcentu motywu),
 # - wyłącza ciężkie odświeżanie co 450 ms,
 # - buforuje miniatury,
@@ -138,7 +139,9 @@ def install_editor_variant_tuning_runtime() -> None:
             try:
                 _variant._sync_new_view(window, header, dashboard, media_tab, colors)
             except Exception:
-                pass
+                _variant._LOGGER.exception(
+                    "[TOOLS_EDITOR] Błąd odświeżania nowego widoku"
+                )
 
         def _schedule_sync(_event: Any = None, delay: int = 80) -> None:
             previous = sync_job.get("id")
@@ -152,10 +155,24 @@ def install_editor_variant_tuning_runtime() -> None:
             except Exception:
                 sync_job["id"] = None
 
+        def _schedule_fresh_sync(_event: Any = None, delay: int = 30) -> None:
+            for attr, value in (
+                ("_wm_perf_doc", None),
+                ("_wm_perf_doc_nr", None),
+                ("_wm_perf_doc_at", 0.0),
+            ):
+                try:
+                    setattr(window, attr, value)
+                except Exception:
+                    pass
+            _schedule_sync(delay=delay)
+
         # Odświeżaj wtedy, kiedy użytkownik realnie coś zrobił / wrócił z dialogu.
         try:
             notebook.bind("<<NotebookTabChanged>>", _schedule_sync, add="+")
             window.bind("<FocusIn>", _schedule_sync, add="+")
+            window.bind("<<ToolMediaChanged>>", _schedule_fresh_sync, add="+")
+            window.bind("<<ToolSaved>>", _schedule_fresh_sync, add="+")
         except Exception:
             pass
 
@@ -172,7 +189,9 @@ def install_editor_variant_tuning_runtime() -> None:
 
         # W zakładce Pliki i zdjęcia korzystaj wprost z istniejącej logiki select_img().
         if media_tab is not None and source_choose is not None:
-            new_choose = _variant._find_button(media_tab, "Dodaj / zmień zdjęcie")
+            new_choose = _variant._find_button(media_tab, "Dodaj zdjęcia")
+            if new_choose is None:
+                new_choose = _variant._find_button(media_tab, "Dodaj / zmień zdjęcie")
             if new_choose is not None:
                 try:
                     new_choose.configure(command=_choose_image)
