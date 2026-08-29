@@ -75,6 +75,7 @@ def ask_user_to_assign(parent) -> Optional[str]:
 
     # filtrowanie
     def _refilter(*_):
+        nonlocal profiles, items
         needle = q.get().strip().lower()
         lst.delete(0, tk.END)
         filtered = []
@@ -84,7 +85,6 @@ def ask_user_to_assign(parent) -> Optional[str]:
                 filtered.append(p)
                 lst.insert(tk.END, text)
         # zachowaj mapowanie
-        nonlocal profiles, items
         profiles = filtered
         items = [f'{p["name"]}  —  {p["login"]} ({p["role"]})' for p in profiles]
         if items:
