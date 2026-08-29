@@ -1,4 +1,8 @@
-# version: 2.7
+# version: 2.8
+# Zmiany 2.8:
+# - Górny nagłówek nowego edytora korzysta z tych samych żywych danych co karta Podgląd.
+# - Zakładkę „Opis” zastąpiono czytelniejszą zakładką „Informacje” bez zmiany modelu danych.
+#
 # Zmiany 2.7:
 # - Powiązania etapowe zachowują kanoniczny numer narzędzia po przebudowie nagłówka.
 # - Numer narzędzia jest stały po pierwszym zapisie i zawsze mieści się w zakresie 001–999.
@@ -73,6 +77,7 @@ from .editor_followup_runtime import install_editor_followup_runtime
 from .editor_number_policy_runtime import install_editor_number_policy_runtime
 from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
 from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
+from .editor_header_info_runtime import install_editor_header_info_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -190,5 +195,6 @@ install_editor_followup_runtime()
 install_editor_number_policy_runtime()
 install_editor_lazy_media_runtime()
 install_editor_legacy_lazy_runtime()
+install_editor_header_info_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
