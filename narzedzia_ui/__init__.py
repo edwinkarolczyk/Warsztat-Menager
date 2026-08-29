@@ -1,4 +1,6 @@
-# version: 1.6
+# version: 1.7
+# Zmiany 1.7:
+# - Podłączono uproszczoną konwersję NN -> SN: zostaje tylko checkbox przeniesienia, zadania są zachowywane.
 # Zmiany 1.6:
 # - Zawersjonowano integrację przełączanego edytora NN/SN po podpięciu wariantu z miniaturą.
 # Zmiany 1.5:
@@ -24,6 +26,7 @@ from .state import ToolsPanelState, STATE
 from .editor_runtime import install_tools_editor_runtime
 from .visit_tasks_runtime import install_visit_tasks_runtime
 from .editor_variant_runtime import install_tools_editor_variant_runtime
+from .conversion_runtime import install_tools_conversion_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -131,5 +134,6 @@ _install_precise_visit_duration_formatter()
 install_tools_editor_runtime()
 install_visit_tasks_runtime()
 install_tools_editor_variant_runtime()
+install_tools_conversion_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
