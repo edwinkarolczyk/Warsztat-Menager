@@ -1,6 +1,7 @@
-# version: 1.1
+# version: 1.2
 # Moduł: settings_tools_runtime
 # UI-only: porządkowanie Ustawienia → Moduły → Narzędzia.
+# 1.2: zawersjonowano wybór Klasyczny / Nowy dla wspólnego edytora NN i SN.
 # 1.1: dodano wspólny wybór Klasyczny / Nowy dla edytora NN i SN.
 
 from __future__ import annotations
