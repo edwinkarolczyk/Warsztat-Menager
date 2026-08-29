@@ -1,4 +1,9 @@
-# version: 2.3
+# version: 2.4
+# Zmiany 2.4:
+# - Powiązania etapowe korzystają z centralnego WM_ROOT.
+# - Usunięto blokujące odświeżanie Tk przy dopasowaniu nowego edytora.
+# - Dodano cache zdekodowanych zdjęć karuzeli oraz diagnostykę powiązań.
+#
 # Zmiany 2.3:
 # - Naprawiono stabilność nowego edytora: współdzielone zmienne Tk nie są kasowane
 #   przez tymczasowe wrappery, podwójna edycja tego samego narzędzia jest blokowana,
@@ -50,6 +55,7 @@ from .multistage_runtime import install_multistage_runtime
 from .editor_performance_runtime import install_editor_performance_runtime
 from .editor_stability_runtime import install_editor_stability_runtime
 from .conversion_runtime import install_tools_conversion_runtime
+from .editor_followup_runtime import install_editor_followup_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -163,5 +169,6 @@ install_multistage_runtime()
 install_editor_performance_runtime()
 install_editor_stability_runtime()
 install_tools_conversion_runtime()
+install_editor_followup_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
