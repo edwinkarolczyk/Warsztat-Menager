@@ -1,16 +1,18 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_followup_runtime
 # Drobne poprawki nowego edytora NN/SN po pomiarach z konsoli:
 # - powiązania etapowe zapisują się bezpośrednio w WM_ROOT,
 # - stary błędnie położony plik relacji jest bezpiecznie migrowany do WM_ROOT,
 # - lista narzędzi dla powiązań nie otwiera zagnieżdżonej pętli Tk,
 # - obrazy karuzeli są dekodowane raz na rozmiar i trzymane w cache okna,
-# - dopasowanie okna nie wymusza synchronicznego update_idletasks().
+# - dopasowanie okna nie wymusza synchronicznego update_idletasks(),
+# - numer narzędzia jest zachowany dla powiązań etapowych po przebudowie nagłówka.
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -60,6 +62,77 @@ def _migrate_legacy_relations_if_needed() -> None:
             f"source={legacy} target={target} "
             f"{type(exc).__name__}: {exc}"
         )
+
+
+def _remember_editor_number(window: tk.Toplevel, value: object) -> str:
+    nr = _multistage._norm_nr(value)
+    if not (nr.isdigit() and len(nr) == 3):
+        return ""
+    try:
+        window._wm_tool_number = nr  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    return nr
+
+
+def _install_multistage_number_source() -> None:
+    """Zachowaj numer edytowanego narzędzia zanim nowy nagłówek ukryje stary UI."""
+
+    current_build_header = getattr(_variant, "_build_header", None)
+    if callable(current_build_header) and not getattr(
+        current_build_header, "_wm_multistage_number_capture", False
+    ):
+        original_build_header = current_build_header
+
+        def _build_header_with_number(window, header, colors):
+            try:
+                _remember_editor_number(
+                    window,
+                    _variant._entry_value_from_field(window, "Numer (3 cyfry)"),
+                )
+            except Exception:
+                pass
+            return original_build_header(window, header, colors)
+
+        _build_header_with_number._wm_multistage_number_capture = True  # type: ignore[attr-defined]
+        _build_header_with_number._wm_multistage_number_original = original_build_header  # type: ignore[attr-defined]
+        _variant._build_header = _build_header_with_number
+
+    current_nr = getattr(_multistage, "_current_nr", None)
+    if not callable(current_nr) or getattr(current_nr, "_wm_canonical_number", False):
+        return
+    original_current_nr = current_nr
+
+    def _current_nr_canonical(window: tk.Toplevel) -> str:
+        # Najpierw odczyt bieżącego formularza. Dla nowego narzędzia numer może
+        # jeszcze zostać wybrany przed pierwszym zapisem.
+        try:
+            live = _remember_editor_number(window, original_current_nr(window))
+        except Exception:
+            live = ""
+        if live:
+            return live
+
+        remembered = _multistage._norm_nr(
+            getattr(window, "_wm_tool_number", "")
+        )
+        if remembered.isdigit() and len(remembered) == 3:
+            return remembered
+
+        # Ostatni bezpieczny fallback: po zbudowaniu nowego widoku tytuł ma
+        # postać „Narzędzie 512 — ... [SN]”. Nie zgadujemy innych liczb.
+        try:
+            title = str(window.title() or "")
+        except Exception:
+            title = ""
+        match = re.search(r"\bNarzędzie\s+(\d{3})\b", title, re.IGNORECASE)
+        if match:
+            return _remember_editor_number(window, match.group(1))
+        return ""
+
+    _current_nr_canonical._wm_canonical_number = True  # type: ignore[attr-defined]
+    _current_nr_canonical._wm_canonical_number_original = original_current_nr  # type: ignore[attr-defined]
+    _multistage._current_nr = _current_nr_canonical
 
 
 def _install_multistage_root_and_diagnostics() -> None:
@@ -339,6 +412,7 @@ def install_editor_followup_runtime() -> None:
     if getattr(_variant, "_wm_editor_followup_installed", False):
         return
 
+    _install_multistage_number_source()
     _install_multistage_root_and_diagnostics()
     _install_fast_multistage_meta_loader()
     _install_nonblocking_fit_window()
