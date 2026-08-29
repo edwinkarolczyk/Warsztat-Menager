@@ -1,5 +1,7 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_legacy_lazy_runtime
+# 1.1: po pierwszym wejściu zakładka pozostaje aktywna i kolejne odświeżenia
+#      aktualizują ją normalnie także wtedy, gdy chwilowo jest w tle.
 # Odkłada pierwsze wypełnianie ciężkich tabel klasycznego rdzenia edytora
 # do chwili faktycznego wejścia w odpowiednią zakładkę nowego widoku.
 # Nie zmienia modelu danych ani logiki zapisu.
@@ -172,6 +174,9 @@ def _install_treeview_lazy_rows() -> None:
             return original_insert(self, parent, index, iid=iid, **kw)
 
         _mark_deferred(self)
+        if getattr(self, "_wm_legacy_lazy_loaded", False):
+            return original_insert(self, parent, index, iid=iid, **kw)
+
         window = _editor_window(self)
         if (
             window is not None
