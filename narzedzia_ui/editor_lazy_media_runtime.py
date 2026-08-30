@@ -1,5 +1,6 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_lazy_media_runtime
+# 1.1: kliknięcie pustego głównego podglądu uruchamia istniejący wybór zdjęcia.
 # Nowy edytor Narzędzi:
 # - cięższe dane zakładek są odświeżane dopiero po wejściu w daną zakładkę,
 # - nagłówek pokazuje jedno stałe zdjęcie główne zamiast karuzeli,
@@ -494,6 +495,24 @@ def _install_editor_postprocess() -> None:
                 pass
 
             def _open_primary(_event: Any = None) -> None:
+                try:
+                    has_images = bool(_variant._image_values(window))
+                except Exception:
+                    has_images = _primary_preview_path(window) is not None
+
+                if not has_images:
+                    try:
+                        holder = _variant._field_value_widget(window, "Obraz")
+                        select_button = _variant._find_button(holder, "Wybierz...")
+                        if select_button is not None:
+                            select_button.invoke()
+                    except Exception as exc:
+                        print(
+                            "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                            f"nie można uruchomić wyboru zdjęcia: {type(exc).__name__}: {exc}"
+                        )
+                    return
+
                 try:
                     window._wm_editor_gallery_index = 0  # type: ignore[attr-defined]
                 except Exception:
