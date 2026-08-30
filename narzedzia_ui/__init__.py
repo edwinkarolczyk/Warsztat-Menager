@@ -1,4 +1,8 @@
-# version: 2.8
+# version: 2.9
+# Zmiany 2.9:
+# - Przywrócono ostrzeżenie o niezapisanych zmianach w nowym edytorze.
+# - Usunięto przycisk Anuluj i przypięto pasek Zapisz/Zamknij okno do dołu.
+#
 # Zmiany 2.8:
 # - Górny nagłówek nowego edytora korzysta z tych samych żywych danych co karta Podgląd.
 # - Zakładkę „Opis” zastąpiono czytelniejszą zakładką „Informacje” bez zmiany modelu danych.
@@ -78,6 +82,7 @@ from .editor_number_policy_runtime import install_editor_number_policy_runtime
 from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
 from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
 from .editor_header_info_runtime import install_editor_header_info_runtime
+from .editor_close_guard_runtime import install_editor_close_guard_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -196,5 +201,6 @@ install_editor_number_policy_runtime()
 install_editor_lazy_media_runtime()
 install_editor_legacy_lazy_runtime()
 install_editor_header_info_runtime()
+install_editor_close_guard_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
