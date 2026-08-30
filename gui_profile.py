@@ -30,9 +30,27 @@ _BaseProfileView = _core.ProfileView
 class ProfileView(_BaseProfileView):
     """Profil użytkownika rozszerzony o panel brygadzisty."""
 
+    def _logged_user_is_brygadzista(self) -> bool:
+        """Uprawnienie wynika z roli zalogowanej osoby, nie oglądanego profilu."""
+        try:
+            active_login = str(ProfileService.ensure_active_user_or_none() or "").strip()
+        except Exception:
+            active_login = ""
+        if active_login:
+            try:
+                active_user = get_user(active_login) or {}
+            except Exception:
+                active_user = {}
+            role = str(
+                active_user.get("rola") or active_user.get("role") or ""
+            ).strip().lower()
+            return role == "brygadzista"
+        # Zachowaj działanie podglądu/testów bez aktywnej sesji.
+        return self._is_brygadzista()
+
     def _render_profile_body(self, parent) -> None:
         """Pokaż zwykły Profil lub Profil + Brygadzista zależnie od roli."""
-        if self._is_brygadzista():
+        if self._logged_user_is_brygadzista():
             try:
                 from gui_profile_foreman import build_profile_with_foreman_tabs
 
