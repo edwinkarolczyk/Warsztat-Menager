@@ -1,9 +1,11 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.editor_compact_history_runtime
 # - Usuwa pusty kontener starego Opisu, który nadal zajmował miejsce w Informacjach.
 # - Pole „Nowy wpis” ma maksymalnie 3 linie wysokości; historia wykorzystuje resztę zakładki.
 # - Historia narzędzia grupuje zdarzenia z tej samej minuty w rozwijany wiersz drzewa.
-# - Zmiana dotyczy wyłącznie prezentacji; nie zmienia formatu historii ani sposobu zapisu danych.
+# - Główne zdjęcie korzysta z jednego stałego callbacku „Dodaj zdjęcia” i odświeża się natychmiast.
+# - Brak zdjęcia zawsze uruchamia dodawanie zdjęcia; podgląd DXF nie zastępuje tej akcji.
+# - Zmiana historii dotyczy wyłącznie prezentacji; nie zmienia formatu historii ani sposobu zapisu danych.
 
 from __future__ import annotations
 
@@ -13,6 +15,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import editor_variant_runtime as _variant
+from . import editor_lazy_media_runtime as _lazy
+from . import editor_polish_runtime as _polish
 
 
 _HISTORY_COLUMNS = ("ts", "by", "action", "details")
@@ -310,6 +314,166 @@ def _install_history_grouping(tree: ttk.Treeview) -> None:
         pass
 
 
+def _find_button(root: tk.Misc | None, text: str) -> ttk.Button | None:
+    if root is None:
+        return None
+    wanted = str(text or "").strip()
+    widgets = [root, *_walk(root)]
+    for widget in widgets:
+        if not isinstance(widget, ttk.Button):
+            continue
+        try:
+            if str(widget.cget("text") or "").strip() == wanted:
+                return widget
+        except Exception:
+            continue
+    return None
+
+
+def _install_primary_photo_interaction(
+    window: tk.Toplevel,
+    header: tk.Misc | None,
+    notebook: ttk.Notebook,
+) -> None:
+    if getattr(window, "_wm_primary_photo_interaction_ready", False):
+        return
+    if header is None:
+        return
+
+    thumb = getattr(header, "_wm_thumb", None)
+    if thumb is None or not _alive(thumb):
+        return
+
+    media_tab = _variant._tab_by_text(notebook, "Pliki i zdjęcia")
+    add_button = _find_button(media_tab, "Dodaj zdjęcia")
+    if add_button is None:
+        print(
+            "[WM-ERR][TOOLS_EDITOR][MEDIA] nie znaleziono przycisku „Dodaj zdjęcia”"
+        )
+        return
+
+    def _select_images() -> bool:
+        if not _alive(add_button):
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] przycisk „Dodaj zdjęcia” nie istnieje"
+            )
+            return False
+        before = tuple(_variant._image_values(window))
+        print(
+            "[WM-DBG][TOOLS_EDITOR][MEDIA] "
+            f"PHOTO_ADD_CLICK before={len(before)}"
+        )
+        try:
+            add_button.invoke()
+        except Exception as exc:
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                f"PHOTO_ADD_FAIL {type(exc).__name__}: {exc}"
+            )
+            return False
+
+        after = tuple(_variant._image_values(window))
+        if after == before:
+            print(
+                "[WM-DBG][TOOLS_EDITOR][MEDIA] "
+                "PHOTO_ADD_NOCHANGE"
+            )
+            return False
+
+        print(
+            "[WM-DBG][TOOLS_EDITOR][MEDIA] "
+            f"PHOTO_SELECTED count={len(after)}"
+        )
+        try:
+            _lazy._invalidate_media_cache(window)
+            thumb._wm_lazy_primary_token = object()  # type: ignore[attr-defined]
+            _lazy._refresh_primary_photo(window, header)
+            print(
+                "[WM-DBG][TOOLS_EDITOR][MEDIA] PHOTO_REFRESH immediate=1"
+            )
+        except Exception as exc:
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                f"PHOTO_REFRESH_FAIL {type(exc).__name__}: {exc}"
+            )
+
+        try:
+            if media_tab is not None:
+                media_tab._wm_polish_thumb_key = None  # type: ignore[attr-defined]
+                _polish._refresh_thumbnail_grid(window, media_tab)
+        except Exception:
+            pass
+        try:
+            _polish._schedule_dirty(window, delay_ms=0)
+        except Exception:
+            pass
+        return True
+
+    def _primary_click(_event: Any = None) -> None:
+        try:
+            images = tuple(_variant._image_values(window))
+        except Exception as exc:
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                f"PHOTO_STATE_FAIL {type(exc).__name__}: {exc}"
+            )
+            images = ()
+
+        # DXF nie jest zdjęciem głównym. Jeśli nie ma prawdziwego zdjęcia,
+        # kliknięcie zawsze prowadzi do dodawania obrazu.
+        if not images:
+            _select_images()
+            return
+
+        try:
+            window._wm_editor_gallery_index = 0  # type: ignore[attr-defined]
+            _lazy._open_primary_only(window)
+        except Exception as exc:
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                f"PHOTO_PREVIEW_FAIL {type(exc).__name__}: {exc}"
+            )
+
+    def _media_changed(_event: Any = None) -> None:
+        if not _alive(window):
+            return
+
+        def _refresh() -> None:
+            if not _alive(window):
+                return
+            try:
+                _lazy._invalidate_media_cache(window)
+                thumb._wm_lazy_primary_token = object()  # type: ignore[attr-defined]
+                _lazy._refresh_primary_photo(window, header)
+                print(
+                    "[WM-DBG][TOOLS_EDITOR][MEDIA] PHOTO_REFRESH event=1"
+                )
+            except Exception as exc:
+                print(
+                    "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                    f"PHOTO_EVENT_REFRESH_FAIL {type(exc).__name__}: {exc}"
+                )
+
+        try:
+            window.after_idle(_refresh)
+        except Exception:
+            _refresh()
+
+    try:
+        window._wm_tool_image_select = _select_images  # type: ignore[attr-defined]
+        thumb.configure(cursor="hand2")
+        # Bez add="+": ten finalny handler zastępuje wcześniejsze, kruche
+        # wyszukiwanie ukrytego przycisku „Obraz → Wybierz...”.
+        thumb.bind("<Button-1>", _primary_click)
+        window.bind("<<ToolMediaChanged>>", _media_changed, add="+")
+        window._wm_primary_photo_interaction_ready = True
+    except Exception as exc:
+        print(
+            "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+            f"PHOTO_BIND_FAIL {type(exc).__name__}: {exc}"
+        )
+
+
 def _install_editor_postprocess() -> None:
     current = getattr(_variant, "_decorate_editor", None)
     if not callable(current) or getattr(current, "_wm_compact_history_runtime", False):
@@ -321,8 +485,9 @@ def _install_editor_postprocess() -> None:
         if not result:
             return result
         try:
-            _main, _header, notebook = _variant._editor_parts(window)
+            _main, header, notebook = _variant._editor_parts(window)
         except Exception:
+            header = None
             notebook = None
         if notebook is None:
             return result
@@ -343,6 +508,13 @@ def _install_editor_postprocess() -> None:
                 "[WM-ERR][TOOLS_EDITOR][HISTORY_GROUP] "
                 f"{type(exc).__name__}: {exc}"
             )
+        try:
+            _install_primary_photo_interaction(window, header, notebook)
+        except Exception as exc:
+            print(
+                "[WM-ERR][TOOLS_EDITOR][MEDIA] "
+                f"PHOTO_SETUP_FAIL {type(exc).__name__}: {exc}"
+            )
         return result
 
     _decorate_compact_history._wm_compact_history_runtime = True
@@ -356,7 +528,8 @@ def install_editor_compact_history_runtime() -> None:
     _install_editor_postprocess()
     _variant._wm_editor_compact_history_installed = True
     print(
-        "[WM-DBG][TOOLS_EDITOR] kompaktowe Informacje + grupowanie Historii aktywne"
+        "[WM-DBG][TOOLS_EDITOR] kompaktowe Informacje + grupowanie Historii "
+        "+ stabilne kliknięcie zdjęcia aktywne"
     )
 
 
