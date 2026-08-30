@@ -1,4 +1,8 @@
-# version: 2.10
+# version: 2.11
+# Zmiany 2.11:
+# - Zakładka Informacje nie zostawia pustego miejsca po starym Opisie; pole nowego wpisu ma 3 linie.
+# - Historia grupuje zdarzenia z tej samej minuty w rozwijane wiersze drzewa.
+#
 # Zmiany 2.10:
 # - Dopracowano Podgląd: przewijalny środek, pasek postępu zadań i klikalne etapy.
 # - Pliki i zdjęcia pokazują siatkę miniatur zamiast strzałek.
@@ -90,6 +94,7 @@ from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
 from .editor_header_info_runtime import install_editor_header_info_runtime
 from .editor_close_guard_runtime import install_editor_close_guard_runtime
 from .editor_polish_runtime import install_editor_polish_runtime
+from .editor_compact_history_runtime import install_editor_compact_history_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -210,5 +215,6 @@ install_editor_legacy_lazy_runtime()
 install_editor_header_info_runtime()
 install_editor_close_guard_runtime()
 install_editor_polish_runtime()
+install_editor_compact_history_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
