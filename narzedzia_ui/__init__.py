@@ -1,4 +1,10 @@
-# version: 2.9
+# version: 2.10
+# Zmiany 2.10:
+# - Dopracowano Podgląd: przewijalny środek, pasek postępu zadań i klikalne etapy.
+# - Pliki i zdjęcia pokazują siatkę miniatur zamiast strzałek.
+# - Wskaźnik niezapisanych zmian jest widoczny tylko przy realnych zmianach.
+# - Zapisz jest aktywny tylko przy zmianach; pełny refresh działa zdarzeniowo zamiast co 450 ms.
+#
 # Zmiany 2.9:
 # - Przywrócono ostrzeżenie o niezapisanych zmianach w nowym edytorze.
 # - Usunięto przycisk Anuluj i przypięto pasek Zapisz/Zamknij okno do dołu.
@@ -83,6 +89,7 @@ from .editor_lazy_media_runtime import install_editor_lazy_media_runtime
 from .editor_legacy_lazy_runtime import install_editor_legacy_lazy_runtime
 from .editor_header_info_runtime import install_editor_header_info_runtime
 from .editor_close_guard_runtime import install_editor_close_guard_runtime
+from .editor_polish_runtime import install_editor_polish_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -136,6 +143,9 @@ def _install_missing_global_status_warning_guard() -> None:
                 pass
             return "ok"
         return original_showwarning(title, message, *args, **kwargs)
+
+    messagebox_result = original_showwarning(title, message, *args, **kwargs)
+    return messagebox_result
 
     _messagebox.showwarning = _showwarning
     _messagebox._wm_tools_status_warning_guard = True
@@ -202,5 +212,6 @@ install_editor_lazy_media_runtime()
 install_editor_legacy_lazy_runtime()
 install_editor_header_info_runtime()
 install_editor_close_guard_runtime()
+install_editor_polish_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
