@@ -67,7 +67,11 @@ class ProfileView(_BaseProfileView):
             self._render_profile_body(self._simple_container)
 
 
-# Publiczny alias zachowany jawnie po rozszerzeniu klasy.
-__all__ = list(getattr(_core, "__all__", []))
-if "ProfileView" not in __all__:
-    __all__.append("ProfileView")
+# Zachowaj semantykę dawnego `from gui_profile import *`.
+_core_all = getattr(_core, "__all__", None)
+if _core_all is not None:
+    __all__ = list(_core_all)
+    if "ProfileView" not in __all__:
+        __all__.append("ProfileView")
+else:
+    __all__ = sorted(name for name in globals() if not name.startswith("_"))
