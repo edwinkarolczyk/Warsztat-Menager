@@ -386,7 +386,6 @@ def _install_primary_photo_interaction(
         )
         try:
             _lazy._invalidate_media_cache(window)
-            thumb._wm_lazy_primary_token = object()  # type: ignore[attr-defined]
             _lazy._refresh_primary_photo(window, header)
             print(
                 "[WM-DBG][TOOLS_EDITOR][MEDIA] PHOTO_REFRESH immediate=1"
@@ -400,7 +399,8 @@ def _install_primary_photo_interaction(
         try:
             if media_tab is not None:
                 media_tab._wm_polish_thumb_key = None  # type: ignore[attr-defined]
-                _polish._refresh_thumbnail_grid(window, media_tab)
+                if _lazy._selected_tab_title(window) == "Pliki i zdjęcia":
+                    _polish._refresh_thumbnail_grid(window, media_tab)
         except Exception:
             pass
         try:
@@ -443,7 +443,6 @@ def _install_primary_photo_interaction(
                 return
             try:
                 _lazy._invalidate_media_cache(window)
-                thumb._wm_lazy_primary_token = object()  # type: ignore[attr-defined]
                 _lazy._refresh_primary_photo(window, header)
                 print(
                     "[WM-DBG][TOOLS_EDITOR][MEDIA] PHOTO_REFRESH event=1"
