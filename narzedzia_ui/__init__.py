@@ -144,9 +144,6 @@ def _install_missing_global_status_warning_guard() -> None:
             return "ok"
         return original_showwarning(title, message, *args, **kwargs)
 
-    messagebox_result = original_showwarning(title, message, *args, **kwargs)
-    return messagebox_result
-
     _messagebox.showwarning = _showwarning
     _messagebox._wm_tools_status_warning_guard = True
 
