@@ -1,10 +1,5 @@
-# version: 1.8.0
-"""Aktywny Profil WM z opcjonalną zakładką Brygadzista.
-
-Dotychczasowy kod Profilu pozostaje w :mod:`gui_profile_core` bez zmian.
-Ten moduł zachowuje jego publiczne i prywatne API, a rozszerza wyłącznie
-aktywną klasę ``ProfileView`` o panel przeznaczony dla roli ``brygadzista``.
-"""
+# version: 1.9.0
+"""Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
 from __future__ import annotations
 
 import gui_profile_core as _core
@@ -28,7 +23,7 @@ _BaseProfileView = _core.ProfileView
 
 
 class ProfileView(_BaseProfileView):
-    """Profil użytkownika rozszerzony o panel brygadzisty."""
+    """Profil użytkownika z kalendarzem oraz panelem brygadzisty."""
 
     def _logged_user_is_brygadzista(self) -> bool:
         """Uprawnienie wynika z roli zalogowanej osoby, nie oglądanego profilu."""
@@ -49,22 +44,84 @@ class ProfileView(_BaseProfileView):
         return self._is_brygadzista()
 
     def _render_profile_body(self, parent) -> None:
-        """Pokaż zwykły Profil lub Profil + Brygadzista zależnie od roli."""
-        if self._logged_user_is_brygadzista():
-            try:
-                from gui_profile_foreman import build_profile_with_foreman_tabs
+        """Pokaż Profil + Kalendarz oraz opcjonalnie Brygadzistę."""
+        try:
+            from gui_profile_calendar import (
+                ProfileCalendarPanel,
+                install_foreman_leave_workflow,
+            )
+        except Exception as exc:
+            log_akcja(f"[WM-ERR][PROFILE_CAL] Nie udało się załadować kalendarza: {exc}")
+            self._render_simple_profile(parent)
+            return
 
-                build_profile_with_foreman_tabs(
-                    parent,
-                    self,
-                    self._render_simple_profile,
-                )
+        notebook = ttk.Notebook(parent)
+        notebook.pack(fill="both", expand=True)
+
+        profile_tab = ttk.Frame(notebook, style="WM.Container.TFrame")
+        calendar_tab = ttk.Frame(notebook, style="WM.Container.TFrame")
+        notebook.add(profile_tab, text="Profil")
+        notebook.add(calendar_tab, text="Kalendarz")
+        self._render_simple_profile(profile_tab)
+
+        foreman_tab = None
+        is_foreman = self._logged_user_is_brygadzista()
+        if is_foreman:
+            foreman_tab = ttk.Frame(notebook, style="WM.Container.TFrame")
+            notebook.add(foreman_tab, text="Brygadzista")
+
+        state = {"calendar": False, "foreman": False}
+
+        def ensure_calendar() -> None:
+            if state["calendar"]:
                 return
+            state["calendar"] = True
+            panel = ProfileCalendarPanel(calendar_tab, login=self.login, owner=self)
+            panel.pack(fill="both", expand=True)
+            self._wm_profile_calendar = panel
+
+        def ensure_foreman() -> None:
+            if not is_foreman or foreman_tab is None or state["foreman"]:
+                return
+            state["foreman"] = True
+            try:
+                from gui_profile_foreman import ForemanProfilePanel
+
+                install_foreman_leave_workflow(ForemanProfilePanel)
+                panel = ForemanProfilePanel(foreman_tab, owner=self)
+                panel.pack(fill="both", expand=True)
+                self._wm_foreman_panel = panel
             except Exception as exc:
                 log_akcja(
                     f"[WM-ERR][FOREMAN] Nie udało się zbudować panelu brygadzisty: {exc}"
                 )
-        self._render_simple_profile(parent)
+                ttk.Label(
+                    foreman_tab,
+                    text=f"Panel brygadzisty jest niedostępny:\n{exc}",
+                    style="WM.Muted.TLabel",
+                ).pack(anchor="w", padx=12, pady=12)
+
+        def on_tab_changed(_event=None) -> None:
+            try:
+                selected = str(notebook.tab(notebook.select(), "text"))
+            except Exception:
+                return
+            self._wm_profile_main_tab = selected
+            if selected == "Kalendarz":
+                ensure_calendar()
+            elif selected == "Brygadzista":
+                ensure_foreman()
+
+        notebook.bind("<<NotebookTabChanged>>", on_tab_changed, add="+")
+        previous = str(getattr(self, "_wm_profile_main_tab", "Profil") or "Profil")
+        if previous == "Kalendarz":
+            notebook.select(calendar_tab)
+            ensure_calendar()
+        elif previous == "Brygadzista" and foreman_tab is not None:
+            notebook.select(foreman_tab)
+            ensure_foreman()
+        else:
+            notebook.select(profile_tab)
 
     def _build_simple_profile(self) -> None:
         body = ttk.Frame(self, style="WM.Container.TFrame")
@@ -73,7 +130,7 @@ class ProfileView(_BaseProfileView):
         self._render_profile_body(body)
 
     def _refresh_view(self) -> None:
-        """Odśwież Profil bez gubienia karty Brygadzista."""
+        """Odśwież Profil bez gubienia aktywnej zakładki."""
         self._reload_profile_data()
         if self._header_container is not None:
             for child in self._header_container.winfo_children():
