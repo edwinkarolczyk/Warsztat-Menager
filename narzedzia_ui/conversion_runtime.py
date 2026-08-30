@@ -1,5 +1,8 @@
-# version: 1.0
+# version: 1.1
 # Moduł: narzedzia_ui.conversion_runtime
+# 1.1:
+# - Checkbox „Przenieś do SN przy zapisie” jest widoczny wyłącznie w edytorze NN.
+# - Nowy tytuł edytora z oznaczeniem [NN]/[SN] jest rozpoznawany przez runtime konwersji.
 # 1.0:
 # - Konwersja NN -> SN pokazuje tylko checkbox „Przenieś do SN przy zapisie”.
 # - Ukryto wybór „Zadania po konwersji”.
@@ -31,12 +34,27 @@ def _closure_value(func: Callable[..., Any], name: str):
         return None
 
 
-def _is_tools_editor(widget: tk.Misc) -> bool:
+def _editor_title(widget: tk.Misc) -> str:
     try:
         top = widget.winfo_toplevel()
-        return str(top.title() or "").strip() in _EDITOR_TITLES
+        return str(top.title() or "").strip()
     except Exception:
-        return False
+        return ""
+
+
+def _is_tools_editor(widget: tk.Misc) -> bool:
+    title = _editor_title(widget)
+    if title in _EDITOR_TITLES:
+        return True
+    upper = title.upper()
+    return title.startswith("Narzędzie ") and ("[NN]" in upper or "[SN]" in upper)
+
+
+def _is_sn_editor(widget: tk.Misc) -> bool:
+    title = _editor_title(widget)
+    if title in {"Edytuj – STARE", "Dodaj – STARE"}:
+        return True
+    return "[SN]" in title.upper()
 
 
 def _walk(widget: tk.Misc):
@@ -49,14 +67,29 @@ def _walk(widget: tk.Misc):
         yield from _walk(child)
 
 
-def _hide_conversion_task_mode(dlg: tk.Toplevel) -> None:
-    """Zostaw w wierszu konwersji tylko checkbox przeniesienia NN -> SN."""
+def _hide_widget(widget: tk.Misc) -> None:
     try:
-        if str(dlg.title() or "").strip() not in _EDITOR_TITLES:
-            return
+        widget.pack_forget()
+        return
     except Exception:
+        pass
+    try:
+        widget.grid_remove()
+        return
+    except Exception:
+        pass
+    try:
+        widget.place_forget()
+    except Exception:
+        pass
+
+
+def _hide_conversion_task_mode(dlg: tk.Toplevel) -> None:
+    """W NN zostaw tylko checkbox konwersji; w SN ukryj go całkowicie."""
+    if not _is_tools_editor(dlg):
         return
 
+    sn_editor = _is_sn_editor(dlg)
     for widget in _walk(dlg):
         if not isinstance(widget, ttk.Checkbutton):
             continue
@@ -66,9 +99,13 @@ def _hide_conversion_task_mode(dlg: tk.Toplevel) -> None:
         except Exception:
             continue
 
+        if sn_editor:
+            _hide_widget(widget)
+            continue
+
         frame = getattr(widget, "master", None)
         if frame is None:
-            return
+            continue
         try:
             siblings = list(frame.winfo_children())
         except Exception:
@@ -84,16 +121,8 @@ def _hide_conversion_task_mode(dlg: tk.Toplevel) -> None:
                 except Exception:
                     text = ""
                 hide = hide or text.startswith("Zadania po konwersji")
-            if not hide:
-                continue
-            try:
-                sibling.pack_forget()
-            except Exception:
-                try:
-                    sibling.grid_remove()
-                except Exception:
-                    pass
-        return
+            if hide:
+                _hide_widget(sibling)
 
 
 def _install_save_keep_mode() -> None:
@@ -147,13 +176,17 @@ def _install_editor_ui_hook() -> None:
             try:
                 if not self.winfo_exists():
                     return
-                title = str(self.title() or "").strip()
             except Exception:
                 return
-            if title not in _EDITOR_TITLES:
+            if not _is_tools_editor(self):
+                if attempt < 6:
+                    try:
+                        self.after(100, lambda: _decorate(attempt + 1))
+                    except Exception:
+                        pass
                 return
             _hide_conversion_task_mode(self)
-            if attempt < 3:
+            if attempt < 6:
                 try:
                     self.after(100, lambda: _decorate(attempt + 1))
                 except Exception:
