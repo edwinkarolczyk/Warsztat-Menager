@@ -2,6 +2,13 @@
 """Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
 from __future__ import annotations
 
+try:
+    from calendar_ui_runtime import install as _install_calendar_ui_runtime
+
+    _install_calendar_ui_runtime()
+except Exception as _calendar_runtime_exc:
+    print(f"[WM-DBG][CALENDAR][WARN] runtime install failed: {_calendar_runtime_exc}")
+
 import gui_profile_core as _core
 
 # Zachowaj zgodność z kodem i testami importującymi także pomocnicze nazwy
