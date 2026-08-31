@@ -1,6 +1,6 @@
-# version: 1.0
+# version: 1.1
 # Moduł: settings_users_runtime
-# UI-only: porządkowanie Ustawienia → Użytkownicy / Profil.
+# UI-only: porządkowanie Ustawienia → Użytkownicy / Profile.
 
 from __future__ import annotations
 
@@ -38,100 +38,102 @@ def _hide(widget: tk.Misc) -> None:
         pass
 
 
+def _mark_dirty(panel: Any) -> None:
+    marker = getattr(panel, "_mark_dirty", None)
+    if callable(marker):
+        try:
+            marker()
+            return
+        except Exception:
+            pass
+    try:
+        panel._dirty = True
+        panel._unsaved = True
+    except Exception:
+        pass
+
+
 def _rename_tabs(panel: Any) -> None:
+    """Nazwij główne podzakładki sekcji Użytkownicy jednoznacznie."""
     nb = getattr(panel, "_users_notebook", None)
     if nb is None:
         return
+
+    profile_widget = None
+    users_widget = None
     for tab_id in nb.tabs():
         try:
             text = str(nb.tab(tab_id, "text") or "").strip()
         except Exception:
             continue
-        if text == "Lista i edycja":
+        if text in {"Lista i edycja", "Użytkownicy"}:
             nb.tab(tab_id, text="Użytkownicy")
-        elif text == "Profil użytkownika":
-            nb.tab(tab_id, text="Profil")
-
-
-def _editable_fields_choices(panel: Any) -> None:
-    root = getattr(panel, "_users_container", None)
-    source_var = getattr(panel, "var_profile_editable_fields", None)
-    if root is None or source_var is None or getattr(root, "_wm_profile_fields_choices", False):
-        return
-
-    label = None
-    entry = None
-    hint = None
-    for widget in _all_descendants(root):
-        if isinstance(widget, ttk.Label):
             try:
-                text = str(widget.cget("text") or "").strip()
+                users_widget = nb.nametowidget(tab_id)
             except Exception:
-                text = ""
-            if text.startswith("Pola edytowane przez użytkownika"):
-                label = widget
-            elif text.startswith("Np.: imie, nazwisko"):
-                hint = widget
-    if label is None:
-        return
-
-    parent = label.master
-    for child in parent.winfo_children():
-        if isinstance(child, ttk.Entry):
+                users_widget = None
+        elif text in {"Profil użytkownika", "Profil", "Profile"}:
+            nb.tab(tab_id, text="Profile")
             try:
-                if int(child.grid_info().get("row", -1)) == 4:
-                    entry = child
-                    break
+                profile_widget = nb.nametowidget(tab_id)
             except Exception:
-                continue
+                profile_widget = None
 
-    if entry is not None:
-        _hide(entry)
-    _hide(label)
-    if hint is not None:
-        _hide(hint)
-
-    try:
-        raw = str(source_var.get() or "")
-    except Exception:
-        raw = ""
-    current = [x.strip() for x in raw.replace(";", ",").split(",") if x.strip()]
-    known = {key for key, _label in _FIELDS}
-    extras = [x for x in current if x not in known]
-
-    box = ttk.LabelFrame(parent, text="Pola, które użytkownik może edytować")
-    box.grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 4))
-
-    vars_by_key: dict[str, tk.BooleanVar] = {}
-
-    def _sync() -> None:
-        values = [key for key, _label in _FIELDS if vars_by_key[key].get()]
-        values.extend(x for x in extras if x not in values)
-        source_var.set(", ".join(values))
-
-    for idx, (key, text) in enumerate(_FIELDS):
-        var = tk.BooleanVar(master=box, value=key in current)
-        vars_by_key[key] = var
-        ttk.Checkbutton(box, text=text, variable=var, command=_sync).grid(
-            row=idx // 3,
-            column=idx % 3,
-            sticky="w",
-            padx=8,
-            pady=5,
-        )
-
-    if extras:
-        ttk.Label(box, text="Pozostałe zapisane pola: " + ", ".join(extras)).grid(
-            row=2, column=0, columnspan=3, sticky="w", padx=8, pady=(2, 6)
-        )
-
-    setattr(root, "_wm_profile_fields_choices", True)
+    register = getattr(panel, "_register_nested_tab", None)
+    top = getattr(panel, "tab_users", None)
+    if callable(register) and top is not None:
+        if users_widget is not None:
+            try:
+                register("Użytkownicy", top, nb, users_widget)
+            except Exception:
+                pass
+        if profile_widget is not None:
+            for alias in ("Profile", "Profil"):
+                try:
+                    register(alias, top, nb, profile_widget)
+                except Exception:
+                    pass
 
 
-def _rename_profile_group(panel: Any) -> None:
+def _cleanup_embedded_profile_manager(panel: Any) -> None:
+    """Usuń martwą, trzecią zakładkę Profil z menedżera kont.
+
+    Rzeczywiste ustawienia Profilu są w sąsiedniej zakładce ``Profile``.
+    W menedżerze kont zostają tylko ``Użytkownicy`` oraz ``Rangi``.
+    """
     root = getattr(panel, "_users_container", None)
     if root is None:
         return
+    try:
+        from ustawienia_uzytkownicy import SettingsProfilesTab
+    except Exception:
+        return
+
+    for widget in _all_descendants(root):
+        if not isinstance(widget, SettingsProfilesTab):
+            continue
+        nb = getattr(widget, "nb", None)
+        if nb is None or getattr(widget, "_wm_profile_manager_clean", False):
+            continue
+        for tab_id in list(nb.tabs()):
+            try:
+                text = str(nb.tab(tab_id, "text") or "").strip()
+            except Exception:
+                continue
+            if text == "Lista i edycja":
+                nb.tab(tab_id, text="Użytkownicy")
+            elif text == "Profil użytkownika":
+                try:
+                    nb.forget(tab_id)
+                except Exception:
+                    pass
+        setattr(widget, "_wm_profile_manager_clean", True)
+
+
+def _profile_settings_frame(panel: Any):
+    root = getattr(panel, "_users_container", None)
+    if root is None:
+        return None
     for widget in _all_descendants(root):
         if not isinstance(widget, ttk.LabelFrame):
             continue
@@ -139,12 +141,154 @@ def _rename_profile_group(panel: Any) -> None:
             text = str(widget.cget("text") or "").strip()
         except Exception:
             continue
-        if text == "Ustawienia profilu użytkownika":
-            widget.configure(text="Profil — wygląd i edycja")
+        if text in {"Ustawienia profilu użytkownika", "Profil — wygląd i edycja", "Profile — ustawienia"}:
+            return widget
+    return None
+
+
+def _rebuild_profile_settings(panel: Any) -> None:
+    """Podziel ustawienia Profilu na czytelne grupy bez zmiany danych."""
+    frame = _profile_settings_frame(panel)
+    if frame is None or getattr(frame, "_wm_profile_settings_clean", False):
+        return
+
+    required = (
+        "var_profile_enabled",
+        "var_profile_header",
+        "var_profile_avatar",
+        "var_profile_pin_change",
+        "var_profile_editable_fields",
+    )
+    if any(not hasattr(panel, name) for name in required):
+        return
+
+    for child in list(frame.winfo_children()):
+        _hide(child)
+
+    frame.configure(text="Profile — ustawienia")
+    try:
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+    except Exception:
+        pass
+
+    ttk.Label(
+        frame,
+        text="Tu ustawiasz wygląd Profilu i zakres danych, które użytkownik może zmieniać samodzielnie.",
+        style="WM.Muted.TLabel",
+        wraplength=760,
+        justify="left",
+    ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 10))
+
+    visibility = ttk.LabelFrame(frame, text="Widoczność profilu")
+    visibility.grid(row=1, column=0, sticky="nsew", padx=(8, 4), pady=(0, 8))
+    ttk.Checkbutton(
+        visibility,
+        text="Włącz kartę Profil",
+        variable=panel.var_profile_enabled,
+        command=lambda: _mark_dirty(panel),
+    ).pack(anchor="w", padx=10, pady=(8, 4))
+    ttk.Checkbutton(
+        visibility,
+        text="Pokazuj imię w nagłówku",
+        variable=panel.var_profile_header,
+        command=lambda: _mark_dirty(panel),
+    ).pack(anchor="w", padx=10, pady=4)
+    ttk.Checkbutton(
+        visibility,
+        text="Włącz avatar",
+        variable=panel.var_profile_avatar,
+        command=lambda: _mark_dirty(panel),
+    ).pack(anchor="w", padx=10, pady=(4, 8))
+
+    edit = ttk.LabelFrame(frame, text="Edycja własnego profilu")
+    edit.grid(row=1, column=1, sticky="nsew", padx=(4, 8), pady=(0, 8))
+    ttk.Checkbutton(
+        edit,
+        text="Zezwól użytkownikowi na zmianę PIN",
+        variable=panel.var_profile_pin_change,
+        command=lambda: _mark_dirty(panel),
+    ).pack(anchor="w", padx=10, pady=(8, 6))
+    ttk.Label(
+        edit,
+        text="Pola, które użytkownik może edytować:",
+        style="WM.Muted.TLabel",
+    ).pack(anchor="w", padx=10, pady=(2, 4))
+
+    try:
+        raw = str(panel.var_profile_editable_fields.get() or "")
+    except Exception:
+        raw = ""
+    current = [x.strip() for x in raw.replace(";", ",").split(",") if x.strip()]
+    known = {key for key, _label in _FIELDS}
+    extras = [x for x in current if x not in known]
+    vars_by_key: dict[str, tk.BooleanVar] = {}
+
+    fields = ttk.Frame(edit)
+    fields.pack(fill="x", padx=8, pady=(0, 8))
+
+    def _sync_fields() -> None:
+        values = [key for key, _label in _FIELDS if vars_by_key[key].get()]
+        values.extend(x for x in extras if x not in values)
+        panel.var_profile_editable_fields.set(", ".join(values))
+        _mark_dirty(panel)
+
+    for idx, (key, label) in enumerate(_FIELDS):
+        var = tk.BooleanVar(master=fields, value=key in current)
+        vars_by_key[key] = var
+        ttk.Checkbutton(fields, text=label, variable=var, command=_sync_fields).grid(
+            row=idx // 2,
+            column=idx % 2,
+            sticky="w",
+            padx=(2, 14),
+            pady=3,
+        )
+
+    if extras:
+        ttk.Label(
+            edit,
+            text="Pozostałe zapisane pola: " + ", ".join(extras),
+            style="WM.Muted.TLabel",
+        ).pack(anchor="w", padx=10, pady=(0, 8))
+
+    ttk.Label(
+        frame,
+        text="Konta, role i uprawnienia znajdują się w zakładce Użytkownicy / Rangi.",
+        style="WM.Muted.TLabel",
+    ).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 8))
+
+    frame._wm_profile_field_vars = vars_by_key
+    setattr(frame, "_wm_profile_settings_clean", True)
+
+
+def _open_requested_profile_tab(panel: Any) -> None:
+    """Obsłuż przejście Profil → Ustawienia → Profile."""
+    try:
+        root = panel.winfo_toplevel()
+    except Exception:
+        return
+    target = str(getattr(root, "_wm_settings_target_tab", "") or "").strip().casefold()
+    if target not in {"profil", "profile", "profiles"}:
+        return
+    opener = getattr(panel, "open_tab", None)
+    if callable(opener):
+        try:
+            opener("Profile")
+        except Exception:
+            pass
+    try:
+        delattr(root, "_wm_settings_target_tab")
+    except Exception:
+        pass
 
 
 def _decorate(panel: Any) -> None:
-    for action in (_rename_tabs, _rename_profile_group, _editable_fields_choices):
+    for action in (
+        _rename_tabs,
+        _cleanup_embedded_profile_manager,
+        _rebuild_profile_settings,
+        _open_requested_profile_tab,
+    ):
         try:
             action(panel)
         except Exception:
@@ -165,3 +309,11 @@ def install_settings_users_runtime(settings_panel_cls: type) -> None:
 
     settings_panel_cls._build_ui = _build_ui_with_users
     settings_panel_cls._wm_settings_users_runtime = True
+
+
+__all__ = [
+    "_cleanup_embedded_profile_manager",
+    "_open_requested_profile_tab",
+    "_rebuild_profile_settings",
+    "install_settings_users_runtime",
+]
