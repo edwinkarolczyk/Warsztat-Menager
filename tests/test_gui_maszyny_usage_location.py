@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 from copy import deepcopy
 
 import gui_maszyny
@@ -33,6 +33,7 @@ def _patch_rooms(monkeypatch, rooms):
 
 def test_usage_location_extension_is_installed():
     assert gui_maszyny._WM_USAGE_LOCATION_INSTALLED is True
+    assert gui_maszyny._WM_DRAG_LOCATION_FEEDBACK_INSTALLED is True
     assert callable(gui_maszyny._wm_assign_machine_to_room)
 
 
@@ -155,3 +156,53 @@ def test_explicit_later_room_change_is_not_blocked(monkeypatch):
     assert changed["lokalizacja_id"] == "POM_0002"
     assert changed["placement_status"] == "placed"
     assert point_in_polygon(changed["x"], changed["y"], rooms[1].polygon)
+
+
+def test_explicit_drag_outside_clears_quick_assignment_guard(monkeypatch):
+    rooms = _rooms()
+    original = {
+        "id": "M-27",
+        "nazwa": "Tokarka",
+        "status": "ok",
+        "nr_hali": "1",
+        "x": 700,
+        "y": 700,
+        "lokalizacja": "",
+        "lokalizacja_id": "",
+        "placement_status": "unplaced",
+    }
+    rows = [deepcopy(original)]
+
+    _patch_rooms(monkeypatch, rooms)
+    monkeypatch.setattr(gui_maszyny, "get_config", lambda: {})
+    monkeypatch.setattr(
+        gui_maszyny,
+        "load_machines_rows_with_fallback",
+        lambda cfg, resolve_rel: (deepcopy(rows), "/tmp/maszyny.json"),
+    )
+    monkeypatch.setattr(gui_maszyny, "load_machines_rows", lambda: deepcopy(rows))
+    monkeypatch.setattr(gui_maszyny, "_save_machines", lambda path, new_rows: True)
+
+    assigned = gui_maszyny._wm_assign_machine_to_room("M-27", "Tokarnia")
+    assert assigned["lokalizacja_id"] == "POM_0001"
+    assert "M-27" in gui_maszyny._WM_USAGE_LOCATION_OVERRIDES
+
+    pending = gui_maszyny._WM_ROOM_LOCATION_PATCHES
+    pending["M-27"] = {
+        "lokalizacja": "",
+        "lokalizacja_id": "",
+        "placement_status": "unplaced",
+    }
+    try:
+        dragged = deepcopy(assigned)
+        dragged["x"] = 700
+        dragged["y"] = 700
+        changed_rows = gui_maszyny.upsert_machine([assigned], dragged)
+    finally:
+        pending.pop("M-27", None)
+
+    changed = changed_rows[0]
+    assert changed["lokalizacja"] == ""
+    assert changed["lokalizacja_id"] == ""
+    assert changed["placement_status"] == "unplaced"
+    assert "M-27" not in gui_maszyny._WM_USAGE_LOCATION_OVERRIDES
