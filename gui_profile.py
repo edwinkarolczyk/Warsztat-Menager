@@ -1,4 +1,4 @@
-# version: 1.9.4
+# version: 1.9.5
 """Aktywny Profil WM z Kalendarzem i panelem Brygadzisty."""
 from __future__ import annotations
 
@@ -172,11 +172,11 @@ class ProfileView(_BaseProfileView):
         return fields, allow_pin, pin_min_length
 
     def _open_edit_profile(self) -> None:
-        """Edycja własnego profilu działa tak samo również dla brygadzisty."""
+        """Edycja własnego profilu działa tak samo dla każdej rangi."""
         return super()._open_edit_profile()
 
     def _open_profile_settings(self) -> None:
-        """Osobny skrót brygadzisty do Ustawienia → Profile."""
+        """Administracyjny skrót brygadzisty do Ustawienia → Profile."""
         if not self._logged_user_is_brygadzista():
             return
         try:
@@ -213,27 +213,26 @@ class ProfileView(_BaseProfileView):
                 pass
 
     def _render_simple_profile(self, parent) -> None:
-        """Dane użytkownika + osobna administracja tylko dla brygadzisty."""
+        """Zwykły Profil zawsze daje dostęp do edycji własnych danych."""
+        account = ttk.LabelFrame(
+            parent,
+            text="Mój profil",
+            style="WM.Section.TLabelframe",
+            padding=10,
+        )
+        account.pack(fill="x", pady=(0, 10))
+        ttk.Label(
+            account,
+            text="Dane własnego profilu i pola udostępnione do samodzielnej edycji.",
+            style="WM.Muted.TLabel",
+        ).pack(side="left")
+        ttk.Button(
+            account,
+            text="Edytuj mój profil",
+            command=self._open_edit_profile,
+            style="WM.Button.TButton",
+        ).pack(side="right")
         super()._render_simple_profile(parent)
-        if self._logged_user_is_brygadzista():
-            admin = ttk.LabelFrame(
-                parent,
-                text="Administracja profili",
-                style="WM.Section.TLabelframe",
-                padding=10,
-            )
-            admin.pack(fill="x", pady=(0, 10))
-            ttk.Label(
-                admin,
-                text="Ustawienia pól, kont i rang są zarządzane w jednym miejscu.",
-                style="WM.Muted.TLabel",
-            ).pack(side="left")
-            ttk.Button(
-                admin,
-                text="Ustawienia profili",
-                command=self._open_profile_settings,
-                style="WM.Button.TButton",
-            ).pack(side="right")
 
     def _render_profile_body(self, parent) -> None:
         """Pokaż Profil + Kalendarz oraz opcjonalnie Brygadzistę."""
@@ -270,13 +269,12 @@ class ProfileView(_BaseProfileView):
                 text="Karta Profil jest wyłączona w Ustawienia → Profile.",
                 style="WM.Muted.TLabel",
             ).pack(side="left")
-            if self._logged_user_is_brygadzista():
-                ttk.Button(
-                    box,
-                    text="Ustawienia profili",
-                    command=self._open_profile_settings,
-                    style="WM.Button.TButton",
-                ).pack(side="right")
+            ttk.Button(
+                box,
+                text="Edytuj mój profil",
+                command=self._open_edit_profile,
+                style="WM.Button.TButton",
+            ).pack(side="right")
 
         foreman_tab = None
         is_foreman = self._logged_user_is_brygadzista()
