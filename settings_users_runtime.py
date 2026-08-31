@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.2.1
 # Moduł: settings_users_runtime
 # Jednolity układ Ustawienia → Użytkownicy: Użytkownicy | Profile | Rangi.
 
@@ -7,6 +7,14 @@ from __future__ import annotations
 from typing import Any
 
 from profile_admin_ui import ProfileAdminNotebook
+
+_REQUIRED_PROFILE_VARS = (
+    "var_profile_enabled",
+    "var_profile_header",
+    "var_profile_avatar",
+    "var_profile_pin_change",
+    "var_profile_editable_fields",
+)
 
 
 def _register_tabs(panel: Any, admin: ProfileAdminNotebook) -> None:
@@ -23,7 +31,6 @@ def _register_tabs(panel: Any, admin: ProfileAdminNotebook) -> None:
             register(name, top, admin.nb, widget)
         except Exception:
             pass
-    # Zachowaj starszy alias używany przez część nawigacji.
     try:
         register("Profil", top, admin.nb, admin.profile_tab)
     except Exception:
@@ -33,7 +40,7 @@ def _register_tabs(panel: Any, admin: ProfileAdminNotebook) -> None:
 def _rebuild_profile_admin(panel: Any) -> ProfileAdminNotebook | None:
     """Zastąp wielopoziomowy układ jednym wspólnym notebookiem."""
     root = getattr(panel, "_users_container", None)
-    if root is None:
+    if root is None or any(not hasattr(panel, name) for name in _REQUIRED_PROFILE_VARS):
         return None
 
     current = getattr(panel, "_wm_profile_admin", None)
