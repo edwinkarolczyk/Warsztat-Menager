@@ -1,5 +1,5 @@
-# version: 1.9.3
-"""Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
+# version: 1.9.4
+"""Aktywny Profil WM z Kalendarzem i panelem Brygadzisty."""
 from __future__ import annotations
 
 try:
@@ -29,7 +29,18 @@ except Exception as _foreman_shift_runtime_exc:
         f"{_foreman_shift_runtime_exc}"
     )
 
+try:
+    from profile_admin_foreman_runtime import install as _install_profile_admin_foreman_runtime
+
+    _install_profile_admin_foreman_runtime()
+except Exception as _profile_admin_runtime_exc:
+    print(
+        "[WM-DBG][PROFILE][WARN] unified admin runtime install failed: "
+        f"{_profile_admin_runtime_exc}"
+    )
+
 import gui_profile_core as _core
+from profile_settings_fields import normalize_editable_fields
 
 # Zachowaj zgodność z kodem i testami importującymi także pomocnicze nazwy
 # bezpośrednio z gui_profile.py.
@@ -50,7 +61,7 @@ _BaseProfileView = _core.ProfileView
 
 
 class ProfileView(_BaseProfileView):
-    """Profil użytkownika z kalendarzem oraz panelem brygadzisty."""
+    """Profil użytkownika z jedną konfiguracją pól i administracji."""
 
     def _logged_user_is_brygadzista(self) -> bool:
         """Uprawnienie wynika z roli zalogowanej osoby, nie oglądanego profilu."""
@@ -67,30 +78,117 @@ class ProfileView(_BaseProfileView):
                 active_user.get("rola") or active_user.get("role") or ""
             ).strip().lower()
             return role == "brygadzista"
-        # Zachowaj działanie podglądu/testów bez aktywnej sesji.
         return self._is_brygadzista()
 
+    @staticmethod
+    def _cfg_bool(key: str, fallback_key: str, default: bool) -> bool:
+        try:
+            cfg = ConfigManager()
+            value = cfg.get(key, None)
+            if value is None:
+                value = cfg.get(fallback_key, default)
+            return bool(value)
+        except Exception:
+            return default
+
+    def _profile_card_enabled(self) -> bool:
+        return self._cfg_bool(
+            "profiles.ui.enable_profile_card",
+            "ui.profile.enabled",
+            True,
+        )
+
+    def _show_name_in_header(self) -> bool:
+        return self._cfg_bool(
+            "profiles.ui.show_name_in_header",
+            "ui.profile.show_name_header",
+            True,
+        )
+
+    def _avatar_enabled(self) -> bool:
+        return self._cfg_bool(
+            "profiles.avatar.enabled",
+            "ui.profile.avatar_enabled",
+            False,
+        )
+
+    def _build_header(self, parent) -> None:
+        """Nagłówek aktywnego ProfileView respektujący ustawienie imienia."""
+        wrap = ttk.Frame(parent, style="WM.Card.TFrame", padding=12)
+        wrap.pack(fill="x")
+        user = get_user(self.login) or {}
+        display = (
+            user.get("display_name")
+            or self.display_name
+            or " ".join(
+                part
+                for part in (
+                    str(user.get("imie") or "").strip(),
+                    str(user.get("nazwisko") or "").strip(),
+                )
+                if part
+            )
+            or self.login
+            or "—"
+        )
+        role = user.get("rola") or self.rola or "—"
+        login_label = f"@{self.login}" if self.login else "@—"
+
+        if self._show_name_in_header():
+            ttk.Label(wrap, text=str(display), style="WM.H1.TLabel").pack(anchor="w")
+            ttk.Label(wrap, text=login_label, style="WM.Muted.TLabel").pack(
+                anchor="w", pady=(2, 0)
+            )
+        else:
+            ttk.Label(wrap, text=str(self.login or "—"), style="WM.H1.TLabel").pack(anchor="w")
+        ttk.Label(wrap, text=f"Rola: {role}", style="WM.Muted.TLabel").pack(
+            anchor="w", pady=(2, 0)
+        )
+
+    def _make_avatar(self, parent):
+        """Wyłączony avatar daje placeholder zamiast ignorowania ustawienia."""
+        if not self._avatar_enabled():
+            return self._avatar_placeholder(parent)
+        return super()._make_avatar(parent)
+
+    def _user_editable_fields(self) -> tuple[list[str], bool, int]:
+        """Czytaj dokładnie pola wybrane w Ustawienia → Profile."""
+        cfg = ConfigManager()
+        raw_fields = cfg.get("profiles.editable_fields", None)
+        if raw_fields is None:
+            raw_fields = cfg.get(
+                "profiles.fields_editable_by_user",
+                ["telefon", "email"],
+            )
+        fields = normalize_editable_fields(raw_fields)
+        allow_pin = bool(
+            cfg.get(
+                "profiles.pin.change_allowed",
+                cfg.get("profiles.allow_pin_change", False),
+            )
+        )
+        pin_cfg = cfg.get("profiles.pin", {}) or {}
+        pin_min_length = max(1, int(pin_cfg.get("min_length", 4) or 4))
+        return fields, allow_pin, pin_min_length
+
     def _open_edit_profile(self) -> None:
-        """Brygadzista przechodzi do Ustawienia → Profile.
+        """Edycja własnego profilu działa tak samo również dla brygadzisty."""
+        return super()._open_edit_profile()
 
-        Zwykły użytkownik zachowuje dotychczasowe, ograniczone okno edycji
-        własnych danych. Dzięki temu skrót nie rozszerza nikomu uprawnień do
-        administracyjnych Ustawień.
-        """
+    def _open_profile_settings(self) -> None:
+        """Osobny skrót brygadzisty do Ustawienia → Profile."""
         if not self._logged_user_is_brygadzista():
-            return super()._open_edit_profile()
-
+            return
         try:
             root = self.winfo_toplevel()
             container = self.master
-            active_login = str(ProfileService.ensure_active_user_or_none() or self.login or "").strip()
+            active_login = str(
+                ProfileService.ensure_active_user_or_none() or self.login or ""
+            ).strip()
             active_user = get_user(active_login) or {}
             active_role = str(
                 active_user.get("rola") or active_user.get("role") or "brygadzista"
             ).strip() or "brygadzista"
-
-            # settings_users_runtime odczyta ten cel po zbudowaniu panelu i
-            # wybierze dokładnie podzakładkę Profile.
             setattr(root, "_wm_settings_target_tab", "Profile")
             from ustawienia_systemu import panel_ustawien
 
@@ -100,7 +198,6 @@ class ProfileView(_BaseProfileView):
                 login=active_login,
                 rola=active_role,
             )
-            return
         except Exception as exc:
             try:
                 root = self.winfo_toplevel()
@@ -114,8 +211,29 @@ class ProfileView(_BaseProfileView):
                 )
             except Exception:
                 pass
-            # Awaryjnie zostawiamy stare, bezpieczne okno edycji profilu.
-            return super()._open_edit_profile()
+
+    def _render_simple_profile(self, parent) -> None:
+        """Dane użytkownika + osobna administracja tylko dla brygadzisty."""
+        super()._render_simple_profile(parent)
+        if self._logged_user_is_brygadzista():
+            admin = ttk.LabelFrame(
+                parent,
+                text="Administracja profili",
+                style="WM.Section.TLabelframe",
+                padding=10,
+            )
+            admin.pack(fill="x", pady=(0, 10))
+            ttk.Label(
+                admin,
+                text="Ustawienia pól, kont i rang są zarządzane w jednym miejscu.",
+                style="WM.Muted.TLabel",
+            ).pack(side="left")
+            ttk.Button(
+                admin,
+                text="Ustawienia profili",
+                command=self._open_profile_settings,
+                style="WM.Button.TButton",
+            ).pack(side="right")
 
     def _render_profile_body(self, parent) -> None:
         """Pokaż Profil + Kalendarz oraz opcjonalnie Brygadzistę."""
@@ -136,7 +254,29 @@ class ProfileView(_BaseProfileView):
         calendar_tab = ttk.Frame(notebook, style="WM.Container.TFrame")
         notebook.add(profile_tab, text="Profil")
         notebook.add(calendar_tab, text="Kalendarz")
-        self._render_simple_profile(profile_tab)
+
+        if self._profile_card_enabled():
+            self._render_simple_profile(profile_tab)
+        else:
+            box = ttk.LabelFrame(
+                profile_tab,
+                text="Profil",
+                style="WM.Section.TLabelframe",
+                padding=12,
+            )
+            box.pack(fill="x", padx=12, pady=12)
+            ttk.Label(
+                box,
+                text="Karta Profil jest wyłączona w Ustawienia → Profile.",
+                style="WM.Muted.TLabel",
+            ).pack(side="left")
+            if self._logged_user_is_brygadzista():
+                ttk.Button(
+                    box,
+                    text="Ustawienia profili",
+                    command=self._open_profile_settings,
+                    style="WM.Button.TButton",
+                ).pack(side="right")
 
         foreman_tab = None
         is_foreman = self._logged_user_is_brygadzista()
