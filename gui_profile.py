@@ -1,4 +1,4 @@
-# version: 1.9.1
+# version: 1.9.2
 """Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
 from __future__ import annotations
 
@@ -17,6 +17,16 @@ except Exception as _machine_review_runtime_exc:
     print(
         "[WM-DBG][MASZYNY][WARN] review runtime install failed: "
         f"{_machine_review_runtime_exc}"
+    )
+
+try:
+    from foreman_shift_profiles_runtime import install as _install_foreman_shift_profiles_runtime
+
+    _install_foreman_shift_profiles_runtime()
+except Exception as _foreman_shift_runtime_exc:
+    print(
+        "[WM-DBG][FOREMAN][WARN] shift/profile runtime install failed: "
+        f"{_foreman_shift_runtime_exc}"
     )
 
 import gui_profile_core as _core
