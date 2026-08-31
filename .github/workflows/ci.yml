@@ -31,7 +31,8 @@ jobs:
             widok_hali/machine_rooms_patch.py \
             widok_hali/machine_rooms_persistence.py \
             widok_hali/machine_rooms_ui_patch.py \
-            widok_hali/machine_rooms_editor_patch.py
+            widok_hali/machine_rooms_editor_patch.py \
+            widok_hali/machine_usage_location_patch.py
       - name: Run hall and machine integration tests
         run: |
           pytest -q \
@@ -39,10 +40,13 @@ jobs:
             tests/test_gui_maszyny_rooms_integration.py \
             tests/test_gui_maszyny_rooms_persistence.py \
             tests/test_gui_maszyny_room_ui.py \
-            tests/test_gui_maszyny_room_editor.py
+            tests/test_gui_maszyny_room_editor.py \
+            tests/test_gui_maszyny_usage_location.py
       - name: Run Tk hall smoke under Xvfb
         run: |
-          xvfb-run -a pytest -q tests/test_gui_maszyny_rooms_tk_smoke.py
+          xvfb-run -a pytest -q \
+            tests/test_gui_maszyny_rooms_tk_smoke.py \
+            tests/test_gui_maszyny_usage_location_tk.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
