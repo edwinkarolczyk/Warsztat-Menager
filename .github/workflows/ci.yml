@@ -20,9 +20,12 @@ jobs:
       - name: Run smoke tests (settings)
         run: |
           pytest -q tests/test_settings_manager.py
-      - name: Run hall room regression tests
+      - name: Run hall and machine regression tests
         run: |
-          pytest -q tests/test_hall_rooms.py
+          pytest -q \
+            tests/test_hall_rooms.py \
+            tests/test_gui_maszyny_rooms_integration.py \
+            tests/test_gui_maszyny_status_history.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
