@@ -1,4 +1,4 @@
-# version: 1.9.2
+# version: 1.9.3
 """Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
 from __future__ import annotations
 
@@ -69,6 +69,53 @@ class ProfileView(_BaseProfileView):
             return role == "brygadzista"
         # Zachowaj działanie podglądu/testów bez aktywnej sesji.
         return self._is_brygadzista()
+
+    def _open_edit_profile(self) -> None:
+        """Brygadzista przechodzi do Ustawienia → Profile.
+
+        Zwykły użytkownik zachowuje dotychczasowe, ograniczone okno edycji
+        własnych danych. Dzięki temu skrót nie rozszerza nikomu uprawnień do
+        administracyjnych Ustawień.
+        """
+        if not self._logged_user_is_brygadzista():
+            return super()._open_edit_profile()
+
+        try:
+            root = self.winfo_toplevel()
+            container = self.master
+            active_login = str(ProfileService.ensure_active_user_or_none() or self.login or "").strip()
+            active_user = get_user(active_login) or {}
+            active_role = str(
+                active_user.get("rola") or active_user.get("role") or "brygadzista"
+            ).strip() or "brygadzista"
+
+            # settings_users_runtime odczyta ten cel po zbudowaniu panelu i
+            # wybierze dokładnie podzakładkę Profile.
+            setattr(root, "_wm_settings_target_tab", "Profile")
+            from ustawienia_systemu import panel_ustawien
+
+            panel_ustawien(
+                root,
+                container,
+                login=active_login,
+                rola=active_role,
+            )
+            return
+        except Exception as exc:
+            try:
+                root = self.winfo_toplevel()
+                if hasattr(root, "_wm_settings_target_tab"):
+                    delattr(root, "_wm_settings_target_tab")
+            except Exception:
+                pass
+            try:
+                log_akcja(
+                    f"[WM-ERR][PROFILE] Nie udało się otworzyć Ustawienia → Profile: {exc}"
+                )
+            except Exception:
+                pass
+            # Awaryjnie zostawiamy stare, bezpieczne okno edycji profilu.
+            return super()._open_edit_profile()
 
     def _render_profile_body(self, parent) -> None:
         """Pokaż Profil + Kalendarz oraz opcjonalnie Brygadzistę."""
