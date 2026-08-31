@@ -30,14 +30,16 @@ jobs:
             widok_hali/rooms.py \
             widok_hali/machine_rooms_patch.py \
             widok_hali/machine_rooms_persistence.py \
-            widok_hali/machine_rooms_ui_patch.py
+            widok_hali/machine_rooms_ui_patch.py \
+            widok_hali/machine_rooms_editor_patch.py
       - name: Run hall and machine integration tests
         run: |
           pytest -q \
             tests/test_hall_rooms.py \
             tests/test_gui_maszyny_rooms_integration.py \
             tests/test_gui_maszyny_rooms_persistence.py \
-            tests/test_gui_maszyny_room_ui.py
+            tests/test_gui_maszyny_room_ui.py \
+            tests/test_gui_maszyny_room_editor.py
       - name: Run Tk hall smoke under Xvfb
         run: |
           xvfb-run -a pytest -q tests/test_gui_maszyny_rooms_tk_smoke.py
