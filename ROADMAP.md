@@ -141,7 +141,7 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
   - ≤ 14 dni — Normalny
   - ≤ 30 dni — Niski
 - 🔴 progi edytowalne w Ustawieniach Dyspozycji
-- 🔴 użytkownik widzi wynik priorytetu, a nie musi ustawiaiać go ręcznie
+- 🔴 użytkownik widzi wynik priorytetu, a nie musi ustawiać go ręcznie
 
 ## 4.4 Automatyczne Dyspozycje
 
