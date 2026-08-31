@@ -1,7 +1,8 @@
-# version: 1.0
+# version: 1.1
 from copy import deepcopy
 
 import gui_maszyny
+import widok_hali.machine_rooms_patch as rooms_patch
 import widok_hali.machine_rooms_ui_patch as ui_patch
 import widok_hali.machine_usage_location_patch as usage_patch
 from widok_hali.rooms import Room, point_in_polygon
@@ -22,6 +23,12 @@ def _rooms():
             polygon=[(300, 0), (500, 0), (500, 200), (300, 200)],
         ),
     ]
+
+
+def _patch_rooms(monkeypatch, rooms):
+    monkeypatch.setattr(usage_patch, "load_rooms", lambda: list(rooms))
+    monkeypatch.setattr(ui_patch, "load_rooms", lambda: list(rooms))
+    monkeypatch.setattr(rooms_patch, "load_rooms", lambda: list(rooms))
 
 
 def test_usage_location_extension_is_installed():
@@ -46,8 +53,7 @@ def test_click_assignment_persists_room_and_relocates_machine(monkeypatch):
     ]
     saved = {}
 
-    monkeypatch.setattr(usage_patch, "load_rooms", lambda: list(rooms))
-    monkeypatch.setattr(ui_patch, "load_rooms", lambda: list(rooms))
+    _patch_rooms(monkeypatch, rooms)
     monkeypatch.setattr(gui_maszyny, "get_config", lambda: {})
     monkeypatch.setattr(
         gui_maszyny,
@@ -88,8 +94,7 @@ def test_fresh_location_survives_later_stale_status_save(monkeypatch):
     }
     rows = [deepcopy(original)]
 
-    monkeypatch.setattr(usage_patch, "load_rooms", lambda: list(rooms))
-    monkeypatch.setattr(ui_patch, "load_rooms", lambda: list(rooms))
+    _patch_rooms(monkeypatch, rooms)
     monkeypatch.setattr(gui_maszyny, "get_config", lambda: {})
     monkeypatch.setattr(
         gui_maszyny,
@@ -127,8 +132,7 @@ def test_explicit_later_room_change_is_not_blocked(monkeypatch):
     }
     rows = [deepcopy(original)]
 
-    monkeypatch.setattr(usage_patch, "load_rooms", lambda: list(rooms))
-    monkeypatch.setattr(ui_patch, "load_rooms", lambda: list(rooms))
+    _patch_rooms(monkeypatch, rooms)
     monkeypatch.setattr(gui_maszyny, "get_config", lambda: {})
     monkeypatch.setattr(
         gui_maszyny,
