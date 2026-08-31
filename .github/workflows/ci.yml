@@ -52,7 +52,8 @@ jobs:
             tests/test_gui_maszyny_usage_location_tk.py \
             tests/test_gui_maszyny_drag_location_feedback_tk.py \
             tests/test_profile_settings_runtime_tk.py \
-            tests/test_profile_admin_foreman_tk.py
+            tests/test_profile_admin_foreman_tk.py \
+            tests/test_profile_own_edit_tk.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
