@@ -1,11 +1,12 @@
-# version: 1.0
-"""Headless Tk smoke: działający renderer Maszyn + warstwa pomieszczeń."""
+# version: 1.1
+"""Headless Tk smoke: renderer Maszyn + pomieszczenia + kontrolki widoku."""
 
 from types import SimpleNamespace
 
 import pytest
 
 import gui_maszyny
+import widok_hali.machine_rooms_ui_patch as ui_patch
 from widok_hali.rooms import Room
 
 
@@ -64,6 +65,28 @@ def test_room_layer_keeps_machine_drag_and_updates_location(tmp_path):
         assert renderer._scale_x == pytest.approx(renderer._scale_y)
         assert renderer._scale_x > 0
 
+        # Tło JPG i siatka są niezależnymi warstwami, które można wyłączyć.
+        assert renderer.canvas.find_withtag("hall-background")
+        assert renderer.canvas.find_withtag("hall-grid")
+        renderer._show_background_var.set(False)
+        renderer._wm_refresh_visibility()
+        root.update_idletasks()
+        assert all(
+            renderer.canvas.itemcget(item, "state") == "hidden"
+            for item in renderer.canvas.find_withtag("hall-background")
+        )
+        renderer._show_grid_var.set(False)
+        renderer._wm_refresh_visibility()
+        root.update_idletasks()
+        assert all(
+            renderer.canvas.itemcget(item, "state") == "hidden"
+            for item in renderer.canvas.find_withtag("hall-grid")
+        )
+        # Przywracamy warstwy przed testem drag&drop.
+        renderer._show_background_var.set(True)
+        renderer._show_grid_var.set(True)
+        renderer._wm_refresh_visibility()
+
         start_x, start_y = renderer._map_bg_to_canvas(100, 100)
         target_x, target_y = renderer._map_bg_to_canvas(700, 100)
         renderer._on_press(SimpleNamespace(x=start_x, y=start_y))
@@ -82,5 +105,45 @@ def test_room_layer_keeps_machine_drag_and_updates_location(tmp_path):
         renderer._toggle_layout_edit()
         renderer._on_press(SimpleNamespace(x=target_x, y=target_y, state=0))
         assert renderer._drag_active is False
+    finally:
+        root.destroy()
+
+
+def test_machine_edit_location_is_readonly_dynamic_room_combobox(monkeypatch):
+    tk = gui_maszyny.tk
+    ttk = gui_maszyny.ttk
+    rooms = [
+        Room(
+            id="POM_0001",
+            name="Tokarnia",
+            hala="1",
+            polygon=[(0, 0), (100, 0), (100, 100), (0, 100)],
+        )
+    ]
+    monkeypatch.setattr(ui_patch, "load_rooms", lambda: list(rooms))
+
+    root = tk.Tk()
+    try:
+        dialog = tk.Toplevel(root)
+        dialog.title("Edycja maszyny")
+        frm = ttk.Frame(dialog)
+        frm.pack()
+
+        fields = [ttk.Entry(frm, width=20) for _ in range(4)]
+        location = fields[3]
+        assert location.winfo_class() == "TCombobox"
+        assert str(location.cget("state")) == "readonly"
+        assert "Tokarnia" in tuple(location.cget("values"))
+
+        rooms.append(
+            Room(
+                id="POM_0002",
+                name="Spawalnia",
+                hala="1",
+                polygon=[(120, 0), (220, 0), (220, 100), (120, 100)],
+            )
+        )
+        location._refresh_values()
+        assert "Spawalnia" in tuple(location.cget("values"))
     finally:
         root.destroy()
