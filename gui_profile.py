@@ -1,4 +1,4 @@
-# version: 1.9.0
+# version: 1.9.1
 """Aktywny Profil WM z Kalendarzem dla każdego i panelem Brygadzisty."""
 from __future__ import annotations
 
@@ -8,6 +8,16 @@ try:
     _install_calendar_ui_runtime()
 except Exception as _calendar_runtime_exc:
     print(f"[WM-DBG][CALENDAR][WARN] runtime install failed: {_calendar_runtime_exc}")
+
+try:
+    from machine_review_ui_runtime import install as _install_machine_review_ui_runtime
+
+    _install_machine_review_ui_runtime()
+except Exception as _machine_review_runtime_exc:
+    print(
+        "[WM-DBG][MASZYNY][WARN] review runtime install failed: "
+        f"{_machine_review_runtime_exc}"
+    )
 
 import gui_profile_core as _core
 
