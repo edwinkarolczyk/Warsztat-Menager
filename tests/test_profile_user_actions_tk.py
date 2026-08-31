@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 import sys
 from types import ModuleType
 import tkinter as tk
@@ -39,7 +39,7 @@ def test_edit_profile_has_calendar_for_employment_date(monkeypatch):
 
         runtime._open_edit_profile(view)
         root.update_idletasks()
-        dialog = next(child for child in root.winfo_children() if isinstance(child, tk.Toplevel))
+        dialog = next(widget for widget in _walk(root) if isinstance(widget, tk.Toplevel))
 
         buttons = [w for w in _walk(dialog) if isinstance(w, ttk.Button)]
         calendar_button = next(w for w in buttons if str(w.cget("text")) == "📅")
@@ -47,9 +47,9 @@ def test_edit_profile_has_calendar_for_employment_date(monkeypatch):
         root.update_idletasks()
 
         picker = next(
-            child
-            for child in dialog.winfo_children()
-            if isinstance(child, runtime.ProfileDatePicker)
+            widget
+            for widget in _walk(dialog)
+            if isinstance(widget, runtime.ProfileDatePicker)
         )
         picker.year = 2021
         picker.month = 7
