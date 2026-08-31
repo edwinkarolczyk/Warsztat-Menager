@@ -1,4 +1,4 @@
-# version: 2.1
+# version: 2.2
 """Bezpieczny punkt wejścia modułu Maszyny z warstwowym rozszerzeniem hali.
 
 Oryginalna, działająca implementacja Maszyn pozostaje bez zmian w
@@ -21,11 +21,15 @@ from widok_hali.machine_rooms_ui_patch import (
 from widok_hali.machine_rooms_editor_patch import (
     install_machine_room_editor as _install_machine_room_editor,
 )
+from widok_hali.machine_usage_location_patch import (
+    install_machine_usage_location as _install_machine_usage_location,
+)
 
 _install_machine_rooms(_legacy)
 _install_machine_room_persistence(_legacy)
 _install_machine_room_ui(_legacy)
 _install_machine_room_editor(_legacy)
+_install_machine_usage_location(_legacy)
 
 # Kluczowe dla zgodności: użytkownik ``import gui_maszyny`` dostaje dokładnie
 # moduł z dotychczasową implementacją, a nie proxy z kopiami jego symboli.
