@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Pomieszczenia i lokalizacje dla widoku hali WM.
 
 Geometria jest zapisywana w układzie współrzędnych tła planu (piksele obrazu),
@@ -363,16 +363,18 @@ def sync_record_from_point(
 ) -> MutableMapping[str, Any]:
     """Synchronizuj pozycję po drag&drop z pomieszczeniem pod punktem.
 
-    Gdy punkt wypada poza każdym pomieszczeniem, nie kasujemy istniejącego
-    przypisania. Oznaczamy rekord jako ``outside_room`` – użytkownik może
-    poprawić położenie bez utraty informacji o dotychczasowej lokalizacji.
+    Drag&drop jest źródłem prawdy dla położenia na planie: punkt wewnątrz
+    pomieszczenia przypisuje je do maszyny, a punkt poza wszystkimi
+    pomieszczeniami czyści przypisanie i oznacza maszynę jako nieumieszczoną.
     """
     px, py = _as_int(x), _as_int(y)
     record["x"], record["y"] = px, py
     hall = record.get("nr_hali") or record.get("hala") or "1"
     room = room_at_point(rooms, px, py, hala=hall)
     if room is None:
-        record["placement_status"] = "outside_room"
+        record["lokalizacja_id"] = ""
+        record["lokalizacja"] = ""
+        record["placement_status"] = "unplaced"
         return record
     record["lokalizacja_id"] = room.id
     record["lokalizacja"] = room.name

@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 from pathlib import Path
 
 from widok_hali.rooms import (
@@ -104,7 +104,7 @@ def test_drag_between_rooms_updates_location_and_keeps_exact_xy():
     assert (row["x"], row["y"]) == (150, 60)
 
 
-def test_drag_outside_rooms_does_not_destroy_assignment():
+def test_drag_outside_rooms_clears_assignment():
     row = {
         "id": "42",
         "lokalizacja": "Tokarnia",
@@ -116,9 +116,9 @@ def test_drag_outside_rooms_does_not_destroy_assignment():
 
     sync_record_from_point(row, 250, 150, _rooms())
 
-    assert row["lokalizacja_id"] == "POM_0001"
-    assert row["lokalizacja"] == "Tokarnia"
-    assert row["placement_status"] == "outside_room"
+    assert row["lokalizacja_id"] == ""
+    assert row["lokalizacja"] == ""
+    assert row["placement_status"] == "unplaced"
     assert (row["x"], row["y"]) == (250, 150)
 
 
