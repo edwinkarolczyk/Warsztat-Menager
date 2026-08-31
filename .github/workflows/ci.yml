@@ -25,6 +25,9 @@ jobs:
           pytest -q \
             tests/test_hall_rooms.py \
             tests/test_gui_maszyny_rooms_integration.py
+      - name: Run Tk hall smoke under Xvfb
+        run: |
+          xvfb-run -a pytest -q tests/test_gui_maszyny_rooms_tk_smoke.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
