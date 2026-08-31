@@ -1,8 +1,9 @@
-# version: 1.0
+# version: 1.1
+import sys
+from types import ModuleType
 import tkinter as tk
 from tkinter import ttk
 
-import dyspozycje_actions
 import profile_user_actions_runtime as runtime
 
 
@@ -103,11 +104,17 @@ def test_profile_finish_uses_fresh_store_row_and_accepts_display_status(monkeypa
         monkeypatch.setattr(runtime.simpledialog, "askstring", lambda *a, **k: "gotowe")
         monkeypatch.setattr(runtime.messagebox, "showinfo", lambda *a, **k: infos.append((a, k)))
         monkeypatch.setattr(runtime.messagebox, "showerror", lambda *a, **k: errors.append((a, k)))
-        monkeypatch.setattr(
-            dyspozycje_actions,
-            "close_dyspozycja",
-            lambda row, **kwargs: calls.append(("close", dict(row), dict(kwargs))) or dict(row),
+
+        fake_actions = ModuleType("dyspozycje_actions")
+
+        class FakeDyspozycjaActionError(RuntimeError):
+            pass
+
+        fake_actions.DyspozycjaActionError = FakeDyspozycjaActionError
+        fake_actions.close_dyspozycja = (
+            lambda row, **kwargs: calls.append(("close", dict(row), dict(kwargs))) or dict(row)
         )
+        monkeypatch.setitem(sys.modules, "dyspozycje_actions", fake_actions)
 
         runtime._finish_selected(view, tree)
 
