@@ -22,7 +22,9 @@ jobs:
           python -m compileall -q .
       - name: Run smoke tests (settings)
         run: |
-          pytest -q tests/test_settings_manager.py
+          pytest -q \
+            tests/test_settings_manager.py \
+            tests/test_profile_settings_navigation.py
       - name: Compile hall and machine extension
         run: |
           python -m py_compile \
@@ -43,12 +45,13 @@ jobs:
             tests/test_gui_maszyny_room_ui.py \
             tests/test_gui_maszyny_room_editor.py \
             tests/test_gui_maszyny_usage_location.py
-      - name: Run Tk hall smoke under Xvfb
+      - name: Run Tk hall/profile smoke under Xvfb
         run: |
           xvfb-run -a pytest -q \
             tests/test_gui_maszyny_rooms_tk_smoke.py \
             tests/test_gui_maszyny_usage_location_tk.py \
-            tests/test_gui_maszyny_drag_location_feedback_tk.py
+            tests/test_gui_maszyny_drag_location_feedback_tk.py \
+            tests/test_profile_settings_runtime_tk.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
