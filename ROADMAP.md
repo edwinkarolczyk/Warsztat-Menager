@@ -141,7 +141,7 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
   - ≤ 14 dni — Normalny
   - ≤ 30 dni — Niski
 - 🔴 progi edytowalne w Ustawieniach Dyspozycji
-- 🔴 użytkownik widzi wynik priorytetu, a nie musi ustawiać go ręcznie
+- 🔴 użytkownik widzi wynik priorytetu, a nie musi ustawiaiać go ręcznie
 
 ## 4.4 Automatyczne Dyspozycje
 
@@ -161,6 +161,11 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 - 🔴 wybór Dyspozycji do druku
 - 🔴 zapis dokumentu do ROOT
 - 🔴 spójny format wydruku
+
+## 4.7 Wyszukiwanie i sygnalizacja
+
+- 🔴 **Dyspozycje** → dodać wyszukiwarkę.
+- 🔴 **Profil → Dyspozycje** → przywrócić miganie dokładnie według mechanizmu używanego w głównym module Dyspozycje, zamiast samego koloru.
 
 **DoD:** Dyspozycje są szybkie w tworzeniu, stabilne przy edycji i mogą być generowane z terminów serwisowych.
 
