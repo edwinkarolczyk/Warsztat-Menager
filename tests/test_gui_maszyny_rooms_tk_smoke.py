@@ -1,5 +1,5 @@
-# version: 1.1
-"""Headless Tk smoke: renderer Maszyn + pomieszczenia + kontrolki widoku."""
+# version: 1.2
+"""Headless Tk smoke: renderer Maszyn + pomieszczenia + kontrolki widoku/edycji."""
 
 from types import SimpleNamespace
 
@@ -20,6 +20,7 @@ def test_room_layer_keeps_machine_drag_and_updates_location(tmp_path):
 
     root = tk.Tk()
     try:
+        root._wm_role = "brygadzista"
         root.geometry("1200x800")
         frame = ttk.Frame(root)
         frame.pack(fill="both", expand=True)
@@ -145,5 +146,94 @@ def test_machine_edit_location_is_readonly_dynamic_room_combobox(monkeypatch):
         )
         location._refresh_values()
         assert "Spawalnia" in tuple(location.cget("values"))
+    finally:
+        root.destroy()
+
+
+@pytest.mark.skipif(gui_maszyny.Image is None, reason="Pillow wymagany do smoke tła")
+def test_room_editor_is_brygadzista_only_and_rectangle_can_be_edited(tmp_path, monkeypatch):
+    tk = gui_maszyny.tk
+    ttk = gui_maszyny.ttk
+    background = tmp_path / "hala_editor.png"
+    gui_maszyny.Image.new("RGB", (600, 400), "white").save(background)
+
+    # Pracownik widzi plan, ale nie dostaje paska modyfikującego pomieszczenia.
+    worker_root = tk.Tk()
+    try:
+        worker_root._wm_role = "pracownik"
+        worker_frame = ttk.Frame(worker_root)
+        worker_frame.pack(fill="both", expand=True)
+        worker_renderer = gui_maszyny.MachineHallRenderer(
+            worker_frame,
+            [],
+            cfg={},
+            bg_path=str(background),
+            on_drag_commit=None,
+        )
+        worker_renderer.render()
+        worker_root.update()
+        assert worker_renderer._wm_edit_toolbar.winfo_manager() == ""
+        worker_renderer._edit_var.set(True)
+        worker_renderer._toggle_layout_edit()
+        assert worker_renderer._layout_edit is False
+        assert worker_renderer._edit_var.get() is False
+    finally:
+        worker_root.destroy()
+
+    # Brygadzista dostaje pełny pasek i może zrobić prostokąt dwoma kliknięciami.
+    root = tk.Tk()
+    try:
+        root._wm_role = "brygadzista"
+        root.geometry("900x650")
+        frame = ttk.Frame(root)
+        frame.pack(fill="both", expand=True)
+        renderer = gui_maszyny.MachineHallRenderer(
+            frame,
+            [],
+            cfg={},
+            bg_path=str(background),
+            on_drag_commit=None,
+        )
+        renderer._rooms = []
+        renderer.render()
+        root.update()
+
+        assert renderer._wm_edit_toolbar.winfo_manager() == "pack"
+        assert str(renderer._wm_btn_rectangle.cget("text")) == "Prostokąt"
+        assert str(renderer._wm_btn_edit_room.cget("text")) == "Edytuj pomieszczenie"
+
+        monkeypatch.setattr(
+            gui_maszyny.simpledialog,
+            "askstring",
+            lambda *args, **kwargs: "Magazyn testowy",
+        )
+        renderer._edit_var.set(True)
+        renderer._toggle_layout_edit()
+        renderer._wm_start_rectangle()
+
+        x1, y1 = renderer._map_bg_to_canvas(50, 50)
+        x2, y2 = renderer._map_bg_to_canvas(250, 180)
+        renderer._on_press(SimpleNamespace(x=x1, y=y1, state=0))
+        assert renderer._wm_rectangle_start == (50, 50)
+        renderer._on_canvas_motion(SimpleNamespace(x=x2, y=y2))
+        assert renderer.canvas.find_withtag("hall-room-rect-preview")
+        renderer._on_press(SimpleNamespace(x=x2, y=y2, state=0))
+
+        assert len(renderer._rooms) == 1
+        room = renderer._rooms[0]
+        assert room.name == "Magazyn testowy"
+        assert room.polygon == [(50, 50), (250, 50), (250, 180), (50, 180)]
+        assert renderer._wm_room_tool == "edit"
+
+        # Jawny tryb edycji: przeciągnięcie narożnika zmienia geometrię.
+        renderer._wm_start_existing_room_edit()
+        vx, vy = renderer._map_bg_to_canvas(50, 50)
+        nx, ny = renderer._map_bg_to_canvas(70, 70)
+        renderer._on_press(SimpleNamespace(x=vx, y=vy, state=0))
+        assert renderer._vertex_drag == (room.id, 0)
+        renderer._on_motion(SimpleNamespace(x=nx, y=ny, state=0))
+        renderer._on_release(SimpleNamespace(x=nx, y=ny, state=0))
+        assert room.polygon[0] == (70, 70)
+        assert renderer._layout_dirty is True
     finally:
         root.destroy()
