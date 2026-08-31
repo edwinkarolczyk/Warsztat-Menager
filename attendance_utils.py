@@ -60,6 +60,99 @@ def _safe_write_json(path: Path, data) -> None:
     tmp.replace(path)
 
 
+def _leave_notice_state_path() -> Path:
+    """Stan powiadomień urlopowych brygadzisty, obok leave_requests.json."""
+    try:
+        from core import root_paths
+
+        return root_paths.get_root_anchor() / "brygadzista_leave_login_state.json"
+    except Exception:
+        return DATA_PATH.parent / "brygadzista_leave_login_state.json"
+
+
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            parsed = parsed.astimezone()
+        return parsed
+    except Exception:
+        return None
+
+
+def _new_pending_leave_requests_since_previous_login(bryg_login: str) -> list[dict]:
+    """Zwróć nowe oczekujące wnioski i przesuń znacznik bieżącego logowania."""
+    login_key = str(bryg_login or "").strip().casefold()
+    if not login_key:
+        return []
+
+    state_path = _leave_notice_state_path()
+    state = _safe_read_json(state_path, {})
+    if not isinstance(state, dict):
+        state = {}
+
+    now = datetime.now().astimezone()
+    previous = _parse_iso_datetime(state.get(login_key))
+    new_requests: list[dict] = []
+
+    try:
+        from services.leave_workflow_service import read_requests
+
+        pending = read_requests(status="pending")
+    except Exception:
+        pending = []
+
+    # Pierwsze uruchomienie tylko ustala punkt startowy. Dzięki temu stare,
+    # istniejące już wnioski nie są przedstawiane jako "nowe".
+    if previous is not None:
+        for row in pending:
+            if not isinstance(row, dict):
+                continue
+            created_at = _parse_iso_datetime(row.get("created_at"))
+            if created_at is None:
+                continue
+            try:
+                if previous < created_at <= now:
+                    new_requests.append(dict(row))
+            except TypeError:
+                continue
+
+    state[login_key] = now.isoformat(timespec="seconds")
+    try:
+        _safe_write_json(state_path, state)
+    except Exception:
+        pass
+
+    new_requests.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+    return new_requests
+
+
+def _format_leave_request(row: dict, login_to_name: dict[str, str]) -> str:
+    login = str(row.get("login") or "").strip()
+    name = login_to_name.get(login.casefold(), login or "Pracownik")
+    date_start = str(row.get("date_start") or "").strip()
+    date_end = str(row.get("date_end") or "").strip()
+    if date_start and date_end and date_start != date_end:
+        date_text = f"{date_start} – {date_end}"
+    else:
+        date_text = date_start or date_end or "brak terminu"
+
+    raw_days = row.get("quantity_days")
+    try:
+        days_value = float(raw_days)
+        days_text = str(int(days_value)) if days_value.is_integer() else f"{days_value:g}"
+    except (TypeError, ValueError):
+        dates = row.get("dates")
+        days_text = str(len(dates)) if isinstance(dates, list) else "?"
+
+    return f"{name} — {date_text} — {days_text} dni"
+
+
 def ensure_planned(date_ymd: str, slot: str, planned_logins: set[str]) -> None:
     """Zapisz plan (planned=True) dla loginów zaplanowanych na slot danego dnia."""
     if not date_ymd or slot not in ("RANO", "POPO"):
@@ -279,11 +372,12 @@ def open_brygadzista_modal(
     bryg_login: str,
 ) -> None:
     """
-    Minimalne okno dla brygadzisty: lista do potwierdzenia + lista spóźnionych (po 4h).
-    Potwierdzenie ustawia zielony status.
+    Okno brygadzisty: obecność oraz informacja o nowych wnioskach urlopowych.
+    Potwierdzenie obecności ustawia zielony status. Wnioski są tu tylko do odczytu.
     """
     dg = digest_for(date_ymd, slot, planned_logins, shift_start=shift_start, now=now)
-    if not dg.pending_confirm and not dg.overdue_missing:
+    new_leave_requests = _new_pending_leave_requests_since_previous_login(bryg_login)
+    if not dg.pending_confirm and not dg.overdue_missing and not new_leave_requests:
         return
 
     win = tk.Toplevel(owner)
@@ -299,6 +393,28 @@ def open_brygadzista_modal(
 
     header = f"Ewidencja obecności: {date_ymd} / {slot}"
     ttk.Label(wrap, text=header).pack(anchor="w", pady=(0, 8))
+
+    if new_leave_requests:
+        leave_box = ttk.LabelFrame(
+            wrap,
+            text=(
+                "Nowe wnioski urlopowe od poprzedniego logowania "
+                f"({len(new_leave_requests)})"
+            ),
+            padding=8,
+        )
+        leave_box.pack(fill="x", pady=(0, 10))
+        lb_leave = tk.Listbox(
+            leave_box,
+            height=min(6, max(1, len(new_leave_requests))),
+        )
+        lb_leave.pack(fill="x", expand=False)
+        for request in new_leave_requests:
+            lb_leave.insert("end", _format_leave_request(request, login_to_name))
+        ttk.Label(
+            leave_box,
+            text="Decyzję podejmiesz w: Profil → Brygadzista → Urlopy.",
+        ).pack(anchor="w", pady=(6, 0))
 
     cols = ttk.Frame(wrap)
     cols.pack(fill="both", expand=True)
