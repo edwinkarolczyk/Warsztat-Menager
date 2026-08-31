@@ -1,5 +1,5 @@
-# version: 1.0
-"""Ujednolica Brygadzista → Profile z Ustawienia → Użytkownicy."""
+# version: 1.1
+"""Ujednolica Profile brygadzisty i podpina drobne akcje aktywnego Profilu."""
 from __future__ import annotations
 
 from profile_admin_ui import ProfileAdminNotebook
@@ -9,6 +9,18 @@ _INSTALLED = False
 
 def install() -> None:
     global _INSTALLED
+
+    # Ta warstwa jest ładowana przez gui_profile przed zdefiniowaniem końcowej
+    # klasy ProfileView. Patchujemy więc klasę bazową: końcowy widok nadal
+    # dziedziczy poprawione "Edytuj mój profil" i obsługę zamykania Dyspozycji.
+    try:
+        import gui_profile_core as profile_core
+        from profile_user_actions_runtime import install as install_user_actions
+
+        install_user_actions(profile_core.ProfileView)
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] user actions runtime install failed: {exc!r}")
+
     if _INSTALLED:
         return
 
