@@ -1,4 +1,9 @@
-# version: 1.14
+# version: 1.16
+# Zmiany 1.16:
+# - Korekta przeglądu ma rollback spójności Maszyna <-> automatyczna Dyspozycja.
+# Zmiany 1.15:
+# - Brygadzista ma bezpieczną korektę wpisów przeglądów/serwisów z historią zmian.
+# - Korekta nie zmienia statusu, ID ani klucza cyklu/Dyspozycji.
 # Zmiany 1.14:
 # - Timeout sesji wylogowuje zalogowanego użytkownika do Gościa zamiast zamykać WM.
 # - W trybie Gościa timeout nie zamyka programu; zapis czasu w Ustawieniach działa od razu.
@@ -45,6 +50,8 @@ from machine_history_docx_io import append_history_entry as _append_history_entr
 from machine_history_layout_runtime import install_machine_history_layout
 from machine_overdue_dysp_runtime import install_machine_overdue_dysp
 from machine_review_backdate_runtime import install_machine_review_backdate
+from machine_review_correction_runtime import install_machine_review_correction
+from machine_review_correction_tx_runtime import install as install_machine_review_correction_tx
 from machine_review_dysp_close_runtime import install_machine_review_dysp_close
 from profile_simple_runtime import install_profile_simple_runtime
 from session_timeout_runtime import install_session_timeout_runtime
@@ -74,6 +81,8 @@ def _ensure_gui_integration() -> None:
         install_gui_integration(gui_module)
         install_machine_history_layout(gui_module)
         install_machine_review_backdate(gui_module)
+        install_machine_review_correction_tx(gui_module)
+        install_machine_review_correction(gui_module)
         install_machine_overdue_dysp(gui_module)
 
     dysp_module = sys.modules.get("gui_zlecenia")
