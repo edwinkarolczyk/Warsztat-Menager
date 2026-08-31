@@ -1,6 +1,6 @@
 # ROADMAP — Warsztat Menager
 
-> **Aktualizacja:** 2026-08-28  
+> **Aktualizacja:** 2026-08-31  
 > **Gałąź robocza:** `Rozwiniecie`  
 > **Cel bieżący:** stabilizacja WM + dopięcie rzeczy wynikających z codziennego użycia programu.  
 > **Zasada:** najpierw rdzeń, spójność danych i niezawodność; dopiero potem nowe duże funkcje.
@@ -215,6 +215,17 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 - 🔴 automatyczne dopisywanie wykonanych przeglądów i napraw
 - 🔴 równoległa historia w JSON w ROOT
 - 🔴 spójny identyfikator maszyny między JSON i dokumentem Word
+
+## 5.5 Panel główny — „Maszyny — wymagające uwagi”
+
+**Cel:** sekcja ma pokazywać wszystkie maszyny, które faktycznie wymagają reakcji, a nie tylko wybrane statusy serwisowe.
+
+- 🔴 `Sprawna` → nie pokazywać w tej sekcji
+- 🔴 `Awaria` → zawsze pokazywać; najwyższy priorytet i najmocniejsze oznaczenie, np. czerwone
+- 🔴 `Serwis / przegląd` → zawsze pokazywać; niższy priorytet niż awaria, np. pomarańczowe/żółte oznaczenie
+- 🔴 inne statusy problemowe/ostrzegawcze → pokazywać, jeśli system klasyfikuje je jako wymagające reakcji
+- 🔴 logika filtra ma wynikać z zasady **„pokaż każdą maszynę, która nie jest faktycznie sprawna”**, a nie z ręcznego sprawdzania tylko jednego statusu
+- 🔴 dodać test regresyjny: `Sprawna` → brak na liście, `Awaria` → jest, `Serwis / przegląd` → jest, inny status problemowy → jest
 
 **DoD:** jedna maszyna ma kompletną kartę: dane → lokalizacja → terminy → przeglądy → naprawy → historia → dokumentacja.
 
