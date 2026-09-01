@@ -1,4 +1,8 @@
-# version: 2.11
+# version: 2.12
+# Zmiany 2.12:
+# - Nowy edytor ignoruje martwe widgety Tk podczas dekorowania okna.
+# - Gdy lista zdjęć formularza jest pusta, zdjęcia są odtwarzane z rekordu narzędzia.
+#
 # Zmiany 2.11:
 # - Zakładka Informacje nie zostawia pustego miejsca po starym Opisie; pole nowego wpisu ma 3 linie.
 # - Historia grupuje zdarzenia z tej samej minuty w rozwijane wiersze drzewa.
@@ -95,6 +99,7 @@ from .editor_header_info_runtime import install_editor_header_info_runtime
 from .editor_close_guard_runtime import install_editor_close_guard_runtime
 from .editor_polish_runtime import install_editor_polish_runtime
 from .editor_compact_history_runtime import install_editor_compact_history_runtime
+from .editor_media_guard_runtime import install_editor_media_guard_runtime
 
 
 def _wm_has_defined_tool_statuses() -> bool:
@@ -216,5 +221,6 @@ install_editor_header_info_runtime()
 install_editor_close_guard_runtime()
 install_editor_polish_runtime()
 install_editor_compact_history_runtime()
+install_editor_media_guard_runtime()
 
 __all__ = ["ToolsPanelState", "STATE"]
