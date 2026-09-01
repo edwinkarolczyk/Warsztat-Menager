@@ -1,15 +1,17 @@
 # =============================
 # FILE: zlecenia_logika.py
-# version: 1.0
-# Zmiany 1.1.5:
-# - create_zlecenie: opcjonalna rezerwacja materiałów (reserve=True)
-# - create_zlecenie nadal obsługuje `zlec_wew`; start = "nowe"
+# version: 1.2
+# Zmiany 1.2:
+# - planowanie rozwija Produkt -> Półprodukt -> Surowiec
+# - rezerwacja zwiększa pole `rezerwacje`, nie pomniejsza fizycznego `stan`
+# - zlecenie zapisuje rozwinięty plan półproduktów i zapotrzebowanie materiałowe
 # =============================
 
 from pathlib import Path
 from datetime import datetime
 
 import bom
+import logika_magazyn as LM
 from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
 DATA_DIR = Path("data")
@@ -17,10 +19,13 @@ BOM_DIR = DATA_DIR / "produkty"
 MAG_DIR = DATA_DIR / "magazyn"
 ZLECENIA_DIR = DATA_DIR / "zlecenia"
 
+
 def _ensure_dirs():
     _ensure_dirs_impl(ZLECENIA_DIR, BOM_DIR, MAG_DIR)
 
+
 STATUSY = ["nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
+
 
 def list_produkty():
     _ensure_dirs()
@@ -28,10 +33,11 @@ def list_produkty():
     for f in BOM_DIR.glob("*.json"):
         try:
             j = _read_json(f)
-            out.append({"kod": j.get("kod") or f.stem, "nazwa": j.get("nazwa") or f.stem})
+            out.append({"kod": j.get("kod") or j.get("symbol") or f.stem, "nazwa": j.get("nazwa") or f.stem})
         except Exception:
             continue
     return out
+
 
 def read_bom(kod):
     p = BOM_DIR / f"{kod}.json"
@@ -39,85 +45,121 @@ def read_bom(kod):
         raise FileNotFoundError(f"Brak BOM: {kod}")
     return _read_json(p)
 
+
+def _canonical_magazyn_items():
+    try:
+        data = LM.load_magazyn(include_external=True)
+        items = data.get("items") or data.get("pozycje") or {}
+        return items if isinstance(items, dict) else {}
+    except Exception:
+        return {}
+
+
 def read_magazyn():
+    """Zwraca stany magazynu wraz z rezerwacjami i ilością dostępną."""
+    items = _canonical_magazyn_items()
+    if items:
+        out = {}
+        for kod, rec in items.items():
+            if not isinstance(rec, dict):
+                continue
+            stan = float(rec.get("stan", 0) or 0)
+            rez = max(0.0, float(rec.get("rezerwacje", 0) or 0))
+            out[str(kod)] = {
+                "nazwa": rec.get("nazwa", kod),
+                "stan": stan,
+                "rezerwacje": rez,
+                "dostepne": max(0.0, stan - rez),
+                "jednostka": rec.get("jednostka", ""),
+            }
+        return out
+
+    # fallback dla starszych instalacji/testów
     p = MAG_DIR / "stany.json"
     if not p.exists():
         return {}
-    return _read_json(p)
+    raw = _read_json(p)
+    for rec in raw.values() if isinstance(raw, dict) else []:
+        if isinstance(rec, dict):
+            stan = float(rec.get("stan", 0) or 0)
+            rez = max(0.0, float(rec.get("rezerwacje", 0) or 0))
+            rec.setdefault("dostepne", max(0.0, stan - rez))
+    return raw
 
-def check_materials(bom, ilosc=1):
-    """Sprawdza dostępność surowców w magazynie.
 
-    ``bom`` powinien być słownikiem w postaci
-    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
-    ``ilosc`` oznacza liczbę sztuk produktu, dla której należy
-    sprawdzić zapotrzebowanie.
-    """
-    mag_path = MAG_DIR / "stany.json"
-    mag = _read_json(mag_path) if mag_path.exists() else {}
+def check_materials(material_bom, ilosc=1):
+    """Sprawdza dostępność po odjęciu wcześniejszych rezerwacji."""
+    mag = read_magazyn()
     braki = []
-    for kod, data in bom.items():
-        req = data["ilosc"] * ilosc
-        stan = mag.get(kod, {}).get("stan", 0)
-        if stan < req:
+    for kod, data in material_bom.items():
+        req = float(data["ilosc"]) * float(ilosc)
+        rec = mag.get(kod, {})
+        available = float(rec.get("dostepne", rec.get("stan", 0)) or 0)
+        if available < req:
             braki.append(
                 {
                     "kod": kod,
-                    "nazwa": mag.get(kod, {}).get("nazwa", kod),
+                    "nazwa": rec.get("nazwa", kod),
                     "potrzeba": req,
-                    "stan": stan,
-                    "brakuje": req - stan,
+                    "stan": float(rec.get("stan", 0) or 0),
+                    "zarezerwowane": float(rec.get("rezerwacje", 0) or 0),
+                    "dostepne": available,
+                    "brakuje": req - available,
                 }
             )
     return braki
 
 
-def compute_material_needs(kod_produktu, ilosc=1):
-    """Oblicza zapotrzebowanie i dostępność surowców dla produktu."""
-    bom_sr = bom.compute_sr_for_prd(kod_produktu, 1)
+def compute_material_needs(kod_produktu, ilosc=1, version=None):
+    """Rozwija produkt do surowców i porównuje potrzeby z realnie dostępnym stanem."""
+    bom_sr = bom.compute_sr_for_prd(kod_produktu, float(ilosc), version=version)
     mag = read_magazyn()
     potrzeby = []
     for kod, data in bom_sr.items():
-        req = data["ilosc"] * ilosc
-        stan = mag.get(kod, {}).get("stan", 0)
+        req = float(data["ilosc"])
+        rec = mag.get(kod, {})
+        stan = float(rec.get("stan", 0) or 0)
+        rez = float(rec.get("rezerwacje", 0) or 0)
+        available = float(rec.get("dostepne", max(0.0, stan - rez)) or 0)
         potrzeby.append(
             {
                 "kod": kod,
+                "jednostka": data.get("jednostka", rec.get("jednostka", "")),
                 "potrzeba": req,
-                "dostepne": stan,
-                "brakuje": max(0, req - stan),
+                "stan": stan,
+                "zarezerwowane": rez,
+                "dostepne": available,
+                "brakuje": max(0.0, req - available),
             }
         )
     return potrzeby, bom_sr
 
 
-def reserve_materials(bom, ilosc=1):
-    """Rezerwuje surowce na magazynie i zwraca nowe stany.
+def reserve_materials(material_bom, ilosc=1, user="system", context=None):
+    """Rezerwuje surowce bez zmiany stanu fizycznego.
 
-    ``bom`` powinien być słownikiem w postaci
-    ``{kod_sr: {"ilosc": ilosc_na_szt, "jednostka": unit}}``.
-    Zwracany jest słownik ``{kod_sr: stan_po_rezerwacji}`` dla każdej pozycji.
-    Informacja ta jest wykorzystywana przez GUI do zasilenia kolumny
-    "dostępne po".
+    Zwraca ``{kod: dostępne_po_rezerwacji}``. Jeżeli stan jest za mały,
+    rezerwuje tylko ilość faktycznie dostępną; informację o braku wylicza
+    ``check_materials`` przed rezerwacją.
     """
-    mag_path = MAG_DIR / "stany.json"
-    default_item = lambda k: {"nazwa": k, "stan": 0, "prog_alert": 0}
-
-    mag = _read_json(mag_path) if mag_path.exists() else {}
     updated = {}
-    for kod, data in bom.items():
-        req = data["ilosc"] * ilosc
-        if kod not in mag:
-            mag[kod] = default_item(kod)
-        mag[kod]["stan"] = max(0, mag[kod].get("stan", 0) - req)
-        updated[kod] = mag[kod]["stan"]
-    _write_json(mag_path, mag)
+    for kod, data in material_bom.items():
+        req = float(data["ilosc"]) * float(ilosc)
+        try:
+            LM.rezerwuj(kod, req, user, kontekst=context or "zlecenie_produkcyjne")
+            rec = LM.get_item(kod) or {}
+            stan = float(rec.get("stan", 0) or 0)
+            rez = float(rec.get("rezerwacje", 0) or 0)
+            updated[kod] = max(0.0, stan - rez)
+        except KeyError:
+            # Brak kartoteki: niczego nie tworzymy sztucznie.
+            updated[kod] = 0.0
     return updated
 
 
-def rezerwuj_materialy(bom, ilosc=1):
-    """Polska nazwa pomocnicza dla ``reserve_materials``."""
-    return reserve_materials(bom, ilosc)
+def rezerwuj_materialy(material_bom, ilosc=1):
+    return reserve_materials(material_bom, ilosc)
+
 
 def create_zlecenie(
     kod_produktu,
@@ -126,23 +168,29 @@ def create_zlecenie(
     autor: str = "system",
     zlec_wew=None,
     reserve: bool = True,
+    version=None,
 ):
-    """Tworzy zlecenie w statusie "nowe".
-
-    Opcjonalnie zapisuje numer zlecenia wewnętrznego i rezerwuje materiały.
-    """
+    """Tworzy zlecenie wraz z rozwiniętym planem półproduktów i surowców."""
     _ensure_dirs()
-    bom_sr = bom.compute_sr_for_prd(kod_produktu, 1)
-    braki = check_materials(bom_sr, ilosc)  # tylko informacyjnie na start
+    ilosc = float(ilosc)
+    plan_pp = bom.compute_bom_for_prd(kod_produktu, ilosc, version=version)
+    bom_sr = bom.compute_sr_for_prd(kod_produktu, ilosc, version=version)
+    braki = check_materials(bom_sr, 1)
+
+    zlec_id = _next_id()
     if reserve:
-        reserve_materials(bom_sr, ilosc)
+        reserve_materials(bom_sr, 1, user=autor, context=f"zlecenie:{zlec_id}")
+
     zlec = {
-        "id": _next_id(),
+        "id": zlec_id,
         "produkt": kod_produktu,
         "ilosc": ilosc,
         "status": "nowe",
         "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "uwagi": uwagi,
+        "plan_polprodukty": plan_pp,
+        "zapotrzebowanie_surowce": bom_sr,
+        "materialy_zarezerwowane": bool(reserve),
         "historia": [
             {
                 "kiedy": datetime.now().isoformat(timespec="seconds"),
@@ -151,12 +199,15 @@ def create_zlecenie(
             }
         ],
     }
+    if version is not None:
+        zlec["version"] = version
     if zlec_wew not in (None, ""):
         zlec["zlec_wew"] = zlec_wew
     if braki:
         zlec["braki"] = braki
     _write_json(ZLECENIA_DIR / f"{zlec['id']}.json", zlec)
     return zlec, braki
+
 
 def _next_id():
     _ensure_dirs()
@@ -168,6 +219,7 @@ def _next_id():
             pass
     nid = max(nums) + 1 if nums else 1
     return f"{nid:06d}"
+
 
 def list_zlecenia():
     _ensure_dirs()
@@ -181,6 +233,7 @@ def list_zlecenia():
             continue
     return out
 
+
 def update_status(zlec_id, new_status, kto="system"):
     assert new_status in STATUSY, "Nieprawidłowy status"
     p = ZLECENIA_DIR / f"{zlec_id}.json"
@@ -188,18 +241,14 @@ def update_status(zlec_id, new_status, kto="system"):
     j["status"] = new_status
     j.setdefault("historia", []).append({
         "kiedy": datetime.now().isoformat(timespec="seconds"),
-        "kto": kto, "co": f"status -> {new_status}"
+        "kto": kto,
+        "co": f"status -> {new_status}",
     })
     _write_json(p, j)
     return j
 
 
 def update_zlecenie(zlec_id, *, ilosc=None, uwagi=None, zlec_wew=None, kto="system"):
-    """Aktualizuje podstawowe dane zlecenia.
-
-    Pozwala zmienić ilość, uwagi oraz numer wewnętrzny. Dodaje wpis do
-    historii dla każdej zmienionej wartości.
-    """
     p = ZLECENIA_DIR / f"{zlec_id}.json"
     j = _read_json(p)
     changed = []
@@ -230,6 +279,7 @@ def update_zlecenie(zlec_id, *, ilosc=None, uwagi=None, zlec_wew=None, kto="syst
         )
         _write_json(p, j)
     return j
+
 
 def delete_zlecenie(zlec_id: str) -> bool:
     _ensure_dirs()
