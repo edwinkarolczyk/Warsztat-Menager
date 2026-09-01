@@ -1,0 +1,88 @@
+name: One-shot fix settings dirty prompt
+
+on:
+  push:
+    branches: [Rozwiniecie]
+    paths:
+      - '.github/workflows/one-shot-fix-settings-dirty.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Rozwiniecie
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install tests
+        run: python -m pip install pytest
+
+      - name: Apply settings dirty-state fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('gui_settings.py')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('# version: 1.0.5', '# version: 1.0.6', 1)
+          marker = '# Zmiany 1.0.5:'
+          if '# Zmiany 1.0.6:' not in text:
+              text = text.replace(
+                  marker,
+                  '# Zmiany 1.0.6:\n'
+                  '# - Zakładki Ustawień nie pytają już o zapis przy każdym przejściu między nimi.\n'
+                  '# - Potwierdzenie przy zamykaniu pojawia się tylko dla rzeczywistych zmian wartości.\n'
+                  '# - Programowe odświeżenia pól nie ustawiają już fałszywego stanu niezapisanych zmian.\n'
+                  + marker,
+                  1,
+              )
+
+          old_var = '''    def _on_var_write(self, key: str, var: tk.Variable) -> None:\n        \"\"\"Handle Tk variable updates by tracking unsaved state and cache.\"\"\"\n\n        setattr(self, \"_unsaved\", True)\n        try:\n            self.settings_state[key] = var.get()\n        except Exception:\n            pass\n        if getattr(self, \"_saving\", False):\n            return\n        self._mark_dirty()\n        self._status(f\"Zmieniono: {key}\")\n'''
+          new_var = '''    def _on_var_write(self, key: str, var: tk.Variable) -> None:\n        \"\"\"Handle Tk variable updates by tracking only real user changes.\"\"\"\n\n        try:\n            self.settings_state[key] = var.get()\n        except Exception:\n            pass\n        if getattr(self, \"_saving\", False):\n            return\n        changed = self._has_real_changes()\n        self._dirty = changed\n        self._unsaved = changed\n        if changed:\n            self._mark_save_dirty()\n            self._status(f\"Zmieniono: {key}\")\n'''
+          if old_var not in text:
+              raise SystemExit('Nie znaleziono _on_var_write do podmiany')
+          text = text.replace(old_var, new_var, 1)
+
+          old_confirm = '''    def _confirm_save_changes(self, *, parent=None, allow_cancel: bool = False) -> bool:\n        dirty = getattr(self, \"_dirty\", False)\n        unsaved = getattr(self, \"_unsaved\", False)\n        if not (dirty or unsaved):\n            return True\n\n        parent = parent or self.master\n'''
+          new_confirm = '''    def _has_real_changes(self) -> bool:\n        \"\"\"Return True only when a current setting differs from its loaded value.\"\"\"\n\n        for key, var in self.vars.items():\n            try:\n                current = var.get()\n            except Exception:\n                continue\n            if key not in self._initial or current != self._initial.get(key):\n                return True\n        return False\n\n    def _confirm_save_changes(self, *, parent=None, allow_cancel: bool = False) -> bool:\n        changed = self._has_real_changes()\n        self._dirty = changed\n        self._unsaved = changed\n        if not changed:\n            return True\n\n        parent = parent or self.master\n'''
+          if old_confirm not in text:
+              raise SystemExit('Nie znaleziono _confirm_save_changes do podmiany')
+          text = text.replace(old_confirm, new_confirm, 1)
+
+          old_tab = '''    def _on_tab_change(self, _=None):\n        previous_tab = getattr(self, \"_last_tab\", None)\n        if not self._confirm_save_changes(parent=self.master, allow_cancel=True):\n            if previous_tab:\n                try:\n                    self.nb.select(previous_tab)\n                except Exception:\n                    pass\n            return\n\n        if self._magazyn_frame is not None and not self._magazyn_initialized:\n'''
+          new_tab = '''    def _on_tab_change(self, _=None):\n        # Zmiana zakładki nie jest opuszczeniem Ustawień. Nie pytamy tu o zapis;\n        # użytkownik ma stały przycisk \"Zapisz wszystko\", autosave i ochronę przy zamykaniu.\n        if self._magazyn_frame is not None and not self._magazyn_initialized:\n'''
+          if old_tab not in text:
+              raise SystemExit('Nie znaleziono _on_tab_change do podmiany')
+          text = text.replace(old_tab, new_tab, 1)
+          path.write_text(text, encoding='utf-8')
+
+          version = Path('__version__.py')
+          vtext = version.read_text(encoding='utf-8')
+          if '__version__ = "0.3.0"' not in vtext:
+              raise SystemExit('Nieoczekiwana wersja bazowa WM')
+          version.write_text(vtext.replace('__version__ = "0.3.0"', '__version__ = "0.3.1"', 1), encoding='utf-8')
+
+          test = Path('tests/test_settings_dirty_state_v2.py')
+          test.write_text('''# version: 1.0\nfrom pathlib import Path\nimport ast\n\nSOURCE = Path("gui_settings.py").read_text(encoding="utf-8")\nTREE = ast.parse(SOURCE)\n\ndef _method(name):\n    for node in ast.walk(TREE):\n        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:\n            return ast.get_source_segment(SOURCE, node) or ""\n    raise AssertionError(name)\n\ndef test_tab_switch_does_not_prompt_for_save():\n    body = _method("_on_tab_change")\n    assert "_confirm_save_changes" not in body\n\ndef test_close_prompt_uses_real_value_comparison():\n    assert "def _has_real_changes" in SOURCE\n    body = _method("_confirm_save_changes")\n    assert "_has_real_changes()" in body\n\ndef test_programmatic_save_guard_runs_before_dirty_mark():\n    body = _method("_on_var_write")\n    assert body.index("_saving") < body.index("_has_real_changes()")\n\ndef test_patch_version_bumped():\n    from __version__ import get_version\n    assert get_version() == "0.3.1"\n''', encoding='utf-8')
+
+      - name: Verify
+        run: |
+          python -m py_compile gui_settings.py __version__.py tests/test_settings_dirty_state_v2.py
+          python -m pytest -q tests/test_settings_dirty_state_v2.py tests/test_gui_settings_users_tab.py
+
+      - name: Commit fix and remove one-shot workflow
+        run: |
+          git config user.name "edwinkarolczyk"
+          git config user.email "edwinkarolczyk@gmail.com"
+          git rm .github/workflows/one-shot-fix-settings-dirty.yml
+          git add gui_settings.py __version__.py tests/test_settings_dirty_state_v2.py
+          git commit -m "fix: pytaj o zapis Ustawien tylko przy realnych zmianach"
+          git push origin HEAD:Rozwiniecie
