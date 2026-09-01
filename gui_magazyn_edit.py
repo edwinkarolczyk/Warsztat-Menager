@@ -2,7 +2,7 @@
 # version: 1.1
 # - 1.1: tryb Dodaj tworzy pełną kartotekę magazynową z walidacją.
 #        Edycja istniejącej pozycji zachowuje dotychczasowy zakres pól.
-#        Dodano wejście do istniejącego dialogu PZ dla wybranej pozycji.
+#        Dodano wejście do istniejącego dialogu przyjęcia towaru dla wybranej pozycji.
 # - 1.0: FIX: bezpieczny zapis (_safe_save) – fallback do logika_magazyn.save_magazyn,
 #        jeśli magazyn_io.save nie istnieje.
 
@@ -181,8 +181,8 @@ class MagazynEditDialog:
         ttk.Label(
             frm,
             text=(
-                "Dodaj tworzy kartotekę pozycji. Kolejne przyjęcia stanu wykonuj przez PZ, "
-                "żeby zachować historię ruchu."
+                "Dodaj tworzy kartotekę pozycji. Kolejne przyjęcia stanu wykonuj przez "
+                "Przyjęcie towaru, żeby zachować historię ruchu."
             ),
             wraplength=520,
         ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(8, 2))
@@ -215,7 +215,7 @@ class MagazynEditDialog:
         btns = ttk.Frame(frm)
         btns.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="e")
         ttk.Button(btns, text="Zapisz", command=self.on_save).pack(side="right", padx=(8, 0))
-        ttk.Button(btns, text="Przyjęcie PZ", command=self._open_pz).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Przyjęcie towaru", command=self._open_pz).pack(side="right", padx=(8, 0))
         ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
 
     def _open_pz(self):
@@ -229,7 +229,11 @@ class MagazynEditDialog:
             open_pz_dialog(self.win, str(self.item_id))
             self._after_pz_saved()
         except Exception as exc:
-            messagebox.showerror("PZ", f"Nie udało się otworzyć przyjęcia PZ:\n{exc}", parent=self.win)
+            messagebox.showerror(
+                "Przyjęcie towaru",
+                f"Nie udało się otworzyć przyjęcia towaru:\n{exc}",
+                parent=self.win,
+            )
 
     def _after_pz_saved(self):
         self.data = _safe_load()
