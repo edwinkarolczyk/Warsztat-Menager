@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Ujednolica Profile brygadzisty i podpina drobne akcje aktywnego Profilu."""
 from __future__ import annotations
 
@@ -35,7 +35,22 @@ def install() -> None:
 
     def _build(self, *args, **kwargs):
         result = original_build(self, *args, **kwargs)
-        profile_tab = getattr(self, "_tabs", {}).get("Profile")
+
+        # Zadania i Sprzęt pozostają w kodzie i nadal mogą zasilać Pulpit/
+        # statystyki, ale nie są pokazywane jako osobne zakładki brygadzisty.
+        notebook = getattr(self, "notebook", None)
+        tabs = getattr(self, "_tabs", {})
+        if notebook is not None:
+            for tab_name in ("Zadania", "Sprzęt"):
+                tab = tabs.get(tab_name)
+                if tab is None:
+                    continue
+                try:
+                    notebook.hide(tab)
+                except Exception:
+                    pass
+
+        profile_tab = tabs.get("Profile")
         if profile_tab is None:
             return result
 
