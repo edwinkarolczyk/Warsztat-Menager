@@ -1,18 +1,17 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.0.1
+# version: 2.1
+# Zmiany 2.1:
+# - Planista jest osadzany w głównym prawym panelu WM zamiast otwierać Toplevel.
+# - osobne okna pozostają tylko dla małych dialogów (termin, rozliczenie).
 # Zmiany 2.0.1:
 # - nazwa "Planista" aktualizuje również gotową kopię SIDEBAR_MODULES_EXT w gui_panel.
-# Zmiany 2.0:
-# - stary moduł Planowanie został wycofany z interfejsu;
-# - wejście otwiera prosty Planista służący tylko do ustawiania terminu;
-# - nazwa pozycji w bocznym menu jest zmieniana na "Planista".
 
 from __future__ import annotations
 
 import sys
 
-from gui_planista import open_planista
+from gui_planista_panel import panel_planista
 
 
 def _rename_in_list(modules):
@@ -29,9 +28,6 @@ def _rename_sidebar_entry():
         _rename_in_list(getattr(profile_utils, "SIDEBAR_MODULES", None))
     except Exception:
         pass
-
-    # gui_panel tworzy SIDEBAR_MODULES_EXT zanim importuje ten moduł,
-    # więc aktualizujemy także tę istniejącą kopię listy.
     try:
         panel_module = sys.modules.get("gui_panel")
         if panel_module is not None:
@@ -44,13 +40,13 @@ _rename_sidebar_entry()
 
 
 def panel_planowanie(root, frame, login=None, rola=None):
-    """Adapter zgodności dla istniejącego klucza modułu ``planowanie``.
-
-    Nie buduje już dawnego wielozakładkowego panelu. Kliknięcie pozycji
-    w bocznym menu otwiera osobne, proste okno Planisty.
-    """
-    return open_planista(root, login=login, rola=rola)
+    """Adapter zgodności: klucz modułu pozostaje ``planowanie``, UI to Planista."""
+    return panel_planista(root, frame, login=login, rola=rola)
 
 
 def open_planner(root, login=None, rola=None):
-    return open_planista(root, login=login, rola=rola)
+    """Zgodność dla starych wywołań; osadza Planistę w aktywnym kontenerze WM."""
+    frame = getattr(root, "content", None) or getattr(root, "main_content", None)
+    if frame is None:
+        raise RuntimeError("Brak głównego kontenera WM dla Planisty.")
+    return panel_planista(root, frame, login=login, rola=rola)
