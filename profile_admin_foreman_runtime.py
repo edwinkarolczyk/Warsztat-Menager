@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 """Ujednolica Profile brygadzisty i podpina drobne akcje aktywnego Profilu."""
 from __future__ import annotations
 
@@ -20,6 +20,15 @@ def install() -> None:
         install_user_actions(profile_core.ProfileView)
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] user actions runtime install failed: {exc!r}")
+
+    # gui_panel importuje Profil przed Dyspozycjami, więc jest to stabilny punkt
+    # instalacji poprawki roli/kreatora dla widoku Dyspozycji.
+    try:
+        from dyspozycje_permissions_runtime import install as install_dysp_permissions
+
+        install_dysp_permissions()
+    except Exception as exc:
+        print(f"[WM-DBG][DYSP][WARN] permissions runtime install failed: {exc!r}")
 
     if _INSTALLED:
         return
