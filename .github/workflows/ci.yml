@@ -24,6 +24,7 @@ jobs:
         run: |
           pytest -q \
             tests/test_settings_manager.py \
+            tests/test_settings_dirty_state_v2.py \
             tests/test_profile_settings_navigation.py
       - name: Run production planning regressions
         run: |
