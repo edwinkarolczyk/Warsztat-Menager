@@ -17,7 +17,9 @@ jobs:
           pip install pillow pytest
       - name: Run smoke tests
         run: |
-          pytest -q tests/test_settings_manager.py tests/test_inventory_smoke.py
-      - name: Run Dyspozycje creator smoke under Xvfb
+          pytest -q tests/test_settings_manager.py tests/test_inventory_smoke.py tests/test_dyspozycje_access.py
+      - name: Run Dyspozycje creator and permissions smoke under Xvfb
         run: |
-          xvfb-run -a pytest -q tests/test_dyspozycje_creator_tk.py
+          xvfb-run -a pytest -q \
+            tests/test_dyspozycje_creator_tk.py \
+            tests/test_dyspozycje_permissions_runtime_tk.py
