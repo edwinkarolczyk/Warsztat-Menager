@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Warstwowe rozszerzenie listy Maszyn o kolumnę i filtr lokalizacji."""
 from __future__ import annotations
 
@@ -164,16 +164,20 @@ def install(module) -> None:
 
         schedule_filter = None
         try:
-            for child in toolbar.winfo_children():
-                if child is location_box:
-                    continue
-                raw_values = child.cget("values") if hasattr(child, "cget") else ()
-                options = {str(value) for value in (raw_values or ())}
-                if "Po terminie" in options and "Wkrótce" in options:
-                    schedule_filter = child
-                    break
+            toolbar_children = list(toolbar.winfo_children())
         except Exception:
-            schedule_filter = None
+            toolbar_children = []
+        for child in toolbar_children:
+            if child is location_box:
+                continue
+            try:
+                raw_values = child.cget("values")
+            except Exception:
+                continue
+            options = {str(value) for value in (raw_values or ())}
+            if "Po terminie" in options and "Wkrótce" in options:
+                schedule_filter = child
+                break
 
         def _apply_location(_event=None):
             if schedule_filter is not None:
@@ -182,7 +186,7 @@ def install(module) -> None:
                     return
                 except Exception:
                     pass
-            # Awaryjnie odśwież widok przez najbliższą zmianę wyszukiwarki.
+            # Jeśli struktura toolbara kiedyś się zmieni, filtr nie blokuje modułu.
             try:
                 tree.event_generate("<<TreeviewSelect>>")
             except Exception:
