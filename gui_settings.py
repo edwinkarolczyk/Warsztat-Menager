@@ -1,5 +1,9 @@
-# version: 1.0.5
+# version: 1.0.6
 # Moduł: gui_settings
+# Zmiany 1.0.6:
+# - Zakładki Ustawień nie pytają już o zapis przy każdym przejściu między nimi.
+# - Potwierdzenie przy zamykaniu pojawia się tylko dla rzeczywistych zmian wartości.
+# - Programowe odświeżenia pól nie ustawiają już fałszywego stanu niezapisanych zmian.
 # Zmiany 1.0.5:
 # - Naprawiono zapis ustawień Dyspozycji w osadzonym panelu: komunikaty używają istniejącego okna nadrzędnego zamiast nieistniejącego self.win.
 # Zmiany 1.0.4:
@@ -4392,17 +4396,20 @@ class SettingsPanel:
         return btn
 
     def _on_var_write(self, key: str, var: tk.Variable) -> None:
-        """Handle Tk variable updates by tracking unsaved state and cache."""
+        """Handle Tk variable updates by tracking only real user changes."""
 
-        setattr(self, "_unsaved", True)
         try:
             self.settings_state[key] = var.get()
         except Exception:
             pass
         if getattr(self, "_saving", False):
             return
-        self._mark_dirty()
-        self._status(f"Zmieniono: {key}")
+        changed = self._has_real_changes()
+        self._dirty = changed
+        self._unsaved = changed
+        if changed:
+            self._mark_save_dirty()
+            self._status(f"Zmieniono: {key}")
 
     # ------------------------------------------------------------------
     # Autosave helpers
@@ -6520,10 +6527,23 @@ class SettingsPanel:
         except Exception:
             logger.debug("[SETTINGS] Nie udało się dopisać wpisu log_akcja", exc_info=True)
 
+    def _has_real_changes(self) -> bool:
+        """Return True only when a current setting differs from its loaded value."""
+
+        for key, var in self.vars.items():
+            try:
+                current = var.get()
+            except Exception:
+                continue
+            if key not in self._initial or current != self._initial.get(key):
+                return True
+        return False
+
     def _confirm_save_changes(self, *, parent=None, allow_cancel: bool = False) -> bool:
-        dirty = getattr(self, "_dirty", False)
-        unsaved = getattr(self, "_unsaved", False)
-        if not (dirty or unsaved):
+        changed = self._has_real_changes()
+        self._dirty = changed
+        self._unsaved = changed
+        if not changed:
             return True
 
         parent = parent or self.master
@@ -6542,15 +6562,8 @@ class SettingsPanel:
         return True
 
     def _on_tab_change(self, _=None):
-        previous_tab = getattr(self, "_last_tab", None)
-        if not self._confirm_save_changes(parent=self.master, allow_cancel=True):
-            if previous_tab:
-                try:
-                    self.nb.select(previous_tab)
-                except Exception:
-                    pass
-            return
-
+        # Zmiana zakładki nie jest opuszczeniem Ustawień. Nie pytamy tu o zapis;
+        # użytkownik ma stały przycisk "Zapisz wszystko", autosave i ochronę przy zamykaniu.
         if self._magazyn_frame is not None and not self._magazyn_initialized:
             current_top = self.nb.select()
             if current_top == str(self.tab_warehouse):
