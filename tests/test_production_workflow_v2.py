@@ -1,11 +1,12 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_production_workflow_v2.py
-# version: 1.0
+# version: 1.1
 
 
 def test_gui_planowanie_is_compatibility_wrapper():
     text = open("gui_planowanie.py", encoding="utf-8").read()
-    assert "open_planista" in text
+    assert "panel_planista" in text
+    assert "open_planner" in text
     assert "Planista" in text
     assert "PlanowanieUI" not in text
 
