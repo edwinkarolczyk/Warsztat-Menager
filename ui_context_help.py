@@ -1,5 +1,5 @@
 # Plik: ui_context_help.py
-# version: 1.1
+# version: 1.1.1
 """Wspólne widgety pomocy kontekstowej i wyszukiwania dla Warsztat Menager."""
 
 from __future__ import annotations
@@ -54,8 +54,9 @@ def add_help_button(parent: tk.Misc, text: str, *, command_only: bool = False, *
     ``grid_kwargs`` są przekazywane bezpośrednio do ``grid``. Tekst powinien
     mieć maksymalnie dwa krótkie zdania.
     """
-    popup = _HelpPopup(parent, text)
-    btn = ttk.Button(parent, text="!", width=2, command=popup.show)
+    btn = ttk.Button(parent, text="!", width=2)
+    popup = _HelpPopup(btn, text)
+    btn.configure(command=popup.show)
     if not command_only:
         btn.bind("<Enter>", lambda _e: popup.show(), add="+")
         btn.bind("<Leave>", lambda _e: popup.hide(), add="+")
