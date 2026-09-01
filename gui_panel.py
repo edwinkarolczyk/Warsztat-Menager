@@ -1,6 +1,8 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.3.0
 # Plik: gui_panel.py
-# version: 1.6.18
+# version: 1.6.19
+# Zmiany 1.6.19:
+# - Dodano numer aktualnej wersji aplikacji do stałej stopki głównego panelu.
 # Zmiany 1.6.18:
 # - Tymczasowo wyłączono w GUI mechanizm „Pokaż zmiany”.
 # - Wyłączono automatyczne otwieranie changeloga po starcie panelu.
@@ -928,6 +930,11 @@ def uruchom_panel(root, login, rola):
 
     footer  = ttk.Frame(main, style="WM.TFrame");      footer.pack(side="bottom", fill="x", padx=12, pady=(6, 10))
     footer_btns = ttk.Frame(footer, style="WM.TFrame"); footer_btns.pack(side="right")
+    ttk.Label(
+        footer,
+        text=f"Warsztat Menager v{APP_VERSION}",
+        style="WM.Muted.TLabel",
+    ).pack(side="left")
 
     content = ttk.Frame(main, style="WM.Card.TFrame"); content.pack(side="top", fill="both", expand=True, padx=12, pady=6)
     setattr(root, "content", content)

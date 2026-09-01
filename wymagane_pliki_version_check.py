@@ -20,7 +20,7 @@ PYTHON_EXTENSIONS = {".py", ".pyw"}
 REQUIRED_FILES = {
     "start.py": "1.5.1",
     "gui_logowanie.py": "1.4.12.1",
-    "gui_panel.py": "1.6.17",
+    "gui_panel.py": "1.6.19",
     "layout_prosty.py": "1.4.4",
     "ustawienia_systemu.py": "1.4.8",
     "uzytkownicy.json": None,
