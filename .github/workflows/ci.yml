@@ -44,7 +44,8 @@ jobs:
             tests/test_gui_maszyny_rooms_persistence.py \
             tests/test_gui_maszyny_room_ui.py \
             tests/test_gui_maszyny_room_editor.py \
-            tests/test_gui_maszyny_usage_location.py
+            tests/test_gui_maszyny_usage_location.py \
+            tests/test_machine_review_correction_runtime.py
       - name: Run Tk hall/profile smoke under Xvfb
         run: |
           xvfb-run -a pytest -q \

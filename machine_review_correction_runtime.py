@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Bezpieczna korekta wpisów przeglądów/serwisów maszyn dla Brygadzisty.
 
 Korekta dotyka wyłącznie pól opisowych i dat wpisu serwisowego. Nie pozwala
@@ -452,7 +452,9 @@ def _safe_snapshot(entry: dict) -> dict[str, Any]:
 
 def _same_value(left: Any, right: Any) -> bool:
     if isinstance(left, list) or isinstance(right, list):
-        return _people(left) == _people(right)
+        left_people = {person.casefold() for person in _people(left)}
+        right_people = {person.casefold() for person in _people(right)}
+        return left_people == right_people
     return str(left or "") == str(right or "")
 
 

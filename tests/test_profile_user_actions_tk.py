@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 import sys
 from types import ModuleType
 import tkinter as tk
@@ -11,6 +11,52 @@ def _walk(widget):
     for child in widget.winfo_children():
         yield child
         yield from _walk(child)
+
+
+def test_selected_row_keeps_its_id_after_visual_reorder(monkeypatch):
+    class FakeTree:
+        def __init__(self):
+            self.children = ["iid-public", "iid-personal"]
+            self.selected = "iid-personal"
+
+        def get_children(self, _parent=""):
+            return tuple(self.children)
+
+        def selection(self):
+            return (self.selected,)
+
+        def index(self, iid):
+            return self.children.index(iid)
+
+    view = type("View", (), {})()
+    view._dysp_cache = [
+        {
+            "id": "DYSP-PUBLIC",
+            "status": "w_toku",
+            "termin": "2026-09-01",
+            "tytul": "Dla wszystkich",
+        },
+        {
+            "id": "DYSP-PERSONAL",
+            "status": "w_toku",
+            "termin": "2026-09-02",
+            "tytul": "Osobista",
+        },
+    ]
+    tree = FakeTree()
+    runtime._bind_tree_row_ids(view, tree)
+
+    # Warstwa Profilu przenosi osobistą Dyspozycję na pierwszą pozycję.
+    tree.children = ["iid-personal", "iid-public"]
+    monkeypatch.setattr(
+        runtime,
+        "get_dyspozycja",
+        lambda dysp_id: {"id": dysp_id, "status": "w_toku"},
+    )
+
+    selected = runtime._selected_current_row(view, tree, show_message=False)
+
+    assert selected["id"] == "DYSP-PERSONAL"
 
 
 def test_edit_profile_has_calendar_for_employment_date(monkeypatch):

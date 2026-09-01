@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Drobne akcje użytkownika w aktywnym Profilu WM.
 
 - własna edycja profilu z kalendarzem dla ``zatrudniony_od``;
@@ -263,17 +263,48 @@ def _active_rows(view: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def _bind_tree_row_ids(view: Any, tree: ttk.Treeview) -> None:
+    """Zapamiętaj ID rekordu niezależnie od późniejszej kolejności wierszy."""
+    rows = _active_rows(view)
+    try:
+        item_ids = list(tree.get_children(""))
+    except Exception:
+        item_ids = []
+    tree._wm_dysp_id_by_iid = {
+        str(iid): str(row.get("id") or "").strip()
+        for iid, row in zip(item_ids, rows)
+        if str(row.get("id") or "").strip()
+    }
+
+
 def _selected_current_row(view: Any, tree: ttk.Treeview, *, show_message: bool = True) -> dict[str, Any] | None:
     selected = tree.selection()
     if not selected:
         if show_message:
             messagebox.showinfo("Profil", "Zaznacz Dyspozycję.", parent=view.winfo_toplevel())
         return None
+    rows = _active_rows(view)
+    selected_iid = str(selected[0])
+    row_ids = getattr(tree, "_wm_dysp_id_by_iid", None)
+    if isinstance(row_ids, dict):
+        dysp_id = str(row_ids.get(selected_iid) or "").strip()
+        if not dysp_id:
+            return None
+        cached = next(
+            (row for row in rows if str(row.get("id") or "").strip() == dysp_id),
+            None,
+        )
+        current = get_dyspozycja(dysp_id)
+        if current or cached:
+            return dict(current or cached)
+        return None
+
+    # Zgodność z wywołaniami poza standardowym widokiem, które nie przeszły
+    # przez _patch_finish_button i nie mają jeszcze mapy IID -> ID.
     try:
         index = int(tree.index(selected[0]))
     except Exception:
         return None
-    rows = _active_rows(view)
     if not (0 <= index < len(rows)):
         return None
     cached = rows[index]
@@ -389,6 +420,7 @@ def _patch_finish_button(view: Any, parent: tk.Misc) -> None:
     if tree is None or finish_button is None:
         return
 
+    _bind_tree_row_ids(view, tree)
     finish_button.configure(command=lambda: _finish_selected(view, tree))
 
     def _sync_state(_event=None) -> None:
