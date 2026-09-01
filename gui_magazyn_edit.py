@@ -1,11 +1,13 @@
 # Plik: gui_magazyn_edit.py
-# version: 1.1
+# version: 1.2
+# - 1.2: automatyczne, stabilne ID pozycji oraz wspólna pomoc kontekstowa „!”.
 # - 1.1: tryb Dodaj tworzy pełną kartotekę magazynową z walidacją.
 #        Edycja istniejącej pozycji zachowuje dotychczasowy zakres pól.
 #        Dodano wejście do istniejącego dialogu przyjęcia towaru dla wybranej pozycji.
 # - 1.0: FIX: bezpieczny zapis (_safe_save) – fallback do logika_magazyn.save_magazyn,
 #        jeśli magazyn_io.save nie istnieje.
 
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -17,12 +19,40 @@ except Exception:
     HAVE_MAG_IO = False
 
 import logika_magazyn as LM
+from ui_context_help import add_help_button
 
 
 SECTION_TO_TYPE = {
     "Surowce": "surowiec",
     "Półprodukty": "półprodukt",
     "Produkty": "produkt",
+}
+
+SECTION_TO_PREFIX = {
+    "Surowce": "SUR",
+    "Półprodukty": "POL",
+    "Produkty": "PRO",
+}
+
+HELP = {
+    "id": (
+        "Unikalny numer pozycji magazynowej używany przez WM do powiązania danych. "
+        "Jest nadawany automatycznie i po zapisie nie zmienia się."
+    ),
+    "sekcja": (
+        "Określa, czy kartoteka jest surowcem, półproduktem czy produktem. "
+        "Od sekcji zależy także automatyczny prefiks ID."
+    ),
+    "nazwa": "Wpisz czytelną nazwę pozycji. Nazwa może się później zmienić bez zrywania powiązań po ID.",
+    "rozmiar": "Podaj rozmiar lub przekrój, np. fi8 albo 30×30×2. Pole ułatwia wyszukiwanie właściwego materiału.",
+    "stan": "Podaj ilość znajdującą się na magazynie w chwili tworzenia kartoteki. Kolejne przyjęcia wykonuj przez PZ, aby zachować historię ruchu.",
+    "jednostka": "Wybierz jednostkę, w której prowadzony jest stan tej pozycji. Powinna być zgodna z ilościami używanymi później w półproduktach i BOM.",
+    "lokalizacja": "Wpisz miejsce składowania, np. regał A2 lub hala 1. Dzięki temu pozycję można szybko odnaleźć fizycznie.",
+    "stan_min": "Określa poziom, poniżej którego pozycja wymaga uzupełnienia. WM może używać tej wartości do ostrzeżeń i zamówień braków.",
+    "zadania": "Wpisz czynności technologiczne rozdzielone przecinkami. Są to operacje powiązane z daną pozycją, np. cięcie, wiercenie lub szlifowanie.",
+    "save": "Zapisuje wprowadzone dane i powiązania. Przed zapisem WM sprawdza wymagane pola i poprawność liczb.",
+    "cancel": "Zamyka formularz bez zapisywania nowych zmian. Istniejące wcześniej dane pozostają bez zmian.",
+    "pz": "Otwiera przyjęcie towaru dla tej kartoteki. Używaj go do zwiększania stanu, aby zachować historię ruchów magazynowych.",
 }
 
 
@@ -74,6 +104,24 @@ def _parse_non_negative_number(value: str, field_name: str) -> float:
     return number
 
 
+def _next_item_id(items: dict, section: str) -> str:
+    """Wyznacza następne czytelne i unikalne ID bez zapisywania licznika."""
+    prefix = SECTION_TO_PREFIX.get(section, "MAG")
+    rx = re.compile(rf"^{re.escape(prefix)}[-_]?(\d+)$", re.IGNORECASE)
+    maximum = 0
+    used = {str(key).strip().casefold() for key in (items or {}).keys()}
+    for key in (items or {}).keys():
+        match = rx.match(str(key).strip())
+        if match:
+            maximum = max(maximum, int(match.group(1)))
+    number = maximum + 1
+    while True:
+        candidate = f"{prefix}-{number:03d}"
+        if candidate.casefold() not in used:
+            return candidate
+        number += 1
+
+
 def _build_new_item_payload(values: dict) -> tuple[str, dict]:
     """Waliduje formularz i zwraca (ID, rekord) nowej pozycji."""
     item_id = str(values.get("id") or "").strip()
@@ -82,7 +130,7 @@ def _build_new_item_payload(values: dict) -> tuple[str, dict]:
     section = str(values.get("sekcja") or "").strip()
 
     if not item_id:
-        raise ValueError("Podaj Kod / ID pozycji.")
+        raise ValueError("Nie udało się nadać ID pozycji.")
     if not name:
         raise ValueError("Podaj nazwę pozycji.")
     if not unit:
@@ -141,9 +189,22 @@ class MagazynEditDialog:
         self.win.grab_set()
         self.win.wait_window(self.win)
 
+    def _field(self, frm, row: int, label: str, widget, help_key: str):
+        ttk.Label(frm, text=label).grid(row=row, column=0, sticky="w", pady=3, padx=(0, 8))
+        widget.grid(row=row, column=1, sticky="ew", pady=3)
+        add_help_button(
+            frm,
+            HELP[help_key],
+            row=row,
+            column=2,
+            padx=(6, 0),
+            pady=3,
+            sticky="w",
+        )
+
     def _build_new_form(self, frm):
-        self.var_id = tk.StringVar(value="")
         self.var_section = tk.StringVar(value="Surowce")
+        self.var_id = tk.StringVar(value=_next_item_id(self.items, self.var_section.get()))
         self.var_name = tk.StringVar(value="")
         self.var_roz = tk.StringVar(value="")
         self.var_stock = tk.StringVar(value="0")
@@ -152,71 +213,95 @@ class MagazynEditDialog:
         self.var_min = tk.StringVar(value="0")
         self.var_zad = tk.StringVar(value="")
 
+        id_entry = ttk.Entry(frm, textvariable=self.var_id, width=42, state="readonly")
+        section_box = ttk.Combobox(
+            frm,
+            textvariable=self.var_section,
+            values=tuple(SECTION_TO_TYPE.keys()),
+            state="readonly",
+            width=39,
+        )
+        section_box.bind(
+            "<<ComboboxSelected>>",
+            lambda _e: self.var_id.set(_next_item_id(self.items, self.var_section.get())),
+        )
+
         fields = (
-            (0, "Kod / ID:", ttk.Entry(frm, textvariable=self.var_id, width=42)),
-            (1, "Sekcja:", ttk.Combobox(
-                frm,
-                textvariable=self.var_section,
-                values=tuple(SECTION_TO_TYPE.keys()),
-                state="readonly",
-                width=39,
-            )),
-            (2, "Nazwa:", ttk.Entry(frm, textvariable=self.var_name, width=42)),
-            (3, "Rozmiar:", ttk.Entry(frm, textvariable=self.var_roz, width=42)),
-            (4, "Stan początkowy:", ttk.Entry(frm, textvariable=self.var_stock, width=42)),
+            (0, "ID pozycji:", id_entry, "id"),
+            (1, "Sekcja:", section_box, "sekcja"),
+            (2, "Nazwa:", ttk.Entry(frm, textvariable=self.var_name, width=42), "nazwa"),
+            (3, "Rozmiar:", ttk.Entry(frm, textvariable=self.var_roz, width=42), "rozmiar"),
+            (4, "Stan początkowy:", ttk.Entry(frm, textvariable=self.var_stock, width=42), "stan"),
             (5, "Jednostka:", ttk.Combobox(
                 frm,
                 textvariable=self.var_unit,
                 values=("szt", "mb", "m", "kg", "l", "opak."),
                 width=39,
-            )),
-            (6, "Lokalizacja:", ttk.Entry(frm, textvariable=self.var_location, width=42)),
-            (7, "Stan minimalny:", ttk.Entry(frm, textvariable=self.var_min, width=42)),
-            (8, "Zadania tech. (przecinki):", ttk.Entry(frm, textvariable=self.var_zad, width=42)),
+            ), "jednostka"),
+            (6, "Lokalizacja:", ttk.Entry(frm, textvariable=self.var_location, width=42), "lokalizacja"),
+            (7, "Stan minimalny:", ttk.Entry(frm, textvariable=self.var_min, width=42), "stan_min"),
+            (8, "Zadania tech. (przecinki):", ttk.Entry(frm, textvariable=self.var_zad, width=42), "zadania"),
         )
-        for row, label, widget in fields:
-            ttk.Label(frm, text=label).grid(row=row, column=0, sticky="w", pady=3, padx=(0, 8))
-            widget.grid(row=row, column=1, sticky="ew", pady=3)
+        for row, label, widget, help_key in fields:
+            self._field(frm, row, label, widget, help_key)
 
         ttk.Label(
             frm,
             text=(
-                "Dodaj tworzy kartotekę pozycji. Kolejne przyjęcia stanu wykonuj przez "
-                "Przyjęcie towaru, żeby zachować historię ruchu."
+                "ID nadaje WM. Kolejne przyjęcia stanu wykonuj przez Przyjęcie towaru, "
+                "żeby zachować historię ruchu."
             ),
             wraplength=520,
-        ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(8, 2))
+        ).grid(row=9, column=0, columnspan=3, sticky="w", pady=(8, 2))
 
         btns = ttk.Frame(frm)
-        btns.grid(row=10, column=0, columnspan=2, pady=(10, 0), sticky="e")
-        ttk.Button(btns, text="Zapisz", command=self.on_save).pack(side="right", padx=(8, 0))
-        ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
+        btns.grid(row=10, column=0, columnspan=3, pady=(10, 0), sticky="e")
+        save_btn = ttk.Button(btns, text="Zapisz", command=self.on_save)
+        save_btn.pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["save"]).pack(side="right", padx=(3, 0))
+        cancel_btn = ttk.Button(btns, text="Anuluj", command=self.win.destroy)
+        cancel_btn.pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["cancel"]).pack(side="right", padx=(3, 0))
 
     def _build_edit_form(self, frm):
-        ttk.Label(frm, text="Rozmiar:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(frm, text="ID pozycji:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(frm, text=str(self.item_id or "")).grid(row=0, column=1, sticky="w", pady=2)
+        add_help_button(frm, HELP["id"], row=0, column=2, padx=(6, 0), pady=2, sticky="w")
+
         self.var_roz = tk.StringVar(value=str(self.item.get("rozmiar", "")))
-        ttk.Entry(frm, textvariable=self.var_roz, width=42).grid(
-            row=0, column=1, sticky="ew", pady=2
+        self._field(
+            frm,
+            1,
+            "Rozmiar:",
+            ttk.Entry(frm, textvariable=self.var_roz, width=42),
+            "rozmiar",
         )
 
-        ttk.Label(frm, text="Zadania tech. (oddziel przecinkami):").grid(
-            row=1, column=0, sticky="w", pady=2
-        )
         zad = self.item.get("zadania", [])
         if isinstance(zad, list):
             zadania_txt = ", ".join(str(z).strip() for z in zad if str(z).strip())
         else:
             zadania_txt = str(zad or "")
         self.var_zad = tk.StringVar(value=zadania_txt)
-        ttk.Entry(frm, textvariable=self.var_zad, width=42).grid(
-            row=1, column=1, sticky="ew", pady=2
+        self._field(
+            frm,
+            2,
+            "Zadania tech. (oddziel przecinkami):",
+            ttk.Entry(frm, textvariable=self.var_zad, width=42),
+            "zadania",
         )
 
         btns = ttk.Frame(frm)
-        btns.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="e")
-        ttk.Button(btns, text="Zapisz", command=self.on_save).pack(side="right", padx=(8, 0))
-        ttk.Button(btns, text="Przyjęcie towaru", command=self._open_pz).pack(side="right", padx=(8, 0))
-        ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
+        btns.grid(row=3, column=0, columnspan=3, pady=(10, 0), sticky="e")
+        save_btn = ttk.Button(btns, text="Zapisz", command=self.on_save)
+        save_btn.pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["save"]).pack(side="right", padx=(3, 0))
+        pz_btn = ttk.Button(btns, text="Przyjęcie towaru", command=self._open_pz)
+        pz_btn.pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["pz"]).pack(side="right", padx=(3, 0))
+        cancel_btn = ttk.Button(btns, text="Anuluj", command=self.win.destroy)
+        cancel_btn.pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["cancel"]).pack(side="right", padx=(3, 0))
 
     def _open_pz(self):
         if self.is_new or not self.item_id:
@@ -266,12 +351,12 @@ class MagazynEditDialog:
 
             existing = {str(key).strip().casefold() for key in self.items.keys()}
             if new_id.casefold() in existing:
-                messagebox.showerror(
-                    "Nowa pozycja",
-                    f"Pozycja o Kodzie / ID '{new_id}' już istnieje.",
-                    parent=self.win,
-                )
-                return
+                # Dane mogły zmienić się po otwarciu okna. Nadaj świeże ID zamiast
+                # zmuszać użytkownika do poprawiania technicznego identyfikatora.
+                new_id = _next_item_id(self.items, self.var_section.get())
+                self.var_id.set(new_id)
+                new_item["id"] = new_id
+                new_item["kod"] = new_id
 
             self.items[new_id] = new_item
             meta = self.data.setdefault("meta", {})
