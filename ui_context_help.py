@@ -1,6 +1,6 @@
 # Plik: ui_context_help.py
-# version: 1.0
-"""Wspólny system pomocy kontekstowej „!” dla formularzy Warsztat Menager."""
+# version: 1.1
+"""Wspólne widgety pomocy kontekstowej i wyszukiwania dla Warsztat Menager."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def add_help_button(parent: tk.Misc, text: str, *, command_only: bool = False, *
         btn.bind("<Enter>", lambda _e: popup.show(), add="+")
         btn.bind("<Leave>", lambda _e: popup.hide(), add="+")
         btn.bind("<FocusOut>", lambda _e: popup.hide(), add="+")
-    btn._wm_help_popup = popup  # utrzymuje referencję przez cały czas życia widgetu
+    btn._wm_help_popup = popup
     if grid_kwargs:
         btn.grid(**grid_kwargs)
     return btn
@@ -72,3 +72,37 @@ def bind_help(widget: tk.Misc, text: str) -> None:
     widget.bind("<Enter>", lambda _e: popup.show(), add="+")
     widget.bind("<Leave>", lambda _e: popup.hide(), add="+")
     widget._wm_help_popup = popup
+
+
+class SearchableCombobox(ttk.Combobox):
+    """Combobox, który filtruje podpowiedzi w trakcie pisania."""
+
+    def __init__(self, master=None, *, values=(), **kwargs):
+        super().__init__(master, values=values, **kwargs)
+        self._all_values = [str(value) for value in values]
+        self.bind("<KeyRelease>", self._filter_values, add="+")
+        self.bind("<FocusIn>", self._restore_values, add="+")
+
+    def set_values(self, values) -> None:
+        self._all_values = [str(value) for value in values]
+        self.configure(values=self._all_values)
+
+    def _restore_values(self, _event=None) -> None:
+        self.configure(values=self._all_values)
+
+    def _filter_values(self, event=None) -> None:
+        if event is not None and getattr(event, "keysym", "") in {
+            "Up", "Down", "Left", "Right", "Return", "Escape", "Tab"
+        }:
+            return
+        query = self.get().strip().casefold()
+        if not query:
+            matches = self._all_values
+        else:
+            matches = [value for value in self._all_values if query in value.casefold()]
+        self.configure(values=matches)
+        if matches and query:
+            try:
+                self.event_generate("<Down>")
+            except Exception:
+                pass
