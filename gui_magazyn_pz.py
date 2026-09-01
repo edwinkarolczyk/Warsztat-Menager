@@ -90,7 +90,7 @@ def _apply_pz_to_item(item: dict, qty: float) -> float:
     """Zwiększa stan pozycji o dodatnią ilość i zwraca nowy stan."""
     amount = float(qty)
     if amount <= 0:
-        raise ValueError("Ilość PZ musi być większa od zera")
+        raise ValueError("Ilość przyjęcia musi być większa od zera")
     try:
         current = float(item.get("stan", 0) or 0)
     except (TypeError, ValueError):
@@ -114,7 +114,7 @@ class PZDialog:
         self.item = self.items.get(item_id, {})
 
         self.win = tk.Toplevel(master)
-        self.win.title(f"Przyjęcie PZ: {item_id}")
+        self.win.title(f"Przyjęcie towaru: {item_id}")
         self.win.resizable(False, False)
 
         frm = ttk.Frame(self.win, padding=12)
@@ -129,7 +129,7 @@ class PZDialog:
         rows = (
             (0, "Ilość:", self.var_qty),
             (1, "Dostawca:", self.var_supplier),
-            (2, "Nr dokumentu PZ / WZ:", self.var_document),
+            (2, "Numer dokumentu:", self.var_document),
             (3, "Komentarz (opcjonalnie):", self.var_cmt),
         )
         for row, label, variable in rows:
@@ -145,7 +145,7 @@ class PZDialog:
 
         btns = ttk.Frame(frm)
         btns.grid(row=5, column=0, columnspan=2, pady=(10, 0), sticky="e")
-        ttk.Button(btns, text="Zapisz PZ", command=self.on_save).pack(side="right", padx=(8, 0))
+        ttk.Button(btns, text="Zapisz przyjęcie", command=self.on_save).pack(side="right", padx=(8, 0))
         ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
 
         frm.columnconfigure(1, weight=1)
@@ -156,10 +156,10 @@ class PZDialog:
     def _reauth(self):
         if not _require_reauth(self.cfg):
             return True
-        login = simpledialog.askstring("Re-autoryzacja", "Login:", parent=self.win)
+        login = simpledialog.askstring("Ponowna autoryzacja", "Login:", parent=self.win)
         if login is None:
             return False
-        pin = simpledialog.askstring("Re-autoryzacja", "PIN:", show="*", parent=self.win)
+        pin = simpledialog.askstring("Ponowna autoryzacja", "PIN:", show="*", parent=self.win)
         if pin is None:
             return False
         try:
@@ -192,7 +192,11 @@ class PZDialog:
 
     def on_save(self):
         if not self.item:
-            messagebox.showerror("PZ", "Wybrana pozycja nie istnieje w Magazynie.", parent=self.win)
+            messagebox.showerror(
+                "Przyjęcie towaru",
+                "Wybrana pozycja nie istnieje w Magazynie.",
+                parent=self.win,
+            )
             return
         if not self._reauth():
             return
@@ -217,7 +221,7 @@ class PZDialog:
         try:
             _apply_pz_to_item(self.item, qty)
         except ValueError as exc:
-            messagebox.showerror("PZ", str(exc), parent=self.win)
+            messagebox.showerror("Przyjęcie towaru", str(exc), parent=self.win)
             return
 
         if hasattr(LM, "append_history"):
