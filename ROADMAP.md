@@ -1,6 +1,6 @@
 # ROADMAP — Warsztat Menager
 
-> **Aktualizacja:** 2026-08-31  
+> **Aktualizacja:** 2026-09-01  
 > **Gałąź robocza:** `Rozwiniecie`  
 > **Cel bieżący:** stabilizacja WM + dopięcie rzeczy wynikających z codziennego użycia programu.  
 > **Zasada:** najpierw rdzeń, spójność danych i niezawodność; dopiero potem nowe duże funkcje.
@@ -199,6 +199,24 @@ WM posiada już centralny mechanizm konfiguracji (`ConfigManager`), schemat usta
 
 **Sugestia implementacyjna:** pierwsza wersja powinna być prosta — centralny plik/słownik lokalizacji w ROOT, stabilne ID, lista w Ustawieniach i readonly Combobox w edycji maszyny. Nie łączyć od razu z mapą hali; mapę dopiąć dopiero po ustabilizowaniu słownika.
 
+### 5.1B Edytor Maszyn — widok uproszczony / zaawansowany per użytkownik
+
+**Cel:** ograniczyć ilość informacji pokazywanych jednocześnie bez usuwania funkcji z edytora Maszyn.
+
+- 🔴 dodać na dole edytora przełącznik **„Widok uproszczony / Widok zaawansowany”**
+- 🔴 **Widok uproszczony** pokazuje przede wszystkim najczęściej używane dane i akcje: numer/nazwa maszyny, status, lokalizacja, zdjęcie, najbliższy przegląd/awarię, podstawowe dane oraz główne przyciski zapisu/akcji
+- 🔴 **Widok zaawansowany** udostępnia pełny obecny zakres danych: szczegóły techniczne, pełne dane serwisowe, historię, dokumentację i pozostałe pola
+- 🔴 oba tryby korzystają z **jednego edytora i jednej logiki zapisu**; nie tworzyć dwóch niezależnych formularzy ani dwóch modeli danych
+- 🔴 po zmianie trybu pokazać użytkownikowi potwierdzenie, czy zapisać nowy widok jako jego domyślny
+- 🔴 wybór zapisywać **per zalogowany użytkownik**, powiązany z jego profilem/loginem, a nie globalnie dla komputera lub całego WM
+- 🔴 po ponownym zalogowaniu/otwarciu edytora automatycznie użyć ostatnio zapisanego trybu danej osoby
+- 🔴 brak zapisanej preferencji → bezpieczny domyślny tryb ustalony centralnie; nie nadpisywać profilu bez decyzji użytkownika
+- 🔴 w interfejsie stale pokazywać aktualny tryb, np. `Widok: Uproszczony`, aby użytkownik wiedział, dlaczego część pól jest ukryta
+- 🔴 preferencję trzymać w istniejącym modelu profilu użytkownika, np. `ui_preferences.machines_editor_view = simple|advanced`, zamiast tworzyć osobny lokalny plik ustawień
+- 🔴 dodać testy regresyjne: zapis trybu użytkownika A nie zmienia trybu użytkownika B; ponowne otwarcie przywraca zapisaną preferencję; oba tryby zapisują te same dane maszyny
+
+**DoD:** każdy użytkownik może pracować w wygodnym dla siebie widoku Maszyn, a przełączanie widoku nie zmienia logiki biznesowej ani danych maszyny.
+
 ## 5.2 Przeglądy
 
 - ✅ konfiguracja przeglądów została uproszczona w kodzie
@@ -346,6 +364,7 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 - zadania Narzędzi z Dyspozycji
 - stabilność powiązań Narzędzie ↔ Dyspozycja
 - lokalizacje Maszyn
+- widok uproszczony / zaawansowany edytora Maszyn zapisywany per użytkownik
 - przeglądy i historię serwisową
 - elektroniczną kartę maszyny
 - kreator zaległych przeglądów
