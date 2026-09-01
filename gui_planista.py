@@ -1,12 +1,17 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - termin zlecenia wybierany z kalendarza zamiast ręcznego wpisywania;
+# - pole terminu jest tylko do odczytu i ma zielone oznaczenie;
+# - użytkownik widzi DD-MM-RR, a do danych nadal trafia YYYY-MM-DD.
 # Zmiany 1.1:
 # - dodano małe zlecenie warsztatowe A5 z podglądem w przeglądarce;
 # - wydruk zawiera półprodukty: potrzeba / z magazynu / do wykonania i operacje.
 
 from __future__ import annotations
 
+import calendar
 import html
 import os
 import tempfile
@@ -25,6 +30,112 @@ def _fmt_qty(value):
     except Exception:
         return str(value or "")
     return str(int(number)) if number.is_integer() else f"{number:.3f}".rstrip("0").rstrip(".")
+
+
+def _display_date(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d-%m-%y", "%d-%m-%Y"):
+        try:
+            return __import__("datetime").datetime.strptime(raw, fmt).strftime("%d-%m-%y")
+        except ValueError:
+            continue
+    return raw
+
+
+def _iso_date(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%d-%m-%y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return __import__("datetime").datetime.strptime(raw, fmt).date().isoformat()
+        except ValueError:
+            continue
+    raise ValueError("Termin musi być wybrany z kalendarza.")
+
+
+def _open_date_calendar(parent, variable):
+    try:
+        initial_iso = _iso_date(variable.get())
+        initial = date.fromisoformat(initial_iso) if initial_iso else date.today()
+    except Exception:
+        initial = date.today()
+
+    picker = tk.Toplevel(parent)
+    picker.title("Wybierz termin")
+    picker.resizable(False, False)
+    picker.transient(parent)
+    picker.grab_set()
+
+    state = {"year": initial.year, "month": initial.month}
+    month_names = [
+        "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+        "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
+    ]
+
+    top = ttk.Frame(picker, padding=(10, 10, 10, 4))
+    top.pack(fill="x")
+    title_var = tk.StringVar()
+    body = ttk.Frame(picker, padding=(10, 4, 10, 10))
+    body.pack(fill="both", expand=True)
+
+    def close_picker():
+        try:
+            picker.grab_release()
+        except Exception:
+            pass
+        picker.destroy()
+        try:
+            parent.grab_set()
+        except Exception:
+            pass
+
+    def pick_day(day):
+        chosen = date(state["year"], state["month"], int(day))
+        variable.set(chosen.strftime("%d-%m-%y"))
+        close_picker()
+
+    def render_month():
+        for child in body.winfo_children():
+            child.destroy()
+        title_var.set(f"{month_names[state['month'] - 1]} {state['year']}")
+        for col, label in enumerate(("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")):
+            ttk.Label(body, text=label, width=4, anchor="center").grid(
+                row=0, column=col, padx=1, pady=(0, 4)
+            )
+        for row_idx, week in enumerate(
+            calendar.monthcalendar(state["year"], state["month"]), start=1
+        ):
+            for col_idx, day in enumerate(week):
+                if day == 0:
+                    ttk.Label(body, text="", width=4).grid(row=row_idx, column=col_idx)
+                    continue
+                ttk.Button(
+                    body,
+                    text=str(day),
+                    width=4,
+                    command=lambda d=day: pick_day(d),
+                ).grid(row=row_idx, column=col_idx, padx=1, pady=1)
+
+    def move_month(delta):
+        month = state["month"] + int(delta)
+        year = state["year"]
+        if month < 1:
+            month = 12
+            year -= 1
+        elif month > 12:
+            month = 1
+            year += 1
+        state["year"], state["month"] = year, month
+        render_month()
+
+    ttk.Button(top, text="◀", width=3, command=lambda: move_month(-1)).pack(side="left")
+    ttk.Label(top, textvariable=title_var, width=20, anchor="center").pack(side="left", padx=8)
+    ttk.Button(top, text="▶", width=3, command=lambda: move_month(1)).pack(side="left")
+    picker.protocol("WM_DELETE_WINDOW", close_picker)
+    render_month()
 
 
 def _work_order_html(order):
@@ -133,23 +244,54 @@ class PlanistaWindow:
             qty, done = float(order.get("ilosc", 0) or 0), float(order.get("wykonano", 0) or 0)
             left = max(0.0, qty - min(qty, done))
             self._orders[oid] = order
-            self.tree.insert("", "end", iid=oid, values=(oid, order.get("produkt", ""), _fmt_qty(qty), _fmt_qty(done), _fmt_qty(left), order.get("termin", ""), order.get("status", "")))
+            self.tree.insert("", "end", iid=oid, values=(oid, order.get("produkt", ""), _fmt_qty(qty), _fmt_qty(done), _fmt_qty(left), _display_date(order.get("termin", "")), order.get("status", "")))
 
     def edit_term(self):
         order = self._selected()
         if not order:
-            messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self.win); return
-        dlg = tk.Toplevel(self.win); dlg.title("Termin zlecenia"); dlg.transient(self.win); dlg.grab_set()
-        frm = ttk.Frame(dlg, padding=12); frm.pack(fill="both", expand=True)
-        ttk.Label(frm, text=f"Zlecenie: {order.get('id')} | Produkt: {order.get('produkt')}").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
-        ttk.Label(frm, text="Termin (YYYY-MM-DD):").grid(row=1, column=0, sticky="w")
-        var = tk.StringVar(value=str(order.get("termin") or date.today().isoformat()))
-        ent = ttk.Entry(frm, textvariable=var, width=20); ent.grid(row=1, column=1, sticky="ew", padx=(8, 0)); ent.focus_set()
+            messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self.win)
+            return
+        dlg = tk.Toplevel(self.win)
+        dlg.title("Termin zlecenia")
+        dlg.transient(self.win)
+        dlg.grab_set()
+        frm = ttk.Frame(dlg, padding=12)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text=f"Zlecenie: {order.get('id')} | Produkt: {order.get('produkt')}").grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Label(frm, text="Termin:").grid(row=1, column=0, sticky="w")
+        var = tk.StringVar(value=_display_date(order.get("termin")) or date.today().strftime("%d-%m-%y"))
+        ent = tk.Entry(
+            frm,
+            textvariable=var,
+            width=16,
+            state="readonly",
+            readonlybackground="#2e7d32",
+            fg="white",
+            relief="solid",
+            bd=1,
+            justify="center",
+        )
+        ent.grid(row=1, column=1, sticky="w", padx=(8, 0))
+        ttk.Button(
+            frm,
+            text="📅 Kalendarz",
+            command=lambda: _open_date_calendar(dlg, var),
+        ).grid(row=1, column=2, sticky="w", padx=(8, 0))
+
         def save():
-            try: ZL.update_zlecenie(order["id"], termin=var.get().strip(), kto=self.login or "system")
-            except Exception as exc: messagebox.showerror("Planista", str(exc), parent=dlg); return
-            dlg.destroy(); self.refresh()
-        ttk.Button(frm, text="Zapisz", command=save).grid(row=2, column=1, sticky="e", pady=(10, 0))
+            try:
+                ZL.update_zlecenie(
+                    order["id"],
+                    termin=_iso_date(var.get()),
+                    kto=self.login or "system",
+                )
+            except Exception as exc:
+                messagebox.showerror("Planista", str(exc), parent=dlg)
+                return
+            dlg.destroy()
+            self.refresh()
+
+        ttk.Button(frm, text="Zapisz", command=save).grid(row=2, column=2, sticky="e", pady=(10, 0))
 
     def report_done(self):
         order = self._selected()
