@@ -1,11 +1,95 @@
-# version: 1.2
+# version: 1.3
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
 # 1.2: blokada działa dla instancji panelu, więc nowy ekran Magazynu dostaje własny toolbar.
+# 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
 
 from functools import wraps
 from tkinter import messagebox, ttk
+
+
+def _generated_raw_name(kind, size):
+    kind = str(kind or "").strip()
+    size = str(size or "").strip()
+    return f"{kind} - {size}" if kind and size else kind or size
+
+
+def _catalog_raw_materials_only(model):
+    """Źródłem listy surowców Planisty jest wyłącznie zakładka Surowce."""
+    out = {}
+    for key, rec in getattr(model, "surowce", {}).items():
+        if not isinstance(rec, dict):
+            continue
+        item_id = str(rec.get("id") or rec.get("kod") or key).strip()
+        if item_id:
+            out[item_id] = {**rec, "id": item_id, "kod": item_id}
+    return out
+
+
+def _install_planista_raw_material_fix():
+    """Instaluje małą poprawkę zgodności bez zmiany formatu zapisanych JSON-ów."""
+    try:
+        import gui_magazyn_bom as gb
+    except Exception:
+        return
+
+    model_cls = getattr(gb, "WarehouseModel", None)
+    view_cls = getattr(gb, "MagazynBOM", None)
+    if model_cls is None or view_cls is None or getattr(view_cls, "_wm_raw_catalog_fix", False):
+        return
+
+    def inventory_raw_materials(self):
+        return _catalog_raw_materials_only(self)
+
+    model_cls.inventory_raw_materials = inventory_raw_materials
+
+    original_build_surowce = view_cls._build_surowce
+    original_save_surowiec = view_cls._save_surowiec
+
+    @wraps(original_build_surowce)
+    def build_surowce(self, parent):
+        result = original_build_surowce(self, parent)
+        # Pole „Nazwa” nie jest już edytowane ręcznie. Zostawiamy zmienną
+        # w modelu dla zgodności danych, ale usuwamy cały pierwszy wiersz z UI.
+        for child in parent.winfo_children():
+            try:
+                is_card = isinstance(child, ttk.LabelFrame) and child.cget("text") == "Karta surowca"
+            except Exception:
+                is_card = False
+            if not is_card:
+                continue
+            for widget in child.grid_slaves(row=0):
+                widget.destroy()
+            break
+        return result
+
+    @wraps(original_save_surowiec)
+    def save_surowiec(self):
+        kind = self.s_vars["rodzaj"].get().strip()
+        size = self.s_vars["rozmiar"].get().strip()
+        if not kind or not size:
+            gb._msg_error(self, "Surowce", "Wymagane pola: rodzaj i wymiar surowca.")
+            return
+        self.s_vars["nazwa"].set(_generated_raw_name(kind, size))
+        return original_save_surowiec(self)
+
+    def raw_display(self, item_id, rec):
+        name = str(rec.get("nazwa") or "").strip()
+        if not name:
+            kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
+            size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
+            name = _generated_raw_name(kind, size) or str(item_id)
+        return f"{name}  [{item_id}]"
+
+    view_cls._build_surowce = build_surowce
+    view_cls._save_surowiec = save_surowiec
+    view_cls._raw_display = raw_display
+    view_cls._wm_raw_catalog_fix = True
+
+
+_install_planista_raw_material_fix()
+
 
 def _open_selected_pz(owner):
     try:
