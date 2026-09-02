@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_versions_runtime.py
-# version: 1.1
+# version: 1.2
 """Wersja i rewizja produktu bez utraty wcześniejszej definicji BOM."""
 from __future__ import annotations
 
@@ -25,6 +25,39 @@ def _suggest_next_version(value: str) -> str:
     return f"{major}.{minor + 1}"
 
 
+def _bom_signature(record: dict) -> tuple:
+    """Kanoniczny podpis składu; kolejność wierszy nie wpływa na porównanie."""
+    import gui_magazyn_bom as GMB
+
+    rows = []
+    for item in GMB._product_bom(record or {}):
+        code = str(item.get("kod") or "").strip()
+        try:
+            qty = round(float(item.get("ilosc_na_sztuke", 0) or 0), 9)
+        except Exception:
+            qty = 0.0
+        if code:
+            rows.append((code, qty))
+    return tuple(sorted(rows))
+
+
+def _orders_using_version(symbol: str, version: str) -> list[str]:
+    """Zwraca zlecenia, które wymagają niezmiennego BOM wskazanej wersji."""
+    import zlecenia_logika as ZL
+
+    refs = []
+    for order in ZL.list_zlecenia():
+        if str(order.get("produkt") or "") != str(symbol):
+            continue
+        order_version = str(order.get("version") or "").strip()
+        # Stare zlecenia bez pola version traktujemy zachowawczo jako zależne
+        # od wersji, która była aktywna w chwili migracji.
+        if order_version and order_version != str(version):
+            continue
+        refs.append(str(order.get("id") or "?"))
+    return refs
+
+
 def install_planista_versions_runtime() -> None:
     import gui_magazyn_bom as GMB
 
@@ -41,6 +74,14 @@ def install_planista_versions_runtime() -> None:
             rec["is_default"] = True
             if isinstance(current, dict):
                 old_version = str(current.get("version") or "1.0").strip() or "1.0"
+                if old_version == new_version and _bom_signature(current) != _bom_signature(rec):
+                    refs = _orders_using_version(symbol, old_version)
+                    if refs:
+                        raise ValueError(
+                            f"Nie można zmienić BOM wersji {old_version}, ponieważ używają jej zlecenia: "
+                            + ", ".join(refs[:8])
+                            + ". Użyj przycisku „Nowa wersja”."
+                        )
                 if old_version != new_version:
                     existing_archive = self.prd_dir / _archive_name(symbol, new_version)
                     if existing_archive.exists():
@@ -169,7 +210,7 @@ def install_planista_versions_runtime() -> None:
         self._help(form, 2, "Numer wersji produktu, np. 1.0 lub 2.0. Zmiana wersji zachowuje poprzednią definicję BOM dla istniejących zleceń.")
         ttk.Label(form, text="Rewizja składu").grid(row=3, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.pr_vars["revision"], width=16).grid(row=3, column=1, sticky="w", padx=4, pady=2)
-        self._help(form, 3, "Rewizja oznacza kolejną zmianę składu w tej samej wersji. Zwiększ ją, gdy zmieniasz BOM bez tworzenia nowej wersji produktu.")
+        self._help(form, 3, "Rewizja opisuje kolejną korektę składu w obrębie wersji. Gdy wersja została już użyta w zleceniu, zmiana jej BOM wymaga użycia „Nowa wersja”, aby nie zmienić historycznego zlecenia.")
         bar = next((child for child in parent.winfo_children() if isinstance(child, ttk.Frame)), None)
         if bar is not None:
             ttk.Button(bar, text="Nowa wersja", command=prepare_new_version.__get__(self, UI)).pack(side="left", padx=(6, 0))
@@ -184,4 +225,10 @@ def install_planista_versions_runtime() -> None:
     UI._wm_versions = True
 
 
-__all__ = ["install_planista_versions_runtime", "_archive_name", "_suggest_next_version"]
+__all__ = [
+    "install_planista_versions_runtime",
+    "_archive_name",
+    "_suggest_next_version",
+    "_bom_signature",
+    "_orders_using_version",
+]
