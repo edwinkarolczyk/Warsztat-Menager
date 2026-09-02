@@ -1,11 +1,13 @@
 # WM-VERSION: 0.1
 # Plik: planista_stock_runtime.py
-# version: 1.0
+# version: 1.1
+# 1.1: bezpieczne, transakcyjne usuwanie definicji i pustej karty Magazynu.
 """Jedno źródło stanu surowców: Magazyn; Planista przechowuje definicję."""
 
 from __future__ import annotations
 
 import json
+import copy
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
@@ -206,6 +208,53 @@ def physical_raw_states() -> dict[str, dict]:
     return out
 
 
+def _delete_linked_raw_card(code: str, delete_definition):
+    """Usuń definicję i pustą kartę Magazynu albo przywróć oba źródła."""
+    code = str(code or "").strip()
+    LM, data, items = _physical_items()
+    item = items.get(code)
+    linked = isinstance(item, dict) and bool(item.get("powiazanie_planista"))
+    if linked:
+        stock = max(0.0, _num(item.get("stan", 0)))
+        reserved = max(0.0, _num(item.get("rezerwacje", 0)))
+        if stock > 0 or reserved > 0:
+            raise ValueError(
+                "Nie można usunąć surowca, ponieważ jego karta Magazynu "
+                f"ma stan {_fmt_num(stock)} lub rezerwacje {_fmt_num(reserved)}. "
+                "Najpierw rozlicz stan i rezerwacje w Magazynie."
+            )
+
+    definitions_path = _raw_file()
+    definitions_existed = definitions_path.exists()
+    definitions_snapshot = (
+        definitions_path.read_bytes() if definitions_existed else b""
+    )
+    warehouse_snapshot = copy.deepcopy(data)
+    try:
+        result = delete_definition()
+        if linked:
+            items.pop(code, None)
+            data["items"] = items
+            if isinstance(data.get("pozycje"), dict):
+                data["pozycje"] = items
+            LM.save_magazyn(data)
+        return result
+    except Exception:
+        try:
+            if definitions_existed:
+                definitions_path.parent.mkdir(parents=True, exist_ok=True)
+                definitions_path.write_bytes(definitions_snapshot)
+            elif definitions_path.exists():
+                definitions_path.unlink()
+        except Exception:
+            pass
+        try:
+            LM.save_magazyn(warehouse_snapshot)
+        except Exception:
+            pass
+        raise
+
+
 def _stock_view(code: str, definition: dict, states: dict[str, dict] | None = None) -> dict:
     states = states if states is not None else physical_raw_states()
     item = states.get(str(code)) if isinstance(states, dict) else None
@@ -245,6 +294,7 @@ def _install_model_link() -> None:
 
     old_init = Model.__init__
     old_add_raw = Model.add_or_update_surowiec
+    old_delete_raw = Model.delete_surowiec
 
     def init_with_stock_link(self, *args, **kwargs):
         old_init(self, *args, **kwargs)
@@ -268,8 +318,15 @@ def _install_model_link() -> None:
     def warehouse_raw_states(self):
         return physical_raw_states()
 
+    def delete_raw_definition(self, code):
+        return _delete_linked_raw_card(
+            code,
+            lambda: old_delete_raw(self, code),
+        )
+
     Model.__init__ = init_with_stock_link
     Model.add_or_update_surowiec = add_raw_definition
+    Model.delete_surowiec = delete_raw_definition
     Model.warehouse_raw_states = warehouse_raw_states
     Model._wm_physical_stock_link = True
 
