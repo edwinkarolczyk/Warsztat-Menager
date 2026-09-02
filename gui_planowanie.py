@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.3
+# version: 2.4
+# Zmiany 2.4:
+# - dodano obsługę wersji i rewizji produktu z archiwizacją poprzedniej wersji.
 # Zmiany 2.3:
 # - dodano rollback magazynu dla wieloetapowego przeliczania i rozliczania zleceń.
 # Zmiany 2.2:
@@ -18,6 +20,7 @@ import sys
 from gui_planista_panel import panel_planista
 from planista_safety_runtime import install_planista_safety_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
+from planista_versions_runtime import install_planista_versions_runtime
 
 
 def _rename_in_list(modules):
@@ -45,11 +48,13 @@ def _rename_sidebar_entry():
 _rename_sidebar_entry()
 install_planista_safety_runtime()
 install_planista_transaction_runtime()
+install_planista_versions_runtime()
 
 
 def _install_planista_runtime():
     install_planista_safety_runtime()
     install_planista_transaction_runtime()
+    install_planista_versions_runtime()
 
 
 def panel_planowanie(root, frame, login=None, rola=None):
