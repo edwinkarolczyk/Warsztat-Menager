@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_versions_runtime.py
-# version: 1.0
+# version: 1.1
 """Wersja i rewizja produktu bez utraty wcześniejszej definicji BOM."""
 from __future__ import annotations
 
@@ -42,6 +42,12 @@ def install_planista_versions_runtime() -> None:
             if isinstance(current, dict):
                 old_version = str(current.get("version") or "1.0").strip() or "1.0"
                 if old_version != new_version:
+                    existing_archive = self.prd_dir / _archive_name(symbol, new_version)
+                    if existing_archive.exists():
+                        raise ValueError(
+                            f"Wersja {new_version} produktu {symbol} już istnieje w archiwum. "
+                            "Podaj inny numer wersji."
+                        )
                     archived = dict(current)
                     archived["version"] = old_version
                     archived["is_default"] = False
@@ -64,13 +70,15 @@ def install_planista_versions_runtime() -> None:
     def new_product(self):
         old_new(self)
         if hasattr(self, "pr_vars"):
-            self.pr_vars.get("version", tk.StringVar()).set("1.0")
-            self.pr_vars.get("revision", tk.StringVar()).set("1")
+            if "version" in self.pr_vars:
+                self.pr_vars["version"].set("1.0")
+            if "revision" in self.pr_vars:
+                self.pr_vars["revision"].set("1")
 
     def select_product(self, event=None):
         old_select(self, event)
         sel = self.tree_pr.selection()
-        if not sel or not hasattr(self, "pr_vars"):
+        if not sel or not hasattr(self, "pr_vars") or "version" not in self.pr_vars:
             return
         symbol = str(self.tree_pr.item(sel[0], "values")[0])
         rec = self.model.produkty.get(symbol, {})
@@ -102,7 +110,11 @@ def install_planista_versions_runtime() -> None:
             "is_default": True,
             "BOM": [dict(row) for row in self._product_bom_rows],
         }
-        self.model.add_or_update_produkt(rec)
+        try:
+            self.model.add_or_update_produkt(rec)
+        except ValueError as exc:
+            GMB._msg_error(self, "Produkty", str(exc))
+            return
         self._load_produkty()
         new_product(self)
 
@@ -124,6 +136,10 @@ def install_planista_versions_runtime() -> None:
         if not value or value == current:
             GMB._msg_error(self, "Produkty", "Nowa wersja musi różnić się od obecnej.")
             return
+        archive = self.model.prd_dir / _archive_name(symbol, value)
+        if archive.exists():
+            GMB._msg_error(self, "Produkty", f"Wersja {value} już istnieje. Podaj inny numer.")
+            return
         self.pr_vars["version"].set(value)
         self.pr_vars["revision"].set("1")
 
@@ -139,8 +155,8 @@ def install_planista_versions_runtime() -> None:
                 continue
         if form is None:
             return
-        self.pr_vars.setdefault("version", tk.StringVar(value="1.0"))
-        self.pr_vars.setdefault("revision", tk.StringVar(value="1"))
+        self.pr_vars.setdefault("version", tk.StringVar(master=self, value="1.0"))
+        self.pr_vars.setdefault("revision", tk.StringVar(master=self, value="1"))
         for child in form.winfo_children():
             try:
                 if isinstance(child, ttk.LabelFrame) and str(child.cget("text")) == "Półprodukty w produkcie":
