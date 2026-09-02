@@ -1,10 +1,11 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_safety_runtime.py
-# version: 1.1
+# version: 1.2
 
 from pathlib import Path
 
 import logika_magazyn as LM
+import planista_audit_runtime as PAR
 import planista_safety_runtime as PSR
 import planista_transaction_runtime as PTR
 from planista_versions_runtime import _archive_name, _suggest_next_version
@@ -48,12 +49,35 @@ def test_warehouse_restore_writes_snapshot(monkeypatch):
     assert calls[0][1]["items"]["SUR-1"]["stan"] == 123
 
 
+def test_audit_snapshot_never_merges_external_catalogs(monkeypatch):
+    calls = []
+
+    def fake_load(*, include_external=True):
+        calls.append(include_external)
+        return {"items": {}}
+
+    monkeypatch.setattr(LM, "load_magazyn", fake_load)
+    assert PAR._canonical_warehouse_snapshot() == {"items": {}}
+    assert calls == [False]
+
+
+def test_file_snapshot_restores_previous_bytes(tmp_path):
+    path = tmp_path / "order.json"
+    path.write_bytes(b"old")
+    snapshot = PAR._file_snapshot(path)
+    path.write_bytes(b"new")
+    PAR._restore_file(path, snapshot)
+    assert path.read_bytes() == b"old"
+
+
 def test_gui_planowanie_installs_all_planista_runtime_layers():
     text = Path("gui_planowanie.py").read_text(encoding="utf-8")
     assert "install_planista_safety_runtime" in text
     assert "install_planista_transaction_runtime" in text
     assert "install_planista_versions_runtime" in text
     assert "install_planista_operations_runtime" in text
+    assert "install_planista_audit_runtime" in text
+    assert "install_planista_editor_runtime" in text
     assert "_runtime_ready" in text
 
 
@@ -63,3 +87,20 @@ def test_operations_dictionary_is_a_planista_catalog():
     assert 'operacje_technologiczne.json' in text
     assert "_used_operations" in text
     assert "Nie można usunąć operacji używanej przez półprodukt" in text
+
+
+def test_planista_editor_exposes_requested_actions():
+    text = Path("planista_editor_runtime.py").read_text(encoding="utf-8")
+    assert 'text="Dodaj zlecenie"' in text
+    assert 'text="Edytuj zlecenie"' in text
+    assert 'text="Zapisz zmianę"' in text
+    assert "_edit_operation" in text
+    assert "_edit_raw_kind" in text
+
+
+def test_audit_runtime_skips_archived_products_and_uses_full_transaction():
+    text = Path("planista_audit_runtime.py").read_text(encoding="utf-8")
+    assert 'include_external=False' in text
+    assert '"__v" in pth.stem' in text
+    assert "_wm_full_transaction" in text
+    assert "_refresh_model_from_disk" in text
