@@ -1,4 +1,6 @@
-# version: 1.1
+# version: 1.2
+# Zmiany 1.2:
+# - Dane maszyn są zawsze rozwiązywane względem aktywnego DATA_ROOT, a nie CWD programu.
 # Zmiany 1.1:
 # - Domyślny rok harmonogramu jest pobierany z bieżącej daty zamiast stałego 2025.
 """Narzędzia wspólne dla modułu maszyn."""
@@ -24,12 +26,37 @@ from utils_json import (
 _r = _safe_read_json
 _w = _safe_write_json
 
+# Zachowane dla kompatybilności z kodem, który może importować te nazwy.
+# Aktywne operacje I/O używają _machine_data_paths(), aby nie wiązać ścieżek
+# z katalogiem roboczym ani z momentem importu modułu.
 PRIMARY_DATA = os.path.join("data", "maszyny", "maszyny.json")
 LEGACY_DATA = os.path.join("data", "maszyny.json")
 PLACEHOLDER_PATH = os.path.join("grafiki", "machine_placeholder.png")
 
 SOURCE_MODES = ("auto", "primary", "legacy")
 DEFAULT_SOURCE = os.environ.get("WM_MACHINES_SOURCE", "auto").strip().lower()
+
+
+def _machine_data_paths() -> tuple[str, str]:
+    """Zwróć kanoniczne ścieżki maszyn dla aktualnego DATA_ROOT."""
+
+    try:
+        from core import root_paths as wm_root_paths
+
+        primary = wm_root_paths.path_machines()
+        legacy = wm_root_paths.get_data_root() / "maszyny.json"
+        return str(primary), str(legacy)
+    except Exception:
+        data_root = str(os.environ.get("WM_DATA_ROOT") or "").strip()
+        if data_root:
+            return (
+                os.path.join(data_root, "maszyny", "maszyny.json"),
+                os.path.join(data_root, "maszyny.json"),
+            )
+        return (
+            resolve_root_path("<root>", PRIMARY_DATA),
+            resolve_root_path("<root>", LEGACY_DATA),
+        )
 
 
 def _normalize_machine_id(value: object) -> str:
@@ -197,8 +224,9 @@ def _pick_source(
     if choice not in SOURCE_MODES:
         choice = "auto"
 
-    primary_rows = primary_rows if primary_rows is not None else _load_json_file(PRIMARY_DATA)
-    legacy_rows = legacy_rows if legacy_rows is not None else _load_json_file(LEGACY_DATA)
+    primary_path, legacy_path = _machine_data_paths()
+    primary_rows = primary_rows if primary_rows is not None else _load_json_file(primary_path)
+    legacy_rows = legacy_rows if legacy_rows is not None else _load_json_file(legacy_path)
     count_primary, count_legacy = len(primary_rows), len(legacy_rows)
 
     if choice == "legacy":
@@ -211,18 +239,18 @@ def _pick_source(
         else:
             print(
                 "[WM][Maszyny] source=LEGACY "
-                f"file={os.path.abspath(LEGACY_DATA)} "
+                f"file={os.path.abspath(legacy_path)} "
                 f"cnt={count_legacy} ids[{_ids_preview(legacy_rows)}]"
             )
-            return sort_machines(legacy_rows), "legacy", LEGACY_DATA
+            return sort_machines(legacy_rows), "legacy", legacy_path
 
     if choice == "primary":
         print(
             "[WM][Maszyny] source=PRIMARY "
-            f"file={os.path.abspath(PRIMARY_DATA)} "
+            f"file={os.path.abspath(primary_path)} "
             f"cnt={count_primary} ids[{_ids_preview(primary_rows)}]"
         )
-        return sort_machines(primary_rows), "primary", PRIMARY_DATA
+        return sort_machines(primary_rows), "primary", primary_path
 
     if count_primary and count_legacy:
         merged = _merge_unique(primary_rows, legacy_rows)
@@ -231,29 +259,29 @@ def _pick_source(
             f"primary={count_primary} legacy={count_legacy} "
             f"ids[{_ids_preview(merged)}]"
         )
-        return merged, "auto", f"{PRIMARY_DATA}+{LEGACY_DATA}"
+        return merged, "auto", f"{primary_path}+{legacy_path}"
 
     if count_legacy:
         print(
             "[WM][Maszyny] source=AUTO→LEGACY "
-            f"file={os.path.abspath(LEGACY_DATA)} "
+            f"file={os.path.abspath(legacy_path)} "
             f"cnt={count_legacy} ids[{_ids_preview(legacy_rows)}]"
         )
-        return sort_machines(legacy_rows), "legacy", LEGACY_DATA
+        return sort_machines(legacy_rows), "legacy", legacy_path
 
     if count_primary:
         print(
             "[WM][Maszyny] source=AUTO→PRIMARY "
-            f"file={os.path.abspath(PRIMARY_DATA)} "
+            f"file={os.path.abspath(primary_path)} "
             f"cnt={count_primary} ids[{_ids_preview(primary_rows)}]"
         )
-        return sort_machines(primary_rows), "primary", PRIMARY_DATA
+        return sort_machines(primary_rows), "primary", primary_path
 
     print(
         "[WM][Maszyny] source=EMPTY (oba pliki puste lub błędne) "
-        f"primary={PRIMARY_DATA} legacy={LEGACY_DATA}"
+        f"primary={primary_path} legacy={legacy_path}"
     )
-    return [], "primary", PRIMARY_DATA
+    return [], "primary", primary_path
 
 
 def load_machines(
@@ -281,8 +309,9 @@ def load_machines(
     if choice not in SOURCE_MODES:
         choice = "auto"
 
-    primary_rows = _load_json_file(PRIMARY_DATA)
-    legacy_rows = _load_json_file(LEGACY_DATA)
+    primary_path, legacy_path = _machine_data_paths()
+    primary_rows = _load_json_file(primary_path)
+    legacy_rows = _load_json_file(legacy_path)
     count_primary, count_legacy = len(primary_rows), len(legacy_rows)
 
     selected, active_mode, _ = _pick_source(choice, primary_rows, legacy_rows)
@@ -378,7 +407,8 @@ def apply_machine_updates(machine: dict, updates: dict) -> bool:
 
 def save_machines(rows: Iterable[dict]) -> None:
     data = sort_machines(rows)
-    _save_json_file(PRIMARY_DATA, data)
+    primary_path, _ = _machine_data_paths()
+    _save_json_file(primary_path, data)
 
 
 def _fix_if_dir(path: str, expected_rel: str) -> str:
