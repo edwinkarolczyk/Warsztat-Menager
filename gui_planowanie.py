@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.5
+# version: 2.6
+# Zmiany 2.6:
+# - dodano konfigurowalny słownik operacji technologicznych Planisty.
 # Zmiany 2.5:
 # - warstwy runtime Planisty są instalowane tylko raz na proces.
 # Zmiany 2.4:
@@ -20,6 +22,7 @@ from __future__ import annotations
 import sys
 
 from gui_planista_panel import panel_planista
+from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
 from planista_versions_runtime import install_planista_versions_runtime
@@ -57,6 +60,7 @@ def _install_planista_runtime():
     install_planista_safety_runtime()
     install_planista_transaction_runtime()
     install_planista_versions_runtime()
+    install_planista_operations_runtime()
     _runtime_ready = True
 
 
