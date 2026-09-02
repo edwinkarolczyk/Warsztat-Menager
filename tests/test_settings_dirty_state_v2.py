@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 from pathlib import Path
 import ast
 
@@ -62,4 +62,4 @@ def test_failed_save_keeps_unsaved_snapshot():
 
 def test_patch_version_bumped():
     from __version__ import get_version
-    assert get_version() == "0.3.2"
+    assert get_version() == "0.4.0"
