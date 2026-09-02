@@ -34,6 +34,9 @@ jobs:
             tests/test_production_workflow_v2.py \
             tests/test_production_progress_v3.py \
             tests/test_planista_semi_progress.py
+      - name: Run DATA_ROOT integrity regressions
+        run: |
+          pytest -q tests/test_data_root_integrity.py
       - name: Compile hall and machine extension
         run: |
           python -m py_compile \
