@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.9
+# version: 3.0
+# Zmiany 3.0:
+# - Planista definiuje surowiec, a stan fizyczny, rezerwacje i lokalizacja pochodza z Magazynu.
+# - surowiec i karta Magazynu sa laczone 1:1 po ID technicznym.
 # Zmiany 2.9:
 # - dodano postęp wykonania półproduktów w zleceniu i powiązania Półprodukt -> Produkt.
 # Zmiany 2.8:
@@ -34,6 +37,7 @@ from planista_editor_runtime import install_planista_editor_runtime
 from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
 from planista_semi_progress_runtime import install_planista_semi_progress_runtime
+from planista_stock_runtime import install_planista_stock_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
 from planista_versions_runtime import install_planista_versions_runtime
 
@@ -75,6 +79,7 @@ def _install_planista_runtime():
     install_planista_editor_runtime()
     install_planista_calendar_runtime()
     install_planista_semi_progress_runtime()
+    install_planista_stock_runtime()
     _runtime_ready = True
 
 
