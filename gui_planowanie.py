@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.4
+# version: 2.5
+# Zmiany 2.5:
+# - warstwy runtime Planisty są instalowane tylko raz na proces.
 # Zmiany 2.4:
 # - dodano obsługę wersji i rewizji produktu z archiwizacją poprzedniej wersji.
 # Zmiany 2.3:
@@ -45,16 +47,21 @@ def _rename_sidebar_entry():
         pass
 
 
-_rename_sidebar_entry()
-install_planista_safety_runtime()
-install_planista_transaction_runtime()
-install_planista_versions_runtime()
+_runtime_ready = False
 
 
 def _install_planista_runtime():
+    global _runtime_ready
+    if _runtime_ready:
+        return
     install_planista_safety_runtime()
     install_planista_transaction_runtime()
     install_planista_versions_runtime()
+    _runtime_ready = True
+
+
+_rename_sidebar_entry()
+_install_planista_runtime()
 
 
 def panel_planowanie(root, frame, login=None, rola=None):
