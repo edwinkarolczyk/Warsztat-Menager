@@ -1,5 +1,5 @@
-# version: 1.0
-"""Mały guard nowego edytora Narzędzi: martwe widgety Tk i fallback zdjęć z JSON."""
+# version: 1.1
+"""Mały guard nowego edytora Narzędzi: martwe widgety Tk, media i autor informacji."""
 from __future__ import annotations
 
 from typing import Any
@@ -25,8 +25,54 @@ def _normalized_images(doc: dict[str, Any] | None) -> list[str]:
     return result
 
 
+def _logged_wm_actor() -> str:
+    """Zwróć login aktywnej sesji WM; nigdy nie używaj loginu/nazwy Windows."""
+    try:
+        import gui_panel
+
+        root = getattr(tk, "_default_root", None)
+        getter = getattr(gui_panel, "wm_get_logged_login", None)
+        if root is not None and callable(getter):
+            login = str(getter(root) or "").strip()
+            if login:
+                return login
+    except Exception:
+        pass
+
+    try:
+        from services.profile_service import ProfileService
+
+        login = str(ProfileService.ensure_active_user_or_none() or "").strip()
+        if login:
+            return login
+    except Exception:
+        pass
+
+    return "—"
+
+
+def _install_information_actor_guard() -> None:
+    """Podmień stary fallback USERNAME/USER na kanoniczną sesję Warsztat Menager."""
+    try:
+        from . import editor_header_info_runtime as _info
+    except Exception:
+        return
+    current = getattr(_info, "_actor", None)
+    if not callable(current) or getattr(current, "_wm_session_actor", False):
+        return
+
+    def _actor_from_wm_session() -> str:
+        return _logged_wm_actor()
+
+    _actor_from_wm_session._wm_session_actor = True  # type: ignore[attr-defined]
+    _actor_from_wm_session._wm_actor_original = current  # type: ignore[attr-defined]
+    _info._actor = _actor_from_wm_session
+
+
 def install_editor_media_guard_runtime() -> None:
-    """Zainstaluj wyłącznie zabezpieczenia wymagane przez nowy edytor zdjęć."""
+    """Zainstaluj zabezpieczenia nowego edytora zdjęć i autora informacji."""
+
+    _install_information_actor_guard()
 
     current_descendants = getattr(_variant, "_all_descendants", None)
     if callable(current_descendants) and not getattr(
