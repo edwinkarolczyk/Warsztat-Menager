@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_safety_runtime.py
-# version: 1.0
+# version: 1.1
 
 from pathlib import Path
 
@@ -53,4 +53,13 @@ def test_gui_planowanie_installs_all_planista_runtime_layers():
     assert "install_planista_safety_runtime" in text
     assert "install_planista_transaction_runtime" in text
     assert "install_planista_versions_runtime" in text
+    assert "install_planista_operations_runtime" in text
     assert "_runtime_ready" in text
+
+
+def test_operations_dictionary_is_a_planista_catalog():
+    text = Path("planista_operations_runtime.py").read_text(encoding="utf-8")
+    assert '"Operacje technologiczne"' in text
+    assert 'operacje_technologiczne.json' in text
+    assert "_used_operations" in text
+    assert "Nie można usunąć operacji używanej przez półprodukt" in text
