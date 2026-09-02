@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.8
+# version: 2.9
+# Zmiany 2.9:
+# - dodano postęp wykonania półproduktów w zleceniu i powiązania Półprodukt -> Produkt.
 # Zmiany 2.8:
 # - Planista korzysta ze wspolnego kalendarza WM z zielona ramka dnia dzisiejszego.
 # Zmiany 2.7:
@@ -31,6 +33,7 @@ from planista_calendar_runtime import install_planista_calendar_runtime
 from planista_editor_runtime import install_planista_editor_runtime
 from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
+from planista_semi_progress_runtime import install_planista_semi_progress_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
 from planista_versions_runtime import install_planista_versions_runtime
 
@@ -71,6 +74,7 @@ def _install_planista_runtime():
     install_planista_audit_runtime()
     install_planista_editor_runtime()
     install_planista_calendar_runtime()
+    install_planista_semi_progress_runtime()
     _runtime_ready = True
 
 
