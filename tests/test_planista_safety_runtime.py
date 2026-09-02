@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_safety_runtime.py
-# version: 1.2
+# version: 1.3
 
 from pathlib import Path
 
@@ -8,7 +8,13 @@ import logika_magazyn as LM
 import planista_audit_runtime as PAR
 import planista_safety_runtime as PSR
 import planista_transaction_runtime as PTR
-from planista_versions_runtime import _archive_name, _suggest_next_version
+import zlecenia_logika as ZL
+from planista_versions_runtime import (
+    _archive_name,
+    _bom_signature,
+    _orders_using_version,
+    _suggest_next_version,
+)
 
 
 def test_reservation_state_distinguishes_full_partial_and_missing():
@@ -34,6 +40,43 @@ def test_product_version_archive_name_and_suggestion_are_stable():
     assert _archive_name("1.775/250", "1.0") == "1.775_250__v1.0.json"
     assert _suggest_next_version("1.0") == "1.1"
     assert _suggest_next_version("2.7") == "2.8"
+
+
+def test_bom_signature_ignores_row_order_but_detects_quantity_change():
+    left = {
+        "BOM": [
+            {"kod": "POL-2", "ilosc_na_sztuke": 2},
+            {"kod": "POL-1", "ilosc_na_sztuke": 1},
+        ]
+    }
+    same = {
+        "BOM": [
+            {"kod": "POL-1", "ilosc_na_sztuke": 1},
+            {"kod": "POL-2", "ilosc_na_sztuke": 2},
+        ]
+    }
+    changed = {
+        "BOM": [
+            {"kod": "POL-1", "ilosc_na_sztuke": 1},
+            {"kod": "POL-2", "ilosc_na_sztuke": 3},
+        ]
+    }
+    assert _bom_signature(left) == _bom_signature(same)
+    assert _bom_signature(left) != _bom_signature(changed)
+
+
+def test_orders_using_version_includes_legacy_orders(monkeypatch):
+    monkeypatch.setattr(
+        ZL,
+        "list_zlecenia",
+        lambda: [
+            {"id": "Z-1", "produkt": "PRD-1", "version": "1.0"},
+            {"id": "Z-LEGACY", "produkt": "PRD-1"},
+            {"id": "Z-2", "produkt": "PRD-1", "version": "2.0"},
+            {"id": "Z-X", "produkt": "PRD-X", "version": "1.0"},
+        ],
+    )
+    assert _orders_using_version("PRD-1", "1.0") == ["Z-1", "Z-LEGACY"]
 
 
 def test_warehouse_restore_writes_snapshot(monkeypatch):
