@@ -1,7 +1,11 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.2
 
 from gui_magazyn_bom import _raw_dimension_fields, _raw_dimension_label
-from rc1_magazyn_fix import ensure_magazyn_toolbar_once
+from rc1_magazyn_fix import (
+    _catalog_raw_materials_only,
+    _generated_raw_name,
+    ensure_magazyn_toolbar_once,
+)
 from ui_context_help import _popup_position
 
 
@@ -39,3 +43,27 @@ def test_raw_kind_controls_dimension_name_and_saved_field():
         "rozmiar": "40×20×3",
         "wymiar": "40×20×3",
     }
+
+
+def test_raw_name_is_generated_from_kind_and_dimension():
+    assert _generated_raw_name("Profil", "30x30x2") == "Profil - 30x30x2"
+    assert _generated_raw_name("Rura", "30x2") == "Rura - 30x2"
+
+
+def test_planista_raw_selector_uses_only_saved_surowce():
+    model = type("Model", (), {})()
+    model.surowce = {}
+    model.external_or_legacy_items = {
+        "SUR-001": {"nazwa": "Drut", "rozmiar": "fi 8"},
+    }
+    assert _catalog_raw_materials_only(model) == {}
+
+    model.surowce = {
+        "SUR-002": {
+            "kod": "SUR-002",
+            "nazwa": "Profil - 30x30x2",
+            "rodzaj": "Profil",
+            "rozmiar": "30x30x2",
+        }
+    }
+    assert list(_catalog_raw_materials_only(model)) == ["SUR-002"]
