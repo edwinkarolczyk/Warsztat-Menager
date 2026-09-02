@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.2
+# Wersja pliku: 1.4
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -38,10 +38,12 @@ def _data_dir() -> Path:
 DATA_DIR = _data_dir()
 
 HELP = {
+    "new_raw": "Czyści kartę i przygotowuje nowe techniczne ID surowca. Nowy wpis powstanie dopiero po użyciu przycisku Zapisz.",
     "raw_id": "ID techniczne jest nadawane automatycznie i służy tylko do powiązań. Użytkownik pracuje nazwą i rozmiarem surowca.",
     "raw_name": "Wpisz czytelną nazwę surowca, np. Pręt fi8. Nazwę można później poprawić bez zrywania powiązań.",
-    "raw_type": "Określ rodzaj materiału, np. profil, pręt, rura albo blacha. Pole pomaga porządkować kartotekę.",
-    "raw_size": "Podaj rozmiar lub przekrój, np. fi8 albo 30×30×2.",
+    "raw_type": "Wybierz rodzaj surowca: rura, profil albo pręt. Wybór ustala, czy obok podajesz Fi, czy pełny wymiar profilu.",
+    "raw_size": "Podaj Fi albo Wymiar zgodnie z ustawieniem wybranego rodzaju surowca.",
+    "raw_kinds": "Dodaj tutaj rodzaje surowców używane w zakładce Surowce. Dla każdego wybierz, czy formularz ma pytać o Fi, czy o Wymiar.",
     "bars": "Podaj liczbę pełnych sztang znajdujących się na stanie. WM sam przeliczy łączną długość.",
     "bar_length": "Podaj długość jednej sztangi w milimetrach, np. 6000. Łączny stan jest liczony jako sztangi × długość.",
     "stock": "Łączny stan długości jest zapisywany w milimetrach. Dla surowca liniowego WM pokazuje także metry.",
@@ -121,6 +123,38 @@ def _fmt_num(value) -> str:
     return str(int(n)) if n.is_integer() else f"{n:.3f}".rstrip("0").rstrip(".")
 
 
+def _normalize_raw_kind(value: str) -> str:
+    raw = str(value or "").strip().casefold()
+    aliases = {"rura": "Rura", "profil": "Profil", "pręt": "Pręt", "pret": "Pręt"}
+    return aliases.get(raw, str(value or "").strip())
+
+
+def _raw_dimension_label(kind: str, mode: str | None = None) -> str:
+    selected = str(mode or "").strip().casefold()
+    if not selected:
+        selected = "wymiar" if _normalize_raw_kind(kind) == "Profil" else "fi"
+    return "Wymiar" if selected == "wymiar" else "Fi [mm]"
+
+
+def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dict:
+    normalized = _normalize_raw_kind(kind)
+    size = str(value or "").strip()
+    fields = {"rozmiar": size}
+    selected = str(mode or "").strip().casefold()
+    if selected == "wymiar" or (not selected and normalized == "Profil"):
+        fields["wymiar"] = size
+    else:
+        fields["fi"] = size
+    return fields
+
+
+DEFAULT_RAW_KINDS = [
+    {"nazwa": "Rura", "pole": "fi"},
+    {"nazwa": "Pręt", "pole": "fi"},
+    {"nazwa": "Profil", "pole": "wymiar"},
+]
+
+
 def _product_bom(record: dict) -> list[dict]:
     raw = record.get("BOM")
     if not isinstance(raw, list):
@@ -145,6 +179,7 @@ class WarehouseModel:
     def __init__(self):
         self.data_dir = _data_dir()
         self.src_file = self.data_dir / "magazyn" / "surowce.json"
+        self.raw_kinds_file = self.data_dir / "magazyn" / "rodzaje_surowcow.json"
         self.pol_dir = self.data_dir / "polprodukty"
         self.prd_dir = self.data_dir / "produkty"
         for path in (self.src_file.parent, self.pol_dir, self.prd_dir):
@@ -161,6 +196,10 @@ class WarehouseModel:
             self.surowce = {str(k): v for k, v in payload.items() if isinstance(v, dict)}
         else:
             self.surowce = {}
+        kinds = _load_json(self.raw_kinds_file, DEFAULT_RAW_KINDS)
+        self.raw_kinds = [dict(item) for item in kinds if isinstance(item, dict) and item.get("nazwa")]
+        if not self.raw_kinds:
+            self.raw_kinds = [dict(item) for item in DEFAULT_RAW_KINDS]
         self.polprodukty = self._load_dir(self.pol_dir)
         self.produkty = self._load_dir(self.prd_dir)
         self._load_bom_file()
@@ -240,6 +279,10 @@ class WarehouseModel:
         self.surowce.pop(code, None)
         _save_json(self.src_file, list(self.surowce.values()))
 
+    def save_raw_kinds(self, records: list[dict]) -> None:
+        self.raw_kinds = [dict(item) for item in records]
+        _save_json(self.raw_kinds_file, self.raw_kinds)
+
     def add_or_update_polprodukt(self, record: dict) -> None:
         code = str(record.get("kod") or "").strip()
         if not code:
@@ -277,6 +320,10 @@ class MagazynBOM(ttk.Frame):
         self._semi_display_to_id = {}
         self._semi_id_to_display = {}
         self._product_bom_rows: list[dict] = []
+        self._kind_dimension_modes = {
+            str(item["nazwa"]): str(item.get("pole") or "wymiar").casefold()
+            for item in self.model.raw_kinds
+        }
         self._build_ui()
         self._load_all()
 
@@ -287,18 +334,23 @@ class MagazynBOM(ttk.Frame):
     def _build_ui(self) -> None:
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True)
-        frm_sr, frm_pp, frm_pr = ttk.Frame(self.nb), ttk.Frame(self.nb), ttk.Frame(self.nb)
+        frm_sr, frm_pp, frm_pr, frm_types = (
+            ttk.Frame(self.nb), ttk.Frame(self.nb), ttk.Frame(self.nb), ttk.Frame(self.nb)
+        )
         self.nb.add(frm_sr, text="Surowce")
         self.nb.add(frm_pp, text="Półprodukty")
         self.nb.add(frm_pr, text="Produkty")
+        self.nb.add(frm_types, text="Rodzaje surowców")
         self._build_surowce(frm_sr)
         self._build_polprodukty(frm_pp)
         self._build_produkty(frm_pr)
+        self._build_raw_kinds(frm_types)
 
     def _build_surowce(self, parent) -> None:
         bar = ttk.Frame(parent)
         bar.pack(fill="x", padx=6, pady=4)
         ttk.Button(bar, text="Nowy", command=self._new_surowiec).pack(side="left")
+        add_help_button(bar, HELP["new_raw"], command_only=False).pack(side="left", padx=(4, 0))
         ttk.Button(bar, text="Zapisz", command=self._save_surowiec).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_surowiec).pack(side="right", padx=4)
 
@@ -320,20 +372,34 @@ class MagazynBOM(ttk.Frame):
         self.s_vars = {k: tk.StringVar() for k in ("kod", "nazwa", "rodzaj", "rozmiar", "liczba_sztang", "dlugosc_sztangi_mm", "stan", "prog_alertu")}
         fields = [
             ("nazwa", "Nazwa", HELP["raw_name"], False),
-            ("rodzaj", "Rodzaj", HELP["raw_type"], False),
-            ("rozmiar", "Rozmiar", HELP["raw_size"], False),
             ("liczba_sztang", "Liczba sztang", HELP["bars"], False),
             ("dlugosc_sztangi_mm", "Długość sztangi [mm]", HELP["bar_length"], False),
             ("stan", "Stan łączny [mm]", HELP["stock"], True),
             ("prog_alertu", "Próg alertu [%]", HELP["alert"], False),
             ("kod", "ID techniczne", HELP["raw_id"], True),
         ]
+        ttk.Label(form, text="Rodzaj").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+        self.s_kind_combo = ttk.Combobox(
+            form,
+            textvariable=self.s_vars["rodzaj"],
+            values=tuple(self._kind_dimension_modes),
+            state="readonly",
+        )
+        self.s_kind_combo.grid(row=1, column=1, sticky="ew", padx=4, pady=2)
+        self._help(form, 1, HELP["raw_type"])
+        self.s_size_label = ttk.Label(form, text="Fi [mm]")
+        self.s_size_label.grid(row=2, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(form, textvariable=self.s_vars["rozmiar"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        self._help(form, 2, HELP["raw_size"])
         for row, (key, label, help_text, readonly) in enumerate(fields):
+            if row:
+                row += 2
             ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=2)
             ttk.Entry(form, textvariable=self.s_vars[key], state="readonly" if readonly else "normal").grid(row=row, column=1, sticky="ew", padx=4, pady=2)
             self._help(form, row, help_text)
         self.s_vars["liczba_sztang"].trace_add("write", lambda *_: self._recalc_raw_total())
         self.s_vars["dlugosc_sztangi_mm"].trace_add("write", lambda *_: self._recalc_raw_total())
+        self.s_vars["rodzaj"].trace_add("write", lambda *_: self._update_raw_dimension_label())
         form.columnconfigure(1, weight=1)
         self._new_surowiec()
 
@@ -341,10 +407,19 @@ class MagazynBOM(ttk.Frame):
         for var in self.s_vars.values():
             var.set("")
         self.s_vars["kod"].set(_next_code(self.model.surowce.keys(), "SUR"))
+        kinds = tuple(self._kind_dimension_modes)
+        self.s_vars["rodzaj"].set(kinds[0] if kinds else "")
         self.s_vars["prog_alertu"].set("0")
         self.s_vars["stan"].set("0 mm (0 m)")
         if hasattr(self, "tree_sr"):
             self.tree_sr.selection_remove(self.tree_sr.selection())
+
+    def _update_raw_dimension_label(self) -> None:
+        if hasattr(self, "s_size_label"):
+            kind = self.s_vars["rodzaj"].get()
+            self.s_size_label.configure(
+                text=_raw_dimension_label(kind, self._kind_dimension_modes.get(kind))
+            )
 
     def _recalc_raw_total(self) -> None:
         if not hasattr(self, "s_vars"):
@@ -360,8 +435,8 @@ class MagazynBOM(ttk.Frame):
         rec = self.model.surowce.get(code, {})
         self.s_vars["kod"].set(code)
         self.s_vars["nazwa"].set(rec.get("nazwa", ""))
-        self.s_vars["rodzaj"].set(rec.get("rodzaj", ""))
-        self.s_vars["rozmiar"].set(rec.get("rozmiar", ""))
+        self.s_vars["rodzaj"].set(_normalize_raw_kind(rec.get("rodzaj", "")))
+        self.s_vars["rozmiar"].set(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "")
         length = rec.get("dlugosc_sztangi_mm", rec.get("dlugosc", 0))
         bars = rec.get("liczba_sztang")
         if bars is None and _num(length) > 0:
@@ -387,15 +462,92 @@ class MagazynBOM(ttk.Frame):
         total = bars * length
         rec = {
             "kod": code, "id": code, "nazwa": name, "rodzaj": kind,
-            "rozmiar": self.s_vars["rozmiar"].get().strip(),
             "liczba_sztang": bars, "dlugosc_sztangi_mm": length,
             "dlugosc": length, "jednostka": "mm", "stan": total,
             "prog_alertu": alert,
         }
+        rec.update(_raw_dimension_fields(
+            kind,
+            self.s_vars["rozmiar"].get(),
+            self._kind_dimension_modes.get(kind),
+        ))
         self.model.add_or_update_surowiec(rec)
         self._load_surowce()
         self._refresh_raw_selector()
         self._new_surowiec()
+
+    def _build_raw_kinds(self, parent) -> None:
+        top = ttk.Frame(parent, padding=8)
+        top.pack(fill="x")
+        ttk.Label(top, text="Rodzaj surowca").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text="Pole wymiaru").grid(row=0, column=1, sticky="w", padx=(8, 0))
+        self.raw_kind_name = tk.StringVar()
+        self.raw_kind_mode = tk.StringVar(value="Wymiar")
+        ttk.Entry(top, textvariable=self.raw_kind_name, width=28).grid(row=1, column=0, sticky="ew")
+        ttk.Combobox(
+            top,
+            textvariable=self.raw_kind_mode,
+            values=("Fi", "Wymiar"),
+            state="readonly",
+            width=14,
+        ).grid(row=1, column=1, sticky="w", padx=(8, 0))
+        ttk.Button(top, text="Dodaj", command=self._add_raw_kind).grid(row=1, column=2, padx=(8, 0))
+        add_help_button(top, HELP["raw_kinds"], row=1, column=3, padx=(4, 0))
+        top.columnconfigure(0, weight=1)
+
+        self.tree_raw_kinds = ttk.Treeview(
+            parent, columns=("nazwa", "pole"), show="headings", height=12
+        )
+        self.tree_raw_kinds.heading("nazwa", text="Rodzaj surowca")
+        self.tree_raw_kinds.heading("pole", text="Pole w karcie surowca")
+        self.tree_raw_kinds.column("nazwa", width=260, anchor="w")
+        self.tree_raw_kinds.column("pole", width=180, anchor="w")
+        self.tree_raw_kinds.pack(fill="both", expand=True, padx=8, pady=(0, 6))
+        ttk.Button(parent, text="Usuń zaznaczony", command=self._delete_raw_kind).pack(
+            anchor="e", padx=8, pady=(0, 8)
+        )
+        self._refresh_raw_kinds_tree()
+
+    def _refresh_raw_kinds_tree(self) -> None:
+        if not hasattr(self, "tree_raw_kinds"):
+            return
+        self.tree_raw_kinds.delete(*self.tree_raw_kinds.get_children())
+        for idx, item in enumerate(self.model.raw_kinds):
+            mode = "Fi" if str(item.get("pole")).casefold() == "fi" else "Wymiar"
+            self.tree_raw_kinds.insert("", "end", iid=str(idx), values=(item["nazwa"], mode))
+
+    def _add_raw_kind(self) -> None:
+        name = self.raw_kind_name.get().strip()
+        if not name:
+            _msg_error(self, "Rodzaje surowców", "Podaj nazwę rodzaju surowca.")
+            return
+        if any(str(item.get("nazwa", "")).casefold() == name.casefold() for item in self.model.raw_kinds):
+            _msg_error(self, "Rodzaje surowców", "Taki rodzaj surowca już istnieje.")
+            return
+        mode = "fi" if self.raw_kind_mode.get() == "Fi" else "wymiar"
+        records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode}]
+        self.model.save_raw_kinds(records)
+        self._kind_dimension_modes[name] = mode
+        self.s_kind_combo.configure(values=tuple(self._kind_dimension_modes))
+        self.raw_kind_name.set("")
+        self._refresh_raw_kinds_tree()
+
+    def _delete_raw_kind(self) -> None:
+        selection = self.tree_raw_kinds.selection()
+        if not selection:
+            _msg_error(self, "Rodzaje surowców", "Zaznacz rodzaj do usunięcia.")
+            return
+        idx = int(selection[0])
+        item = self.model.raw_kinds[idx]
+        name = str(item.get("nazwa") or "")
+        if any(str(rec.get("rodzaj") or "").casefold() == name.casefold() for rec in self.model.surowce.values()):
+            _msg_error(self, "Rodzaje surowców", "Nie można usunąć rodzaju używanego przez surowce.")
+            return
+        records = [rec for pos, rec in enumerate(self.model.raw_kinds) if pos != idx]
+        self.model.save_raw_kinds(records)
+        self._kind_dimension_modes.pop(name, None)
+        self.s_kind_combo.configure(values=tuple(self._kind_dimension_modes))
+        self._refresh_raw_kinds_tree()
 
     def _delete_surowiec(self) -> None:
         code = self.s_vars["kod"].get().strip()

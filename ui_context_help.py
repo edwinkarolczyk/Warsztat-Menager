@@ -1,11 +1,23 @@
 # Plik: ui_context_help.py
-# version: 1.1.1
+# version: 1.2
+# 1.2: dymki mieszczą się na ekranie i przy prawej krawędzi otwierają się w lewo.
 """Wspólne widgety pomocy kontekstowej i wyszukiwania dla Warsztat Menager."""
 
 from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
+
+
+def _popup_position(owner_x, owner_y, owner_width, popup_width, popup_height,
+                    screen_width, screen_height, gap=6, margin=8):
+    """Zwróć pozycję dymka mieszczącą go na ekranie."""
+    x = owner_x + owner_width + gap
+    if x + popup_width > screen_width - margin:
+        x = owner_x - popup_width - gap
+    x = max(margin, min(x, screen_width - popup_width - margin))
+    y = max(margin, min(owner_y, screen_height - popup_height - margin))
+    return int(x), int(y)
 
 
 class _HelpPopup:
@@ -18,11 +30,8 @@ class _HelpPopup:
         if not self.text or self.window is not None:
             return
         try:
-            x = self.owner.winfo_rootx() + self.owner.winfo_width() + 6
-            y = self.owner.winfo_rooty()
             win = tk.Toplevel(self.owner)
             win.wm_overrideredirect(True)
-            win.wm_geometry(f"+{x}+{y}")
             label = tk.Label(
                 win,
                 text=self.text,
@@ -34,6 +43,17 @@ class _HelpPopup:
                 wraplength=360,
             )
             label.pack()
+            win.update_idletasks()
+            x, y = _popup_position(
+                self.owner.winfo_rootx(),
+                self.owner.winfo_rooty(),
+                self.owner.winfo_width(),
+                win.winfo_reqwidth(),
+                win.winfo_reqheight(),
+                self.owner.winfo_screenwidth(),
+                self.owner.winfo_screenheight(),
+            )
+            win.wm_geometry(f"+{x}+{y}")
             self.window = win
         except Exception:
             self.window = None

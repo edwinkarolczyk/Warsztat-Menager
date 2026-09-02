@@ -1,12 +1,11 @@
-# version: 1.1
+# version: 1.2
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
+# 1.2: blokada działa dla instancji panelu, więc nowy ekran Magazynu dostaje własny toolbar.
 
+from functools import wraps
 from tkinter import messagebox, ttk
-
-_MAG_TOOLBAR_INIT = False
-
 
 def _open_selected_pz(owner):
     try:
@@ -52,13 +51,15 @@ def _append_pz_button(toolbar, owner):
 
 
 def ensure_magazyn_toolbar_once(build_fn):
+    @wraps(build_fn)
     def wrapper(*args, **kwargs):
-        global _MAG_TOOLBAR_INIT
-        if _MAG_TOOLBAR_INIT:
+        owner = args[1] if len(args) >= 2 else kwargs.get("owner")
+        if owner is not None and getattr(owner, "_wm_magazyn_toolbar_built", False):
             return
-        _MAG_TOOLBAR_INIT = True
         result = build_fn(*args, **kwargs)
+        if owner is not None:
+            owner._wm_magazyn_toolbar_built = True
         if len(args) >= 2:
-            _append_pz_button(args[0], args[1])
+            _append_pz_button(args[0], owner)
         return result
     return wrapper

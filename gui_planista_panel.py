@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.3
+# version: 1.4
 # Planista osadzony w glownym obszarze WM.
 # 1.3: przywrócono dostęp do Produktów, Półproduktów i Surowców bez osobnego dużego okna.
 
@@ -46,6 +46,7 @@ class PlanistaPanel(ttk.Frame):
         "Produkty": 2,
         "Półprodukty": 1,
         "Surowce": 0,
+        "Rodzaje surowców": 3,
     }
 
     def __init__(self, parent, *, root=None, login=None, rola=None):
@@ -74,7 +75,7 @@ class PlanistaPanel(ttk.Frame):
         self.orders_tab = ttk.Frame(self.nb)
         self.nb.add(self.orders_tab, text="Zlecenia")
 
-        for label in ("Produkty", "Półprodukty", "Surowce"):
+        for label in ("Produkty", "Półprodukty", "Surowce", "Rodzaje surowców"):
             host = ttk.Frame(self.nb)
             self.nb.add(host, text=label)
             self._catalog_hosts[label] = host
