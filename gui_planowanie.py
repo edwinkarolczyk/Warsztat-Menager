@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.1
+# version: 2.2
+# Zmiany 2.2:
+# - włączono wspólną warstwę bezpieczeństwa i spójności Planisty.
 # Zmiany 2.1:
 # - Planista jest osadzany w głównym prawym panelu WM zamiast otwierać Toplevel.
 # - osobne okna pozostają tylko dla małych dialogów (termin, rozliczenie).
@@ -12,6 +14,7 @@ from __future__ import annotations
 import sys
 
 from gui_planista_panel import panel_planista
+from planista_safety_runtime import install_planista_safety_runtime
 
 
 def _rename_in_list(modules):
@@ -37,15 +40,18 @@ def _rename_sidebar_entry():
 
 
 _rename_sidebar_entry()
+install_planista_safety_runtime()
 
 
 def panel_planowanie(root, frame, login=None, rola=None):
     """Adapter zgodności: klucz modułu pozostaje ``planowanie``, UI to Planista."""
+    install_planista_safety_runtime()
     return panel_planista(root, frame, login=login, rola=rola)
 
 
 def open_planner(root, login=None, rola=None):
     """Zgodność dla starych wywołań; osadza Planistę w aktywnym kontenerze WM."""
+    install_planista_safety_runtime()
     frame = getattr(root, "content", None) or getattr(root, "main_content", None)
     if frame is None:
         raise RuntimeError("Brak głównego kontenera WM dla Planisty.")
