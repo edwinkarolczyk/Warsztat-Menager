@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 2.6
+# version: 2.7
+# Zmiany 2.7:
+# - dodano Dodaj/Edytuj zlecenie, edycję słowników i poprawki spójności z drugiego audytu.
 # Zmiany 2.6:
 # - dodano konfigurowalny słownik operacji technologicznych Planisty.
 # Zmiany 2.5:
@@ -22,6 +24,8 @@ from __future__ import annotations
 import sys
 
 from gui_planista_panel import panel_planista
+from planista_audit_runtime import install_planista_audit_runtime
+from planista_editor_runtime import install_planista_editor_runtime
 from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
@@ -61,6 +65,8 @@ def _install_planista_runtime():
     install_planista_transaction_runtime()
     install_planista_versions_runtime()
     install_planista_operations_runtime()
+    install_planista_audit_runtime()
+    install_planista_editor_runtime()
     _runtime_ready = True
 
 
