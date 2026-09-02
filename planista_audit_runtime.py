@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_audit_runtime.py
-# version: 1.0
+# version: 1.1
 """Domknięcie problemów spójności wykrytych w drugim audycie Planisty."""
 from __future__ import annotations
 
@@ -59,6 +59,12 @@ def _restore_disposition_snapshot(path, snapshot) -> None:
         pass
 
 
+def _is_reserved_product_json(path: Path) -> bool:
+    """Pliki techniczne w katalogu produktów nie są kartami produktów."""
+
+    return Path(path).name.casefold() == "bom.json"
+
+
 def _install_active_product_loader() -> None:
     import gui_magazyn_bom as GMB
     import zlecenia_logika as ZL
@@ -70,7 +76,9 @@ def _install_active_product_loader() -> None:
             out = {}
             folder = Path(folder)
             for pth in folder.glob("*.json"):
-                if folder.name == "produkty" and "__v" in pth.stem:
+                if folder.name == "produkty" and (
+                    "__v" in pth.stem or _is_reserved_product_json(pth)
+                ):
                     continue
                 rec = GMB._load_json(pth, None)
                 if isinstance(rec, dict):
@@ -80,12 +88,26 @@ def _install_active_product_loader() -> None:
         load_dir._wm_active_products_only = True
         Model._load_dir = staticmethod(load_dir)
 
+    current_delete = Model.delete_produkt
+    if not getattr(current_delete, "_wm_reserved_product_guard", False):
+        def delete_product(self, symbol):
+            if str(symbol or "").strip().casefold() == "bom":
+                raise ValueError(
+                    "Nie można usunąć technicznego pliku BOM. "
+                    "bom.json nie jest kartą produktu."
+                )
+            return current_delete(self, symbol)
+
+        delete_product._wm_reserved_product_guard = True
+        delete_product._wm_original = current_delete
+        Model.delete_produkt = delete_product
+
     if not getattr(ZL.list_produkty, "_wm_active_products_only", False):
         def list_products():
             ZL._ensure_dirs()
             out = []
             for path in ZL._paths()[1].glob("*.json"):
-                if "__v" in path.stem:
+                if "__v" in path.stem or _is_reserved_product_json(path):
                     continue
                 try:
                     rec = ZL._read_json(path)
@@ -298,4 +320,5 @@ __all__ = [
     "_restore_canonical_warehouse",
     "_file_snapshot",
     "_restore_file",
+    "_is_reserved_product_json",
 ]
