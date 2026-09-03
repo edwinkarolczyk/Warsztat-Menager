@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.5
+# version: 1.6
 # Planista osadzony w glownym obszarze WM.
+# 1.6: doprecyzowano Zlecenie warsztatowe, zachowano źródło ID i zwężono kolumnę.
 # 1.5: dodano kolumnę Zlecenie wew z istniejącego pola zlec_wew przed numerem zlecenia.
 # 1.3: przywrócono dostęp do Produktów, Półproduktów i Surowców bez osobnego dużego okna.
 
@@ -89,7 +90,7 @@ class PlanistaPanel(ttk.Frame):
         self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=18)
         labels = {
             "zlec_wew": "Zlecenie wew",
-            "id": "Zlecenie",
+            "id": "Zlecenie warsztatowe",
             "produkt": "Produkt",
             "ilosc": "Ilość",
             "wykonano": "Wykonano",
@@ -99,7 +100,7 @@ class PlanistaPanel(ttk.Frame):
         }
         widths = {
             "zlec_wew": 120,
-            "id": 110,
+            "id": 100,
             "produkt": 250,
             "ilosc": 80,
             "wykonano": 90,
@@ -109,7 +110,12 @@ class PlanistaPanel(ttk.Frame):
         }
         for col in cols:
             self.tree.heading(col, text=labels[col])
-            self.tree.column(col, width=widths[col], anchor="w")
+            self.tree.column(
+                col,
+                width=widths[col],
+                anchor="w",
+                stretch=col != "id",
+            )
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", lambda _e: self.edit_term())
 
@@ -188,6 +194,7 @@ class PlanistaPanel(ttk.Frame):
                 iid=oid,
                 values=(
                     order.get("zlec_wew", ""),
+                    # Numer warsztatowy pochodzi wyłącznie z kanonicznego ID zlecenia.
                     oid,
                     order.get("produkt", ""),
                     _fmt_qty(qty),
