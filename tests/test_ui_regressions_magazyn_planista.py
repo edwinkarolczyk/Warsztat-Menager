@@ -1,8 +1,10 @@
 # WM-VERSION: 0.2
 
+import rc1_magazyn_fix as rc1
 from gui_magazyn_bom import _raw_dimension_fields, _raw_dimension_label
 from rc1_magazyn_fix import (
     _catalog_raw_materials_only,
+    _ensure_generated_raw_name,
     _generated_raw_name,
     ensure_magazyn_toolbar_once,
 )
@@ -48,6 +50,29 @@ def test_raw_kind_controls_dimension_name_and_saved_field():
 def test_raw_name_is_generated_from_kind_and_dimension():
     assert _generated_raw_name("Profil", "30x30x2") == "Profil - 30x30x2"
     assert _generated_raw_name("Rura", "30x2") == "Rura - 30x2"
+
+
+def test_missing_raw_name_variable_is_recreated(monkeypatch):
+    class FakeStringVar:
+        def __init__(self, master=None):
+            self.master = master
+            self.value = ""
+
+        def set(self, value):
+            self.value = value
+
+        def get(self):
+            return self.value
+
+    monkeypatch.setattr(rc1.tk, "StringVar", FakeStringVar)
+    raw_vars = {}
+    owner = object()
+
+    name = _ensure_generated_raw_name(raw_vars, owner, "Profil", "30x30x2")
+
+    assert name == "Profil - 30x30x2"
+    assert raw_vars["nazwa"].get() == "Profil - 30x30x2"
+    assert raw_vars["nazwa"].master is owner
 
 
 def test_planista_raw_selector_uses_only_saved_surowce():
