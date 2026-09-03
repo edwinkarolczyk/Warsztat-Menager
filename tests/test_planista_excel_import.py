@@ -1,6 +1,7 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_import.py
-# version: 1.0
+# version: 1.1
+# 1.1: regresje dopasowania pozycji Excel do Produktów WM po oznaczeniu.
 
 from __future__ import annotations
 
@@ -11,6 +12,14 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 
 from planista_excel_import import PlanExcelError, load_production_plan
+from planista_excel_match import (
+    STATUS_AMBIGUOUS,
+    STATUS_FOUND,
+    STATUS_MISSING,
+    extract_product_designation,
+    match_excel_product,
+    match_production_plan,
+)
 
 
 def _fixture_xlsx(path: Path, sheet_name: str = "PLAN 2026") -> Path:
@@ -106,3 +115,90 @@ def test_gui_planowanie_installs_excel_runtime():
     source = Path("gui_planowanie.py").read_text(encoding="utf-8")
     assert "from planista_excel_runtime import install_planista_excel_runtime" in source
     assert "install_planista_excel_runtime()" in source
+
+
+def test_extracts_leading_product_designation_without_guessing_name():
+    assert extract_product_designation("1.560.450 SITI - RAL 7001GS") == "1.560.450"
+    assert extract_product_designation("5.WN10 TESAM - RAL 6016") == "5.WN10"
+    assert extract_product_designation("HP14 Tatra") == "HP14"
+
+
+def test_matching_uses_designation_as_primary_key_and_name_as_confirmation():
+    products = {
+        "1.560.450": {"symbol": "1.560.450", "nazwa": "SITI"},
+    }
+    result = match_excel_product("1.560.450 SITI - RAL 7001GS", products)
+
+    assert result["match_status"] == STATUS_FOUND
+    assert result["excel_oznaczenie"] == "1.560.450"
+    assert result["wm_symbol"] == "1.560.450"
+    assert result["wm_nazwa"] == "SITI"
+    assert "potwierdzone" in result["match_note"]
+
+
+def test_same_name_with_different_designation_is_not_fuzzy_matched():
+    products = {
+        "1.327.50": {"symbol": "1.327.50", "nazwa": "NW"},
+    }
+    result = match_excel_product("99.999 NW - RAL 5003", products)
+
+    assert result["match_status"] == STATUS_MISSING
+    assert result["wm_symbol"] == ""
+
+
+def test_unknown_product_is_explicitly_missing():
+    products = {
+        "1.327.50": {"symbol": "1.327.50", "nazwa": "NW"},
+    }
+    result = match_excel_product("8.888.888 NIEZNANY", products)
+
+    assert result["match_status"] == STATUS_MISSING
+    assert result["excel_oznaczenie"] == "8.888.888"
+    assert "Brak produktu" in result["match_note"]
+
+
+def test_duplicate_designation_is_ambiguous_when_name_cannot_resolve_it():
+    products = {
+        "A": {"symbol": "1.327.50", "nazwa": "NW"},
+        "B": {"symbol": "1.327.50", "nazwa": "BH"},
+    }
+    result = match_excel_product("1.327.50 INNY - RAL 5003", products)
+
+    assert result["match_status"] == STATUS_AMBIGUOUS
+    assert result["wm_symbol"] == ""
+    assert len(result["candidate_symbols"]) == 2
+
+
+def test_name_can_resolve_duplicate_designation_but_never_replace_code():
+    products = {
+        "A": {"symbol": "1.327.50", "nazwa": "NW"},
+        "B": {"symbol": "1.327.50", "nazwa": "BH"},
+    }
+    result = match_excel_product("1.327.50 NW - RAL 5003", products)
+
+    assert result["match_status"] == STATUS_FOUND
+    assert result["wm_symbol"] == "1.327.50"
+    assert result["wm_nazwa"] == "NW"
+    assert "jednoznacznie" in result["match_note"]
+
+
+def test_whole_import_is_matched_row_by_row_without_losing_order_groups(tmp_path):
+    payload = load_production_plan(_fixture_xlsx(tmp_path / "Plan.xlsx"))
+    products = {
+        "1.327.50": {"symbol": "1.327.50", "nazwa": "NW"},
+        "1.620.165": {"symbol": "1.620.165", "nazwa": "NW"},
+    }
+
+    matched = match_production_plan(payload, products)
+
+    assert [row["nr_zlec"] for row in matched["rows"]] == ["659", "659", "593"]
+    assert [row["match_status"] for row in matched["rows"]] == [
+        STATUS_FOUND,
+        STATUS_FOUND,
+        STATUS_MISSING,
+    ]
+    assert matched["match_summary"] == {
+        STATUS_FOUND: 2,
+        STATUS_MISSING: 1,
+        STATUS_AMBIGUOUS: 0,
+    }
