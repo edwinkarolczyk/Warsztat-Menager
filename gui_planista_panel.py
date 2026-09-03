@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.4
+# version: 1.5
 # Planista osadzony w glownym obszarze WM.
+# 1.5: dodano kolumnę Zlecenie wew z istniejącego pola zlec_wew przed numerem zlecenia.
 # 1.3: przywrócono dostęp do Produktów, Półproduktów i Surowców bez osobnego dużego okna.
 
 from __future__ import annotations
@@ -84,9 +85,10 @@ class PlanistaPanel(ttk.Frame):
         self._build_orders(self.orders_tab)
 
     def _build_orders(self, parent):
-        cols = ("id", "produkt", "ilosc", "wykonano", "pozostalo", "termin", "status")
+        cols = ("zlec_wew", "id", "produkt", "ilosc", "wykonano", "pozostalo", "termin", "status")
         self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=18)
         labels = {
+            "zlec_wew": "Zlecenie wew",
             "id": "Zlecenie",
             "produkt": "Produkt",
             "ilosc": "Ilość",
@@ -96,6 +98,7 @@ class PlanistaPanel(ttk.Frame):
             "status": "Status",
         }
         widths = {
+            "zlec_wew": 120,
             "id": 110,
             "produkt": 250,
             "ilosc": 80,
@@ -184,6 +187,7 @@ class PlanistaPanel(ttk.Frame):
                 "end",
                 iid=oid,
                 values=(
+                    order.get("zlec_wew", ""),
                     oid,
                     order.get("produkt", ""),
                     _fmt_qty(qty),
