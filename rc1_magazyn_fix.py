@@ -1,14 +1,44 @@
-# version: 1.4
+# version: 1.5
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
 # 1.2: blokada działa dla instancji panelu, więc nowy ekran Magazynu dostaje własny toolbar.
 # 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
 # 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
+# 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
 
 from functools import wraps
 import tkinter as tk
 from tkinter import messagebox, ttk
+
+
+_MAGAZYN_DISPLAY_COLUMNS = (
+    "id",
+    "nazwa",
+    "rozmiar",
+    "stan",
+    "rezerwacje",
+    "dostepne",
+    "jednostka",
+    "lokalizacja",
+    "zadania",
+    "typ",
+    "sekcja",
+)
+
+_MAGAZYN_COLUMN_WIDTHS = {
+    "id": 95,
+    "nazwa": 240,
+    "rozmiar": 130,
+    "stan": 90,
+    "rezerwacje": 110,
+    "dostepne": 95,
+    "jednostka": 80,
+    "lokalizacja": 130,
+    "zadania": 190,
+    "typ": 100,
+    "sekcja": 110,
+}
 
 
 def _generated_raw_name(kind, size):
@@ -40,6 +70,43 @@ def _catalog_raw_materials_only(model):
     return out
 
 
+def _remove_manual_raw_name_row(owner, parent):
+    """Usuń wyłącznie stare ręczne pole Nazwa, nigdy wiersz Rodzaj."""
+    raw_vars = getattr(owner, "s_vars", None)
+    if not isinstance(raw_vars, dict) or "nazwa" not in raw_vars:
+        # Nowy formularz Planisty nie ma technicznej zmiennej Nazwa w UI.
+        # Jego pierwszy wiersz to Rodzaj i musi pozostać widoczny.
+        return False
+
+    for child in parent.winfo_children():
+        try:
+            is_card = (
+                isinstance(child, ttk.LabelFrame)
+                and child.cget("text") == "Karta surowca"
+            )
+        except Exception:
+            is_card = False
+        if not is_card:
+            continue
+
+        row_widgets = list(child.grid_slaves(row=0))
+        has_name_label = False
+        for widget in row_widgets:
+            try:
+                if str(widget.cget("text") or "").strip().casefold() == "nazwa":
+                    has_name_label = True
+                    break
+            except Exception:
+                continue
+        if not has_name_label:
+            return False
+
+        for widget in row_widgets:
+            widget.destroy()
+        return True
+    return False
+
+
 def _install_planista_raw_material_fix():
     """Instaluje małą poprawkę zgodności bez zmiany formatu zapisanych JSON-ów."""
     try:
@@ -63,18 +130,9 @@ def _install_planista_raw_material_fix():
     @wraps(original_build_surowce)
     def build_surowce(self, parent):
         result = original_build_surowce(self, parent)
-        # Pole „Nazwa” nie jest już edytowane ręcznie. Zostawiamy zmienną
-        # w modelu dla zgodności danych, ale usuwamy cały pierwszy wiersz z UI.
-        for child in parent.winfo_children():
-            try:
-                is_card = isinstance(child, ttk.LabelFrame) and child.cget("text") == "Karta surowca"
-            except Exception:
-                is_card = False
-            if not is_card:
-                continue
-            for widget in child.grid_slaves(row=0):
-                widget.destroy()
-            break
+        # Stary formularz miał ręczne pole „Nazwa” w wierszu 0. Nowy formularz
+        # ma w tym miejscu „Rodzaj”, więc nie wolno usuwać wiersza po numerze.
+        _remove_manual_raw_name_row(self, parent)
         return result
 
     @wraps(original_save_surowiec)
@@ -102,6 +160,42 @@ def _install_planista_raw_material_fix():
 
 
 _install_planista_raw_material_fix()
+
+
+def _apply_magazyn_column_layout(owner):
+    """Ustaw czytelną kolejność kolumn bez zmiany formatu rekordów Magazynu."""
+    tree = getattr(owner, "tree", None)
+    if tree is None:
+        return False
+    try:
+        available = tuple(str(column) for column in tree["columns"])
+    except Exception:
+        return False
+    if not available:
+        return False
+
+    ordered = [column for column in _MAGAZYN_DISPLAY_COLUMNS if column in available]
+    ordered.extend(column for column in available if column not in ordered)
+    try:
+        tree.configure(displaycolumns=tuple(ordered))
+        for column, width in _MAGAZYN_COLUMN_WIDTHS.items():
+            if column in available:
+                anchor = "center" if column in {
+                    "stan", "rezerwacje", "dostepne", "jednostka"
+                } else "w"
+                tree.column(column, width=width, anchor=anchor)
+    except Exception:
+        return False
+    return True
+
+
+def _schedule_magazyn_column_layout(owner):
+    if owner is None:
+        return
+    try:
+        owner.after_idle(lambda: _apply_magazyn_column_layout(owner))
+    except Exception:
+        pass
 
 
 def _open_selected_pz(owner):
@@ -158,5 +252,6 @@ def ensure_magazyn_toolbar_once(build_fn):
             owner._wm_magazyn_toolbar_built = True
         if len(args) >= 2:
             _append_pz_button(args[0], owner)
+        _schedule_magazyn_column_layout(owner)
         return result
     return wrapper
