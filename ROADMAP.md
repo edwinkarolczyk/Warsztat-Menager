@@ -16,37 +16,126 @@
 
 # P0 — NAJPILNIEJSZE POPRAWKI 2026-09-03 🔴 PRIORYTET ABSOLUTNY
 
-Te punkty wykonujemy **przed pozostałymi zadaniami z Fazy A**. Są to poprawki spójności danych i finalnego UI, a nie nowe funkcje.
+Te punkty wykonujemy **przed pozostałymi zadaniami z Fazy A**. Kolejność robocza odpowiada ustalonemu podziałowi zadań 1–13. Zadania **1–3 są wykonane**, a zadania **4–13 są kolejnymi priorytetami**.
 
-## P0.1 Planista → Zlecenia — rozdzielenie zlecenia wewnętrznego i warsztatowego
+## P0.1 Planista → Zlecenia — zadania 1–3 ✅
 
-- 🔴 dodać nową kolumnę **„Zlecenie wew”** przed obecną kolumną numeru zlecenia
-- 🔴 `Zlecenie wew` ma pobierać wartość wyłącznie z istniejącego pola `zlec_wew`
-- 🔴 obecną kolumnę **„Zlecenie”** zmienić na **„Zlecenie warsztatowe”**
-- 🔴 `Zlecenie warsztatowe` ma nadal pokazywać dotychczasowy numer/identyfikator warsztatowy i nie może ponownie używać `zlec_wew`
-- 🔴 zwęzić kolumnę `Zlecenie warsztatowe`, pozostawiając numer czytelny
+- ✅ zlokalizować faktyczne miejsce budujące końcową tabelę Zleceń, w tym warstwę runtime
+- ✅ dodać kolumnę **„Zlecenie wew”** przed numerem warsztatowym; źródło wyłącznie z istniejącego `zlec_wew`
+- ✅ zmienić obecną kolumnę **„Zlecenie”** na **„Zlecenie warsztatowe”**, zachowując dotychczasowy warsztatowy numer/identyfikator i nie używając ponownie `zlec_wew`
+- ✅ zwęzić `Zlecenie warsztatowe`, pozostawiając numer czytelny
+- ✅ bez zmian formularza/edytora zleceń, JSON i modelu danych
+
+## P0.2 Planista → Zlecenia — zadanie 4: pełny układ tabeli
+
 - 🔴 docelowy początek tabeli: `Zlecenie wew` → `Zlecenie warsztatowe` → `Produkt` → `Zamówienie`
 - 🔴 zachować kolumnę **„Wersja BOM”** oraz wszystkie pozostałe istniejące kolumny
-- 🔴 poprawić faktyczne miejsce budujące końcową tabelę, w tym runtime; nie zostawiać dwóch sprzecznych konfiguracji kolumn
-- 🔴 nie zmieniać formularza/edytora zleceń ani modelu danych; nie tworzyć nowego pola
-- 🔴 dodać test regresyjny potwierdzający poprawne źródła obu kolumn i obecność `Wersja BOM`
+- 🔴 upewnić się, że finalny runtime nie nadpisuje poprawnej konfiguracji tabeli
+- 🔴 usunąć ryzyko dwóch sprzecznych konfiguracji kolumn
+- 🔴 dodać test regresyjny potwierdzający kolejność i obecność `Wersja BOM`
 
-**DoD:** użytkownik widzi dwa różne numery w dwóch jednoznacznych kolumnach, a finalny runtime nie nadpisuje poprawnej konfiguracji tabeli.
+**DoD:** końcowa tabela Planisty ma jeden spójny układ i nie zmienia się po przejściu przez runtime.
 
-## P0.2 Surowce → Półprodukty — jedno źródło prawdy i automatyczna nazwa
+## P0.3 Surowce — zadanie 5: automatyczne tworzenie nazwy
+
+- 🔴 usunąć ręcznie edytowane pole **„Nazwa”** z formularza Surowca
+- 🔴 nazwę generować automatycznie z `Rodzaj + Fi/Wymiar`, np. `Profil - 30x30x2`, `Pręt - Fi 20`
+- 🔴 jeżeli obecna logika WM wymaga pola `nazwa`, nadal zapisywać je technicznie jako wartość wygenerowaną
+- 🔴 nie tworzyć drugiego źródła nazw
+- 🔴 przy zmienianych polach użyć globalnego systemu pomocy `!`; opis maksymalnie dwa krótkie zdania i wspólny mechanizm WM
+
+**DoD:** użytkownik nie wpisuje nazwy ręcznie, a WM zawsze tworzy ją deterministycznie z rodzaju i wymiaru.
+
+## P0.4 Półprodukty — zadanie 6: jedno źródło listy surowców
 
 - 🔴 lista `Półprodukt → Surowiec` ma być budowana **wyłącznie z aktualnie zapisanych rekordów Surowców**
 - 🔴 jeśli kartoteka Surowców jest pusta, lista wyboru w Półprodukcie również ma być pusta
 - 🔴 usunąć stare/przykładowe/fallbackowe pozycje typu `SUR-001`, `drut f8` itp., jeżeli nie istnieją w aktualnej kartotece Surowców
-- 🔴 po usunięciu surowca nie może on pozostawać jako opcja wyboru w Półprodukcie
-- 🔴 zachować techniczne ID jako klucz powiązania; użytkownik ma wybierać czytelny opis, a WM zapisuje właściwe ID
-- 🔴 usunąć ręczne pole **„Nazwa”** z formularza Surowca
-- 🔴 nazwę surowca generować automatycznie z `Rodzaj + Fi/Wymiar`, np. `Profil - 30x30x2`, `Pręt - Fi 20`
-- 🔴 nie tworzyć drugiego źródła nazw ani drugiego mechanizmu listy surowców
-- 🔴 przy zmianach formularza użyć globalnego systemu pomocy `!` przy istotnych polach i przyciskach; opis maksymalnie dwa krótkie zdania i wspólny mechanizm WM
-- 🔴 dodać testy regresyjne: pusta kartoteka → pusta lista; dodany surowiec → pojawia się; usunięty surowiec → znika; nazwa generuje się poprawnie
+- 🔴 po usunięciu surowca nie może on pozostawać jako opcja wyboru
 
-**DoD:** `Surowce` są jedynym źródłem danych dla wyboru surowca w Półprodukcie, a nazwa jest zawsze deterministycznie tworzona z rodzaju i wymiaru.
+**DoD:** kartoteka Surowców jest jedynym źródłem listy wyboru w Półprodukcie.
+
+## P0.5 Półprodukty — zadanie 7: poprawne powiązanie po ID
+
+- 🔴 użytkownik widzi czytelny opis surowca, ale WM zapisuje techniczne ID
+- 🔴 usunięty surowiec znika z listy wyboru bez pozostawiania martwego rekordu
+- 🔴 nie tworzyć drugiego równoległego mechanizmu powiązań
+- 🔴 dodać testy: pusta kartoteka → pusta lista; dodany surowiec → pojawia się; usunięty surowiec → znika
+
+**DoD:** relacja Półprodukt → Surowiec jest jednoznaczna i oparta na stabilnym ID.
+
+## P0.6 Planista — zadanie 8: import zewnętrznego planu produkcji z Excela
+
+**Cel:** wyeliminować ręczne przepisywanie do WM produktów i ilości, które zewnętrzna firma dopisuje w pliku planu produkcji.
+
+- 🔴 dodać w module Planista możliwość wskazania i wczytania pliku `.xlsx`
+- 🔴 pierwszym wzorcem struktury jest plik typu **„Plan Produkcji 2026”**, arkusz `PLAN 2026`
+- 🔴 odczytywać co najmniej: `Nr zlec.`, produkt/oznaczenie produktu, `Ilość`, `Data wysyłki`, `Proces`
+- 🔴 nie modyfikować źródłowego pliku Excel; ma on pozostać zewnętrznym źródłem danych
+- 🔴 obsłużyć sytuację, w której jedno `Nr zlec.` zawiera kilka różnych produktów
+- 🔴 dodać globalne `!` przy imporcie i synchronizacji, korzystając ze wspólnego mechanizmu WM
+
+**DoD:** użytkownik wskazuje plik Excel, a Planista potrafi odczytać z niego pozycje produkcyjne bez ręcznego przepisywania.
+
+## P0.7 Planista — zadanie 9: dopasowanie produktów Excel ↔ WM
+
+- 🔴 każdą pozycję z Excela porównać z aktualną kartoteką Produktów w WM
+- 🔴 podstawowym kluczem dopasowania ma być oznaczenie/kod produktu, a nie luźna nazwa
+- 🔴 nazwę/wariant używać jako dodatkowego potwierdzenia dopasowania
+- 🔴 statusy analizy co najmniej: `Znaleziony w WM`, `Brak produktu w WM`, `Niejednoznaczny`, `Zmieniony w Excelu`
+- 🔴 brak lub niejednoznaczne dopasowanie nie może automatycznie tworzyć zlecenia na przypadkowy produkt
+
+**DoD:** każda pozycja zewnętrzna ma jednoznaczne ID produktu WM albo zostaje zatrzymana do wyjaśnienia.
+
+## P0.8 Planista — zadanie 10: wykrywanie zmian w Excelu
+
+- 🔴 WM ma zapamiętać stan ostatniej poprawnie przeanalizowanej wersji planu
+- 🔴 po zmianie wskazanego pliku Excel ponownie analizować dane i porównywać `poprzedni Excel ↔ aktualny Excel ↔ aktualne dane WM`
+- 🔴 wykrywać zmianę pliku po trwałym śladzie, np. dacie modyfikacji + hash/snapshot; dane kontrolne trzymać w aktywnym ROOT
+- 🔴 wykrywać co najmniej: nową pozycję, nowe `Nr zlec.`, zmianę ilości, zmianę daty wysyłki, zmianę produktu oraz usunięcie pozycji z planu
+- 🔴 zapewnić ręczne **„Sprawdź zmiany”** oraz możliwość automatycznej ponownej analizy po wykryciu zmiany wskazanego pliku podczas pracy Planisty
+- 🔴 sama analiza zmian nie może jeszcze po cichu modyfikować zleceń WM
+
+**DoD:** po zmianie zewnętrznego planu użytkownik natychmiast widzi dokładnie, co doszło, zniknęło lub zostało zmienione.
+
+## P0.9 Planista — zadanie 11: automatyczne tworzenie i aktualizacja zleceń produktów
+
+- 🔴 dla poprawnie dopasowanego produktu przygotować zlecenie produktu w WM z ilością pochodzącą z Excela
+- 🔴 zachować informację, że rekord/zlecenie pochodzi z importu zewnętrznego
+- 🔴 zabezpieczyć import przed duplikatami przy ponownym wczytaniu tego samego pliku
+- 🔴 stabilne powiązanie oprzeć co najmniej na `zewnętrzne Nr zlec. + ID produktu WM`, a nie na numerze wiersza Excela
+- 🔴 kilka produktów pod jednym `Nr zlec.` ma tworzyć kilka jednoznacznie powiązanych pozycji, a nie jeden zbiorczy produkt
+- 🔴 zmiana ilości w Excelu ma być rozpoznawana jako aktualizacja istniejącej pozycji, a nie jako nowe zlecenie
+- 🔴 usunięcie pozycji z Excela nie może automatycznie kasować wykonanego lub rozpoczętego zlecenia WM bez decyzji użytkownika
+
+**DoD:** zewnętrzny plan może zasilać zlecenia produktów bez ręcznego przepisywania i bez tworzenia duplikatów.
+
+## P0.10 Planista — zadanie 12: podgląd synchronizacji przed zapisem
+
+- 🔴 przed wykonaniem zmian pokazać tabelę porównawczą: `Excel | Produkt WM | Ilość | Zmiana | Akcja`
+- 🔴 przykładowe akcje: `Utwórz`, `Aktualizuj`, `Bez zmian`, `Nie importuj / wymaga wyjaśnienia`
+- 🔴 użytkownik ma widzieć, które pozycje zostaną dodane lub zaktualizowane przed zapisem
+- 🔴 błędne, niejednoznaczne lub nieistniejące w WM produkty nie mogą być automatycznie zatwierdzane
+- 🔴 operacja zapisu ma być kontrolowana i odporna na częściowe wykonanie
+
+**DoD:** użytkownik zatwierdza świadomie zestaw zmian, a import nie wprowadza ukrytych modyfikacji do Planisty.
+
+## P0.11 Testy — zadanie 13: pełna regresja P0 i synchronizacji Excel
+
+- 🔴 dwa różne numery zleceń w Planista są niezależne, a `Wersja BOM` nadal istnieje
+- 🔴 pusta kartoteka Surowców daje pustą listę wyboru
+- 🔴 dodanie/usunięcie surowca poprawnie odświeża listę
+- 🔴 automatyczna nazwa Surowca generuje się poprawnie
+- 🔴 ponowny import tego samego Excela → `0` duplikatów
+- 🔴 nowa pozycja w Excelu → wykryta jako nowa
+- 🔴 zmiana ilości, np. `100 → 120` → wykryta jako aktualizacja
+- 🔴 kilka produktów pod jednym `Nr zlec.` → wszystkie poprawnie rozpoznane
+- 🔴 produkt nieistniejący w WM → oznaczony i bez błędnego zlecenia
+- 🔴 usunięcie pozycji z Excela → wykryte jako różnica bez niekontrolowanego kasowania danych WM
+- 🔴 błędny lub zmieniony format arkusza → czytelny komunikat zamiast uszkodzenia danych
+- 🔴 uruchomić właściwe testy regresyjne i `compileall`
+
+**DoD:** cały przepływ `Excel → analiza → dopasowanie produktów → podgląd zmian → zapis zleceń → ponowna synchronizacja` jest powtarzalny, bez duplikatów i bez utraty danych.
 
 ---
 
@@ -410,6 +499,7 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 - Ustawienia: więcej wyboru i podglądów, mniej ręcznego wpisywania
 - Planista → Zlecenia: osobne kolumny zlecenia wewnętrznego i warsztatowego, zgodne także z finalnym runtime
 - Surowce → Półprodukty: jedno źródło prawdy dla listy surowców i automatyczna nazwa `Rodzaj + Fi/Wymiar`
+- Planista → Excel: import zewnętrznego planu produkcji, dopasowanie produktów do kartoteki WM, wykrywanie zmian, kontrolowana synchronizacja ilości i automatyczne tworzenie/aktualizacja zleceń bez duplikatów
 
 ---
 
@@ -429,33 +519,42 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 # 13. Najbliższa kolejność prac
 
 ### 🔴 P0 — najpierw
-1. Planista → Zlecenia: rozdzielenie `Zlecenie wew` / `Zlecenie warsztatowe` w finalnym runtime
-2. Surowce → Półprodukty: jedno źródło listy + automatyczna nazwa surowca
+1. ✅ Planista → Zlecenia: zadania 1–3 wykonane — finalny runtime, `Zlecenie wew`, `Zlecenie warsztatowe`
+2. 🔴 Zadanie 4 — Planista: uporządkować pełny układ tabeli i zachować `Wersja BOM`
+3. 🔴 Zadanie 5 — Surowce: automatyczna nazwa `Rodzaj + Fi/Wymiar`
+4. 🔴 Zadanie 6 — Półprodukty: lista Surowców z jednego źródła prawdy
+5. 🔴 Zadanie 7 — Półprodukty: stabilne powiązanie po ID
+6. 🔴 Zadanie 8 — Planista: import zewnętrznego planu produkcji `.xlsx`
+7. 🔴 Zadanie 9 — Planista: dopasowanie produktów Excel ↔ WM
+8. 🔴 Zadanie 10 — Planista: wykrywanie zmian w pliku Excel
+9. 🔴 Zadanie 11 — Planista: automatyczne tworzenie/aktualizacja zleceń bez duplikatów
+10. 🔴 Zadanie 12 — Planista: podgląd synchronizacji przed zapisem
+11. 🔴 Zadanie 13 — pełne testy regresyjne P0 i przepływu Excel
 
 ### 🔴 Faza A — po P0
-3. ROOT i wszystkie ścieżki danych
-4. ConfigManager / Ustawienia
-5. Refresh/lifecycle GUI
-6. testy regresyjne rdzenia
+12. ROOT i wszystkie ścieżki danych
+13. ConfigManager / Ustawienia
+14. Refresh/lifecycle GUI
+15. testy regresyjne rdzenia
 
 ### 🔴 Faza B
-7. Dyspozycje 2.0
-8. Maszyny / Serwis 2.0
+16. Dyspozycje 2.0
+17. Maszyny / Serwis 2.0
 
 ### 🟠 Faza C
-9. Narzędzia 2.0
-10. Historia / Audyt biznesowy
-11. Uprawnienia
-12. Profil / Urlopy / Ewidencja
+18. Narzędzia 2.0
+19. Historia / Audyt biznesowy
+20. Uprawnienia
+21. Profil / Urlopy / Ewidencja
 
 ### 🟡 Faza D
-13. UI / UX
-14. Wydajność
+22. UI / UX
+23. Wydajność
 
 ### ⚪ Faza E
-15. Dokumentacja
-16. EXE / release
-17. `Rozwiniecie → main`
+24. Dokumentacja
+25. EXE / release
+26. `Rozwiniecie → main`
 
 ---
 
