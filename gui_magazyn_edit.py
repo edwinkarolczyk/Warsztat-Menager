@@ -1,5 +1,6 @@
 # Plik: gui_magazyn_edit.py
-# version: 1.2
+# version: 1.3
+# - 1.3: w edycji istniejącej pozycji ukryto zadania technologiczne bez zmiany zapisanych danych.
 # - 1.2: automatyczne, stabilne ID pozycji oraz wspólna pomoc kontekstowa „!”.
 # - 1.1: tryb Dodaj tworzy pełną kartotekę magazynową z walidacją.
 #        Edycja istniejącej pozycji zachowuje dotychczasowy zakres pól.
@@ -277,22 +278,8 @@ class MagazynEditDialog:
             "rozmiar",
         )
 
-        zad = self.item.get("zadania", [])
-        if isinstance(zad, list):
-            zadania_txt = ", ".join(str(z).strip() for z in zad if str(z).strip())
-        else:
-            zadania_txt = str(zad or "")
-        self.var_zad = tk.StringVar(value=zadania_txt)
-        self._field(
-            frm,
-            2,
-            "Zadania tech. (oddziel przecinkami):",
-            ttk.Entry(frm, textvariable=self.var_zad, width=42),
-            "zadania",
-        )
-
         btns = ttk.Frame(frm)
-        btns.grid(row=3, column=0, columnspan=3, pady=(10, 0), sticky="e")
+        btns.grid(row=2, column=0, columnspan=3, pady=(10, 0), sticky="e")
         save_btn = ttk.Button(btns, text="Zapisz", command=self.on_save)
         save_btn.pack(side="right", padx=(8, 0))
         add_help_button(btns, HELP["save"]).pack(side="right", padx=(3, 0))
@@ -377,12 +364,7 @@ class MagazynEditDialog:
 
             self.item_id = new_id
         else:
-            rozmiar = self.var_roz.get().strip()
-            zadania_raw = self.var_zad.get().strip()
-            zadania = [z.strip() for z in zadania_raw.split(",")] if zadania_raw else []
-            zadania = [z for z in zadania if z]
-            self.item["rozmiar"] = rozmiar
-            self.item["zadania"] = zadania
+            self.item["rozmiar"] = self.var_roz.get().strip()
 
             try:
                 _safe_save(self.data)
