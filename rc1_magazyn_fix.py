@@ -1,11 +1,13 @@
-# version: 1.3
+# version: 1.4
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
 # 1.2: blokada działa dla instancji panelu, więc nowy ekran Magazynu dostaje własny toolbar.
 # 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
+# 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
 
 from functools import wraps
+import tkinter as tk
 from tkinter import messagebox, ttk
 
 
@@ -13,6 +15,17 @@ def _generated_raw_name(kind, size):
     kind = str(kind or "").strip()
     size = str(size or "").strip()
     return f"{kind} - {size}" if kind and size else kind or size
+
+
+def _ensure_generated_raw_name(raw_vars, owner, kind, size):
+    """Utrzymaj techniczną nazwę nawet po usunięciu pola Nazwa z formularza."""
+    name = _generated_raw_name(kind, size)
+    name_var = raw_vars.get("nazwa")
+    if name_var is None:
+        name_var = tk.StringVar(master=owner)
+        raw_vars["nazwa"] = name_var
+    name_var.set(name)
+    return name
 
 
 def _catalog_raw_materials_only(model):
@@ -71,7 +84,7 @@ def _install_planista_raw_material_fix():
         if not kind or not size:
             gb._msg_error(self, "Surowce", "Wymagane pola: rodzaj i wymiar surowca.")
             return
-        self.s_vars["nazwa"].set(_generated_raw_name(kind, size))
+        _ensure_generated_raw_name(self.s_vars, self, kind, size)
         return original_save_surowiec(self)
 
     def raw_display(self, item_id, rec):
