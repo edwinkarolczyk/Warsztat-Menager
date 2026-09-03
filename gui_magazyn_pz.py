@@ -1,10 +1,12 @@
-# version: 1.1
+# version: 1.2
+# 1.2 - PZ: jednostka przy polu ilości i wspólna pomoc kontekstowa !
 """Dialog and helpers for recording goods receipts (PZ)."""
 
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
 import logika_magazyn as LM
+from ui_context_help import add_help_button
 
 try:  # pragma: no cover - magazyn_io is optional
     import magazyn_io
@@ -100,6 +102,11 @@ def _apply_pz_to_item(item: dict, qty: float) -> float:
     return new_stock
 
 
+def _display_unit(item: dict) -> str:
+    """Return the unit shown to the user for the selected warehouse item."""
+    return str(item.get("jednostka") or "").strip() or "—"
+
+
 class PZDialog:
     """Dialog rejestrujący przyjęcie jednej pozycji magazynowej."""
 
@@ -126,25 +133,54 @@ class PZDialog:
         self.var_document = tk.StringVar(value="")
         self.var_cmt = tk.StringVar(value="")
 
+        unit = _display_unit(self.item)
         rows = (
-            (0, "Ilość:", self.var_qty),
-            (1, "Dostawca:", self.var_supplier),
-            (2, "Numer dokumentu:", self.var_document),
-            (3, "Komentarz (opcjonalnie):", self.var_cmt),
+            (
+                0,
+                f"Ilość [{unit}]:",
+                self.var_qty,
+                f"Podaj ilość przyjmowanego materiału w jednostce tej pozycji: {unit}. Ta wartość zwiększy stan magazynowy.",
+            ),
+            (
+                1,
+                "Dostawca:",
+                self.var_supplier,
+                "Wpisz nazwę dostawcy tego przyjęcia. Pole ułatwia późniejsze odtworzenie pochodzenia dostawy.",
+            ),
+            (
+                2,
+                "Numer dokumentu:",
+                self.var_document,
+                "Wpisz numer dokumentu dostawy, np. WZ lub faktury. Pozwala powiązać przyjęcie z dokumentacją.",
+            ),
+            (
+                3,
+                "Komentarz (opcjonalnie):",
+                self.var_cmt,
+                "Dodaj krótką informację o przyjęciu, jeśli jest potrzebna. Pole jest opcjonalne.",
+            ),
         )
-        for row, label, variable in rows:
+        for row, label, variable, help_text in rows:
             ttk.Label(frm, text=label).grid(row=row, column=0, sticky="w", pady=2, padx=(0, 8))
             ttk.Entry(frm, textvariable=variable, width=40).grid(row=row, column=1, sticky="ew", pady=2)
+            add_help_button(
+                frm,
+                help_text,
+                row=row,
+                column=2,
+                sticky="w",
+                padx=(6, 0),
+                pady=2,
+            )
 
-        unit = str(self.item.get("jednostka") or "").strip() or "—"
         current = self.item.get("stan", 0)
         ttk.Label(
             frm,
             text=f"Aktualny stan: {current} {unit}",
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 2))
+        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 2))
 
         btns = ttk.Frame(frm)
-        btns.grid(row=5, column=0, columnspan=2, pady=(10, 0), sticky="e")
+        btns.grid(row=5, column=0, columnspan=3, pady=(10, 0), sticky="e")
         ttk.Button(btns, text="Zapisz przyjęcie", command=self.on_save).pack(side="right", padx=(8, 0))
         ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
 
