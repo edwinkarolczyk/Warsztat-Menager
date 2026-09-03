@@ -2,13 +2,17 @@
 
 from pathlib import Path
 
+import pytest
+
 import rc1_magazyn_fix as rc1
-from gui_magazyn_bom import _raw_dimension_fields, _raw_dimension_label
+from gui_magazyn_bom import WarehouseModel, _raw_dimension_fields, _raw_dimension_label
 from rc1_magazyn_fix import (
+    _canonical_semiproduct_raw_relation,
     _catalog_raw_materials_only,
     _ensure_generated_raw_name,
     _generated_raw_name,
     _raw_name_dimension,
+    _selected_raw_id,
     ensure_magazyn_toolbar_once,
 )
 from ui_context_help import _popup_position
@@ -120,3 +124,90 @@ def test_planista_raw_selector_uses_only_saved_surowce():
     model.surowce.pop("SUR-002")
     assert _catalog_raw_materials_only(model) == {}
     assert "SUR-001" not in _catalog_raw_materials_only(model)
+
+
+def test_semiproduct_raw_relation_is_canonical_and_uses_current_catalog_unit():
+    model = type("Model", (), {})()
+    model.surowce = {
+        "SUR-002": {
+            "kod": "SUR-002",
+            "nazwa": "Profil - 30x30x2",
+            "jednostka": "mm",
+        }
+    }
+
+    relation = _canonical_semiproduct_raw_relation(
+        model,
+        {
+            "kod": "SUR-002",
+            "nazwa": "stara nazwa nie może być relacją",
+            "ilosc_na_szt": "1250,5",
+            "jednostka": "kg",
+        },
+    )
+
+    assert relation == {
+        "kod": "SUR-002",
+        "ilosc_na_szt": 1250.5,
+        "jednostka": "mm",
+    }
+
+
+def test_semiproduct_raw_relation_rejects_missing_material_id():
+    model = type("Model", (), {})()
+    model.surowce = {}
+
+    with pytest.raises(ValueError, match="nie istnieje"):
+        _canonical_semiproduct_raw_relation(
+            model,
+            {"kod": "SUR-999", "ilosc_na_szt": 100, "jednostka": "mm"},
+        )
+
+
+def test_visible_raw_choice_cannot_fall_back_to_stale_hidden_id():
+    class Var:
+        def __init__(self, value):
+            self.value = value
+
+        def get(self):
+            return self.value
+
+    owner = type("Owner", (), {})()
+    owner._raw_by_id = {"SUR-002": {"kod": "SUR-002"}}
+    owner._raw_display_to_id = {
+        "Profil - 30x30x2  [SUR-002]": "SUR-002",
+    }
+    owner.pp_raw_choice = Var("Profil - 30x30x2  [SUR-002]")
+    owner.pp_vars = {"sr_kod": Var("SUR-OLD")}
+    assert _selected_raw_id(owner) == "SUR-002"
+
+    owner.pp_raw_choice = Var("ręcznie zmieniony tekst")
+    assert _selected_raw_id(owner) == ""
+
+
+def test_model_saves_only_canonical_semiproduct_raw_relation(tmp_path):
+    model = object.__new__(WarehouseModel)
+    model.surowce = {
+        "SUR-002": {"kod": "SUR-002", "jednostka": "mm"},
+    }
+    model.polprodukty = {}
+    model.pol_dir = tmp_path
+
+    model.add_or_update_polprodukt(
+        {
+            "kod": "POL-001",
+            "nazwa": "Hak",
+            "surowiec": {
+                "kod": "SUR-002",
+                "ilosc_na_szt": 200,
+                "jednostka": "kg",
+                "nazwa": "nie zapisuj tego jako relacji",
+            },
+        }
+    )
+
+    assert model.polprodukty["POL-001"]["surowiec"] == {
+        "kod": "SUR-002",
+        "ilosc_na_szt": 200.0,
+        "jednostka": "mm",
+    }
