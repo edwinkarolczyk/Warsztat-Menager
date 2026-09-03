@@ -1,4 +1,5 @@
-# version: 1.2
+# version: 1.3
+# 1.3 - PZ dla pozycji w mm: liczba sztang × długość sztangi zamiast jednej ilości w mm
 # 1.2 - PZ: jednostka przy polu ilości i wspólna pomoc kontekstowa !
 """Dialog and helpers for recording goods receipts (PZ)."""
 
@@ -107,6 +108,34 @@ def _display_unit(item: dict) -> str:
     return str(item.get("jednostka") or "").strip() or "—"
 
 
+def _bars_to_mm(count_text: str, length_text: str) -> float:
+    """Przelicza liczbę pełnych sztang i długość jednej sztangi na łączną ilość mm."""
+    count_raw = str(count_text or "").strip().replace(",", ".")
+    length_raw = str(length_text or "").strip().replace(",", ".")
+    if not count_raw:
+        raise ValueError("Podaj liczbę sztang")
+    if not length_raw:
+        raise ValueError("Podaj długość sztangi")
+
+    try:
+        count = float(count_raw)
+    except ValueError as exc:
+        raise ValueError("Liczba sztang musi być liczbą") from exc
+    try:
+        length = float(length_raw)
+    except ValueError as exc:
+        raise ValueError("Długość sztangi musi być liczbą") from exc
+
+    if count <= 0:
+        raise ValueError("Liczba sztang musi być większa od zera")
+    if abs(count - round(count)) > 1e-9:
+        raise ValueError("Liczba sztang musi być liczbą całkowitą")
+    if length <= 0:
+        raise ValueError("Długość sztangi musi być większa od zera")
+
+    return float(int(round(count)) * length)
+
+
 class PZDialog:
     """Dialog rejestrujący przyjęcie jednej pozycji magazynowej."""
 
@@ -129,38 +158,54 @@ class PZDialog:
         self.win.columnconfigure(0, weight=1)
 
         self.var_qty = tk.StringVar(value="")
+        self.var_bar_count = tk.StringVar(value="")
+        self.var_bar_length = tk.StringVar(value="")
         self.var_supplier = tk.StringVar(value="")
         self.var_document = tk.StringVar(value="")
         self.var_cmt = tk.StringVar(value="")
 
         unit = _display_unit(self.item)
-        rows = (
-            (
-                0,
+        self.bar_mode = unit.casefold() == "mm"
+        rows = []
+        if self.bar_mode:
+            rows.extend((
+                (
+                    "Liczba sztang:",
+                    self.var_bar_count,
+                    "Podaj liczbę pełnych sztang przyjmowanych na magazyn. Wartość musi być dodatnią liczbą całkowitą.",
+                ),
+                (
+                    "Długość sztangi [mm]:",
+                    self.var_bar_length,
+                    "Podaj długość jednej sztangi w milimetrach. WM pomnoży ją przez liczbę sztang i zapisze łączny stan w mm.",
+                ),
+            ))
+        else:
+            rows.append((
                 f"Ilość [{unit}]:",
                 self.var_qty,
                 f"Podaj ilość przyjmowanego materiału w jednostce tej pozycji: {unit}. Ta wartość zwiększy stan magazynowy.",
-            ),
+            ))
+
+        rows.extend((
             (
-                1,
                 "Dostawca:",
                 self.var_supplier,
                 "Wpisz nazwę dostawcy tego przyjęcia. Pole ułatwia późniejsze odtworzenie pochodzenia dostawy.",
             ),
             (
-                2,
                 "Numer dokumentu:",
                 self.var_document,
                 "Wpisz numer dokumentu dostawy, np. WZ lub faktury. Pozwala powiązać przyjęcie z dokumentacją.",
             ),
             (
-                3,
                 "Komentarz (opcjonalnie):",
                 self.var_cmt,
                 "Dodaj krótką informację o przyjęciu, jeśli jest potrzebna. Pole jest opcjonalne.",
             ),
-        )
-        for row, label, variable, help_text in rows:
+        ))
+
+        for row, (label, variable, help_text) in enumerate(rows):
             ttk.Label(frm, text=label).grid(row=row, column=0, sticky="w", pady=2, padx=(0, 8))
             ttk.Entry(frm, textvariable=variable, width=40).grid(row=row, column=1, sticky="ew", pady=2)
             add_help_button(
@@ -173,14 +218,15 @@ class PZDialog:
                 pady=2,
             )
 
+        footer_row = len(rows)
         current = self.item.get("stan", 0)
         ttk.Label(
             frm,
             text=f"Aktualny stan: {current} {unit}",
-        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(6, 2))
+        ).grid(row=footer_row, column=0, columnspan=3, sticky="w", pady=(6, 2))
 
         btns = ttk.Frame(frm)
-        btns.grid(row=5, column=0, columnspan=3, pady=(10, 0), sticky="e")
+        btns.grid(row=footer_row + 1, column=0, columnspan=3, pady=(10, 0), sticky="e")
         ttk.Button(btns, text="Zapisz przyjęcie", command=self.on_save).pack(side="right", padx=(8, 0))
         ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right")
 
@@ -238,7 +284,10 @@ class PZDialog:
             return
 
         try:
-            qty = self._parse_qty(self.var_qty.get())
+            if self.bar_mode:
+                qty = _bars_to_mm(self.var_bar_count.get(), self.var_bar_length.get())
+            else:
+                qty = self._parse_qty(self.var_qty.get())
         except Exception as exc:
             messagebox.showerror("Błąd", f"Ilość nieprawidłowa: {exc}", parent=self.win)
             return
