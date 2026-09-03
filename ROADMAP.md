@@ -1,6 +1,6 @@
 # ROADMAP — Warsztat Menager
 
-> **Aktualizacja:** 2026-09-01  
+> **Aktualizacja:** 2026-09-03  
 > **Gałąź robocza:** `Rozwiniecie`  
 > **Cel bieżący:** stabilizacja WM + dopięcie rzeczy wynikających z codziennego użycia programu.  
 > **Zasada:** najpierw rdzeń, spójność danych i niezawodność; dopiero potem nowe duże funkcje.
@@ -11,6 +11,42 @@
 - 🟡 **Częściowo gotowe / wymaga dopięcia**
 - 🔴 **Do wykonania**
 - ⚪ **Później / po stabilizacji**
+
+---
+
+# P0 — NAJPILNIEJSZE POPRAWKI 2026-09-03 🔴 PRIORYTET ABSOLUTNY
+
+Te punkty wykonujemy **przed pozostałymi zadaniami z Fazy A**. Są to poprawki spójności danych i finalnego UI, a nie nowe funkcje.
+
+## P0.1 Planista → Zlecenia — rozdzielenie zlecenia wewnętrznego i warsztatowego
+
+- 🔴 dodać nową kolumnę **„Zlecenie wew”** przed obecną kolumną numeru zlecenia
+- 🔴 `Zlecenie wew` ma pobierać wartość wyłącznie z istniejącego pola `zlec_wew`
+- 🔴 obecną kolumnę **„Zlecenie”** zmienić na **„Zlecenie warsztatowe”**
+- 🔴 `Zlecenie warsztatowe` ma nadal pokazywać dotychczasowy numer/identyfikator warsztatowy i nie może ponownie używać `zlec_wew`
+- 🔴 zwęzić kolumnę `Zlecenie warsztatowe`, pozostawiając numer czytelny
+- 🔴 docelowy początek tabeli: `Zlecenie wew` → `Zlecenie warsztatowe` → `Produkt` → `Zamówienie`
+- 🔴 zachować kolumnę **„Wersja BOM”** oraz wszystkie pozostałe istniejące kolumny
+- 🔴 poprawić faktyczne miejsce budujące końcową tabelę, w tym runtime; nie zostawiać dwóch sprzecznych konfiguracji kolumn
+- 🔴 nie zmieniać formularza/edytora zleceń ani modelu danych; nie tworzyć nowego pola
+- 🔴 dodać test regresyjny potwierdzający poprawne źródła obu kolumn i obecność `Wersja BOM`
+
+**DoD:** użytkownik widzi dwa różne numery w dwóch jednoznacznych kolumnach, a finalny runtime nie nadpisuje poprawnej konfiguracji tabeli.
+
+## P0.2 Surowce → Półprodukty — jedno źródło prawdy i automatyczna nazwa
+
+- 🔴 lista `Półprodukt → Surowiec` ma być budowana **wyłącznie z aktualnie zapisanych rekordów Surowców**
+- 🔴 jeśli kartoteka Surowców jest pusta, lista wyboru w Półprodukcie również ma być pusta
+- 🔴 usunąć stare/przykładowe/fallbackowe pozycje typu `SUR-001`, `drut f8` itp., jeżeli nie istnieją w aktualnej kartotece Surowców
+- 🔴 po usunięciu surowca nie może on pozostawać jako opcja wyboru w Półprodukcie
+- 🔴 zachować techniczne ID jako klucz powiązania; użytkownik ma wybierać czytelny opis, a WM zapisuje właściwe ID
+- 🔴 usunąć ręczne pole **„Nazwa”** z formularza Surowca
+- 🔴 nazwę surowca generować automatycznie z `Rodzaj + Fi/Wymiar`, np. `Profil - 30x30x2`, `Pręt - Fi 20`
+- 🔴 nie tworzyć drugiego źródła nazw ani drugiego mechanizmu listy surowców
+- 🔴 przy zmianach formularza użyć globalnego systemu pomocy `!` przy istotnych polach i przyciskach; opis maksymalnie dwa krótkie zdania i wspólny mechanizm WM
+- 🔴 dodać testy regresyjne: pusta kartoteka → pusta lista; dodany surowiec → pojawia się; usunięty surowiec → znika; nazwa generuje się poprawnie
+
+**DoD:** `Surowce` są jedynym źródłem danych dla wyboru surowca w Półprodukcie, a nazwa jest zawsze deterministycznie tworzona z rodzaju i wymiaru.
 
 ---
 
@@ -372,6 +408,8 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 - wydruki Dyspozycji do ROOT
 - spójność UI
 - Ustawienia: więcej wyboru i podglądów, mniej ręcznego wpisywania
+- Planista → Zlecenia: osobne kolumny zlecenia wewnętrznego i warsztatowego, zgodne także z finalnym runtime
+- Surowce → Półprodukty: jedno źródło prawdy dla listy surowców i automatyczna nazwa `Rodzaj + Fi/Wymiar`
 
 ---
 
@@ -384,35 +422,40 @@ Roadmapa uwzględnia zgłoszenia zebrane w module opinii, w szczególności:
 5. Nie dublujemy mechanizmów, jeśli istnieje już rozwiązanie centralne.
 6. Nie zmieniamy logiki biznesowej przy samym ujednolicaniu UI.
 7. Każda większa zmiana kończy się wpisem w tej roadmapie.
+8. Przy zmianach formularzy i ekranów uwzględniamy globalny system pomocy `!` przy istotnych polach, przyciskach i opcjach; używamy wspólnego mechanizmu WM.
 
 ---
 
 # 13. Najbliższa kolejność prac
 
-### 🔴 Faza A — teraz
-1. ROOT i wszystkie ścieżki danych
-2. ConfigManager / Ustawienia
-3. Refresh/lifecycle GUI
-4. testy regresyjne rdzenia
+### 🔴 P0 — najpierw
+1. Planista → Zlecenia: rozdzielenie `Zlecenie wew` / `Zlecenie warsztatowe` w finalnym runtime
+2. Surowce → Półprodukty: jedno źródło listy + automatyczna nazwa surowca
+
+### 🔴 Faza A — po P0
+3. ROOT i wszystkie ścieżki danych
+4. ConfigManager / Ustawienia
+5. Refresh/lifecycle GUI
+6. testy regresyjne rdzenia
 
 ### 🔴 Faza B
-5. Dyspozycje 2.0
-6. Maszyny / Serwis 2.0
+7. Dyspozycje 2.0
+8. Maszyny / Serwis 2.0
 
 ### 🟠 Faza C
-7. Narzędzia 2.0
-8. Historia / Audyt biznesowy
-9. Uprawnienia
-10. Profil / Urlopy / Ewidencja
+9. Narzędzia 2.0
+10. Historia / Audyt biznesowy
+11. Uprawnienia
+12. Profil / Urlopy / Ewidencja
 
 ### 🟡 Faza D
-11. UI / UX
-12. Wydajność
+13. UI / UX
+14. Wydajność
 
 ### ⚪ Faza E
-13. Dokumentacja
-14. EXE / release
-15. `Rozwiniecie → main`
+15. Dokumentacja
+16. EXE / release
+17. `Rozwiniecie → main`
 
 ---
 
