@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_semi_progress.py
-# version: 1.2
+# version: 1.3
 from pathlib import Path
 
 import pytest
@@ -119,4 +119,4 @@ def test_semiproduct_lists_all_linked_products():
 def test_gui_planowanie_installs_semi_progress_runtime():
     source = Path("gui_planowanie.py").read_text(encoding="utf-8")
     assert "install_planista_semi_progress_runtime" in source
-    assert "# version: 3.1" in source
+    assert "install_planista_semi_progress_runtime()" in source
