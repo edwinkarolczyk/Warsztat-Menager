@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.6
+# version: 1.7
 # Planista osadzony w glownym obszarze WM.
+# 1.7: uporządkowano finalny układ tabeli Zleceń; Zamówienie = ilość, przywrócono Wersję BOM.
 # 1.6: doprecyzowano Zlecenie warsztatowe, zachowano źródło ID i zwężono kolumnę.
 # 1.5: dodano kolumnę Zlecenie wew z istniejącego pola zlec_wew przed numerem zlecenia.
 # 1.3: przywrócono dostęp do Produktów, Półproduktów i Surowców bez osobnego dużego okna.
@@ -86,13 +87,24 @@ class PlanistaPanel(ttk.Frame):
         self._build_orders(self.orders_tab)
 
     def _build_orders(self, parent):
-        cols = ("zlec_wew", "id", "produkt", "ilosc", "wykonano", "pozostalo", "termin", "status")
+        cols = (
+            "zlec_wew",
+            "id",
+            "produkt",
+            "ilosc",
+            "version",
+            "wykonano",
+            "pozostalo",
+            "termin",
+            "status",
+        )
         self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=18)
         labels = {
             "zlec_wew": "Zlecenie wew",
             "id": "Zlecenie warsztatowe",
             "produkt": "Produkt",
-            "ilosc": "Ilość",
+            "ilosc": "Zamówienie",
+            "version": "Wersja BOM",
             "wykonano": "Wykonano",
             "pozostalo": "Pozostało",
             "termin": "Termin",
@@ -102,7 +114,8 @@ class PlanistaPanel(ttk.Frame):
             "zlec_wew": 120,
             "id": 100,
             "produkt": 250,
-            "ilosc": 80,
+            "ilosc": 100,
+            "version": 90,
             "wykonano": 90,
             "pozostalo": 90,
             "termin": 120,
@@ -198,6 +211,7 @@ class PlanistaPanel(ttk.Frame):
                     oid,
                     order.get("produkt", ""),
                     _fmt_qty(qty),
+                    str(order.get("version") or ""),
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
                     _display_date(order.get("termin", "")),
