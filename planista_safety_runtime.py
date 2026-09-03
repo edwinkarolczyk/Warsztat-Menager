@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_safety_runtime.py
-# version: 1.0
+# version: 1.1
 """Spójność danych i bezpieczne zachowanie modułu Planista.
 
 Warstwa runtime utrzymuje poprawki w jednym miejscu bez dublowania logiki kartotek.
@@ -344,41 +344,45 @@ def _install_catalog_cache() -> None:
 
 
 def _install_orders_help() -> None:
+    """Dołącz pomoc do istniejącego paska Zleceń bez przejmowania budowy tabeli."""
     import gui_planista_panel as GPP
     from ui_context_help import add_help_button
 
-    if getattr(GPP.PlanistaPanel._build_orders, "_wm_help", False):
+    current_build = GPP.PlanistaPanel._build_orders
+    if getattr(current_build, "_wm_help", False):
         return
 
-    def build_orders(self, parent):
-        cols = ("id", "produkt", "ilosc", "wykonano", "pozostalo", "termin", "status")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=18)
-        labels = {"id": "Zlecenie", "produkt": "Produkt", "ilosc": "Ilość", "wykonano": "Wykonano", "pozostalo": "Pozostało", "termin": "Termin", "status": "Status"}
-        widths = {"id": 110, "produkt": 250, "ilosc": 80, "wykonano": 90, "pozostalo": 90, "termin": 120, "status": 120}
-        for col in cols:
-            self.tree.heading(col, text=labels[col])
-            self.tree.column(col, width=widths[col], anchor="w")
-        self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<Double-1>", lambda _e: self.edit_term())
+    help_by_text = {
+        "Ustaw / zmień termin": "Ustawia termin realizacji wybranego zlecenia. Termin jest synchronizowany z powiązaną dyspozycją.",
+        "Ilość / rzaz / półprodukty…": "Zmienia ilość produktu, rzaz i ewentualne korekty półproduktów. Po zapisie WM ponownie liczy zapotrzebowanie i rezerwacje.",
+        "Wykonano…": "Rozlicza łączną wykonaną ilość zlecenia. WM zużywa odpowiednią część zarezerwowanych półproduktów i surowców.",
+        "Pokaż zapotrzebowanie": "Pokazuje półprodukty i surowce potrzebne do realizacji zlecenia. W tym miejscu zobaczysz również wykryte braki materiałowe.",
+        "Drukuj małe zlecenie": "Przygotowuje skrócony wydruk wybranego zlecenia produkcyjnego. Wydruk otwierany jest z bieżących danych Planisty.",
+    }
 
-        buttons = ttk.Frame(parent)
-        buttons.pack(fill="x", pady=(8, 0))
-        actions = (
-            ("Ustaw / zmień termin", self.edit_term, "Ustawia termin realizacji wybranego zlecenia. Termin jest synchronizowany z powiązaną dyspozycją."),
-            ("Ilość / rzaz / półprodukty…", self.edit_production, "Zmienia ilość produktu, rzaz i ewentualne korekty półproduktów. Po zapisie WM ponownie liczy zapotrzebowanie i rezerwacje."),
-            ("Wykonano…", self.report_done, "Rozlicza łączną wykonaną ilość zlecenia. WM zużywa odpowiednią część zarezerwowanych półproduktów i surowców."),
-            ("Pokaż zapotrzebowanie", self.show_requirements, "Pokazuje półprodukty i surowce potrzebne do realizacji zlecenia. W tym miejscu zobaczysz również wykryte braki materiałowe."),
-            ("Drukuj małe zlecenie", self.print_work_order, "Przygotowuje skrócony wydruk wybranego zlecenia produkcyjnego. Wydruk otwierany jest z bieżących danych Planisty."),
-        )
-        for idx, (text, command, help_text) in enumerate(actions):
-            if idx:
-                pad = (6, 0)
-            else:
-                pad = (0, 0)
-            ttk.Button(buttons, text=text, command=command).pack(side="left", padx=pad)
-            add_help_button(buttons, help_text, command_only=False).pack(side="left", padx=(2, 0))
+    def build_orders(self, parent):
+        # Jedynym właścicielem Treeview, kolumn, nagłówków i szerokości pozostaje
+        # gui_planista_panel.PlanistaPanel._build_orders. Runtime dopina tylko pomoc.
+        current_build(self, parent)
+        bars = [child for child in parent.winfo_children() if isinstance(child, ttk.Frame)]
+        if not bars:
+            return
+        buttons = bars[-1]
+        for widget in list(buttons.winfo_children()):
+            if not isinstance(widget, ttk.Button):
+                continue
+            try:
+                text = str(widget.cget("text") or "")
+            except Exception:
+                continue
+            help_text = help_by_text.get(text)
+            if not help_text:
+                continue
+            help_button = add_help_button(buttons, help_text, command_only=False)
+            help_button.pack(side="left", padx=(2, 4), after=widget)
 
     build_orders._wm_help = True
+    build_orders._wm_original = current_build
     GPP.PlanistaPanel._build_orders = build_orders
 
 
