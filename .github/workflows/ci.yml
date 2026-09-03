@@ -39,6 +39,9 @@ jobs:
             tests/test_planista_semi_progress.py \
             tests/test_planista_stock_runtime.py \
             tests/test_ui_regressions_magazyn_planista.py
+      - name: Run UI and ROOT regressions
+        run: |
+          pytest -q tests/test_ui_root_regressions.py
       - name: Run DATA_ROOT integrity regressions
         run: |
           pytest -q tests/test_data_root_integrity.py
