@@ -1,6 +1,10 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 3.0
+# version: 3.1
+# Zmiany 3.1:
+# - Planista tworzy Dyspozycję produkcyjną przy zapisie nowego zlecenia i uruchamia wydruk.
+# - Kreator Dyspozycji korzysta z realnych zleceń Planisty, automatycznego terminu/ilości/priorytetu i blokady duplikatów.
+# - Magazyn jest ukryty tylko podczas tworzenia nowej Dyspozycji; rekordy historyczne pozostają obsługiwane.
 # Zmiany 3.0:
 # - Planista definiuje surowiec, a stan fizyczny, rezerwacje i lokalizacja pochodza z Magazynu.
 # - surowiec i karta Magazynu sa laczone 1:1 po ID technicznym.
@@ -33,6 +37,7 @@ import sys
 from gui_planista_panel import panel_planista
 from planista_audit_runtime import install_planista_audit_runtime
 from planista_calendar_runtime import install_planista_calendar_runtime
+from planista_dispatch_runtime import install_planista_dispatch_runtime
 from planista_editor_runtime import install_planista_editor_runtime
 from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
@@ -80,6 +85,7 @@ def _install_planista_runtime():
     install_planista_calendar_runtime()
     install_planista_semi_progress_runtime()
     install_planista_stock_runtime()
+    install_planista_dispatch_runtime()
     _runtime_ready = True
 
 

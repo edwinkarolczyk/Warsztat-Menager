@@ -38,6 +38,7 @@ jobs:
             tests/test_production_progress_v3.py \
             tests/test_planista_semi_progress.py \
             tests/test_planista_stock_runtime.py \
+            tests/test_planista_dispatch_runtime.py \
             tests/test_ui_regressions_magazyn_planista.py
       - name: Run UI and ROOT regressions
         run: |
