@@ -1,5 +1,7 @@
 # WM-VERSION: 0.2
 
+from pathlib import Path
+
 import rc1_magazyn_fix as rc1
 from gui_magazyn_bom import _raw_dimension_fields, _raw_dimension_label
 from rc1_magazyn_fix import (
@@ -10,6 +12,9 @@ from rc1_magazyn_fix import (
     ensure_magazyn_toolbar_once,
 )
 from ui_context_help import _popup_position
+
+
+PLANOWANIE_SOURCE = Path(__file__).resolve().parents[1] / "gui_planowanie.py"
 
 
 def test_magazyn_toolbar_is_built_for_each_new_panel():
@@ -85,6 +90,15 @@ def test_missing_raw_name_variable_is_recreated(monkeypatch):
     assert raw_vars["nazwa"].master is owner
 
 
+def test_planista_installs_raw_catalog_fix_before_panel_import():
+    source = PLANOWANIE_SOURCE.read_text(encoding="utf-8")
+    fix_import = "import rc1_magazyn_fix as _planista_raw_catalog_fix"
+    panel_import = "from gui_planista_panel import panel_planista"
+    assert fix_import in source
+    assert panel_import in source
+    assert source.index(fix_import) < source.index(panel_import)
+
+
 def test_planista_raw_selector_uses_only_saved_surowce():
     model = type("Model", (), {})()
     model.surowce = {}
@@ -102,3 +116,7 @@ def test_planista_raw_selector_uses_only_saved_surowce():
         }
     }
     assert list(_catalog_raw_materials_only(model)) == ["SUR-002"]
+
+    model.surowce.pop("SUR-002")
+    assert _catalog_raw_materials_only(model) == {}
+    assert "SUR-001" not in _catalog_raw_materials_only(model)
