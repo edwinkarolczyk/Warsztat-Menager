@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 3.2
+# version: 3.3
+# Zmiany 3.3:
+# - dodano bezpieczny import zewnętrznego planu produkcji XLSX z arkusza PLAN 2026.
+# - import działa tylko do odczytu i podglądu; nie tworzy jeszcze zleceń WM.
 # Zmiany 3.2:
 # - Planista zawsze instaluje poprawkę kartoteki Surowców przed zbudowaniem formularzy.
 # - Półprodukt -> Surowiec korzysta wyłącznie z aktualnie zapisanych Surowców, bez fallbacku z Magazynu.
@@ -47,6 +50,7 @@ from planista_audit_runtime import install_planista_audit_runtime
 from planista_calendar_runtime import install_planista_calendar_runtime
 from planista_dispatch_runtime import install_planista_dispatch_runtime
 from planista_editor_runtime import install_planista_editor_runtime
+from planista_excel_runtime import install_planista_excel_runtime
 from planista_operations_runtime import install_planista_operations_runtime
 from planista_safety_runtime import install_planista_safety_runtime
 from planista_semi_progress_runtime import install_planista_semi_progress_runtime
@@ -93,6 +97,7 @@ def _install_planista_runtime():
     install_planista_calendar_runtime()
     install_planista_semi_progress_runtime()
     install_planista_stock_runtime()
+    install_planista_excel_runtime()
     install_planista_dispatch_runtime()
     _runtime_ready = True
 
