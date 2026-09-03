@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planowanie.py
-# version: 3.1
+# version: 3.2
+# Zmiany 3.2:
+# - Planista zawsze instaluje poprawkę kartoteki Surowców przed zbudowaniem formularzy.
+# - Półprodukt -> Surowiec korzysta wyłącznie z aktualnie zapisanych Surowców, bez fallbacku z Magazynu.
 # Zmiany 3.1:
 # - Planista tworzy Dyspozycję produkcyjną przy zapisie nowego zlecenia i uruchamia wydruk.
 # - Kreator Dyspozycji korzysta z realnych zleceń Planisty, automatycznego terminu/ilości/priorytetu i blokady duplikatów.
@@ -33,6 +36,11 @@
 from __future__ import annotations
 
 import sys
+
+# Ta warstwa musi być załadowana przed gui_planista_panel. Instaluje ona
+# kanoniczny dla Planisty wariant inventory_raw_materials(): tylko self.surowce,
+# bez domieszki pozycji z fizycznego Magazynu ani danych legacy/fallback.
+import rc1_magazyn_fix as _planista_raw_catalog_fix  # noqa: F401
 
 from gui_planista_panel import panel_planista
 from planista_audit_runtime import install_planista_audit_runtime
