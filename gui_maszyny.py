@@ -1,4 +1,4 @@
-# version: 2.4
+# version: 2.5
 """Bezpieczny punkt wejścia modułu Maszyny z warstwowym rozszerzeniem hali.
 
 Oryginalna, działająca implementacja Maszyn pozostaje bez zmian w
@@ -11,6 +11,9 @@ from __future__ import annotations
 import sys
 
 import gui_maszyny_legacy as _legacy
+from machine_card_root_runtime import (
+    install_machine_cards_root_path as _install_machine_cards_root_path,
+)
 from widok_hali.machine_rooms_patch import install_machine_rooms as _install_machine_rooms
 from widok_hali.machine_rooms_persistence import (
     install_machine_room_persistence as _install_machine_room_persistence,
@@ -29,6 +32,7 @@ from widok_hali.machine_drag_location_feedback import (
 )
 from machine_location_filter_runtime import install as _install_machine_location_filter
 
+_install_machine_cards_root_path()
 _install_machine_rooms(_legacy)
 _install_machine_room_persistence(_legacy)
 _install_machine_room_ui(_legacy)
