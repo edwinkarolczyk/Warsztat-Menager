@@ -1,6 +1,7 @@
-# version: 1.7
+# version: 1.8
 from pathlib import Path
 import ast
+import re
 
 import pytest
 
@@ -60,6 +61,9 @@ def test_failed_save_keeps_unsaved_snapshot():
     assert panel._dirty is True
     assert panel._unsaved is True
 
-def test_patch_version_bumped():
+def test_app_version_is_valid_semver_and_not_older_than_0_7_2():
     from __version__ import get_version
-    assert get_version() == "0.7.1"
+
+    version = get_version()
+    assert re.fullmatch(r"\d+\.\d+\.\d+", version)
+    assert tuple(map(int, version.split("."))) >= (0, 7, 2)
