@@ -40,7 +40,8 @@ jobs:
             tests/test_planista_stock_runtime.py \
             tests/test_planista_dispatch_runtime.py \
             tests/test_ui_regressions_magazyn_planista.py \
-            tests/test_planista_excel_import.py
+            tests/test_planista_excel_import.py \
+            tests/test_planista_excel_changes.py
       - name: Run UI and ROOT regressions
         run: |
           pytest -q tests/test_ui_root_regressions.py
