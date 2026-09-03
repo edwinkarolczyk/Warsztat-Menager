@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.5
+# Wersja pliku: 1.6
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -48,9 +48,8 @@ HELP = {
     "bar_length": "Podaj długość jednej sztangi w milimetrach, np. 6000. Łączny stan jest liczony jako sztangi × długość.",
     "stock": "Łączny stan długości jest zapisywany w milimetrach. Dla surowca liniowego WM pokazuje także metry.",
     "alert": "Próg określa poziom ostrzegawczy zapasu.",
-    "semi_code": "ID półproduktu jest nadawane automatycznie. W normalnej pracy rozpoznajesz półprodukt po oznaczeniu i nazwie.",
-    "semi_name": "Podaj krótkie oznaczenie półproduktu, np. Hak prosty. Może się powtarzać, bo właściwy rekord rozróżnia techniczne ID.",
-    "semi_detail_name": "Podaj nazwę, która jednoznacznie opisuje ten półprodukt, np. Hak do szafki 5.300.600. Nazwa jest pokazywana razem z oznaczeniem przy wyborze półproduktu.",
+    "semi_code": "ID półproduktu jest nadawane automatycznie. W normalnej pracy rozpoznajesz półprodukt po nazwie oraz ilości surowca na jedną sztukę.",
+    "semi_name": "Podaj nazwę półproduktu, np. Hak prosty. Gdy nazwa się powtarza, WM pokazuje obok długość lub ilość surowca na jedną sztukę.",
     "raw_select": "Wybierz surowiec z kartoteki. Lista pokazuje nazwę, rozmiar i ID techniczne.",
     "raw_qty": "Podaj ilość surowca na jedną sztukę półproduktu. Dla długości używaj mm.",
     "ops": "Zaznacz operacje technologiczne potrzebne do wykonania półproduktu.",
@@ -584,26 +583,25 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Zapisz", command=self._save_polprodukt).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(side="right", padx=4)
 
-        cols = ("oznaczenie", "nazwa", "surowiec", "ilosc", "jednostka", "czynnosci", "id")
+        cols = ("nazwa", "surowiec", "ilosc", "jednostka", "czynnosci", "id")
         labels = {
-            "oznaczenie": "Oznaczenie", "nazwa": "Nazwa półproduktu", "surowiec": "Surowiec",
-            "ilosc": "Na szt.", "jednostka": "Jedn.", "czynnosci": "Operacje", "id": "ID",
+            "nazwa": "Nazwa", "surowiec": "Surowiec", "ilosc": "Na szt.",
+            "jednostka": "Jedn.", "czynnosci": "Operacje", "id": "ID",
         }
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings", height=10)
         for key in cols:
             self.tree_pp.heading(key, text=labels[key])
-            self.tree_pp.column(key, width=190 if key in {"oznaczenie", "nazwa", "surowiec", "czynnosci"} else 90, anchor="w")
+            self.tree_pp.column(key, width=190 if key in {"nazwa", "surowiec", "czynnosci"} else 90, anchor="w")
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         self.tree_pp.bind("<<TreeviewSelect>>", self._on_pp_select)
 
         form = ttk.LabelFrame(parent, text="Karta półproduktu", padding=8)
         form.pack(fill="x", padx=6, pady=(2, 6))
-        self.pp_vars = {k: tk.StringVar() for k in ("kod", "nazwa", "nazwa_szczegolowa", "sr_kod", "sr_ilosc", "sr_jednostka", "norma_strat")}
+        self.pp_vars = {k: tk.StringVar() for k in ("kod", "nazwa", "sr_kod", "sr_ilosc", "sr_jednostka", "norma_strat")}
         self.pp_raw_choice = tk.StringVar()
         self.pp_ops = list(ConfigManager().get("czynnosci_technologiczne", []) or [])
         rows = [
-            ("nazwa", "Oznaczenie", HELP["semi_name"]),
-            ("nazwa_szczegolowa", "Nazwa półproduktu", HELP["semi_detail_name"]),
+            ("nazwa", "Nazwa", HELP["semi_name"]),
             ("sr_kod", "Surowiec", HELP["raw_select"]),
             ("sr_ilosc", "Ilość surowca na szt.", HELP["raw_qty"]),
             ("sr_jednostka", "Jednostka", HELP["raw_qty"]),
@@ -617,18 +615,18 @@ class MagazynBOM(ttk.Frame):
             else:
                 ttk.Entry(form, textvariable=self.pp_vars[key], state="readonly" if key == "sr_jednostka" else "normal").grid(row=row, column=1, sticky="ew", padx=4, pady=2)
             self._help(form, row, help_text)
-        ttk.Label(form, text="Operacje").grid(row=5, column=0, sticky="nw", padx=4, pady=2)
+        ttk.Label(form, text="Operacje").grid(row=4, column=0, sticky="nw", padx=4, pady=2)
         self.pp_lb = tk.Listbox(form, selectmode="multiple", exportselection=False, height=4)
         for op in self.pp_ops:
             self.pp_lb.insert(tk.END, op)
-        self.pp_lb.grid(row=5, column=1, sticky="ew", padx=4, pady=2)
-        self._help(form, 5, HELP["ops"])
-        ttk.Label(form, text="Norma strat [%]").grid(row=6, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pp_vars["norma_strat"]).grid(row=6, column=1, sticky="ew", padx=4, pady=2)
-        self._help(form, 6, HELP["loss"])
-        ttk.Label(form, text="ID techniczne").grid(row=7, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.pp_vars["kod"], state="readonly").grid(row=7, column=1, sticky="ew", padx=4, pady=2)
-        self._help(form, 7, HELP["semi_code"])
+        self.pp_lb.grid(row=4, column=1, sticky="ew", padx=4, pady=2)
+        self._help(form, 4, HELP["ops"])
+        ttk.Label(form, text="Norma strat [%]").grid(row=5, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(form, textvariable=self.pp_vars["norma_strat"]).grid(row=5, column=1, sticky="ew", padx=4, pady=2)
+        self._help(form, 5, HELP["loss"])
+        ttk.Label(form, text="ID techniczne").grid(row=6, column=0, sticky="w", padx=4, pady=2)
+        ttk.Entry(form, textvariable=self.pp_vars["kod"], state="readonly").grid(row=6, column=1, sticky="ew", padx=4, pady=2)
+        self._help(form, 6, HELP["semi_code"])
         form.columnconfigure(1, weight=1)
         self._new_polprodukt()
 
@@ -667,7 +665,6 @@ class MagazynBOM(ttk.Frame):
         raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
         self.pp_vars["kod"].set(code)
         self.pp_vars["nazwa"].set(rec.get("nazwa", ""))
-        self.pp_vars["nazwa_szczegolowa"].set(rec.get("nazwa_szczegolowa", ""))
         raw_id = str(raw.get("kod") or "")
         self.pp_vars["sr_kod"].set(raw_id)
         self.pp_raw_choice.set(self._raw_id_to_display.get(raw_id, raw_id))
@@ -683,17 +680,16 @@ class MagazynBOM(ttk.Frame):
     def _save_polprodukt(self) -> None:
         self._refresh_raw_selector()
         code = self.pp_vars["kod"].get().strip() or _next_code(self.model.polprodukty.keys(), "POL")
-        designation = self.pp_vars["nazwa"].get().strip()
-        detail_name = self.pp_vars["nazwa_szczegolowa"].get().strip()
+        name = self.pp_vars["nazwa"].get().strip()
         raw_id = self._resolve_raw_id()
         qty = _num(self.pp_vars["sr_ilosc"].get())
-        if not designation or not detail_name or not raw_id or qty <= 0:
-            _msg_error(self, "Półprodukty", "Wymagane: oznaczenie, nazwa półproduktu, istniejący surowiec i ilość większa od zera.")
+        if not name or not raw_id or qty <= 0:
+            _msg_error(self, "Półprodukty", "Wymagane: nazwa półproduktu, istniejący surowiec i ilość większa od zera.")
             return
         raw_rec = self._raw_by_id[raw_id]
         unit = str(raw_rec.get("jednostka") or raw_rec.get("unit") or "mm")
         rec = {
-            "kod": code, "nazwa": designation, "nazwa_szczegolowa": detail_name,
+            "kod": code, "nazwa": name,
             "surowiec": {"kod": raw_id, "ilosc_na_szt": qty, "jednostka": unit},
             "czynnosci": [self.pp_lb.get(i) for i in self.pp_lb.curselection()],
             "norma_strat_procent": max(0, _num(self.pp_vars["norma_strat"].get())),
@@ -711,17 +707,29 @@ class MagazynBOM(ttk.Frame):
             self._refresh_semi_selector()
             self._new_polprodukt()
 
+    @staticmethod
+    def _semi_measure(rec: dict) -> str:
+        raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
+        qty = _num(raw.get("ilosc_na_szt", 0))
+        if qty <= 0:
+            return ""
+        unit = str(raw.get("jednostka") or "mm").strip()
+        return f"{_fmt_num(qty)} {unit}".strip()
+
     def _semi_display(self, code: str, rec: dict) -> str:
-        designation = str(rec.get("nazwa") or code).strip()
-        detail_name = str(rec.get("nazwa_szczegolowa") or "").strip()
-        label = f"{designation} — {detail_name}" if detail_name else designation
+        name = str(rec.get("nazwa") or code).strip()
+        measure = self._semi_measure(rec)
+        label = f"{name} — {measure}" if measure else name
         return f"{label}  [{code}]"
 
     def _refresh_semi_selector(self) -> None:
         self._semi_display_to_id.clear()
         self._semi_id_to_display.clear()
         values = []
-        for code, rec in sorted(self.model.polprodukty.items(), key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), str(pair[1].get("nazwa_szczegolowa", "")).casefold(), pair[0])):
+        for code, rec in sorted(
+            self.model.polprodukty.items(),
+            key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), self._semi_measure(pair[1]), pair[0]),
+        ):
             display = self._semi_display(code, rec)
             values.append(display)
             self._semi_display_to_id[display] = code
@@ -762,13 +770,13 @@ class MagazynBOM(ttk.Frame):
         ttk.Entry(bom_box, textvariable=self.pr_semi_qty, width=8).grid(row=0, column=1, padx=(0, 6))
         ttk.Button(bom_box, text="Dodaj / zmień", command=self._add_bom_row).grid(row=0, column=2, padx=(0, 6))
         ttk.Button(bom_box, text="Usuń ze składu", command=self._remove_bom_row).grid(row=0, column=3)
-        self.pr_bom_tree = ttk.Treeview(bom_box, columns=("oznaczenie", "nazwa", "ilosc", "id"), show="headings", height=5)
-        self.pr_bom_tree.heading("oznaczenie", text="Oznaczenie")
-        self.pr_bom_tree.heading("nazwa", text="Nazwa półproduktu")
+        self.pr_bom_tree = ttk.Treeview(bom_box, columns=("nazwa", "wymiar", "ilosc", "id"), show="headings", height=5)
+        self.pr_bom_tree.heading("nazwa", text="Półprodukt")
+        self.pr_bom_tree.heading("wymiar", text="Długość / surowiec na 1 szt.")
         self.pr_bom_tree.heading("ilosc", text="Ilość na produkt")
         self.pr_bom_tree.heading("id", text="ID")
-        self.pr_bom_tree.column("oznaczenie", width=220)
-        self.pr_bom_tree.column("nazwa", width=320)
+        self.pr_bom_tree.column("nazwa", width=260)
+        self.pr_bom_tree.column("wymiar", width=220)
         self.pr_bom_tree.column("ilosc", width=120)
         self.pr_bom_tree.column("id", width=100)
         self.pr_bom_tree.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(6, 0))
@@ -817,9 +825,9 @@ class MagazynBOM(ttk.Frame):
         for row in self._product_bom_rows:
             code = str(row.get("kod") or "")
             rec = self.model.polprodukty.get(code, {})
-            designation = rec.get("nazwa") or code
-            detail_name = rec.get("nazwa_szczegolowa") or ""
-            self.pr_bom_tree.insert("", "end", values=(designation, detail_name, _fmt_num(row.get("ilosc_na_sztuke", 1)), code))
+            name = rec.get("nazwa") or code
+            measure = self._semi_measure(rec)
+            self.pr_bom_tree.insert("", "end", values=(name, measure, _fmt_num(row.get("ilosc_na_sztuke", 1)), code))
 
     def _on_pr_select(self, _event=None) -> None:
         sel = self.tree_pr.selection()
@@ -885,11 +893,11 @@ class MagazynBOM(ttk.Frame):
 
     def _load_polprodukty(self) -> None:
         self.tree_pp.delete(*self.tree_pp.get_children())
-        for code, rec in sorted(self.model.polprodukty.items(), key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), str(pair[1].get("nazwa_szczegolowa", "")).casefold())):
+        for code, rec in sorted(self.model.polprodukty.items(), key=lambda pair: str(pair[1].get("nazwa", "")).casefold()):
             raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
             raw_id = str(raw.get("kod") or "")
             raw_name = self._raw_by_id.get(raw_id, {}).get("nazwa") or raw_id
-            self.tree_pp.insert("", "end", values=(rec.get("nazwa", ""), rec.get("nazwa_szczegolowa", ""), raw_name, _fmt_num(raw.get("ilosc_na_szt", 0)), raw.get("jednostka", ""), ", ".join(rec.get("czynnosci", []) or []), code))
+            self.tree_pp.insert("", "end", values=(rec.get("nazwa", ""), raw_name, _fmt_num(raw.get("ilosc_na_szt", 0)), raw.get("jednostka", ""), ", ".join(rec.get("czynnosci", []) or []), code))
 
     def _load_produkty(self) -> None:
         self.tree_pr.delete(*self.tree_pr.get_children())
@@ -898,9 +906,9 @@ class MagazynBOM(ttk.Frame):
             for item in _product_bom(rec):
                 code = item["kod"]
                 semi = self.model.polprodukty.get(code, {})
-                designation = semi.get("nazwa") or code
-                detail_name = semi.get("nazwa_szczegolowa") or ""
-                label = f"{designation} — {detail_name}" if detail_name else designation
+                name = semi.get("nazwa") or code
+                measure = self._semi_measure(semi)
+                label = f"{name} — {measure}" if measure else name
                 parts.append(f"{label} ×{_fmt_num(item.get('ilosc_na_sztuke', 1))}")
             self.tree_pr.insert("", "end", values=(symbol, rec.get("nazwa", ""), ", ".join(parts)))
 
