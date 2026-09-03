@@ -1,6 +1,6 @@
 # WM-VERSION: 0.2
 # Plik: rc1_magazyn_fix.py
-# version: 1.6
+# version: 1.7
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
@@ -9,6 +9,7 @@
 # 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
 # 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
 # 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Fi/Wymiar; ręczne pole Nazwa pozostaje ukryte.
+# 1.7: Półprodukt zapisuje powiązanie z Surowcem wyłącznie po aktualnym technicznym ID.
 
 from functools import wraps
 import tkinter as tk
@@ -97,6 +98,40 @@ def _catalog_raw_materials_only(model):
     return out
 
 
+def _canonical_semiproduct_raw_relation(model, raw):
+    """Zwróć jedyną dozwoloną postać relacji Półprodukt -> Surowiec."""
+    if not isinstance(raw, dict):
+        raise ValueError("Półprodukt musi wskazywać istniejący surowiec po ID technicznym.")
+
+    raw_id = str(raw.get("kod") or raw.get("id") or "").strip()
+    catalog = _catalog_raw_materials_only(model)
+    if not raw_id or raw_id not in catalog:
+        raise ValueError("Wybrany surowiec nie istnieje już w kartotece Surowców.")
+
+    try:
+        qty = float(str(raw.get("ilosc_na_szt", 0) or 0).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        qty = 0.0
+    if qty <= 0:
+        raise ValueError("Ilość surowca na sztukę musi być większa od zera.")
+
+    raw_rec = catalog[raw_id]
+    unit = str(raw_rec.get("jednostka") or raw_rec.get("unit") or "mm").strip() or "mm"
+    return {"kod": raw_id, "ilosc_na_szt": qty, "jednostka": unit}
+
+
+def _selected_raw_id(owner):
+    """Rozwiąż ID wyłącznie z aktualnie widocznego wyboru, nigdy ze starej ukrytej wartości."""
+    choice = getattr(owner, "pp_raw_choice", None)
+    display = str(choice.get() if choice is not None else "").strip()
+    mapping = getattr(owner, "_raw_display_to_id", {})
+    current = getattr(owner, "_raw_by_id", {})
+    if not isinstance(mapping, dict) or not isinstance(current, dict):
+        return ""
+    item_id = str(mapping.get(display) or "").strip()
+    return item_id if item_id and item_id in current else ""
+
+
 def _remove_manual_raw_name_row(owner, parent):
     """Usuń wyłącznie stare ręczne pole Nazwa, nigdy wiersz Rodzaj."""
     raw_vars = getattr(owner, "s_vars", None)
@@ -162,6 +197,11 @@ def _install_planista_raw_material_fix():
     if model_cls is None or view_cls is None or getattr(view_cls, "_wm_raw_catalog_fix", False):
         return
 
+    gb.HELP["raw_select"] = (
+        "Wybierz surowiec z aktualnej kartoteki Surowców. "
+        "WM pokazuje czytelny opis, ale powiązanie zapisuje wyłącznie po technicznym ID."
+    )
+
     def inventory_raw_materials(self):
         return _catalog_raw_materials_only(self)
 
@@ -185,6 +225,21 @@ def _install_planista_raw_material_fix():
         model_save_surowiec._wm_generated_raw_name = True
         model_save_surowiec._wm_original = original_model_save
         model_cls.add_or_update_surowiec = model_save_surowiec
+
+    original_model_save_semi = model_cls.add_or_update_polprodukt
+    if not getattr(original_model_save_semi, "_wm_raw_id_relation", False):
+        @wraps(original_model_save_semi)
+        def model_save_polprodukt(self, record):
+            rec = dict(record)
+            rec["surowiec"] = _canonical_semiproduct_raw_relation(
+                self,
+                rec.get("surowiec"),
+            )
+            return original_model_save_semi(self, rec)
+
+        model_save_polprodukt._wm_raw_id_relation = True
+        model_save_polprodukt._wm_original = original_model_save_semi
+        model_cls.add_or_update_polprodukt = model_save_polprodukt
 
     original_build_surowce = view_cls._build_surowce
     original_save_surowiec = view_cls._save_surowiec
@@ -240,9 +295,13 @@ def _install_planista_raw_material_fix():
             name = _generated_raw_name(kind, size, _raw_kind_mode(self, kind)) or str(item_id)
         return f"{name}  [{item_id}]"
 
+    def resolve_raw_id(self):
+        return _selected_raw_id(self)
+
     view_cls._build_surowce = build_surowce
     view_cls._save_surowiec = save_surowiec
     view_cls._raw_display = raw_display
+    view_cls._resolve_raw_id = resolve_raw_id
     view_cls._wm_raw_catalog_fix = True
 
 
