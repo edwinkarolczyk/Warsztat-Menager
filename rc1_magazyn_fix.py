@@ -1,4 +1,6 @@
-# version: 1.5
+# WM-VERSION: 0.2
+# Plik: rc1_magazyn_fix.py
+# version: 1.6
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
@@ -6,6 +8,7 @@
 # 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
 # 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
 # 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
+# 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Fi/Wymiar; ręczne pole Nazwa pozostaje ukryte.
 
 from functools import wraps
 import tkinter as tk
@@ -41,15 +44,39 @@ _MAGAZYN_COLUMN_WIDTHS = {
 }
 
 
-def _generated_raw_name(kind, size):
+def _raw_name_dimension(size, mode=None):
+    """Zwróć czytelny wymiar do nazwy; dla pola Fi dodaj pojedynczy prefiks `Fi`."""
+    value = str(size or "").strip()
+    if not value:
+        return ""
+    selected = str(mode or "").strip().casefold()
+    if selected != "fi":
+        return value
+
+    lower = value.casefold()
+    if lower.startswith("fi"):
+        rest = value[2:].lstrip(" :-")
+        return f"Fi {rest}".strip()
+    if value.startswith(("Ø", "ø", "⌀", "Φ", "φ")):
+        value = value[1:].strip()
+    return f"Fi {value}".strip()
+
+
+def _generated_raw_name(kind, size, mode=None):
     kind = str(kind or "").strip()
     size = str(size or "").strip()
-    return f"{kind} - {size}" if kind and size else kind or size
+    if not kind or not size:
+        return kind or size
+    selected = str(mode or "").strip().casefold()
+    if not selected:
+        selected = "wymiar" if kind.casefold() == "profil" else "fi"
+    dimension = _raw_name_dimension(size, selected)
+    return f"{kind} - {dimension}" if dimension else kind
 
 
-def _ensure_generated_raw_name(raw_vars, owner, kind, size):
+def _ensure_generated_raw_name(raw_vars, owner, kind, size, mode=None):
     """Utrzymaj techniczną nazwę nawet po usunięciu pola Nazwa z formularza."""
-    name = _generated_raw_name(kind, size)
+    name = _generated_raw_name(kind, size, mode)
     name_var = raw_vars.get("nazwa")
     if name_var is None:
         name_var = tk.StringVar(master=owner)
@@ -107,6 +134,22 @@ def _remove_manual_raw_name_row(owner, parent):
     return False
 
 
+def _raw_kind_mode(owner, kind):
+    modes = getattr(owner, "_kind_dimension_modes", {})
+    if isinstance(modes, dict):
+        return modes.get(kind)
+    return None
+
+
+def _record_raw_kind_mode(model, kind):
+    for item in getattr(model, "raw_kinds", []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("nazwa") or "").strip().casefold() == str(kind or "").strip().casefold():
+            return str(item.get("pole") or "").strip().casefold() or None
+    return None
+
+
 def _install_planista_raw_material_fix():
     """Instaluje małą poprawkę zgodności bez zmiany formatu zapisanych JSON-ów."""
     try:
@@ -124,15 +167,53 @@ def _install_planista_raw_material_fix():
 
     model_cls.inventory_raw_materials = inventory_raw_materials
 
+    original_model_save = model_cls.add_or_update_surowiec
+    if not getattr(original_model_save, "_wm_generated_raw_name", False):
+        @wraps(original_model_save)
+        def model_save_surowiec(self, record):
+            rec = dict(record)
+            kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
+            size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
+            if kind and size:
+                rec["nazwa"] = _generated_raw_name(
+                    kind,
+                    size,
+                    _record_raw_kind_mode(self, kind),
+                )
+            return original_model_save(self, rec)
+
+        model_save_surowiec._wm_generated_raw_name = True
+        model_save_surowiec._wm_original = original_model_save
+        model_cls.add_or_update_surowiec = model_save_surowiec
+
     original_build_surowce = view_cls._build_surowce
     original_save_surowiec = view_cls._save_surowiec
 
     @wraps(original_build_surowce)
     def build_surowce(self, parent):
         result = original_build_surowce(self, parent)
-        # Stary formularz miał ręczne pole „Nazwa” w wierszu 0. Nowy formularz
-        # ma w tym miejscu „Rodzaj”, więc nie wolno usuwać wiersza po numerze.
+        # Stary formularz miał ręczne pole „Nazwa” w wierszu 0. Nazwa jest teraz
+        # wartością techniczną wyliczaną z Rodzaj + Fi/Wymiar, więc pole nie jest edytowalne.
         _remove_manual_raw_name_row(self, parent)
+
+        def sync_generated_name(*_args):
+            if not hasattr(self, "s_vars"):
+                return
+            kind = self.s_vars["rodzaj"].get().strip()
+            size = self.s_vars["rozmiar"].get().strip()
+            _ensure_generated_raw_name(
+                self.s_vars,
+                self,
+                kind,
+                size,
+                _raw_kind_mode(self, kind),
+            )
+
+        if not getattr(self, "_wm_raw_name_traces", False):
+            self.s_vars["rodzaj"].trace_add("write", sync_generated_name)
+            self.s_vars["rozmiar"].trace_add("write", sync_generated_name)
+            self._wm_raw_name_traces = True
+        sync_generated_name()
         return result
 
     @wraps(original_save_surowiec)
@@ -142,7 +223,13 @@ def _install_planista_raw_material_fix():
         if not kind or not size:
             gb._msg_error(self, "Surowce", "Wymagane pola: rodzaj i wymiar surowca.")
             return
-        _ensure_generated_raw_name(self.s_vars, self, kind, size)
+        _ensure_generated_raw_name(
+            self.s_vars,
+            self,
+            kind,
+            size,
+            _raw_kind_mode(self, kind),
+        )
         return original_save_surowiec(self)
 
     def raw_display(self, item_id, rec):
@@ -150,7 +237,7 @@ def _install_planista_raw_material_fix():
         if not name:
             kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
             size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
-            name = _generated_raw_name(kind, size) or str(item_id)
+            name = _generated_raw_name(kind, size, _raw_kind_mode(self, kind)) or str(item_id)
         return f"{name}  [{item_id}]"
 
     view_cls._build_surowce = build_surowce
