@@ -6,6 +6,7 @@ from rc1_magazyn_fix import (
     _catalog_raw_materials_only,
     _ensure_generated_raw_name,
     _generated_raw_name,
+    _raw_name_dimension,
     ensure_magazyn_toolbar_once,
 )
 from ui_context_help import _popup_position
@@ -47,9 +48,18 @@ def test_raw_kind_controls_dimension_name_and_saved_field():
     }
 
 
-def test_raw_name_is_generated_from_kind_and_dimension():
+def test_raw_name_is_generated_from_kind_and_dimension_mode():
     assert _generated_raw_name("Profil", "30x30x2") == "Profil - 30x30x2"
-    assert _generated_raw_name("Rura", "30x2") == "Rura - 30x2"
+    assert _generated_raw_name("Rura", "30x2") == "Rura - Fi 30x2"
+    assert _generated_raw_name("Pręt", "20") == "Pręt - Fi 20"
+    assert _generated_raw_name("Ceownik", "40x20x3", "wymiar") == "Ceownik - 40x20x3"
+
+
+def test_raw_name_never_duplicates_fi_prefix():
+    assert _raw_name_dimension("Fi 20", "fi") == "Fi 20"
+    assert _raw_name_dimension("fi20", "fi") == "Fi 20"
+    assert _raw_name_dimension("Ø20", "fi") == "Fi 20"
+    assert _generated_raw_name("Pręt", "Fi 20", "fi") == "Pręt - Fi 20"
 
 
 def test_missing_raw_name_variable_is_recreated(monkeypatch):
@@ -68,7 +78,7 @@ def test_missing_raw_name_variable_is_recreated(monkeypatch):
     raw_vars = {}
     owner = object()
 
-    name = _ensure_generated_raw_name(raw_vars, owner, "Profil", "30x30x2")
+    name = _ensure_generated_raw_name(raw_vars, owner, "Profil", "30x30x2", "wymiar")
 
     assert name == "Profil - 30x30x2"
     assert raw_vars["nazwa"].get() == "Profil - 30x30x2"
