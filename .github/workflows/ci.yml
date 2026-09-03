@@ -37,7 +37,8 @@ jobs:
             tests/test_production_workflow_v2.py \
             tests/test_production_progress_v3.py \
             tests/test_planista_semi_progress.py \
-            tests/test_planista_stock_runtime.py
+            tests/test_planista_stock_runtime.py \
+            tests/test_ui_regressions_magazyn_planista.py
       - name: Run DATA_ROOT integrity regressions
         run: |
           pytest -q tests/test_data_root_integrity.py
