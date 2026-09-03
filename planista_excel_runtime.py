@@ -1,8 +1,9 @@
-# WM-VERSION: 0.2
+# WM-VERSION: 0.3
 # Plik: planista_excel_runtime.py
-# version: 1.1
+# version: 1.2
+# 1.2: zapisuje snapshot pod WM_ROOT i wykrywa zmiany między kolejnymi analizami planu.
 # 1.1: po imporcie porównuje każdą pozycję Excel z aktualną kartoteką Produktów WM.
-"""UI importu i bezpiecznej analizy zewnętrznego planu Excel."""
+"""UI importu, dopasowania i bezpiecznej analizy zmian planu Excel."""
 
 from __future__ import annotations
 
@@ -10,6 +11,17 @@ from functools import wraps
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from planista_excel_changes import (
+    CHANGE_BASELINE,
+    CHANGE_CHANGED,
+    CHANGE_NEW_ORDER,
+    CHANGE_NEW_ROW,
+    CHANGE_NONE,
+    CHANGE_REMOVED,
+    PlanChangeError,
+    analyze_and_store_plan_changes,
+    last_plan_source_path,
+)
 from planista_excel_import import PlanExcelError, load_production_plan
 from planista_excel_match import (
     STATUS_AMBIGUOUS,
@@ -21,8 +33,12 @@ from ui_context_help import add_help_button
 
 
 _IMPORT_HELP = (
-    "Po odczycie porównuje oznaczenie każdej pozycji z aktualną kartoteką Produktów WM. "
-    "Nazwa/wariant służą tylko do potwierdzenia; import nadal nie tworzy zleceń."
+    "Wczytuje plan, dopasowuje oznaczenia do Produktów WM i porównuje go z poprzednim snapshotem. "
+    "Nie zmienia pliku Excel ani zleceń WM."
+)
+_CHECK_HELP = (
+    "Ponownie odczytuje ostatnio analizowany plik i pokazuje, co zmieniło się od poprzedniego sprawdzenia. "
+    "Po analizie zapisuje nowy snapshot pod aktywnym WM_ROOT, ale nie zmienia zleceń."
 )
 
 
@@ -34,13 +50,35 @@ def _match_with_current_catalog(payload: dict) -> dict:
     return match_production_plan(payload, products)
 
 
+def _load_match_and_compare(path: str) -> dict:
+    payload = load_production_plan(path, sheet_name="PLAN 2026")
+    payload = _match_with_current_catalog(payload)
+    return analyze_and_store_plan_changes(payload)
+
+
+def _change_summary_text(payload: dict) -> str:
+    summary = payload.get("change_summary") if isinstance(payload.get("change_summary"), dict) else {}
+    if payload.get("baseline_created"):
+        return (
+            f"{CHANGE_BASELINE}: {summary.get(CHANGE_BASELINE, 0)} — zapisano pierwszy punkt odniesienia."
+        )
+    return (
+        f"{CHANGE_CHANGED}: {summary.get(CHANGE_CHANGED, 0)}   |   "
+        f"{CHANGE_NEW_ORDER}: {summary.get(CHANGE_NEW_ORDER, 0)}   |   "
+        f"{CHANGE_NEW_ROW}: {summary.get(CHANGE_NEW_ROW, 0)}   |   "
+        f"{CHANGE_REMOVED}: {summary.get(CHANGE_REMOVED, 0)}   |   "
+        f"{CHANGE_NONE}: {summary.get(CHANGE_NONE, 0)}"
+    )
+
+
 def _show_excel_import_preview(owner, payload: dict) -> None:
     rows = list(payload.get("rows") or [])
+    removed_rows = list(payload.get("removed_rows") or [])
     summary = payload.get("match_summary") if isinstance(payload.get("match_summary"), dict) else {}
     dlg = tk.Toplevel(owner.root)
     dlg.title("Planista — analiza Excel ↔ Produkty WM")
     dlg.transient(owner.root)
-    dlg.geometry("1520x700")
+    dlg.geometry("1600x730")
 
     top = ttk.Frame(dlg, padding=10)
     top.pack(fill="x")
@@ -60,9 +98,13 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             f"{STATUS_AMBIGUOUS}: {summary.get(STATUS_AMBIGUOUS, 0)}"
         ),
     ).pack(anchor="w", pady=(3, 0))
+    ttk.Label(top, text=_change_summary_text(payload)).pack(anchor="w", pady=(3, 0))
     ttk.Label(
         top,
-        text="To jest analiza odczytu. Dane nie zostały zapisane do zleceń WM ani do pliku Excel.",
+        text=(
+            "Analiza nie zmieniła zleceń WM ani pliku Excel. "
+            f"Snapshot: {payload.get('snapshot_path', '')}"
+        ),
     ).pack(anchor="w", pady=(3, 0))
 
     body = ttk.Frame(dlg, padding=(10, 0, 10, 10))
@@ -75,6 +117,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         "qty",
         "date",
         "process",
+        "change",
         "status",
         "wm_product",
         "note",
@@ -87,6 +130,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         "qty": "Ilość",
         "date": "Data wysyłki",
         "process": "Proces",
+        "change": "Zmiana Excel",
         "status": "Status dopasowania",
         "wm_product": "Produkt WM",
         "note": "Uwagi",
@@ -94,14 +138,15 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     widths = {
         "row": 85,
         "order": 90,
-        "excel_code": 135,
-        "product": 330,
-        "qty": 75,
+        "excel_code": 130,
+        "product": 310,
+        "qty": 70,
         "date": 105,
-        "process": 105,
-        "status": 155,
-        "wm_product": 250,
-        "note": 420,
+        "process": 95,
+        "change": 145,
+        "status": 145,
+        "wm_product": 230,
+        "note": 470,
     }
     tree = ttk.Treeview(body, columns=cols, show="headings")
     for col in cols:
@@ -117,13 +162,22 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     body.rowconfigure(0, weight=1)
     body.columnconfigure(0, weight=1)
 
-    for idx, row in enumerate(rows):
+    display_rows = rows + removed_rows
+    for idx, row in enumerate(display_rows):
         qty = row.get("ilosc")
         if isinstance(qty, float) and qty.is_integer():
             qty = int(qty)
         wm_symbol = str(row.get("wm_symbol") or "").strip()
         wm_name = str(row.get("wm_nazwa") or "").strip()
         wm_product = " | ".join(part for part in (wm_symbol, wm_name) if part)
+        notes = "; ".join(
+            part
+            for part in (
+                str(row.get("excel_change_note") or "").strip(),
+                str(row.get("match_note") or "").strip(),
+            )
+            if part
+        )
         tree.insert(
             "",
             "end",
@@ -136,13 +190,28 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                 "" if qty is None else qty,
                 row.get("data_wysylki", ""),
                 row.get("proces", ""),
+                row.get("excel_change_status", ""),
                 row.get("match_status", ""),
                 wm_product,
-                row.get("match_note", ""),
+                notes,
             ),
         )
 
     ttk.Button(dlg, text="Zamknij", command=dlg.destroy).pack(anchor="e", padx=10, pady=(0, 10))
+
+
+def _handle_analysis(owner, path: str) -> None:
+    try:
+        payload = _load_match_and_compare(path)
+    except (PlanExcelError, PlanChangeError) as exc:
+        messagebox.showerror("Analiza planu Excel", str(exc), parent=owner)
+        return
+    except Exception as exc:  # pragma: no cover - ochrona UI przed nieoczekiwanym błędem pliku/kartoteki
+        messagebox.showerror("Analiza planu Excel", f"Nie udało się przeanalizować planu:\n{exc}", parent=owner)
+        return
+
+    owner._excel_plan_import = payload
+    _show_excel_import_preview(owner, payload)
 
 
 def _import_excel_plan(owner) -> None:
@@ -151,25 +220,31 @@ def _import_excel_plan(owner) -> None:
         title="Wybierz zewnętrzny plan produkcji Excel",
         filetypes=(("Excel", "*.xlsx"), ("Wszystkie pliki", "*.*")),
     )
+    if path:
+        _handle_analysis(owner, path)
+
+
+def _check_excel_changes(owner) -> None:
+    payload = getattr(owner, "_excel_plan_import", None)
+    path = str(payload.get("source_path") or "").strip() if isinstance(payload, dict) else ""
     if not path:
+        try:
+            path = last_plan_source_path()
+        except PlanChangeError as exc:
+            messagebox.showerror("Sprawdź zmiany", str(exc), parent=owner)
+            return
+    if not path:
+        messagebox.showinfo(
+            "Sprawdź zmiany",
+            "Najpierw użyj „Wczytaj plan Excel…”, aby utworzyć punkt odniesienia.",
+            parent=owner,
+        )
         return
-
-    try:
-        payload = load_production_plan(path, sheet_name="PLAN 2026")
-        payload = _match_with_current_catalog(payload)
-    except PlanExcelError as exc:
-        messagebox.showerror("Import planu Excel", str(exc), parent=owner)
-        return
-    except Exception as exc:  # pragma: no cover - ochrona UI przed nieoczekiwanym błędem pliku/kartoteki
-        messagebox.showerror("Import planu Excel", f"Nie udało się przeanalizować planu:\n{exc}", parent=owner)
-        return
-
-    owner._excel_plan_import = payload
-    _show_excel_import_preview(owner, payload)
+    _handle_analysis(owner, path)
 
 
 def install_planista_excel_runtime() -> None:
-    """Dodaj import i analizę Excel bez ingerowania w konfigurację tabeli Zleceń."""
+    """Dodaj import, dopasowanie i analizę zmian bez ingerowania w tabelę Zleceń."""
     import gui_planista_panel as gp
 
     cls = gp.PlanistaPanel
@@ -190,13 +265,20 @@ def install_planista_excel_runtime() -> None:
             command=lambda: _import_excel_plan(self),
         ).pack(side="left", padx=(6, 4))
         add_help_button(excel_bar, _IMPORT_HELP, command_only=False).pack(side="left")
+        ttk.Button(
+            excel_bar,
+            text="Sprawdź zmiany",
+            command=lambda: _check_excel_changes(self),
+        ).pack(side="left", padx=(12, 4))
+        add_help_button(excel_bar, _CHECK_HELP, command_only=False).pack(side="left")
         ttk.Label(
             excel_bar,
-            text="odczyt + dopasowanie Produktów — bez tworzenia zleceń",
+            text="analiza zmian + dopasowanie Produktów — bez tworzenia zleceń",
         ).pack(side="left", padx=(10, 0))
         return result
 
     cls._build_orders = build_orders
     cls.import_excel_plan = _import_excel_plan
+    cls.check_excel_changes = _check_excel_changes
     cls._show_excel_import_preview = _show_excel_import_preview
     cls._wm_excel_import_runtime = True
