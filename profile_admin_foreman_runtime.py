@@ -1,4 +1,4 @@
-# version: 1.6
+# version: 1.7
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -31,14 +31,22 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] foreman edit runtime install failed: {exc!r}")
 
-    # Musi być ostatnia: wcześniejszy runtime montuje pełny notebook
-    # Użytkownicy | Profile | Rangi. Tutaj spłaszczamy go do jednej karty
-    # Użytkownicy, bez dublowania nawigacji.
+    # Wcześniejszy runtime montuje pełny notebook Użytkownicy | Profile | Rangi.
+    # Najpierw spłaszczamy go do jednej karty Użytkownicy, bez dublowania nawigacji.
     try:
         from profile_foreman_flat_users_runtime import install as install_flat_users
         install_flat_users()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] flat users runtime install failed: {exc!r}")
+
+    # Końcowa warstwa semantyczna: musi wejść po wszystkich wcześniejszych
+    # runtime'ach, bo to ona rozdziela Ruch WM od Obecności i buduje kolejkę
+    # decyzji na podstawie Grafiku.
+    try:
+        from profile_attendance_finalize_runtime import install as install_attendance_finalize
+        install_attendance_finalize()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] attendance finalize runtime install failed: {exc!r}")
 
 
 def install() -> None:

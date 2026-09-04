@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Jedno źródło prawdy dla dniówek i nadgodzin WM.
 
 Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
@@ -6,11 +6,16 @@ Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
 Nie liczymy spóźnień. Pierwsze logowanie jest zachowywane, kolejne tylko
 aktualizują historię. Sobota jest ewidencjonowana oddzielnie jako kandydat
 nadgodzin sobotnich.
+
+Od 1.1 miesięczna ewidencja jest także wyprowadzana z Grafiku. Dzięki temu
+zaplanowany dzień bez żadnego rekordu logowania nie znika z raportu: po
+upływie okna automatycznego staje się pozycją ``MISSING`` do decyzji.
 """
 from __future__ import annotations
 
 import json
 import os
+from calendar import monthrange
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
@@ -34,6 +39,7 @@ STATUS_PENDING_LATE = "PENDING_LATE"
 STATUS_MISSING = "MISSING"
 STATUS_EXCUSED = "EXCUSED"
 STATUS_SATURDAY = "OVERTIME_SATURDAY"
+STATUS_PLANNED = "PLANNED"
 
 SHIFT_RULES = {
     RANO: {
@@ -104,6 +110,16 @@ def _parse_dt(value: Any) -> datetime | None:
         return None
 
 
+def _parse_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except Exception:
+        return None
+
+
 def _profile_for_login(login: str) -> dict:
     key = str(login or "").strip().casefold()
     if not key:
@@ -133,6 +149,16 @@ def _is_guest(login: str) -> bool:
     return role == "guest" or str(login or "").strip().casefold() in {"gość", "gosc", "guest"}
 
 
+def _is_employed_on(profile: dict, day: date) -> bool:
+    active_from = _parse_date(profile.get("zatrudniony_od"))
+    active_to = _parse_date(profile.get("zatrudniony_do"))
+    if active_from and day < active_from:
+        return False
+    if active_to and day > active_to:
+        return False
+    return True
+
+
 def _scheduled_slot(login: str, moment: datetime, fallback: str) -> str:
     """Preferuj grafik użytkownika, dopiero potem slot przekazany przez stare GUI."""
     profile = _profile_for_login(login)
@@ -146,6 +172,51 @@ def _scheduled_slot(login: str, moment: datetime, fallback: str) -> str:
     except Exception:
         pass
     return fallback if fallback in VALID_SLOTS else RANO
+
+
+def _planned_slot_for_day(login: str, day: date) -> str | None:
+    """Zwróć zmianę zaplanowaną w kanonicznym Grafiku albo ``None``.
+
+    Używamy tego samego resolvera co ekran logowania, żeby Grafik i Obecność
+    nie tworzyły dwóch różnych interpretacji tego samego dnia.
+    """
+    if _is_guest(login):
+        return None
+    profile = _profile_for_login(login)
+    if not profile or not _is_employed_on(profile, day):
+        return None
+    moment = datetime.combine(day, time(12, 0))
+    try:
+        import gui_logowanie
+        resolver = getattr(gui_logowanie, "_slot_for_user", None)
+        if callable(resolver):
+            value = resolver(profile, moment)
+            if value in VALID_SLOTS:
+                return value
+            if value is None:
+                return None
+    except Exception:
+        pass
+
+    # Awaryjna ścieżka nie może tworzyć soboty jako zwykłej dniówki.
+    raw_days = profile.get("workdays")
+    if raw_days is None:
+        raw_days = profile.get("dni_pracy")
+    try:
+        workdays = {int(item) for item in (raw_days or [0, 1, 2, 3, 4])}
+    except Exception:
+        workdays = {0, 1, 2, 3, 4}
+    if day.weekday() not in workdays:
+        return None
+
+    mode = str(
+        profile.get("tryb_zmian")
+        or profile.get("shift_mode")
+        or profile.get("zmiana")
+        or "111"
+    ).strip()
+    first = "2" if mode.startswith("2") else "1"
+    return POPO if first == "2" else RANO
 
 
 def _record(date_ymd: str, slot: str, login: str, *, create: bool = False) -> tuple[dict, dict, dict]:
@@ -171,7 +242,8 @@ def _record(date_ymd: str, slot: str, login: str, *, create: bool = False) -> tu
     return doc, slot_map, rec
 
 
-def _audit(*, action: str, login: str, date_ymd: str, slot: str, actor: str, before: dict, after: dict, note: str = "") -> None:
+def _audit(*, action: str, login: str, date_ymd: str, slot: str, actor: str,
+           before: dict, after: dict, note: str = "") -> None:
     rows = _read(audit_path(), [])
     if not isinstance(rows, list):
         rows = []
@@ -187,8 +259,7 @@ def _audit(*, action: str, login: str, date_ymd: str, slot: str, actor: str, bef
         "after": after,
         "note": str(note or "").strip(),
     })
-    if len(rows) > 5000:
-        rows = rows[-5000:]
+    # Historia jest audytem: nie obcinamy starszych wpisów.
     _write(audit_path(), rows)
 
 
@@ -197,7 +268,8 @@ def classify_login(slot: str, moment: datetime, *, saturday: bool = False) -> st
         return STATUS_SATURDAY
     rules = SHIFT_RULES.get(slot) or SHIFT_RULES[RANO]
     t = moment.time().replace(second=0, microsecond=0)
-    if rules["early_from"] <= t < rules["auto_until"]:
+    # Granica 12:00 / 20:00 jest jeszcze poprawnym automatycznym logowaniem.
+    if rules["early_from"] <= t <= rules["auto_until"]:
         return STATUS_PRESENT
     return STATUS_PENDING_LATE
 
@@ -212,7 +284,6 @@ def mark_login(date_ymd: str, slot: str, login: str, ts_iso: str) -> None:
     doc, _slot_map, rec = _record(date_ymd, resolved_slot, login_n, create=True)
     before = dict(rec)
 
-    # Nie nadpisuj pierwszego logowania. Stare pole logged_ts zachowujemy jako alias.
     first = str(rec.get("first_login_ts") or rec.get("logged_ts") or "").strip()
     if not first:
         first = str(ts_iso or moment.isoformat(timespec="seconds"))
@@ -254,7 +325,6 @@ def mark_login(date_ymd: str, slot: str, login: str, ts_iso: str) -> None:
                 "source": rec["overtime"].get("source") or "auto_login",
             })
     else:
-        # Bardzo późne logowanie: po 12:00 / po 20:00. Bez liczenia spóźnienia.
         if rec.get("status") != STATUS_PRESENT or not rec.get("confirmed"):
             rec["status"] = STATUS_PENDING_LATE
             rec["day_value"] = float(rec.get("day_value") or 0.0)
@@ -385,6 +455,7 @@ def set_overtime(date_ymd: str, slot: str, login: str, hours: float, actor: str,
     elif overtime.get("type") == "sobota":
         overtime.setdefault("day_value", 1.0)
     rec["overtime"] = overtime
+    rec["approval_required"] = False
     rec["user_id"] = rec.get("user_id") or user_id_for(login_n)
     _write(data_path(), doc)
     _audit(action="overtime", login=login_n, date_ymd=date_ymd, slot=slot,
@@ -392,70 +463,18 @@ def set_overtime(date_ymd: str, slot: str, login: str, hours: float, actor: str,
     return dict(rec)
 
 
-def _effective_missing(rec: dict, day: date) -> bool:
-    if rec.get("reason") or rec.get("logged_ts") or rec.get("first_login_ts"):
+def _decision_due(day_obj: date, slot: str, now: datetime) -> bool:
+    if day_obj < now.date():
+        return True
+    if day_obj > now.date():
         return False
-    if not rec.get("planned"):
-        return False
-    return day < date.today()
+    rules = SHIFT_RULES.get(slot) or SHIFT_RULES[RANO]
+    current = now.time().replace(second=0, microsecond=0)
+    # Dopiero *po* 12:00 / 20:00 brak logowania staje się decyzją.
+    return current > rules["auto_until"]
 
 
-def summary_for_month(login: str, year: int, month: int) -> dict[str, float]:
-    login_n = str(login or "").strip().casefold()
-    doc = _read(data_path(), {})
-    out = {
-        "days": 0.0,
-        "saturday_days": 0.0,
-        "overtime_hours": 0.0,
-        "vacation": 0.0,
-        "l4": 0.0,
-        "missing": 0.0,
-        "pending": 0.0,
-        "manual": 0.0,
-    }
-    prefix = f"{int(year):04d}-{int(month):02d}-"
-    if not isinstance(doc, dict):
-        return out
-    for day_text, day_map in doc.items():
-        if not str(day_text).startswith(prefix) or not isinstance(day_map, dict):
-            continue
-        try:
-            day_obj = date.fromisoformat(str(day_text)[:10])
-        except Exception:
-            continue
-        for slot in VALID_SLOTS:
-            slot_map = day_map.get(slot)
-            if not isinstance(slot_map, dict):
-                continue
-            rec = slot_map.get(login_n)
-            if not isinstance(rec, dict):
-                continue
-            reason = str(rec.get("reason") or "").upper()
-            if reason in {"UR", "UŻ"}:
-                out["vacation"] += 1.0
-            elif reason == "L4":
-                out["l4"] += 1.0
-            status = str(rec.get("status") or "")
-            if status == STATUS_PRESENT:
-                out["days"] += float(rec.get("day_value") or 0.0)
-            elif status == STATUS_PENDING_LATE:
-                out["pending"] += 1.0
-            if _effective_missing(rec, day_obj):
-                out["missing"] += 1.0
-            if str(rec.get("source") or "").startswith("foreman"):
-                out["manual"] += 1.0
-            overtime = rec.get("overtime")
-            if isinstance(overtime, dict):
-                if overtime.get("status") == "confirmed":
-                    out["overtime_hours"] += float(overtime.get("hours") or 0.0)
-                    if str(overtime.get("type") or "").casefold() == "sobota":
-                        out["saturday_days"] += float(overtime.get("day_value") or 1.0)
-                elif status == STATUS_SATURDAY:
-                    out["pending"] += 1.0
-    return out
-
-
-def month_records(login: str, year: int, month: int) -> list[dict]:
+def _actual_month_records(login: str, year: int, month: int) -> list[dict]:
     login_n = str(login or "").strip().casefold()
     doc = _read(data_path(), {})
     prefix = f"{int(year):04d}-{int(month):02d}-"
@@ -474,9 +493,140 @@ def month_records(login: str, year: int, month: int) -> list[dict]:
             if not isinstance(rec, dict):
                 continue
             row = dict(rec)
-            row.update({"date": day_text, "slot": slot, "login": login_n})
+            row.update({"date": str(day_text)[:10], "slot": slot, "login": login_n, "synthetic": False})
             rows.append(row)
     return rows
+
+
+def month_records(login: str, year: int, month: int, *, now: datetime | None = None) -> list[dict]:
+    """Zwróć rzeczywiste rekordy oraz brakujące dni wyprowadzone z Grafiku."""
+    now = now or datetime.now()
+    login_n = str(login or "").strip().casefold()
+    actual = _actual_month_records(login_n, year, month)
+    rows = [dict(row) for row in actual]
+
+    actual_days = {str(row.get("date") or "") for row in actual}
+    _last_day = monthrange(int(year), int(month))[1]
+    month_start = date(int(year), int(month), 1)
+    month_end = date(int(year), int(month), _last_day)
+    synth_end = min(month_end, now.date())
+    if synth_end >= month_start:
+        current = month_start
+        while current <= synth_end:
+            day_text = current.isoformat()
+            if day_text not in actual_days:
+                slot = _planned_slot_for_day(login_n, current)
+                if slot in VALID_SLOTS:
+                    due = _decision_due(current, slot, now)
+                    rows.append({
+                        "date": day_text,
+                        "slot": slot,
+                        "login": login_n,
+                        "user_id": user_id_for(login_n),
+                        "login_snapshot": login_n,
+                        "planned": True,
+                        "status": STATUS_MISSING if due else STATUS_PLANNED,
+                        "day_value": 0.0,
+                        "confirmed": False,
+                        "approval_required": bool(due),
+                        "source": "schedule",
+                        "reason": "",
+                        "first_login_ts": "",
+                        "logged_ts": "",
+                        "synthetic": True,
+                    })
+            current += timedelta(days=1)
+
+    # Ujednolicenie starych rekordów PLANNED bez logowania.
+    normalized: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        day_obj = _parse_date(item.get("date"))
+        slot = str(item.get("slot") or RANO)
+        has_login = bool(str(item.get("first_login_ts") or item.get("logged_ts") or "").strip())
+        reason = str(item.get("reason") or "").strip()
+        status = str(item.get("status") or "")
+        if (
+            day_obj
+            and item.get("planned")
+            and not has_login
+            and not reason
+            and status not in {STATUS_PRESENT, STATUS_EXCUSED}
+            and _decision_due(day_obj, slot, now)
+            and item.get("approval_required") is not False
+        ):
+            item["status"] = STATUS_MISSING
+            item["approval_required"] = True
+        elif not status and item.get("planned"):
+            item["status"] = STATUS_PLANNED
+        normalized.append(item)
+
+    normalized.sort(key=lambda row: (str(row.get("date") or ""), 0 if row.get("slot") == RANO else 1))
+    return normalized
+
+
+def decision_records(login: str, year: int, month: int, *, now: datetime | None = None) -> list[dict]:
+    """Pozycje, dla których Brygadzista ma podjąć decyzję."""
+    now = now or datetime.now()
+    out: list[dict] = []
+    for row in month_records(login, year, month, now=now):
+        if row.get("reason") or str(row.get("status") or "") == STATUS_EXCUSED:
+            continue
+        if row.get("approval_required") is False:
+            continue
+        status = str(row.get("status") or "")
+        if status not in {STATUS_PENDING_LATE, STATUS_SATURDAY, STATUS_MISSING}:
+            continue
+        item = dict(row)
+        if status == STATUS_MISSING:
+            item["decision_label"] = "Brak logowania"
+        elif status == STATUS_SATURDAY:
+            item["decision_label"] = "Sobota — potwierdź"
+        else:
+            item["decision_label"] = "Logowanie po oknie — decyzja"
+        out.append(item)
+    return out
+
+
+def summary_for_month(login: str, year: int, month: int, *, now: datetime | None = None) -> dict[str, float]:
+    out = {
+        "days": 0.0,
+        "saturday_days": 0.0,
+        "overtime_hours": 0.0,
+        "vacation": 0.0,
+        "l4": 0.0,
+        "missing": 0.0,
+        "pending": 0.0,
+        "manual": 0.0,
+    }
+    for rec in month_records(login, year, month, now=now):
+        reason = str(rec.get("reason") or "").upper()
+        if reason in {"UR", "UŻ"}:
+            out["vacation"] += 1.0
+        elif reason == "L4":
+            out["l4"] += 1.0
+
+        status = str(rec.get("status") or "")
+        if status == STATUS_PRESENT:
+            out["days"] += float(rec.get("day_value") or 0.0)
+        elif status == STATUS_MISSING:
+            out["missing"] += 1.0
+            if rec.get("approval_required"):
+                out["pending"] += 1.0
+        elif status == STATUS_PENDING_LATE:
+            out["pending"] += 1.0
+        elif status == STATUS_SATURDAY and rec.get("approval_required"):
+            out["pending"] += 1.0
+
+        if str(rec.get("source") or "").startswith("foreman"):
+            out["manual"] += 1.0
+
+        overtime = rec.get("overtime")
+        if isinstance(overtime, dict) and overtime.get("status") == "confirmed":
+            out["overtime_hours"] += float(overtime.get("hours") or 0.0)
+            if str(overtime.get("type") or "").casefold() == "sobota":
+                out["saturday_days"] += float(overtime.get("day_value") or 1.0)
+    return out
 
 
 def audit_for_login(login: str, limit: int = 200) -> list[dict]:
@@ -484,15 +634,20 @@ def audit_for_login(login: str, limit: int = 200) -> list[dict]:
     rows = _read(audit_path(), [])
     if not isinstance(rows, list):
         return []
-    found = [dict(row) for row in rows if isinstance(row, dict)
-             and str(row.get("login_snapshot") or "").strip().casefold() == key]
+    found = [
+        dict(row)
+        for row in rows
+        if isinstance(row, dict)
+        and str(row.get("login_snapshot") or "").strip().casefold() == key
+    ]
     return found[-max(1, int(limit)):]
 
 
 __all__ = [
     "RANO", "POPO", "SHIFT_RULES", "STATUS_PRESENT", "STATUS_PENDING_LATE",
-    "STATUS_MISSING", "STATUS_EXCUSED", "STATUS_SATURDAY", "data_path",
-    "audit_path", "mark_login", "confirm_login", "set_reason", "status_for",
-    "set_manual_day", "set_overtime", "summary_for_month", "month_records",
-    "audit_for_login", "classify_login", "user_id_for",
+    "STATUS_MISSING", "STATUS_EXCUSED", "STATUS_SATURDAY", "STATUS_PLANNED",
+    "data_path", "audit_path", "mark_login", "confirm_login", "set_reason",
+    "status_for", "set_manual_day", "set_overtime", "summary_for_month",
+    "month_records", "decision_records", "audit_for_login", "classify_login",
+    "user_id_for",
 ]
