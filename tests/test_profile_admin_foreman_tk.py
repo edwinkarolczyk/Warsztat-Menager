@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 import tkinter as tk
 
 import gui_profile  # noqa: F401 - instaluje runtime panelu brygadzisty
@@ -8,6 +8,14 @@ from gui_profile_foreman import ForemanProfilePanel
 
 def _texts(notebook):
     return [str(notebook.tab(tab_id, "text")) for tab_id in notebook.tabs()]
+
+
+def _visible_texts(notebook):
+    return [
+        str(notebook.tab(tab_id, "text"))
+        for tab_id in notebook.tabs()
+        if str(notebook.tab(tab_id, "state")) != "hidden"
+    ]
 
 
 def test_foreman_uses_users_tab_for_unified_admin_notebook(monkeypatch):
@@ -20,7 +28,7 @@ def test_foreman_uses_users_tab_for_unified_admin_notebook(monkeypatch):
         panel.pack(fill="both", expand=True)
         root.update_idletasks()
 
-        visible = _texts(panel.notebook)
+        visible = _visible_texts(panel.notebook)
         assert visible == [
             "Pulpit", "Zespół", "Obecność", "Urlopy",
             "Użytkownicy", "Opinie", "Statystyki",
@@ -28,6 +36,7 @@ def test_foreman_uses_users_tab_for_unified_admin_notebook(monkeypatch):
         assert "Profile" not in panel._tabs
         assert "Zadania" not in visible
         assert "Sprzęt" not in visible
+        assert "Profile" not in visible
 
         admin = panel._wm_profile_admin
         assert _texts(admin.nb) == ["Użytkownicy", "Profile", "Rangi"]
