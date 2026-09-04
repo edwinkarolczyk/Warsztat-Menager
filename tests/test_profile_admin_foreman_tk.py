@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.4
 import tkinter as tk
 from tkinter import ttk
 
@@ -28,13 +28,14 @@ def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
 
         visible = _visible_texts(panel.notebook)
         assert visible == [
-            "Pulpit", "Zespół", "Obecność", "Urlopy",
+            "Pulpit", "Ruch WM", "Obecność", "Urlopy",
             "Użytkownicy", "Opinie", "Statystyki",
         ]
         assert "Profile" not in panel._tabs
         assert "Zadania" not in visible
         assert "Sprzęt" not in visible
         assert "Profile" not in visible
+        assert "Zespół" not in visible
 
         users_tab = panel._tabs["Użytkownicy"]
         admin = panel._wm_users_admin_panel
@@ -42,8 +43,8 @@ def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
         assert panel._wm_profile_admin is admin
         assert panel._wm_users_admin_flat is True
 
-        # Najważniejsza regresja ze screena: zewnętrzne Użytkownicy nie mogą
-        # zawierać drugiego Notebooka Użytkownicy | Profile | Rangi.
+        # Zewnętrzne Użytkownicy nie mogą zawierać drugiego Notebooka
+        # Użytkownicy | Profile | Rangi.
         assert not any(isinstance(child, ttk.Notebook) for child in users_tab.winfo_children())
     finally:
         root.destroy()
