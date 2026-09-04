@@ -1,6 +1,6 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.2
 # Plik: tests/test_gui_magazyn_rezerwacje.py
-# version: 1.0
+# version: 1.1
 
 from __future__ import annotations
 
@@ -14,3 +14,12 @@ def test_release_dialog_uses_canonical_unreserve_flow():
     assert "LM.zwolnij_rezerwacje(" in gui_source
     assert 'op="ZWOLNIJ"' not in gui_source
     assert '"UNRESERVE"' in logic_source
+
+
+def test_reserve_dialog_uses_canonical_reserve_flow():
+    gui_source = Path("gui_magazyn_rezerwacje.py").read_text(encoding="utf-8")
+    logic_source = Path("logika_magazyn.py").read_text(encoding="utf-8")
+
+    assert "LM.rezerwuj(" in gui_source
+    assert 'op="REZERWUJ"' not in gui_source
+    assert '"RESERVE"' in logic_source
