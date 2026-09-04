@@ -27,9 +27,11 @@ jobs:
             tests/test_settings_dirty_state_v2.py \
             tests/test_profile_settings_navigation.py \
             tests/test_windows_restart_compat.py
-      - name: Run warehouse PZ UI regression
+      - name: Run warehouse PZ/reservation UI regressions
         run: |
-          pytest -q tests/test_magazyn_pz_ui.py
+          pytest -q \
+            tests/test_magazyn_pz_ui.py \
+            tests/test_gui_magazyn_rezerwacje.py
       - name: Run production planning regressions
         run: |
           pytest -q \
