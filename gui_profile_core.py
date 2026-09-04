@@ -1,4 +1,4 @@
-# version: 1.7.2
+# version: 1.7.3
 """GUI moduł profilu użytkownika.
 
 Publiczne funkcje:
@@ -21,7 +21,7 @@ Danych źródłowych w folderze danych nie modyfikujemy.
 """
 
 # Plik: gui_profile.py
-# Wersja: 1.7.2
+# Wersja: 1.7.3
 # Zmiany 1.7.2:
 # - Dwuklik pozostaje jedynym sposobem otwierania Dyspozycji z Profilu.
 # - Przycisk Otwórz zastąpiono akcjami Rozpocznij/Zakończ Dyspozycję.
@@ -95,7 +95,7 @@ from utils_json import safe_read_json
 from utils_paths import tools_file
 from grafiki.shifts_schedule import (
     _user_mode,
-    _week_idx,
+    _week_idx_for_user,
     _slot_for_mode,
     _shift_times,
 )
@@ -1280,7 +1280,7 @@ def uruchom_panel(root, frame, login=None, rola=None):
                 on_shift = False
             else:
                 mode = _user_mode(str(login))
-                slot = _slot_for_mode(mode, _week_idx(now.date()))
+                slot = _slot_for_mode(mode, _week_idx_for_user(str(login), now.date()))
                 if weekday == 5:
                     slot = "RANO"
                 if slot == "RANO":
@@ -1568,7 +1568,7 @@ class ProfileView(ttk.Frame):
                 return "Wolne"
             times = _shift_times()
             mode = _user_mode(str(self.login))
-            slot = _slot_for_mode(mode, _week_idx(now.date()))
+            slot = _slot_for_mode(mode, _week_idx_for_user(str(self.login), now.date()))
             # Zachowujemy dotychczasową regułę soboty z modułu Profil.
             if now.weekday() == 5:
                 slot = "RANO"
