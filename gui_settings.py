@@ -3130,21 +3130,6 @@ class SettingsPanel:
             option_type="bool",
         )
 
-        ttk.Label(
-            security_frame, text="Data startu rotacji (YYYY-MM-DD):"
-        ).pack(anchor="w", padx=4, pady=(8, 2))
-        self.var_attendance_rotation_start = tk.StringVar(
-            value=str(cfg.get("attendance.rotation_start", "") or "")
-        )
-        ttk.Entry(
-            security_frame, textvariable=self.var_attendance_rotation_start, width=20
-        ).pack(anchor="w", padx=4, pady=(0, 4))
-        self._register_manual_var(
-            "attendance.rotation_start",
-            self.var_attendance_rotation_start,
-            default=self.var_attendance_rotation_start.get(),
-            option_type="str",
-        )
 
         paths_frame = ttk.LabelFrame(
             self._paths_container, text="Ścieżki konfiguracyjne"

@@ -1,8 +1,8 @@
 # WM-VERSION: 0.1
-# version: 1.4.13
+# version: 1.4.14
 # Plik: gui_logowanie.py (beta)
 # Zmiany 1.4.13:
-# - Tryby 121 i 212 przełączają zmianę naprzemiennie co tydzień; 111 i 222 pozostają stałe.
+# - Logowanie korzysta z kanonicznego grafiku pracownika i jego indywidualnej daty kotwicznej.
 # Zmiany 1.4.12.1:
 # - Przywrócony układ z 1.4.12 (logo wyśrodkowane, PIN pośrodku, przycisk "Zamknij program" przyklejony na dole, stopka z wersją).
 # - Dodany pasek postępu zmiany (1/3 szerokości ekranu, wyśrodkowany)
@@ -26,6 +26,7 @@ except Exception:  # pragma: no cover - brak Pillow
     ImageTk = None
 
 from config_manager import ConfigManager
+from grafiki import shifts_schedule
 from grafiki.shifts_schedule import who_is_on_now
 from profiles_store import load_profiles_users, resolve_profiles_path
 from updates_utils import load_last_update_info, remote_branch_exists
@@ -348,101 +349,30 @@ def _user_shift_mode(profile: dict):
     return ""
 
 
-def _global_rotation_start() -> date | None:
-    """
-    Globalna data startu rotacji A/B.
-    Preferencja:
-    - config: attendance.rotation_start
-    - fallback: config presence.rotation_start
-    """
-    try:
-        cfg = ConfigManager()
-        for key in ("attendance.rotation_start", "presence.rotation_start"):
-            raw = cfg.get(key)
-            if isinstance(raw, str) and raw.strip():
-                parsed = _parse_date_ymd(raw.strip())
-                if parsed:
-                    return parsed
-    except Exception:
-        pass
-    return None
-
-
-def _rotation_week_ab(now: datetime):
-    """
-    Zwraca aktywny tydzień rotacji: 'A' albo 'B'.
-    Jeśli brak daty startu, domyślnie 'A'.
-    """
-    start = _global_rotation_start()
-    if not start:
-        return "A"
-    try:
-        delta_days = (now.date() - start).days
-        week_idx = max(0, delta_days // 7)
-        return "A" if week_idx % 2 == 0 else "B"
-    except Exception:
-        return "A"
-
-
-def _user_shift_mode_for_week(profile: dict, week_ab: str):
-    """
-    Pobierz tryb zmian użytkownika dla tygodnia A/B.
-    Fallback do starego tryb_zmian, jeśli nowe pola nie są ustawione.
-    """
-    suffix = "A" if str(week_ab).upper() == "A" else "B"
-    for key in (
-        f"tryb_zmian_{suffix}",
-        f"zmiana_plan_{suffix}",
-        f"shift_mode_{suffix}",
-    ):
-        value = profile.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return _user_shift_mode(profile)
-
-
-def _user_shift_start(profile: dict):
-    # preferuj rotacja_start/shift_start
-    for k in ("rotacja_start", "shift_start"):
-        v = profile.get(k)
-        if isinstance(v, str) and v.strip():
-            d = _parse_date_ymd(v)
-            if d:
-                return d
-    return None
-
-
 def _slot_for_user(profile: dict, now: datetime):
-    # jeśli nie pracuje dziś – None
+    """Zwróć zmianę pracownika z jednego, kanonicznego silnika grafiku."""
     if now.weekday() not in _user_workdays(profile):
         return None
 
-    # Tryb jest tygodniowy. 121/212 oznacza naprzemienną zmianę co tydzień,
-    # a 111/222 oznacza stałą zmianę. Inne starsze wzorce zachowują
-    # dotychczasowe cykliczne działanie.
-    mode = _user_shift_mode(profile)
-    seq = [c for c in mode if c in ("1", "2")]
-    if not seq:
+    schedule_key = str(
+        profile.get("user_id")
+        or profile.get("id")
+        or profile.get("login")
+        or ""
+    ).strip()
+    if not schedule_key:
         return None
 
-    # liczymy który to tydzień od startu rotacji
-    start = _global_rotation_start()
-    if not start:
-        week_idx = 0
-    else:
-        delta_days = (now.date() - start).days
-        week_idx = max(0, delta_days // 7)
-
-    normalized_mode = "".join(seq)
-    if normalized_mode in {"111", "222"}:
-        c = normalized_mode[0]
-    elif normalized_mode in {"121", "212"}:
-        first = normalized_mode[0]
-        c = first if week_idx % 2 == 0 else ("2" if first == "1" else "1")
-    else:
-        c = seq[week_idx % len(seq)]
-    return "RANO" if c == "1" else "POPO"
-
+    try:
+        mode, _anchor = shifts_schedule.get_user_schedule(schedule_key)
+        week_idx = shifts_schedule._week_idx_for_user(schedule_key, now.date())
+        return shifts_schedule._slot_for_mode(mode, week_idx)
+    except Exception:
+        logger.exception(
+            "[WM-ERR][LOGIN] Nie udało się wyliczyć grafiku dla %s",
+            schedule_key,
+        )
+        return None
 
 def _display_name(profile: dict):
     im = str(profile.get("imie", "") or "").strip()
