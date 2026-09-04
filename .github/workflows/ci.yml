@@ -91,7 +91,8 @@ jobs:
             tests/test_profile_settings_runtime_tk.py \
             tests/test_profile_admin_foreman_tk.py \
             tests/test_profile_own_edit_tk.py \
-            tests/test_profile_user_actions_tk.py
+            tests/test_profile_user_actions_tk.py \
+            tests/test_profile_calendar_team_tk.py
   static-checks:
     runs-on: ubuntu-latest
     steps:
