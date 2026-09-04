@@ -2,8 +2,8 @@ from __version__ import __version__
 from profile_foreman_edit_runtime import _parse_carryover
 
 
-def test_profile_release_is_095():
-    assert __version__ == "0.9.5"
+def test_profile_release_is_096():
+    assert __version__ == "0.9.6"
 
 
 def test_carryover_keeps_source_years():
