@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Minimalne UI rodzajów płatnych dni w Profilach.
 
 Nie tworzy nowej zakładki. Dokłada dwa przyciski do istniejącego bloku
@@ -80,30 +80,19 @@ def _decorate_employee_window(owner, login: str, win: tk.Toplevel, on_saved=None
         end = str(end_entry.get() or "").strip()
         note = str(note_entry.get() or "").strip() if note_entry is not None else ""
         try:
+            import profile_foreman_edit_runtime as edit_runtime
             from services import leave_workflow_service as lw
+            actor = edit_runtime._actor_or_error(owner)
             days = lw.dates_from_range(start, end, include_sundays=True)
             if kind == "ŚW":
-                count = lw.add_force_majeure(login, days, str(getattr(owner, "login", "") or ""), note)
+                count = lw.add_force_majeure(login, days, actor, note)
                 label = "Siła wyższa 50%"
             else:
-                count = lw.add_unpaid_leave(login, days, str(getattr(owner, "login", "") or ""), note)
+                count = lw.add_unpaid_leave(login, days, actor, note)
                 label = "Urlop bezpłatny 0%"
-        except Exception:
-            # Edytor ma własny, poprawny resolver aktywnego Brygadzisty.
-            try:
-                import profile_foreman_edit_runtime as edit_runtime
-                from services import leave_workflow_service as lw
-                actor = edit_runtime._actor_or_error(owner)
-                days = lw.dates_from_range(start, end, include_sundays=True)
-                if kind == "ŚW":
-                    count = lw.add_force_majeure(login, days, actor, note)
-                    label = "Siła wyższa 50%"
-                else:
-                    count = lw.add_unpaid_leave(login, days, actor, note)
-                    label = "Urlop bezpłatny 0%"
-            except Exception as exc:
-                messagebox.showerror("Nieobecność", f"Nie udało się zapisać:\n{exc}", parent=win)
-                return
+        except Exception as exc:
+            messagebox.showerror("Nieobecność", f"Nie udało się zapisać:\n{exc}", parent=win)
+            return
         messagebox.showinfo("Nieobecność", f"Zapisano: {label} — {count} dni.", parent=win)
         if callable(on_saved):
             try:
@@ -143,11 +132,14 @@ def _patch_employee_editor() -> None:
 
     def open_employee_editor(owner, login: str, *, initial_tab: str = "Dane", on_saved=None) -> None:
         root = owner.winfo_toplevel()
-        before = set(root.winfo_children())
+        before = {id(widget) for widget in _walk(root) if isinstance(widget, tk.Toplevel)}
         original(owner, login, initial_tab=initial_tab, on_saved=on_saved)
-        after = [child for child in root.winfo_children() if child not in before and isinstance(child, tk.Toplevel)]
-        if after:
-            _decorate_employee_window(owner, login, after[-1], on_saved=on_saved)
+        created = [
+            widget for widget in _walk(root)
+            if isinstance(widget, tk.Toplevel) and id(widget) not in before
+        ]
+        if created:
+            _decorate_employee_window(owner, login, created[-1], on_saved=on_saved)
 
     edit_runtime.open_employee_editor = open_employee_editor
     edit_runtime._wm_pay_absence_ui = True
