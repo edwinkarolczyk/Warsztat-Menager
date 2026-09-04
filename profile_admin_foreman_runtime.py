@@ -1,4 +1,4 @@
-# version: 1.7
+# version: 1.8
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -47,6 +47,14 @@ def _install_workforce_extensions() -> None:
         install_attendance_finalize()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] attendance finalize runtime install failed: {exc!r}")
+
+    # Ostatni krok: przywróć zgodną sygnaturę audytu i zapisuj pełną historię,
+    # bez dawnego limitu 5000 wpisów.
+    try:
+        from profile_audit_finalize_runtime import install as install_audit_finalize
+        install_audit_finalize()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] audit finalize runtime install failed: {exc!r}")
 
 
 def install() -> None:
