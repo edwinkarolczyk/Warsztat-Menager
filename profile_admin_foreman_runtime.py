@@ -1,4 +1,4 @@
-# version: 1.4
+# version: 1.5
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -24,6 +24,14 @@ def _install_workforce_extensions() -> None:
         install_leave_ui()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] leave UI runtime install failed: {exc!r}")
+
+    # Ta warstwa ma być ostatnia: daje Brygadziście realną edycję, ale nie
+    # przebudowuje głównej karty Profilu.
+    try:
+        from profile_foreman_edit_runtime import install as install_foreman_edit
+        install_foreman_edit()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] foreman edit runtime install failed: {exc!r}")
 
 
 def install() -> None:
@@ -71,19 +79,15 @@ def install() -> None:
                     except Exception:
                         pass
 
-            # Zgodność ze starszą wersją, która mogła mieć zakładkę "Profile".
-            # Aktualny panel jej nie ma; nowy runtime montuje administrację w
-            # widocznej zakładce "Użytkownicy".
+            # Administracja ma być tylko w Użytkownicy. Stara zakładka
+            # "Profile" może istnieć po starszym runtime; końcowa warstwa ją
+            # ukryje, zamiast dublować ten sam panel w dwóch miejscach.
             profile_tab = tabs.get("Profile")
             if profile_tab is not None:
-                for child in list(profile_tab.winfo_children()):
-                    try:
-                        child.destroy()
-                    except Exception:
-                        pass
-                admin = ProfileAdminNotebook(profile_tab)
-                admin.pack(fill="both", expand=True)
-                self._wm_profile_admin = admin
+                try:
+                    notebook.hide(profile_tab)
+                except Exception:
+                    pass
             return result
 
         cls._build = _build
