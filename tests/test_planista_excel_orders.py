@@ -1,6 +1,6 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_orders.py
-# version: 1.0
+# version: 1.1
 
 from __future__ import annotations
 
@@ -88,6 +88,19 @@ def test_two_different_products_under_same_external_order_are_two_creates():
         sync.ACTION_CREATE,
     ]
     assert plan["items"][0]["identity"] != plan["items"][1]["identity"]
+
+
+def test_duplicate_same_product_under_same_external_order_requires_decision():
+    rows = [
+        _row(qty=100, source_row=4),
+        _row(qty=200, source_row=5),
+    ]
+
+    plan = sync.build_order_sync_plan(_payload(rows), orders=[])
+
+    assert len(plan["items"]) == 2
+    assert all(item["action"] == sync.ACTION_CONFLICT for item in plan["items"])
+    assert plan["can_write"] is False
 
 
 def test_same_imported_line_is_idempotent_and_source_row_is_not_identity():
@@ -189,6 +202,7 @@ def test_apply_requires_explicit_approval_and_writes_provenance(monkeypatch):
         created.append((product, qty, kwargs))
         return {"id": "000777", "produkt": product}, []
 
+    monkeypatch.setattr(sync.ZL, "list_zlecenia", lambda: [])
     monkeypatch.setattr(sync.ZL, "create_zlecenie", fake_create)
     monkeypatch.setattr(
         sync,
@@ -211,6 +225,26 @@ def test_apply_requires_explicit_approval_and_writes_provenance(monkeypatch):
     assert provenance[0][1]["nr_zlec"] == "659"
     assert provenance[0][1]["wm_symbol"] == "1.327.50"
     assert "source_row" not in provenance[0][1]
+
+
+def test_apply_rechecks_duplicate_before_create(monkeypatch):
+    payload = _payload([_row()])
+    plan = sync.build_order_sync_plan(payload, orders=[])
+    existing = _imported_order()
+
+    monkeypatch.setattr(sync.ZL, "list_zlecenia", lambda: [existing])
+    monkeypatch.setattr(
+        sync.ZL,
+        "create_zlecenie",
+        lambda *args, **kwargs: pytest.fail("create must not run"),
+    )
+
+    with pytest.raises(sync.ExcelOrderSyncError):
+        sync.apply_order_sync(
+            payload,
+            plan,
+            approved_identities={plan["items"][0]["identity"]},
+        )
 
 
 def test_apply_rechecks_protected_status_before_update(monkeypatch):
