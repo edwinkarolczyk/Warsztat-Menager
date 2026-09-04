@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_excel_changes.py
-# version: 1.0
+# version: 1.1
 
 from __future__ import annotations
 
@@ -90,6 +90,20 @@ def test_quantity_and_shipping_date_changes_are_reported_without_changing_identi
     assert "700" in row["excel_change_note"]
     assert changed["source_sha256"] != changed["previous_source_sha256"]
     assert changed["has_changes"] is True
+
+
+def test_process_change_is_reported_as_excel_change():
+    previous = [_row(659, "1.327.50", 640)]
+    current = [_row(659, "1.327.50", 640)]
+    current[0]["proces"] = "malowane"
+
+    result = compare_plan_rows(previous, current)
+
+    row = result["rows"][0]
+    assert row["excel_change_status"] == CHANGE_CHANGED
+    assert row["excel_change_fields"] == ["Proces"]
+    assert row["excel_change_note"] == "Proces: zgrzane → malowane"
+    assert result["has_changes"] is True
 
 
 def test_single_product_replacement_in_same_external_order_is_product_change():
