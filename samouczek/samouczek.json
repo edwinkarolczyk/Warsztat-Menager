@@ -1,0 +1,78 @@
+{
+  "format_version": 1,
+  "title": "Samouczek Warsztat Menager",
+  "branch": "Rozwiniecie",
+  "updated": "2026-09-04",
+  "slides": [
+    {
+      "module": "Start",
+      "title": "Jak korzystać z samouczka",
+      "lead": "Samouczek prowadzi po WM krok po kroku. Każdy ekran mówi, gdzie kliknąć, co wpisać i czego spodziewać się dalej.",
+      "steps": [
+        "Wybierz temat z listy po lewej albo użyj przycisków Wstecz i Dalej.",
+        "Wykonuj kroki po kolei w normalnym WM — samouczek nie zmienia danych programu.",
+        "Zwracaj uwagę na podpowiedzi oznaczone ! przy polach i przyciskach."
+      ],
+      "tip": "Treść samouczka jest osobna od logiki WM. Może być rozwijana przy kolejnych zmianach programu bez przebudowy modułów produkcyjnych."
+    },
+    {
+      "module": "Panel główny",
+      "title": "Otwieranie modułu",
+      "lead": "Moduły WM otwierasz z lewego panelu.",
+      "steps": [
+        "Kliknij nazwę modułu, np. Narzędzia, Maszyny albo Magazyn.",
+        "Środkowa część WM zostanie zastąpiona wybranym widokiem, a lewy panel pozostanie dostępny.",
+        "Aby przejść do innego obszaru, kliknij kolejny moduł z lewej strony."
+      ],
+      "tip": "Samouczek jest osobnym przyciskiem pod modułami i nie bierze udziału w ich uprawnieniach."
+    },
+    {
+      "module": "Dyspozycje",
+      "title": "Dodawanie dyspozycji",
+      "lead": "Przykład instrukcji w stylu „kliknij i zrób”.",
+      "steps": [
+        "Kliknij Dyspozycje w lewym panelu.",
+        "Kliknij Dodaj Dyspozycję.",
+        "Wybierz typ i obiekt, uzupełnij termin oraz opis zadania.",
+        "Kliknij Zapisz. Nowa dyspozycja pojawi się na liście."
+      ],
+      "tip": "Jeśli przy polu widzisz !, użyj go przed zapisem — podpowiedź wyjaśnia znaczenie pola w maksymalnie dwóch krótkich zdaniach."
+    },
+    {
+      "module": "Narzędzia",
+      "title": "Edycja narzędzia",
+      "lead": "Najpierw wybierasz istniejącą kartę, dopiero potem ją zmieniasz.",
+      "steps": [
+        "Kliknij Narzędzia.",
+        "Wyszukaj narzędzie po numerze lub nazwie i zaznacz je na liście.",
+        "Kliknij Edytuj i zmień tylko potrzebne dane.",
+        "Kliknij Zapisz, aby zatwierdzić zmiany."
+      ],
+      "tip": "Nie zmieniaj technicznego ID bez potrzeby. Powiązania WM powinny opierać się na stałym identyfikatorze rekordu."
+    },
+    {
+      "module": "Maszyny",
+      "title": "Zgłoszenie problemu z maszyną",
+      "lead": "Przykład procesu, który samouczek może później rozwinąć o dokładne ekrany i statusy.",
+      "steps": [
+        "Kliknij Maszyny.",
+        "Znajdź maszynę po numerze, nazwie albo lokalizacji.",
+        "Otwórz jej kartę i ustaw właściwy status problemowy, np. Awaria lub Serwis / przegląd.",
+        "Zapisz zmianę i sprawdź, czy maszyna pojawia się w miejscach wymagających reakcji."
+      ],
+      "tip": "Samouczek będzie aktualizowany razem ze zmianami gałęzi Rozwiniecie, więc instrukcja ma podążać za faktycznym zachowaniem WM."
+    },
+    {
+      "module": "Usuwanie",
+      "title": "Bezpieczne usuwanie danych",
+      "lead": "Instrukcja usuwania zawsze powinna mówić także, czego nie wolno skasować bez sprawdzenia powiązań.",
+      "steps": [
+        "Zaznacz rekord, który chcesz usunąć.",
+        "Kliknij Usuń i przeczytaj komunikat potwierdzający.",
+        "Jeżeli WM informuje o stanie, rezerwacji lub powiązaniu, nie omijaj blokady.",
+        "Po potwierdzeniu sprawdź, czy rekord zniknął z listy i nie pozostał jako martwe powiązanie."
+      ],
+      "tip": "Samouczek opisuje działanie. Nie wykonuje operacji usuwania i nie ma bezpośredniego dostępu do danych produkcyjnych."
+    }
+  ]
+}
