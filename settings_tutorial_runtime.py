@@ -1,18 +1,38 @@
-# version: 1.0
+# version: 1.1
 # Moduł: settings_tutorial_runtime
 # Izolowane ustawienie widoczności przycisku Samouczek.
+# 1.1: plik ustawienia jest wyznaczany względem aktywnego WM_ROOT.
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
 
 
-SETTINGS_PATH = Path(__file__).with_name("samouczek") / "ustawienia.json"
 _DEFAULT_ENABLED = True
+
+
+def _resolve_settings_path() -> Path:
+    """Zwróć osobny plik ustawień samouczka w aktywnym WM_ROOT."""
+    try:
+        from core import root_paths as wm_root_paths
+
+        root = wm_root_paths.get_root_anchor()
+        if root:
+            return Path(root) / "samouczek" / "ustawienia.json"
+    except Exception:
+        pass
+    env_root = str(os.environ.get("WM_ROOT") or "").strip()
+    if env_root:
+        return Path(env_root).expanduser() / "samouczek" / "ustawienia.json"
+    return Path.home() / ".warsztat-menager" / "samouczek" / "ustawienia.json"
+
+
+SETTINGS_PATH = _resolve_settings_path()
 
 
 def is_tutorial_button_enabled() -> bool:
