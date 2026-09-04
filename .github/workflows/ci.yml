@@ -27,7 +27,10 @@ jobs:
             tests/test_leave_balance_service.py \
             tests/test_feedback_service.py \
             tests/test_profile_foreman_edit_runtime.py \
-            tests/test_profile_day_pay.py
+            tests/test_profile_day_pay.py \
+            tests/test_shifts_schedule.py \
+            tests/test_shifts_schedule_anchor.py \
+            test_shifts_schedule_weekend.py
       - name: Run smoke tests (settings)
         run: |
           pytest -q \
