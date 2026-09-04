@@ -1,4 +1,4 @@
-# version: 1.5
+# version: 1.6
 import tkinter as tk
 from tkinter import ttk
 
@@ -32,7 +32,7 @@ def _button_texts(widget):
     return values
 
 
-def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
+def test_foreman_admin_is_grouped_without_top_level_clutter(monkeypatch):
     monkeypatch.setattr(users_settings, "_load_users", lambda: [])
     monkeypatch.setattr(ForemanProfilePanel, "refresh_data", lambda self: None)
 
@@ -44,23 +44,31 @@ def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
 
         visible = _visible_texts(panel.notebook)
         assert visible == [
-            "Pulpit", "Ruch WM", "Obecność", "Urlopy",
-            "Użytkownicy", "Opinie", "Statystyki",
+            "Pulpit", "Ruch WM", "Obecność", "Urlopy", "Administracja",
         ]
-        assert "Profile" not in panel._tabs
+        assert "Profile" not in visible
         assert "Zadania" not in visible
         assert "Sprzęt" not in visible
-        assert "Profile" not in visible
         assert "Zespół" not in visible
+        assert "Użytkownicy" not in visible
+        assert "Opinie" not in visible
+        assert "Statystyki" not in visible
+
+        admin = panel._tabs["Administracja"]
+        admin_notebook = panel._wm_admin_notebook
+        assert isinstance(admin_notebook, ttk.Notebook)
+        assert admin_notebook.master is admin
+        assert _visible_texts(admin_notebook) == ["Użytkownicy", "Opinie", "Statystyki"]
 
         users_tab = panel._tabs["Użytkownicy"]
-        admin = panel._wm_users_admin_panel
-        assert isinstance(admin, UsersAdminPanel)
-        assert panel._wm_profile_admin is admin
-        assert panel._wm_users_admin_flat is True
+        assert users_tab.master is admin_notebook
+        assert panel._tabs["Opinie"].master is admin_notebook
+        assert panel._tabs["Statystyki"].master is admin_notebook
 
-        # Zewnętrzne Użytkownicy nie mogą zawierać drugiego Notebooka
-        # Użytkownicy | Profile | Rangi.
+        users_admin = panel._wm_users_admin_panel
+        assert isinstance(users_admin, UsersAdminPanel)
+        assert panel._wm_profile_admin is users_admin
+        assert panel._wm_users_admin_flat is True
         assert not any(isinstance(child, ttk.Notebook) for child in users_tab.winfo_children())
     finally:
         root.destroy()
@@ -110,8 +118,6 @@ def test_profile_entrypoints_are_in_attendance_and_leave_not_ruch_wm(monkeypatch
         panel._render_leaves()
         assert "Szczegóły pracownika" in _button_texts(panel._tabs["Urlopy"])
 
-        # Obecność ma własne wejście do profilu i otwiera od razu kartę Obecność.
-        # Chronimy tu kontrakt na poziomie metod: końcowy renderer jest podpięty.
         assert hasattr(panel, "_render_attendance")
     finally:
         root.destroy()
