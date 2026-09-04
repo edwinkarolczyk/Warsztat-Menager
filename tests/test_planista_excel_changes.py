@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_excel_changes.py
-# version: 1.1
+# version: 1.2
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from planista_excel_changes import (
     compare_plan_rows,
     last_plan_source_path,
 )
+from planista_excel_runtime import _preview_row_sort_key
 
 
 def _row(order, code, qty, date="2026-09-14", *, source_row=4, name="NW"):
@@ -160,8 +161,23 @@ def test_row_reordering_alone_does_not_create_false_changes():
     assert result["has_changes"] is False
 
 
+def test_excel_preview_promotes_products_found_in_wm_and_keeps_group_order():
+    rows = [
+        {"source_row": 4, "match_status": "Brak produktu w WM"},
+        {"source_row": 5, "match_status": "Znaleziony w WM"},
+        {"source_row": 6, "match_status": "Niejednoznaczny"},
+        {"source_row": 7, "match_status": "Znaleziony w WM"},
+    ]
+
+    ordered = sorted(rows, key=_preview_row_sort_key)
+
+    assert [row["source_row"] for row in ordered] == [5, 7, 4, 6]
+
+
 def test_runtime_exposes_manual_check_button_and_keeps_analysis_read_only():
     source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
     assert 'text="Sprawdź zmiany"' in source
     assert "analyze_and_store_plan_changes" in source
     assert "bez tworzenia zleceń" in source
+    assert 'tree.tag_configure(\n        "wm_found"' in source
+    assert 'tags=("wm_found",) if found_in_wm else ()' in source
