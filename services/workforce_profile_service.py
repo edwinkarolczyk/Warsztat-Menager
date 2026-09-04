@@ -1,24 +1,74 @@
-# version: 1.0
+# version: 1.1
 """Spójna warstwa profili pracowników WM.
 
 Normalizuje wszystkie historyczne formaty profiles.json przez profiles_store,
 nadaje trwałe user_id i ustala jedno pole limitu urlopu:
 ``entitlements.urlop_rocznie``. Login pozostaje edytowalny, user_id nie.
+
+Od 1.1 naprawia też historyczny config grafiku: własne ``shifts.patterns``
+rozszerzają wzorce WM zamiast usuwać obowiązkowe tryby 111/222/121/212.
 """
 from __future__ import annotations
 
-import json
-import os
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
+from config_manager import ConfigManager
 from profiles_store import load_profiles_users, resolve_profiles_path, save_profiles_users
+
+
+_BASE_SHIFT_PATTERNS: dict[str, str] = {
+    "112": "112",
+    "111": "111",
+    "222": "222",
+    "12": "12",
+    "121": "121",
+    "212": "212",
+    "211": "211",
+    "1212": "1212",
+}
 
 
 def _key(value: object) -> str:
     return str(value or "").strip().casefold()
+
+
+def merge_shift_patterns(raw: object) -> dict[str, str]:
+    """Połącz stare/customowe wzorce z pełnym zestawem bazowym WM."""
+    merged = dict(_BASE_SHIFT_PATTERNS)
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            name = str(key or "").strip()
+            if not name:
+                continue
+            pattern = str(value or name).strip() or name
+            merged[name] = pattern
+    elif isinstance(raw, (list, tuple, set)):
+        for value in raw:
+            name = str(value or "").strip()
+            if name:
+                merged[name] = name
+    return merged
+
+
+def ensure_required_shift_patterns() -> dict[str, str]:
+    """Uzupełnij config grafiku bez usuwania istniejących wzorców."""
+    try:
+        cfg = ConfigManager()
+        raw = cfg.get("shifts.patterns", {})
+        merged = merge_shift_patterns(raw)
+        current = {}
+        if isinstance(raw, dict):
+            current = {str(k): str(v) for k, v in raw.items() if str(k).strip()}
+        elif isinstance(raw, (list, tuple, set)):
+            current = {str(v): str(v) for v in raw if str(v).strip()}
+        if current != merged:
+            cfg.set("shifts.patterns", merged)
+            cfg.save_all()
+        return merged
+    except Exception:
+        return dict(_BASE_SHIFT_PATTERNS)
 
 
 def _next_user_id(users: list[dict]) -> str:
@@ -84,7 +134,8 @@ def _normalize_one(row: dict, users: list[dict]) -> tuple[dict, bool]:
 
 
 def ensure_profile_schema() -> list[dict]:
-    """Jednorazowo normalizuj profiles.json bez utraty danych."""
+    """Idempotentnie normalizuj profiles.json bez utraty danych."""
+    ensure_required_shift_patterns()
     path = resolve_profiles_path(None)
     try:
         users = load_profiles_users(path=path)
@@ -92,7 +143,6 @@ def ensure_profile_schema() -> list[dict]:
         return []
     normalized: list[dict] = []
     changed = False
-    # Pracujemy na wspólnej kopii, żeby generator user_id widział wcześniejsze ID.
     working = [dict(row) for row in users if isinstance(row, dict)]
     for row in working:
         norm, row_changed = _normalize_one(row, normalized + working)
@@ -105,10 +155,8 @@ def ensure_profile_schema() -> list[dict]:
 
 
 def list_users(*, active_only: bool = False) -> list[dict]:
-    try:
-        users = load_profiles_users(path=resolve_profiles_path(None))
-    except Exception:
-        users = []
+    # Każdy odczyt przez kanoniczny serwis gwarantuje trwałe user_id.
+    users = ensure_profile_schema()
     out: list[dict] = []
     for row in users:
         if not isinstance(row, dict):
@@ -220,6 +268,6 @@ def display_name(user: dict) -> str:
 
 
 __all__ = [
-    "ensure_profile_schema", "list_users", "get_user", "save_user", "write_users",
-    "is_foreman", "display_name",
+    "ensure_profile_schema", "ensure_required_shift_patterns", "merge_shift_patterns",
+    "list_users", "get_user", "save_user", "write_users", "is_foreman", "display_name",
 ]
