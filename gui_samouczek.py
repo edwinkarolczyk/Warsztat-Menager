@@ -1,21 +1,44 @@
-# WM-VERSION: 0.1.0
+# WM-VERSION: 0.2.0
 # Moduł: gui_samouczek
 # Niezależny podgląd samouczka WM. Nie modyfikuje danych programu.
+# 0.2.0: nagłówek pokazuje bieżącą wersję WM i datę ostatniej aktualizacji samouczka.
 
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
 
+try:
+    from __version__ import __version__ as CURRENT_WM_VERSION
+except Exception:  # pragma: no cover - awaryjny fallback uruchomieniowy
+    CURRENT_WM_VERSION = "dev"
+
 
 CONTENT_PATH = Path(__file__).with_name("samouczek") / "samouczek.json"
 
 
+def _format_updated(value: Any) -> str:
+    """Zamień ISO YYYY-MM-DD na czytelne DD.MM.YYYY bez ryzyka crasha."""
+    text = str(value or "").strip()
+    if not text:
+        return "brak daty"
+    try:
+        return date.fromisoformat(text).strftime("%d.%m.%Y")
+    except ValueError:
+        return text
+
+
 def load_tutorial(path: Path | str = CONTENT_PATH) -> dict[str, Any]:
-    """Wczytaj samouczek z osobnego pliku JSON."""
+    """Wczytaj samouczek z osobnego pliku JSON.
+
+    Pole ``wm_version`` w pamięci jest zawsze synchronizowane z centralną
+    wersją WM z ``__version__.py``. Dzięki temu nagłówek nie może pokazać
+    starego numeru wersji nawet wtedy, gdy plik treści czeka na aktualizację.
+    """
     source = Path(path)
     with source.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
@@ -24,6 +47,7 @@ def load_tutorial(path: Path | str = CONTENT_PATH) -> dict[str, Any]:
     slides = data.get("slides")
     if not isinstance(slides, list):
         raise ValueError("Brak listy slajdów w samouczku")
+    data["wm_version"] = CURRENT_WM_VERSION
     return data
 
 
@@ -48,8 +72,13 @@ def open_tutorial(root: tk.Misc) -> tk.Toplevel | None:
         )
         return None
 
+    wm_version = str(data.get("wm_version") or CURRENT_WM_VERSION)
+    updated_text = _format_updated(data.get("updated"))
+
     win = tk.Toplevel(root)
-    win.title(str(data.get("title") or "Samouczek Warsztat Menager"))
+    win.title(
+        f"{str(data.get('title') or 'Samouczek Warsztat Menager')} — WM v{wm_version}"
+    )
     win.geometry("1100x700")
     win.minsize(880, 560)
     try:
@@ -62,11 +91,21 @@ def open_tutorial(root: tk.Misc) -> tk.Toplevel | None:
     outer.columnconfigure(1, weight=1)
     outer.rowconfigure(1, weight=1)
 
+    header = ttk.Frame(outer)
+    header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+    header.columnconfigure(0, weight=1)
+
     ttk.Label(
-        outer,
+        header,
         text="Samouczek WM",
         font=("Segoe UI", 20, "bold"),
-    ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+    ).grid(row=0, column=0, sticky="w")
+
+    ttk.Label(
+        header,
+        text=f"WM v{wm_version}   |   Aktualizacja samouczka: {updated_text}",
+        font=("Segoe UI", 10),
+    ).grid(row=0, column=1, sticky="e", padx=(16, 0))
 
     nav = ttk.Frame(outer)
     nav.grid(row=1, column=0, sticky="nsw", padx=(0, 12))
@@ -131,7 +170,9 @@ def open_tutorial(root: tk.Misc) -> tk.Toplevel | None:
         module_var.set(str(slide.get("module") or "WM"))
         title_var.set(str(slide.get("title") or ""))
         lead_var.set(str(slide.get("lead") or ""))
-        tip_label.configure(text=str(slide.get("tip") or "Brak dodatkowej podpowiedzi."))
+        tip_label.configure(
+            text=str(slide.get("tip") or "Brak dodatkowej podpowiedzi.")
+        )
         counter_var.set(f"{index + 1} / {len(slides)}")
 
         for child in body.winfo_children():
@@ -184,4 +225,9 @@ def open_tutorial(root: tk.Misc) -> tk.Toplevel | None:
     return win
 
 
-__all__ = ["CONTENT_PATH", "load_tutorial", "open_tutorial"]
+__all__ = [
+    "CONTENT_PATH",
+    "CURRENT_WM_VERSION",
+    "load_tutorial",
+    "open_tutorial",
+]
