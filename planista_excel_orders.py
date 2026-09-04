@@ -1,6 +1,7 @@
-# WM-VERSION: 0.1
+# WM-VERSION: 0.2
 # Plik: planista_excel_orders.py
-# version: 1.0
+# version: 1.1
+# 1.1: blokuje powielony klucz Nr zlec. + Produkt WM w jednym planie Excel.
 """Planowanie i kontrolowane wykonanie synchronizacji Excel -> zlecenia WM.
 
 Moduł nie jest podpięty bezpośrednio do przycisku importu. Najpierw buduje
@@ -122,12 +123,28 @@ def _plan_item(
     }
 
 
+def _current_excel_key_counts(payload: dict) -> dict[str, int]:
+    """Policz jednoznaczne klucze w bieżącym Excelu bez ich agregowania."""
+    counts: dict[str, int] = defaultdict(int)
+    for raw in list(payload.get("rows") or []):
+        if not isinstance(raw, dict):
+            continue
+        if _text(raw.get("match_status")) != STATUS_FOUND:
+            continue
+        nr_zlec = _text(raw.get("nr_zlec"))
+        wm_symbol = _text(raw.get("wm_symbol"))
+        if nr_zlec and wm_symbol:
+            counts[_identity(nr_zlec, wm_symbol)] += 1
+    return dict(counts)
+
+
 def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> dict:
     """Zbuduj plan synchronizacji bez zapisywania zleceń WM."""
     current_orders = list(ZL.list_zlecenia() if orders is None else orders)
     imported_by_key: dict[str, list[dict]] = defaultdict(list)
     business_by_key: dict[str, list[dict]] = defaultdict(list)
     imported_by_external: dict[str, list[dict]] = defaultdict(list)
+    current_key_counts = _current_excel_key_counts(payload)
 
     for order in current_orders:
         if not isinstance(order, dict):
@@ -179,6 +196,20 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             continue
 
         key = _identity(nr_zlec, wm_symbol)
+        if current_key_counts.get(key, 0) > 1:
+            planned.append(
+                _plan_item(
+                    row,
+                    ACTION_CONFLICT,
+                    reason=(
+                        "Excel zawiera więcej niż jedną pozycję z tym samym "
+                        "Nr zlec. i Produktem WM; WM nie sumuje ich ani nie "
+                        "tworzy automatycznie."
+                    ),
+                )
+            )
+            continue
+
         imported_matches = imported_by_key.get(key, [])
         if len(imported_matches) > 1:
             planned.append(
@@ -369,6 +400,16 @@ def apply_order_sync(
         row = dict(item.get("row") or {})
         source_meta = _source_meta(payload, row)
         if action == ACTION_CREATE:
+            current_key = item.get("identity", "")
+            if any(
+                _order_business_identity(order) == current_key
+                for order in ZL.list_zlecenia()
+                if isinstance(order, dict)
+            ):
+                raise ExcelOrderSyncError(
+                    "W międzyczasie pojawiło się zlecenie o tym samym Nr zlec. "
+                    f"i Produkcie WM: {current_key}. Odśwież podgląd synchronizacji."
+                )
             order, shortages = ZL.create_zlecenie(
                 item["wm_symbol"],
                 item["ilosc"],
