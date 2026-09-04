@@ -1,5 +1,7 @@
 # WM-VERSION: 0.1
-# version: 1.7
+# version: 1.8
+# Zmiany 1.8:
+# - Dodano izolowane ustawienie widoczności przycisku Samouczek w Ustawieniach ogólnych.
 # Zmiany 1.7:
 # - Domknięto integrację Ustawień: wspólny stan zmian i ukrycie martwej zakładki Zamówienia.
 # Zmiany 1.6:
@@ -45,6 +47,7 @@ from settings_tools_runtime import install_settings_tools_runtime
 from settings_orders_runtime import install_settings_orders_runtime
 from settings_users_runtime import install_settings_users_runtime
 from settings_common_runtime import install_settings_common_runtime
+from settings_tutorial_runtime import install_settings_tutorial_runtime
 from settings_unused_runtime import install_settings_unused_runtime
 from settings_help_runtime import install_settings_help_runtime
 from utils.gui_helpers import clear_frame
@@ -76,6 +79,7 @@ install_settings_tools_runtime(SettingsPanel)
 install_settings_orders_runtime(SettingsPanel)
 install_settings_users_runtime(SettingsPanel)
 install_settings_common_runtime(SettingsPanel)
+install_settings_tutorial_runtime(SettingsPanel)
 install_settings_unused_runtime(SettingsPanel)
 install_settings_help_runtime(SettingsPanel)
 install_christmas_theme_runtime(SettingsPanel)
