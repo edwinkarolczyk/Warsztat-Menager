@@ -1,0 +1,215 @@
+name: One-shot single-source shifts
+
+on:
+  push:
+    branches: [ "fix/single-source-shifts" ]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/single-source-shifts
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pillow pytest
+
+      - name: Patch schedule to one source of truth
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def read(path):
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path, text):
+              Path(path).write_text(text, encoding="utf-8")
+
+          def must_replace(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly 1 match, got {count}")
+              return text.replace(old, new, 1)
+
+          # 1) Kanoniczny silnik grafiku.
+          path = "grafiki/shifts_schedule.py"
+          text = read(path)
+          text = must_replace(text, "# version: 1.2", "# version: 1.3", "shifts version")
+          text = must_replace(
+              text,
+              "# - Dokładnie cztery wzorce grafiku: 111, 222, 121, 212.",
+              "# - Kanoniczne wzorce grafiku: 111, 112, 121, 212, 222.",
+              "shifts header patterns",
+          )
+          text = must_replace(
+              text,
+              '    "111": "111",\n    "222": "222",',
+              '    "111": "111",\n    "112": "112",\n    "222": "222",',
+              "add 112 pattern",
+          )
+          text = must_replace(
+              text,
+              "    \"\"\"Zwróć wyłącznie cztery obsługiwane wzorce WM.\n\n    Stare/customowe wpisy w config nie rozszerzają semantyki grafiku.\n    \"\"\"",
+              "    \"\"\"Zwróć kanoniczne wzorce grafiku WM.\n\n    Stare/customowe wpisy w config nie rozszerzają semantyki grafiku.\n    \"\"\"",
+              "available patterns doc",
+          )
+          text = must_replace(
+              text,
+              '''    raw_anchor = (\n        anchors.get(stable_id)\n        or (anchors.get(login) if login else None)\n        or (user or {}).get("rotacja_start")\n        or data.get("anchor_monday")\n        or "2025-01-06"\n    )''',
+              '''    # Grafik pracownika nie korzysta już z globalnej kotwicy.\n    # Stary shifts.anchor_monday pozostaje wyłącznie zgodnością danych i nie steruje grafikiem.\n    raw_anchor = (\n        anchors.get(stable_id)\n        or (anchors.get(login) if login else None)\n        or (user or {}).get("rotacja_start")\n        or "2025-01-06"\n    )''',
+              "remove global user-anchor fallback",
+          )
+          text = must_replace(
+              text,
+              "    monday = _normalize_monday(anchor_date, fallback=_anchor_monday())",
+              "    monday = _normalize_monday(anchor_date, fallback=date.today())",
+              "set schedule fallback",
+          )
+          write(path, text)
+
+          # 2) Profil pracownika: dodaj 112 i nie seeduj z globalnej kotwicy.
+          path = "foreman_shift_profiles_runtime.py"
+          text = read(path)
+          text = must_replace(text, "# version: 1.1", "# version: 1.2", "foreman runtime version")
+          text = must_replace(
+              text,
+              '        ("111", "111 — I / I / I (stała I zmiana)"),\n        ("222", "222 — II / II / II (stała II zmiana)"),',
+              '        ("111", "111 — I / I / I (stała I zmiana)"),\n        ("112", "112 — I / I / II (cykl 3 tygodnie)"),\n        ("222", "222 — II / II / II (stała II zmiana)"),',
+              "profile add 112",
+          )
+          text = must_replace(
+              text,
+              '        default_anchor = str(data.get("anchor_monday") or "2025-01-06")',
+              '        default_anchor = "2025-01-06"  # stały fallback migracyjny, bez globalnej rotacji',
+              "profile remove global fallback",
+          )
+          text = must_replace(
+              text,
+              '            "121 oznacza I → II → I, a 212 oznacza II → I → II.",',
+              '            "112 oznacza I → I → II, 121 oznacza I → II → I, a 212 oznacza II → I → II.",',
+              "profile help 112",
+          )
+          write(path, text)
+
+          # 3) Ustawienia: globalna data rotacji znika z GUI i nie jest rejestrowana do zapisu.
+          path = "gui_settings.py"
+          text = read(path)
+          start_marker = '        ttk.Label(\n            security_frame, text="Data startu rotacji (YYYY-MM-DD):"\n        ).pack(anchor="w", padx=4, pady=(8, 2))\n'
+          end_marker = '\n        paths_frame = ttk.LabelFrame('
+          start = text.find(start_marker)
+          if start < 0:
+              raise SystemExit("settings rotation block: start marker not found")
+          end = text.find(end_marker, start)
+          if end < 0:
+              raise SystemExit("settings rotation block: end marker not found")
+          removed = text[start:end]
+          if 'attendance.rotation_start' not in removed:
+              raise SystemExit("settings rotation block did not contain attendance.rotation_start")
+          text = text[:start] + text[end:]
+          if 'Data startu rotacji (YYYY-MM-DD):' in text:
+              raise SystemExit("settings rotation label still present")
+          write(path, text)
+
+          # 4) Logowanie: usuń własny/globalny licznik grafiku i użyj kanonicznego silnika.
+          path = "gui_logowanie.py"
+          text = read(path)
+          text = must_replace(
+              text,
+              "# version: 1.4.13",
+              "# version: 1.4.14",
+              "login version",
+          )
+          text = must_replace(
+              text,
+              "# - Tryby 121 i 212 przełączają zmianę naprzemiennie co tydzień; 111 i 222 pozostają stałe.",
+              "# - Logowanie korzysta z kanonicznego grafiku pracownika i jego indywidualnej daty kotwicznej.",
+              "login header",
+          )
+          text = must_replace(
+              text,
+              "from grafiki.shifts_schedule import who_is_on_now",
+              "from grafiki import shifts_schedule\nfrom grafiki.shifts_schedule import who_is_on_now",
+              "login shifts import",
+          )
+          global_start = text.find("def _global_rotation_start() -> date | None:\n")
+          slot_start = text.find("def _slot_for_user(profile: dict, now: datetime):\n")
+          display_start = text.find("\ndef _display_name(profile: dict):\n", slot_start)
+          if min(global_start, slot_start, display_start) < 0 or not (global_start < slot_start < display_start):
+              raise SystemExit("login shift helper markers not found in expected order")
+          new_slot = '''def _slot_for_user(profile: dict, now: datetime):\n    \"\"\"Zwróć zmianę pracownika z jednego, kanonicznego silnika grafiku.\"\"\"\n    if now.weekday() not in _user_workdays(profile):\n        return None\n\n    schedule_key = str(\n        profile.get("user_id")\n        or profile.get("id")\n        or profile.get("login")\n        or ""\n    ).strip()\n    if not schedule_key:\n        return None\n\n    try:\n        mode, _anchor = shifts_schedule.get_user_schedule(schedule_key)\n        week_idx = shifts_schedule._week_idx_for_user(schedule_key, now.date())\n        return shifts_schedule._slot_for_mode(mode, week_idx)\n    except Exception:\n        logger.exception(\n            "[WM-ERR][LOGIN] Nie udało się wyliczyć grafiku dla %s",\n            schedule_key,\n        )\n        return None\n'''
+          text = text[:global_start] + new_slot + text[display_start:]
+          if "attendance.rotation_start" in text or "def _global_rotation_start" in text:
+              raise SystemExit("legacy global login rotation still present")
+          write(path, text)
+
+          # 5) Regresje: 112 jest literalne i globalna kotwica nie steruje pracownikiem.
+          path = "tests/test_shifts_schedule.py"
+          text = read(path)
+          text = must_replace(
+              text,
+              "def test_exactly_four_canonical_patterns(monkeypatch):",
+              "def test_exactly_five_canonical_patterns(monkeypatch):",
+              "test name five patterns",
+          )
+          text = must_replace(
+              text,
+              '''    assert shifts_schedule._available_patterns() == {\n        "111": "111",\n        "222": "222",\n        "121": "121",\n        "212": "212",\n    }''',
+              '''    assert shifts_schedule._available_patterns() == {\n        "111": "111",\n        "112": "112",\n        "222": "222",\n        "121": "121",\n        "212": "212",\n    }''',
+              "test available patterns",
+          )
+          text = must_replace(
+              text,
+              '''    expected = {\n        "111": ["RANO", "RANO", "RANO", "RANO"],\n        "222": ["POPO", "POPO", "POPO", "POPO"],''',
+              '''    expected = {\n        "111": ["RANO", "RANO", "RANO", "RANO"],\n        "112": ["RANO", "RANO", "POPO", "RANO"],\n        "222": ["POPO", "POPO", "POPO", "POPO"],''',
+              "test literal 112",
+          )
+          insertion = '''\n\ndef test_global_anchor_does_not_drive_employee_schedule(monkeypatch):\n    users = [\n        {\"id\": \"USR-0001\", \"login\": \"ala\", \"name\": \"Ala\", \"active\": True, \"tryb_zmian\": \"112\", \"rotacja_start\": \"\"}\n    ]\n    modes = {\n        \"anchor_monday\": \"2035-12-31\",\n        \"patterns\": {},\n        \"modes\": {\"USR-0001\": \"112\"},\n        \"user_anchor\": {},\n    }\n    _patch_loads(monkeypatch, modes=modes, users=users)\n\n    mode, anchor = shifts_schedule.get_user_schedule(\"USR-0001\")\n    assert mode == \"112\"\n    assert anchor == \"2025-01-06\"\n'''
+          marker = "\ndef test_set_anchor_monday(monkeypatch, make_manager):\n"
+          if marker not in text:
+              raise SystemExit("test insertion marker missing")
+          text = text.replace(marker, insertion + marker, 1)
+          write(path, text)
+
+          # Kontrole źródłowe, żeby nie zostawić drugiego zegara grafiku.
+          assert '"112": "112"' in read("grafiki/shifts_schedule.py")
+          assert 'attendance.rotation_start' not in read("gui_logowanie.py")
+          assert 'Data startu rotacji (YYYY-MM-DD):' not in read("gui_settings.py")
+          PY
+
+      - name: Compile changed modules
+        run: |
+          python -m py_compile \
+            grafiki/shifts_schedule.py \
+            foreman_shift_profiles_runtime.py \
+            gui_settings.py \
+            gui_logowanie.py
+
+      - name: Run schedule regressions
+        run: |
+          pytest -q \
+            tests/test_shifts_schedule.py \
+            tests/test_shifts_schedule_anchor.py \
+            test_shifts_schedule_weekend.py
+
+      - name: Remove one-shot workflow and commit fix
+        shell: bash
+        run: |
+          rm -f .github/workflows/one-shot-single-source-shifts.yml
+          git config user.name "WM Fix Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "WM: usuń globalną rotację i ujednolić grafik"
+          git push origin HEAD:fix/single-source-shifts
