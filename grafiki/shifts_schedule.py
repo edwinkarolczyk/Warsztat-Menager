@@ -1,7 +1,7 @@
-# version: 1.2
+# version: 1.3
 # Plik: grafiki/shifts_schedule.py
 # Zmiany 1.2:
-# - Dokładnie cztery wzorce grafiku: 111, 222, 121, 212.
+# - Kanoniczne wzorce grafiku: 111, 112, 121, 212, 222.
 # - 121/212 są literalnym cyklem trzytygodniowym.
 # - Każdy pracownik ma własną datę kotwiczną tygodnia 1.
 # - Konfiguracja grafiku jest wiązana z trwałym user_id z fallbackiem do loginu.
@@ -20,6 +20,7 @@ from profile_utils import ensure_profiles_file
 
 _DEFAULT_PATTERNS = {
     "111": "111",
+    "112": "112",
     "222": "222",
     "121": "121",
     "212": "212",
@@ -86,7 +87,7 @@ def _load_modes() -> dict:
 
 
 def _available_patterns(data: Optional[dict] = None) -> Dict[str, str]:
-    """Zwróć wyłącznie cztery obsługiwane wzorce WM.
+    """Zwróć kanoniczne wzorce grafiku WM.
 
     Stare/customowe wpisy w config nie rozszerzają semantyki grafiku.
     """
@@ -364,11 +365,12 @@ def get_user_schedule(user_id: str, fallback_mode: str = "") -> tuple[str, str]:
     )
     mode = _normalize_mode(raw_mode)
 
+    # Grafik pracownika nie korzysta już z globalnej kotwicy.
+    # Stary shifts.anchor_monday pozostaje wyłącznie zgodnością danych i nie steruje grafikiem.
     raw_anchor = (
         anchors.get(stable_id)
         or (anchors.get(login) if login else None)
         or (user or {}).get("rotacja_start")
-        or data.get("anchor_monday")
         or "2025-01-06"
     )
     anchor = _normalize_monday(raw_anchor, fallback=date(2025, 1, 6))
@@ -389,7 +391,7 @@ def set_user_schedule(user_id: str, mode: str, anchor_date: str | date) -> None:
     user = _find_user(key)
     stable_id = str((user or {}).get("id") or key).strip()
     login = str((user or {}).get("login") or "").strip()
-    monday = _normalize_monday(anchor_date, fallback=_anchor_monday())
+    monday = _normalize_monday(anchor_date, fallback=date.today())
 
     data = _load_modes()
     modes = dict(data.get("modes") or {})

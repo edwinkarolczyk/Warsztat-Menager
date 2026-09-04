@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 # Plik: foreman_shift_profiles_runtime.py
 """Spina grafik zmian, L4, aktualną pracę i Profile panelu brygadzisty.
 
@@ -70,6 +70,7 @@ def _install_profile_settings() -> None:
 
     profiles.ProfileEditDialog.SHIFT_MODES = [
         ("111", "111 — I / I / I (stała I zmiana)"),
+        ("112", "112 — I / I / II (cykl 3 tygodnie)"),
         ("222", "222 — II / II / II (stała II zmiana)"),
         ("121", "121 — I / II / I (cykl 3 tygodnie)"),
         ("212", "212 — II / I / II (cykl 3 tygodnie)"),
@@ -151,7 +152,7 @@ def _install_profile_settings() -> None:
         data = shifts._load_modes()
         modes = dict(data.get("modes") or {})
         anchors = dict(data.get("user_anchor") or {})
-        default_anchor = str(data.get("anchor_monday") or "2025-01-06")
+        default_anchor = "2025-01-06"  # stały fallback migracyjny, bez globalnej rotacji
 
         for request in schedules:
             login = request["login"]
@@ -260,7 +261,7 @@ def _install_profile_settings() -> None:
         add_help_button(
             frame,
             "Wzorzec ma dokładnie trzy tygodnie i potem zaczyna się od początku. "
-            "121 oznacza I → II → I, a 212 oznacza II → I → II.",
+            "112 oznacza I → I → II, 121 oznacza I → II → I, a 212 oznacza II → I → II.",
             row=5,
             column=2,
             sticky="w",

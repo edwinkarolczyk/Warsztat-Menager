@@ -20,7 +20,7 @@ def _patch_loads(monkeypatch, modes=None, users=None):
     return modes
 
 
-def test_exactly_four_canonical_patterns(monkeypatch):
+def test_exactly_five_canonical_patterns(monkeypatch):
     stale = {
         "anchor_monday": "2025-01-06",
         "patterns": {
@@ -38,6 +38,7 @@ def test_exactly_four_canonical_patterns(monkeypatch):
     _patch_loads(monkeypatch, modes=stale)
     assert shifts_schedule._available_patterns() == {
         "111": "111",
+        "112": "112",
         "222": "222",
         "121": "121",
         "212": "212",
@@ -48,6 +49,7 @@ def test_literal_three_week_cycle_and_wrap(monkeypatch):
     _patch_loads(monkeypatch)
     expected = {
         "111": ["RANO", "RANO", "RANO", "RANO"],
+        "112": ["RANO", "RANO", "POPO", "RANO"],
         "222": ["POPO", "POPO", "POPO", "POPO"],
         "121": ["RANO", "POPO", "RANO", "RANO"],
         "212": ["POPO", "RANO", "POPO", "POPO"],
@@ -171,6 +173,23 @@ def test_week_matrix_with_saturday(monkeypatch):
     assert saturday["dow"] == "Sat"
     assert saturday["shift"] == "R"
 
+
+
+def test_global_anchor_does_not_drive_employee_schedule(monkeypatch):
+    users = [
+        {"id": "USR-0001", "login": "ala", "name": "Ala", "active": True, "tryb_zmian": "112", "rotacja_start": ""}
+    ]
+    modes = {
+        "anchor_monday": "2035-12-31",
+        "patterns": {},
+        "modes": {"USR-0001": "112"},
+        "user_anchor": {},
+    }
+    _patch_loads(monkeypatch, modes=modes, users=users)
+
+    mode, anchor = shifts_schedule.get_user_schedule("USR-0001")
+    assert mode == "112"
+    assert anchor == "2025-01-06"
 
 def test_set_anchor_monday(monkeypatch, make_manager):
     schema = {
