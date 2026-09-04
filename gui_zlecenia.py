@@ -1,4 +1,6 @@
-# version: 1.10
+# version: 1.11
+# Zmiany 1.11:
+# - Brygadzista i administrator domyślnie widzą wszystkie Dyspozycje; pozostali zachowują widok Moje + Dla wszystkich.
 # Zmiany 1.10:
 # - Widok Dyspozycji odpina globalny event po zniszczeniu i nie odświeża nieistniejącego Treeview.
 # - Usunięto TclError 'invalid command name' po ponownym otwieraniu/przełączaniu Dyspozycji.
@@ -554,7 +556,8 @@ class ZleceniaView(ttk.Frame):
         scope_values = ["Moje + Dla wszystkich", "Moje", "Dla wszystkich"]
         if self._can_view_all:
             scope_values.append("Wszystkie")
-        self._scope_filter_var = tk.StringVar(value="Moje + Dla wszystkich")
+        default_scope = "Wszystkie" if self._can_view_all else "Moje + Dla wszystkich"
+        self._scope_filter_var = tk.StringVar(value=default_scope)
         self.scope_filter = ttk.Combobox(
             filters,
             textvariable=self._scope_filter_var,
@@ -892,7 +895,8 @@ class ZleceniaView(ttk.Frame):
             error_box(
                 self,
                 "Dyspozycje",
-                f"Nie udało się otworzyć kreatora Dyspozycji.\n{exc}",
+                f"Nie udało się otworzyć kreatora Dyspozycji.\
+{exc}",
             )
 
     def _on_edit(self) -> None:
@@ -932,7 +936,8 @@ class ZleceniaView(ttk.Frame):
             error_box(
                 self,
                 "Dyspozycje",
-                f"Nie udało się otworzyć edycji Dyspozycji.\n{exc}",
+                f"Nie udało się otworzyć edycji Dyspozycji.\
+{exc}",
             )
 
     def _selected_row(self) -> dict[str, Any] | None:
@@ -1039,8 +1044,11 @@ class ZleceniaView(ttk.Frame):
         ):
             ok = messagebox.askyesno(
                 "Rozpocznij cudzą Dyspozycję",
-                f"Dyspozycja jest przypisana do: {assigned}.\n"
-                f"Jesteś zalogowany jako: {who}.\n\n"
+                f"Dyspozycja jest przypisana do: {assigned}.\
+"
+                f"Jesteś zalogowany jako: {who}.\
+\
+"
                 "Czy na pewno chcesz ją rozpocząć?",
                 parent=self,
             )
@@ -1062,7 +1070,8 @@ class ZleceniaView(ttk.Frame):
             except Exception as exc:
                 messagebox.showerror(
                     "Rezerwacja Magazynu",
-                    f"Nie udało się przygotować Dyspozycji wykonania:\n{exc}",
+                    f"Nie udało się przygotować Dyspozycji wykonania:\
+{exc}",
                     parent=self,
                 )
                 return
@@ -1171,13 +1180,21 @@ class ZleceniaView(ttk.Frame):
                     if raw_shortages or critical_warnings:
                         details = []
                         if raw_shortages:
-                            details.append("Braki surowców:\n" + "\n".join(raw_shortages[:15]))
+                            details.append("Braki surowców:\
+" + "\
+".join(raw_shortages[:15]))
                         if critical_warnings:
-                            details.append("Braki definicji:\n" + "\n".join(critical_warnings[:10]))
+                            details.append("Braki definicji:\
+" + "\
+".join(critical_warnings[:10]))
                         messagebox.showerror(
                             "Rozliczenie produkcji",
-                            "Nie można zamknąć wykonania, bo Magazyn/Skład nie pozwala rozliczyć podanej ilości.\n\n"
-                            + "\n\n".join(details),
+                            "Nie można zamknąć wykonania, bo Magazyn/Skład nie pozwala rozliczyć podanej ilości.\
+\
+"
+                            + "\
+\
+".join(details),
                             parent=self,
                         )
                         return
@@ -1190,14 +1207,20 @@ class ZleceniaView(ttk.Frame):
             except WarehouseIntegrationError as exc:
                 messagebox.showerror(
                     "Rozliczenie produkcji",
-                    f"Nie udało się rozliczyć Magazynu:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                    f"Nie udało się rozliczyć Magazynu:\
+{exc}\
+\
+Dyspozycja nie została zamknięta.",
                     parent=self,
                 )
                 return
             except Exception as exc:
                 messagebox.showerror(
                     "Rozliczenie produkcji",
-                    f"Nie udało się przeliczyć wykonanej ilości:\n{exc}\n\nDyspozycja nie została zamknięta.",
+                    f"Nie udało się przeliczyć wykonanej ilości:\
+{exc}\
+\
+Dyspozycja nie została zamknięta.",
                     parent=self,
                 )
                 return
@@ -1222,7 +1245,10 @@ class ZleceniaView(ttk.Frame):
                     except WarehouseIntegrationError as exc:
                         messagebox.showerror(
                             "Rozliczenie produkcji",
-                            f"Zużycie zostało rozliczone, ale nie udało się zaksięgować naddatku:\n{exc}\n\n"
+                            f"Zużycie zostało rozliczone, ale nie udało się zaksięgować naddatku:\
+{exc}\
+\
+"
                             "Dyspozycja nie została zamknięta. Ponowna próba nie zużyje materiału drugi raz.",
                             parent=self,
                         )
@@ -1290,7 +1316,8 @@ class ZleceniaView(ttk.Frame):
                 return
         ok = messagebox.askyesno(
             "Usuń Dyspozycję",
-            f"Czy na pewno usunąć Dyspozycję:\n{dysp_id}?",
+            f"Czy na pewno usunąć Dyspozycję:\
+{dysp_id}?",
             parent=self,
         )
         if not ok:
@@ -1305,7 +1332,8 @@ class ZleceniaView(ttk.Frame):
             except WarehouseIntegrationError as exc:
                 messagebox.showerror(
                     "Dyspozycje",
-                    f"Nie można usunąć Dyspozycji, bo nie udało się zwolnić jej rezerwacji:\n{exc}",
+                    f"Nie można usunąć Dyspozycji, bo nie udało się zwolnić jej rezerwacji:\
+{exc}",
                     parent=self,
                 )
                 return
@@ -1369,7 +1397,8 @@ class ZleceniaView(ttk.Frame):
                 error_box(
                     self,
                     "Dyspozycje",
-                    f"Nie udało się odświeżyć listy Dyspozycji.\n{exc}",
+                    f"Nie udało się odświeżyć listy Dyspozycji.\
+{exc}",
                 )
             self._refresh_error_shown = True
             return
