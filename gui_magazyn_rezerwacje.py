@@ -1,8 +1,9 @@
 # ===============================================
 # Plik: gui_magazyn_rezerwacje.py
 # ===============================================
-# version: 1.0
+# version: 1.0.1
 # Zmiany:
+# - 1.0.1: zwalnianie rezerwacji używa kanonicznego LM.zwolnij_rezerwacje() i nie zapisuje nieobsługiwanej operacji ZWOLNIJ.
 # - Nowe okno dialogowe do rezerwowania i zwalniania rezerwacji magazynowych.
 # - Obsługa pól: item_id, ilość, komentarz, historia.
 # - Integracja z magazyn_io / logika_magazyn.
@@ -143,20 +144,25 @@ def open_zwolnij_rezerwacje_dialog(master, item_id):
                 "Błąd", "Ilość musi być większa od zera.", parent=win
             )
             return
-        data = magazyn_io.load()
-        items = data.get("items", {})
-        it = items.get(item_id)
-        if it is None:
+
+        try:
+            LM.zwolnij_rezerwacje(
+                item_id,
+                qty,
+                uzytkownik="",
+                kontekst=var_comment.get(),
+            )
+        except (KeyError, ValueError, RuntimeError) as exc:
+            messagebox.showerror("Błąd", str(exc), parent=win)
+            return
+        except Exception as exc:
             messagebox.showerror(
-                "Błąd", "Nie znaleziono pozycji w magazynie.", parent=win
+                "Błąd",
+                f"Nie udało się zwolnić rezerwacji:\n{exc}",
+                parent=win,
             )
             return
-        it["rezerwacje"] = max(0, it.get("rezerwacje", 0) - qty)
-        LM.append_history(
-            items, item_id, user="", op="ZWOLNIJ", qty=qty,
-            comment=var_comment.get()
-        )
-        magazyn_io.save(data)
+
         win.destroy()
 
     ttk.Button(frm, text="OK", command=do_save).grid(row=3, column=0, pady=8)
