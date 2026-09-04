@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.3 SAFE
+# Wersja: 1.0.4 SAFE
+# Zmiany 1.0.4:
+# - Hook po zbudowaniu panelu dopina izolowany przycisk „Samouczek” pod modułami.
 # Zmiany 1.0.3:
 # - Bezpieczny hook po zbudowaniu panelu uruchamia centralną kartę logowania,
 #   gdy panel działa jako Gość. Sam znak wodny pozostaje wyłączony.
@@ -83,6 +85,17 @@ def _install_guest_login(root) -> None:
         pass
 
 
+def _install_tutorial_entry(root) -> None:
+    """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
+    try:
+        from panel_tutorial_runtime import install_tutorial_button
+
+        install_tutorial_button(root)
+    except Exception:
+        # Samouczek jest dodatkiem; jego błąd nie może blokować startu WM.
+        pass
+
+
 def install(root) -> DevelopmentWatermark:
     """Zachowaj zgodność API bez tworzenia warstwy znaku wodnego."""
     existing = getattr(root, "_wm_development_watermark", None)
@@ -92,6 +105,7 @@ def install(root) -> DevelopmentWatermark:
         except Exception:
             pass
         _install_guest_login(root)
+        _install_tutorial_entry(root)
         return existing
 
     overlay = DevelopmentWatermark(root)
@@ -100,4 +114,5 @@ def install(root) -> DevelopmentWatermark:
     except Exception:
         pass
     _install_guest_login(root)
+    _install_tutorial_entry(root)
     return overlay
