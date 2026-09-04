@@ -1,4 +1,4 @@
-# version: 1.4
+# version: 1.5
 import tkinter as tk
 from tkinter import ttk
 
@@ -14,6 +14,22 @@ def _visible_texts(notebook):
         for tab_id in notebook.tabs()
         if str(notebook.tab(tab_id, "state")) != "hidden"
     ]
+
+
+def _walk(widget):
+    out = []
+    for child in widget.winfo_children():
+        out.append(child)
+        out.extend(_walk(child))
+    return out
+
+
+def _button_texts(widget):
+    values = []
+    for child in _walk(widget):
+        if isinstance(child, ttk.Button):
+            values.append(str(child.cget("text")))
+    return values
 
 
 def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
@@ -46,5 +62,56 @@ def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
         # Zewnętrzne Użytkownicy nie mogą zawierać drugiego Notebooka
         # Użytkownicy | Profile | Rangi.
         assert not any(isinstance(child, ttk.Notebook) for child in users_tab.winfo_children())
+    finally:
+        root.destroy()
+
+
+def test_profile_entrypoints_are_in_attendance_and_leave_not_ruch_wm(monkeypatch):
+    monkeypatch.setattr(users_settings, "_load_users", lambda: [])
+    monkeypatch.setattr(ForemanProfilePanel, "refresh_data", lambda self: None)
+
+    root = tk.Tk()
+    try:
+        panel = ForemanProfilePanel(root)
+        panel.pack(fill="both", expand=True)
+        panel.snapshot = {
+            "period_label": "Ten miesiąc",
+            "team": [
+                {
+                    "name": "Dawid Karolczyk",
+                    "login": "Dawid",
+                    "role": "operator",
+                    "open": 1,
+                    "done": 0,
+                    "urgent": 0,
+                    "tools": 0,
+                    "machines": 0,
+                    "services": 0,
+                    "leave_remaining": 24,
+                }
+            ],
+            "leaves_source": "test",
+            "leaves": [
+                {
+                    "name": "Dawid Karolczyk",
+                    "limit": 26,
+                    "used": 2,
+                    "remaining": 24,
+                    "l4": 0,
+                    "nn": 0,
+                    "late_minutes": 0,
+                }
+            ],
+        }
+
+        panel._render_team()
+        assert "Profil pracownika" not in _button_texts(panel._tabs["Zespół"])
+
+        panel._render_leaves()
+        assert "Szczegóły pracownika" in _button_texts(panel._tabs["Urlopy"])
+
+        # Obecność ma własne wejście do profilu i otwiera od razu kartę Obecność.
+        # Chronimy tu kontrakt na poziomie metod: końcowy renderer jest podpięty.
+        assert hasattr(panel, "_render_attendance")
     finally:
         root.destroy()

@@ -1,8 +1,150 @@
-# version: 1.8
+# version: 1.9
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
 _INSTALLED = False
+
+
+def _walk_widgets(widget):
+    out = []
+    try:
+        children = widget.winfo_children()
+    except Exception:
+        children = []
+    for child in children:
+        out.append(child)
+        out.extend(_walk_widgets(child))
+    return out
+
+
+def _install_profile_entrypoints() -> None:
+    """Profil pracownika otwieramy wyłącznie z Obecności/Urlopów, nie z Ruch WM."""
+    try:
+        from tkinter import messagebox, ttk
+        import gui_profile_foreman as foreman
+        from services import workforce_profile_service
+        from ui_context_help import add_help_button
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] profile entrypoints imports failed: {exc!r}")
+        return
+
+    cls = foreman.ForemanProfilePanel
+    if getattr(cls, "_wm_profile_entrypoints_v2", False):
+        return
+
+    original_team = cls._render_team
+    original_leaves = cls._render_leaves
+
+    def _render_team(self, *args, **kwargs):
+        result = original_team(self, *args, **kwargs)
+        parent = getattr(self, "_tabs", {}).get("Zespół")
+        if parent is None:
+            return result
+
+        # Ruch WM ma pokazywać wyłącznie aktywność operacyjną. Usuwamy wejście
+        # do pełnego profilu pracownika oraz podwójny klik otwierający edytor.
+        for widget in _walk_widgets(parent):
+            if not isinstance(widget, ttk.Button):
+                continue
+            try:
+                if str(widget.cget("text")) == "Profil pracownika":
+                    widget.destroy()
+            except Exception:
+                pass
+        tree = getattr(self, "_wm_ruch_tree", None)
+        if tree is not None:
+            try:
+                tree.unbind("<Double-1>")
+            except Exception:
+                pass
+        return result
+
+    def _render_leaves(self, *args, **kwargs):
+        result = original_leaves(self, *args, **kwargs)
+        parent = getattr(self, "_tabs", {}).get("Urlopy")
+        if parent is None:
+            return result
+
+        tree = None
+        for widget in _walk_widgets(parent):
+            if isinstance(widget, ttk.Treeview):
+                tree = widget
+                break
+        if tree is None:
+            return result
+
+        def selected_login() -> str:
+            selected = tree.selection()
+            if not selected:
+                return ""
+            try:
+                values = tree.item(selected[0], "values") or ()
+                display = str(values[0] if values else "").strip().casefold()
+            except Exception:
+                display = ""
+            if not display:
+                return ""
+
+            for user in workforce_profile_service.list_users(active_only=False):
+                login = str(user.get("login") or "").strip()
+                if not login:
+                    continue
+                shown = workforce_profile_service.display_name(user).strip().casefold()
+                if display in {shown, login.casefold()}:
+                    return login
+
+            for row in getattr(self, "snapshot", {}).get("team") or []:
+                login = str(row.get("login") or "").strip()
+                name = str(row.get("name") or login).strip().casefold()
+                if login and display in {name, login.casefold()}:
+                    return login
+            return ""
+
+        def open_leave_profile(_event=None) -> None:
+            login = selected_login()
+            if not login:
+                messagebox.showinfo(
+                    "Urlopy",
+                    "Wybierz pracownika z listy urlopów.",
+                    parent=self.winfo_toplevel(),
+                )
+                return
+            try:
+                import profile_foreman_edit_runtime as edit_runtime
+                edit_runtime.open_employee_editor(
+                    self,
+                    login,
+                    initial_tab="Urlopy",
+                    on_saved=self.refresh_data,
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Profil",
+                    f"Nie udało się otworzyć profilu:\n{exc}",
+                    parent=self.winfo_toplevel(),
+                )
+
+        actions = ttk.Frame(parent, style="WM.Container.TFrame")
+        actions.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(
+            actions,
+            text="Szczegóły pracownika",
+            command=open_leave_profile,
+        ).pack(side="left")
+        add_help_button(
+            actions,
+            "Otwiera profil zaznaczonego pracownika bezpośrednio na zakładce Urlopy. Ruch WM pozostaje wyłącznie widokiem aktywności operacyjnej.",
+        ).pack(side="left", padx=(6, 0))
+        try:
+            tree.bind("<Double-1>", open_leave_profile, add="+")
+        except Exception:
+            pass
+        self._wm_leave_tree = tree
+        return result
+
+    cls._render_team = _render_team
+    cls._render_leaves = _render_leaves
+    cls._wm_profile_entrypoints_v2 = True
 
 
 def _install_workforce_extensions() -> None:
@@ -55,6 +197,12 @@ def _install_workforce_extensions() -> None:
         install_audit_finalize()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] audit finalize runtime install failed: {exc!r}")
+
+    # Wejścia do profilu pracownika są domenowe: Obecność/Urlopy, nie Ruch WM.
+    try:
+        _install_profile_entrypoints()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] profile entrypoints install failed: {exc!r}")
 
 
 def install() -> None:
