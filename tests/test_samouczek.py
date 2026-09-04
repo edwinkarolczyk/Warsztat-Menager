@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 import settings_tutorial_runtime as tutorial_settings
-from gui_samouczek import CONTENT_PATH, load_tutorial
+from gui_samouczek import CONTENT_PATH, CURRENT_WM_VERSION, load_tutorial
 
 
 def test_tutorial_payload_has_steps() -> None:
@@ -13,6 +13,16 @@ def test_tutorial_payload_has_steps() -> None:
     assert slides
     assert all(isinstance(slide, dict) for slide in slides)
     assert all(isinstance(slide.get("steps"), list) for slide in slides)
+
+
+def test_tutorial_metadata_matches_wm_version() -> None:
+    raw = json.loads(CONTENT_PATH.read_text(encoding="utf-8"))
+    assert raw.get("wm_version") == CURRENT_WM_VERSION
+    assert isinstance(raw.get("updated"), str)
+    assert len(raw["updated"]) == 10
+
+    loaded = load_tutorial(CONTENT_PATH)
+    assert loaded.get("wm_version") == CURRENT_WM_VERSION
 
 
 def test_tutorial_settings_are_separate_and_roundtrip(tmp_path, monkeypatch) -> None:
