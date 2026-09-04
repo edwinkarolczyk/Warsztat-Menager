@@ -1,13 +1,11 @@
-# version: 1.2
+# version: 1.3
 import tkinter as tk
+from tkinter import ttk
 
 import gui_profile  # noqa: F401 - instaluje runtime panelu brygadzisty
 import ustawienia_uzytkownicy as users_settings
 from gui_profile_foreman import ForemanProfilePanel
-
-
-def _texts(notebook):
-    return [str(notebook.tab(tab_id, "text")) for tab_id in notebook.tabs()]
+from profile_admin_ui import UsersAdminPanel
 
 
 def _visible_texts(notebook):
@@ -18,7 +16,7 @@ def _visible_texts(notebook):
     ]
 
 
-def test_foreman_uses_users_tab_for_unified_admin_notebook(monkeypatch):
+def test_foreman_users_tab_is_flat_without_nested_admin_notebook(monkeypatch):
     monkeypatch.setattr(users_settings, "_load_users", lambda: [])
     monkeypatch.setattr(ForemanProfilePanel, "refresh_data", lambda self: None)
 
@@ -38,8 +36,14 @@ def test_foreman_uses_users_tab_for_unified_admin_notebook(monkeypatch):
         assert "Sprzęt" not in visible
         assert "Profile" not in visible
 
-        admin = panel._wm_profile_admin
-        assert _texts(admin.nb) == ["Użytkownicy", "Profile", "Rangi"]
-        assert panel._tabs["Użytkownicy"] is not admin
+        users_tab = panel._tabs["Użytkownicy"]
+        admin = panel._wm_users_admin_panel
+        assert isinstance(admin, UsersAdminPanel)
+        assert panel._wm_profile_admin is admin
+        assert panel._wm_users_admin_flat is True
+
+        # Najważniejsza regresja ze screena: zewnętrzne Użytkownicy nie mogą
+        # zawierać drugiego Notebooka Użytkownicy | Profile | Rangi.
+        assert not any(isinstance(child, ttk.Notebook) for child in users_tab.winfo_children())
     finally:
         root.destroy()
