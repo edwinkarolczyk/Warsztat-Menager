@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Grupuje rzadziej używane zakładki Brygadzisty w jedną Administrację.
 
 Na głównym poziomie pozostają tylko codzienne widoki: Pulpit, Ruch WM,
@@ -46,9 +46,16 @@ def _group_admin_tabs(panel) -> None:
         inner.add(frame, text=name)
         tabs[name] = frame
 
+    # Nie tylko ukrywamy stare karty, ale usuwamy ich zawartość. Dzięki temu
+    # nie istnieją dwa równoległe panele Użytkowników ani zbędne bindingi GUI.
     for old in old_tabs.values():
         if old is None:
             continue
+        for child in list(old.winfo_children()):
+            try:
+                child.destroy()
+            except Exception:
+                pass
         try:
             notebook.hide(old)
         except Exception:
