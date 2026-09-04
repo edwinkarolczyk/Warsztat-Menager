@@ -43,7 +43,8 @@ jobs:
             tests/test_planista_excel_import.py \
             tests/test_planista_excel_changes.py \
             tests/test_planista_excel_orders.py \
-            tests/test_planista_excel_sync_runtime.py
+            tests/test_planista_excel_sync_runtime.py \
+            tests/test_planista_excel_sync_e2e.py
       - name: Run UI and ROOT regressions
         run: |
           pytest -q tests/test_ui_root_regressions.py
