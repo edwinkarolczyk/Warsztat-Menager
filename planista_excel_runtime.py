@@ -1,6 +1,7 @@
-# WM-VERSION: 0.4
+# WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.3
+# version: 1.4
+# 1.4: dodano wejście do kontrolowanego podglądu i zatwierdzania synchronizacji zleceń WM.
 # 1.3: znalezione Produkty WM są wyróżniane na zielono i pokazywane na górze podglądu.
 # 1.2: zapisuje snapshot pod WM_ROOT i wykrywa zmiany między kolejnymi analizami planu.
 # 1.1: po imporcie porównuje każdą pozycję Excel z aktualną kartoteką Produktów WM.
@@ -30,6 +31,7 @@ from planista_excel_match import (
     STATUS_MISSING,
     match_production_plan,
 )
+from planista_excel_sync_runtime import show_excel_sync_preview
 from ui_context_help import add_help_button
 from ui_theme import get_theme_color
 
@@ -41,6 +43,10 @@ _IMPORT_HELP = (
 _CHECK_HELP = (
     "Ponownie odczytuje ostatnio analizowany plik i pokazuje, co zmieniło się od poprzedniego sprawdzenia. "
     "Po analizie zapisuje nowy snapshot pod aktywnym WM_ROOT, ale nie zmienia zleceń."
+)
+_SYNC_HELP = (
+    "Pokazuje, które pozycje mogą utworzyć lub zaktualizować zlecenia WM, a które wymagają wyjaśnienia. "
+    "Samo otwarcie podglądu niczego nie zapisuje; zapis wymaga jawnego zaznaczenia i potwierdzenia."
 )
 
 
@@ -261,8 +267,22 @@ def _check_excel_changes(owner) -> None:
     _handle_analysis(owner, path)
 
 
+def _open_excel_sync(owner) -> None:
+    payload = getattr(owner, "_excel_plan_import", None)
+    if not isinstance(payload, dict) or not (
+        list(payload.get("rows") or []) or list(payload.get("removed_rows") or [])
+    ):
+        messagebox.showinfo(
+            "Synchronizuj z WM",
+            "Najpierw użyj „Wczytaj plan Excel…” albo „Sprawdź zmiany”, aby przygotować aktualną analizę.",
+            parent=owner,
+        )
+        return
+    show_excel_sync_preview(owner, payload)
+
+
 def install_planista_excel_runtime() -> None:
-    """Dodaj import, dopasowanie i analizę zmian bez ingerowania w tabelę Zleceń."""
+    """Dodaj import, analizę oraz jawne wejście do kontrolowanej synchronizacji."""
     import gui_planista_panel as gp
 
     cls = gp.PlanistaPanel
@@ -289,14 +309,21 @@ def install_planista_excel_runtime() -> None:
             command=lambda: _check_excel_changes(self),
         ).pack(side="left", padx=(12, 4))
         add_help_button(excel_bar, _CHECK_HELP, command_only=False).pack(side="left")
+        ttk.Button(
+            excel_bar,
+            text="Synchronizuj z WM…",
+            command=lambda: _open_excel_sync(self),
+        ).pack(side="left", padx=(12, 4))
+        add_help_button(excel_bar, _SYNC_HELP, command_only=False).pack(side="left")
         ttk.Label(
             excel_bar,
-            text="analiza zmian + dopasowanie Produktów — bez tworzenia zleceń",
+            text="Wczytaj/Sprawdź: bez tworzenia zleceń | Synchronizuj: zapis dopiero po zatwierdzeniu",
         ).pack(side="left", padx=(10, 0))
         return result
 
     cls._build_orders = build_orders
     cls.import_excel_plan = _import_excel_plan
     cls.check_excel_changes = _check_excel_changes
+    cls.open_excel_sync = _open_excel_sync
     cls._show_excel_import_preview = _show_excel_import_preview
     cls._wm_excel_import_runtime = True
