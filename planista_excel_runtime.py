@@ -1,6 +1,7 @@
-# WM-VERSION: 0.3
+# WM-VERSION: 0.4
 # Plik: planista_excel_runtime.py
-# version: 1.2
+# version: 1.3
+# 1.3: znalezione Produkty WM są wyróżniane na zielono i pokazywane na górze podglądu.
 # 1.2: zapisuje snapshot pod WM_ROOT i wykrywa zmiany między kolejnymi analizami planu.
 # 1.1: po imporcie porównuje każdą pozycję Excel z aktualną kartoteką Produktów WM.
 """UI importu, dopasowania i bezpiecznej analizy zmian planu Excel."""
@@ -30,6 +31,7 @@ from planista_excel_match import (
     match_production_plan,
 )
 from ui_context_help import add_help_button
+from ui_theme import get_theme_color
 
 
 _IMPORT_HELP = (
@@ -69,6 +71,11 @@ def _change_summary_text(payload: dict) -> str:
         f"{CHANGE_REMOVED}: {summary.get(CHANGE_REMOVED, 0)}   |   "
         f"{CHANGE_NONE}: {summary.get(CHANGE_NONE, 0)}"
     )
+
+
+def _preview_row_sort_key(row: dict) -> int:
+    """Znalezione Produkty WM pokazuj pierwsze, zachowując kolejność w obrębie grup."""
+    return 0 if str(row.get("match_status") or "").strip() == STATUS_FOUND else 1
 
 
 def _show_excel_import_preview(owner, payload: dict) -> None:
@@ -153,6 +160,12 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         tree.heading(col, text=labels[col])
         tree.column(col, width=widths[col], anchor="w", stretch=col in {"product", "note"})
 
+    tree.tag_configure(
+        "wm_found",
+        background=get_theme_color("success", fallback="#29a36a"),
+        foreground=get_theme_color("fg", fallback="#ffffff"),
+    )
+
     yscroll = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
     xscroll = ttk.Scrollbar(body, orient="horizontal", command=tree.xview)
     tree.configure(yscrollcommand=yscroll.set, xscrollcommand=xscroll.set)
@@ -162,7 +175,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     body.rowconfigure(0, weight=1)
     body.columnconfigure(0, weight=1)
 
-    display_rows = rows + removed_rows
+    display_rows = sorted(rows, key=_preview_row_sort_key) + removed_rows
     for idx, row in enumerate(display_rows):
         qty = row.get("ilosc")
         if isinstance(qty, float) and qty.is_integer():
@@ -177,6 +190,10 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                 str(row.get("match_note") or "").strip(),
             )
             if part
+        )
+        found_in_wm = (
+            str(row.get("match_status") or "").strip() == STATUS_FOUND
+            and str(row.get("excel_change_status") or "").strip() != CHANGE_REMOVED
         )
         tree.insert(
             "",
@@ -195,6 +212,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                 wm_product,
                 notes,
             ),
+            tags=("wm_found",) if found_in_wm else (),
         )
 
     ttk.Button(dlg, text="Zamknij", command=dlg.destroy).pack(anchor="e", padx=10, pady=(0, 10))
