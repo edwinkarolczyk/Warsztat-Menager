@@ -1,5 +1,5 @@
-# version: 1.3
-"""Ujednolica Profile brygadzisty i podpina drobne akcje aktywnego Profilu."""
+# version: 1.4
+"""Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
 from profile_admin_ui import ProfileAdminNotebook
@@ -7,76 +7,90 @@ from profile_admin_ui import ProfileAdminNotebook
 _INSTALLED = False
 
 
+def _install_workforce_extensions() -> None:
+    """Ładuj rozszerzenia po bazowych patchach, żeby nie zmieniać layoutu Profilu."""
+    try:
+        from profile_workforce_runtime import install as install_workforce
+        install_workforce()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] workforce runtime install failed: {exc!r}")
+    try:
+        from profile_leave_card_runtime import install as install_leave_card
+        install_leave_card()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] leave card runtime install failed: {exc!r}")
+    try:
+        from leave_ui_runtime import install as install_leave_ui
+        install_leave_ui()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] leave UI runtime install failed: {exc!r}")
+
+
 def install() -> None:
     global _INSTALLED
 
     # Ta warstwa jest ładowana przez gui_profile przed zdefiniowaniem końcowej
-    # klasy ProfileView. Patchujemy więc klasę bazową: końcowy widok nadal
-    # dziedziczy poprawione "Edytuj mój profil" i obsługę zamykania Dyspozycji.
+    # klasy ProfileView. Patchujemy klasę bazową, więc obecny wygląd pozostaje.
     try:
         import gui_profile_core as profile_core
         from profile_user_actions_runtime import install as install_user_actions
-
         install_user_actions(profile_core.ProfileView)
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] user actions runtime install failed: {exc!r}")
 
-    # gui_panel importuje Profil przed Dyspozycjami, więc jest to stabilny punkt
-    # instalacji poprawki roli/kreatora dla widoku Dyspozycji.
     try:
         from dyspozycje_permissions_runtime import install as install_dysp_permissions
-
         install_dysp_permissions()
     except Exception as exc:
         print(f"[WM-DBG][DYSP][WARN] permissions runtime install failed: {exc!r}")
 
     if _INSTALLED:
+        _install_workforce_extensions()
         return
 
     import gui_profile_foreman as foreman
 
     cls = foreman.ForemanProfilePanel
-    if getattr(cls, "_wm_profile_admin_unified", False):
-        _INSTALLED = True
-        return
+    if not getattr(cls, "_wm_profile_admin_unified", False):
+        original_build = cls._build
 
-    original_build = cls._build
+        def _build(self, *args, **kwargs):
+            result = original_build(self, *args, **kwargs)
 
-    def _build(self, *args, **kwargs):
-        result = original_build(self, *args, **kwargs)
+            # Zadania i Sprzęt pozostają źródłem danych Pulpitu/statystyk,
+            # lecz nadal są ukryte jako osobne zakładki.
+            notebook = getattr(self, "notebook", None)
+            tabs = getattr(self, "_tabs", {})
+            if notebook is not None:
+                for tab_name in ("Zadania", "Sprzęt"):
+                    tab = tabs.get(tab_name)
+                    if tab is None:
+                        continue
+                    try:
+                        notebook.hide(tab)
+                    except Exception:
+                        pass
 
-        # Zadania i Sprzęt pozostają w kodzie i nadal mogą zasilać Pulpit/
-        # statystyki, ale nie są pokazywane jako osobne zakładki brygadzisty.
-        notebook = getattr(self, "notebook", None)
-        tabs = getattr(self, "_tabs", {})
-        if notebook is not None:
-            for tab_name in ("Zadania", "Sprzęt"):
-                tab = tabs.get(tab_name)
-                if tab is None:
-                    continue
-                try:
-                    notebook.hide(tab)
-                except Exception:
-                    pass
-
-        profile_tab = tabs.get("Profile")
-        if profile_tab is None:
+            # Zgodność ze starszą wersją, która mogła mieć zakładkę "Profile".
+            # Aktualny panel jej nie ma; nowy runtime montuje administrację w
+            # widocznej zakładce "Użytkownicy".
+            profile_tab = tabs.get("Profile")
+            if profile_tab is not None:
+                for child in list(profile_tab.winfo_children()):
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+                admin = ProfileAdminNotebook(profile_tab)
+                admin.pack(fill="both", expand=True)
+                self._wm_profile_admin = admin
             return result
 
-        for child in list(profile_tab.winfo_children()):
-            try:
-                child.destroy()
-            except Exception:
-                pass
+        cls._build = _build
+        cls._wm_profile_admin_unified = True
 
-        admin = ProfileAdminNotebook(profile_tab)
-        admin.pack(fill="both", expand=True)
-        self._wm_profile_admin = admin
-        return result
-
-    cls._build = _build
-    cls._wm_profile_admin_unified = True
     _INSTALLED = True
+    _install_workforce_extensions()
 
 
 __all__ = ["install"]
