@@ -1,4 +1,4 @@
-# version: 2.1
+# version: 2.2
 # -*- coding: utf-8 -*-
 """Centralna wersja aplikacji WM.
 
@@ -11,7 +11,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 
 def get_version() -> str:
