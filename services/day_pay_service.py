@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Model procentów płatnych dni dla Profili/Obecności WM.
 
 To NIE jest moduł płacowy. Przechowuje wyłącznie neutralne dane źródłowe,
@@ -30,6 +30,7 @@ DEFAULT_DAY_TYPES: dict[str, dict[str, Any]] = {
     "L4": {"label": "L4", "pay_percent": 80.0},
     "NN": {"label": "Nieobecność nieusprawiedliwiona", "pay_percent": 0.0},
     "UB": {"label": "Urlop bezpłatny", "pay_percent": 0.0},
+    "BRAK": {"label": "Brak dniówki", "pay_percent": 0.0},
 }
 
 _ALIASES = {
@@ -52,6 +53,7 @@ _ALIASES = {
     "UNPAID": "UB",
     "URLOP_BEZPLATNY": "UB",
     "URLOP BEZPŁATNY": "UB",
+    "MISSING_CONFIRMED": "BRAK",
 }
 
 
