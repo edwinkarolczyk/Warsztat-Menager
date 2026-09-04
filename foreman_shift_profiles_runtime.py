@@ -1,13 +1,14 @@
-# version: 1.0
+# version: 1.1
 # Plik: foreman_shift_profiles_runtime.py
 """Spina grafik zmian, L4, aktualną pracę i Profile panelu brygadzisty.
 
-Jedno źródło prawdy dla zmian:
-- shifts.modes[login]
-- shifts.user_anchor[login] (poniedziałek tygodnia bazowego)
+Jedno źródło prawdy dla grafiku:
+- shifts.modes[user_id]
+- shifts.user_anchor[user_id] (poniedziałek pierwszego tygodnia cyklu)
 
-Stare tryb_zmian / zmiana_plan w profiles.json są tylko wejściem migracyjnym
-oraz są usuwane przy kolejnym zapisie profili.
+Login jest tylko aliasem migracyjnym. Stare tryb_zmian / zmiana_plan /
+rotacja_start w profiles.json są wejściem migracyjnym i są usuwane przy
+kolejnym zapisie profili.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from tkinter import ttk
 
 from calendar_ui_runtime import open_date_picker
 from config_manager import ConfigManager
+from ui_context_help import add_help_button
 
 logger = logging.getLogger(__name__)
 _INSTALLED = False
@@ -40,140 +42,24 @@ def _monday(value: Any, *, fallback: date | None = None) -> date:
 
 
 def _install_shifts() -> None:
+    """Oznacz nowy silnik jako zainstalowany; logika mieszka już w core."""
     from grafiki import shifts_schedule as shifts
 
     if getattr(shifts, "_wm_user_anchor_installed", False):
         return
-
-    original_load_modes = shifts._load_modes
-
-    def _load_modes() -> dict:
-        data = dict(original_load_modes() or {})
-        raw = ConfigManager().get("shifts.user_anchor", {})
-        data["user_anchor"] = dict(raw) if isinstance(raw, dict) else {}
-        return data
-
-    def _user_anchor_monday(user_id: str) -> date:
-        data = _load_modes()
-        anchors = data.get("user_anchor") or {}
-        raw = anchors.get(str(user_id)) or data.get("anchor_monday") or "2025-01-06"
-        return _monday(raw, fallback=date(2025, 1, 6))
-
-    def _user_week_idx(user_id: str, day: date) -> int:
-        week_start = day - timedelta(days=day.weekday())
-        return (week_start - _user_anchor_monday(user_id)).days // 7
-
-    def get_user_schedule(user_id: str, fallback_mode: str = "") -> tuple[str, str]:
-        uid = str(user_id or "").strip()
-        data = _load_modes()
-        modes = data.get("modes") or {}
-        mode = str(modes.get(uid) or fallback_mode or "").strip()
-        if not mode:
-            try:
-                mode = str(shifts._user_mode(uid) or "111").strip()
-            except Exception:
-                mode = "111"
-        if mode not in shifts._available_patterns(data):
-            mode = "111"
-        return mode, _user_anchor_monday(uid).isoformat()
-
-    def set_user_schedule(user_id: str, mode: str, anchor_date: str | date) -> None:
-        uid = str(user_id or "").strip()
-        if not uid:
-            raise ValueError("user_id is required")
-        data = _load_modes()
-        patterns = shifts._available_patterns(data)
-        if mode not in patterns:
-            raise ValueError(f"mode must be one of: {', '.join(sorted(patterns))}")
-        modes = dict(data.get("modes") or {})
-        anchors = dict(data.get("user_anchor") or {})
-        monday = _monday(anchor_date)
-        modes[uid] = mode
-        anchors[uid] = monday.isoformat()
-        cfg = ConfigManager()
-        cfg.set("shifts.modes", modes)
-        cfg.set("shifts.user_anchor", anchors)
-        cfg.save_all()
-        print(f"[WM-DBG][SHIFTS] schedule saved: {uid} -> {mode}, anchor={monday.isoformat()}")
-
-    def set_user_mode(user_id: str, mode: str) -> None:
-        _old_mode, anchor = get_user_schedule(user_id)
-        set_user_schedule(user_id, mode, anchor)
-
-    def who_is_on_now(now: datetime | None = None) -> dict[str, Any]:
-        now = now or datetime.now()
-        times = shifts._shift_times()
-        slot = None
-        if times["R_START"] <= now.time() < times["R_END"]:
-            slot = "RANO"
-        elif times["P_START"] <= now.time() < times["P_END"]:
-            slot = "POPO"
-        if slot is None:
-            return {"slot": None, "users": []}
-        users = []
-        for user in shifts._load_users():
-            if not user.get("active"):
-                continue
-            uid = user["id"]
-            widx = _user_week_idx(uid, now.date())
-            if shifts._slot_for_mode(shifts._user_mode(uid), widx) == slot:
-                users.append(user["name"])
-        return {"slot": slot, "users": users}
-
-    def week_matrix(start_date: date) -> dict[str, Any]:
-        week_start = start_date - timedelta(days=start_date.weekday())
-        times = shifts._shift_times()
-        rows: list[dict] = []
-        for user in shifts._load_users():
-            if not user.get("active"):
-                continue
-            uid = user["id"]
-            mode = shifts._user_mode(uid)
-            slot = shifts._slot_for_mode(mode, _user_week_idx(uid, week_start))
-            days = []
-            for idx in range(7):
-                current = week_start + timedelta(days=idx)
-                weekday = current.weekday()
-                if weekday == 6:
-                    continue
-                if weekday == 5:
-                    code = "R"
-                else:
-                    code = "R" if slot == "RANO" else "P"
-                start = times["R_START"] if code == "R" else times["P_START"]
-                end = times["R_END"] if code == "R" else times["P_END"]
-                days.append({
-                    "date": current.strftime("%Y-%m-%d"),
-                    "dow": current.strftime("%a"),
-                    "shift": code,
-                    "start": start.strftime("%H:%M"),
-                    "end": end.strftime("%H:%M"),
-                })
-            rows.append({
-                "user": user["name"], "user_id": uid, "mode": mode,
-                "slot": slot, "days": days,
-            })
-        return {"week_start": week_start.strftime("%Y-%m-%d"), "rows": rows}
-
-    shifts._load_modes = _load_modes
-    shifts._user_anchor_monday = _user_anchor_monday
-    shifts._user_week_idx = _user_week_idx
-    shifts.get_user_schedule = get_user_schedule
-    shifts.set_user_schedule = set_user_schedule
-    shifts.set_user_mode = set_user_mode
-    shifts.who_is_on_now = who_is_on_now
-    shifts.week_matrix = week_matrix
+    if not all(
+        hasattr(shifts, name)
+        for name in ("get_user_schedule", "set_user_schedule", "_week_idx_for_user")
+    ):
+        raise RuntimeError("Brak kanonicznego silnika grafiku 3-tygodniowego.")
+    shifts._user_week_idx = shifts._week_idx_for_user
     shifts._wm_user_anchor_installed = True
-    exported = list(getattr(shifts, "__all__", []))
-    for name in ("get_user_schedule", "set_user_schedule"):
-        if name not in exported:
-            exported.append(name)
-    shifts.__all__ = exported
 
 
 def _install_profile_settings() -> None:
     import ustawienia_uzytkownicy as profiles
     from grafiki import shifts_schedule as shifts
+    from services import workforce_profile_service as workforce
 
     if getattr(profiles, "_wm_shift_source_installed", False):
         return
@@ -182,64 +68,152 @@ def _install_profile_settings() -> None:
     original_dialog_init = profiles.ProfileEditDialog.__init__
     original_save_now = profiles.SettingsProfilesTab._save_now
 
-    def _explicit_anchor(login: str) -> str:
-        anchors = shifts._load_modes().get("user_anchor") or {}
-        return str(anchors.get(login) or "").strip() if login else ""
+    profiles.ProfileEditDialog.SHIFT_MODES = [
+        ("111", "111 — I / I / I (stała I zmiana)"),
+        ("222", "222 — II / II / II (stała II zmiana)"),
+        ("121", "121 — I / II / I (cykl 3 tygodnie)"),
+        ("212", "212 — II / I / II (cykl 3 tygodnie)"),
+    ]
+    profiles.ProfileEditDialog.LEGACY_SHIFT_ALIASES = {
+        "1111": "111",
+        "2222": "222",
+        "1212": "121",
+        "2121": "212",
+        "I": "111",
+        "1": "111",
+        "II": "222",
+        "2": "222",
+    }
+
+    def _seed_user_id(seed: dict[str, Any], login: str) -> str:
+        uid = str(seed.get("user_id") or "").strip()
+        if not uid:
+            legacy_id = str(seed.get("id") or "").strip()
+            if legacy_id.upper().startswith("USR-"):
+                uid = legacy_id
+        if uid:
+            return uid
+        if login:
+            try:
+                current = workforce.get_user(login) or {}
+                return str(current.get("user_id") or "").strip()
+            except Exception:
+                pass
+        return login
 
     def _save_users(items: list[dict[str, Any]]) -> None:
-        cfg = ConfigManager()
-        data = shifts._load_modes()
-        modes = dict(data.get("modes") or {})
-        anchors = dict(data.get("user_anchor") or {})
-        patterns = shifts._available_patterns(data)
-        default_anchor = str(data.get("anchor_monday") or "2025-01-06")
         cleaned: list[dict[str, Any]] = []
+        schedules: list[dict[str, str]] = []
         for source in items:
             row = dict(source)
             login = str(row.get("login") or "").strip()
             old_login = str(row.pop("_wm_shift_old_login", "") or "").strip()
-            mode = str(
+            requested_mode = str(
                 row.pop("_wm_shift_mode", "")
                 or row.get("tryb_zmian")
                 or row.get("zmiana_plan")
-                or modes.get(login)
-                or "111"
+                or ""
             ).strip()
-            anchor_raw = row.pop("_wm_shift_anchor", "") or anchors.get(login) or default_anchor
-            if login:
-                if mode not in patterns:
-                    mode = "111"
-                modes[login] = mode
-                anchors[login] = _monday(anchor_raw).isoformat()
-            if old_login and old_login.casefold() != login.casefold():
-                modes.pop(old_login, None)
-                anchors.pop(old_login, None)
+            requested_anchor = str(
+                row.pop("_wm_shift_anchor", "")
+                or row.get("rotacja_start")
+                or row.get("shift_start")
+                or ""
+            ).strip()
+            uid_hint = str(row.pop("_wm_shift_user_id", "") or row.get("user_id") or "").strip()
+            schedules.append(
+                {
+                    "login": login,
+                    "old_login": old_login,
+                    "user_id": uid_hint,
+                    "mode": requested_mode,
+                    "anchor": requested_anchor,
+                }
+            )
             row.pop("tryb_zmian", None)
             row.pop("zmiana_plan", None)
+            row.pop("rotacja_start", None)
+            row.pop("shift_start", None)
             cleaned.append(row)
+
+        original_save_users(cleaned)
+
+        try:
+            normalized = workforce.ensure_profile_schema()
+        except Exception:
+            normalized = cleaned
+        id_by_login = {
+            str(row.get("login") or "").strip().casefold(): str(row.get("user_id") or "").strip()
+            for row in normalized
+            if isinstance(row, dict)
+        }
+
+        data = shifts._load_modes()
+        modes = dict(data.get("modes") or {})
+        anchors = dict(data.get("user_anchor") or {})
+        default_anchor = str(data.get("anchor_monday") or "2025-01-06")
+
+        for request in schedules:
+            login = request["login"]
+            old_login = request["old_login"]
+            stable_id = (
+                id_by_login.get(login.casefold(), "")
+                or request["user_id"]
+                or login
+            )
+            if not stable_id:
+                continue
+
+            raw_mode = (
+                request["mode"]
+                or modes.get(stable_id)
+                or (modes.get(login) if login else None)
+                or (modes.get(old_login) if old_login else None)
+                or "111"
+            )
+            mode = shifts._normalize_mode(raw_mode)
+            raw_anchor = (
+                request["anchor"]
+                or anchors.get(stable_id)
+                or (anchors.get(login) if login else None)
+                or (anchors.get(old_login) if old_login else None)
+                or default_anchor
+            )
+            modes[stable_id] = mode
+            anchors[stable_id] = _monday(raw_anchor, fallback=date(2025, 1, 6)).isoformat()
+
+            for legacy_key in (login, old_login):
+                if legacy_key and legacy_key != stable_id:
+                    modes.pop(legacy_key, None)
+                    anchors.pop(legacy_key, None)
+
+        cfg = ConfigManager()
+        cfg.set("shifts.patterns", shifts._available_patterns())
         cfg.set("shifts.modes", modes)
         cfg.set("shifts.user_anchor", anchors)
         cfg.save_all()
-        original_save_users(cleaned)
 
     def _dialog_init(self, master: tk.Misc, seed=None, on_ok=None) -> None:
         original_seed = dict(seed or {})
         login = str(original_seed.get("login") or "").strip()
+        schedule_key = _seed_user_id(original_seed, login)
         fallback_mode = str(
             original_seed.get("_wm_shift_mode")
             or original_seed.get("tryb_zmian")
             or original_seed.get("zmiana_plan")
-            or ""
+            or "111"
         ).strip()
-        mode, _stored_anchor = shifts.get_user_schedule(login, fallback_mode or "111")
+        mode, stored_anchor = shifts.get_user_schedule(schedule_key or login, fallback_mode)
         prepared = dict(original_seed)
         prepared["tryb_zmian"] = mode
         prepared["zmiana_plan"] = mode
-        anchor_for_dialog = str(
+        anchor_for_dialog = _monday(
             original_seed.get("_wm_shift_anchor")
-            or _explicit_anchor(login)
-            or date.today().isoformat()
-        ).strip()
+            or stored_anchor
+            or original_seed.get("rotacja_start")
+            or original_seed.get("shift_start")
+            or date.today()
+        ).isoformat()
 
         def _wrapped_ok(item: dict[str, Any]):
             result = dict(item)
@@ -249,8 +223,14 @@ def _install_profile_settings() -> None:
                 or mode
             ).strip()
             result.pop("zmiana_plan", None)
-            result["_wm_shift_mode"] = selected_mode or "111"
-            result["_wm_shift_anchor"] = str(self.v_shift_anchor.get() or anchor_for_dialog).strip()
+            result.pop("rotacja_start", None)
+            result.pop("shift_start", None)
+            result["_wm_shift_mode"] = shifts._normalize_mode(selected_mode)
+            result["_wm_shift_anchor"] = _monday(
+                self.v_shift_anchor.get(), fallback=date.today()
+            ).isoformat()
+            if schedule_key:
+                result["_wm_shift_user_id"] = schedule_key
             new_login = str(result.get("login") or "").strip()
             if login and new_login.casefold() != login.casefold():
                 result["_wm_shift_old_login"] = login
@@ -259,19 +239,16 @@ def _install_profile_settings() -> None:
         original_dialog_init(self, master, seed=prepared, on_ok=_wrapped_ok)
         self.v_shift_anchor = tk.StringVar(value=anchor_for_dialog)
         try:
-            self.geometry("500x350")
+            self.geometry("560x350")
         except Exception:
             pass
+
         frames = [child for child in self.winfo_children() if hasattr(child, "grid_slaves")]
         if not frames:
             return
         frame = frames[0]
-        for child in frame.winfo_children():
-            try:
-                if str(child.cget("text")) == "Tryb zmian:":
-                    child.configure(text="Jak pracuje w tym tygodniu:")
-            except Exception:
-                pass
+        frame.columnconfigure(1, weight=1)
+
         for child in frame.winfo_children():
             try:
                 info = child.grid_info()
@@ -279,7 +256,18 @@ def _install_profile_settings() -> None:
                     child.grid_configure(row=7)
             except Exception:
                 pass
-        ttk.Label(frame, text="Data z tego tygodnia:").grid(row=6, column=0, sticky="w", pady=4)
+
+        add_help_button(
+            frame,
+            "Wzorzec ma dokładnie trzy tygodnie i potem zaczyna się od początku. "
+            "121 oznacza I → II → I, a 212 oznacza II → I → II.",
+            row=5,
+            column=2,
+            sticky="w",
+            padx=(5, 0),
+        )
+
+        ttk.Label(frame, text="Data kotwiczna:").grid(row=6, column=0, sticky="w", pady=4)
         holder = ttk.Frame(frame)
         holder.grid(row=6, column=1, sticky="ew", pady=4)
         holder.columnconfigure(0, weight=1)
@@ -291,14 +279,30 @@ def _install_profile_settings() -> None:
                 initial = date.fromisoformat(str(self.v_shift_anchor.get())[:10])
             except Exception:
                 initial = date.today()
+
+            def _selected(picked: date) -> None:
+                self.v_shift_anchor.set(_monday(picked).isoformat())
+
             open_date_picker(
-                self, initial=initial,
-                on_select=lambda picked: self.v_shift_anchor.set(picked.isoformat()),
-                title="Tydzień bazowy zmiany",
+                self,
+                initial=initial,
+                on_select=_selected,
+                title="Data kotwiczna — tydzień 1",
             )
 
         entry.bind("<Button-1>", lambda _event: _pick_anchor())
-        ttk.Button(holder, text="📅", width=3, command=_pick_anchor).grid(row=0, column=1, padx=(4, 0))
+        ttk.Button(holder, text="📅", width=3, command=_pick_anchor).grid(
+            row=0, column=1, padx=(4, 0)
+        )
+        add_help_button(
+            frame,
+            "Poniedziałek pierwszego tygodnia cyklu tego pracownika. "
+            "Każdy pracownik ma własną datę kotwiczną.",
+            row=6,
+            column=2,
+            sticky="w",
+            padx=(5, 0),
+        )
 
     def _save_now(self) -> None:
         original_save_now(self)
@@ -366,7 +370,9 @@ def _install_l4_calendar() -> None:
                 )
 
             entry.bind("<Button-1>", lambda _event: _pick())
-            cal.ttk.Button(holder, text="📅", width=3, command=_pick).grid(row=0, column=1, padx=(4, 0))
+            cal.ttk.Button(holder, text="📅", width=3, command=_pick).grid(
+                row=0, column=1, padx=(4, 0)
+            )
 
         _date_control(1, "Od:", start_var, "L4 — data od")
         _date_control(2, "Do:", end_var, "L4 — data do")
@@ -382,7 +388,9 @@ def _install_l4_calendar() -> None:
             except Exception as exc:
                 cal.messagebox.showerror("L4", f"Nie udało się dodać L4:\n{exc}", parent=win)
                 return
-            cal.messagebox.showinfo("L4", f"Dodano L4: {added} dni kalendarzowych.", parent=win)
+            cal.messagebox.showinfo(
+                "L4", f"Dodano L4: {added} dni kalendarzowych.", parent=win
+            )
             win.destroy()
             panel.refresh_data()
             cal._emit_leaves_update(panel)
@@ -390,7 +398,9 @@ def _install_l4_calendar() -> None:
         actions = cal.ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=2, sticky="e", pady=(12, 0))
         cal.ttk.Button(actions, text="Anuluj", command=win.destroy).pack(side="right")
-        cal.ttk.Button(actions, text="Dodaj L4", command=save).pack(side="right", padx=(0, 8))
+        cal.ttk.Button(actions, text="Dodaj L4", command=save).pack(
+            side="right", padx=(0, 8)
+        )
 
     cal._open_l4_dialog = _open_l4_dialog
     cal._wm_l4_calendar_installed = True
@@ -513,7 +523,7 @@ def install() -> None:
     _install_foreman_stats()
     _install_foreman_profiles()
     _INSTALLED = True
-    print("[WM-DBG][FOREMAN] shifts source, L4 calendar, machine work and Profile tab installed")
+    print("[WM-DBG][FOREMAN] shifts, L4 calendar, machine work and Profile tab installed")
 
 
 __all__ = ["install"]

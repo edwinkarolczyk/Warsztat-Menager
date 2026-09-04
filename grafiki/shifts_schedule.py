@@ -1,14 +1,15 @@
-# version: 1.1
+# version: 1.2
 # Plik: grafiki/shifts_schedule.py
-# Zmiany 1.1:
-# - Tryby 121 i 212 przełączają zmianę naprzemiennie co tydzień; 111 i 222 pozostają stałe.
-# Zmiany:
-# - Silnik rotacji zmian oraz API
+# Zmiany 1.2:
+# - Dokładnie cztery wzorce grafiku: 111, 222, 121, 212.
+# - 121/212 są literalnym cyklem trzytygodniowym.
+# - Każdy pracownik ma własną datę kotwiczną tygodnia 1.
+# - Konfiguracja grafiku jest wiązana z trwałym user_id z fallbackiem do loginu.
+"""Silnik grafiku zmian Warsztat Menager."""
 
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -18,15 +19,30 @@ from config_manager import ConfigManager
 from profile_utils import ensure_profiles_file
 
 _DEFAULT_PATTERNS = {
-    "112": "112",
     "111": "111",
     "222": "222",
-    "12": "12",
     "121": "121",
     "212": "212",
-    "211": "211",
-    "1212": "1212",
 }
+
+_LEGACY_MODE_ALIASES = {
+    "1111": "111",
+    "2222": "222",
+    "1212": "121",
+    "2121": "212",
+    "I": "111",
+    "1": "111",
+    "II": "222",
+    "2": "222",
+}
+
+
+def _normalize_mode(value: object, *, fallback: str = "111") -> str:
+    raw = str(value or "").strip().upper()
+    raw = _LEGACY_MODE_ALIASES.get(raw, raw)
+    if raw in _DEFAULT_PATTERNS:
+        return raw
+    return fallback if fallback in _DEFAULT_PATTERNS else "111"
 
 
 def _default_users_file() -> str:
@@ -52,33 +68,32 @@ def _read_json(path: str) -> dict:
             return json.load(f)
     except FileNotFoundError:
         return {}
-    except Exception as e:
-        print("[ERROR]", e)
+    except Exception as exc:
+        print("[ERROR]", exc)
         return {}
 
 
 def _load_modes() -> dict:
     cfg = ConfigManager()
-    data = {
+    raw_modes = cfg.get("shifts.modes", {})
+    raw_anchors = cfg.get("shifts.user_anchor", {})
+    return {
         "anchor_monday": cfg.get("shifts.anchor_monday", "2025-01-06"),
-        "patterns": cfg.get("shifts.patterns", _DEFAULT_PATTERNS.copy()),
-        "modes": cfg.get("shifts.modes", {}),
+        "patterns": _DEFAULT_PATTERNS.copy(),
+        "modes": dict(raw_modes) if isinstance(raw_modes, dict) else {},
+        "user_anchor": dict(raw_anchors) if isinstance(raw_anchors, dict) else {},
     }
-    if not data["patterns"]:
-        data["patterns"] = _DEFAULT_PATTERNS.copy()
-    return data
 
 
 def _available_patterns(data: Optional[dict] = None) -> Dict[str, str]:
-    data = data or _load_modes()
-    patterns = data.get("patterns", {})
-    if isinstance(patterns, list):
-        patterns = {p: p for p in patterns}
-    if not patterns:
-        patterns = _DEFAULT_PATTERNS.copy()
-    return patterns
+    """Zwróć wyłącznie cztery obsługiwane wzorce WM.
 
-TRYBY = list(_available_patterns().keys())
+    Stare/customowe wpisy w config nie rozszerzają semantyki grafiku.
+    """
+    return _DEFAULT_PATTERNS.copy()
+
+
+TRYBY = list(_DEFAULT_PATTERNS)
 
 
 def _last_update_date() -> str:
@@ -95,18 +110,29 @@ def _last_update_date() -> str:
     return datetime.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
 
 
+def _normalize_monday(value: object, *, fallback: date | None = None) -> date:
+    if isinstance(value, datetime):
+        parsed = value.date()
+    elif isinstance(value, date):
+        parsed = value
+    else:
+        raw = str(value or "").strip()
+        try:
+            parsed = date.fromisoformat(raw[:10])
+        except Exception:
+            parsed = fallback or date(2025, 1, 6)
+    return parsed - timedelta(days=parsed.weekday())
+
+
 def _anchor_monday() -> date:
     modes = _load_modes()
     anchor = modes.get("anchor_monday")
     if not anchor:
-        cfg = ConfigManager()
-        anchor = cfg.get("rotacja_anchor_monday", "2025-01-06")
-    try:
-        d = datetime.strptime(anchor, "%Y-%m-%d").date()
-    except Exception:
-        d = date(2025, 1, 6)
-    d = d - timedelta(days=d.weekday())
-    return d
+        try:
+            anchor = ConfigManager().get("rotacja_anchor_monday", "2025-01-06")
+        except Exception:
+            anchor = "2025-01-06"
+    return _normalize_monday(anchor, fallback=date(2025, 1, 6))
 
 
 def _parse_time(txt: str) -> time:
@@ -128,8 +154,6 @@ def _shift_times() -> Dict[str, time]:
 
 
 def _log_user_count(src: str, users: List[Dict[str, str]]) -> None:
-    """Log user count only when source or count changes."""
-
     global _LAST_USERS_SRC, _LAST_USERS_COUNT
     count = len(users)
     if src != _LAST_USERS_SRC or count != _LAST_USERS_COUNT:
@@ -137,12 +161,26 @@ def _log_user_count(src: str, users: List[Dict[str, str]]) -> None:
 
 
 def _load_users() -> List[Dict[str, str]]:
+    """Wczytaj aktywne dane profili potrzebne do grafiku.
+
+    ``id`` jest stabilnym user_id, a ``login`` pozostaje aliasem migracyjnym.
+    """
     global _USER_DEFAULTS
     defaults_raw = _read_json(_USERS_FILE) or []
+    if isinstance(defaults_raw, dict):
+        defaults_raw = defaults_raw.get("users", []) if isinstance(defaults_raw.get("users"), list) else []
     defaults_map: Dict[str, str] = {}
-    for u in defaults_raw:
-        uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
-        defaults_map[uid] = u.get("tryb_zmian", "111")
+    for raw_user in defaults_raw if isinstance(defaults_raw, list) else []:
+        if not isinstance(raw_user, dict):
+            continue
+        uid = str(raw_user.get("user_id") or raw_user.get("id") or raw_user.get("login") or "").strip()
+        login = str(raw_user.get("login") or "").strip()
+        mode = _normalize_mode(raw_user.get("tryb_zmian") or raw_user.get("zmiana_plan") or "111")
+        if uid:
+            defaults_map[uid] = mode
+        if login:
+            defaults_map[login] = mode
+
     try:  # pragma: no cover - profiles module rarely available
         import profiles
 
@@ -157,14 +195,17 @@ def _load_users() -> List[Dict[str, str]]:
             profile_path = ensure_profiles_file(cfg)
             data = _read_json(profile_path)
             if isinstance(data, dict):
-                users_payload = data.get("users", [])
-                users_list = users_payload if isinstance(users_payload, list) else []
-                _log_user_count(profile_path, users_list)
-                raw_dict = data
+                users_payload = data.get("users")
+                if isinstance(users_payload, list):
+                    raw = users_payload
+                    _log_user_count(profile_path, raw)
+                else:
+                    raw_dict = data
+                    _log_user_count(profile_path, list(raw_dict.values()))
                 active_source = profile_path
             elif isinstance(data, list):
-                _log_user_count(profile_path, data)
                 raw = data
+                _log_user_count(profile_path, data)
                 active_source = profile_path
         except Exception:
             raw = []
@@ -186,20 +227,27 @@ def _load_users() -> List[Dict[str, str]]:
                 if not profile_candidate:
                     continue
                 data = _read_json(profile_candidate)
-                if data and isinstance(data, dict):
-                    _log_user_count(profile_candidate, data.get("users", []))
-                    raw_dict = data
+                if isinstance(data, dict) and data:
+                    users_payload = data.get("users")
+                    if isinstance(users_payload, list):
+                        raw = users_payload
+                    else:
+                        raw_dict = data
                     active_source = profile_candidate
                     break
-                if data:
-                    _log_user_count(profile_candidate, data)
-                    raw = data  # prawdopodobnie users.json
+                if isinstance(data, list) and data:
+                    raw = data
                     active_source = profile_candidate
                     break
 
         if raw_dict:
             normalized: List[Dict[str, str]] = []
             for login, info in raw_dict.items():
+                if login in {"users", "profiles", "uzytkownicy"} and isinstance(info, list):
+                    for item in info:
+                        if isinstance(item, dict):
+                            normalized.append(dict(item))
+                    continue
                 entry: Dict[str, str] = {"login": str(login)}
                 if isinstance(info, dict):
                     entry.update(info)
@@ -209,7 +257,7 @@ def _load_users() -> List[Dict[str, str]]:
                         entry.update(primary)
                     elif isinstance(primary, str):
                         entry["name"] = primary
-                    else:
+                    elif primary is not None:
                         entry["name"] = str(primary)
                 elif isinstance(info, str):
                     entry["name"] = info
@@ -233,77 +281,164 @@ def _load_users() -> List[Dict[str, str]]:
                 else:
                     normalized.append({"login": str(item), "name": str(item)})
             raw = normalized
-            _log_user_count("fallback", raw)
+            _log_user_count(active_source or "fallback", raw)
         else:
-            raw = defaults_raw
+            raw = defaults_raw if isinstance(defaults_raw, list) else []
+
     users: List[Dict[str, str]] = []
     _USER_DEFAULTS = {}
-    for u in raw:
-        uid = str(u.get("id") or u.get("user_id") or u.get("login") or "")
+    for user in raw:
+        if not isinstance(user, dict):
+            continue
+        login = str(user.get("login") or "").strip()
+        uid = str(user.get("user_id") or user.get("id") or login).strip()
+        if not uid:
+            continue
         name = (
-            u.get("name")
-            or u.get("full_name")
-            or u.get("nazwa")
-            or f"{u.get('imie', '')} {u.get('nazwisko', '')}".strip()
+            user.get("name")
+            or user.get("display_name")
+            or user.get("full_name")
+            or user.get("nazwa")
+            or f"{user.get('imie', '')} {user.get('nazwisko', '')}".strip()
+            or login
+            or uid
         )
-        active = bool(u.get("active", True))
-        default_mode = defaults_map.get(uid, "111")
+        active = bool(user.get("active", True))
+        status = str(user.get("status") or "").strip().casefold()
+        if status in {"nieaktywny", "zablokowany", "dezaktywowany"}:
+            active = False
+        default_mode = _normalize_mode(
+            user.get("tryb_zmian")
+            or user.get("zmiana_plan")
+            or defaults_map.get(uid)
+            or defaults_map.get(login)
+            or "111"
+        )
         _USER_DEFAULTS[uid] = default_mode
+        if login:
+            _USER_DEFAULTS[login] = default_mode
         users.append(
             {
                 "id": uid,
-                "name": name,
+                "login": login,
+                "name": str(name),
                 "active": active,
                 "tryb_zmian": default_mode,
+                "rotacja_start": str(user.get("rotacja_start") or user.get("shift_start") or "").strip(),
             }
         )
     return users
 
 
+def _find_user(user_id_or_login: str) -> dict | None:
+    wanted = str(user_id_or_login or "").strip().casefold()
+    if not wanted:
+        return None
+    for user in _load_users():
+        if str(user.get("id") or "").strip().casefold() == wanted:
+            return user
+        if str(user.get("login") or "").strip().casefold() == wanted:
+            return user
+    return None
+
+
+def get_user_schedule(user_id: str, fallback_mode: str = "") -> tuple[str, str]:
+    """Zwróć kanoniczny tryb i poniedziałek tygodnia 1 dla pracownika."""
+    key = str(user_id or "").strip()
+    user = _find_user(key)
+    stable_id = str((user or {}).get("id") or key).strip()
+    login = str((user or {}).get("login") or "").strip()
+
+    data = _load_modes()
+    modes = data.get("modes") if isinstance(data.get("modes"), dict) else {}
+    anchors = data.get("user_anchor") if isinstance(data.get("user_anchor"), dict) else {}
+
+    raw_mode = (
+        modes.get(stable_id)
+        or (modes.get(login) if login else None)
+        or fallback_mode
+        or (user or {}).get("tryb_zmian")
+        or _USER_DEFAULTS.get(stable_id)
+        or (_USER_DEFAULTS.get(login) if login else None)
+        or "111"
+    )
+    mode = _normalize_mode(raw_mode)
+
+    raw_anchor = (
+        anchors.get(stable_id)
+        or (anchors.get(login) if login else None)
+        or (user or {}).get("rotacja_start")
+        or data.get("anchor_monday")
+        or "2025-01-06"
+    )
+    anchor = _normalize_monday(raw_anchor, fallback=date(2025, 1, 6))
+    return mode, anchor.isoformat()
+
+
+def set_user_schedule(user_id: str, mode: str, anchor_date: str | date) -> None:
+    """Zapisz wzorzec i indywidualną datę kotwiczną pod trwałym user_id."""
+    key = str(user_id or "").strip()
+    if not key:
+        raise ValueError("user_id is required")
+    raw_mode = str(mode or "").strip().upper()
+    canonical = _LEGACY_MODE_ALIASES.get(raw_mode, raw_mode)
+    if canonical not in _DEFAULT_PATTERNS:
+        allowed = ", ".join(_DEFAULT_PATTERNS)
+        raise ValueError(f"mode must be one of: {allowed}")
+
+    user = _find_user(key)
+    stable_id = str((user or {}).get("id") or key).strip()
+    login = str((user or {}).get("login") or "").strip()
+    monday = _normalize_monday(anchor_date, fallback=_anchor_monday())
+
+    data = _load_modes()
+    modes = dict(data.get("modes") or {})
+    anchors = dict(data.get("user_anchor") or {})
+    modes[stable_id] = canonical
+    anchors[stable_id] = monday.isoformat()
+    if login and login != stable_id:
+        modes.pop(login, None)
+        anchors.pop(login, None)
+
+    cfg = ConfigManager()
+    cfg.set("shifts.modes", modes)
+    cfg.set("shifts.user_anchor", anchors)
+    cfg.save_all()
+    print(f"[WM-DBG][SHIFTS] schedule saved: {stable_id} -> {canonical}, anchor={monday.isoformat()}")
+
+
 def _user_mode(user_id: str) -> str:
-    modes = _load_modes().get("modes", {})
-    if user_id not in _USER_DEFAULTS:
-        _load_users()
-    return modes.get(user_id, _USER_DEFAULTS.get(user_id, "111"))
+    return get_user_schedule(user_id)[0]
+
+
+def _user_anchor_monday(user_id: str) -> date:
+    return date.fromisoformat(get_user_schedule(user_id)[1])
 
 
 def _week_idx(day: date) -> int:
     anchor = _anchor_monday()
     monday_today = day - timedelta(days=day.weekday())
-    delta = monday_today - anchor
-    return delta.days // 7
+    return (monday_today - anchor).days // 7
+
+
+def _week_idx_for_user(user_id: str, day: date) -> int:
+    monday_today = day - timedelta(days=day.weekday())
+    anchor = _user_anchor_monday(user_id)
+    return (monday_today - anchor).days // 7
+
+
+_user_week_idx = _week_idx_for_user
 
 
 def _slot_for_mode(mode: str, week_idx: int) -> str:
-    patterns = _available_patterns()
-    pattern = patterns.get(mode, mode)
-    digits = [c for c in str(pattern or "1") if c in ("1", "2")]
-    if not digits:
-        digits = ["1"]
-
-    normalized_mode = "".join(digits)
-    if normalized_mode in {"111", "222"}:
-        digit = normalized_mode[0]
-    elif normalized_mode in {"121", "212"}:
-        first = normalized_mode[0]
-        digit = first if week_idx % 2 == 0 else ("2" if first == "1" else "1")
-    else:
-        digit = digits[week_idx % len(digits)]
+    """Zwróć zmianę dla literalnego trzytygodniowego wzorca."""
+    canonical = _normalize_mode(mode)
+    pattern = _DEFAULT_PATTERNS[canonical]
+    digit = pattern[int(week_idx) % 3]
     return "RANO" if digit == "1" else "POPO"
 
 
 def who_is_on_now(now: Optional[datetime] = None) -> Dict[str, List[str]]:
-    """Return the current shift slot and active user names.
-
-    Args:
-        now (datetime, optional): Moment to check. Defaults to the current
-            time.
-
-    Returns:
-        Dict[str, List[str]]: Mapping with keys ``slot`` (``"RANO"``,
-        ``"POPO"`` or ``None``) and ``users`` containing display names of
-        active users.
-    """
     now = now or datetime.now()
     times = _shift_times()
     slot = None
@@ -313,26 +448,19 @@ def who_is_on_now(now: Optional[datetime] = None) -> Dict[str, List[str]]:
         slot = "POPO"
     if slot is None:
         return {"slot": None, "users": []}
-    widx = _week_idx(now.date())
-    users = [
-        u["name"]
-        for u in _load_users()
-        if u.get("active") and _slot_for_mode(_user_mode(u["id"]), widx) == slot
-    ]
+
+    users = []
+    for user in _load_users():
+        if not user.get("active"):
+            continue
+        uid = user["id"]
+        widx = _week_idx_for_user(uid, now.date())
+        if _slot_for_mode(_user_mode(uid), widx) == slot:
+            users.append(user["name"])
     return {"slot": slot, "users": users}
 
 
 def today_summary(now: Optional[datetime] = None) -> str:
-    """Generate a human readable summary for today's shift.
-
-    Args:
-        now (datetime, optional): Moment used to determine the current day
-            and shift. Defaults to the current time.
-
-    Returns:
-        str: Formatted text with today's date, shift label and participating
-        users. When outside shift hours a default message is returned.
-    """
     now = now or datetime.now()
     info = who_is_on_now(now)
     if info["slot"] is None:
@@ -340,64 +468,52 @@ def today_summary(now: Optional[datetime] = None) -> str:
     last_update = _last_update_date()
     times = _shift_times()
     if info["slot"] == "RANO":
-        s = times["R_START"].strftime("%H:%M")
-        e = times["R_END"].strftime("%H:%M")
+        start = times["R_START"].strftime("%H:%M")
+        end = times["R_END"].strftime("%H:%M")
         label = "Poranna"
     else:
-        s = times["P_START"].strftime("%H:%M")
-        e = times["P_END"].strftime("%H:%M")
+        start = times["P_START"].strftime("%H:%M")
+        end = times["P_END"].strftime("%H:%M")
         label = "Popołudniowa"
     names = ", ".join(info["users"]) if info["users"] else "—"
-    return f"Ostatnia aktualizacja {last_update} | {label} {s}–{e} → {names}"
+    return f"Ostatnia aktualizacja {last_update} | {label} {start}–{end} → {names}"
 
 
 def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
-    """Build a weekly schedule matrix starting from the given date.
-
-    Args:
-        start_date (date): Any day within the week for which the matrix
-            should be produced.
-
-    Returns:
-        Dict[str, List[Dict]]: Structure containing the ISO formatted
-        ``week_start`` and ``rows`` with shift details for each active user.
-    """
     week_start = start_date - timedelta(days=start_date.weekday())
     times = _shift_times()
     rows: List[Dict] = []
-    widx = _week_idx(week_start)
-    for u in _load_users():
-        if not u.get("active"):
+    for user in _load_users():
+        if not user.get("active"):
             continue
-        mode = _user_mode(u["id"])
-        slot = _slot_for_mode(mode, widx)
+        uid = user["id"]
+        mode = _user_mode(uid)
+        slot = _slot_for_mode(mode, _week_idx_for_user(uid, week_start))
         days = []
-        for i in range(7):
-            d = week_start + timedelta(days=i)
-            wd = d.weekday()
-            if wd == 6:
+        for idx in range(7):
+            current = week_start + timedelta(days=idx)
+            weekday = current.weekday()
+            if weekday == 6:
                 continue
-            if wd == 5:
-                shift = "R"
-                start = times["R_START"]
-                end = times["R_END"]
+            if weekday == 5:
+                code = "R"
             else:
-                shift = "R" if slot == "RANO" else "P"
-                start = times["R_START"] if shift == "R" else times["P_START"]
-                end = times["R_END"] if shift == "R" else times["P_END"]
+                code = "R" if slot == "RANO" else "P"
+            start = times["R_START"] if code == "R" else times["P_START"]
+            end = times["R_END"] if code == "R" else times["P_END"]
             days.append(
                 {
-                    "date": d.strftime("%Y-%m-%d"),
-                    "dow": d.strftime("%a"),
-                    "shift": shift,
+                    "date": current.strftime("%Y-%m-%d"),
+                    "dow": current.strftime("%a"),
+                    "shift": code,
                     "start": start.strftime("%H:%M"),
                     "end": end.strftime("%H:%M"),
                 }
             )
         rows.append(
             {
-                "user": u["name"],
-                "user_id": u["id"],
+                "user": user["name"],
+                "user_id": uid,
                 "mode": mode,
                 "slot": slot,
                 "days": days,
@@ -407,44 +523,18 @@ def week_matrix(start_date: date) -> Dict[str, List[Dict]]:
 
 
 def set_user_mode(user_id: str, mode: str) -> None:
-    """Persist rotation mode for a specific user.
-
-    Args:
-        user_id (str): Identifier of the user whose mode will be stored.
-        mode (str): Rotation pattern identifier available in configuration.
-
-    Returns:
-        None
-    """
-    data = _load_modes()
-    patterns = _available_patterns(data)
-    if mode not in patterns:
-        allowed = ", ".join(sorted(patterns))
-        raise ValueError(f"mode must be one of: {allowed}")
-    modes = data.get("modes", {})
-    modes[user_id] = mode
-    cfg = ConfigManager()
-    cfg.set("shifts.modes", modes)
-    cfg.save_all()
-    print(f"[WM-DBG][SHIFTS] mode saved: {user_id} -> {mode}")
+    _old_mode, anchor = get_user_schedule(user_id)
+    set_user_schedule(user_id, mode, anchor)
 
 
 def set_anchor_monday(iso_date: str) -> None:
-    """Set the Monday used as the rotation anchor date.
-
-    Args:
-        iso_date (str): Date in ``YYYY-MM-DD`` format representing any day of
-            the desired anchor week.
-
-    Returns:
-        None
-    """
+    """Ustaw globalną kotwicę awaryjną dla starszych danych."""
     try:
-        d = datetime.strptime(iso_date, "%Y-%m-%d").date()
+        parsed = date.fromisoformat(str(iso_date or "")[:10])
     except ValueError as exc:
         raise ValueError(f"invalid date format: {iso_date}") from exc
 
-    monday = d - timedelta(days=d.weekday())
+    monday = parsed - timedelta(days=parsed.weekday())
     today = date.today()
     if monday < today:
         raise ValueError("anchor date cannot be in the past")
@@ -461,6 +551,8 @@ __all__ = [
     "who_is_on_now",
     "today_summary",
     "week_matrix",
+    "get_user_schedule",
+    "set_user_schedule",
     "set_user_mode",
     "set_anchor_monday",
     "TRYBY",

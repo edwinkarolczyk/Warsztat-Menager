@@ -1,12 +1,13 @@
-# version: 1.1
+# version: 1.2
 """Spójna warstwa profili pracowników WM.
 
-Normalizuje wszystkie historyczne formaty profiles.json przez profiles_store,
-nadaje trwałe user_id i ustala jedno pole limitu urlopu:
+Normalizuje historyczne formaty profiles.json przez profiles_store, nadaje
+trwałe user_id i ustala jedno pole limitu urlopu:
 ``entitlements.urlop_rocznie``. Login pozostaje edytowalny, user_id nie.
 
-Od 1.1 naprawia też historyczny config grafiku: własne ``shifts.patterns``
-rozszerzają wzorce WM zamiast usuwać obowiązkowe tryby 111/222/121/212.
+Od 1.2 grafik ma dokładnie cztery kanoniczne wzorce: 111/222/121/212.
+Historyczne aliasy są migrowane, a nieobsługiwane stare wzorce nie wracają
+do konfiguracji.
 """
 from __future__ import annotations
 
@@ -19,14 +20,21 @@ from profiles_store import load_profiles_users, resolve_profiles_path, save_prof
 
 
 _BASE_SHIFT_PATTERNS: dict[str, str] = {
-    "112": "112",
     "111": "111",
     "222": "222",
-    "12": "12",
     "121": "121",
     "212": "212",
-    "211": "211",
-    "1212": "1212",
+}
+
+_LEGACY_MODE_ALIASES: dict[str, str] = {
+    "1111": "111",
+    "2222": "222",
+    "1212": "121",
+    "2121": "212",
+    "I": "111",
+    "1": "111",
+    "II": "222",
+    "2": "222",
 }
 
 
@@ -34,39 +42,56 @@ def _key(value: object) -> str:
     return str(value or "").strip().casefold()
 
 
+def normalize_shift_mode(value: object, *, fallback: str = "111") -> str:
+    raw = str(value or "").strip().upper()
+    raw = _LEGACY_MODE_ALIASES.get(raw, raw)
+    if raw in _BASE_SHIFT_PATTERNS:
+        return raw
+    return fallback if fallback in _BASE_SHIFT_PATTERNS else "111"
+
+
 def merge_shift_patterns(raw: object) -> dict[str, str]:
-    """Połącz stare/customowe wzorce z pełnym zestawem bazowym WM."""
-    merged = dict(_BASE_SHIFT_PATTERNS)
-    if isinstance(raw, dict):
-        for key, value in raw.items():
-            name = str(key or "").strip()
-            if not name:
-                continue
-            pattern = str(value or name).strip() or name
-            merged[name] = pattern
-    elif isinstance(raw, (list, tuple, set)):
-        for value in raw:
-            name = str(value or "").strip()
-            if name:
-                merged[name] = name
-    return merged
+    """Zwróć dokładnie cztery obsługiwane wzorce grafiku WM."""
+    return dict(_BASE_SHIFT_PATTERNS)
 
 
 def ensure_required_shift_patterns() -> dict[str, str]:
-    """Uzupełnij config grafiku bez usuwania istniejących wzorców."""
+    """Ustaw kanoniczne wzorce i migruj stare kody trybów w config."""
     try:
         cfg = ConfigManager()
-        raw = cfg.get("shifts.patterns", {})
-        merged = merge_shift_patterns(raw)
-        current = {}
-        if isinstance(raw, dict):
-            current = {str(k): str(v) for k, v in raw.items() if str(k).strip()}
-        elif isinstance(raw, (list, tuple, set)):
-            current = {str(v): str(v) for v in raw if str(v).strip()}
-        if current != merged:
-            cfg.set("shifts.patterns", merged)
+        changed = False
+
+        raw_patterns = cfg.get("shifts.patterns", {})
+        current_patterns: dict[str, str] = {}
+        if isinstance(raw_patterns, dict):
+            current_patterns = {
+                str(key): str(value)
+                for key, value in raw_patterns.items()
+                if str(key).strip()
+            }
+        if current_patterns != _BASE_SHIFT_PATTERNS:
+            cfg.set("shifts.patterns", dict(_BASE_SHIFT_PATTERNS))
+            changed = True
+
+        raw_modes = cfg.get("shifts.modes", {})
+        modes = dict(raw_modes) if isinstance(raw_modes, dict) else {}
+        normalized_modes = {
+            str(user_key): normalize_shift_mode(mode)
+            for user_key, mode in modes.items()
+            if str(user_key or "").strip()
+        }
+        if modes != normalized_modes:
+            cfg.set("shifts.modes", normalized_modes)
+            changed = True
+
+        raw_anchors = cfg.get("shifts.user_anchor", {})
+        if not isinstance(raw_anchors, dict):
+            cfg.set("shifts.user_anchor", {})
+            changed = True
+
+        if changed:
             cfg.save_all()
-        return merged
+        return dict(_BASE_SHIFT_PATTERNS)
     except Exception:
         return dict(_BASE_SHIFT_PATTERNS)
 
@@ -130,6 +155,13 @@ def _normalize_one(row: dict, users: list[dict]) -> tuple[dict, bool]:
         user["zatrudniony_do"] = ""
         changed = True
 
+    for field in ("tryb_zmian", "zmiana_plan"):
+        if field in user and str(user.get(field) or "").strip():
+            normalized_mode = normalize_shift_mode(user.get(field))
+            if user.get(field) != normalized_mode:
+                user[field] = normalized_mode
+                changed = True
+
     return user, changed
 
 
@@ -155,7 +187,6 @@ def ensure_profile_schema() -> list[dict]:
 
 
 def list_users(*, active_only: bool = False) -> list[dict]:
-    # Każdy odczyt przez kanoniczny serwis gwarantuje trwałe user_id.
     users = ensure_profile_schema()
     out: list[dict] = []
     for row in users:
@@ -211,7 +242,9 @@ def save_user(user: dict, *, actor: str = "") -> dict:
     if "urlop_rocznie" not in ent:
         old = incoming.get("urlop")
         try:
-            ent["urlop_rocznie"] = float(old.get("nalezne", 26)) if isinstance(old, dict) else 26
+            ent["urlop_rocznie"] = (
+                float(old.get("nalezne", 26)) if isinstance(old, dict) else 26
+            )
         except Exception:
             ent["urlop_rocznie"] = 26
     incoming.setdefault("zatrudniony_do", "")
@@ -228,7 +261,10 @@ def save_user(user: dict, *, actor: str = "") -> dict:
 
 def write_users(users: Iterable[dict]) -> None:
     current = list_users()
-    id_by_login = {_key(row.get("login")): str(row.get("user_id") or "") for row in current}
+    id_by_login = {
+        _key(row.get("login")): str(row.get("user_id") or "")
+        for row in current
+    }
     rows: list[dict] = []
     used: set[str] = set()
     for raw in users:
@@ -262,12 +298,23 @@ def display_name(user: dict) -> str:
     value = str(user.get("display_name") or "").strip()
     if value:
         return value
-    parts = [str(user.get("imie") or "").strip(), str(user.get("nazwisko") or "").strip()]
+    parts = [
+        str(user.get("imie") or "").strip(),
+        str(user.get("nazwisko") or "").strip(),
+    ]
     joined = " ".join(part for part in parts if part)
     return joined or str(user.get("login") or "—")
 
 
 __all__ = [
-    "ensure_profile_schema", "ensure_required_shift_patterns", "merge_shift_patterns",
-    "list_users", "get_user", "save_user", "write_users", "is_foreman", "display_name",
+    "ensure_profile_schema",
+    "ensure_required_shift_patterns",
+    "merge_shift_patterns",
+    "normalize_shift_mode",
+    "list_users",
+    "get_user",
+    "save_user",
+    "write_users",
+    "is_foreman",
+    "display_name",
 ]
