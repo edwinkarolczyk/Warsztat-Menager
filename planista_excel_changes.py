@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_changes.py
-# version: 1.0
+# version: 1.1
 """Snapshot i wykrywanie zmian zewnętrznego planu produkcji Excel.
 
 Moduł nie zapisuje zleceń WM i nie modyfikuje pliku XLSX. Jedynym zapisem
@@ -90,6 +90,7 @@ def _exact_signature(row: dict) -> tuple:
         _normalized_text(row.get("produkt")),
         _quantity(row.get("ilosc")),
         _text(row.get("data_wysylki")),
+        _normalized_text(row.get("proces")),
     )
 
 
@@ -132,6 +133,14 @@ def _changed_fields(previous: dict, current: dict, *, force_product: bool = Fals
     if prev_date != curr_date:
         fields.append("Data wysyłki")
         details.append(f"Data wysyłki: {_format_value(prev_date)} → {_format_value(curr_date)}")
+
+    prev_process = _normalized_text(previous.get("proces"))
+    curr_process = _normalized_text(current.get("proces"))
+    if prev_process != curr_process:
+        fields.append("Proces")
+        details.append(
+            f"Proces: {_format_value(previous.get('proces'))} → {_format_value(current.get('proces'))}"
+        )
 
     return fields, details
 
