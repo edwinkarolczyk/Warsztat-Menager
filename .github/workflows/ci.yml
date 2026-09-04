@@ -26,7 +26,8 @@ jobs:
             tests/test_workforce_attendance.py \
             tests/test_leave_balance_service.py \
             tests/test_feedback_service.py \
-            tests/test_profile_foreman_edit_runtime.py
+            tests/test_profile_foreman_edit_runtime.py \
+            tests/test_profile_day_pay.py
       - name: Run smoke tests (settings)
         run: |
           pytest -q \
