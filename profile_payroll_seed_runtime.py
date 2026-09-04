@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Podpina neutralny model płatnych dni do Obecności/Urlopów.
 
 Nie liczy wypłat. Uzupełnia jedynie rekordy o kod dnia, procent płatności
@@ -54,7 +54,8 @@ def _decorate_attendance_module() -> None:
                 if manual_value > 0:
                     day_pay_service.apply_to_record(rec, "PRACA", pay_day_value=float(manual_value))
                 else:
-                    day_pay_service.mark_pending(rec)
+                    # Brygadzista podjął już decyzję: to nie jest stan oczekujący.
+                    day_pay_service.apply_to_record(rec, "BRAK", pay_day_value=1.0, pay_percent=0.0)
             elif rec.get("reason"):
                 day_pay_service.apply_to_record(rec, rec.get("reason"), pay_day_value=1.0)
             elif str(rec.get("status") or "") == att.STATUS_PRESENT and rec.get("confirmed"):
@@ -83,8 +84,41 @@ def _decorate_attendance_module() -> None:
         _decorate_stored(date_ymd, login)
 
     def set_reason(date_ymd: str, slot: str, login: str, bryg_login: str, reason: str, ts_iso: str) -> None:
-        original_set_reason(date_ymd, slot, login, bryg_login, reason, ts_iso)
-        _decorate_stored(date_ymd, login, reason=reason)
+        code = day_pay_service.normalize_code(reason)
+        if code == "UB":
+            # Bazowy attendance_service nie znał jeszcze urlopu bezpłatnego.
+            login_n = str(login or "").strip().casefold()
+            doc, _slot_map, rec = att._record(date_ymd, slot, login_n, create=True)
+            before = dict(rec)
+            rec.update({
+                "planned": True,
+                "reason": "UB",
+                "status": att.STATUS_EXCUSED,
+                "day_value": 0.0,
+                "confirmed": False,
+                "approval_required": False,
+                "confirmed_by": str(bryg_login or ""),
+                "confirmed_ts": str(ts_iso or att._now_iso()),
+                "source": "foreman",
+                "user_id": rec.get("user_id") or att.user_id_for(login_n),
+            })
+            att._write(att.data_path(), doc)
+            try:
+                att._audit(
+                    action="absence",
+                    login=login_n,
+                    date_ymd=date_ymd,
+                    slot=slot,
+                    actor=bryg_login,
+                    before=before,
+                    after=dict(rec),
+                    note="UB",
+                )
+            except Exception:
+                pass
+        else:
+            original_set_reason(date_ymd, slot, login, bryg_login, reason, ts_iso)
+        _decorate_stored(date_ymd, login, reason=code)
 
     def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: str,
                        note: str = "") -> dict:
@@ -115,7 +149,6 @@ def _decorate_attendance_module() -> None:
             )
         if status in {att.STATUS_MISSING, att.STATUS_PENDING_LATE, att.STATUS_SATURDAY} or item.get("approval_required"):
             return day_pay_service.mark_pending(item)
-        # Przyszły zaplanowany dzień nie jest jeszcze pozycją płacową.
         item.setdefault("payroll_pending", False)
         return item
 
@@ -141,7 +174,7 @@ def _decorate_attendance_module() -> None:
                     pass
             if code == "ŚW":
                 force_majeure += float(row.get("pay_day_value") or 0.0)
-            if code in {"NN", "UB"}:
+            if code in {"NN", "UB", "BRAK"}:
                 unpaid += float(row.get("pay_day_value") or 0.0)
         out.update({
             "pay_equivalent_days": pay_equivalent,
