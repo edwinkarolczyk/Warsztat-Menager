@@ -1,4 +1,4 @@
-# version: 1.9
+# version: 2.0
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -149,6 +149,14 @@ def _install_profile_entrypoints() -> None:
 
 def _install_workforce_extensions() -> None:
     """Ładuj rozszerzenia po bazowych patchach, żeby nie zmieniać layoutu Profilu."""
+    # Najpierw neutralny model płatnych dni. Dzięki temu kolejne warstwy
+    # urlopów/obecności zapisują już kod dnia i procent płatności.
+    try:
+        from profile_payroll_seed_runtime import install as install_payroll_seed
+        install_payroll_seed()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] payroll seed install failed: {exc!r}")
+
     try:
         from profile_workforce_runtime import install as install_workforce
         install_workforce()
@@ -172,6 +180,13 @@ def _install_workforce_extensions() -> None:
         install_foreman_edit()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] foreman edit runtime install failed: {exc!r}")
+
+    # Minimalne przyciski ŚW 50% / Bezpłatny 0% w istniejącym edytorze.
+    try:
+        from profile_absence_pay_ui_runtime import install as install_absence_pay_ui
+        install_absence_pay_ui()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] absence pay UI install failed: {exc!r}")
 
     # Wcześniejszy runtime montuje pełny notebook Użytkownicy | Profile | Rangi.
     # Najpierw spłaszczamy go do jednej karty Użytkownicy, bez dublowania nawigacji.
@@ -203,6 +218,20 @@ def _install_workforce_extensions() -> None:
         _install_profile_entrypoints()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] profile entrypoints install failed: {exc!r}")
+
+    # Kalendarz Brygadzisty dostaje przełącznik Mój/Zespół i szczegóły dnia.
+    try:
+        from profile_calendar_team_runtime import install as install_team_calendar
+        install_team_calendar()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] team calendar install failed: {exc!r}")
+
+    # Rzadziej używane widoki pozostają zgrupowane pod Administracja.
+    try:
+        from profile_foreman_admin_group_runtime import install as install_admin_group
+        install_admin_group()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] admin group install failed: {exc!r}")
 
 
 def install() -> None:
