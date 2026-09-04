@@ -20,6 +20,12 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run profile workforce regressions
+        run: |
+          pytest -q \
+            tests/test_workforce_attendance.py \
+            tests/test_leave_balance_service.py \
+            tests/test_feedback_service.py
       - name: Run smoke tests (settings)
         run: |
           pytest -q \
