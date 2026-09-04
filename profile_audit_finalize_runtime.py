@@ -1,11 +1,19 @@
-# version: 1.0
-"""Końcowa polityka audytu Profili: historia jest trwała i nie jest obcinana."""
+# version: 1.1
+"""Końcowa polityka audytu Profili i ostatnie uporządkowanie panelu Brygadzisty."""
 from __future__ import annotations
 
 from datetime import datetime
 
 
 def install() -> None:
+    # Ta warstwa jest instalowana jako ostatnia w Profili, więc tutaj montujemy
+    # również końcowy układ Administracji po wszystkich wcześniejszych runtime'ach.
+    try:
+        from profile_foreman_admin_group_runtime import install as install_admin_group
+        install_admin_group()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] admin group runtime install failed: {exc!r}")
+
     import profile_foreman_edit_runtime as edit_runtime
     from services import workforce_profile_service
 
