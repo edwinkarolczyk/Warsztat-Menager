@@ -15,10 +15,15 @@ _INSTALLED = False
 
 
 def _initial_day_value(case: dict) -> float:
+    status = str(case.get("status") or "")
+    if status == attendance_service.STATUS_MISSING:
+        return 0.0
+    if status == attendance_service.STATUS_PENDING_LATE:
+        return 1.0
     try:
         value = float(case.get("day_value"))
     except Exception:
-        value = 0.0 if case.get("status") == attendance_service.STATUS_MISSING else 1.0
+        return 1.0
     return value if value in {0.0, 0.5, 1.0} else 1.0
 
 
