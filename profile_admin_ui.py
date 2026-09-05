@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Wspólny interfejs administracji profilami dla Ustawień i panelu brygadzisty."""
 from __future__ import annotations
 
@@ -25,6 +25,18 @@ def _invalidate_profile_cache() -> None:
         pass
 
 
+def _is_active_user(user: dict[str, Any]) -> bool:
+    """Czy konto jest aktywne; obsługuje nowe i starsze nazwy pola."""
+    if "active" in user:
+        return bool(user.get("active"))
+    if "aktywny" in user:
+        return bool(user.get("aktywny"))
+    status = str(user.get("status") or "").strip().casefold()
+    if status in {"archiwalny", "nieaktywny", "dezaktywowany", "inactive"}:
+        return False
+    return True
+
+
 class UsersAdminPanel(ttk.Frame):
     """Płaski menedżer kont użytkowników bez dodatkowego Notebooka."""
 
@@ -48,7 +60,7 @@ class UsersAdminPanel(ttk.Frame):
         toolbar.pack(fill="x", padx=8, pady=(8, 4))
         ttk.Button(toolbar, text="Dodaj profil", command=self._add_profile).pack(side="left")
         ttk.Button(toolbar, text="Edytuj", command=self._edit_selected).pack(side="left", padx=6)
-        ttk.Button(toolbar, text="Usuń profil", command=self._delete_selected).pack(side="left", padx=6)
+        ttk.Button(toolbar, text="Dezaktywuj profil", command=self._deactivate_selected).pack(side="left", padx=6)
         ttk.Button(toolbar, text="Zapisz", command=self._save_now).pack(side="right")
 
         wrap = ttk.Frame(self)
@@ -84,15 +96,17 @@ class UsersAdminPanel(ttk.Frame):
     def _refresh_tree(self) -> None:
         self.tree.delete(*self.tree.get_children())
         for user in self.users:
+            pin_state = "Ustawiony" if str(user.get("pin") or "").strip() else "—"
+            status = "aktywny" if _is_active_user(user) else "archiwalny"
             self.tree.insert(
                 "",
                 "end",
                 values=(
                     user.get("login", ""),
-                    user.get("pin", ""),
+                    pin_state,
                     user.get("rola", "operator"),
                     user.get("zatrudniony_od", "—"),
-                    user.get("status", "aktywny"),
+                    status,
                 ),
             )
 
@@ -134,7 +148,11 @@ class UsersAdminPanel(ttk.Frame):
         if self._login_exists(login):
             messagebox.showerror("Profil", "Login już istnieje.", parent=self)
             return False
-        self.users.append(dict(item))
+        prepared = dict(item)
+        prepared.setdefault("active", True)
+        prepared.setdefault("aktywny", True)
+        prepared.setdefault("status", "aktywny")
+        self.users.append(prepared)
         self._refresh_tree()
         self._select_login(login)
         return True
@@ -156,7 +174,14 @@ class UsersAdminPanel(ttk.Frame):
         if self._login_exists(login, skip_index=index):
             messagebox.showerror("Profil", "Login już istnieje.", parent=self)
             return False
-        self.users[index] = dict(item)
+        previous = dict(self.users[index])
+        updated = dict(item)
+        # Edycja profilu nie może przypadkiem reaktywować zarchiwizowanego konta.
+        if not _is_active_user(previous):
+            updated["active"] = False
+            updated["aktywny"] = False
+            updated["status"] = "archiwalny"
+        self.users[index] = updated
         self._refresh_tree()
         self._select_login(login)
         return True
@@ -167,36 +192,56 @@ class UsersAdminPanel(ttk.Frame):
         _invalidate_profile_cache()
         messagebox.showinfo("Profile", "Zapisano zmiany.", parent=self)
 
-    def _delete_selected(self) -> None:
+    def _deactivate_selected(self) -> None:
         index = self._selected_index()
         if index is None:
-            messagebox.showinfo("Usuń profil", "Zaznacz użytkownika do usunięcia.", parent=self)
+            messagebox.showinfo("Dezaktywuj profil", "Zaznacz użytkownika do dezaktywacji.", parent=self)
             return
         user = self.users[index]
         login = str(user.get("login") or "").strip()
+        if not _is_active_user(user):
+            messagebox.showinfo("Dezaktywuj profil", "Ten profil jest już zarchiwizowany.", parent=self)
+            return
         try:
             active_login = str(ProfileService.ensure_active_user_or_none() or "").strip()
         except Exception:
             active_login = ""
         if active_login and active_login.casefold() == login.casefold():
-            messagebox.showerror("Usuń profil", "Nie można usunąć aktualnie zalogowanego użytkownika.", parent=self)
+            messagebox.showerror(
+                "Dezaktywuj profil",
+                "Nie można dezaktywować aktualnie zalogowanego użytkownika.",
+                parent=self,
+            )
             return
         active_admins = sum(
             1
             for item in self.users
-            if item.get("active", True)
+            if _is_active_user(item)
             and normalize_role_name(item.get("rola", "")) == "administrator"
         )
         if normalize_role_name(user.get("rola", "")) == "administrator" and active_admins <= 1:
-            messagebox.showerror("Usuń profil", "Nie można usunąć ostatniego aktywnego administratora.", parent=self)
+            messagebox.showerror(
+                "Dezaktywuj profil",
+                "Nie można dezaktywować ostatniego aktywnego administratora.",
+                parent=self,
+            )
             return
-        if not messagebox.askyesno("Usuń profil", f"Czy na pewno usunąć profil '{login}'?", parent=self):
+        if not messagebox.askyesno(
+            "Dezaktywuj profil",
+            f"Zarchiwizować profil '{login}'? Historia i user_id pozostaną zachowane.",
+            parent=self,
+        ):
             return
-        self.users.pop(index)
+
+        user["active"] = False
+        user["aktywny"] = False
+        user["status"] = "archiwalny"
+        user["deactivated_at"] = __import__("datetime").datetime.now().astimezone().isoformat(timespec="seconds")
         legacy = _legacy_profiles_module()
         legacy._save_users([dict(entry) for entry in self.users])
         _invalidate_profile_cache()
         self._refresh_tree()
+        self._select_login(login)
 
 
 class RolesAdminPanel(ttk.Frame):
