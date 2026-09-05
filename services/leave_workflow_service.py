@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 """Workflow urlopów i L4 dla Profilu WM.
 
 Jedno kanoniczne źródło ``<ROOT>/leaves.json`` oraz ``<ROOT>/leave_requests.json``.
@@ -21,6 +21,7 @@ from services.workforce_profile_service import get_user, is_foreman
 _PENDING = "pending"
 _APPROVED = "approved"
 _REJECTED = "rejected"
+_CANCELLED = "cancelled"
 
 
 def _utc_now() -> str:
@@ -129,8 +130,19 @@ def _identity_fields(login: str) -> dict[str, str]:
     }
 
 
-def read_leaves() -> list[dict]:
+def _read_all_leaves() -> list[dict]:
     return _as_list(_read_json(leaves_path(), []))
+
+
+def _is_cancelled(row: dict) -> bool:
+    return str(row.get("status") or "").strip().casefold() in {_CANCELLED, "canceled", "anulowany"}
+
+
+def read_leaves(*, include_cancelled: bool = False) -> list[dict]:
+    rows = _read_all_leaves()
+    if include_cancelled:
+        return rows
+    return [row for row in rows if not _is_cancelled(row)]
 
 
 def read_requests(login: str | None = None, status: str | None = None) -> list[dict]:
@@ -201,6 +213,8 @@ def _vacation_workdays(login: str, values: list[str]) -> list[str]:
 
 
 def _same_day(row: dict, login: str, day: str, type_: str | None = None) -> bool:
+    if _is_cancelled(row):
+        return False
     if not _matches_user(row, login):
         return False
     if str(row.get("date") or "")[:10] != day:
@@ -208,6 +222,11 @@ def _same_day(row: dict, login: str, day: str, type_: str | None = None) -> bool
     if type_ is None:
         return True
     return str(row.get("type") or "").strip().casefold() == type_.casefold()
+
+
+def active_absences_for_day(login: str, day: str | date) -> list[dict]:
+    day_text = _parse_day(day).isoformat()
+    return [dict(row) for row in read_leaves() if _same_day(row, login, day_text)]
 
 
 def request_vacation(login: str, dates: Iterable[str | date], note: str = "") -> str:
@@ -280,6 +299,26 @@ def _require_foreman(actor_login: str) -> str:
     if not is_foreman(actor):
         raise PermissionError("Tę operację może wykonać tylko brygadzista.")
     return actor
+
+
+def cancel_absences_for_day(login: str, day: str | date, actor_login: str, note: str = "") -> list[dict]:
+    """Anuluj aktywne wpisy nieobecności z dnia, zachowując je w historii."""
+    actor = _require_foreman(actor_login)
+    day_text = _parse_day(day).isoformat()
+    rows = _read_all_leaves()
+    changed: list[dict] = []
+    cancelled_at = _utc_now()
+    for row in rows:
+        if not _same_day(row, login, day_text):
+            continue
+        row["status"] = _CANCELLED
+        row["cancelled_by"] = actor
+        row["cancelled_at"] = cancelled_at
+        row["cancel_note"] = str(note or "").strip()
+        changed.append(dict(row))
+    if changed:
+        _write_json(leaves_path(), rows)
+    return changed
 
 
 def _find_request(rows: list[dict], request_id: str) -> tuple[int, dict]:
@@ -367,7 +406,7 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
     uid, current_login = _identity(identity_key)
     login = current_login or str(request.get("login") or "").strip()
     dates = _normalize_dates(request.get("dates") or [])
-    leave_rows_before = read_leaves()
+    leave_rows_before = _read_all_leaves()
     for day in dates:
         if any(_same_day(row, login, day) for row in leave_rows_before):
             raise ValueError(f"Dzień {day} ma już wpis nieobecności.")
@@ -449,7 +488,7 @@ def add_l4(login: str, dates: Iterable[str | date], actor_login: str, note: str 
     uid, current_login = _identity(login)
     login = current_login or login
     selected = _normalize_dates(dates)
-    rows_before = read_leaves()
+    rows_before = _read_all_leaves()
     rows = [dict(row) for row in rows_before]
     added = 0
     created = _utc_now()
@@ -484,7 +523,7 @@ def add_nn(login: str, dates: Iterable[str | date], actor_login: str, note: str 
     uid, current_login = _identity(login)
     login = current_login or login
     selected = _normalize_dates(dates)
-    rows = read_leaves()
+    rows = _read_all_leaves()
     created = _utc_now()
     token = uuid.uuid4().hex[-10:]
     for day in selected:
@@ -533,5 +572,6 @@ def calendar_snapshot(login: str, year: int, month: int) -> dict[str, Any]:
 __all__ = [
     "add_l4", "add_nn", "approve_request", "calendar_snapshot", "dates_from_range",
     "leaves_path", "read_leaves", "read_requests", "reject_request",
-    "request_vacation", "requests_path",
+    "request_vacation", "requests_path", "active_absences_for_day",
+    "cancel_absences_for_day",
 ]
