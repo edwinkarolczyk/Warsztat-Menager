@@ -1,4 +1,4 @@
-# version: 1.4
+# version: 1.5
 """Końcowe ujednolicenie Profili: Ruch WM, Obecność, decyzje i pełna edycja.
 
 Ten runtime jest instalowany jako ostatnia warstwa Profili. Nie tworzy kolejnego
