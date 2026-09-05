@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Obsługa opinii użytkowników WM z zachowaniem starego formatu danych."""
 from __future__ import annotations
 
@@ -67,14 +67,14 @@ def _normalize_status(value: Any) -> str:
 
 def _normalize(row: dict, index: int = 0) -> dict:
     out = dict(row)
-    login = str(out.get("login") or out.get("author") or "Gość").strip() or "Gość"
+    login = str(out.get("login_snapshot") or out.get("login") or out.get("author") or "Gość").strip() or "Gość"
     if not str(out.get("id") or "").strip():
         stamp = str(out.get("ts") or out.get("created_at") or "")
         token = uuid.uuid5(uuid.NAMESPACE_URL, f"wm-feedback:{index}:{login}:{stamp}:{out.get('message','')}").hex[:10]
         out["id"] = f"OPN-{token.upper()}"
-    user = get_user(login) or {}
+    user = get_user(str(out.get("user_id") or login)) or get_user(login) or {}
     out.setdefault("user_id", str(user.get("user_id") or ""))
-    out["login"] = login
+    out["login"] = str(out.get("login") or login)
     out.setdefault("login_snapshot", login)
     out.setdefault("rola_snapshot", str(out.get("rola") or user.get("rola") or ""))
     out["created_at"] = str(out.get("created_at") or out.get("ts") or "")
@@ -88,20 +88,36 @@ def _normalize(row: dict, index: int = 0) -> dict:
     return out
 
 
+def _matches_user(row: dict, login: str) -> bool:
+    """Preferuj trwałe user_id; stary login pozostaje kompatybilnym fallbackiem."""
+    login_key = str(login or "").strip().casefold()
+    if not login_key:
+        return True
+    user = get_user(login) or {}
+    user_id = str(user.get("user_id") or "").strip().casefold()
+    row_user_id = str(row.get("user_id") or "").strip().casefold()
+    if user_id and row_user_id and row_user_id == user_id:
+        return True
+    snapshots = {
+        str(row.get("login") or "").strip().casefold(),
+        str(row.get("login_snapshot") or "").strip().casefold(),
+    }
+    return login_key in snapshots
+
+
 def list_feedback(*, login: str | None = None, status: str | None = None) -> list[dict]:
     raw = _read([])
     if isinstance(raw, dict):
         raw = raw.get("items") or raw.get("opinie") or list(raw.values())
     if not isinstance(raw, list):
         raw = []
-    login_key = str(login or "").strip().casefold()
     status_key = _normalize_status(status) if status else ""
     rows: list[dict] = []
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
             continue
         row = _normalize(item, index)
-        if login_key and str(row.get("login") or "").strip().casefold() != login_key:
+        if login and not _matches_user(row, login):
             continue
         if status_key and row.get("status") != status_key:
             continue
