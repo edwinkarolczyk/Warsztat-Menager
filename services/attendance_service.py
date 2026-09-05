@@ -304,8 +304,17 @@ def _record(date_ymd: str, slot: str, login: str, *, create: bool = False) -> tu
     return doc, slot_map, rec
 
 
+def _absence_label(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    if raw in {"SW", "ŚW", "SILA_WYZSZA", "SIŁA_WYŻSZA", "SILA WYZSZA", "SIŁA WYŻSZA"}:
+        return "ŚW"
+    if raw == "URLOP":
+        return "UR"
+    return raw
+
+
 def absence_conflict(date_ymd: str, login: str) -> dict:
-    """Zwróć aktywną nieobecność z ewidencji obecności i leaves dla wskazanego dnia."""
+    """Zwróć nieobecność, która faktycznie blokuje zapis dniówki dla wskazanego dnia."""
     reasons: list[str] = []
     reason_slot = ""
     doc = _read(data_path(), {})
@@ -318,7 +327,7 @@ def absence_conflict(date_ymd: str, login: str) -> dict:
             _storage_key, rec = _matching_record(slot_map, login)
             if not isinstance(rec, dict):
                 continue
-            reason = str(rec.get("reason") or "").strip().upper()
+            reason = _absence_label(rec.get("reason"))
             if reason:
                 reasons.append(reason)
                 reason_slot = reason_slot or slot
@@ -327,9 +336,11 @@ def absence_conflict(date_ymd: str, login: str) -> dict:
     try:
         from services import leave_workflow_service
         for row in leave_workflow_service.active_absences_for_day(login, str(date_ymd)):
-            kind = str(row.get("type") or "").strip().upper()
-            if kind:
-                leave_types.append("UR" if kind == "URLOP" else kind)
+            kind = _absence_label(row.get("type"))
+            # Siła wyższa z kanonicznej ewidencji może współistnieć z obecnością.
+            # Wpisana bezpośrednio jako reason w obecności nadal blokuje nadpisanie.
+            if kind and kind != "ŚW":
+                leave_types.append(kind)
     except Exception:
         pass
 
