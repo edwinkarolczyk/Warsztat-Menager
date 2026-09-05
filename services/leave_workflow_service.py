@@ -1,10 +1,9 @@
-# version: 1.1
+# version: 1.2
 """Workflow urlopów i L4 dla Profilu WM.
 
 Jedno kanoniczne źródło ``<ROOT>/leaves.json`` oraz ``<ROOT>/leave_requests.json``.
-Urlop jest rozliczany rocznie przez leave_balance_service; przy wykorzystaniu
-najpierw schodzi najstarszy dostępny urlop zaległy. Akceptacja zapisuje dwa
-pliki transakcyjnie z rollbackiem.
+Nowe rekordy są wiązane po trwałym ``user_id`` i zachowują ``login_snapshot``;
+stare rekordy loginowe pozostają czytelne bez destrukcyjnej migracji.
 """
 from __future__ import annotations
 
@@ -99,17 +98,47 @@ def _as_list(payload: Any) -> list[dict]:
     return []
 
 
+def _identity(login_or_id: str) -> tuple[str, str]:
+    raw = str(login_or_id or "").strip()
+    user = get_user(raw) or {}
+    uid = str(user.get("user_id") or "").strip()
+    login = str(user.get("login") or raw).strip()
+    return uid, login
+
+
+def _matches_user(row: dict, login_or_id: str) -> bool:
+    uid, login = _identity(login_or_id)
+    uid_key = uid.casefold()
+    if uid_key and str(row.get("user_id") or "").strip().casefold() == uid_key:
+        return True
+    login_key = login.casefold()
+    if not login_key:
+        return False
+    return login_key in {
+        str(row.get("login") or "").strip().casefold(),
+        str(row.get("login_snapshot") or "").strip().casefold(),
+    }
+
+
+def _identity_fields(login: str) -> dict[str, str]:
+    uid, current_login = _identity(login)
+    return {
+        "user_id": uid,
+        "login": current_login,
+        "login_snapshot": current_login,
+    }
+
+
 def read_leaves() -> list[dict]:
     return _as_list(_read_json(leaves_path(), []))
 
 
 def read_requests(login: str | None = None, status: str | None = None) -> list[dict]:
     rows = _as_list(_read_json(requests_path(), []))
-    login_key = str(login or "").strip().casefold()
     status_key = str(status or "").strip().casefold()
     out: list[dict] = []
     for row in rows:
-        if login_key and str(row.get("login") or "").strip().casefold() != login_key:
+        if login and not _matches_user(row, login):
             continue
         if status_key and str(row.get("status") or "").strip().casefold() != status_key:
             continue
@@ -172,7 +201,7 @@ def _vacation_workdays(login: str, values: list[str]) -> list[str]:
 
 
 def _same_day(row: dict, login: str, day: str, type_: str | None = None) -> bool:
-    if str(row.get("login") or "").strip().casefold() != login.casefold():
+    if not _matches_user(row, login):
         return False
     if str(row.get("date") or "")[:10] != day:
         return False
@@ -185,6 +214,8 @@ def request_vacation(login: str, dates: Iterable[str | date], note: str = "") ->
     login = str(login or "").strip()
     if not login:
         raise ValueError("Brak loginu pracownika.")
+    uid, current_login = _identity(login)
+    login = current_login or login
     selected = _vacation_workdays(login, _normalize_dates(dates))
     if not selected:
         raise ValueError("Wybrane dni nie są dniami pracy tego pracownika.")
@@ -200,7 +231,6 @@ def request_vacation(login: str, dates: Iterable[str | date], note: str = "") ->
     if overlap:
         raise ValueError(f"Wniosek na {overlap[0]} już oczekuje na decyzję.")
 
-    # Nie blokujemy samego zgłoszenia ponad saldo; oznaczamy je dla brygadzisty.
     balance_warning = False
     over_by = 0.0
     try:
@@ -220,7 +250,9 @@ def request_vacation(login: str, dates: Iterable[str | date], note: str = "") ->
     request_id = f"req_{uuid.uuid4().hex}"
     row = {
         "id": request_id,
+        "user_id": uid,
         "login": login,
+        "login_snapshot": login,
         "type": "urlop",
         "dates": selected,
         "date_start": selected[0],
@@ -259,7 +291,6 @@ def _find_request(rows: list[dict], request_id: str) -> tuple[int, dict]:
 
 
 def _source_years_for_dates(login: str, dates: list[str]) -> dict[str, int]:
-    """Przydziel każdy dzień do najstarszego dostępnego koszyka urlopu."""
     result: dict[str, int] = {}
     balances: dict[int, dict[int, float]] = {}
     for day in dates:
@@ -332,7 +363,9 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
             "Brygadzista musi jawnie potwierdzić przekroczenie."
         )
 
-    login = str(request.get("login") or "").strip()
+    identity_key = str(request.get("user_id") or request.get("login") or "").strip()
+    uid, current_login = _identity(identity_key)
+    login = current_login or str(request.get("login") or "").strip()
     dates = _normalize_dates(request.get("dates") or [])
     leave_rows_before = read_leaves()
     for day in dates:
@@ -346,7 +379,9 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
     for day in dates:
         leave_rows.append({
             "id": f"leave_{day}_{login}_urlop_{short_id}",
+            "user_id": uid,
             "login": login,
+            "login_snapshot": str(request.get("login_snapshot") or request.get("login") or login),
             "type": "urlop",
             "date": day,
             "shift": None,
@@ -360,13 +395,15 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
         })
 
     updated = dict(request)
+    updated.setdefault("user_id", uid)
+    updated.setdefault("login_snapshot", str(request.get("login") or login))
+    updated["login"] = login
     updated["status"] = _APPROVED
     updated["approved_by"] = actor
     updated["decision_at"] = created
     updated["over_balance_override"] = bool(request.get("over_balance") and allow_over_balance)
     request_rows[idx] = updated
 
-    # Dwa dokumenty: jeśli drugi zapis nie wyjdzie, przywracamy pierwszy.
     _write_json(leaves_path(), leave_rows)
     try:
         _write_json(requests_path(), request_rows)
@@ -409,6 +446,8 @@ def add_l4(login: str, dates: Iterable[str | date], actor_login: str, note: str 
     login = str(login or "").strip()
     if not login:
         raise ValueError("Wybierz pracownika.")
+    uid, current_login = _identity(login)
+    login = current_login or login
     selected = _normalize_dates(dates)
     rows_before = read_leaves()
     rows = [dict(row) for row in rows_before]
@@ -420,7 +459,9 @@ def add_l4(login: str, dates: Iterable[str | date], actor_login: str, note: str 
             raise ValueError(f"Dzień {day} ma już wpis nieobecności.")
         rows.append({
             "id": f"leave_{day}_{login}_l4_{token}",
+            "user_id": uid,
             "login": login,
+            "login_snapshot": login,
             "type": "l4",
             "date": day,
             "shift": None,
@@ -440,6 +481,8 @@ def add_l4(login: str, dates: Iterable[str | date], actor_login: str, note: str 
 def add_nn(login: str, dates: Iterable[str | date], actor_login: str, note: str = "") -> int:
     actor = _require_foreman(actor_login)
     login = str(login or "").strip()
+    uid, current_login = _identity(login)
+    login = current_login or login
     selected = _normalize_dates(dates)
     rows = read_leaves()
     created = _utc_now()
@@ -448,9 +491,18 @@ def add_nn(login: str, dates: Iterable[str | date], actor_login: str, note: str 
         if any(_same_day(row, login, day) for row in rows):
             raise ValueError(f"Dzień {day} ma już wpis nieobecności.")
         rows.append({
-            "id": f"leave_{day}_{login}_nn_{token}", "login": login, "type": "nn",
-            "date": day, "shift": None, "quantity_days": 1.0, "minutes": 0,
-            "approved_by": actor, "created_at": created, "note": str(note or ""),
+            "id": f"leave_{day}_{login}_nn_{token}",
+            "user_id": uid,
+            "login": login,
+            "login_snapshot": login,
+            "type": "nn",
+            "date": day,
+            "shift": None,
+            "quantity_days": 1.0,
+            "minutes": 0,
+            "approved_by": actor,
+            "created_at": created,
+            "note": str(note or ""),
             "entered_by": actor,
         })
     _write_json(leaves_path(), rows)
@@ -460,10 +512,9 @@ def add_nn(login: str, dates: Iterable[str | date], actor_login: str, note: str 
 
 def calendar_snapshot(login: str, year: int, month: int) -> dict[str, Any]:
     prefix = f"{int(year):04d}-{int(month):02d}-"
-    login_key = str(login or "").strip().casefold()
     leaves = [
         row for row in read_leaves()
-        if str(row.get("login") or "").strip().casefold() == login_key
+        if _matches_user(row, login)
         and str(row.get("date") or "").startswith(prefix)
     ]
     requests = []
