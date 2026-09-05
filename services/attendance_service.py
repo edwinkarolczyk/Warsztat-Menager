@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.4
 """Jedno źródło prawdy dla dniówek i nadgodzin WM.
 
 Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
