@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Roczny bilans urlopu WM z przenoszeniem najstarszych dni w pierwszej kolejności."""
 from __future__ import annotations
 
@@ -46,6 +46,18 @@ def _user_key(login: str) -> str:
     return str(user.get("user_id") or user.get("id") or login or "").strip()
 
 
+def _row_matches_user(row: dict, login: str) -> bool:
+    user = get_user(login) or {}
+    uid = str(user.get("user_id") or user.get("id") or "").strip().casefold()
+    if uid and str(row.get("user_id") or "").strip().casefold() == uid:
+        return True
+    login_key = str(user.get("login") or login or "").strip().casefold()
+    return bool(login_key) and login_key in {
+        str(row.get("login") or "").strip().casefold(),
+        str(row.get("login_snapshot") or "").strip().casefold(),
+    }
+
+
 def _annual_entitlement(login: str) -> float:
     user = get_user(login) or {}
     ent = user.get("entitlements")
@@ -69,13 +81,12 @@ def _approved_used(login: str, year: int) -> float:
         rows = read_leaves()
     except Exception:
         rows = []
-    key = str(login or "").strip().casefold()
     total = 0.0
     prefix = f"{int(year):04d}-"
     for row in rows:
         if not isinstance(row, dict):
             continue
-        if str(row.get("login") or "").strip().casefold() != key:
+        if not _row_matches_user(row, login):
             continue
         if str(row.get("type") or "").strip().casefold() != "urlop":
             continue
@@ -124,7 +135,8 @@ def _year_row(login: str, year: int, *, create: bool = True) -> tuple[dict, dict
     if not isinstance(person, dict):
         person = {"login_snapshot": login, "years": {}}
         users[uid] = person
-    person["login_snapshot"] = login
+    person.setdefault("login_snapshot", login)
+    person["login"] = str((get_user(login) or {}).get("login") or login)
     years = person.setdefault("years", {})
     if not isinstance(years, dict):
         years = {}
@@ -189,7 +201,6 @@ def _computed_carryover(login: str, year: int, _seen: set[int] | None = None) ->
     if explicit:
         return explicit
 
-    # Pierwszy rok, o którym nic nie wiemy, nie wymyśla zaległego urlopu.
     _doc, prev_row, _uid = _year_row(login, year - 1, create=False)
     if not prev_row:
         user = get_user(login) or {}
@@ -256,7 +267,7 @@ def get_balance(login: str, year: int | None = None, *, _seen: set[int] | None =
     }
     return {
         "user_id": uid,
-        "login": login,
+        "login": str((get_user(login) or {}).get("login") or login),
         "year": year,
         "entitlement": entitlement,
         "adjustment": adjustment,
