@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.9.3",
-  "updated": "2026-09-04",
+  "wm_version": "0.9.7",
+  "updated": "2026-09-05",
   "slides": [
     {
       "module": "Start",
@@ -14,7 +14,7 @@
         "Wykonuj kroki po kolei w normalnym WM — samouczek nie zmienia danych programu.",
         "Zwracaj uwagę na podpowiedzi oznaczone ! przy polach i przyciskach."
       ],
-      "tip": "Treść samouczka jest osobna od logiki WM. Może być rozwijana przy kolejnych zmianach programu bez przebudowy modułów produkcyjnych."
+      "tip": "W nagłówku samouczka widzisz bieżącą wersję WM oraz datę ostatniej aktualizacji instrukcji."
     },
     {
       "module": "Panel główny",
@@ -30,7 +30,7 @@
     {
       "module": "Dyspozycje",
       "title": "Dodawanie dyspozycji",
-      "lead": "Przykład instrukcji w stylu „kliknij i zrób”.",
+      "lead": "Nową dyspozycję tworzysz z poziomu modułu Dyspozycje.",
       "steps": [
         "Kliknij Dyspozycje w lewym panelu.",
         "Kliknij Dodaj Dyspozycję.",
@@ -54,19 +54,119 @@
     {
       "module": "Maszyny",
       "title": "Zgłoszenie problemu z maszyną",
-      "lead": "Przykład procesu, który samouczek może później rozwinąć o dokładne ekrany i statusy.",
+      "lead": "Kartę maszyny możesz wykorzystać do oznaczenia awarii albo potrzeby serwisu.",
       "steps": [
         "Kliknij Maszyny.",
         "Znajdź maszynę po numerze, nazwie albo lokalizacji.",
         "Otwórz jej kartę i ustaw właściwy status problemowy, np. Awaria lub Serwis / przegląd.",
         "Zapisz zmianę i sprawdź, czy maszyna pojawia się w miejscach wymagających reakcji."
       ],
-      "tip": "Samouczek będzie aktualizowany razem ze zmianami gałęzi Rozwiniecie, więc instrukcja ma podążać za faktycznym zachowaniem WM."
+      "tip": "Maszyna oznaczona jako Sprawna nie powinna zaśmiecać list wymagających reakcji."
+    },
+    {
+      "module": "Profil",
+      "title": "Kalendarz brygadzisty — Mój i Zespół",
+      "lead": "Brygadzista może przełączyć kalendarz z własnego widoku na zbiorczy widok zespołu.",
+      "steps": [
+        "Otwórz Profil i przejdź do Kalendarza.",
+        "Przy polu Widok wybierz Mój, jeśli chcesz oglądać swój dotychczasowy kalendarz.",
+        "Wybierz Zespół, aby zobaczyć w dniach skróty zmian i nieobecności pracowników.",
+        "Kliknij dzień. Otworzy się tabela Pracownik | Zmiana | Status | Płatność.",
+        "Zaznacz pracownika i kliknij Otwórz profil albo kliknij go dwukrotnie. WM przejdzie do odpowiedniej zakładki Profilu pracownika."
+      ],
+      "tip": "Skróty 06–14 i 14–22 oznaczają zmianę, a UR, ?UR, L4, ŚW, BR i DEC sygnalizują urlopy albo stany wymagające uwagi."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Edycja danych pracownika",
+      "lead": "Brygadzista może edytować profil pracownika bez zmiany jego stałego User ID.",
+      "steps": [
+        "Otwórz listę pracowników i wybierz osobę do edycji.",
+        "Wejdź w edycję profilu. Dostępne są zakładki Dane, Obecność, Urlopy, Grafik, Uprawnienia, Historia i Więcej.",
+        "W zakładce Dane popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
+        "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w Historii."
+      ],
+      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Zmiana loginu nie powinna rozrywać jego powiązań."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Korekta obecności, dniówki i nadgodzin",
+      "lead": "Brygadzista może ręcznie skorygować konkretny dzień pracownika.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz zakładkę Obecność.",
+        "Wpisz datę i wybierz zmianę RANO albo POPO.",
+        "Ustaw dniówkę: 0, 0.5 albo 1.",
+        "Jeśli trzeba, zaznacz Zapisz nadgodziny, wpisz liczbę godzin i wybierz typ: zwykłe, sobota, niedziela albo święto.",
+        "Dodaj Powód / uwagę i kliknij Zapisz korektę."
+      ],
+      "tip": "! przy dniówce wyjaśnia, że ręczna korekta nie tworzy osobnego licznika spóźnień. Sobota i nadgodziny są zapisywane jako osobne dane."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Saldo urlopu i zaległy urlop",
+      "lead": "W profilu pracownika możesz ustawić roczny wymiar urlopu i jego zaległe pule.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz zakładkę Urlopy.",
+        "W polu Rok wybierz rok rozliczenia i wpisz Urlop należny, np. 20 albo 26 dni.",
+        "Jeśli trzeba, wpisz Korektę dodatnią albo ujemną.",
+        "W polu Zaległy wg roku wpisz pule w formacie np. 2024=2; 2025=4.",
+        "Kliknij Zapisz saldo. WM pokaże wartości Zaległy, Wykorzystano, Oczekuje i Pozostało."
+      ],
+      "tip": "! przy zaległym urlopie wyjaśnia, że WM wykorzystuje najpierw najstarszą zaległą pulę."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Dodawanie L4 albo NN",
+      "lead": "Nieobecność możesz wpisać bezpośrednio do ewidencji pracownika.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz Urlopy.",
+        "Wpisz zakres w polach Nieobecność od i Nieobecność do.",
+        "Dodaj uwagę, jeśli jest potrzebna.",
+        "Kliknij Dodaj L4 albo Dodaj NN.",
+        "Po zapisie nieobecność trafi do tej samej ewidencji, z której korzystają kalendarz i obecność."
+      ],
+      "tip": "! przy tych przyciskach przypomina, że WM nie będzie oczekiwał logowania pracownika w zapisanym dniu nieobecności."
+    },
+    {
+      "module": "Użytkownicy / Grafik",
+      "title": "Ustawianie grafiku pracownika",
+      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Nie korzysta już z jednej globalnej daty rotacji dla wszystkich.",
+      "steps": [
+        "Otwórz Ustawienia i przejdź do Użytkowników.",
+        "Wybierz pracownika i otwórz jego edycję.",
+        "Wybierz tryb zmian: 111 = I / I / I, 112 = I / I / II, 222 = II / II / II, 121 = I / II / I albo 212 = II / I / II.",
+        "Ustaw datę kotwiczną pracownika. Jest ona początkiem jego własnego trzytygodniowego cyklu.",
+        "Zapisz profil. Po trzecim tygodniu wzorzec zaczyna się od początku."
+      ],
+      "tip": "! przy trybie grafiku i dacie kotwicznej wyjaśnia ich wpływ na cykl. Zmiana loginu nie powinna zgubić grafiku, ponieważ ustawienia są wiązane ze stałym User ID."
+    },
+    {
+      "module": "Użytkownicy",
+      "title": "Reset PIN pracownika",
+      "lead": "Brygadzista nie odczytuje starego PIN-u — może ustawić nowy.",
+      "steps": [
+        "Otwórz listę Użytkowników i zaznacz pracownika.",
+        "Kliknij Resetuj PIN.",
+        "Wpisz nowy PIN, a następnie wpisz go ponownie.",
+        "Po zgodnym potwierdzeniu WM zapisze nowy PIN i odnotuje operację w historii."
+      ],
+      "tip": "! przy resecie PIN przypomina, że istniejący PIN nie jest wyświetlany. Nowy PIN musi mieć co najmniej 4 cyfry."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Historia zmian pracownika",
+      "lead": "Historia pozwala sprawdzić, kto i kiedy zmienił dane pracownika.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz zakładkę Historia.",
+        "Przejrzyj wpisy z datą, rodzajem operacji, wykonawcą i uwagą.",
+        "Kliknij Odśwież historię, jeśli właśnie wykonano korektę i chcesz zobaczyć najnowszy stan."
+      ],
+      "tip": "Historia jest tylko do odczytu. Korekta danych nie usuwa śladu wcześniejszej zmiany."
     },
     {
       "module": "Usuwanie",
       "title": "Bezpieczne usuwanie danych",
-      "lead": "Instrukcja usuwania zawsze powinna mówić także, czego nie wolno skasować bez sprawdzenia powiązań.",
+      "lead": "Przed usunięciem rekordu sprawdź jego powiązania.",
       "steps": [
         "Zaznacz rekord, który chcesz usunąć.",
         "Kliknij Usuń i przeczytaj komunikat potwierdzający.",
