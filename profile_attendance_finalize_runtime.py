@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 """Końcowe ujednolicenie Profili: Ruch WM, Obecność, decyzje i pełna edycja.
 
 Ten runtime jest instalowany jako ostatnia warstwa Profili. Nie tworzy kolejnego
@@ -25,6 +25,10 @@ from services import (
 from ui_context_help import add_help_button
 
 _INSTALLED = False
+_MONTH_NAMES = (
+    "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec",
+    "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień",
+)
 
 
 def _fmt(value: Any) -> str:
@@ -64,6 +68,21 @@ def _month_tuple(raw: str) -> tuple[int, int]:
         return date.today().year, date.today().month
 
 
+def _month_label(month: int) -> str:
+    try:
+        return _MONTH_NAMES[int(month) - 1].capitalize()
+    except Exception:
+        return str(month)
+
+
+def _shift_label(slot: str | None) -> str:
+    if slot == attendance_service.RANO:
+        return "I zmiana"
+    if slot == attendance_service.POPO:
+        return "II zmiana"
+    return "Wolne"
+
+
 def _fit_name_column(tree: ttk.Treeview, values: list[str], *, minimum: int = 120, maximum: int = 260) -> None:
     """Dopasuj Pracownik do najdłuższej widocznej nazwy, bez rozciągania."""
     try:
@@ -97,6 +116,7 @@ def _status_text(row: dict) -> str:
         attendance_service.STATUS_EXCUSED: str(row.get("reason") or "Nieobecność"),
         attendance_service.STATUS_SATURDAY: "Sobota — decyzja",
         attendance_service.STATUS_PLANNED: "Plan",
+        "DATA_CONFLICT": "Konflikt danych",
     }
     return mapping.get(status, status or "—")
 
@@ -131,6 +151,88 @@ def _absence_month(login: str, year: int, month: int) -> tuple[float, float]:
         elif kind == "l4":
             l4 += qty
     return vac, l4
+
+
+def _build_my_attendance_card(parent, login: str):
+    today = date.today()
+    summary = attendance_service.summary_for_month(login, today.year, today.month)
+    box = ttk.LabelFrame(parent, text="Moja obecność", style="WM.Section.TLabelframe", padding=12)
+
+    monthly = (
+        f"🕒 {_month_label(today.month)}: {_fmt(summary.get('days'))} dniówki | "
+        f"{_fmt(summary.get('missing'))} braków | {_fmt(summary.get('pending'))} do decyzji | "
+        f"{_fmt(summary.get('overtime_hours'))} h nadgodzin"
+    )
+    ttk.Label(box, text=monthly, style="WM.TLabel").pack(anchor="w")
+
+    today_rows = [
+        dict(row) for row in attendance_service.month_records(login, today.year, today.month)
+        if str(row.get("date") or "")[:10] == today.isoformat()
+    ]
+    if today_rows:
+        row = sorted(
+            today_rows,
+            key=lambda item: (
+                0 if item.get("status") != attendance_service.STATUS_PLANNED else 1,
+                0 if item.get("slot") == attendance_service.RANO else 1,
+            ),
+        )[0]
+        today_text = (
+            f"Dzisiaj: {_shift_label(str(row.get('slot') or ''))} | "
+            f"pierwsze logowanie: {_first_login(row)} | {_status_text(row)}"
+        )
+    else:
+        try:
+            planned = attendance_service._planned_slot_for_day(login, today)
+        except Exception:
+            planned = None
+        today_text = f"Dzisiaj: {_shift_label(planned)} | pierwsze logowanie: — | {'Plan' if planned else 'Wolne'}"
+
+    today_row = ttk.Frame(box, style="WM.TFrame")
+    today_row.pack(fill="x", pady=(5, 0))
+    ttk.Label(today_row, text=today_text, style="WM.Muted.TLabel").pack(side="left")
+    add_help_button(
+        today_row,
+        "Karta pokazuje bieżący miesiąc i stan dzisiejszego dnia z ewidencji WM. Braki i pozycje do decyzji wynikają z Grafiku oraz faktycznych logowań.",
+    ).pack(side="left", padx=(6, 0))
+    return box
+
+
+def _patch_my_attendance_card() -> None:
+    try:
+        import gui_profile_core as profile_core
+    except Exception:
+        return
+    cls = profile_core.ProfileView
+    if getattr(cls, "_wm_my_attendance_card_v13", False):
+        return
+    original = cls._render_simple_profile
+
+    def render_simple_profile(self, parent) -> None:
+        original(self, parent)
+        login = str(getattr(self, "login", "") or "").strip()
+        if not login:
+            return
+        try:
+            card = _build_my_attendance_card(parent, login)
+        except Exception as exc:
+            print(f"[WM-DBG][PROFILE][WARN] my attendance card failed: {exc!r}")
+            return
+        before_widget = None
+        try:
+            for child in parent.winfo_children():
+                if isinstance(child, ttk.LabelFrame) and str(child.cget("text")) == "Moje Dyspozycje":
+                    before_widget = child
+                    break
+        except Exception:
+            before_widget = None
+        if before_widget is not None:
+            card.pack(fill="x", pady=(0, 10), before=before_widget)
+        else:
+            card.pack(fill="x", pady=(0, 10))
+
+    cls._render_simple_profile = render_simple_profile
+    cls._wm_my_attendance_card_v13 = True
 
 
 def _render_ruch_wm(self) -> None:
@@ -206,6 +308,33 @@ def _render_ruch_wm(self) -> None:
     ).pack(side="left", padx=(6, 0))
 
 
+def _absence_labels(login: str, day_text: str) -> list[str]:
+    labels: list[str] = []
+    try:
+        rows = leave_workflow_service.active_absences_for_day(login, day_text)
+    except Exception:
+        rows = []
+    for row in rows:
+        kind = str(row.get("type") or "").strip().casefold()
+        label = {"urlop": "UR", "l4": "L4", "nn": "NN"}.get(kind, kind.upper())
+        if label and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _decision_type(case: dict) -> str:
+    if case.get("is_conflict"):
+        return "Konflikt"
+    status = str(case.get("status") or "")
+    if status == attendance_service.STATUS_MISSING:
+        return "Brak"
+    if status == attendance_service.STATUS_PENDING_LATE:
+        return "Późne logowanie"
+    if status == attendance_service.STATUS_SATURDAY:
+        return "Sobota"
+    return "Decyzja"
+
+
 def _all_decisions(year: int, month: int) -> list[dict]:
     rows: list[dict] = []
     for user in workforce_profile_service.list_users(active_only=True):
@@ -213,12 +342,57 @@ def _all_decisions(year: int, month: int) -> list[dict]:
         role = str(user.get("rola") or user.get("role") or "").strip().casefold()
         if not login or role == "guest":
             continue
+        display_name = workforce_profile_service.display_name(user)
+        by_key: dict[tuple[str, str], dict] = {}
         for row in attendance_service.decision_records(login, year, month):
             item = dict(row)
-            item["display_name"] = workforce_profile_service.display_name(user)
+            item["display_name"] = display_name
             item["login"] = login
-            rows.append(item)
-    rows.sort(key=lambda item: (str(item.get("date") or ""), str(item.get("display_name") or "")))
+            by_key[(str(item.get("date") or ""), str(item.get("slot") or ""))] = item
+
+        for row in attendance_service.month_records(login, year, month):
+            day_text = str(row.get("date") or "")[:10]
+            slot = str(row.get("slot") or attendance_service.RANO)
+            reason = str(row.get("reason") or "").strip().upper()
+            if reason == "SW":
+                reason = "ŚW"
+            leave_labels = _absence_labels(login, day_text)
+            status = str(row.get("status") or "")
+            labels = list(leave_labels)
+            if reason and reason not in labels:
+                labels.append(reason)
+
+            conflict = False
+            if leave_labels and status != attendance_service.STATUS_EXCUSED:
+                conflict = True
+            elif reason and status != attendance_service.STATUS_EXCUSED:
+                conflict = True
+            elif leave_labels and reason and reason not in leave_labels:
+                conflict = True
+            if not conflict:
+                continue
+
+            current_state = _status_text(row)
+            item = dict(row)
+            item.update({
+                "login": login,
+                "display_name": display_name,
+                "is_conflict": True,
+                "status": "DATA_CONFLICT",
+                "conflict_reason": reason or (leave_labels[0] if leave_labels else ""),
+                "decision_label": f"{', '.join(labels) or 'Nieobecność'} + {current_state}",
+            })
+            by_key[(day_text, slot)] = item
+
+        rows.extend(by_key.values())
+
+    rows.sort(
+        key=lambda item: (
+            0 if item.get("is_conflict") else 1,
+            str(item.get("date") or ""),
+            str(item.get("display_name") or ""),
+        )
+    )
     return rows
 
 
@@ -250,6 +424,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         ("Pracownik:", case.get("display_name") or login),
         ("Data:", day_var.get()),
         ("Zmiana:", slot_var.get()),
+        ("Typ:", _decision_type(case)),
         ("Pierwsze logowanie:", _first_login(case)),
         ("Stan:", case.get("decision_label") or _status_text(case)),
     ]
@@ -258,6 +433,20 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         ttk.Label(frame, text=str(value or "—")).grid(row=row_no, column=1, sticky="w", pady=3)
 
     row_no = len(fields)
+    if case.get("is_conflict"):
+        warning = ttk.Frame(frame)
+        warning.grid(row=row_no, column=0, columnspan=3, sticky="ew", pady=(7, 2))
+        ttk.Label(
+            warning,
+            text="⚠ Ten dzień ma sprzeczne dane. Wybierz, czy prawidłowa jest nieobecność, czy dniówka.",
+            style="WM.Muted.TLabel",
+        ).pack(side="left")
+        add_help_button(
+            warning,
+            "Zachowanie nieobecności wyzeruje dniówkę i ustawi właściwy powód. Zapis dniówki anuluje aktywną nieobecność, ale pozostawi ją w Historii.",
+        ).pack(side="left", padx=(6, 0))
+        row_no += 1
+
     ttk.Checkbutton(frame, text="Zapisz dniówkę", variable=save_day_var).grid(row=row_no, column=0, sticky="w", pady=(10, 4))
     ttk.Combobox(frame, textvariable=value_var, values=("0", "0.5", "1"), state="readonly", width=10).grid(
         row=row_no, column=1, sticky="w", pady=(10, 4)
@@ -301,6 +490,32 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         column=2,
         padx=(6, 0),
     )
+
+    def _finish() -> None:
+        win.destroy()
+        if callable(on_saved):
+            on_saved()
+
+    def keep_absence() -> None:
+        note = note_var.get().strip()
+        if not note:
+            messagebox.showinfo("Obecność", "Wpisz powód lub krótką uwagę.", parent=win)
+            return
+        reason = str(case.get("conflict_reason") or "").strip().upper()
+        if reason == "SW":
+            reason = "ŚW"
+        if reason not in {"L4", "UR", "UŻ", "ŚW", "NN"}:
+            messagebox.showerror("Obecność", "Nie udało się ustalić rodzaju nieobecności.", parent=win)
+            return
+        try:
+            attendance_service.set_reason(
+                day_var.get(), slot_var.get(), login, _actor(owner), reason,
+                datetime.now().astimezone().isoformat(timespec="seconds"),
+            )
+        except Exception as exc:
+            messagebox.showerror("Obecność", f"Nie udało się zachować nieobecności:\n{exc}", parent=win)
+            return
+        _finish()
 
     def save() -> None:
         note = note_var.get().strip()
@@ -347,15 +562,15 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         except Exception as exc:
             messagebox.showerror("Obecność", f"Nie udało się zapisać decyzji:\n{exc}", parent=win)
             return
-        win.destroy()
-        if callable(on_saved):
-            on_saved()
+        _finish()
 
     row_no += 1
     actions = ttk.Frame(frame)
     actions.grid(row=row_no, column=0, columnspan=3, sticky="e", pady=(12, 0))
     ttk.Button(actions, text="Anuluj", command=win.destroy).pack(side="right")
     ttk.Button(actions, text="Zapisz decyzję", command=save).pack(side="right", padx=(0, 8))
+    if case.get("is_conflict"):
+        ttk.Button(actions, text="Zachowaj nieobecność", command=keep_absence).pack(side="right", padx=(0, 8))
 
 
 def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = None) -> None:
@@ -431,45 +646,86 @@ def _render_attendance(self) -> None:
 
     year, month = _month_tuple(self._wm_att_month_var.get())
     decisions = _all_decisions(year, month)
+    decision_counts = {"missing": 0, "late": 0, "saturday": 0, "conflict": 0}
+    for case in decisions:
+        if case.get("is_conflict"):
+            decision_counts["conflict"] += 1
+        elif case.get("status") == attendance_service.STATUS_MISSING:
+            decision_counts["missing"] += 1
+        elif case.get("status") == attendance_service.STATUS_PENDING_LATE:
+            decision_counts["late"] += 1
+        elif case.get("status") == attendance_service.STATUS_SATURDAY:
+            decision_counts["saturday"] += 1
 
     queue_box = ttk.LabelFrame(
         parent,
-        text=f"Do potwierdzenia — {len(decisions)}",
+        text=f"Do decyzji — {len(decisions)}",
         style="WM.Section.TLabelframe",
         padding=8,
     )
     queue_box.pack(fill="x", padx=8, pady=(0, 8))
+
+    counters = ttk.Frame(queue_box, style="WM.Container.TFrame")
+    counters.pack(fill="x", pady=(0, 6))
+    ttk.Label(
+        counters,
+        text=(
+            f"🔴 Brak: {decision_counts['missing']}   "
+            f"🟠 Późne: {decision_counts['late']}   "
+            f"🟣 Soboty: {decision_counts['saturday']}   "
+            f"⚠ Konflikty: {decision_counts['conflict']}"
+        ),
+        style="WM.Muted.TLabel",
+    ).pack(side="left")
+    add_help_button(
+        counters,
+        "Liczniki pokazują wszystkie sprawy wymagające reakcji Brygadzisty w wybranym miesiącu. Konflikt oznacza sprzeczne wpisy, np. L4 i jednocześnie dniówkę.",
+    ).pack(side="left", padx=(6, 0))
+
     qtree = self._make_tree(
         queue_box,
         [
             ("name", "Pracownik", 160, "w"),
             ("date", "Data", 95, "center"),
-            ("slot", "Zmiana", 85, "center"),
+            ("slot", "Zmiana", 80, "center"),
+            ("type", "Typ", 120, "w"),
             ("login", "Pierwsze logowanie", 120, "center"),
-            ("state", "Stan", 200, "w"),
+            ("state", "Stan", 220, "w"),
         ],
-        height=5,
+        height=6,
     )
     qmap: dict[str, dict] = {}
     qnames: list[str] = []
     for case in decisions:
         name = str(case.get("display_name") or case.get("login") or "—")
         qnames.append(name)
+        urgent = bool(case.get("is_conflict")) or case.get("status") == attendance_service.STATUS_MISSING
         iid = qtree.insert(
             "",
             "end",
-            values=(name, case.get("date"), case.get("slot"), _first_login(case), case.get("decision_label")),
-            tags=("urgent" if case.get("status") == attendance_service.STATUS_MISSING else "warning",),
+            values=(
+                name,
+                case.get("date"),
+                case.get("slot"),
+                _decision_type(case),
+                _first_login(case),
+                case.get("decision_label"),
+            ),
+            tags=("urgent" if urgent else "warning",),
         )
         qmap[iid] = case
     _fit_name_column(qtree, qnames)
     if not decisions:
-        qtree.insert("", "end", values=("—", "—", "—", "—", "Brak pozycji wymagających decyzji"), tags=("ok",))
+        qtree.insert(
+            "", "end",
+            values=("—", "—", "—", "—", "—", "Brak pozycji wymagających decyzji"),
+            tags=("ok",),
+        )
 
     def open_queue_case(_event=None) -> None:
         selected = qtree.selection()
         if not selected:
-            messagebox.showinfo("Obecność", "Wybierz pozycję z listy Do potwierdzenia.", parent=self.winfo_toplevel())
+            messagebox.showinfo("Obecność", "Wybierz pozycję z listy Do decyzji.", parent=self.winfo_toplevel())
             return
         case = qmap.get(selected[0])
         if case:
@@ -481,7 +737,7 @@ def _render_attendance(self) -> None:
     ttk.Button(qactions, text="Rozstrzygnij zaznaczone", command=open_queue_case).pack(side="left")
     add_help_button(
         qactions,
-        "Tu trafiają tylko dni wymagające decyzji: brak logowania po zaplanowanej zmianie, logowanie po oknie lub sobota. Nie musisz zgadywać daty ręcznie.",
+        "Tu są braki logowania, późne logowania, soboty i konflikty danych. Po zapisaniu decyzji prawidłowo rozstrzygnięta pozycja znika z tej listy.",
     ).pack(side="left", padx=(6, 0))
 
     box = ttk.LabelFrame(
@@ -1326,6 +1582,10 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    try:
+        _patch_my_attendance_card()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] my attendance patch failed: {exc!r}")
     try:
         _patch_employee_editors()
     except Exception as exc:
