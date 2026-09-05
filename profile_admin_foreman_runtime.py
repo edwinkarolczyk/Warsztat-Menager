@@ -1,4 +1,4 @@
-# version: 2.0
+# version: 2.1
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -204,6 +204,14 @@ def _install_workforce_extensions() -> None:
         install_attendance_finalize()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] attendance finalize runtime install failed: {exc!r}")
+
+    # Edycja już zapisanego dnia jest małą warstwą nad finalnym widokiem.
+    # Pozwala przenieść rekord między RANO/POPO i zachować bieżący rodzaj dniówki.
+    try:
+        from profile_attendance_edit_runtime import install as install_attendance_edit
+        install_attendance_edit()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] attendance edit runtime install failed: {exc!r}")
 
     # Ostatni krok: przywróć zgodną sygnaturę audytu i zapisuj pełną historię,
     # bez dawnego limitu 5000 wpisów.
