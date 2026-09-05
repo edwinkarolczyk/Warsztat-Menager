@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.4
 """Końcowe ujednolicenie Profili: Ruch WM, Obecność, decyzje i pełna edycja.
 
 Ten runtime jest instalowany jako ostatnia warstwa Profili. Nie tworzy kolejnego
@@ -491,6 +491,33 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         padx=(6, 0),
     )
 
+    row_no += 1
+    current_text = str(case.get("decision_label") or _status_text(case) or "—")
+    preview_var = tk.StringVar(value="")
+    preview = ttk.Frame(frame)
+    preview.grid(row=row_no, column=0, columnspan=3, sticky="ew", pady=(8, 2))
+    ttk.Label(preview, text="Podgląd zmiany:", style="WM.Muted.TLabel").pack(side="left")
+    ttk.Label(preview, textvariable=preview_var).pack(side="left", padx=(6, 0))
+    add_help_button(
+        preview,
+        "Przed zapisem WM pokazuje stan bieżący i wynik korekty. To jest tylko podgląd — dane zmienią się dopiero po użyciu Zapisz decyzję.",
+    ).pack(side="left", padx=(6, 0))
+
+    def _refresh_preview(*_args) -> None:
+        target: list[str] = []
+        if save_day_var.get():
+            target.append(f"{_fmt(value_var.get())} dniówki")
+        if ot_var.get():
+            target.append(f"{_fmt(hours_var.get())} h nadgodzin ({ot_type_var.get()})")
+        preview_var.set(f"{current_text} → {' + '.join(target) if target else 'bez zmiany'}")
+
+    for var in (save_day_var, value_var, ot_var, hours_var, ot_type_var):
+        try:
+            var.trace_add("write", _refresh_preview)
+        except Exception:
+            pass
+    _refresh_preview()
+
     def _finish() -> None:
         win.destroy()
         if callable(on_saved):
@@ -574,49 +601,196 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
 
 
 def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = None) -> None:
-    """Wyjątkowa korekta dowolnego dnia; główny workflow zawsze używa kolejki."""
-    day_text = simpledialog.askstring(
-        "Korekta ręczna",
-        "Data (RRRR-MM-DD):",
-        initialvalue=date.today().isoformat(),
-        parent=owner.winfo_toplevel(),
+    """Korekta dnia z wyborem z ewidencji i czytelnym podglądem aktualnego stanu."""
+    if not login:
+        return
+    display_name = workforce_profile_service.display_name(
+        workforce_profile_service.get_user(login) or {"login": login}
     )
-    if not day_text:
-        return
+    win = tk.Toplevel(owner)
+    win.title(f"Korekta obecności — {display_name}")
     try:
-        date.fromisoformat(day_text)
+        win.transient(owner.winfo_toplevel())
+        win.grab_set()
     except Exception:
-        messagebox.showerror("Obecność", "Nieprawidłowa data.", parent=owner.winfo_toplevel())
-        return
-    try:
-        conflict = attendance_service.absence_conflict(day_text, login)
-        conflict_slot = str(conflict.get("slot") or "")
-    except Exception:
-        conflict_slot = ""
-    try:
-        planned = attendance_service._planned_slot_for_day(login, date.fromisoformat(day_text))
-    except Exception:
-        planned = None
-    slot_text = simpledialog.askstring(
-        "Korekta ręczna",
-        "Zmiana (RANO/POPO):",
-        initialvalue=conflict_slot or planned or attendance_service.RANO,
-        parent=owner.winfo_toplevel(),
+        pass
+
+    frame = ttk.Frame(win, padding=14)
+    frame.pack(fill="both", expand=True)
+    frame.columnconfigure(0, weight=1)
+
+    top = ttk.Frame(frame)
+    top.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+    ttk.Label(top, text="Miesiąc:").pack(side="left")
+    month_var = tk.StringVar(value=date.today().strftime("%Y-%m"))
+    month_box = ttk.Combobox(top, textvariable=month_var, values=_month_choices(), state="readonly", width=9)
+    month_box.pack(side="left", padx=(5, 8))
+    add_help_button(
+        top,
+        "Wybierz miesiąc, a następnie dzień z historii obecności. Data i zmiana zostaną podstawione automatycznie; ręczne pola poniżej są tylko awaryjnym wyborem dla dnia bez wpisu.",
+    ).pack(side="left")
+
+    history_box = ttk.LabelFrame(frame, text="Wybierz dzień z ewidencji", padding=6)
+    history_box.grid(row=1, column=0, sticky="nsew")
+    frame.rowconfigure(1, weight=1)
+    history = ttk.Treeview(
+        history_box,
+        columns=("date", "slot", "login", "status", "day"),
+        show="headings",
+        height=10,
     )
-    slot_text = str(slot_text or "").strip().upper()
-    if slot_text not in attendance_service.VALID_SLOTS:
-        if slot_text:
-            messagebox.showerror("Obecność", "Zmiana musi być RANO albo POPO.", parent=owner.winfo_toplevel())
-        return
-    case = {
-        "login": login,
-        "display_name": workforce_profile_service.display_name(workforce_profile_service.get_user(login) or {"login": login}),
-        "date": day_text,
-        "slot": slot_text,
-        "status": attendance_service.STATUS_MISSING,
-        "decision_label": "Korekta ręczna",
-    }
-    _open_case_dialog(owner, case, on_saved=on_saved)
+    for key, label, width, anchor in (
+        ("date", "Data", 100, "center"),
+        ("slot", "Zmiana", 90, "center"),
+        ("login", "Pierwsze logowanie", 125, "center"),
+        ("status", "Stan teraz", 230, "w"),
+        ("day", "Dniówka", 75, "center"),
+    ):
+        history.heading(key, text=label)
+        history.column(key, width=width, anchor=anchor, stretch=key == "status")
+    history.pack(fill="both", expand=True)
+
+    select_box = ttk.Frame(frame)
+    select_box.grid(row=2, column=0, sticky="ew", pady=(8, 4))
+    select_box.columnconfigure(3, weight=1)
+    day_var = tk.StringVar(value=date.today().isoformat())
+    slot_var = tk.StringVar(value=attendance_service.RANO)
+    state_var = tk.StringVar(value="Wybierz dzień z listy lub podaj datę poniżej.")
+    ttk.Label(select_box, text="Data:").grid(row=0, column=0, sticky="w")
+    ttk.Entry(select_box, textvariable=day_var, width=12).grid(row=0, column=1, sticky="w", padx=(5, 12))
+    ttk.Label(select_box, text="Zmiana:").grid(row=0, column=2, sticky="w")
+    ttk.Combobox(
+        select_box,
+        textvariable=slot_var,
+        values=(attendance_service.RANO, attendance_service.POPO),
+        state="readonly",
+        width=10,
+    ).grid(row=0, column=3, sticky="w", padx=(5, 0))
+    ttk.Label(select_box, textvariable=state_var, style="WM.Muted.TLabel").grid(
+        row=1, column=0, columnspan=4, sticky="w", pady=(6, 0)
+    )
+
+    rows_by_iid: dict[str, dict] = {}
+
+    def _state_label(row: dict) -> str:
+        labels = _absence_labels(login, str(row.get("date") or "")[:10])
+        reason = str(row.get("reason") or "").strip().upper()
+        if reason == "SW":
+            reason = "ŚW"
+        if reason and reason not in labels:
+            labels.append(reason)
+        status = _status_text(row)
+        if labels and str(row.get("status") or "") != attendance_service.STATUS_EXCUSED:
+            return f"{', '.join(labels)} + {status}"
+        if labels:
+            return ", ".join(labels)
+        return status
+
+    def refresh_history(_event=None) -> None:
+        rows_by_iid.clear()
+        for iid in history.get_children():
+            history.delete(iid)
+        year, month = _month_tuple(month_var.get())
+        rows = list(attendance_service.month_records(login, year, month))
+        rows.sort(key=lambda item: (str(item.get("date") or ""), str(item.get("slot") or "")), reverse=True)
+        for row in rows:
+            item = dict(row)
+            state = _state_label(item)
+            iid = history.insert(
+                "",
+                "end",
+                values=(
+                    str(item.get("date") or "")[:10],
+                    item.get("slot") or "—",
+                    _first_login(item),
+                    state,
+                    _fmt(item.get("day_value")),
+                ),
+            )
+            item["_display_state"] = state
+            rows_by_iid[iid] = item
+        if not rows:
+            history.insert("", "end", values=("—", "—", "—", "Brak wpisów w tym miesiącu", "—"))
+        state_var.set("Wybierz dzień z listy lub podaj datę poniżej.")
+
+    def select_history(_event=None) -> None:
+        selected = history.selection()
+        if not selected:
+            return
+        item = rows_by_iid.get(selected[0])
+        if not item:
+            return
+        day_var.set(str(item.get("date") or "")[:10])
+        slot = str(item.get("slot") or attendance_service.RANO)
+        if slot in attendance_service.VALID_SLOTS:
+            slot_var.set(slot)
+        state_var.set(
+            f"Stan teraz: {item.get('_display_state') or _status_text(item)} | "
+            f"dniówka: {_fmt(item.get('day_value'))}"
+        )
+
+    history.bind("<<TreeviewSelect>>", select_history, add="+")
+    month_box.bind("<<ComboboxSelected>>", refresh_history, add="+")
+
+    def continue_edit(_event=None) -> None:
+        day_text = day_var.get().strip()
+        try:
+            parsed_day = date.fromisoformat(day_text)
+        except Exception:
+            messagebox.showerror("Obecność", "Nieprawidłowa data. Użyj formatu RRRR-MM-DD.", parent=win)
+            return
+        slot_text = str(slot_var.get() or "").strip().upper()
+        if slot_text not in attendance_service.VALID_SLOTS:
+            messagebox.showerror("Obecność", "Zmiana musi być RANO albo POPO.", parent=win)
+            return
+
+        selected_row: dict[str, Any] | None = None
+        for row in attendance_service.month_records(login, parsed_day.year, parsed_day.month):
+            if str(row.get("date") or "")[:10] == day_text and str(row.get("slot") or "") == slot_text:
+                selected_row = dict(row)
+                break
+
+        if selected_row is None:
+            selected_row = {
+                "date": day_text,
+                "slot": slot_text,
+                "status": attendance_service.STATUS_MISSING,
+                "day_value": 0.0,
+                "decision_label": "Brak wpisu w ewidencji",
+            }
+
+        labels = _absence_labels(login, day_text)
+        reason = str(selected_row.get("reason") or "").strip().upper()
+        if reason == "SW":
+            reason = "ŚW"
+        if reason and reason not in labels:
+            labels.append(reason)
+        current_status = str(selected_row.get("status") or "")
+        current_text = _status_text(selected_row)
+        is_conflict = bool(labels and current_status != attendance_service.STATUS_EXCUSED)
+        if labels:
+            selected_row["decision_label"] = (
+                f"{', '.join(labels)} + {current_text}" if is_conflict else ", ".join(labels)
+            )
+        else:
+            selected_row.setdefault("decision_label", current_text)
+        selected_row.update({
+            "login": login,
+            "display_name": display_name,
+            "date": day_text,
+            "slot": slot_text,
+            "is_conflict": is_conflict,
+            "conflict_reason": reason or (labels[0] if labels else ""),
+        })
+        win.destroy()
+        _open_case_dialog(owner, selected_row, on_saved=on_saved)
+
+    history.bind("<Double-1>", continue_edit, add="+")
+    actions = ttk.Frame(frame)
+    actions.grid(row=3, column=0, sticky="e", pady=(10, 0))
+    ttk.Button(actions, text="Anuluj", command=win.destroy).pack(side="right")
+    ttk.Button(actions, text="Przejdź do korekty", command=continue_edit).pack(side="right", padx=(0, 8))
+    refresh_history()
 
 
 def _render_attendance(self) -> None:
