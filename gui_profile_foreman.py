@@ -1,14 +1,17 @@
-# version: 1.0
+# version: 1.1
 """Widok zakładki Brygadzista w aktywnym Profilu WM."""
 from __future__ import annotations
 
+import json
 import tkinter as tk
-from datetime import datetime
+from datetime import date, datetime
 from tkinter import ttk
 from typing import Any, Callable
 
 from logger import log_akcja
+from services import leave_balance_service, workforce_profile_service
 from services.foreman_stats_service import build_snapshot, period_labels
+from ui_context_help import add_help_button
 
 WM_BG = "#121415"
 WM_BG_ELEV = "#1A1D1F"
@@ -47,6 +50,44 @@ def _short_dt(value: Any) -> str:
         return parsed.strftime("%d-%m-%y %H:%M")
     except Exception:
         return raw[:16].replace("T", " ")
+
+
+def _leave_balance_audit(year: int) -> list[dict[str, Any]]:
+    """Zwróć rzeczywiste korekty salda urlopu dla wskazanego roku."""
+    try:
+        import profile_foreman_edit_runtime as edit_runtime
+        path = edit_runtime._audit_path()
+        with open(path, "r", encoding="utf-8") as handle:
+            rows = json.load(handle)
+    except Exception:
+        return []
+    if not isinstance(rows, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get("action") or "") != "saldo_urlopu":
+            continue
+        before = row.get("before") if isinstance(row.get("before"), dict) else {}
+        after = row.get("after") if isinstance(row.get("after"), dict) else {}
+        try:
+            row_year = int(after.get("year") or before.get("year") or 0)
+        except Exception:
+            row_year = 0
+        if row_year == int(year):
+            out.append(dict(row))
+    out.sort(key=lambda item: str(item.get("ts") or ""), reverse=True)
+    return out
+
+
+def _balance_audit_text(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "—"
+    return (
+        f"należny {_days(value.get('entitlement'))} | "
+        f"zaległy {_days(value.get('carryover'))} | "
+        f"korekta {_days(value.get('adjustment'))} | "
+        f"pozostały {_days(value.get('remaining'))}"
+    )
 
 
 class ForemanProfilePanel(ttk.Frame):
@@ -319,31 +360,124 @@ class ForemanProfilePanel(ttk.Frame):
     def _render_leaves(self) -> None:
         parent = self._tabs["Urlopy"]
         self._clear(parent)
-        year = datetime.now().year
+
+        current_year = date.today().year
+        if not hasattr(self, "_leave_year_var"):
+            self._leave_year_var = tk.StringVar(value=str(current_year))
+        try:
+            year = int(self._leave_year_var.get())
+        except Exception:
+            year = current_year
+            self._leave_year_var.set(str(year))
+
         head = ttk.Frame(parent, style="WM.Container.TFrame")
-        head.pack(fill="x", padx=8, pady=(8, 4))
-        ttk.Label(head, text=f"Bilans nieobecności — {year}", style="WM.H1.TLabel").pack(side="left")
-        source = _txt(self.snapshot.get("leaves_source"), "brak danych")
-        ttk.Label(head, text=f"Źródło: {source}", style="WM.Muted.TLabel").pack(side="right")
-        box = ttk.Frame(parent, style="WM.Container.TFrame")
+        head.pack(fill="x", padx=8, pady=(8, 6))
+        ttk.Label(head, text="Bilans urlopu", style="WM.H1.TLabel").pack(side="left")
+        ttk.Label(head, text="Rok:", style="WM.Muted.TLabel").pack(side="left", padx=(16, 4))
+        years = [str(value) for value in range(current_year + 2, current_year - 6, -1)]
+        year_box = ttk.Combobox(
+            head,
+            textvariable=self._leave_year_var,
+            values=years,
+            state="readonly",
+            width=7,
+        )
+        year_box.pack(side="left")
+        year_box.bind("<<ComboboxSelected>>", lambda _e: self._render_leaves(), add="+")
+        add_help_button(
+            head,
+            "Wybierz rok, aby przełączyć bilans urlopu i historię korekt salda. Zmiana roku niczego nie zapisuje — pokazuje wyłącznie dane dla wskazanego roku.",
+        ).pack(side="left", padx=(6, 0))
+
+        users = []
+        for user in workforce_profile_service.list_users(active_only=True):
+            login = str(user.get("login") or "").strip()
+            role = str(user.get("rola") or user.get("role") or "").strip().casefold()
+            if login and role != "guest":
+                users.append(dict(user))
+        users.sort(key=lambda item: workforce_profile_service.display_name(item).casefold())
+
+        box = ttk.LabelFrame(
+            parent,
+            text=f"Bilans — {year}",
+            style="WM.Section.TLabelframe",
+            padding=8,
+        )
         box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         tree = self._make_tree(box, [
             ("name", "Pracownik", 220, "w"),
-            ("limit", "Limit", 85, "center"),
-            ("used", "Wykorzystano", 105, "center"),
-            ("remaining", "Pozostało", 100, "center"),
-            ("l4", "L4", 80, "center"),
-            ("nn", "NN", 80, "center"),
-            ("late", "Spóźnienia", 110, "center"),
-        ], height=16)
-        for row in self.snapshot.get("leaves") or []:
-            remaining = float(row.get("remaining") or 0)
-            tag = "urgent" if remaining < 0 else ""
-            tree.insert("", "end", values=(
-                row.get("name"), _days(row.get("limit")), _days(row.get("used")),
-                _days(remaining), _days(row.get("l4")), _days(row.get("nn")),
-                f"{int(row.get('late_minutes') or 0)} min",
-            ), tags=(tag,) if tag else ())
+            ("entitlement", "Należny", 90, "center"),
+            ("carryover", "Zaległy", 90, "center"),
+            ("used", "Wykorzystany", 105, "center"),
+            ("pending", "Oczekujący", 100, "center"),
+            ("remaining", "Pozostały", 95, "center"),
+        ], height=9)
+
+        names_by_login: dict[str, str] = {}
+        for user in users:
+            login = str(user.get("login") or "").strip()
+            name = workforce_profile_service.display_name(user)
+            names_by_login[login.casefold()] = name
+            balance = leave_balance_service.get_balance(login, year)
+            projected = float(balance.get("projected_remaining") or 0.0)
+            tag = "warning" if projected < 0 else ""
+            tree.insert(
+                "",
+                "end",
+                values=(
+                    name,
+                    _days(balance.get("entitlement")),
+                    _days(balance.get("carryover")),
+                    _days(balance.get("used")),
+                    _days(balance.get("pending")),
+                    _days(balance.get("remaining")),
+                ),
+                tags=(tag,) if tag else (),
+            )
+
+        history_box = ttk.LabelFrame(
+            parent,
+            text=f"Historia korekt salda — {year}",
+            style="WM.Section.TLabelframe",
+            padding=8,
+        )
+        history_box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        history = self._make_tree(history_box, [
+            ("date", "Data", 125, "center"),
+            ("name", "Pracownik", 170, "w"),
+            ("before", "Przed", 315, "w"),
+            ("after", "Po", 315, "w"),
+            ("actor", "Operator", 115, "w"),
+            ("note", "Uwaga", 180, "w"),
+        ], height=6)
+
+        audit_rows = _leave_balance_audit(year)
+        if audit_rows:
+            for row in audit_rows:
+                login = str(row.get("login") or "").strip()
+                name = names_by_login.get(login.casefold())
+                if not name:
+                    user = workforce_profile_service.get_user(login) or {"login": login}
+                    name = workforce_profile_service.display_name(user)
+                history.insert(
+                    "",
+                    "end",
+                    values=(
+                        _short_dt(row.get("ts")),
+                        name or login or "—",
+                        _balance_audit_text(row.get("before")),
+                        _balance_audit_text(row.get("after")),
+                        row.get("actor") or "—",
+                        row.get("note") or "—",
+                    ),
+                )
+        else:
+            history.insert(
+                "",
+                "end",
+                values=("—", "—", "—", "Brak korekt salda w tym roku", "—", "—"),
+                tags=("muted",),
+            )
 
     # ---------------- ZADANIA ----------------
     def _render_tasks(self) -> None:
