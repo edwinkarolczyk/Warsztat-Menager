@@ -1,4 +1,4 @@
-# version: 1.4
+# version: 1.5
 """Jedno źródło prawdy dla dniówek i nadgodzin WM.
 
 Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
@@ -518,15 +518,22 @@ def status_for(date_ymd: str, slot: str, login: str, shift_start: datetime,
 
 
 def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: str,
-                   note: str = "", *, replace_absence: bool = False) -> dict:
+                   note: str = "", *, replace_absence: bool = False,
+                   original_slot: str | None = None) -> dict:
     value = float(value)
     if value not in {0.0, 0.5, 1.0}:
         raise ValueError("Dniówka może mieć wartość 0, 0.5 albo 1.0.")
+
+    target_slot = str(slot or "").strip().upper()
+    source_slot = str(original_slot or target_slot).strip().upper()
+    if target_slot not in VALID_SLOTS or source_slot not in VALID_SLOTS:
+        raise ValueError("Zmiana musi być RANO albo POPO.")
+
     login_n = str(login or "").strip().casefold()
     conflict = absence_conflict(date_ymd, login_n)
     conflict_slot = str(conflict.get("slot") or "")
     if conflict.get("has_conflict"):
-        if conflict_slot and conflict_slot != slot:
+        if conflict_slot and conflict_slot != target_slot:
             raise ValueError(
                 f"Nieobecność jest zapisana na zmianie {conflict_slot}. "
                 "Korektę wykonaj dla tej samej zmiany."
@@ -537,8 +544,49 @@ def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: st
                 f"Dzień ma wpis {labels}. Najpierw potwierdź zastąpienie nieobecności korektą."
             )
 
-    doc, _slot_map, rec = _record(date_ymd, slot, login_n, create=True)
-    before = dict(rec)
+    doc = _read(data_path(), {})
+    if not isinstance(doc, dict):
+        doc = {}
+    original_doc = json.loads(json.dumps(doc, ensure_ascii=False))
+    day = doc.setdefault(date_ymd, {})
+    if not isinstance(day, dict):
+        day = {}
+        doc[date_ymd] = day
+
+    source_map = day.get(source_slot, {})
+    if not isinstance(source_map, dict):
+        source_map = {}
+        day[source_slot] = source_map
+    target_map = day.get(target_slot, {})
+    if not isinstance(target_map, dict):
+        target_map = {}
+        day[target_slot] = target_map
+
+    source_key, source_rec = _matching_record(source_map, login_n)
+    target_key, target_rec = _matching_record(target_map, login_n)
+    moved = source_slot != target_slot and isinstance(source_rec, dict)
+
+    if source_slot != target_slot and isinstance(target_rec, dict):
+        raise ValueError(
+            f"Na zmianie {target_slot} istnieje już wpis tego pracownika dla {date_ymd}. "
+            "Najpierw popraw albo usuń istniejący wpis."
+        )
+
+    if moved:
+        before = dict(source_rec)
+        rec = source_rec
+        storage_key = str(source_key or rec.get("user_id") or login_n)
+        source_map.pop(source_key, None)
+        target_map[storage_key] = rec
+    elif isinstance(target_rec, dict):
+        before = dict(target_rec)
+        rec = target_rec
+    else:
+        before = {}
+        uid = user_id_for(login_n)
+        storage_key = str(uid or login_n).strip() or login_n
+        rec = target_map.setdefault(storage_key, {})
+
     rec.update({
         "planned": True,
         "reason": "" if replace_absence else str(rec.get("reason") or ""),
@@ -560,17 +608,17 @@ def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: st
             from services import leave_workflow_service
             leave_workflow_service.cancel_absences_for_day(login_n, date_ymd, actor, note)
         except Exception:
-            rec.clear()
-            rec.update(before)
-            _write(data_path(), doc)
+            _write(data_path(), original_doc)
             raise
 
-    action = "manual_day_replace_absence" if conflict.get("has_conflict") else "manual_day"
+    action = "manual_day_replace_absence" if conflict.get("has_conflict") else ("manual_day_move" if moved else "manual_day")
     audit_note = str(note or "").strip()
+    if moved:
+        audit_note = f"Zmiana {source_slot} → {target_slot}. {audit_note}".strip()
     if conflict.get("has_conflict"):
         labels = ", ".join(conflict.get("reasons") or [])
         audit_note = f"Zastąpiono {labels}. {audit_note}".strip()
-    _audit(action=action, login=login_n, date_ymd=date_ymd, slot=slot,
+    _audit(action=action, login=login_n, date_ymd=date_ymd, slot=target_slot,
            actor=actor, before=before, after=dict(rec), note=audit_note)
     return dict(rec)
 
