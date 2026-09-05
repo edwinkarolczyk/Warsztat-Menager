@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Końcowe ujednolicenie Profili: Ruch WM, Obecność, decyzje i pełna edycja.
 
 Ten runtime jest instalowany jako ostatnia warstwa Profili. Nie tworzy kolejnego
@@ -16,7 +16,12 @@ from tkinter import font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 from typing import Any, Callable
 
-from services import attendance_service, feedback_service, workforce_profile_service
+from services import (
+    attendance_service,
+    feedback_service,
+    leave_workflow_service,
+    workforce_profile_service,
+)
 from ui_context_help import add_help_button
 
 _INSTALLED = False
@@ -109,19 +114,12 @@ def _first_login(row: dict) -> str:
 
 def _absence_month(login: str, year: int, month: int) -> tuple[float, float]:
     try:
-        from services.leave_workflow_service import read_leaves
-        rows = read_leaves()
+        rows = list(leave_workflow_service.calendar_snapshot(login, year, month).get("leaves") or [])
     except Exception:
         rows = []
-    prefix = f"{year:04d}-{month:02d}-"
-    key = str(login or "").strip().casefold()
     vac = l4 = 0.0
     for row in rows:
         if not isinstance(row, dict):
-            continue
-        if str(row.get("login") or "").strip().casefold() != key:
-            continue
-        if not str(row.get("date") or "").startswith(prefix):
             continue
         kind = str(row.get("type") or "").strip().casefold()
         try:
@@ -136,7 +134,7 @@ def _absence_month(login: str, year: int, month: int) -> tuple[float, float]:
 
 
 def _render_ruch_wm(self) -> None:
-    """Operacyjny widok WM. Bez obecności, zmiany i statusu dzisiejszego."""
+    """Operacyjny widok WM. Bez obecności, zmiany i wejścia do profilu pracownika."""
     parent = self._tabs.get("Zespół")
     if parent is None:
         return
@@ -206,24 +204,6 @@ def _render_ruch_wm(self) -> None:
         actions,
         "Ruch WM pokazuje zadania, narzędzia, maszyny i serwisy powiązane z pracownikiem. Nie służy do rozliczania dniówek ani nieobecności.",
     ).pack(side="left", padx=(6, 0))
-
-    def selected_login() -> str:
-        selected = tree.selection()
-        return str(mapping.get(selected[0], "")) if selected else ""
-
-    def edit_worker(tab: str = "Dane") -> None:
-        login = selected_login()
-        if not login:
-            messagebox.showinfo("Ruch WM", "Wybierz pracownika.", parent=self.winfo_toplevel())
-            return
-        try:
-            import profile_foreman_edit_runtime as edit_runtime
-            edit_runtime.open_employee_editor(self, login, initial_tab=tab, on_saved=self.refresh_data)
-        except Exception as exc:
-            messagebox.showerror("Profil", f"Nie udało się otworzyć profilu:\n{exc}", parent=self.winfo_toplevel())
-
-    ttk.Button(actions, text="Profil pracownika", command=lambda: edit_worker("Dane")).pack(side="right")
-    tree.bind("<Double-1>", lambda _e: edit_worker("Dane"), add="+")
 
 
 def _all_decisions(year: int, month: int) -> list[dict]:
@@ -643,7 +623,7 @@ def _render_feedback(self) -> None:
             "end",
             values=(
                 created,
-                row.get("login"),
+                row.get("login_snapshot") or row.get("login"),
                 row.get("module"),
                 row.get("message"),
                 feedback_service.status_label(status),
@@ -771,12 +751,7 @@ def _clear_frame(frame) -> None:
 
 
 def _feedback_for_login(login: str) -> list[dict]:
-    key = str(login or "").strip().casefold()
-    rows: list[dict] = []
-    for row in feedback_service.list_feedback():
-        if str(row.get("login") or row.get("login_snapshot") or "").strip().casefold() == key:
-            rows.append(dict(row))
-    return rows
+    return [dict(row) for row in feedback_service.list_feedback(login=login)]
 
 
 def _display_extra(item: Any) -> str:
