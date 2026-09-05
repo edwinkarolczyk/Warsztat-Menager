@@ -1,13 +1,12 @@
-# version: 1.1
+# version: 1.2
 """Jedno źródło prawdy dla dniówek i nadgodzin WM.
 
 Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
-``ewidencja_obecnosci.json`` bez zmiany starej struktury dzień/zmiana/login.
-Nie liczymy spóźnień. Pierwsze logowanie jest zachowywane, kolejne tylko
-aktualizują historię. Sobota jest ewidencjonowana oddzielnie jako kandydat
-nadgodzin sobotnich.
+``ewidencja_obecnosci.json`` bez destrukcyjnej migracji starych rekordów.
+Nowe wpisy są wiązane przede wszystkim przez trwałe ``user_id``, a
+``login_snapshot`` zachowuje login użyty przy utworzeniu wpisu.
 
-Od 1.1 miesięczna ewidencja jest także wyprowadzana z Grafiku. Dzięki temu
+Miesięczna ewidencja jest także wyprowadzana z Grafiku. Dzięki temu
 zaplanowany dzień bez żadnego rekordu logowania nie znika z raportu: po
 upływie okna automatycznego staje się pozycją ``MISSING`` do decyzji.
 """
@@ -30,6 +29,11 @@ try:
 except Exception:  # pragma: no cover
     ConfigManager = None  # type: ignore
 
+try:
+    from grafiki.shifts_schedule import _shift_times as _grafik_shift_times
+except Exception:  # pragma: no cover
+    _grafik_shift_times = None
+
 RANO = "RANO"
 POPO = "POPO"
 VALID_SLOTS = {RANO, POPO}
@@ -41,20 +45,41 @@ STATUS_EXCUSED = "EXCUSED"
 STATUS_SATURDAY = "OVERTIME_SATURDAY"
 STATUS_PLANNED = "PLANNED"
 
-SHIFT_RULES = {
-    RANO: {
-        "shift_start": time(6, 0),
-        "shift_end": time(14, 0),
-        "early_from": time(5, 0),
-        "auto_until": time(12, 0),
-    },
-    POPO: {
-        "shift_start": time(14, 0),
-        "shift_end": time(22, 0),
-        "early_from": time(13, 0),
-        "auto_until": time(20, 0),
-    },
-}
+
+def _move_time(value: time, delta: timedelta) -> time:
+    """Przesuń godzinę z poprawnym zawinięciem doby."""
+    base = datetime.combine(date(2000, 1, 1), value) + delta
+    return base.time().replace(second=0, microsecond=0)
+
+
+def _shift_rules() -> dict[str, dict[str, time]]:
+    """Buduj okna obecności z tego samego źródła godzin co Grafik."""
+    try:
+        if _grafik_shift_times is None:
+            raise RuntimeError("Brak resolvera godzin Grafiku")
+        (rano_start, rano_end), (popo_start, popo_end) = _grafik_shift_times()
+    except Exception:
+        rano_start, rano_end = time(6, 0), time(14, 0)
+        popo_start, popo_end = time(14, 0), time(22, 0)
+    return {
+        RANO: {
+            "shift_start": rano_start,
+            "shift_end": rano_end,
+            "early_from": _move_time(rano_start, timedelta(hours=-1)),
+            "auto_until": _move_time(rano_end, timedelta(hours=-2)),
+        },
+        POPO: {
+            "shift_start": popo_start,
+            "shift_end": popo_end,
+            "early_from": _move_time(popo_start, timedelta(hours=-1)),
+            "auto_until": _move_time(popo_end, timedelta(hours=-2)),
+        },
+    }
+
+
+# Zachowane dla zgodności importów starszych runtime'ów. Logika serwisu pobiera
+# świeże wartości przez _shift_rules(), więc zmiana konfiguracji nie wymaga restartu.
+SHIFT_RULES = _shift_rules()
 
 
 def data_path() -> Path:
@@ -175,11 +200,7 @@ def _scheduled_slot(login: str, moment: datetime, fallback: str) -> str:
 
 
 def _planned_slot_for_day(login: str, day: date) -> str | None:
-    """Zwróć zmianę zaplanowaną w kanonicznym Grafiku albo ``None``.
-
-    Używamy tego samego resolvera co ekran logowania, żeby Grafik i Obecność
-    nie tworzyły dwóch różnych interpretacji tego samego dnia.
-    """
+    """Zwróć zmianę zaplanowaną w kanonicznym Grafiku albo ``None``."""
     if _is_guest(login):
         return None
     profile = _profile_for_login(login)
@@ -198,7 +219,6 @@ def _planned_slot_for_day(login: str, day: date) -> str | None:
     except Exception:
         pass
 
-    # Awaryjna ścieżka nie może tworzyć soboty jako zwykłej dniówki.
     raw_days = profile.get("workdays")
     if raw_days is None:
         raw_days = profile.get("dni_pracy")
@@ -219,6 +239,38 @@ def _planned_slot_for_day(login: str, day: date) -> str | None:
     return POPO if first == "2" else RANO
 
 
+def _matching_record(slot_map: dict, login: str) -> tuple[str, dict] | tuple[None, None]:
+    """Najpierw szukaj po user_id, potem po historycznym loginie."""
+    login_key = str(login or "").strip().casefold()
+    user_id = user_id_for(login)
+    user_key = str(user_id or "").strip().casefold()
+
+    if user_key:
+        direct = slot_map.get(user_id)
+        if isinstance(direct, dict):
+            return str(user_id), direct
+        direct = slot_map.get(user_key)
+        if isinstance(direct, dict):
+            return user_key, direct
+        for storage_key, candidate in slot_map.items():
+            if not isinstance(candidate, dict):
+                continue
+            if str(candidate.get("user_id") or "").strip().casefold() == user_key:
+                return str(storage_key), candidate
+
+    if login_key:
+        direct = slot_map.get(login_key)
+        if isinstance(direct, dict):
+            return login_key, direct
+        for storage_key, candidate in slot_map.items():
+            if not isinstance(candidate, dict):
+                continue
+            snapshot = str(candidate.get("login_snapshot") or candidate.get("login") or "").strip().casefold()
+            if snapshot == login_key or str(storage_key).strip().casefold() == login_key:
+                return str(storage_key), candidate
+    return None, None
+
+
 def _record(date_ymd: str, slot: str, login: str, *, create: bool = False) -> tuple[dict, dict, dict]:
     doc = _read(data_path(), {})
     if not isinstance(doc, dict):
@@ -233,12 +285,22 @@ def _record(date_ymd: str, slot: str, login: str, *, create: bool = False) -> tu
         slot_map = {}
         if create:
             day[slot] = slot_map
-    key = str(login or "").strip().casefold()
-    rec = slot_map.setdefault(key, {}) if create else slot_map.get(key, {})
+
+    _storage_key, rec = _matching_record(slot_map, login)
     if not isinstance(rec, dict):
         rec = {}
         if create:
-            slot_map[key] = rec
+            uid = user_id_for(login)
+            storage_key = str(uid or login or "").strip()
+            if not storage_key:
+                storage_key = str(login or "").strip().casefold()
+            rec = slot_map.setdefault(storage_key, {})
+
+    if create:
+        uid = user_id_for(login)
+        if uid:
+            rec.setdefault("user_id", uid)
+        rec.setdefault("login_snapshot", str(login or "").strip().casefold())
     return doc, slot_map, rec
 
 
@@ -259,16 +321,15 @@ def _audit(*, action: str, login: str, date_ymd: str, slot: str, actor: str,
         "after": after,
         "note": str(note or "").strip(),
     })
-    # Historia jest audytem: nie obcinamy starszych wpisów.
     _write(audit_path(), rows)
 
 
 def classify_login(slot: str, moment: datetime, *, saturday: bool = False) -> str:
     if saturday:
         return STATUS_SATURDAY
-    rules = SHIFT_RULES.get(slot) or SHIFT_RULES[RANO]
+    rules_map = _shift_rules()
+    rules = rules_map.get(slot) or rules_map[RANO]
     t = moment.time().replace(second=0, microsecond=0)
-    # Granica 12:00 / 20:00 jest jeszcze poprawnym automatycznym logowaniem.
     if rules["early_from"] <= t <= rules["auto_until"]:
         return STATUS_PRESENT
     return STATUS_PENDING_LATE
@@ -292,8 +353,8 @@ def mark_login(date_ymd: str, slot: str, login: str, ts_iso: str) -> None:
     rec["last_login_ts"] = str(ts_iso or moment.isoformat(timespec="seconds"))
     rec["login_count"] = int(rec.get("login_count") or 0) + 1
     rec["planned"] = bool(rec.get("planned", True))
-    rec["user_id"] = user_id_for(login_n)
-    rec["login_snapshot"] = login_n
+    rec["user_id"] = rec.get("user_id") or user_id_for(login_n)
+    rec.setdefault("login_snapshot", login_n)
     rec["reason"] = str(rec.get("reason") or "")
 
     is_saturday = moment.date().weekday() == 5
@@ -358,6 +419,7 @@ def confirm_login(date_ymd: str, slot: str, login: str, bryg_login: str, ts_iso:
     rec["confirmed_ts"] = str(ts_iso or _now_iso())
     rec["source"] = "foreman"
     rec["user_id"] = rec.get("user_id") or user_id_for(login_n)
+    rec.setdefault("login_snapshot", login_n)
     _write(data_path(), doc)
     _audit(action="confirm_day", login=login_n, date_ymd=date_ymd, slot=slot,
            actor=bryg_login, before=before, after=dict(rec))
@@ -384,6 +446,7 @@ def set_reason(date_ymd: str, slot: str, login: str, bryg_login: str, reason: st
         "source": "foreman",
         "user_id": rec.get("user_id") or user_id_for(login_n),
     })
+    rec.setdefault("login_snapshot", login_n)
     _write(data_path(), doc)
     _audit(action="absence", login=login_n, date_ymd=date_ymd, slot=slot,
            actor=bryg_login, before=before, after=dict(rec), note=r)
@@ -427,6 +490,7 @@ def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: st
         "manual_note": str(note or "").strip(),
         "user_id": rec.get("user_id") or user_id_for(login_n),
     })
+    rec.setdefault("login_snapshot", login_n)
     _write(data_path(), doc)
     _audit(action="manual_day", login=login_n, date_ymd=date_ymd, slot=slot,
            actor=actor, before=before, after=dict(rec), note=note)
@@ -457,6 +521,7 @@ def set_overtime(date_ymd: str, slot: str, login: str, hours: float, actor: str,
     rec["overtime"] = overtime
     rec["approval_required"] = False
     rec["user_id"] = rec.get("user_id") or user_id_for(login_n)
+    rec.setdefault("login_snapshot", login_n)
     _write(data_path(), doc)
     _audit(action="overtime", login=login_n, date_ymd=date_ymd, slot=slot,
            actor=actor, before=before, after=dict(rec), note=note)
@@ -468,9 +533,9 @@ def _decision_due(day_obj: date, slot: str, now: datetime) -> bool:
         return True
     if day_obj > now.date():
         return False
-    rules = SHIFT_RULES.get(slot) or SHIFT_RULES[RANO]
+    rules_map = _shift_rules()
+    rules = rules_map.get(slot) or rules_map[RANO]
     current = now.time().replace(second=0, microsecond=0)
-    # Dopiero *po* 12:00 / 20:00 brak logowania staje się decyzją.
     return current > rules["auto_until"]
 
 
@@ -489,7 +554,9 @@ def _actual_month_records(login: str, year: int, month: int) -> list[dict]:
             continue
         for slot in (RANO, POPO):
             slot_map = day_map.get(slot)
-            rec = slot_map.get(login_n) if isinstance(slot_map, dict) else None
+            if not isinstance(slot_map, dict):
+                continue
+            _storage_key, rec = _matching_record(slot_map, login_n)
             if not isinstance(rec, dict):
                 continue
             row = dict(rec)
@@ -537,7 +604,6 @@ def month_records(login: str, year: int, month: int, *, now: datetime | None = N
                     })
             current += timedelta(days=1)
 
-    # Ujednolicenie starych rekordów PLANNED bez logowania.
     normalized: list[dict] = []
     for row in rows:
         item = dict(row)
@@ -631,6 +697,7 @@ def summary_for_month(login: str, year: int, month: int, *, now: datetime | None
 
 def audit_for_login(login: str, limit: int = 200) -> list[dict]:
     key = str(login or "").strip().casefold()
+    uid = str(user_id_for(login) or "").strip().casefold()
     rows = _read(audit_path(), [])
     if not isinstance(rows, list):
         return []
@@ -638,7 +705,10 @@ def audit_for_login(login: str, limit: int = 200) -> list[dict]:
         dict(row)
         for row in rows
         if isinstance(row, dict)
-        and str(row.get("login_snapshot") or "").strip().casefold() == key
+        and (
+            (uid and str(row.get("user_id") or "").strip().casefold() == uid)
+            or str(row.get("login_snapshot") or "").strip().casefold() == key
+        )
     ]
     return found[-max(1, int(limit)):]
 
