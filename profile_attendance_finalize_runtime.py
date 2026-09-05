@@ -121,6 +121,15 @@ def _status_text(row: dict) -> str:
     return mapping.get(status, status or "—")
 
 
+def _absence_label(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    if raw in {"SW", "ŚW", "SILA_WYZSZA", "SIŁA_WYŻSZA", "SILA WYZSZA", "SIŁA WYŻSZA"}:
+        return "ŚW"
+    if raw == "URLOP":
+        return "UR"
+    return raw
+
+
 def _first_login(row: dict) -> str:
     raw = str(row.get("first_login_ts") or row.get("logged_ts") or "")
     if not raw:
@@ -315,8 +324,7 @@ def _absence_labels(login: str, day_text: str) -> list[str]:
     except Exception:
         rows = []
     for row in rows:
-        kind = str(row.get("type") or "").strip().casefold()
-        label = {"urlop": "UR", "l4": "L4", "nn": "NN"}.get(kind, kind.upper())
+        label = _absence_label(row.get("type"))
         if label and label not in labels:
             labels.append(label)
     return labels
@@ -353,21 +361,20 @@ def _all_decisions(year: int, month: int) -> list[dict]:
         for row in attendance_service.month_records(login, year, month):
             day_text = str(row.get("date") or "")[:10]
             slot = str(row.get("slot") or attendance_service.RANO)
-            reason = str(row.get("reason") or "").strip().upper()
-            if reason == "SW":
-                reason = "ŚW"
+            reason = _absence_label(row.get("reason"))
             leave_labels = _absence_labels(login, day_text)
+            blocking_leave_labels = [label for label in leave_labels if label != "ŚW"]
             status = str(row.get("status") or "")
             labels = list(leave_labels)
             if reason and reason not in labels:
                 labels.append(reason)
 
             conflict = False
-            if leave_labels and status != attendance_service.STATUS_EXCUSED:
+            if blocking_leave_labels and status != attendance_service.STATUS_EXCUSED:
                 conflict = True
             elif reason and status != attendance_service.STATUS_EXCUSED:
                 conflict = True
-            elif leave_labels and reason and reason not in leave_labels:
+            elif blocking_leave_labels and reason and reason not in leave_labels:
                 conflict = True
             if not conflict:
                 continue
@@ -379,7 +386,7 @@ def _all_decisions(year: int, month: int) -> list[dict]:
                 "display_name": display_name,
                 "is_conflict": True,
                 "status": "DATA_CONFLICT",
-                "conflict_reason": reason or (leave_labels[0] if leave_labels else ""),
+                "conflict_reason": reason or (blocking_leave_labels[0] if blocking_leave_labels else ""),
                 "decision_label": f"{', '.join(labels) or 'Nieobecność'} + {current_state}",
             })
             by_key[(day_text, slot)] = item
@@ -453,7 +460,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     )
     add_help_button(
         frame,
-        "Wybierz 0, 0,5 albo 1 dla wskazanego dnia. Jeśli dzień ma L4, ŚW, NN lub urlop, WM poprosi o potwierdzenie zastąpienia nieobecności korektą.",
+        "Wybierz 0, 0,5 albo 1 dla wskazanego dnia. L4, NN i urlop wymagają potwierdzenia zastąpienia; kanoniczna Siła wyższa może pozostać razem z dniówką.",
         row=row_no,
         column=2,
         padx=(6, 0),
@@ -528,9 +535,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         if not note:
             messagebox.showinfo("Obecność", "Wpisz powód lub krótką uwagę.", parent=win)
             return
-        reason = str(case.get("conflict_reason") or "").strip().upper()
-        if reason == "SW":
-            reason = "ŚW"
+        reason = _absence_label(case.get("conflict_reason"))
         if reason not in {"L4", "UR", "UŻ", "ŚW", "NN"}:
             messagebox.showerror("Obecność", "Nie udało się ustalić rodzaju nieobecności.", parent=win)
             return
@@ -674,9 +679,7 @@ def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = 
 
     def _state_label(row: dict) -> str:
         labels = _absence_labels(login, str(row.get("date") or "")[:10])
-        reason = str(row.get("reason") or "").strip().upper()
-        if reason == "SW":
-            reason = "ŚW"
+        reason = _absence_label(row.get("reason"))
         if reason and reason not in labels:
             labels.append(reason)
         status = _status_text(row)
@@ -760,17 +763,21 @@ def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = 
             }
 
         labels = _absence_labels(login, day_text)
-        reason = str(selected_row.get("reason") or "").strip().upper()
-        if reason == "SW":
-            reason = "ŚW"
+        reason = _absence_label(selected_row.get("reason"))
         if reason and reason not in labels:
             labels.append(reason)
+        blocking_labels = [label for label in labels if label != "ŚW"]
         current_status = str(selected_row.get("status") or "")
         current_text = _status_text(selected_row)
-        is_conflict = bool(labels and current_status != attendance_service.STATUS_EXCUSED)
+        is_conflict = bool(
+            (blocking_labels and current_status != attendance_service.STATUS_EXCUSED)
+            or (reason and current_status != attendance_service.STATUS_EXCUSED)
+        )
         if labels:
             selected_row["decision_label"] = (
-                f"{', '.join(labels)} + {current_text}" if is_conflict else ", ".join(labels)
+                f"{', '.join(labels)} + {current_text}"
+                if current_status != attendance_service.STATUS_EXCUSED
+                else ", ".join(labels)
             )
         else:
             selected_row.setdefault("decision_label", current_text)
@@ -780,7 +787,7 @@ def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = 
             "date": day_text,
             "slot": slot_text,
             "is_conflict": is_conflict,
-            "conflict_reason": reason or (labels[0] if labels else ""),
+            "conflict_reason": reason or (blocking_labels[0] if blocking_labels else ""),
         })
         win.destroy()
         _open_case_dialog(owner, selected_row, on_saved=on_saved)
@@ -853,7 +860,7 @@ def _render_attendance(self) -> None:
     ).pack(side="left")
     add_help_button(
         counters,
-        "Liczniki pokazują wszystkie sprawy wymagające reakcji Brygadzisty w wybranym miesiącu. Konflikt oznacza sprzeczne wpisy, np. L4 i jednocześnie dniówkę.",
+        "Konflikt oznacza sprzeczne wpisy, np. L4 i jednocześnie dniówkę. Sama kombinacja Siła wyższa + Obecny jest prawidłowa i nie trafia do konfliktów.",
     ).pack(side="left", padx=(6, 0))
 
     qtree = self._make_tree(
