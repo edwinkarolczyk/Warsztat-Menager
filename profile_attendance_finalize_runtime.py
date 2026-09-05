@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Końcowe ujednolicenie Profili: Ruch WM, Obecność, decyzje i pełna edycja.
 
 Ten runtime jest instalowany jako ostatnia warstwa Profili. Nie tworzy kolejnego
@@ -264,7 +264,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     )
     add_help_button(
         frame,
-        "Wybierz 0, 0,5 albo 1 dla wskazanego dnia. Decyzja Brygadzisty zapisuje się w Historii wraz z powodem.",
+        "Wybierz 0, 0,5 albo 1 dla wskazanego dnia. Jeśli dzień ma L4, ŚW, NN lub urlop, WM poprosi o potwierdzenie zastąpienia nieobecności korektą.",
         row=row_no,
         column=2,
         padx=(6, 0),
@@ -307,10 +307,31 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         if not note:
             messagebox.showinfo("Obecność", "Wpisz powód lub krótką uwagę.", parent=win)
             return
+        replace_absence = False
         try:
             if save_day_var.get():
+                conflict = attendance_service.absence_conflict(day_var.get(), login)
+                if conflict.get("has_conflict"):
+                    conflict_slot = str(conflict.get("slot") or "")
+                    if conflict_slot and conflict_slot != slot_var.get():
+                        messagebox.showinfo(
+                            "Korekta nieobecności",
+                            f"Nieobecność jest zapisana na zmianie {conflict_slot}. Wybierz tę samą zmianę.",
+                            parent=win,
+                        )
+                        return
+                    labels = ", ".join(conflict.get("reasons") or []) or "nieobecność"
+                    if not messagebox.askyesno(
+                        "Korekta nieobecności",
+                        f"Ten dzień ma wpis {labels}. Zastąpić nieobecność korektą?\n\n"
+                        "Wpis nieobecności zostanie anulowany, ale pozostanie w historii.",
+                        parent=win,
+                    ):
+                        return
+                    replace_absence = True
                 attendance_service.set_manual_day(
-                    day_var.get(), slot_var.get(), login, float(value_var.get()), _actor(owner), note
+                    day_var.get(), slot_var.get(), login, float(value_var.get()), _actor(owner), note,
+                    replace_absence=replace_absence,
                 )
             if ot_var.get():
                 attendance_service.set_overtime(
@@ -353,13 +374,18 @@ def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = 
         messagebox.showerror("Obecność", "Nieprawidłowa data.", parent=owner.winfo_toplevel())
         return
     try:
+        conflict = attendance_service.absence_conflict(day_text, login)
+        conflict_slot = str(conflict.get("slot") or "")
+    except Exception:
+        conflict_slot = ""
+    try:
         planned = attendance_service._planned_slot_for_day(login, date.fromisoformat(day_text))
     except Exception:
         planned = None
     slot_text = simpledialog.askstring(
         "Korekta ręczna",
         "Zmiana (RANO/POPO):",
-        initialvalue=planned or attendance_service.RANO,
+        initialvalue=conflict_slot or planned or attendance_service.RANO,
         parent=owner.winfo_toplevel(),
     )
     slot_text = str(slot_text or "").strip().upper()
@@ -547,7 +573,7 @@ def _render_attendance(self) -> None:
     ).pack(side="left", padx=(8, 0))
     add_help_button(
         actions,
-        "Korekta ręczna jest wyjątkiem dla sytuacji, których nie ma w kolejce, np. gdy WM był wyłączony. Normalnie wybieraj konkretną pozycję z Do potwierdzenia.",
+        "Korekta ręczna jest wyjątkiem dla sytuacji, których nie ma w kolejce, np. gdy WM był wyłączony. Przy L4 lub innej nieobecności WM wymaga potwierdzenia zastąpienia wpisu.",
     ).pack(side="left", padx=(6, 0))
     tree.bind("<Double-1>", lambda _e: details("Obecność"), add="+")
 
