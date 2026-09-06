@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Rozszerza istniejący Kalendarz Profilu o tryb „Zespół” dla Brygadzisty.
 
 Tryb „Mój” pozostaje bez zmian. Tryb „Zespół” pokazuje w kafelkach krótki
@@ -15,6 +15,7 @@ from services import attendance_service, day_pay_service, workforce_profile_serv
 from ui_context_help import add_help_button
 
 _INSTALLED = False
+_OPEN_DAY_WINDOWS: dict[tuple[int, str], tk.Toplevel] = {}
 
 
 def _active_login() -> str:
@@ -246,7 +247,28 @@ def _install_refresh_bridge() -> None:
 
 def _open_day_details(panel, day_number: int) -> None:
     selected_day = date(panel.year, panel.month, int(day_number))
+    try:
+        window_owner = panel.winfo_toplevel()
+    except Exception:
+        window_owner = panel
+    window_key = (id(window_owner), selected_day.isoformat())
+    existing = _OPEN_DAY_WINDOWS.get(window_key)
+    if existing is not None:
+        try:
+            if existing.winfo_exists():
+                existing.deiconify()
+                existing.lift()
+                try:
+                    existing.focus_force()
+                except Exception:
+                    pass
+                return
+        except Exception:
+            pass
+        _OPEN_DAY_WINDOWS.pop(window_key, None)
+
     win = tk.Toplevel(panel)
+    _OPEN_DAY_WINDOWS[window_key] = win
     win.title(f"Zespół — {selected_day.strftime('%d-%m-%Y')}")
     win.geometry("780x470")
     try:
@@ -337,6 +359,8 @@ def _open_day_details(panel, day_number: int) -> None:
                 event_host.unbind("<<LeavesUpdated>>", event_binding)
             except Exception:
                 pass
+        if _OPEN_DAY_WINDOWS.get(window_key) is win:
+            _OPEN_DAY_WINDOWS.pop(window_key, None)
         try:
             win.destroy()
         except Exception:
