@@ -1,17 +1,25 @@
-# version: 1.0
-"""Edycja zapisanej zmiany i rodzaju dniówki w Profilu WM."""
+# version: 1.1
+"""Edycja zapisanej zmiany, dniówki i rodzaju nieobecności w Profilu WM."""
 from __future__ import annotations
 
 import tkinter as tk
+import uuid
 from datetime import date, datetime
 from tkinter import messagebox, ttk
 from typing import Any, Callable
 
 import profile_attendance_finalize_runtime as final
-from services import attendance_service, workforce_profile_service
+from services import (
+    attendance_service,
+    day_pay_service,
+    leave_workflow_service,
+    workforce_profile_service,
+)
 from ui_context_help import add_help_button
 
 _INSTALLED = False
+_ABSENCE_CHOICES = ("Brak", "ŚW", "L4", "NN", "UR", "UŻ")
+_ABSENCE_CODES = {"BRAK", "ŚW", "L4", "NN", "UR", "UŻ"}
 
 
 def _initial_day_value(case: dict) -> float:
@@ -25,6 +33,322 @@ def _initial_day_value(case: dict) -> float:
     except Exception:
         return 1.0
     return value if value in {0.0, 0.5, 1.0} else 1.0
+
+
+def _normalize_absence_choice(value: Any) -> str:
+    code = day_pay_service.normalize_code(value)
+    if code not in _ABSENCE_CODES:
+        raise ValueError("Rodzaj nieobecności musi być: Brak, ŚW, L4, NN, UR albo UŻ.")
+    return code
+
+
+def _display_absence(code: Any) -> str:
+    normalized = _normalize_absence_choice(code)
+    return "Brak" if normalized == "BRAK" else normalized
+
+
+def _absence_code_from_row(row: dict) -> str:
+    for key in ("absence_code", "pay_code"):
+        raw = str(row.get(key) or "").strip()
+        if not raw:
+            continue
+        code = day_pay_service.normalize_code(raw)
+        if code in _ABSENCE_CODES - {"BRAK"}:
+            return code
+
+    kind = str(row.get("type") or "").strip().casefold()
+    mapping = {
+        "sila_wyzsza": "ŚW",
+        "siła_wyższa": "ŚW",
+        "l4": "L4",
+        "nn": "NN",
+        "urlop": "UR",
+        "uż": "UŻ",
+        "uz": "UŻ",
+    }
+    return mapping.get(kind, "BRAK")
+
+
+def _active_absence_codes(login: str, day_text: str) -> list[str]:
+    try:
+        rows = leave_workflow_service.active_absences_for_day(login, day_text)
+    except Exception:
+        rows = []
+    out: list[str] = []
+    for row in rows:
+        code = _absence_code_from_row(row)
+        if code != "BRAK" and code not in out:
+            out.append(code)
+    return out
+
+
+def _absence_labels_runtime(login: str, day_text: str) -> list[str]:
+    return _active_absence_codes(login, day_text)
+
+
+def _current_absence_code(login: str, day_text: str, case: dict) -> str:
+    codes = _active_absence_codes(login, day_text)
+    if codes:
+        return codes[0]
+    reason = final._absence_label(case.get("reason") or case.get("conflict_reason"))
+    try:
+        code = day_pay_service.normalize_code(reason)
+    except Exception:
+        code = ""
+    return code if code in _ABSENCE_CODES - {"BRAK"} else "BRAK"
+
+
+def _restore_work_state(rec: dict, slot: str, day_text: str) -> None:
+    try:
+        day_value = float(rec.get("day_value") or 0.0)
+    except Exception:
+        day_value = 0.0
+    first_login = str(rec.get("first_login_ts") or rec.get("logged_ts") or "").strip()
+
+    if day_value > 0:
+        rec.update({
+            "reason": "",
+            "status": attendance_service.STATUS_PRESENT,
+            "day_value": day_value,
+            "confirmed": True,
+            "approval_required": False,
+        })
+        day_pay_service.apply_to_record(rec, "PRACA", pay_day_value=day_value)
+        return
+
+    if first_login:
+        moment = attendance_service._parse_dt(first_login)
+        if moment is not None:
+            try:
+                saturday = date.fromisoformat(day_text).weekday() == 5
+            except Exception:
+                saturday = False
+            status = attendance_service.classify_login(slot, moment, saturday=saturday)
+            if status == attendance_service.STATUS_PRESENT:
+                rec.update({
+                    "reason": "",
+                    "status": attendance_service.STATUS_PRESENT,
+                    "day_value": 1.0,
+                    "confirmed": True,
+                    "approval_required": False,
+                })
+                day_pay_service.apply_to_record(rec, "PRACA", pay_day_value=1.0)
+                return
+            rec.update({
+                "reason": "",
+                "status": status,
+                "day_value": 0.0,
+                "confirmed": False,
+                "approval_required": True,
+            })
+            day_pay_service.mark_pending(rec)
+            return
+
+    rec.update({
+        "reason": "",
+        "status": attendance_service.STATUS_MISSING,
+        "day_value": 0.0,
+        "confirmed": False,
+        "approval_required": True,
+    })
+    day_pay_service.mark_pending(rec)
+
+
+def _sync_attendance_choice(
+    login: str,
+    day_text: str,
+    slot: str,
+    code: str,
+    actor: str,
+    note: str,
+) -> dict:
+    target_slot = str(slot or "").strip().upper()
+    if target_slot not in attendance_service.VALID_SLOTS:
+        target_slot = leave_workflow_service._slot_for_attendance(login, day_text)
+
+    login_n = str(login or "").strip().casefold()
+    doc, _slot_map, rec = attendance_service._record(
+        day_text,
+        target_slot,
+        login_n,
+        create=True,
+    )
+    before = dict(rec)
+    had_login = bool(str(rec.get("first_login_ts") or rec.get("logged_ts") or "").strip())
+    try:
+        day_value = float(rec.get("day_value") or 0.0)
+    except Exception:
+        day_value = 0.0
+    had_work = (
+        str(rec.get("status") or "") == attendance_service.STATUS_PRESENT
+        or day_value > 0
+        or had_login
+    )
+
+    if code == "BRAK":
+        _restore_work_state(rec, target_slot, day_text)
+    elif code == "ŚW" and had_work:
+        _restore_work_state(rec, target_slot, day_text)
+    else:
+        rec.update({
+            "planned": True,
+            "reason": code,
+            "status": attendance_service.STATUS_EXCUSED,
+            "day_value": 0.0,
+            "confirmed": False,
+            "approval_required": False,
+        })
+        day_pay_service.apply_to_record(rec, code, pay_day_value=1.0)
+
+    rec.update({
+        "planned": True,
+        "confirmed_by": str(actor or ""),
+        "confirmed_ts": attendance_service._now_iso(),
+        "source": "foreman_absence_edit",
+        "manual_note": str(note or "").strip(),
+        "user_id": rec.get("user_id") or attendance_service.user_id_for(login_n),
+    })
+    rec.setdefault("login_snapshot", login_n)
+    attendance_service._write(attendance_service.data_path(), doc)
+    attendance_service._audit(
+        action="absence_kind_edit",
+        login=login_n,
+        date_ymd=day_text,
+        slot=target_slot,
+        actor=actor,
+        before=before,
+        after=dict(rec),
+        note=f"Rodzaj nieobecności: {_display_absence(code)}. {str(note or '').strip()}".strip(),
+    )
+    return dict(rec)
+
+
+def _replace_absence_for_day(
+    login: str,
+    day_text: str,
+    actor_login: str,
+    choice: str,
+    note: str,
+    *,
+    attendance_slot: str,
+) -> str:
+    actor = leave_workflow_service._require_foreman(actor_login)
+    day_text = leave_workflow_service._parse_day(day_text).isoformat()
+    code = _normalize_absence_choice(choice)
+    uid, current_login = leave_workflow_service._identity(login)
+    login = current_login or str(login or "").strip()
+    if not login:
+        raise ValueError("Brak pracownika.")
+
+    rows_before = leave_workflow_service._read_all_leaves()
+    rows = [dict(row) for row in rows_before]
+    active_rows = [
+        row for row in rows_before
+        if leave_workflow_service._same_day(row, login, day_text)
+    ]
+    current_codes = [_absence_code_from_row(row) for row in active_rows]
+    same_canonical = len(active_rows) == 1 and current_codes == [code]
+    if code == "BRAK":
+        same_canonical = not active_rows
+
+    attendance_before = attendance_service._read(attendance_service.data_path(), {})
+    leaves_changed = False
+    try:
+        if not same_canonical:
+            cancelled_at = leave_workflow_service._utc_now()
+            cancelled_ids: list[str] = []
+            for row in rows:
+                if not leave_workflow_service._same_day(row, login, day_text):
+                    continue
+                row["status"] = leave_workflow_service._CANCELLED
+                row["cancelled_by"] = actor
+                row["cancelled_at"] = cancelled_at
+                row["cancel_note"] = (
+                    f"Zmiana rodzaju nieobecności na {_display_absence(code)}. {str(note or '').strip()}"
+                ).strip()
+                if row.get("id"):
+                    cancelled_ids.append(str(row.get("id")))
+
+            if code != "BRAK":
+                type_name = {
+                    "ŚW": "sila_wyzsza",
+                    "L4": "l4",
+                    "NN": "nn",
+                    "UR": "urlop",
+                    "UŻ": "urlop",
+                }[code]
+                created = leave_workflow_service._utc_now()
+                token = uuid.uuid4().hex[-10:]
+                new_row = {
+                    "id": f"leave_{day_text}_{login}_{type_name}_{token}",
+                    "user_id": uid,
+                    "login": login,
+                    "login_snapshot": login,
+                    "type": type_name,
+                    "absence_code": code,
+                    "date": day_text,
+                    "shift": None,
+                    "quantity_days": 1.0,
+                    "minutes": 0,
+                    "approved_by": actor,
+                    "created_at": created,
+                    "note": str(note or "").strip(),
+                    "entered_by": actor,
+                    "replaces": cancelled_ids,
+                }
+                new_row.update(day_pay_service.compensation(code, pay_day_value=1.0))
+                if code in {"UR", "UŻ"}:
+                    sources = leave_workflow_service._source_years_for_dates(login, [day_text])
+                    new_row["leave_source_year"] = int(sources.get(day_text, int(day_text[:4])))
+                rows.append(new_row)
+
+            leave_workflow_service._write_json(leave_workflow_service.leaves_path(), rows)
+            leaves_changed = True
+
+        _sync_attendance_choice(
+            login,
+            day_text,
+            attendance_slot,
+            code,
+            actor,
+            note,
+        )
+    except Exception:
+        try:
+            if leaves_changed:
+                leave_workflow_service._write_json(
+                    leave_workflow_service.leaves_path(),
+                    rows_before,
+                )
+        finally:
+            try:
+                attendance_service._write(attendance_service.data_path(), attendance_before)
+            except Exception:
+                pass
+        raise
+    return code
+
+
+def _install_absence_label_bridge() -> None:
+    final._absence_labels = _absence_labels_runtime
+
+    if getattr(attendance_service, "_wm_absence_kind_labels_v1", False):
+        return
+    original = attendance_service.absence_conflict
+
+    def absence_conflict(date_ymd: str, login: str) -> dict:
+        out = dict(original(date_ymd, login) or {})
+        active_codes = _active_absence_codes(login, str(date_ymd)[:10])
+        if "UŻ" in active_codes:
+            reasons = [str(value) for value in (out.get("reasons") or []) if str(value) != "UR"]
+            if "UŻ" not in reasons:
+                reasons.append("UŻ")
+            out["reasons"] = reasons
+            out["has_conflict"] = bool(reasons)
+        return out
+
+    attendance_service.absence_conflict = absence_conflict
+    attendance_service._wm_absence_kind_labels_v1 = True
 
 
 def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = None) -> None:
@@ -56,6 +380,8 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     hours_var = tk.StringVar(value="8" if case.get("status") == attendance_service.STATUS_SATURDAY else "0")
     ot_type_var = tk.StringVar(value="sobota" if case.get("status") == attendance_service.STATUS_SATURDAY else "zwykle")
     note_var = tk.StringVar(value="")
+    original_absence = _current_absence_code(login, day_var.get(), case)
+    absence_var = tk.StringVar(value=_display_absence(original_absence))
 
     fields = [
         ("Pracownik:", case.get("display_name") or login),
@@ -91,14 +417,31 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         warning.grid(row=row_no, column=0, columnspan=3, sticky="ew", pady=(7, 2))
         ttk.Label(
             warning,
-            text="⚠ Ten dzień ma sprzeczne dane. Wybierz, czy prawidłowa jest nieobecność, czy dniówka.",
+            text="⚠ Ten dzień ma sprzeczne dane. Popraw rodzaj nieobecności albo zapisz właściwą dniówkę.",
             style="WM.Muted.TLabel",
         ).pack(side="left")
         add_help_button(
             warning,
-            "Zachowanie nieobecności wyzeruje dniówkę i ustawi właściwy powód. Zapis dniówki anuluje aktywną nieobecność, ale pozostawi ją w Historii.",
+            "Rodzaj nieobecności możesz poprawić bez kasowania historii. Zapis dniówki nadal może zastąpić nieobecność, jeśli to dniówka jest prawidłowa.",
         ).pack(side="left", padx=(6, 0))
         row_no += 1
+
+    ttk.Label(frame, text="Rodzaj nieobecności:").grid(row=row_no, column=0, sticky="w", pady=(8, 4))
+    ttk.Combobox(
+        frame,
+        textvariable=absence_var,
+        values=_ABSENCE_CHOICES,
+        state="readonly",
+        width=10,
+    ).grid(row=row_no, column=1, sticky="w", pady=(8, 4))
+    add_help_button(
+        frame,
+        "Wybierz Brak, ŚW, L4, NN, UR albo UŻ dla tego dnia. Zmiana zapisuje nowy typ, a poprzedni wpis pozostaje w historii jako anulowany.",
+        row=row_no,
+        column=2,
+        padx=(6, 0),
+    )
+    row_no += 1
 
     ttk.Checkbutton(
         frame,
@@ -146,7 +489,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     ttk.Entry(frame, textvariable=note_var).grid(row=row_no, column=1, sticky="ew", pady=4)
     add_help_button(
         frame,
-        "Przy ręcznej decyzji wpisz krótki powód. Pozwala to później odtworzyć, dlaczego dniówka lub zmiana zostały poprawione.",
+        "Przy ręcznej decyzji wpisz krótki powód. Pozwala to później odtworzyć, dlaczego dniówka, zmiana lub rodzaj nieobecności zostały poprawione.",
         row=row_no,
         column=2,
         padx=(6, 0),
@@ -155,6 +498,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     row_no += 1
     current_text = str(case.get("decision_label") or final._status_text(case) or "—")
     original_day_text = final._fmt(original_day)
+    original_absence_text = _display_absence(original_absence)
     preview_var = tk.StringVar(value="")
     preview = ttk.Frame(frame)
     preview.grid(row=row_no, column=0, columnspan=3, sticky="ew", pady=(8, 2))
@@ -162,7 +506,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     ttk.Label(preview, textvariable=preview_var).pack(side="left", padx=(6, 0))
     add_help_button(
         preview,
-        "Przed zapisem WM pokazuje zmianę zmiany roboczej i wartości dniówki. Dane zmienią się dopiero po użyciu Zapisz decyzję.",
+        "Przed zapisem WM pokazuje zmianę zmiany roboczej, dniówki i rodzaju nieobecności. Dane zmienią się dopiero po użyciu właściwego przycisku zapisu.",
     ).pack(side="left", padx=(6, 0))
 
     def refresh_preview(*_args) -> None:
@@ -170,13 +514,15 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         target_slot = str(slot_var.get() or original_slot)
         if target_slot != original_slot:
             parts.append(f"zmiana {original_slot} → {target_slot}")
+        if absence_var.get() != original_absence_text:
+            parts.append(f"nieobecność {original_absence_text} → {absence_var.get()}")
         if save_day_var.get():
             parts.append(f"dniówka {original_day_text} → {final._fmt(value_var.get())}")
         if ot_var.get():
             parts.append(f"{final._fmt(hours_var.get())} h nadgodzin ({ot_type_var.get()})")
         preview_var.set(f"{current_text} | {' | '.join(parts) if parts else 'bez zmiany'}")
 
-    for var in (slot_var, save_day_var, value_var, ot_var, hours_var, ot_type_var):
+    for var in (slot_var, absence_var, save_day_var, value_var, ot_var, hours_var, ot_type_var):
         try:
             var.trace_add("write", refresh_preview)
         except Exception:
@@ -188,26 +534,26 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
         if callable(on_saved):
             on_saved()
 
-    def keep_absence() -> None:
+    def save_absence() -> None:
         note = note_var.get().strip()
         if not note:
             messagebox.showinfo("Obecność", "Wpisz powód lub krótką uwagę.", parent=win)
             return
-        reason = final._absence_label(case.get("conflict_reason"))
-        if reason not in {"L4", "UR", "UŻ", "ŚW", "NN"}:
-            messagebox.showerror("Obecność", "Nie udało się ustalić rodzaju nieobecności.", parent=win)
-            return
         try:
-            attendance_service.set_reason(
-                day_var.get(),
-                original_slot,
+            _replace_absence_for_day(
                 login,
+                day_var.get(),
                 final._actor(owner),
-                reason,
-                datetime.now().astimezone().isoformat(timespec="seconds"),
+                absence_var.get(),
+                note,
+                attendance_slot=original_slot,
             )
         except Exception as exc:
-            messagebox.showerror("Obecność", f"Nie udało się zachować nieobecności:\n{exc}", parent=win)
+            messagebox.showerror(
+                "Obecność",
+                f"Nie udało się zapisać rodzaju nieobecności:\n{exc}",
+                parent=win,
+            )
             return
         finish()
 
@@ -279,8 +625,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
     actions.grid(row=row_no, column=0, columnspan=3, sticky="e", pady=(12, 0))
     ttk.Button(actions, text="Anuluj", command=win.destroy).pack(side="right")
     ttk.Button(actions, text="Zapisz decyzję", command=save).pack(side="right", padx=(0, 8))
-    if case.get("is_conflict"):
-        ttk.Button(actions, text="Zachowaj nieobecność", command=keep_absence).pack(side="right", padx=(0, 8))
+    ttk.Button(actions, text="Zapisz nieobecność", command=save_absence).pack(side="right", padx=(0, 8))
 
 
 def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = None) -> None:
@@ -316,7 +661,7 @@ def _manual_correction(owner, login: str, on_saved: Callable[[], None] | None = 
     month_box.pack(side="left", padx=(5, 8))
     add_help_button(
         top,
-        "Wybierz zapisany dzień. Następnie możesz zmienić jego zmianę RANO/POPO i rodzaj dniówki bez tworzenia drugiego wpisu.",
+        "Wybierz zapisany dzień. Następnie możesz zmienić zmianę RANO/POPO, dniówkę i rodzaj nieobecności bez tworzenia drugiego wpisu.",
     ).pack(side="left")
 
     history_box = ttk.LabelFrame(frame, text="Wybierz dzień z ewidencji", padding=6)
@@ -512,6 +857,7 @@ def install() -> None:
     global _INSTALLED
     if _INSTALLED:
         return
+    _install_absence_label_bridge()
     final._open_case_dialog = _open_case_dialog
     final._manual_correction = _manual_correction
     _INSTALLED = True
