@@ -1,4 +1,4 @@
-# version: 2.1
+# version: 2.2
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -240,6 +240,14 @@ def _install_workforce_extensions() -> None:
         install_admin_group()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] admin group install failed: {exc!r}")
+
+    # Ostatnia warstwa edytora pracownika: jedno okno na osobę, pełny refresh,
+    # wybór roku urlopu, czytelna historia i schowane rzadkie Uprawnienia.
+    try:
+        from profile_employee_editor_finish_runtime import install as install_employee_editor_finish
+        install_employee_editor_finish()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] employee editor finish runtime install failed: {exc!r}")
 
 
 def install() -> None:
