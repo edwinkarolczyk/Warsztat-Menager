@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Edycja zapisanej zmiany, dniówki i rodzaju nieobecności w Profilu WM."""
 from __future__ import annotations
 
@@ -154,6 +154,55 @@ def _restore_work_state(rec: dict, slot: str, day_text: str) -> None:
     day_pay_service.mark_pending(rec)
 
 
+def _clear_other_absence_slots(login: str, day_text: str, target_slot: str) -> None:
+    """Usuń stary ślad nieobecności z drugiej zmiany przy świadomym przeniesieniu."""
+    login_n = str(login or "").strip().casefold()
+    target_slot = str(target_slot or "").strip().upper()
+    doc = attendance_service._read(attendance_service.data_path(), {})
+    day = doc.get(str(day_text), {}) if isinstance(doc, dict) else {}
+    if not isinstance(day, dict):
+        return
+
+    changed = False
+    for slot in (attendance_service.RANO, attendance_service.POPO):
+        if slot == target_slot:
+            continue
+        slot_map = day.get(slot)
+        if not isinstance(slot_map, dict):
+            continue
+        storage_key, rec = attendance_service._matching_record(slot_map, login_n)
+        if not isinstance(rec, dict):
+            continue
+        reason = day_pay_service.normalize_code(rec.get("reason"))
+        if reason not in _ABSENCE_CODES - {"BRAK"}:
+            continue
+
+        first_login = str(rec.get("first_login_ts") or rec.get("logged_ts") or "").strip()
+        try:
+            day_value = float(rec.get("day_value") or 0.0)
+        except Exception:
+            day_value = 0.0
+        overtime = rec.get("overtime")
+        has_overtime = isinstance(overtime, dict) and bool(
+            float(overtime.get("hours") or 0.0) or overtime.get("status")
+        )
+        has_activity = bool(
+            first_login
+            or day_value > 0
+            or str(rec.get("status") or "") == attendance_service.STATUS_PRESENT
+            or has_overtime
+        )
+
+        if has_activity:
+            _restore_work_state(rec, slot, day_text)
+        elif storage_key is not None:
+            slot_map.pop(storage_key, None)
+        changed = True
+
+    if changed:
+        attendance_service._write(attendance_service.data_path(), doc)
+
+
 def _sync_attendance_choice(
     login: str,
     day_text: str,
@@ -231,10 +280,18 @@ def _replace_absence_for_day(
     note: str,
     *,
     attendance_slot: str,
+    source_slot: str | None = None,
 ) -> str:
     actor = leave_workflow_service._require_foreman(actor_login)
     day_text = leave_workflow_service._parse_day(day_text).isoformat()
     code = _normalize_absence_choice(choice)
+    target_slot = str(attendance_slot or "").strip().upper()
+    if target_slot not in attendance_service.VALID_SLOTS:
+        target_slot = leave_workflow_service._slot_for_attendance(login, day_text)
+    source_slot = str(source_slot or target_slot).strip().upper()
+    if source_slot not in attendance_service.VALID_SLOTS:
+        source_slot = target_slot
+
     uid, current_login = leave_workflow_service._identity(login)
     login = current_login or str(login or "").strip()
     if not login:
@@ -247,7 +304,15 @@ def _replace_absence_for_day(
         if leave_workflow_service._same_day(row, login, day_text)
     ]
     current_codes = [_absence_code_from_row(row) for row in active_rows]
-    same_canonical = len(active_rows) == 1 and current_codes == [code]
+    current_shifts = [
+        str(row.get("shift") or source_slot).strip().upper()
+        for row in active_rows
+    ]
+    same_canonical = (
+        len(active_rows) == 1
+        and current_codes == [code]
+        and current_shifts == [target_slot]
+    )
     if code == "BRAK":
         same_canonical = not active_rows
 
@@ -264,7 +329,8 @@ def _replace_absence_for_day(
                 row["cancelled_by"] = actor
                 row["cancelled_at"] = cancelled_at
                 row["cancel_note"] = (
-                    f"Zmiana rodzaju nieobecności na {_display_absence(code)}. {str(note or '').strip()}"
+                    f"Zmiana rodzaju/zmiany nieobecności na {_display_absence(code)} {target_slot}. "
+                    f"{str(note or '').strip()}"
                 ).strip()
                 if row.get("id"):
                     cancelled_ids.append(str(row.get("id")))
@@ -287,7 +353,7 @@ def _replace_absence_for_day(
                     "type": type_name,
                     "absence_code": code,
                     "date": day_text,
-                    "shift": None,
+                    "shift": target_slot,
                     "quantity_days": 1.0,
                     "minutes": 0,
                     "approved_by": actor,
@@ -305,10 +371,11 @@ def _replace_absence_for_day(
             leave_workflow_service._write_json(leave_workflow_service.leaves_path(), rows)
             leaves_changed = True
 
+        _clear_other_absence_slots(login, day_text, target_slot)
         _sync_attendance_choice(
             login,
             day_text,
-            attendance_slot,
+            target_slot,
             code,
             actor,
             note,
@@ -403,7 +470,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
             ).grid(row=row_no, column=1, sticky="w", pady=3)
             add_help_button(
                 frame,
-                "Możesz poprawić zmianę już zapisanego dnia. WM przeniesie istniejący wpis zamiast tworzyć drugi rekord.",
+                "Możesz zmienić RANO/POPO także dla nieobecności. WM przeniesie stan na wybraną zmianę i nie zostawi starego wpisu aktywnego.",
                 row=row_no,
                 column=2,
                 padx=(6, 0),
@@ -546,7 +613,8 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
                 final._actor(owner),
                 absence_var.get(),
                 note,
-                attendance_slot=original_slot,
+                attendance_slot=slot_var.get(),
+                source_slot=original_slot,
             )
         except Exception as exc:
             messagebox.showerror(
@@ -564,18 +632,12 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
             return
 
         replace_absence = False
+        manual_original_slot = original_slot
         try:
             if save_day_var.get():
                 conflict = attendance_service.absence_conflict(day_var.get(), login)
                 if conflict.get("has_conflict"):
-                    conflict_slot = str(conflict.get("slot") or "")
-                    if conflict_slot and conflict_slot != slot_var.get():
-                        messagebox.showinfo(
-                            "Korekta nieobecności",
-                            f"Nieobecność jest zapisana na zmianie {conflict_slot}. Wybierz tę samą zmianę.",
-                            parent=win,
-                        )
-                        return
+                    conflict_slot = str(conflict.get("slot") or "").strip().upper()
                     labels = ", ".join(conflict.get("reasons") or []) or "nieobecność"
                     if not messagebox.askyesno(
                         "Korekta nieobecności",
@@ -584,7 +646,21 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
                         parent=win,
                     ):
                         return
-                    replace_absence = True
+
+                    if conflict_slot and conflict_slot != slot_var.get():
+                        _replace_absence_for_day(
+                            login,
+                            day_var.get(),
+                            final._actor(owner),
+                            "Brak",
+                            note,
+                            attendance_slot=slot_var.get(),
+                            source_slot=conflict_slot,
+                        )
+                        manual_original_slot = slot_var.get()
+                        replace_absence = False
+                    else:
+                        replace_absence = True
 
                 attendance_service.set_manual_day(
                     day_var.get(),
@@ -594,7 +670,7 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
                     final._actor(owner),
                     note,
                     replace_absence=replace_absence,
-                    original_slot=original_slot,
+                    original_slot=manual_original_slot,
                 )
             elif slot_var.get() != original_slot:
                 messagebox.showinfo(
