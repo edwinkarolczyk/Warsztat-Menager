@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Rozszerza istniejący Kalendarz Profilu o tryb „Zespół” dla Brygadzisty.
 
 Tryb „Mój” pozostaje bez zmian. Tryb „Zespół” pokazuje w kafelkach krótki
@@ -189,9 +189,63 @@ def _team_day_rows(day: date) -> list[dict]:
     return out
 
 
+def _emit_calendar_update(owner) -> None:
+    try:
+        owner.winfo_toplevel().event_generate("<<LeavesUpdated>>", when="tail")
+    except Exception:
+        pass
+
+
+def _install_refresh_bridge() -> None:
+    """Po zapisie obecności uruchom istniejący mechanizm odświeżenia kalendarza."""
+    try:
+        import profile_foreman_edit_runtime as edit_runtime
+
+        if not getattr(edit_runtime, "_wm_calendar_refresh_bridge_v1", False):
+            original_editor = edit_runtime.open_employee_editor
+
+            def open_employee_editor(owner, login: str, *, initial_tab: str = "Dane", on_saved=None) -> None:
+                def saved() -> None:
+                    try:
+                        if callable(on_saved):
+                            on_saved()
+                    finally:
+                        _emit_calendar_update(owner)
+
+                return original_editor(owner, login, initial_tab=initial_tab, on_saved=saved)
+
+            edit_runtime.open_employee_editor = open_employee_editor
+            edit_runtime._wm_calendar_refresh_bridge_v1 = True
+    except Exception:
+        pass
+
+    try:
+        import profile_attendance_edit_runtime as attendance_edit
+        import profile_attendance_finalize_runtime as attendance_final
+
+        if not getattr(attendance_edit, "_wm_calendar_refresh_bridge_v1", False):
+            original_case = attendance_edit._open_case_dialog
+
+            def open_case(owner, case: dict, on_saved=None) -> None:
+                def saved() -> None:
+                    try:
+                        if callable(on_saved):
+                            on_saved()
+                    finally:
+                        _emit_calendar_update(owner)
+
+                return original_case(owner, case, on_saved=saved)
+
+            attendance_edit._open_case_dialog = open_case
+            if getattr(attendance_final, "_open_case_dialog", None) is original_case:
+                attendance_final._open_case_dialog = open_case
+            attendance_edit._wm_calendar_refresh_bridge_v1 = True
+    except Exception:
+        pass
+
+
 def _open_day_details(panel, day_number: int) -> None:
     selected_day = date(panel.year, panel.month, int(day_number))
-    rows = _team_day_rows(selected_day)
     win = tk.Toplevel(panel)
     win.title(f"Zespół — {selected_day.strftime('%d-%m-%Y')}")
     win.geometry("780x470")
@@ -227,11 +281,22 @@ def _open_day_details(panel, day_number: int) -> None:
     tree.tag_configure("muted", foreground="#A7A9AB")
 
     by_iid: dict[str, dict] = {}
-    for row in rows:
-        code = row["status_code"]
-        tag = "bad" if code in {"BR", "NN"} else ("warn" if code in {"DEC", "?UR", "ŚW"} else ("muted" if code == "WOLNE" else "ok"))
-        iid = tree.insert("", "end", values=(row["name"], row["shift"], row["status"], row["pay_label"]), tags=(tag,))
-        by_iid[iid] = row
+
+    def refresh_rows() -> None:
+        try:
+            if not win.winfo_exists():
+                return
+        except Exception:
+            return
+        tree.delete(*tree.get_children())
+        by_iid.clear()
+        for row in _team_day_rows(selected_day):
+            code = row["status_code"]
+            tag = "bad" if code in {"BR", "NN"} else ("warn" if code in {"DEC", "?UR", "ŚW"} else ("muted" if code == "WOLNE" else "ok"))
+            iid = tree.insert("", "end", values=(row["name"], row["shift"], row["status"], row["pay_label"]), tags=(tag,))
+            by_iid[iid] = row
+
+    refresh_rows()
 
     def open_profile(_event=None) -> None:
         selected = tree.selection()
@@ -248,14 +313,49 @@ def _open_day_details(panel, day_number: int) -> None:
             pass
 
     tree.bind("<Double-1>", open_profile, add="+")
+
+    event_host = None
+    event_binding = None
+    try:
+        event_host = panel.winfo_toplevel()
+
+        def on_external_update(_event=None) -> None:
+            try:
+                if win.winfo_exists():
+                    win.after_idle(refresh_rows)
+            except Exception:
+                pass
+
+        event_binding = event_host.bind("<<LeavesUpdated>>", on_external_update, add="+")
+    except Exception:
+        event_host = None
+        event_binding = None
+
+    def close() -> None:
+        if event_host is not None and event_binding:
+            try:
+                event_host.unbind("<<LeavesUpdated>>", event_binding)
+            except Exception:
+                pass
+        try:
+            win.destroy()
+        except Exception:
+            pass
+
+    try:
+        win.protocol("WM_DELETE_WINDOW", close)
+    except Exception:
+        pass
+
     bottom = ttk.Frame(body)
     bottom.pack(fill="x", pady=(8, 0))
     ttk.Button(bottom, text="Otwórz profil", command=open_profile).pack(side="left")
-    ttk.Button(bottom, text="Zamknij", command=win.destroy).pack(side="right")
+    ttk.Button(bottom, text="Zamknij", command=close).pack(side="right")
 
 
 def install() -> None:
     global _INSTALLED
+    _install_refresh_bridge()
     if _INSTALLED:
         return
     import gui_profile_calendar as calendar_ui
