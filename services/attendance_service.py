@@ -553,14 +553,17 @@ def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: st
         day = {}
         doc[date_ymd] = day
 
-    source_map = day.get(source_slot, {})
+    source_map = day.setdefault(source_slot, {})
     if not isinstance(source_map, dict):
         source_map = {}
         day[source_slot] = source_map
-    target_map = day.get(target_slot, {})
-    if not isinstance(target_map, dict):
-        target_map = {}
-        day[target_slot] = target_map
+    if target_slot == source_slot:
+        target_map = source_map
+    else:
+        target_map = day.setdefault(target_slot, {})
+        if not isinstance(target_map, dict):
+            target_map = {}
+            day[target_slot] = target_map
 
     source_key, source_rec = _matching_record(source_map, login_n)
     target_key, target_rec = _matching_record(target_map, login_n)
