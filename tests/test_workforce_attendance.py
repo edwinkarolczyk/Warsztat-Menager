@@ -149,11 +149,16 @@ def test_manual_day_accepts_zero_half_and_full_day(tmp_path, monkeypatch):
         lambda _date, _login: {"has_conflict": False, "reasons": [], "slot": ""},
     )
 
-    for day, value in (("2026-09-07", 0.0), ("2026-09-08", 0.5), ("2026-09-09", 1.0)):
+    cases = (("2026-09-07", 0.0), ("2026-09-08", 0.5), ("2026-09-09", 1.0))
+    for day, value in cases:
         rec = attendance.set_manual_day(day, "RANO", "jan", value, "brygadzista")
         assert rec["day_value"] == value
         assert rec["approval_required"] is False
         assert rec["status"] == (attendance.STATUS_PRESENT if value > 0 else attendance.STATUS_MISSING)
+
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    for day, value in cases:
+        assert doc[day]["RANO"]["USR-0001"]["day_value"] == value
 
 
 def test_supported_absence_reasons_are_persisted(tmp_path, monkeypatch):
