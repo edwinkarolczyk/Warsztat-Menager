@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.9.7",
-  "updated": "2026-09-05",
+  "wm_version": "0.10.0",
+  "updated": "2026-09-06",
   "slides": [
     {
       "module": "Start",
@@ -65,6 +65,18 @@
     },
     {
       "module": "Profil",
+      "title": "Moja obecność",
+      "lead": "Na swoim Profilu możesz szybko sprawdzić bieżący miesiąc i stan dzisiejszego dnia.",
+      "steps": [
+        "Otwórz Profil.",
+        "Znajdź kartę Moja obecność.",
+        "Sprawdź podsumowanie miesiąca: liczbę dniówek, braków, pozycji do decyzji i godzin nadliczbowych.",
+        "Niżej sprawdź dzisiejszą zmianę, godzinę pierwszego logowania oraz aktualny stan dnia."
+      ],
+      "tip": "! przy karcie wyjaśnia, że braki i pozycje do decyzji wynikają z Grafiku oraz faktycznych logowań zapisanych w WM."
+    },
+    {
+      "module": "Profil",
       "title": "Kalendarz brygadzisty — Mój i Zespół",
       "lead": "Brygadzista może przełączyć kalendarz z własnego widoku na zbiorczy widok zespołu.",
       "steps": [
@@ -90,16 +102,30 @@
     },
     {
       "module": "Profil brygadzisty",
-      "title": "Korekta obecności, dniówki i nadgodzin",
-      "lead": "Brygadzista może ręcznie skorygować konkretny dzień pracownika.",
+      "title": "Edycja zapisanej obecności i dniówki",
+      "lead": "Brygadzista może otworzyć już zapisany dzień i poprawić go bez tworzenia drugiego wpisu.",
       "steps": [
         "Otwórz profil pracownika i wybierz zakładkę Obecność.",
-        "Wpisz datę i wybierz zmianę RANO albo POPO.",
-        "Ustaw dniówkę: 0, 0.5 albo 1.",
-        "Jeśli trzeba, zaznacz Zapisz nadgodziny, wpisz liczbę godzin i wybierz typ: zwykłe, sobota, niedziela albo święto.",
-        "Dodaj Powód / uwagę i kliknij Zapisz korektę."
+        "Uruchom ręczną korektę i wybierz miesiąc. Na liście zobaczysz zapisane dni z datą, zmianą, pierwszym logowaniem, stanem i dniówką.",
+        "Zaznacz dzień i kliknij Przejdź do korekty albo kliknij wpis dwukrotnie.",
+        "W razie potrzeby zmień zmianę RANO / POPO oraz zaznacz Zapisz / zmień dniówkę i wybierz 0, 0.5 albo 1.",
+        "Jeśli trzeba, zaznacz Nadgodziny, wpisz liczbę godzin i wybierz typ: zwykłe, sobota, niedziela albo święto.",
+        "Wpisz Powód / uwagę i sprawdź Podgląd zmiany. Dopiero potem kliknij Zapisz decyzję."
       ],
-      "tip": "! przy dniówce wyjaśnia, że ręczna korekta nie tworzy osobnego licznika spóźnień. Sobota i nadgodziny są zapisywane jako osobne dane."
+      "tip": "! przy zmianie i dniówce wyjaśnia, że WM przenosi istniejący wpis zamiast dopisywać drugi. Przy ponownej edycji pokazuje aktualnie zapisaną wartość dniówki."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Konflikt dniówki z nieobecnością",
+      "lead": "Jeżeli ten sam dzień ma jednocześnie nieobecność i dniówkę, WM wymaga świadomej decyzji brygadzisty.",
+      "steps": [
+        "Otwórz problematyczny dzień w korekcie Obecności.",
+        "Przeczytaj ostrzeżenie o sprzecznych danych.",
+        "Kliknij Zachowaj nieobecność, jeśli prawidłowy jest wpis L4, UR, UŻ, ŚW albo NN. WM wyzeruje dniówkę i zachowa właściwy powód.",
+        "Jeżeli prawidłowa jest dniówka, ustaw zmianę i wartość dniówki, wpisz powód oraz kliknij Zapisz decyzję.",
+        "Potwierdź zastąpienie nieobecności. Anulowany wpis nieobecności pozostanie w Historii."
+      ],
+      "tip": "! przy ostrzeżeniu wyjaśnia skutki obu decyzji. Dzięki temu korekta nie usuwa po cichu historii wcześniejszej nieobecności."
     },
     {
       "module": "Profil brygadzisty",
