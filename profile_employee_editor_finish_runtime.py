@@ -61,9 +61,13 @@ def _select_tab(win, name: str) -> None:
     nb = _notebook(win)
     if nb is None:
         return
-    tab_id = _tabs(nb).get(str(name or ""))
+    requested = str(name or "")
+    requested = "Podstawowe" if requested == "Dane" else requested
+    tab_id = _tabs(nb).get(requested)
     if tab_id:
         try:
+            if requested in {"Historia", "Uprawnienia"}:
+                nb.add(tab_id, text=requested)
             nb.select(tab_id)
         except Exception:
             pass
@@ -296,7 +300,7 @@ def _decorate_leave_year(win, nb: ttk.Notebook, login: str) -> None:
     try:
         var_name = str(year_entry.cget("textvariable") or "")
         current = date.today().year
-        years = tuple(str(year) for year in range(current - 2, current + 2))
+        years = tuple(str(year) for year in range(current - 1, current + 2))
         year_entry.grid_remove()
         combo = ttk.Combobox(leaves, textvariable=var_name, values=years, state="readonly", width=10)
         combo.grid(row=0, column=1, sticky="ew", pady=4)
@@ -333,38 +337,69 @@ def _decorate_leave_year(win, nb: ttk.Notebook, login: str) -> None:
 
 def _simplify_tabs(win, nb: ttk.Notebook) -> None:
     tabs = _tabs(nb)
+    basic_id = tabs.get("Dane")
     perms_id = tabs.get("Uprawnienia")
+    history_id = tabs.get("Historia")
     more_id = tabs.get("Więcej")
-    if not perms_id or not more_id:
+    if not more_id:
         return
     try:
         more = win.nametowidget(more_id)
-        nb.hide(perms_id)
+        if basic_id:
+            nb.tab(basic_id, text="Podstawowe")
+        if perms_id:
+            nb.hide(perms_id)
+        if history_id:
+            nb.hide(history_id)
     except Exception:
         return
 
-    access = ttk.LabelFrame(more, text="Dostęp i administracja", padding=10)
+    access = ttk.LabelFrame(more, text="Historia i administracja", padding=10)
     access.pack(fill="x", pady=(12, 0))
-    ttk.Label(access, text="Rzadziej używane ustawienia pracownika są schowane, ale nadal dostępne.").pack(side="left")
+    ttk.Label(
+        access,
+        text="Rzadziej używane informacje są schowane, ale nadal dostępne z tego miejsca.",
+    ).pack(anchor="w", pady=(0, 8))
+    actions = ttk.Frame(access)
+    actions.pack(fill="x")
+
+    def open_history() -> None:
+        if not history_id:
+            return
+        try:
+            nb.add(history_id, text="Historia")
+            nb.select(history_id)
+        except Exception:
+            pass
 
     def open_permissions() -> None:
+        if not perms_id:
+            return
         try:
             nb.add(perms_id, text="Uprawnienia")
             nb.select(perms_id)
         except Exception:
             pass
 
-    ttk.Button(access, text="Uprawnienia pracownika", command=open_permissions).pack(side="right")
-    add_help_button(
-        access,
-        "Otwiera indywidualne wyłączenia modułów dla tego pracownika. Po przejściu do innej zakładki Uprawnienia ponownie zostaną schowane pod Więcej.",
-    ).pack(side="right", padx=(0, 6))
+    if history_id:
+        ttk.Button(actions, text="Historia pracownika", command=open_history).pack(side="left")
+        add_help_button(
+            actions,
+            "Otwiera pełną historię zmian pracownika w czytelnej formie. Historia pozostaje tylko do odczytu i zachowuje wcześniejsze wpisy audytowe.",
+        ).pack(side="left", padx=(6, 14))
+    if perms_id:
+        ttk.Button(actions, text="Uprawnienia pracownika", command=open_permissions).pack(side="left")
+        add_help_button(
+            actions,
+            "Otwiera indywidualne wyłączenia modułów dla tego pracownika. Po przejściu do innej zakładki Uprawnienia ponownie zostaną schowane pod Więcej.",
+        ).pack(side="left", padx=(6, 0))
 
     def tab_changed(_event=None) -> None:
         try:
             selected = nb.select()
-            if selected != perms_id and perms_id in nb.tabs():
-                nb.hide(perms_id)
+            for tab_id in (history_id, perms_id):
+                if tab_id and selected != tab_id and tab_id in nb.tabs():
+                    nb.hide(tab_id)
         except Exception:
             pass
 
@@ -381,13 +416,16 @@ def _refresh_open_profile_views(owner) -> None:
     except Exception:
         pass
     for widget in _walk(root):
+        callback = None
         if widget.__class__.__name__ == "ForemanProfilePanel":
             callback = getattr(widget, "refresh_data", None)
-            if callable(callback):
-                try:
-                    widget.after_idle(callback)
-                except Exception:
-                    pass
+        elif widget.__class__.__name__ == "ProfileView":
+            callback = getattr(widget, "_refresh_view", None)
+        if callable(callback):
+            try:
+                widget.after_idle(callback)
+            except Exception:
+                pass
 
 
 def _postprocess(win, login: str) -> None:
