@@ -1,5 +1,7 @@
 from __version__ import __version__
 import profile_employee_editor_finish_runtime as finish_runtime
+import profile_shift_mode_sync_runtime as shift_mode_runtime
+from grafiki import shifts_schedule
 from profile_employee_editor_finish_runtime import (
     _attendance_export_rows,
     _employee_inconsistencies,
@@ -11,7 +13,28 @@ from profile_foreman_edit_runtime import _parse_carryover
 
 
 def test_profile_release_is_current():
-    assert __version__ == "0.11.0"
+    assert __version__ == "0.11.1"
+
+
+def test_profile_shift_modes_match_engine_and_add_dialog():
+    expected_codes = tuple(code for code, _label in shift_mode_runtime.SHIFT_MODE_OPTIONS)
+    assert expected_codes == tuple(shifts_schedule.TRYBY)
+    assert expected_codes == ("111", "112", "222", "121", "212")
+
+    import ustawienia_uzytkownicy as settings_profiles
+
+    shift_mode_runtime._patch_add_profile_dialog()
+    assert tuple(settings_profiles.ProfileEditDialog.SHIFT_MODES) == shift_mode_runtime.SHIFT_MODE_OPTIONS
+
+
+def test_profile_shift_mode_labels_save_as_codes():
+    labels = dict(shift_mode_runtime.SHIFT_MODE_OPTIONS)
+    assert shift_mode_runtime._mode_code(labels["111"]) == "111"
+    assert shift_mode_runtime._mode_code(labels["112"]) == "112"
+    assert shift_mode_runtime._mode_code(labels["222"]) == "222"
+    assert shift_mode_runtime._mode_code(labels["121"]) == "121"
+    assert shift_mode_runtime._mode_code(labels["212"]) == "212"
+    assert shift_mode_runtime._mode_label("112") == labels["112"]
 
 
 def test_carryover_keeps_source_years():
