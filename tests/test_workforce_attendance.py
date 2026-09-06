@@ -267,7 +267,7 @@ def test_manual_day_can_move_between_shifts_without_duplicate(tmp_path, monkeypa
     )
 
     doc = json.loads(path.read_text(encoding="utf-8"))
-    assert "USR-0001" not in doc["2026-09-17"]["RANO"]
+    assert "USR-0001" not in doc["2026-09-17"].get("RANO", {})
     assert doc["2026-09-17"]["POPO"]["USR-0001"]["day_value"] == 0.5
     assert moved["day_value"] == 0.5
 
