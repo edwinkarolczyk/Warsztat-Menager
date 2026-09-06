@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Podpina neutralny model płatnych dni do Obecności/Urlopów.
 
 Nie liczy wypłat. Uzupełnia jedynie rekordy o kod dnia, procent płatności
@@ -121,8 +121,16 @@ def _decorate_attendance_module() -> None:
         _decorate_stored(date_ymd, login, reason=code)
 
     def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: str,
-                       note: str = "") -> dict:
-        row = original_set_manual_day(date_ymd, slot, login, value, actor, note)
+                       note: str = "", **kwargs) -> dict:
+        row = original_set_manual_day(
+            date_ymd,
+            slot,
+            login,
+            value,
+            actor,
+            note,
+            **kwargs,
+        )
         _decorate_stored(date_ymd, login, manual_value=float(value))
         try:
             rows = month_records(login, int(date_ymd[:4]), int(date_ymd[5:7]))
