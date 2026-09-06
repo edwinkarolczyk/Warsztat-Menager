@@ -57,8 +57,14 @@ def test_refresh_notifies_profile_and_foreman_panel():
     ForemanProfilePanel = type("ForemanProfilePanel", (), {})
     panel = ForemanProfilePanel()
     panel.winfo_children = lambda: []
-    panel.refresh_data = lambda: calls.append("refresh")
+    panel.refresh_data = lambda: calls.append("foreman")
     panel.after_idle = lambda callback: callback()
+
+    ProfileView = type("ProfileView", (), {})
+    profile = ProfileView()
+    profile.winfo_children = lambda: []
+    profile._refresh_view = lambda: calls.append("profile")
+    profile.after_idle = lambda callback: callback()
 
     class Owner:
         def __init__(self):
@@ -68,7 +74,7 @@ def test_refresh_notifies_profile_and_foreman_panel():
             return self
 
         def winfo_children(self):
-            return [panel]
+            return [panel, profile]
 
         def event_generate(self, name, when=None):
             self.events.append((name, when))
@@ -77,4 +83,4 @@ def test_refresh_notifies_profile_and_foreman_panel():
     _refresh_open_profile_views(owner)
 
     assert ("<<ProfileDataUpdated>>", "tail") in owner.events
-    assert calls == ["refresh"]
+    assert calls == ["foreman", "profile"]
