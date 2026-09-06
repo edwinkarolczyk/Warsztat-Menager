@@ -1,4 +1,4 @@
-# version: 2.2
+# version: 2.3
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -248,6 +248,14 @@ def _install_workforce_extensions() -> None:
         install_employee_editor_finish()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] employee editor finish runtime install failed: {exc!r}")
+
+    # Finalnie ujednolić tryby grafiku w dodawaniu oraz edycji pracownika.
+    # Ta warstwa musi wejść po końcowym wrapperze edytora.
+    try:
+        from profile_shift_mode_sync_runtime import install as install_shift_mode_sync
+        install_shift_mode_sync()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] shift mode sync install failed: {exc!r}")
 
 
 def install() -> None:
