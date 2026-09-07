@@ -13,7 +13,7 @@ from profile_foreman_edit_runtime import _parse_carryover
 
 
 def test_profile_release_is_current():
-    assert __version__ == "0.12.0"
+    assert __version__ == "0.13.0"
 
 
 def test_profile_shift_modes_match_engine_and_add_dialog():
