@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.10.0",
-  "updated": "2026-09-06",
+  "wm_version": "0.11.1",
+  "updated": "2026-09-07",
   "slides": [
     {
       "module": "Start",
@@ -84,7 +84,7 @@
         "Przy polu Widok wybierz Mój, jeśli chcesz oglądać swój dotychczasowy kalendarz.",
         "Wybierz Zespół, aby zobaczyć w dniach skróty zmian i nieobecności pracowników.",
         "Kliknij dzień. Otworzy się tabela Pracownik | Zmiana | Status | Płatność.",
-        "Zaznacz pracownika i kliknij Otwórz profil albo kliknij go dwukrotnie. WM przejdzie do odpowiedniej zakładki Profilu pracownika."
+        "Zaznacz pracownika i kliknij Otwórz profil albo kliknij go dwukrotnie. WM przejdzie do odpowiedniej części Profilu pracownika."
       ],
       "tip": "Skróty 06–14 i 14–22 oznaczają zmianę, a UR, ?UR, L4, ŚW, BR i DEC sygnalizują urlopy albo stany wymagające uwagi."
     },
@@ -94,38 +94,52 @@
       "lead": "Brygadzista może edytować profil pracownika bez zmiany jego stałego User ID.",
       "steps": [
         "Otwórz listę pracowników i wybierz osobę do edycji.",
-        "Wejdź w edycję profilu. Dostępne są zakładki Dane, Obecność, Urlopy, Grafik, Uprawnienia, Historia i Więcej.",
-        "W zakładce Dane popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
-        "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w Historii."
+        "Wejdź w edycję profilu. Najczęściej używane zakładki to Podstawowe, Obecność, Urlopy, Grafik i Więcej.",
+        "W zakładce Podstawowe popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
+        "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w historii."
       ],
-      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Zmiana loginu nie powinna rozrywać jego powiązań."
+      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są dostępne z zakładki Więcej."
     },
     {
       "module": "Profil brygadzisty",
-      "title": "Edycja zapisanej obecności i dniówki",
-      "lead": "Brygadzista może otworzyć już zapisany dzień i poprawić go bez tworzenia drugiego wpisu.",
+      "title": "Edycja zapisanej obecności, dniówki i nieobecności",
+      "lead": "Brygadzista może otworzyć już zapisany dzień i poprawić zmianę, dniówkę albo rodzaj nieobecności bez tworzenia drugiego wpisu.",
       "steps": [
         "Otwórz profil pracownika i wybierz zakładkę Obecność.",
         "Uruchom ręczną korektę i wybierz miesiąc. Na liście zobaczysz zapisane dni z datą, zmianą, pierwszym logowaniem, stanem i dniówką.",
         "Zaznacz dzień i kliknij Przejdź do korekty albo kliknij wpis dwukrotnie.",
-        "W razie potrzeby zmień zmianę RANO / POPO oraz zaznacz Zapisz / zmień dniówkę i wybierz 0, 0.5 albo 1.",
-        "Jeśli trzeba, zaznacz Nadgodziny, wpisz liczbę godzin i wybierz typ: zwykłe, sobota, niedziela albo święto.",
-        "Wpisz Powód / uwagę i sprawdź Podgląd zmiany. Dopiero potem kliknij Zapisz decyzję."
+        "W polu Zmiana wybierz RANO albo POPO. Jeśli poprawiasz nieobecność, WM może przenieść ją na wybraną zmianę bez pozostawiania starego aktywnego wpisu.",
+        "W polu Rodzaj nieobecności wybierz Brak, ŚW, L4, NN, UR albo UŻ. Jeśli zmieniasz tylko nieobecność, wpisz Powód / uwagę i kliknij Zapisz nieobecność.",
+        "Jeśli poprawiasz dniówkę, zaznacz Zapisz / zmień dniówkę i wybierz 0, 0.5 albo 1. W razie potrzeby dodaj nadgodziny.",
+        "Sprawdź Podgląd zmiany, wpisz Powód / uwagę i kliknij Zapisz decyzję."
       ],
-      "tip": "! przy zmianie i dniówce wyjaśnia, że WM przenosi istniejący wpis zamiast dopisywać drugi. Przy ponownej edycji pokazuje aktualnie zapisaną wartość dniówki."
+      "tip": "! przy zmianie i rodzaju nieobecności wyjaśnia, że wcześniejszy wpis nie znika z historii. Przy ponownej edycji WM pokazuje aktualnie zapisane wartości."
     },
     {
       "module": "Profil brygadzisty",
       "title": "Konflikt dniówki z nieobecnością",
-      "lead": "Jeżeli ten sam dzień ma jednocześnie nieobecność i dniówkę, WM wymaga świadomej decyzji brygadzisty.",
+      "lead": "Jeżeli ten sam dzień ma sprzeczne dane, WM wymaga świadomej korekty zamiast automatycznego usuwania jednego z wpisów.",
       "steps": [
-        "Otwórz problematyczny dzień w korekcie Obecności.",
-        "Przeczytaj ostrzeżenie o sprzecznych danych.",
-        "Kliknij Zachowaj nieobecność, jeśli prawidłowy jest wpis L4, UR, UŻ, ŚW albo NN. WM wyzeruje dniówkę i zachowa właściwy powód.",
-        "Jeżeli prawidłowa jest dniówka, ustaw zmianę i wartość dniówki, wpisz powód oraz kliknij Zapisz decyzję.",
-        "Potwierdź zastąpienie nieobecności. Anulowany wpis nieobecności pozostanie w Historii."
+        "Otwórz problematyczny dzień w korekcie Obecności i przeczytaj ostrzeżenie o sprzecznych danych.",
+        "Jeżeli prawidłowa jest nieobecność, wybierz właściwy Rodzaj nieobecności: ŚW, L4, NN, UR albo UŻ, wpisz Powód / uwagę i kliknij Zapisz nieobecność.",
+        "Jeżeli prawidłowa jest dniówka, zaznacz Zapisz / zmień dniówkę, ustaw zmianę oraz wartość dniówki, wpisz Powód / uwagę i kliknij Zapisz decyzję.",
+        "Gdy WM zapyta o zastąpienie nieobecności korektą, potwierdź tylko wtedy, gdy to dniówka jest prawidłowa.",
+        "Po zapisie poprzedni wpis nieobecności pozostaje w historii jako anulowany."
       ],
-      "tip": "! przy ostrzeżeniu wyjaśnia skutki obu decyzji. Dzięki temu korekta nie usuwa po cichu historii wcześniejszej nieobecności."
+      "tip": "! przy ostrzeżeniu i rodzaju nieobecności pokazuje skutki korekty. Nie ma już potrzeby szukania osobnego przycisku „Zachowaj nieobecność”."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Miesięczny eksport obecności i niezgodności",
+      "lead": "W zakładce Obecność możesz przygotować zestawienie jednego pracownika i od razu zobaczyć dane wymagające korekty.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz zakładkę Obecność.",
+        "W sekcji Miesięczne zestawienie wybierz miesiąc.",
+        "Kliknij Eksportuj miesiąc do Excel i wskaż miejsce zapisania pliku.",
+        "W arkuszu Ewidencja znajdziesz daty, zmiany, pierwsze logowania, status, dniówki, nieobecności, nadgodziny, źródło i uwagi. Arkusz Podsumowanie pokazuje m.in. dniówki, soboty, nadgodziny, L4, ŚW, NN, UR, UŻ, braki i pozycje do decyzji.",
+        "Jeżeli pod zestawieniem pojawi się sekcja ⚠ Niezgodności, sprawdź wskazane dni i popraw je przez korektę Obecności. Sekcja zniknie po rozwiązaniu ostatniego problemu."
+      ],
+      "tip": "! przy eksporcie wyjaśnia, że plik dotyczy tylko wybranego pracownika i miesiąca. Niezgodności obejmują m.in. konflikty, pozycje do decyzji i wpis tego samego pracownika jednocześnie na RANO i POPO."
     },
     {
       "module": "Profil brygadzisty",
@@ -138,7 +152,7 @@
         "W polu Zaległy wg roku wpisz pule w formacie np. 2024=2; 2025=4.",
         "Kliknij Zapisz saldo. WM pokaże wartości Zaległy, Wykorzystano, Oczekuje i Pozostało."
       ],
-      "tip": "! przy zaległym urlopie wyjaśnia, że WM wykorzystuje najpierw najstarszą zaległą pulę."
+      "tip": "! przy roku i zaległym urlopie wyjaśnia, dla jakiego rozliczenia oglądasz saldo oraz że WM wykorzystuje najpierw najstarszą zaległą pulę."
     },
     {
       "module": "Profil brygadzisty",
@@ -156,10 +170,10 @@
     {
       "module": "Użytkownicy / Grafik",
       "title": "Ustawianie grafiku pracownika",
-      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Nie korzysta już z jednej globalnej daty rotacji dla wszystkich.",
+      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Te same tryby są używane w edycji pracownika.",
       "steps": [
-        "Otwórz Ustawienia i przejdź do Użytkowników.",
-        "Wybierz pracownika i otwórz jego edycję.",
+        "Otwórz Ustawienia i przejdź do Użytkowników albo otwórz edycję pracownika z Profilu brygadzisty.",
+        "Wybierz pracownika i przejdź do jego ustawień Grafiku.",
         "Wybierz tryb zmian: 111 = I / I / I, 112 = I / I / II, 222 = II / II / II, 121 = I / II / I albo 212 = II / I / II.",
         "Ustaw datę kotwiczną pracownika. Jest ona początkiem jego własnego trzytygodniowego cyklu.",
         "Zapisz profil. Po trzecim tygodniu wzorzec zaczyna się od początku."
@@ -180,14 +194,16 @@
     },
     {
       "module": "Profil brygadzisty",
-      "title": "Historia zmian pracownika",
-      "lead": "Historia pozwala sprawdzić, kto i kiedy zmienił dane pracownika.",
+      "title": "Historia i uprawnienia pracownika",
+      "lead": "Rzadziej używane funkcje administracyjne są schowane pod Więcej, żeby nie przeciążać edytora.",
       "steps": [
-        "Otwórz profil pracownika i wybierz zakładkę Historia.",
-        "Przejrzyj wpisy z datą, rodzajem operacji, wykonawcą i uwagą.",
-        "Kliknij Odśwież historię, jeśli właśnie wykonano korektę i chcesz zobaczyć najnowszy stan."
+        "Otwórz profil pracownika i wybierz zakładkę Więcej.",
+        "Kliknij Historia pracownika, aby otworzyć pełną historię zmian. Zobaczysz datę, rodzaj operacji, wykonawcę i szczegóły.",
+        "Kliknij Odśwież historię, jeśli właśnie wykonano korektę i chcesz zobaczyć najnowszy stan.",
+        "Wróć do Więcej i kliknij Uprawnienia pracownika, gdy chcesz przejść do indywidualnych wyłączeń modułów.",
+        "Po przejściu do innej zakładki Historia i Uprawnienia znów chowają się pod Więcej."
       ],
-      "tip": "Historia jest tylko do odczytu. Korekta danych nie usuwa śladu wcześniejszej zmiany."
+      "tip": "! przy tych przyciskach wyjaśnia ich działanie. Historia jest tylko do odczytu i zachowuje wcześniejsze wpisy audytowe."
     },
     {
       "module": "Usuwanie",
