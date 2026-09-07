@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Końcowe dopracowanie edytora pracownika bez zmiany źródeł danych."""
 from __future__ import annotations
 
@@ -588,6 +588,20 @@ def _export_attendance_xlsx(path: str | Path, login: str, year: int, month: int)
     return output
 
 
+def _attendance_extension_host(att):
+    """Wybierz host i manager zgodny z już zbudowaną zakładką Obecność."""
+    try:
+        packed = list(att.pack_slaves())
+        gridded = list(att.grid_slaves())
+    except Exception:
+        return att, "grid"
+    if packed and not gridded:
+        # Finalny runtime Obecności buduje jeden kontener `outer` przez pack().
+        # Dodatki muszą wejść do niego także przez pack(), nie bezpośrednio grid().
+        return packed[0], "pack"
+    return att, "grid"
+
+
 def _decorate_employee_attendance(win, nb: ttk.Notebook, login: str) -> None:
     attendance_id = _tabs(nb).get("Obecność")
     if not attendance_id:
@@ -597,12 +611,43 @@ def _decorate_employee_attendance(win, nb: ttk.Notebook, login: str) -> None:
     except Exception:
         return
 
+    host, manager = _attendance_extension_host(att)
+    history_anchor = None
+    if manager == "pack":
+        try:
+            history_anchor = next(
+                (
+                    child
+                    for child in host.winfo_children()
+                    if isinstance(child, ttk.LabelFrame)
+                    and str(child.cget("text")) == "Historia miesiąca"
+                ),
+                None,
+            )
+        except Exception:
+            history_anchor = None
+
+    def place_section(widget, *, row: int, pady) -> None:
+        if manager == "pack":
+            options = {"fill": "x", "pady": pady}
+            if history_anchor is not None:
+                options["before"] = history_anchor
+            widget.pack(**options)
+        else:
+            widget.grid(row=row, column=0, columnspan=3, sticky="ew", pady=pady)
+
+    def hide_section(widget) -> None:
+        if manager == "pack":
+            widget.pack_forget()
+        else:
+            widget.grid_remove()
+
     user = workforce_profile_service.get_user(login) or {}
     user_id = str(user.get("user_id") or "")
     month_var = tk.StringVar(value=date.today().strftime("%Y-%m"))
 
-    tools = ttk.LabelFrame(att, text="Miesięczne zestawienie", padding=10)
-    tools.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(18, 8))
+    tools = ttk.LabelFrame(host, text="Miesięczne zestawienie", padding=10)
+    place_section(tools, row=6, pady=(18, 8))
     tools.columnconfigure(1, weight=1)
     ttk.Label(tools, text="Miesiąc:").grid(row=0, column=0, sticky="w")
     month_box = ttk.Combobox(tools, textvariable=month_var, values=_month_choices(), state="readonly", width=10)
@@ -642,8 +687,8 @@ def _decorate_employee_attendance(win, nb: ttk.Notebook, login: str) -> None:
         row=0, column=3, padx=(6, 0), sticky="w",
     )
 
-    issues_box = ttk.LabelFrame(att, text="⚠ Niezgodności", padding=10)
-    issues_box.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 8))
+    issues_box = ttk.LabelFrame(host, text="⚠ Niezgodności", padding=10)
+    place_section(issues_box, row=7, pady=(4, 8))
     issue_top = ttk.Frame(issues_box)
     issue_top.pack(fill="x", pady=(0, 5))
     ttk.Label(issue_top, text="WM wykrył dane wymagające decyzji lub korekty.").pack(side="left")
@@ -663,9 +708,9 @@ def _decorate_employee_attendance(win, nb: ttk.Notebook, login: str) -> None:
         for child in issue_list.winfo_children():
             child.destroy()
         if not issues:
-            issues_box.grid_remove()
+            hide_section(issues_box)
             return
-        issues_box.grid()
+        place_section(issues_box, row=7, pady=(4, 8))
         for issue in issues[:6]:
             text = (
                 f"• {issue.get('date') or '—'}  {issue.get('slot') or '—'} — "
@@ -860,4 +905,10 @@ def install() -> None:
     _INSTALLED = True
 
 
-__all__ = ["install", "_attendance_export_rows", "_employee_inconsistencies", "_export_attendance_xlsx"]
+__all__ = [
+    "install",
+    "_attendance_export_rows",
+    "_attendance_extension_host",
+    "_employee_inconsistencies",
+    "_export_attendance_xlsx",
+]
