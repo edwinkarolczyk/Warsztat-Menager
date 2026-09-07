@@ -1,11 +1,13 @@
-# version: 1.0
+# version: 1.1
 """Spina Profil -> Grafik -> Obecność dla skonfigurowanych dni pracy.
 
 Zasady:
 - dzień wyłączony w ``workdays`` jest dniem wolnym i nie tworzy BR/PLAN,
 - L4/urlopy mogą nadal obejmować dzień wolny,
 - rzeczywista praca w dniu wolnym wymaga jawnego zaznaczenia w edytorze,
-- jawny wyjątek zapisuje znacznik ``offday_work`` w rekordzie Obecności.
+- jawny wyjątek zapisuje znacznik ``offday_work`` w rekordzie Obecności,
+- końcowa tabela Obecności pokazuje dzień tygodnia,
+- Kalendarz Brygadzisty pokazuje kompaktowy zespół pod kalendarzem (maks. 6 wierszy).
 """
 from __future__ import annotations
 
@@ -21,10 +23,18 @@ _INSTALLED = False
 _ACTIVE_OVERRIDE: dict[str, bool] = {}
 _LEAVE_CODES = {"L4", "NN", "UR", "UŻ", "UB"}
 _CALENDAR_LEAVE_CODES = {"UR", "?UR", "L4", "ŚW", "UB", "NN"}
+_WEEKDAYS = ("Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie")
 
 
 def _key(value: Any) -> str:
     return str(value or "").strip().casefold()
+
+
+def _weekday_label(day_text: Any) -> str:
+    try:
+        return _WEEKDAYS[date.fromisoformat(str(day_text or "")[:10]).weekday()]
+    except Exception:
+        return "—"
 
 
 def _work_payload(payload: dict[str, Any]) -> bool:
@@ -151,8 +161,49 @@ def _record_offday_flag(login: str, day_text: str, slot: str) -> bool:
     return False
 
 
+def _install_weekday_column(tree: ttk.Treeview) -> None:
+    """Dodaj kolumnę dnia tygodnia także do kolejnych odświeżeń tabeli."""
+    if getattr(tree, "_wm_weekday_column_v1", False):
+        return
+    old_columns = list(tree.cget("columns") or ())
+    if "date" not in old_columns or "weekday" in old_columns:
+        return
+
+    date_idx = old_columns.index("date")
+    new_columns = list(old_columns)
+    new_columns.insert(date_idx + 1, "weekday")
+    tree.configure(columns=new_columns, displaycolumns=new_columns)
+    tree.heading("weekday", text="Dzień")
+    tree.column("weekday", width=58, minwidth=48, anchor="center", stretch=False)
+
+    def with_weekday(values):
+        data = list(values or ())
+        if len(data) == len(new_columns):
+            return tuple(data)
+        if len(data) != len(old_columns):
+            return tuple(data)
+        data.insert(date_idx + 1, _weekday_label(data[date_idx]))
+        return tuple(data)
+
+    for iid in tree.get_children(""):
+        try:
+            tree.item(iid, values=with_weekday(tree.item(iid, "values") or ()))
+        except Exception:
+            pass
+
+    original_insert = tree.insert
+
+    def insert_with_weekday(parent, index, iid=None, **kw):
+        if "values" in kw:
+            kw["values"] = with_weekday(kw.get("values"))
+        return original_insert(parent, index, iid=iid, **kw)
+
+    tree.insert = insert_with_weekday
+    tree._wm_weekday_column_v1 = True
+
+
 def _decorate_attendance(frame, login: str) -> None:
-    """Dodaj jawny przełącznik wyjątku bez tworzenia kolejnego okna."""
+    """Dodaj jawny przełącznik wyjątku i dzień tygodnia bez kolejnego okna."""
     if getattr(frame, "_wm_workday_policy_ui_v1", False):
         return
     editor = _find_editor(frame)
@@ -205,6 +256,8 @@ def _decorate_attendance(frame, login: str) -> None:
         None,
     )
     if tree is not None:
+        _install_weekday_column(tree)
+
         def sync_from_selection(_event=None) -> None:
             selected = tree.selection()
             if not selected:
@@ -361,11 +414,111 @@ def _install_calendar_policy() -> None:
     calendar_runtime._wm_workday_policy_v1 = True
 
 
+def _install_calendar_layout() -> None:
+    """Poszerz kalendarz i umieść kompaktową listę zespołu pod nim."""
+    import gui_profile_calendar as calendar_ui
+
+    cls = calendar_ui.ProfileCalendarPanel
+    if getattr(cls, "_wm_compact_team_layout_v1", False):
+        return
+
+    original_build = cls._build
+
+    def build(self):
+        original_build(self)
+        tree = getattr(self, "_wm_team_detail_tree", None)
+        if tree is None:
+            return
+        body = getattr(self, "calendar_box", None)
+        body = body.master if body is not None else None
+        if body is None:
+            return
+
+        side = tree.master
+        try:
+            body.columnconfigure(0, weight=1)
+            body.columnconfigure(1, weight=0, minsize=0)
+            body.rowconfigure(0, weight=1)
+            body.rowconfigure(1, weight=0)
+            self.calendar_box.grid_configure(
+                row=0,
+                column=0,
+                columnspan=2,
+                sticky="nsew",
+                padx=0,
+                pady=(0, 8),
+            )
+            side.grid_configure(row=1, column=0, columnspan=2, sticky="ew")
+        except Exception:
+            pass
+
+        # Kalendarz jest podglądem. Edycję Obecności i Urlopów wykonujemy w profilu pracownika.
+        for child in list(side.winfo_children()):
+            if not isinstance(child, ttk.Frame):
+                continue
+            button_texts = {
+                str(widget.cget("text"))
+                for widget in _walk(child)
+                if isinstance(widget, ttk.Button)
+            }
+            if {"Obecność", "Urlopy"}.intersection(button_texts):
+                child.destroy()
+
+        try:
+            tree.unbind("<Double-1>")
+        except Exception:
+            pass
+
+        def fit_height() -> None:
+            try:
+                count = len(tree.get_children(""))
+                tree.configure(height=max(1, min(6, count or 1)))
+            except Exception:
+                pass
+
+        fit_height()
+        original_insert = tree.insert
+        original_delete = tree.delete
+
+        def compact_insert(parent, index, iid=None, **kw):
+            result = original_insert(parent, index, iid=iid, **kw)
+            fit_height()
+            return result
+
+        def compact_delete(*items):
+            result = original_delete(*items)
+            fit_height()
+            return result
+
+        tree.insert = compact_insert
+        tree.delete = compact_delete
+        self._wm_team_max_visible_rows = 6
+
+        for widget in _walk(side):
+            if not isinstance(widget, ttk.Label):
+                continue
+            try:
+                if str(widget.cget("text")).startswith("Kliknij dzień:"):
+                    widget.configure(wraplength=1100)
+            except Exception:
+                pass
+
+    cls._build = build
+    cls._wm_compact_team_layout_v1 = True
+
+
 def install() -> None:
     global _INSTALLED
     _install_workspace_policy()
     _install_calendar_policy()
+    _install_calendar_layout()
     _INSTALLED = True
 
 
-__all__ = ["install", "_ensure_allowed", "_work_payload"]
+__all__ = [
+    "install",
+    "_ensure_allowed",
+    "_work_payload",
+    "_weekday_label",
+    "_install_weekday_column",
+]
