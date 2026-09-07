@@ -5,6 +5,8 @@ from datetime import datetime
 
 import pytest
 
+import attendance_utils
+import profile_login_calendar_fix_runtime as login_calendar_fix
 from services import attendance_service as attendance
 from services import leave_workflow_service
 
@@ -40,6 +42,37 @@ def test_first_login_is_preserved_and_second_login_is_not_second_day(tmp_path, m
     assert rec["login_count"] == 2
     assert rec["day_value"] == 1.0
     assert rec["status"] == attendance.STATUS_PRESENT
+
+
+def test_legacy_login_bridge_updates_same_record_to_canonical_present(tmp_path, monkeypatch):
+    path = tmp_path / "ewidencja.json"
+    audit = tmp_path / "audit.json"
+    monkeypatch.setattr(attendance_utils, "DATA_PATH", path)
+    monkeypatch.setattr(attendance, "data_path", lambda: path)
+    monkeypatch.setattr(attendance, "audit_path", lambda: audit)
+    monkeypatch.setattr(attendance, "_is_guest", lambda _login: False)
+    monkeypatch.setattr(attendance, "_scheduled_slot", lambda _login, _moment, slot: slot)
+    monkeypatch.setattr(attendance, "user_id_for", lambda _login: "USR-0001")
+
+    login_calendar_fix._bridge_mark_login(
+        attendance_utils.mark_login,
+        "2026-09-07",
+        "RANO",
+        "jan",
+        "2026-09-07T06:10:00",
+    )
+
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    # Legacy najpierw tworzy klucz loginu, a AttendanceService uzupełnia dokładnie
+    # ten sam rekord — bez duplikatu USR-0001 + jan.
+    rec = doc["2026-09-07"]["RANO"]["jan"]
+    assert set(doc["2026-09-07"]["RANO"]) == {"jan"}
+    assert rec["user_id"] == "USR-0001"
+    assert rec["first_login_ts"] == "2026-09-07T06:10:00"
+    assert rec["status"] == attendance.STATUS_PRESENT
+    assert rec["day_value"] == 1.0
+    assert rec["confirmed"] is True
+    assert rec["source"] == "auto_login"
 
 
 def test_very_late_login_needs_foreman(tmp_path, monkeypatch):
