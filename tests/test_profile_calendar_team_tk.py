@@ -1,10 +1,11 @@
-# version: 1.3
+# version: 1.4
 import tkinter as tk
 from tkinter import ttk
 
 import gui_profile_calendar as calendar_ui
 import profile_calendar_team_runtime as team_runtime
 import profile_foreman_workspace_runtime as workspace
+import profile_login_calendar_fix_runtime as final_fix
 import profile_workday_policy_runtime as policy
 
 
@@ -35,12 +36,35 @@ def test_attendance_tree_gets_polish_weekday_column():
         root.destroy()
 
 
+def test_team_tile_lines_use_two_columns_and_six_people_limit():
+    rows = [
+        {
+            "login": f"login{idx}",
+            "short_name": f"Login{idx}",
+            "summary": "06–14",
+            "status_code": "PLAN",
+        }
+        for idx in range(1, 8)
+    ]
+
+    lines = final_fix._team_tile_lines(7, rows)
+
+    assert lines[0] == "7"
+    assert len(lines) == 4  # numer dnia + trzy rzędy po dwie osoby
+    assert "Login1 06–14" in lines[1] and "Login2 06–14" in lines[1]
+    assert "Login3 06–14" in lines[2] and "Login4 06–14" in lines[2]
+    assert "Login5 06–14" in lines[3] and "Login6 06–14" in lines[3]
+    assert "+1" in lines[3]
+    assert "Login7" not in "\n".join(lines)
+
+
 def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
     monkeypatch.setattr(team_runtime, "_is_foreman", lambda: True)
     monkeypatch.setattr(calendar_ui.ProfileCalendarPanel, "refresh", lambda self: None)
     team_runtime.install()
     workspace.install()
     policy._install_calendar_layout()
+    final_fix.install()
 
     sample_rows = [
         {
@@ -66,6 +90,30 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
             "summary": "ŚW",
             "pay_percent": 50.0,
             "pay_label": "50%",
+        },
+        {
+            "login": "sebastian",
+            "name": "Sebastian",
+            "short_name": "Sebastian",
+            "slot": "RANO",
+            "shift": "06–14",
+            "status_code": "PLAN",
+            "status": "Zaplanowana zmiana",
+            "summary": "06–14",
+            "pay_percent": None,
+            "pay_label": "—",
+        },
+        {
+            "login": "edwin",
+            "name": "Edwin",
+            "short_name": "Edwin",
+            "slot": "",
+            "shift": "—",
+            "status_code": "UR",
+            "status": "Urlop",
+            "summary": "UR",
+            "pay_percent": 100.0,
+            "pay_label": "100%",
         },
     ]
     # Panel szczegółów czyta pojedynczy dzień, a kafelki miesiąca korzystają
@@ -96,21 +144,27 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert "Mój" not in radios
         assert "Zespół" not in radios
 
-        # Kafelki nadal pokazują skrót Zespołu z miesięcznego snapshotu.
+        # Kafelki wykorzystują szerokość: dwie osoby są w jednym wierszu.
         day_buttons = [
             widget
             for widget in panel.calendar_box.winfo_children()
             if isinstance(widget, tk.Button)
         ]
         day_texts = [str(widget.cget("text")) for widget in day_buttons]
-        assert any("Marek 14–22" in text for text in day_texts)
-        assert any("Dawid ŚW" in text for text in day_texts)
+        assert any(
+            any("Marek 14–22" in line and "Dawid ŚW" in line for line in text.splitlines())
+            for text in day_texts
+        )
+        assert any(
+            any("Sebastian 06–14" in line and "Edwin UR" in line for line in text.splitlines())
+            for text in day_texts
+        )
 
         # Lista zespołu jest pod kalendarzem na pełną szerokość i dopasowuje
         # wysokość do wpisów, ale nigdy nie przekracza 6 widocznych pracowników.
         detail_tree = panel._wm_team_detail_tree
-        assert len(detail_tree.get_children()) == 2
-        assert int(detail_tree.cget("height")) == 2
+        assert len(detail_tree.get_children()) == 4
+        assert int(detail_tree.cget("height")) == 4
         assert panel._wm_team_max_visible_rows == 6
 
         body = panel.calendar_box.master
