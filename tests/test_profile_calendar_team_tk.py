@@ -1,8 +1,10 @@
+# version: 1.1
 import tkinter as tk
 from tkinter import ttk
 
 import gui_profile_calendar as calendar_ui
 import profile_calendar_team_runtime as team_runtime
+import profile_foreman_workspace_runtime as workspace
 
 
 def _walk(widget):
@@ -13,10 +15,11 @@ def _walk(widget):
     return out
 
 
-def test_foreman_calendar_has_my_team_toggle_and_compact_day(monkeypatch):
+def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
     monkeypatch.setattr(team_runtime, "_is_foreman", lambda: True)
     monkeypatch.setattr(calendar_ui.ProfileCalendarPanel, "refresh", lambda self: None)
     team_runtime.install()
+    workspace.install()
 
     sample_rows = [
         {
@@ -53,25 +56,36 @@ def test_foreman_calendar_has_my_team_toggle_and_compact_day(monkeypatch):
         panel.year = 2026
         panel.month = 9
         panel._snapshot = {"leaves": [], "requests": []}
+        panel._render_calendar()
         root.update_idletasks()
 
+        # Brygadzista nie przełącza już między dwoma kalendarzami.
         radios = [
             str(widget.cget("text"))
             for widget in _walk(panel)
             if isinstance(widget, ttk.Radiobutton)
         ]
-        assert "Mój" in radios
-        assert "Zespół" in radios
+        assert "Mój" not in radios
+        assert "Zespół" not in radios
 
-        panel._wm_calendar_mode.set("Zespół")
-        panel._render_calendar()
-        root.update_idletasks()
-        day_texts = [
-            str(widget.cget("text"))
+        # Kafelki nadal pokazują skrót Zespołu.
+        day_buttons = [
+            widget
             for widget in panel.calendar_box.winfo_children()
             if isinstance(widget, tk.Button)
         ]
+        day_texts = [str(widget.cget("text")) for widget in day_buttons]
         assert any("Marek 14–22" in text for text in day_texts)
         assert any("Dawid ŚW" in text for text in day_texts)
+
+        # Szczegóły dnia są częścią tego samego panelu, a kliknięcie dnia
+        # nie tworzy już osobnego Toplevela.
+        detail_tree = panel._wm_team_detail_tree
+        assert len(detail_tree.get_children()) == 2
+        before_windows = [widget for widget in root.winfo_children() if isinstance(widget, tk.Toplevel)]
+        day_buttons[0].invoke()
+        root.update_idletasks()
+        after_windows = [widget for widget in root.winfo_children() if isinstance(widget, tk.Toplevel)]
+        assert after_windows == before_windows
     finally:
         root.destroy()
