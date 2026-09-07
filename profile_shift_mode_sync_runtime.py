@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Ujednolica listę trybów grafiku w dodawaniu i edycji profilu pracownika."""
 from __future__ import annotations
 
@@ -71,6 +71,28 @@ def _find_tab(win: tk.Toplevel, title: str):
     return None
 
 
+def _fit_employee_window(win: tk.Toplevel) -> None:
+    """Daj Profilowi pracownika więcej wysokości, nie wychodząc poza ekran."""
+    try:
+        win.update_idletasks()
+        screen_w = max(1, int(win.winfo_screenwidth()))
+        screen_h = max(1, int(win.winfo_screenheight()))
+
+        width = min(980, max(760, screen_w - 80))
+        height = min(900, max(760, screen_h - 140))
+        height = min(height, max(650, screen_h - 80))
+
+        x = max(0, (screen_w - width) // 2)
+        y = max(0, (screen_h - height) // 2)
+        win.geometry(f"{width}x{height}+{x}+{y}")
+        win.minsize(min(900, width), min(650, height))
+    except Exception:
+        try:
+            win.geometry("980x760")
+        except Exception:
+            pass
+
+
 def _replace_mode_help(schedule) -> None:
     for widget in list(schedule.winfo_children()):
         if not isinstance(widget, ttk.Button):
@@ -92,6 +114,7 @@ def _replace_mode_help(schedule) -> None:
 
 
 def _decorate_employee_window(win: tk.Toplevel) -> None:
+    _fit_employee_window(win)
     if getattr(win, "_wm_shift_modes_synced_v1", False):
         return
     schedule = _find_tab(win, "Grafik")
@@ -181,7 +204,8 @@ def install() -> None:
             try:
                 root.update_idletasks()
                 created = _all_toplevels(root) - before
-                for win in created:
+                candidates = created or _all_toplevels(root)
+                for win in candidates:
                     try:
                         if str(win.title()).startswith("Profil pracownika —"):
                             _decorate_employee_window(win)
