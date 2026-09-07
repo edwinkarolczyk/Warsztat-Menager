@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 import tkinter as tk
 from tkinter import ttk
 
@@ -47,7 +47,14 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
             "pay_label": "50%",
         },
     ]
+    # Prawy panel szczegółów czyta pojedynczy dzień, a kafelki miesiąca korzystają
+    # z szybkiego snapshotu zbiorczego. Test podmienia oba wejścia celowo.
     monkeypatch.setattr(team_runtime, "_team_day_rows", lambda _day: sample_rows)
+    monkeypatch.setattr(
+        team_runtime,
+        "_team_month_rows",
+        lambda _year, _month: {day: sample_rows for day in range(1, 31)},
+    )
 
     root = tk.Tk()
     try:
@@ -68,7 +75,7 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert "Mój" not in radios
         assert "Zespół" not in radios
 
-        # Kafelki nadal pokazują skrót Zespołu.
+        # Kafelki nadal pokazują skrót Zespołu z miesięcznego snapshotu.
         day_buttons = [
             widget
             for widget in panel.calendar_box.winfo_children()
