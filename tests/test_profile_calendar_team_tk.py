@@ -1,4 +1,4 @@
-# version: 1.4
+# version: 1.5
 import tkinter as tk
 from tkinter import ttk
 
@@ -50,7 +50,7 @@ def test_team_tile_lines_use_two_columns_and_six_people_limit():
     lines = final_fix._team_tile_lines(7, rows)
 
     assert lines[0] == "7"
-    assert len(lines) == 4  # numer dnia + trzy rzędy po dwie osoby
+    assert len(lines) == 4
     assert "Login1 06–14" in lines[1] and "Login2 06–14" in lines[1]
     assert "Login3 06–14" in lines[2] and "Login4 06–14" in lines[2]
     assert "Login5 06–14" in lines[3] and "Login6 06–14" in lines[3]
@@ -116,8 +116,6 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
             "pay_label": "100%",
         },
     ]
-    # Panel szczegółów czyta pojedynczy dzień, a kafelki miesiąca korzystają
-    # z szybkiego snapshotu zbiorczego. Test podmienia oba wejścia celowo.
     monkeypatch.setattr(team_runtime, "_team_day_rows", lambda _day: sample_rows)
     monkeypatch.setattr(
         team_runtime,
@@ -135,7 +133,6 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         panel._render_calendar()
         root.update_idletasks()
 
-        # Brygadzista nie przełącza już między dwoma kalendarzami.
         radios = [
             str(widget.cget("text"))
             for widget in _walk(panel)
@@ -144,24 +141,31 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert "Mój" not in radios
         assert "Zespół" not in radios
 
-        # Kafelki wykorzystują szerokość: dwie osoby są w jednym wierszu.
         day_buttons = [
             widget
             for widget in panel.calendar_box.winfo_children()
             if isinstance(widget, tk.Button)
         ]
-        day_texts = [str(widget.cget("text")) for widget in day_buttons]
-        assert any(
-            any("Marek 14–22" in line and "Dawid ŚW" in line for line in text.splitlines())
-            for text in day_texts
-        )
-        assert any(
-            any("Sebastian 06–14" in line and "Edwin UR" in line for line in text.splitlines())
-            for text in day_texts
-        )
+        assert day_buttons
+        assert all(str(button.cget("text")).strip().isdigit() for button in day_buttons)
 
-        # Lista zespołu jest pod kalendarzem na pełną szerokość i dopasowuje
-        # wysokość do wpisów, ale nigdy nie przekracza 6 widocznych pracowników.
+        # Każdy dzień zespołu ma osobną nakładkę. Wpisy nie są już sklejane
+        # spacjami w tekście przycisku, tylko zajmują dwie równe kolumny.
+        frames = getattr(panel, "_wm_team_tile_frames", {})
+        assert frames
+        sample_frame = frames[min(frames)]
+        cells = [
+            widget
+            for widget in sample_frame.winfo_children()
+            if isinstance(widget, tk.Label) and str(widget.cget("relief")) == "solid"
+        ]
+        assert len(cells) == 4  # 4 osoby = dwa rzędy po dwie komórki
+        texts = [str(cell.cget("text")) for cell in cells]
+        assert texts == ["Marek 14–22", "Dawid ŚW", "Sebastian 06–14", "Edwin UR"]
+        grids = [cell.grid_info() for cell in cells]
+        assert [int(info["column"]) for info in grids] == [0, 1, 0, 1]
+        assert [int(info["row"]) for info in grids] == [1, 1, 2, 2]
+
         detail_tree = panel._wm_team_detail_tree
         assert len(detail_tree.get_children()) == 4
         assert int(detail_tree.cget("height")) == 4
@@ -179,8 +183,6 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert int(side_grid.get("columnspan", 1)) == 2
         assert side.master is body
 
-        # Kalendarz pozostaje podglądem — bez skrótów Obecność/Urlopy i bez
-        # ukrytego wejścia do edycji po dwukliku.
         button_texts = {
             str(widget.cget("text"))
             for widget in _walk(side)
@@ -189,7 +191,6 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert "Obecność" not in button_texts
         assert "Urlopy" not in button_texts
 
-        # Kliknięcie dnia nie tworzy osobnego Toplevela.
         before_windows = [widget for widget in root.winfo_children() if isinstance(widget, tk.Toplevel)]
         day_buttons[0].invoke()
         root.update_idletasks()
