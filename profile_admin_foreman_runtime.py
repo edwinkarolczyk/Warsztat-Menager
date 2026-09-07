@@ -1,4 +1,4 @@
-# version: 2.3
+# version: 2.4
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -227,7 +227,8 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] profile entrypoints install failed: {exc!r}")
 
-    # Kalendarz Brygadzisty dostaje przełącznik Mój/Zespół i szczegóły dnia.
+    # Bazowy runtime Kalendarza dostarcza dane Zespołu; finalny workspace niżej
+    # zamienia przełącznik Mój/Zespół na jeden zaawansowany widok Brygadzisty.
     try:
         from profile_calendar_team_runtime import install as install_team_calendar
         install_team_calendar()
@@ -241,8 +242,8 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] admin group install failed: {exc!r}")
 
-    # Ostatnia warstwa edytora pracownika: jedno okno na osobę, pełny refresh,
-    # wybór roku urlopu, czytelna historia i schowane rzadkie Uprawnienia.
+    # Jedno okno na pracownika, refresh i eksport. Finalny workspace niżej
+    # pozostawia Historia/Uprawnienia jako bezpośrednie zakładki.
     try:
         from profile_employee_editor_finish_runtime import install as install_employee_editor_finish
         install_employee_editor_finish()
@@ -256,6 +257,14 @@ def _install_workforce_extensions() -> None:
         install_shift_mode_sync()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] shift mode sync install failed: {exc!r}")
+
+    # Ostatni właściciel UI Profilu Brygadzisty: bez dialogów kaskadowych.
+    # Korzysta z powyższych serwisów/backendów, ale przejmuje końcową nawigację.
+    try:
+        from profile_foreman_workspace_runtime import install as install_foreman_workspace
+        install_foreman_workspace()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] foreman workspace install failed: {exc!r}")
 
 
 def install() -> None:
