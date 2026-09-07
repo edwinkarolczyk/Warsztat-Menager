@@ -1,13 +1,13 @@
-# version: 1.2
+# version: 1.3
 """Spójna warstwa profili pracowników WM.
 
 Normalizuje historyczne formaty profiles.json przez profiles_store, nadaje
 trwałe user_id i ustala jedno pole limitu urlopu:
 ``entitlements.urlop_rocznie``. Login pozostaje edytowalny, user_id nie.
 
-Od 1.2 grafik ma dokładnie cztery kanoniczne wzorce: 111/222/121/212.
-Historyczne aliasy są migrowane, a nieobsługiwane stare wzorce nie wracają
-do konfiguracji.
+Od 1.3 katalog trybów grafiku pochodzi bezpośrednio z silnika Grafiku.
+Migracja konfiguracji patrzy na realną warstwę globalną, a nie na merged defaults,
+dzięki czemu zwykły odczyt profili nie uruchamia w pętli ``save_all()``.
 """
 from __future__ import annotations
 
@@ -16,26 +16,14 @@ from pathlib import Path
 from typing import Iterable
 
 from config_manager import ConfigManager
+from grafiki.shifts_schedule import (
+    _available_patterns as _schedule_available_patterns,
+    _normalize_mode as _schedule_normalize_mode,
+)
 from profiles_store import load_profiles_users, resolve_profiles_path, save_profiles_users
 
 
-_BASE_SHIFT_PATTERNS: dict[str, str] = {
-    "111": "111",
-    "222": "222",
-    "121": "121",
-    "212": "212",
-}
-
-_LEGACY_MODE_ALIASES: dict[str, str] = {
-    "1111": "111",
-    "2222": "222",
-    "1212": "121",
-    "2121": "212",
-    "I": "111",
-    "1": "111",
-    "II": "222",
-    "2": "222",
-}
+_BASE_SHIFT_PATTERNS: dict[str, str] = dict(_schedule_available_patterns())
 
 
 def _key(value: object) -> str:
@@ -43,25 +31,42 @@ def _key(value: object) -> str:
 
 
 def normalize_shift_mode(value: object, *, fallback: str = "111") -> str:
-    raw = str(value or "").strip().upper()
-    raw = _LEGACY_MODE_ALIASES.get(raw, raw)
-    if raw in _BASE_SHIFT_PATTERNS:
-        return raw
-    return fallback if fallback in _BASE_SHIFT_PATTERNS else "111"
+    return _schedule_normalize_mode(value, fallback=fallback)
 
 
 def merge_shift_patterns(raw: object) -> dict[str, str]:
-    """Zwróć dokładnie cztery obsługiwane wzorce grafiku WM."""
-    return dict(_BASE_SHIFT_PATTERNS)
+    """Zwróć dokładnie kanoniczne wzorce z silnika Grafiku WM."""
+    return dict(_schedule_available_patterns())
+
+
+def _global_shifts_config(cfg: ConfigManager) -> dict:
+    """Zwróć tylko zapisaną warstwę ``shifts`` bez domieszek defaults.
+
+    ``cfg.get()`` zwraca konfigurację scaloną. Dla migracji jest to zły wybór,
+    bo usunięte historyczne klucze z defaults pojawiają się ponownie i dawniej
+    powodowały nieskończone ``set() -> save_all()`` przy każdym odczycie profili.
+    """
+    raw = getattr(cfg, "global_cfg", {})
+    if not isinstance(raw, dict):
+        return {}
+    shifts = raw.get("shifts")
+    return dict(shifts) if isinstance(shifts, dict) else {}
 
 
 def ensure_required_shift_patterns() -> dict[str, str]:
-    """Ustaw kanoniczne wzorce i migruj stare kody trybów w config."""
+    """Idempotentnie ustaw kanoniczne wzorce i migruj stare kody trybów.
+
+    Funkcja może być wołana wielokrotnie podczas renderowania Profilu/Kalendarza,
+    ale zapisuje config wyłącznie wtedy, gdy *faktycznie zapisana* warstwa globalna
+    wymaga zmiany. Odczyt merged defaults nie może już wywołać zapisu.
+    """
+    desired_patterns = dict(_schedule_available_patterns())
     try:
         cfg = ConfigManager()
         changed = False
+        shifts_cfg = _global_shifts_config(cfg)
 
-        raw_patterns = cfg.get("shifts.patterns", {})
+        raw_patterns = shifts_cfg.get("patterns")
         current_patterns: dict[str, str] = {}
         if isinstance(raw_patterns, dict):
             current_patterns = {
@@ -69,12 +74,16 @@ def ensure_required_shift_patterns() -> dict[str, str]:
                 for key, value in raw_patterns.items()
                 if str(key).strip()
             }
-        if current_patterns != _BASE_SHIFT_PATTERNS:
-            cfg.set("shifts.patterns", dict(_BASE_SHIFT_PATTERNS))
+        if current_patterns != desired_patterns:
+            cfg.set("shifts.patterns", desired_patterns)
             changed = True
 
-        raw_modes = cfg.get("shifts.modes", {})
-        modes = dict(raw_modes) if isinstance(raw_modes, dict) else {}
+        raw_modes = shifts_cfg.get("modes")
+        if not isinstance(raw_modes, dict):
+            raw_modes = {}
+            cfg.set("shifts.modes", {})
+            changed = True
+        modes = dict(raw_modes)
         normalized_modes = {
             str(user_key): normalize_shift_mode(mode)
             for user_key, mode in modes.items()
@@ -84,16 +93,16 @@ def ensure_required_shift_patterns() -> dict[str, str]:
             cfg.set("shifts.modes", normalized_modes)
             changed = True
 
-        raw_anchors = cfg.get("shifts.user_anchor", {})
+        raw_anchors = shifts_cfg.get("user_anchor")
         if not isinstance(raw_anchors, dict):
             cfg.set("shifts.user_anchor", {})
             changed = True
 
         if changed:
             cfg.save_all()
-        return dict(_BASE_SHIFT_PATTERNS)
+        return desired_patterns
     except Exception:
-        return dict(_BASE_SHIFT_PATTERNS)
+        return desired_patterns
 
 
 def _next_user_id(users: list[dict]) -> str:
