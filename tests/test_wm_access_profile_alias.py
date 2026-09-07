@@ -23,13 +23,20 @@ class _FakeConfig:
         self.save_all_calls += 1
 
 
-def test_profile_aliases_normalize_to_canonical_profil():
-    assert wm_access.normalize_module_name("profil") == "profil"
-    assert wm_access.normalize_module_name("profile") == "profil"
+def _normalized_defaults():
+    return {
+        role: wm_access._normalize_modules_map(modules)
+        for role, modules in wm_access._all_default_role_modules().items()
+    }
+
+
+def test_profile_aliases_normalize_to_canonical_profile():
+    assert wm_access.normalize_module_name("profil") == "profile"
+    assert wm_access.normalize_module_name("profile") == "profile"
 
 
 def test_repeated_profile_access_does_not_rewrite_complete_role_config(monkeypatch):
-    expected = wm_access._all_default_role_modules()
+    expected = _normalized_defaults()
     cfg = _FakeConfig(copy.deepcopy(expected))
 
     monkeypatch.setattr(wm_access, "ConfigManager", lambda: cfg)
@@ -46,3 +53,17 @@ def test_repeated_profile_access_does_not_rewrite_complete_role_config(monkeypat
     assert cfg.role_modules == expected
     assert cfg.set_calls == 0
     assert cfg.save_all_calls == 0
+
+
+def test_legacy_profil_keys_are_migrated_only_once(monkeypatch):
+    cfg = _FakeConfig(copy.deepcopy(wm_access._all_default_role_modules()))
+    monkeypatch.setattr(wm_access, "ConfigManager", lambda: cfg)
+
+    wm_access.ensure_default_role_modules_config()
+    assert cfg.role_modules == _normalized_defaults()
+    assert cfg.set_calls == 1
+    assert cfg.save_all_calls == 1
+
+    wm_access.ensure_default_role_modules_config()
+    assert cfg.set_calls == 1
+    assert cfg.save_all_calls == 1
