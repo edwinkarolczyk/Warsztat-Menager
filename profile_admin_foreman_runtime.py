@@ -1,4 +1,4 @@
-# version: 2.6
+# version: 2.7
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -167,7 +167,7 @@ def _install_workforce_extensions() -> None:
         from leave_ui_runtime import install as install_leave_ui
         install_leave_ui()
     except Exception as exc:
-        print(f"[WM-DBG][PROFILE][WARN] leave UI runtime install failed: {exc!r}")
+        print(f"[WM-DBG][PROFILE][WARN] leave UI install failed: {exc!r}")
 
     try:
         from profile_foreman_edit_runtime import install as install_foreman_edit
@@ -240,21 +240,24 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] foreman workspace install failed: {exc!r}")
 
-    # Po finalnym workspace dopnij politykę Dni pracy. Musi być ostatnia,
-    # bo waliduje końcowy edytor Obecności i końcowy Kalendarz Brygadzisty.
     try:
         from profile_workday_policy_runtime import install as install_workday_policy
         install_workday_policy()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] workday policy install failed: {exc!r}")
 
-    # Finalnie połącz stare wejście logowania z kanoniczną Obecnością i
-    # przeformatuj kafelki Zespołu, nie wykonując drugiego odczytu miesiąca.
     try:
         from profile_login_calendar_fix_runtime import install as install_login_calendar_fix
         install_login_calendar_fix()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] login/calendar final fix failed: {exc!r}")
+
+    # Ostatnia warstwa: tylko zaległe poprawki z logów. Nie zmienia źródeł danych.
+    try:
+        from wm_operational_followup_runtime import install as install_operational_followup
+        install_operational_followup()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] operational followup failed: {exc!r}")
 
 
 def install() -> None:
