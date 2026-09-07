@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.4
 """Spójna warstwa profili pracowników WM.
 
 Normalizuje historyczne formaty profiles.json przez profiles_store, nadaje
@@ -8,10 +8,14 @@ trwałe user_id i ustala jedno pole limitu urlopu:
 Od 1.3 katalog trybów grafiku pochodzi bezpośrednio z silnika Grafiku.
 Migracja konfiguracji patrzy na realną warstwę globalną, a nie na merged defaults,
 dzięki czemu zwykły odczyt profili nie uruchamia w pętli ``save_all()``.
+
+Od 1.4 ``workdays`` ma jedno znaczenie w całym Profilu: brak pola oznacza
+poniedziałek-piątek, a jawnie zapisana pusta lista oznacza brak dni pracy.
 """
 from __future__ import annotations
 
 import shutil
+from datetime import date
 from pathlib import Path
 from typing import Iterable
 
@@ -24,6 +28,7 @@ from profiles_store import load_profiles_users, resolve_profiles_path, save_prof
 
 
 _BASE_SHIFT_PATTERNS: dict[str, str] = dict(_schedule_available_patterns())
+DEFAULT_WORKDAYS: tuple[int, ...] = (0, 1, 2, 3, 4)
 
 
 def _key(value: object) -> str:
@@ -221,6 +226,43 @@ def get_user(login_or_id: str) -> dict | None:
     return None
 
 
+def workdays_for(user_or_login: dict | str) -> set[int]:
+    """Zwróć jawnie zapisane dni pracy jako numery ``date.weekday()``.
+
+    Brak pola ``workdays``/``dni_pracy`` zachowuje historyczne domyślne Pn-Pt.
+    Jawnie zapisana pusta lista pozostaje pusta i nie jest zamieniana na Pn-Pt.
+    """
+    user = dict(user_or_login) if isinstance(user_or_login, dict) else (get_user(str(user_or_login or "")) or {})
+    raw = user.get("workdays")
+    if raw is None:
+        raw = user.get("dni_pracy")
+    if raw is None:
+        return set(DEFAULT_WORKDAYS)
+    if not isinstance(raw, (list, tuple, set)):
+        return set(DEFAULT_WORKDAYS)
+    out: set[int] = set()
+    for item in raw:
+        try:
+            value = int(item)
+        except Exception:
+            continue
+        if 0 <= value <= 6:
+            out.add(value)
+    return out
+
+
+def is_workday(user_or_login: dict | str, day_value: date | str) -> bool:
+    """Czy data jest skonfigurowanym dniem pracy danego pracownika."""
+    if isinstance(day_value, date):
+        parsed = day_value
+    else:
+        try:
+            parsed = date.fromisoformat(str(day_value or "").strip()[:10])
+        except Exception:
+            return False
+    return parsed.weekday() in workdays_for(user_or_login)
+
+
 def save_user(user: dict, *, actor: str = "") -> dict:
     """Zapisz profil; istniejącego user_id nie wolno podmienić."""
     users = list_users()
@@ -316,12 +358,15 @@ def display_name(user: dict) -> str:
 
 
 __all__ = [
+    "DEFAULT_WORKDAYS",
     "ensure_profile_schema",
     "ensure_required_shift_patterns",
     "merge_shift_patterns",
     "normalize_shift_mode",
     "list_users",
     "get_user",
+    "workdays_for",
+    "is_workday",
     "save_user",
     "write_users",
     "is_foreman",
