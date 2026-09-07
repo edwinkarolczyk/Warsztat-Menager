@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 from datetime import date, datetime
 
 import pytest
@@ -17,6 +17,16 @@ def _payload(day_text: str, *, absence: str = "BRAK", day_value: float = 1.0) ->
         "overtime_hours": 0.0,
         "first_login": "",
     }
+
+
+def test_weekday_labels_match_polish_calendar():
+    assert policy._weekday_label("2026-09-07") == "Pon"
+    assert policy._weekday_label("2026-09-08") == "Wt"
+    assert policy._weekday_label("2026-09-09") == "Śr"
+    assert policy._weekday_label("2026-09-10") == "Czw"
+    assert policy._weekday_label("2026-09-11") == "Pt"
+    assert policy._weekday_label("2026-09-12") == "Sob"
+    assert policy._weekday_label("2026-09-13") == "Nie"
 
 
 def test_empty_workdays_really_means_no_workdays():
