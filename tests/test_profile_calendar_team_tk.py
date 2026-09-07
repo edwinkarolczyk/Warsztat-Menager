@@ -1,10 +1,11 @@
-# version: 1.2
+# version: 1.3
 import tkinter as tk
 from tkinter import ttk
 
 import gui_profile_calendar as calendar_ui
 import profile_calendar_team_runtime as team_runtime
 import profile_foreman_workspace_runtime as workspace
+import profile_workday_policy_runtime as policy
 
 
 def _walk(widget):
@@ -15,11 +16,31 @@ def _walk(widget):
     return out
 
 
+def test_attendance_tree_gets_polish_weekday_column():
+    root = tk.Tk()
+    try:
+        tree = ttk.Treeview(root, columns=("date", "slot"), show="headings")
+        tree.heading("date", text="Data")
+        tree.heading("slot", text="Zmiana")
+        first = tree.insert("", "end", values=("2026-09-07", "RANO"))
+
+        policy._install_weekday_column(tree)
+
+        assert tuple(tree.cget("columns")) == ("date", "weekday", "slot")
+        assert tuple(tree.item(first, "values")) == ("2026-09-07", "Pon", "RANO")
+
+        second = tree.insert("", "end", values=("2026-09-12", "POPO"))
+        assert tuple(tree.item(second, "values")) == ("2026-09-12", "Sob", "POPO")
+    finally:
+        root.destroy()
+
+
 def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
     monkeypatch.setattr(team_runtime, "_is_foreman", lambda: True)
     monkeypatch.setattr(calendar_ui.ProfileCalendarPanel, "refresh", lambda self: None)
     team_runtime.install()
     workspace.install()
+    policy._install_calendar_layout()
 
     sample_rows = [
         {
@@ -47,7 +68,7 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
             "pay_label": "50%",
         },
     ]
-    # Prawy panel szczegółów czyta pojedynczy dzień, a kafelki miesiąca korzystają
+    # Panel szczegółów czyta pojedynczy dzień, a kafelki miesiąca korzystają
     # z szybkiego snapshotu zbiorczego. Test podmienia oba wejścia celowo.
     monkeypatch.setattr(team_runtime, "_team_day_rows", lambda _day: sample_rows)
     monkeypatch.setattr(
@@ -85,10 +106,36 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         assert any("Marek 14–22" in text for text in day_texts)
         assert any("Dawid ŚW" in text for text in day_texts)
 
-        # Szczegóły dnia są częścią tego samego panelu, a kliknięcie dnia
-        # nie tworzy już osobnego Toplevela.
+        # Lista zespołu jest pod kalendarzem na pełną szerokość i dopasowuje
+        # wysokość do wpisów, ale nigdy nie przekracza 6 widocznych pracowników.
         detail_tree = panel._wm_team_detail_tree
         assert len(detail_tree.get_children()) == 2
+        assert int(detail_tree.cget("height")) == 2
+        assert panel._wm_team_max_visible_rows == 6
+
+        body = panel.calendar_box.master
+        side = detail_tree.master
+        calendar_grid = panel.calendar_box.grid_info()
+        side_grid = side.grid_info()
+        assert int(calendar_grid.get("row", -1)) == 0
+        assert int(calendar_grid.get("column", -1)) == 0
+        assert int(calendar_grid.get("columnspan", 1)) == 2
+        assert int(side_grid.get("row", -1)) == 1
+        assert int(side_grid.get("column", -1)) == 0
+        assert int(side_grid.get("columnspan", 1)) == 2
+        assert side.master is body
+
+        # Kalendarz pozostaje podglądem — bez skrótów Obecność/Urlopy i bez
+        # ukrytego wejścia do edycji po dwukliku.
+        button_texts = {
+            str(widget.cget("text"))
+            for widget in _walk(side)
+            if isinstance(widget, ttk.Button)
+        }
+        assert "Obecność" not in button_texts
+        assert "Urlopy" not in button_texts
+
+        # Kliknięcie dnia nie tworzy osobnego Toplevela.
         before_windows = [widget for widget in root.winfo_children() if isinstance(widget, tk.Toplevel)]
         day_buttons[0].invoke()
         root.update_idletasks()
