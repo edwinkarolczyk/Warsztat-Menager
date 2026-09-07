@@ -1,4 +1,4 @@
-# version: 2.5
+# version: 2.6
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -247,6 +247,14 @@ def _install_workforce_extensions() -> None:
         install_workday_policy()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] workday policy install failed: {exc!r}")
+
+    # Finalnie połącz stare wejście logowania z kanoniczną Obecnością i
+    # przeformatuj kafelki Zespołu, nie wykonując drugiego odczytu miesiąca.
+    try:
+        from profile_login_calendar_fix_runtime import install as install_login_calendar_fix
+        install_login_calendar_fix()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] login/calendar final fix failed: {exc!r}")
 
 
 def install() -> None:
