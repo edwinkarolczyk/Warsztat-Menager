@@ -1,16 +1,21 @@
-# version: 1.2
-"""Rozszerza istniejący Kalendarz Profilu o tryb „Zespół” dla Brygadzisty.
+# version: 1.3
+"""Rozszerza istniejący Kalendarz Profilu o dane Zespołu dla Brygadzisty.
 
-Tryb „Mój” pozostaje bez zmian. Tryb „Zespół” pokazuje w kafelkach krótki
-skrót i otwiera szczegóły dnia bez przeciążania głównego kalendarza.
+Od 1.3 finalny workspace Brygadzisty jest właścicielem jednego kalendarza.
+Ta warstwa dostarcza mu lekki snapshot dnia: profile, urlopy i obecność są
+czytane zbiorczo, bez wywoływania ``month_records`` osobno dla każdego dnia
+i pracownika.
 """
 from __future__ import annotations
 
 import tkinter as tk
-from datetime import date
+from datetime import date, datetime, timedelta
 from tkinter import ttk
 from typing import Any
 
+from config_manager import ConfigManager
+from grafiki.shifts_schedule import _normalize_mode as _schedule_normalize_mode
+from grafiki.shifts_schedule import _slot_for_mode as _schedule_slot_for_mode
 from services import attendance_service, day_pay_service, workforce_profile_service
 from ui_context_help import add_help_button
 
@@ -58,7 +63,109 @@ def _short_name(user: dict) -> str:
     return shown.split()[0] if shown else str(user.get("login") or "—")
 
 
+def _parse_profile_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except Exception:
+        return None
+
+
+def _planned_slot_from_user(user: dict, day: date, shifts_cfg: dict) -> str | None:
+    """Wylicz zmianę z już wczytanego profilu, bez ponownego czytania profiles.json."""
+    role = str(user.get("rola") or user.get("role") or "").strip().casefold()
+    login = str(user.get("login") or "").strip()
+    if not login or role == "guest":
+        return None
+
+    employed_from = _parse_profile_date(user.get("zatrudniony_od"))
+    employed_to = _parse_profile_date(user.get("zatrudniony_do"))
+    if employed_from and day < employed_from:
+        return None
+    if employed_to and day > employed_to:
+        return None
+
+    raw_days = user.get("workdays")
+    if raw_days is None:
+        raw_days = user.get("dni_pracy")
+    try:
+        workdays = {int(item) for item in (raw_days or [0, 1, 2, 3, 4])}
+    except Exception:
+        workdays = {0, 1, 2, 3, 4}
+    if day.weekday() not in workdays:
+        return None
+
+    uid = str(user.get("user_id") or user.get("id") or login).strip()
+    modes = shifts_cfg.get("modes") if isinstance(shifts_cfg.get("modes"), dict) else {}
+    anchors = shifts_cfg.get("user_anchor") if isinstance(shifts_cfg.get("user_anchor"), dict) else {}
+    raw_mode = (
+        modes.get(uid)
+        or modes.get(login)
+        or user.get("tryb_zmian")
+        or user.get("zmiana_plan")
+        or user.get("shift_mode")
+        or "111"
+    )
+    mode = _schedule_normalize_mode(raw_mode)
+
+    raw_anchor = (
+        anchors.get(uid)
+        or anchors.get(login)
+        or user.get("rotacja_start")
+        or user.get("shift_start")
+        or "2025-01-06"
+    )
+    anchor = _parse_profile_date(raw_anchor) or date(2025, 1, 6)
+    anchor = anchor - timedelta(days=anchor.weekday())
+    monday = day - timedelta(days=day.weekday())
+    week_idx = (monday - anchor).days // 7
+    return _schedule_slot_for_mode(mode, week_idx)
+
+
+def _record_matches_user(record: dict, storage_key: Any, user: dict) -> bool:
+    login = str(user.get("login") or "").strip().casefold()
+    uid = str(user.get("user_id") or user.get("id") or "").strip().casefold()
+    storage = str(storage_key or "").strip().casefold()
+    record_uid = str(record.get("user_id") or "").strip().casefold()
+    snapshot = str(record.get("login_snapshot") or record.get("login") or "").strip().casefold()
+    return bool(
+        (uid and (storage == uid or record_uid == uid))
+        or (login and (storage == login or snapshot == login))
+    )
+
+
+def _attendance_for_user(day_map: dict, user: dict, preferred_slot: str | None) -> dict | None:
+    slots = [preferred_slot] if preferred_slot in attendance_service.VALID_SLOTS else []
+    slots.extend(slot for slot in (attendance_service.RANO, attendance_service.POPO) if slot not in slots)
+    for slot in slots:
+        slot_map = day_map.get(slot)
+        if not isinstance(slot_map, dict):
+            continue
+        for storage_key, record in slot_map.items():
+            if not isinstance(record, dict) or not _record_matches_user(record, storage_key, user):
+                continue
+            row = dict(record)
+            row.update(
+                {
+                    "date": str(day_map.get("_date") or ""),
+                    "slot": slot,
+                    "login": str(user.get("login") or "").strip().casefold(),
+                    "synthetic": False,
+                }
+            )
+            return row
+    return None
+
+
 def _team_day_rows(day: date) -> list[dict]:
+    """Zbuduj stan jednego dnia jednym odczytem danych zespołu.
+
+    Poprzednia wersja wołała ``month_records`` dla każdego pracownika, a stary
+    renderer robił to jeszcze dla każdego dnia miesiąca. Przy 8 pracownikach
+    oznaczało to setki odczytów profili/grafiku. Tutaj dane dnia są czytane raz.
+    """
     try:
         from services.leave_workflow_service import read_leaves, read_requests
         leaves = read_leaves()
@@ -66,7 +173,25 @@ def _team_day_rows(day: date) -> list[dict]:
     except Exception:
         leaves, requests = [], []
 
+    users = workforce_profile_service.list_users(active_only=True)
+    try:
+        cfg = ConfigManager()
+        shifts_cfg = cfg.get("shifts", {})
+        if not isinstance(shifts_cfg, dict):
+            shifts_cfg = {}
+    except Exception:
+        shifts_cfg = {}
+
+    try:
+        attendance_doc = attendance_service._read(attendance_service.data_path(), {})
+    except Exception:
+        attendance_doc = {}
+
     day_text = day.isoformat()
+    raw_day_map = attendance_doc.get(day_text, {}) if isinstance(attendance_doc, dict) else {}
+    day_map = dict(raw_day_map) if isinstance(raw_day_map, dict) else {}
+    day_map["_date"] = day_text
+
     pending_by_login: set[str] = set()
     for request in requests:
         if str(request.get("status") or "").strip().casefold() != "pending":
@@ -82,27 +207,38 @@ def _team_day_rows(day: date) -> list[dict]:
         if login:
             leave_by_login[login] = dict(row)
 
+    now = datetime.now()
     out: list[dict] = []
-    for user in workforce_profile_service.list_users(active_only=True):
+    for user in users:
         role = str(user.get("rola") or user.get("role") or "").strip().casefold()
         login = str(user.get("login") or "").strip()
         if not login or role == "guest":
             continue
         key = login.casefold()
         try:
-            slot = attendance_service._planned_slot_for_day(login, day)
+            slot = _planned_slot_from_user(user, day, shifts_cfg)
         except Exception:
             slot = None
 
-        att_row = None
-        try:
-            for row in attendance_service.month_records(login, day.year, day.month):
-                if str(row.get("date") or "")[:10] == day_text:
-                    att_row = dict(row)
-                    if str(row.get("slot") or "") == str(slot or ""):
-                        break
-        except Exception:
-            pass
+        att_row = _attendance_for_user(day_map, user, slot)
+        if att_row is None and slot in attendance_service.VALID_SLOTS:
+            due = attendance_service._decision_due(day, slot, now)
+            att_row = {
+                "date": day_text,
+                "slot": slot,
+                "login": key,
+                "user_id": str(user.get("user_id") or user.get("id") or login),
+                "planned": True,
+                "status": attendance_service.STATUS_MISSING if due else attendance_service.STATUS_PLANNED,
+                "day_value": 0.0,
+                "confirmed": False,
+                "approval_required": bool(due),
+                "source": "schedule",
+                "reason": "",
+                "first_login_ts": "",
+                "logged_ts": "",
+                "synthetic": True,
+            }
 
         leave = leave_by_login.get(key)
         status_code = ""
@@ -186,6 +322,7 @@ def _team_day_rows(day: date) -> list[dict]:
             "summary": summary_status,
             "pay_percent": pay_percent,
             "pay_label": pay_label,
+            "_attendance_row": dict(att_row or {}),
         })
     return out
 
@@ -425,6 +562,10 @@ def install() -> None:
 
     def _render_calendar(self):
         original_render(self)
+        # Finalny workspace Brygadzisty ma własny jeden kalendarz i panel dnia.
+        # Nie buduj pod spodem starego trybu Zespół dla KAŻDEGO dnia miesiąca.
+        if getattr(self.__class__, "_wm_single_advanced_calendar", False):
+            return
         if not _is_foreman() or str(getattr(self, "_wm_calendar_mode", tk.StringVar(value="Mój")).get()) != "Zespół":
             return
         for child in self.calendar_box.winfo_children():
