@@ -356,12 +356,13 @@ def ensure_default_role_modules_config() -> dict:
 
     for role, default_modules in DEFAULT_ROLE_MODULES.items():
         role_map = existing.get(role)
+        normalized_defaults = _normalize_modules_map(default_modules)
         if not isinstance(role_map, dict):
-            existing[role] = dict(default_modules)
+            existing[role] = normalized_defaults
             changed = True
             continue
         normalized_map = _normalize_modules_map(role_map)
-        for module, allowed in default_modules.items():
+        for module, allowed in normalized_defaults.items():
             if module not in normalized_map:
                 normalized_map[module] = bool(allowed)
                 changed = True
@@ -413,13 +414,17 @@ def get_role_modules(role: str) -> dict[str, bool]:
     """Zwróć mapę modułów dla roli z configu z fallbackiem do domyślnych."""
 
     role_key = normalize_role_name(role)
-    defaults = dict(DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"]))
+    defaults = _normalize_modules_map(
+        DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"])
+    )
     configured = ensure_default_role_modules_config()
     configured_for_role = configured.get(role_key)
     if isinstance(configured_for_role, dict):
         defaults.update(_normalize_modules_map(configured_for_role))
     for module in ALL_ACCESS_MODULES:
-        defaults.setdefault(module, False)
+        module_key = normalize_module_name(module)
+        if module_key:
+            defaults.setdefault(module_key, False)
     return defaults
 
 
