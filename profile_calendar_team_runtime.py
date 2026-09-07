@@ -1,13 +1,14 @@
-# version: 1.3
+# version: 1.4
 """Rozszerza istniejący Kalendarz Profilu o dane Zespołu dla Brygadzisty.
 
-Od 1.3 finalny workspace Brygadzisty jest właścicielem jednego kalendarza.
-Ta warstwa dostarcza mu lekki snapshot dnia: profile, urlopy i obecność są
-czytane zbiorczo, bez wywoływania ``month_records`` osobno dla każdego dnia
-i pracownika.
+Od 1.4 finalny kalendarz Brygadzisty ładuje dane zespołu zbiorczo dla całego
+miesiąca: profile, urlopy, grafik i ewidencja Obecności są czytane po jednym
+razie. Kafelki nadal pokazują skrót zespołu, a kliknięty dzień korzysta z tego
+samego modelu danych bez mnożenia odczytów przez liczbę dni i pracowników.
 """
 from __future__ import annotations
 
+import calendar
 import tkinter as tk
 from datetime import date, datetime, timedelta
 from tkinter import ttk
@@ -159,17 +160,12 @@ def _attendance_for_user(day_map: dict, user: dict, preferred_slot: str | None) 
     return None
 
 
-def _team_day_rows(day: date) -> list[dict]:
-    """Zbuduj stan jednego dnia jednym odczytem danych zespołu.
-
-    Poprzednia wersja wołała ``month_records`` dla każdego pracownika, a stary
-    renderer robił to jeszcze dla każdego dnia miesiąca. Przy 8 pracownikach
-    oznaczało to setki odczytów profili/grafiku. Tutaj dane dnia są czytane raz.
-    """
+def _load_team_snapshots() -> tuple[list[dict], dict, dict, list[dict], list[dict]]:
+    """Wczytaj wszystkie źródła potrzebne Kalendarzowi dokładnie raz."""
     try:
         from services.leave_workflow_service import read_leaves, read_requests
-        leaves = read_leaves()
-        requests = read_requests()
+        leaves = list(read_leaves() or [])
+        requests = list(read_requests() or [])
     except Exception:
         leaves, requests = [], []
 
@@ -184,9 +180,25 @@ def _team_day_rows(day: date) -> list[dict]:
 
     try:
         attendance_doc = attendance_service._read(attendance_service.data_path(), {})
+        if not isinstance(attendance_doc, dict):
+            attendance_doc = {}
     except Exception:
         attendance_doc = {}
 
+    return users, shifts_cfg, attendance_doc, leaves, requests
+
+
+def _team_day_rows_from_snapshots(
+    day: date,
+    users: list[dict],
+    shifts_cfg: dict,
+    attendance_doc: dict,
+    leaves: list[dict],
+    requests: list[dict],
+    *,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Zbuduj jeden dzień wyłącznie z już wczytanych danych."""
     day_text = day.isoformat()
     raw_day_map = attendance_doc.get(day_text, {}) if isinstance(attendance_doc, dict) else {}
     day_map = dict(raw_day_map) if isinstance(raw_day_map, dict) else {}
@@ -207,7 +219,7 @@ def _team_day_rows(day: date) -> list[dict]:
         if login:
             leave_by_login[login] = dict(row)
 
-    now = datetime.now()
+    current = now or datetime.now()
     out: list[dict] = []
     for user in users:
         role = str(user.get("rola") or user.get("role") or "").strip().casefold()
@@ -222,7 +234,7 @@ def _team_day_rows(day: date) -> list[dict]:
 
         att_row = _attendance_for_user(day_map, user, slot)
         if att_row is None and slot in attendance_service.VALID_SLOTS:
-            due = attendance_service._decision_due(day, slot, now)
+            due = attendance_service._decision_due(day, slot, current)
             att_row = {
                 "date": day_text,
                 "slot": slot,
@@ -325,6 +337,31 @@ def _team_day_rows(day: date) -> list[dict]:
             "_attendance_row": dict(att_row or {}),
         })
     return out
+
+
+def _team_day_rows(day: date) -> list[dict]:
+    """Zbuduj stan jednego dnia jednym odczytem źródeł zespołu."""
+    snapshots = _load_team_snapshots()
+    return _team_day_rows_from_snapshots(day, *snapshots)
+
+
+def _team_month_rows(year: int, month: int) -> dict[int, list[dict]]:
+    """Zbuduj skróty wszystkich dni miesiąca na jednym snapshotcie źródeł."""
+    users, shifts_cfg, attendance_doc, leaves, requests = _load_team_snapshots()
+    current = datetime.now()
+    days = calendar.monthrange(int(year), int(month))[1]
+    return {
+        day_number: _team_day_rows_from_snapshots(
+            date(int(year), int(month), day_number),
+            users,
+            shifts_cfg,
+            attendance_doc,
+            leaves,
+            requests,
+            now=current,
+        )
+        for day_number in range(1, days + 1)
+    }
 
 
 def _emit_calendar_update(owner) -> None:
@@ -562,12 +599,10 @@ def install() -> None:
 
     def _render_calendar(self):
         original_render(self)
-        # Finalny workspace Brygadzisty ma własny jeden kalendarz i panel dnia.
-        # Nie buduj pod spodem starego trybu Zespół dla KAŻDEGO dnia miesiąca.
-        if getattr(self.__class__, "_wm_single_advanced_calendar", False):
-            return
         if not _is_foreman() or str(getattr(self, "_wm_calendar_mode", tk.StringVar(value="Mój")).get()) != "Zespół":
             return
+
+        rows_by_day = _team_month_rows(self.year, self.month)
         for child in self.calendar_box.winfo_children():
             if not isinstance(child, tk.Button):
                 continue
@@ -575,8 +610,7 @@ def install() -> None:
                 day_number = int(str(child.cget("text")).splitlines()[0])
             except Exception:
                 continue
-            selected_day = date(self.year, self.month, day_number)
-            rows = _team_day_rows(selected_day)
+            rows = rows_by_day.get(day_number, [])
             visible = [row for row in rows if row["status_code"] != "WOLNE"]
             shown = visible[:3]
             lines = [str(day_number)] + [f"{row['short_name']} {row['summary']}" for row in shown]
@@ -601,4 +635,4 @@ def install() -> None:
     _INSTALLED = True
 
 
-__all__ = ["install"]
+__all__ = ["install", "_team_day_rows", "_team_month_rows"]
