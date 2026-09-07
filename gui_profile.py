@@ -1,8 +1,10 @@
-# version: 1.9.6
+# version: 1.9.7
 """Aktywny Profil WM z Kalendarzem i panelem Brygadzisty.
 
 Diagnostyka wydajności Profilu korzysta z ``wm_perf`` i wypisuje do konsoli
 czas każdego ważnego etapu budowy, odświeżenia oraz leniwego ładowania zakładek.
+Od 1.9.7 powtórne ``load_by_login`` dla już zbudowanego tego samego profilu nie
+niszczy i nie buduje całego widoku drugi raz.
 """
 from __future__ import annotations
 
@@ -135,6 +137,24 @@ class ProfileView(_BaseProfileView):
         flow = PerfFlow("PROFILE_LOAD_BY_LOGIN")
         perf(f"PROFILE_LOAD_BY_LOGIN login={login!r}")
         try:
+            wanted = str(login or "").strip().casefold()
+            current = str(getattr(self, "login", "") or "").strip().casefold()
+            container = getattr(self, "_simple_container", None)
+            already_built = False
+            if container is not None:
+                try:
+                    already_built = bool(container.winfo_exists() and container.winfo_children())
+                except Exception:
+                    already_built = False
+            if wanted and wanted == current and already_built:
+                try:
+                    self.forced_login = str(getattr(self, "login", "") or login).strip()
+                except Exception:
+                    pass
+                perf("PROFILE_LOAD_BY_LOGIN SKIP already_loaded=True same_login=True")
+                flow.mark("already_loaded")
+                return
+
             with perf_span("PROFILE_LOAD_BY_LOGIN:base"):
                 super().load_by_login(login)
             flow.mark("base_done")
