@@ -1,4 +1,4 @@
-# version: 2.4
+# version: 2.5
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -41,8 +41,6 @@ def _install_profile_entrypoints() -> None:
         if parent is None:
             return result
 
-        # Ruch WM ma pokazywać wyłącznie aktywność operacyjną. Usuwamy wejście
-        # do pełnego profilu pracownika oraz podwójny klik otwierający edytor.
         for widget in _walk_widgets(parent):
             if not isinstance(widget, ttk.Button):
                 continue
@@ -149,8 +147,6 @@ def _install_profile_entrypoints() -> None:
 
 def _install_workforce_extensions() -> None:
     """Ładuj rozszerzenia po bazowych patchach, żeby nie zmieniać layoutu Profilu."""
-    # Najpierw neutralny model płatnych dni. Dzięki temu kolejne warstwy
-    # urlopów/obecności zapisują już kod dnia i procent płatności.
     try:
         from profile_payroll_seed_runtime import install as install_payroll_seed
         install_payroll_seed()
@@ -173,105 +169,89 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] leave UI runtime install failed: {exc!r}")
 
-    # Ta warstwa daje Brygadziście realną edycję, ale nie przebudowuje
-    # głównej karty Profilu.
     try:
         from profile_foreman_edit_runtime import install as install_foreman_edit
         install_foreman_edit()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] foreman edit runtime install failed: {exc!r}")
 
-    # Minimalne przyciski ŚW 50% / Bezpłatny 0% w istniejącym edytorze.
     try:
         from profile_absence_pay_ui_runtime import install as install_absence_pay_ui
         install_absence_pay_ui()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] absence pay UI install failed: {exc!r}")
 
-    # Wcześniejszy runtime montuje pełny notebook Użytkownicy | Profile | Rangi.
-    # Najpierw spłaszczamy go do jednej karty Użytkownicy, bez dublowania nawigacji.
     try:
         from profile_foreman_flat_users_runtime import install as install_flat_users
         install_flat_users()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] flat users runtime install failed: {exc!r}")
 
-    # Końcowa warstwa semantyczna: musi wejść po wszystkich wcześniejszych
-    # runtime'ach, bo to ona rozdziela Ruch WM od Obecności i buduje kolejkę
-    # decyzji na podstawie Grafiku.
     try:
         from profile_attendance_finalize_runtime import install as install_attendance_finalize
         install_attendance_finalize()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] attendance finalize runtime install failed: {exc!r}")
 
-    # Edycja już zapisanego dnia jest małą warstwą nad finalnym widokiem.
-    # Pozwala przenieść rekord między RANO/POPO i zachować bieżący rodzaj dniówki.
     try:
         from profile_attendance_edit_runtime import install as install_attendance_edit
         install_attendance_edit()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] attendance edit runtime install failed: {exc!r}")
 
-    # Ostatni krok: przywróć zgodną sygnaturę audytu i zapisuj pełną historię,
-    # bez dawnego limitu 5000 wpisów.
     try:
         from profile_audit_finalize_runtime import install as install_audit_finalize
         install_audit_finalize()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] audit finalize runtime install failed: {exc!r}")
 
-    # Wejścia do profilu pracownika są domenowe: Obecność/Urlopy, nie Ruch WM.
     try:
         _install_profile_entrypoints()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] profile entrypoints install failed: {exc!r}")
 
-    # Bazowy runtime Kalendarza dostarcza dane Zespołu; finalny workspace niżej
-    # zamienia przełącznik Mój/Zespół na jeden zaawansowany widok Brygadzisty.
     try:
         from profile_calendar_team_runtime import install as install_team_calendar
         install_team_calendar()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] team calendar install failed: {exc!r}")
 
-    # Rzadziej używane widoki pozostają zgrupowane pod Administracja.
     try:
         from profile_foreman_admin_group_runtime import install as install_admin_group
         install_admin_group()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] admin group install failed: {exc!r}")
 
-    # Jedno okno na pracownika, refresh i eksport. Finalny workspace niżej
-    # pozostawia Historia/Uprawnienia jako bezpośrednie zakładki.
     try:
         from profile_employee_editor_finish_runtime import install as install_employee_editor_finish
         install_employee_editor_finish()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] employee editor finish runtime install failed: {exc!r}")
 
-    # Finalnie ujednolić tryby grafiku w dodawaniu oraz edycji pracownika.
-    # Ta warstwa musi wejść po końcowym wrapperze edytora.
     try:
         from profile_shift_mode_sync_runtime import install as install_shift_mode_sync
         install_shift_mode_sync()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] shift mode sync install failed: {exc!r}")
 
-    # Ostatni właściciel UI Profilu Brygadzisty: bez dialogów kaskadowych.
-    # Korzysta z powyższych serwisów/backendów, ale przejmuje końcową nawigację.
     try:
         from profile_foreman_workspace_runtime import install as install_foreman_workspace
         install_foreman_workspace()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] foreman workspace install failed: {exc!r}")
 
+    # Po finalnym workspace dopnij politykę Dni pracy. Musi być ostatnia,
+    # bo waliduje końcowy edytor Obecności i końcowy Kalendarz Brygadzisty.
+    try:
+        from profile_workday_policy_runtime import install as install_workday_policy
+        install_workday_policy()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] workday policy install failed: {exc!r}")
+
 
 def install() -> None:
     global _INSTALLED
 
-    # Ta warstwa jest ładowana przez gui_profile przed zdefiniowaniem końcowej
-    # klasy ProfileView. Patchujemy klasę bazową, więc obecny wygląd pozostaje.
     try:
         import gui_profile_core as profile_core
         from profile_user_actions_runtime import install as install_user_actions
@@ -298,8 +278,6 @@ def install() -> None:
         def _build(self, *args, **kwargs):
             result = original_build(self, *args, **kwargs)
 
-            # Zadania i Sprzęt pozostają źródłem danych Pulpitu/statystyk,
-            # lecz nadal są ukryte jako osobne zakładki.
             notebook = getattr(self, "notebook", None)
             tabs = getattr(self, "_tabs", {})
             if notebook is not None:
@@ -312,9 +290,6 @@ def install() -> None:
                     except Exception:
                         pass
 
-            # Administracja ma być tylko w Użytkownicy. Stara zakładka
-            # "Profile" może istnieć po starszym runtime; końcowa warstwa ją
-            # ukryje, zamiast dublować ten sam panel w dwóch miejscach.
             profile_tab = tabs.get("Profile")
             if profile_tab is not None:
                 try:
