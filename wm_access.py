@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 import json
 from pathlib import Path
 
@@ -9,7 +9,7 @@ from utils.moduly import module_active, zaladuj_manifest
 
 ALL_ACCESS_MODULES = [
     "panel_glowny",
-    "profil",
+    "profile",
     "zlecenia",
     "narzedzia",
     "maszyny",
@@ -25,7 +25,7 @@ ALL_ACCESS_MODULES = [
 DEFAULT_ROLE_MODULES = {
     "administrator": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": True,
         "narzedzia": True,
         "maszyny": True,
@@ -39,7 +39,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "kierownik": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": True,
         "narzedzia": True,
         "maszyny": True,
@@ -53,7 +53,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "brygadzista": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": True,
         "narzedzia": True,
         "maszyny": True,
@@ -67,7 +67,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "operator": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": True,
         "narzedzia": False,
         "maszyny": False,
@@ -81,7 +81,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "student": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": False,
         "narzedzia": False,
         "maszyny": False,
@@ -95,7 +95,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "sezonowiec": {
         "panel_glowny": True,
-        "profil": True,
+        "profile": True,
         "zlecenia": True,
         "narzedzia": False,
         "maszyny": False,
@@ -109,7 +109,7 @@ DEFAULT_ROLE_MODULES = {
     },
     "guest": {
         "panel_glowny": True,
-        "profil": False,
+        "profile": False,
         "zlecenia": False,
         "narzedzia": False,
         "maszyny": False,
@@ -338,39 +338,53 @@ def _all_default_role_modules() -> dict[str, dict[str, bool]]:
     }
 
 
-def ensure_default_role_modules_config() -> dict:
-    """Dopisz brakujące access.role_modules do aktywnego config.json.
+def _stored_role_modules(cfg: ConfigManager) -> dict:
+    """Czytaj realny zapis globalny, bez aliasów przywracanych przez defaults."""
+    global_cfg = getattr(cfg, "global_cfg", {})
+    if not isinstance(global_cfg, dict):
+        return {}
+    access = global_cfg.get("access")
+    if not isinstance(access, dict):
+        return {}
+    role_modules = access.get("role_modules")
+    if not isinstance(role_modules, dict):
+        return {}
+    return {
+        str(role): dict(mapping)
+        for role, mapping in role_modules.items()
+        if isinstance(mapping, dict)
+    }
 
-    config.defaults.json jest tylko szablonem. Jeżeli aktywny <ROOT>/config.json
-    powstał wcześniej, może nie mieć sekcji access.role_modules. Wtedy WM powinien
-    sam dopisać domyślne role, zamiast wymagać ręcznej edycji JSON.
+
+def ensure_default_role_modules_config() -> dict:
+    """Idempotentnie uzupełnij ``access.role_modules`` w aktywnym config.json.
+
+    Migracja patrzy wyłącznie na faktycznie zapisaną warstwę globalną. Dzięki
+    temu legacy ``profil`` obecny w ``config.defaults.json`` nie wraca przy
+    każdym odczycie jako pozorna zmiana i nie uruchamia ``save_all()`` w pętli.
     """
 
     cfg = ConfigManager()
-    existing = cfg.get("access.role_modules", {})
-    changed = False
-
-    if not isinstance(existing, dict):
-        existing = {}
-        changed = True
+    stored = _stored_role_modules(cfg)
+    existing = {
+        role: _normalize_modules_map(mapping)
+        for role, mapping in stored.items()
+        if isinstance(mapping, dict)
+    }
 
     for role, default_modules in DEFAULT_ROLE_MODULES.items():
-        role_map = existing.get(role)
         normalized_defaults = _normalize_modules_map(default_modules)
-        if not isinstance(role_map, dict):
-            existing[role] = normalized_defaults
-            changed = True
-            continue
-        normalized_map = _normalize_modules_map(role_map)
+        role_map = existing.setdefault(role, {})
         for module, allowed in normalized_defaults.items():
-            if module not in normalized_map:
-                normalized_map[module] = bool(allowed)
-                changed = True
-        if normalized_map != role_map:
-            existing[role] = normalized_map
-            changed = True
+            role_map.setdefault(module, bool(allowed))
 
-    if changed:
+    # Zapisuj tylko wtedy, gdy realna warstwa globalna różni się od kanonicznej.
+    stored_normalized = {
+        role: _normalize_modules_map(mapping)
+        for role, mapping in stored.items()
+        if isinstance(mapping, dict)
+    }
+    if existing != stored_normalized:
         cfg.set("access.role_modules", existing)
         if hasattr(cfg, "save_all"):
             cfg.save_all()
@@ -392,7 +406,12 @@ def _cfg_get_role_modules() -> dict:
 
 def _cfg_set_role_modules(role_modules: dict) -> None:
     cfg = ConfigManager()
-    cfg.set("access.role_modules", role_modules)
+    normalized = {
+        str(role): _normalize_modules_map(mapping)
+        for role, mapping in (role_modules or {}).items()
+        if isinstance(mapping, dict)
+    }
+    cfg.set("access.role_modules", normalized)
     if hasattr(cfg, "save_all"):
         cfg.save_all()
     else:
