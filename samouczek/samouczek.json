@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.11.1",
-  "updated": "2026-09-07",
+  "wm_version": "0.13.0",
+  "updated": "2026-09-08",
   "slides": [
     {
       "module": "Start",
@@ -76,17 +76,17 @@
       "tip": "! przy karcie wyjaśnia, że braki i pozycje do decyzji wynikają z Grafiku oraz faktycznych logowań zapisanych w WM."
     },
     {
-      "module": "Profil",
-      "title": "Kalendarz brygadzisty — Mój i Zespół",
-      "lead": "Brygadzista może przełączyć kalendarz z własnego widoku na zbiorczy widok zespołu.",
+      "module": "Profil brygadzisty",
+      "title": "Kalendarz zespołu i szczegóły dnia",
+      "lead": "Brygadzista ma jeden zaawansowany kalendarz Zespołu. Szczegóły wybranego dnia są pokazywane obok kalendarza bez otwierania osobnego okna.",
       "steps": [
-        "Otwórz Profil i przejdź do Kalendarza.",
-        "Przy polu Widok wybierz Mój, jeśli chcesz oglądać swój dotychczasowy kalendarz.",
-        "Wybierz Zespół, aby zobaczyć w dniach skróty zmian i nieobecności pracowników.",
-        "Kliknij dzień. Otworzy się tabela Pracownik | Zmiana | Status | Płatność.",
-        "Zaznacz pracownika i kliknij Otwórz profil albo kliknij go dwukrotnie. WM przejdzie do odpowiedniej części Profilu pracownika."
+        "Otwórz Profil i przejdź do Kalendarza. Widok Brygadzisty od razu pokazuje Zespół — nie ma już przełącznika Mój / Zespół.",
+        "Kliknij dzień w kalendarzu. Po prawej zobaczysz pracowników oraz kolumny Pracownik, Zmiana, Status, Wejście, Dn., Nadgodz. i %.",
+        "Zaznacz pracownika i kliknij Obecność, aby otworzyć jego Profil od razu na pełnej edycji Obecności.",
+        "Kliknij Urlopy, aby przejść bezpośrednio do zakładki Urlopy tego pracownika.",
+        "Możesz też kliknąć pracownika dwukrotnie — WM otworzy jego Obecność."
       ],
-      "tip": "Skróty 06–14 i 14–22 oznaczają zmianę, a UR, ?UR, L4, ŚW, BR i DEC sygnalizują urlopy albo stany wymagające uwagi."
+      "tip": "! przy kalendarzu przypomina, że pracownik nadal ma prosty kalendarz osobisty do składania wniosków urlopowych, a Brygadzista pracuje na jednym kalendarzu zespołu."
     },
     {
       "module": "Profil brygadzisty",
@@ -94,52 +94,65 @@
       "lead": "Brygadzista może edytować profil pracownika bez zmiany jego stałego User ID.",
       "steps": [
         "Otwórz listę pracowników i wybierz osobę do edycji.",
-        "Wejdź w edycję profilu. Najczęściej używane zakładki to Podstawowe, Obecność, Urlopy, Grafik i Więcej.",
+        "Wejdź w edycję profilu. Dostępne są zwykłe zakładki m.in. Podstawowe, Obecność, Urlopy, Grafik, Historia i Uprawnienia.",
         "W zakładce Podstawowe popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
         "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w historii."
       ],
-      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są dostępne z zakładki Więcej."
+      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są teraz normalnymi zakładkami — nie trzeba ich szukać pod Więcej."
     },
     {
       "module": "Profil brygadzisty",
-      "title": "Edycja zapisanej obecności, dniówki i nieobecności",
-      "lead": "Brygadzista może otworzyć już zapisany dzień i poprawić zmianę, dniówkę albo rodzaj nieobecności bez tworzenia drugiego wpisu.",
+      "title": "Pełna edycja obecności w Profilu",
+      "lead": "Całą korektę dnia wykonujesz bezpośrednio w zakładce Obecność pracownika, bez dodatkowego okna ręcznej korekty.",
       "steps": [
-        "Otwórz profil pracownika i wybierz zakładkę Obecność.",
-        "Uruchom ręczną korektę i wybierz miesiąc. Na liście zobaczysz zapisane dni z datą, zmianą, pierwszym logowaniem, stanem i dniówką.",
-        "Zaznacz dzień i kliknij Przejdź do korekty albo kliknij wpis dwukrotnie.",
-        "W polu Zmiana wybierz RANO albo POPO. Jeśli poprawiasz nieobecność, WM może przenieść ją na wybraną zmianę bez pozostawiania starego aktywnego wpisu.",
-        "W polu Rodzaj nieobecności wybierz Brak, ŚW, L4, NN, UR albo UŻ. Jeśli zmieniasz tylko nieobecność, wpisz Powód / uwagę i kliknij Zapisz nieobecność.",
-        "Jeśli poprawiasz dniówkę, zaznacz Zapisz / zmień dniówkę i wybierz 0, 0.5 albo 1. W razie potrzeby dodaj nadgodziny.",
-        "Sprawdź Podgląd zmiany, wpisz Powód / uwagę i kliknij Zapisz decyzję."
+        "Otwórz profil pracownika i wybierz Obecność.",
+        "Wybierz miesiąc. Tabela Ewidencja miesiąca pokazuje datę, dzień tygodnia, zmianę, pierwsze logowanie, status, dniówkę, nieobecność, nadgodziny i źródło.",
+        "Kliknij zapisany dzień, aby jego dane pojawiły się w sekcji Edycja zaznaczonego dnia. Jeśli chcesz dopisać nowy wpis, kliknij Nowy dzień.",
+        "Ustaw Datę i Zmianę RANO albo POPO. W razie potrzeby popraw Pierwsze logowanie w formacie GG:MM.",
+        "Ustaw Dniówkę 0, 0.5 albo 1 oraz Nieobecność: Brak, ŚW, L4, NN, UR, UŻ albo UB.",
+        "Wpisz Nadgodziny i wybierz typ: zwykle, sobota, niedziela albo święto. Dodaj Powód / uwagę, jeśli jest potrzebny.",
+        "Kliknij Zapisz wszystko. WM zapisuje zmianę, dniówkę, nieobecność, czas wejścia i nadgodziny jako jedną korektę; jeśli któryś element jest błędny, cała korekta jest cofana."
       ],
-      "tip": "! przy zmianie i rodzaju nieobecności wyjaśnia, że wcześniejszy wpis nie znika z historii. Przy ponownej edycji WM pokazuje aktualnie zapisane wartości."
+      "tip": "! przy polach wyjaśnia zasady korekty. L4, NN, UR, UŻ i UB wymagają dniówki 0, natomiast ŚW może współistnieć z pracą."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Praca w dniu wolnym",
+      "lead": "Dzień wyłączony w Grafik → Dni pracy jest traktowany jako wolny i zwykła dniówka wymaga jawnego wyjątku.",
+      "steps": [
+        "Otwórz profil pracownika i przejdź do Obecności.",
+        "Wybierz albo utwórz dzień, który w Grafiku pracownika jest wyłączony jako dzień pracy.",
+        "Jeżeli pracownik faktycznie pracował, zaznacz Praca w dniu wolnym.",
+        "Uzupełnij dniówkę, zmianę, pierwsze logowanie lub nadgodziny tak jak przy zwykłej korekcie.",
+        "Kliknij Zapisz wszystko. Bez zaznaczenia wyjątku WM nie pozwoli dopisać zwykłej pracy do dnia wolnego."
+      ],
+      "tip": "! przy Praca w dniu wolnym przypomina, żeby używać tej opcji tylko dla faktycznie przepracowanego dnia poza zwykłym grafikiem. Sam urlop lub L4 może obejmować dzień wolny bez tego zaznaczenia."
     },
     {
       "module": "Profil brygadzisty",
       "title": "Konflikt dniówki z nieobecnością",
-      "lead": "Jeżeli ten sam dzień ma sprzeczne dane, WM wymaga świadomej korekty zamiast automatycznego usuwania jednego z wpisów.",
+      "lead": "Sprzeczne dane poprawiasz teraz w jednym formularzu Obecności i zatwierdzasz jednym przyciskiem Zapisz wszystko.",
       "steps": [
-        "Otwórz problematyczny dzień w korekcie Obecności i przeczytaj ostrzeżenie o sprzecznych danych.",
-        "Jeżeli prawidłowa jest nieobecność, wybierz właściwy Rodzaj nieobecności: ŚW, L4, NN, UR albo UŻ, wpisz Powód / uwagę i kliknij Zapisz nieobecność.",
-        "Jeżeli prawidłowa jest dniówka, zaznacz Zapisz / zmień dniówkę, ustaw zmianę oraz wartość dniówki, wpisz Powód / uwagę i kliknij Zapisz decyzję.",
-        "Gdy WM zapyta o zastąpienie nieobecności korektą, potwierdź tylko wtedy, gdy to dniówka jest prawidłowa.",
-        "Po zapisie poprzedni wpis nieobecności pozostaje w historii jako anulowany."
+        "Otwórz problematyczny dzień w zakładce Obecność pracownika.",
+        "Jeżeli prawidłowa jest nieobecność L4, NN, UR, UŻ albo UB, wybierz ją i ustaw Dniówkę na 0 oraz Nadgodziny na 0.",
+        "Jeżeli prawidłowa jest praca, ustaw Nieobecność na Brak albo ŚW i wpisz właściwą dniówkę, zmianę oraz ewentualne nadgodziny.",
+        "Sprawdź pozostałe pola, wpisz Powód / uwagę i kliknij Zapisz wszystko.",
+        "WM zachowuje wcześniejsze operacje w audycie, a aktywny stan dnia jest aktualizowany bez tworzenia drugiego aktywnego wpisu."
       ],
-      "tip": "! przy ostrzeżeniu i rodzaju nieobecności pokazuje skutki korekty. Nie ma już potrzeby szukania osobnego przycisku „Zachowaj nieobecność”."
+      "tip": "! przy Nieobecności i Dniówce pokazuje najważniejsze zależności. Nie szukaj już osobnych przycisków Zapisz nieobecność ani Zapisz decyzję."
     },
     {
       "module": "Profil brygadzisty",
       "title": "Miesięczny eksport obecności i niezgodności",
       "lead": "W zakładce Obecność możesz przygotować zestawienie jednego pracownika i od razu zobaczyć dane wymagające korekty.",
       "steps": [
-        "Otwórz profil pracownika i wybierz zakładkę Obecność.",
-        "W sekcji Miesięczne zestawienie wybierz miesiąc.",
-        "Kliknij Eksportuj miesiąc do Excel i wskaż miejsce zapisania pliku.",
-        "W arkuszu Ewidencja znajdziesz daty, zmiany, pierwsze logowania, status, dniówki, nieobecności, nadgodziny, źródło i uwagi. Arkusz Podsumowanie pokazuje m.in. dniówki, soboty, nadgodziny, L4, ŚW, NN, UR, UŻ, braki i pozycje do decyzji.",
-        "Jeżeli pod zestawieniem pojawi się sekcja ⚠ Niezgodności, sprawdź wskazane dni i popraw je przez korektę Obecności. Sekcja zniknie po rozwiązaniu ostatniego problemu."
+        "Otwórz profil pracownika i wybierz Obecność.",
+        "Wybierz miesiąc. Nad tabelą zobaczysz podsumowanie Dniówki, Nadgodziny, Braki i Do decyzji oraz informację o liczbie niezgodności.",
+        "Kliknij Eksportuj miesiąc i wskaż miejsce zapisania pliku XLSX.",
+        "W arkuszu Ewidencja znajdziesz szczegóły dni, a arkusz Podsumowanie zbiera wartości miesięczne.",
+        "Jeśli WM pokazuje ⚠ Niezgodności, zaznacz problematyczny dzień i popraw go bezpośrednio w edytorze poniżej."
       ],
-      "tip": "! przy eksporcie wyjaśnia, że plik dotyczy tylko wybranego pracownika i miesiąca. Niezgodności obejmują m.in. konflikty, pozycje do decyzji i wpis tego samego pracownika jednocześnie na RANO i POPO."
+      "tip": "! przy eksporcie wyjaśnia, że plik dotyczy tylko wybranego pracownika i miesiąca. Zielone ✓ Brak niezgodności oznacza, że WM nie wykrył problemów w tym zestawieniu."
     },
     {
       "module": "Profil brygadzisty",
@@ -170,15 +183,15 @@
     {
       "module": "Użytkownicy / Grafik",
       "title": "Ustawianie grafiku pracownika",
-      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Te same tryby są używane w edycji pracownika.",
+      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Te same ustawienia są wykorzystywane przez Obecność i Kalendarz.",
       "steps": [
         "Otwórz Ustawienia i przejdź do Użytkowników albo otwórz edycję pracownika z Profilu brygadzisty.",
         "Wybierz pracownika i przejdź do jego ustawień Grafiku.",
         "Wybierz tryb zmian: 111 = I / I / I, 112 = I / I / II, 222 = II / II / II, 121 = I / II / I albo 212 = II / I / II.",
-        "Ustaw datę kotwiczną pracownika. Jest ona początkiem jego własnego trzytygodniowego cyklu.",
-        "Zapisz profil. Po trzecim tygodniu wzorzec zaczyna się od początku."
+        "Ustaw datę kotwiczną pracownika oraz Dni pracy. Dzień wyłączony jest traktowany jako Wolne i nie powinien tworzyć zwykłego braku obecności.",
+        "Zapisz profil. Po trzecim tygodniu wzorzec zmian zaczyna się od początku."
       ],
-      "tip": "! przy trybie grafiku i dacie kotwicznej wyjaśnia ich wpływ na cykl. Zmiana loginu nie powinna zgubić grafiku, ponieważ ustawienia są wiązane ze stałym User ID."
+      "tip": "! przy trybie grafiku, dacie kotwicznej i dniach pracy wyjaśnia ich wpływ na cykl. Zmiana loginu nie powinna zgubić grafiku, ponieważ ustawienia są wiązane ze stałym User ID."
     },
     {
       "module": "Użytkownicy",
@@ -195,15 +208,26 @@
     {
       "module": "Profil brygadzisty",
       "title": "Historia i uprawnienia pracownika",
-      "lead": "Rzadziej używane funkcje administracyjne są schowane pod Więcej, żeby nie przeciążać edytora.",
+      "lead": "Historia i Uprawnienia są dostępne jako zwykłe zakładki w edytorze pracownika.",
       "steps": [
-        "Otwórz profil pracownika i wybierz zakładkę Więcej.",
-        "Kliknij Historia pracownika, aby otworzyć pełną historię zmian. Zobaczysz datę, rodzaj operacji, wykonawcę i szczegóły.",
-        "Kliknij Odśwież historię, jeśli właśnie wykonano korektę i chcesz zobaczyć najnowszy stan.",
-        "Wróć do Więcej i kliknij Uprawnienia pracownika, gdy chcesz przejść do indywidualnych wyłączeń modułów.",
-        "Po przejściu do innej zakładki Historia i Uprawnienia znów chowają się pod Więcej."
+        "Otwórz profil pracownika.",
+        "Kliknij Historia, aby zobaczyć zapisane operacje i wcześniejsze korekty.",
+        "Kliknij Uprawnienia, gdy chcesz sprawdzić albo zmienić indywidualny dostęp pracownika do modułów.",
+        "Po wykonaniu korekty wróć do Historii lub ją odśwież, aby sprawdzić najnowszy wpis audytowy."
       ],
-      "tip": "! przy tych przyciskach wyjaśnia ich działanie. Historia jest tylko do odczytu i zachowuje wcześniejsze wpisy audytowe."
+      "tip": "Historia zachowuje ślad wcześniejszych zmian. Nie trzeba już otwierać Historii ani Uprawnień przez zakładkę Więcej."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Aktywny WM i alert wniosków urlopowych",
+      "lead": "Brygadzista widzi, kto ma aktywną sesję WM, a oczekujące wnioski urlopowe są sygnalizowane wyraźnym alertem.",
+      "steps": [
+        "Otwórz Profil brygadzisty i przejdź do Obecności. W tabeli sprawdź kolumnę Aktywny WM — ● online oznacza aktywną sesję pracownika.",
+        "Po zalogowaniu jako Brygadzista zwróć uwagę na migający czerwony komunikat, jeśli są wnioski urlopowe do akceptacji.",
+        "W komunikacie zobaczysz liczbę oczekujących wniosków oraz pierwszych pracowników i terminy.",
+        "Przejdź do Profil → Brygadzista → Urlopy, aby rozpatrzyć oczekujące wnioski."
+      ],
+      "tip": "Alert jest informacyjny i nie zatwierdza urlopu samodzielnie. Znika po czasie; decyzję nadal podejmujesz w zakładce Urlopy."
     },
     {
       "module": "Usuwanie",
