@@ -103,6 +103,36 @@ def _float(value: Any, label: str) -> float:
         raise ValueError(f"Pole '{label}' musi być liczbą.") from exc
 
 
+def _save_attendance_correction(
+    date_value: Any,
+    slot: str,
+    login: str,
+    day_value: Any,
+    actor: str,
+    note: str,
+    *,
+    overtime_enabled: bool,
+    overtime_hours: Any,
+    overtime_type: str,
+) -> None:
+    """Zweryfikuj całą korektę, zanim pierwszy zapis trafi do ewidencji."""
+    date_text = str(date_value or "").strip()
+    date.fromisoformat(date_text)
+    day = attendance_service.validate_manual_day_value(day_value)
+    hours = None
+    if overtime_enabled:
+        hours = attendance_service.validate_overtime_hours(overtime_hours)
+
+    attendance_service.set_manual_day(
+        date_text, slot, login, day, actor, note
+    )
+    if hours is not None:
+        attendance_service.set_overtime(
+            date_text, slot, login, hours, actor,
+            overtime_type=overtime_type, note=note,
+        )
+
+
 def _parse_carryover(text: str, year: int) -> dict[int, float]:
     """Format: 2024=2; 2025=4."""
     raw = str(text or "").strip()
@@ -333,10 +363,17 @@ def open_employee_editor(owner, login: str, *, initial_tab: str = "Dane", on_sav
 
     def save_attendance() -> None:
         try:
-            date.fromisoformat(a_date.get().strip())
-            attendance_service.set_manual_day(a_date.get().strip(), a_slot.get(), state["login"], _float(a_day.get(), "dniówka"), actor, a_note.get())
-            if a_ot_on.get():
-                attendance_service.set_overtime(a_date.get().strip(), a_slot.get(), state["login"], _float(a_ot_hours.get(), "nadgodziny"), actor, overtime_type=a_ot_type.get(), note=a_note.get())
+            _save_attendance_correction(
+                a_date.get(),
+                a_slot.get(),
+                state["login"],
+                a_day.get(),
+                actor,
+                a_note.get(),
+                overtime_enabled=a_ot_on.get(),
+                overtime_hours=a_ot_hours.get(),
+                overtime_type=a_ot_type.get(),
+            )
             _audit(state["login"], "obecnosc", actor, after={"date": a_date.get(), "slot": a_slot.get(), "day": a_day.get(), "overtime": a_ot_hours.get() if a_ot_on.get() else 0}, note=a_note.get())
         except Exception as exc:
             messagebox.showerror("Obecność", f"Nie udało się zapisać korekty:\n{exc}", parent=win)
