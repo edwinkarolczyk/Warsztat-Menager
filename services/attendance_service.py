@@ -13,6 +13,7 @@ upływie okna automatycznego staje się pozycją ``MISSING`` do decyzji.
 from __future__ import annotations
 
 import json
+import math
 import os
 from calendar import monthrange
 from datetime import date, datetime, time, timedelta
@@ -44,6 +45,32 @@ STATUS_MISSING = "MISSING"
 STATUS_EXCUSED = "EXCUSED"
 STATUS_SATURDAY = "OVERTIME_SATURDAY"
 STATUS_PLANNED = "PLANNED"
+
+
+def validate_manual_day_value(value: Any) -> float:
+    """Waliduj wartość dniówki przed rozpoczęciem zapisu."""
+    try:
+        day_value = float(str(value).strip().replace(",", "."))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Dniówka musi być liczbą.") from exc
+    if not math.isfinite(day_value):
+        raise ValueError("Dniówka musi być skończoną liczbą.")
+    if day_value not in {0.0, 0.5, 1.0}:
+        raise ValueError("Dniówka może mieć wartość 0, 0.5 albo 1.0.")
+    return day_value
+
+
+def validate_overtime_hours(value: Any) -> float:
+    """Waliduj liczbę nadgodzin bez cichego korygowania błędnych danych."""
+    try:
+        hours = float(str(value).strip().replace(",", "."))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Nadgodziny muszą być liczbą.") from exc
+    if not math.isfinite(hours):
+        raise ValueError("Nadgodziny muszą być skończoną liczbą.")
+    if hours < 0:
+        raise ValueError("Nadgodziny nie mogą być ujemne.")
+    return hours
 
 
 def _move_time(value: time, delta: timedelta) -> time:
@@ -520,9 +547,7 @@ def status_for(date_ymd: str, slot: str, login: str, shift_start: datetime,
 def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: str,
                    note: str = "", *, replace_absence: bool = False,
                    original_slot: str | None = None) -> dict:
-    value = float(value)
-    if value not in {0.0, 0.5, 1.0}:
-        raise ValueError("Dniówka może mieć wartość 0, 0.5 albo 1.0.")
+    value = validate_manual_day_value(value)
 
     target_slot = str(slot or "").strip().upper()
     source_slot = str(original_slot or target_slot).strip().upper()
@@ -629,7 +654,7 @@ def set_manual_day(date_ymd: str, slot: str, login: str, value: float, actor: st
 def set_overtime(date_ymd: str, slot: str, login: str, hours: float, actor: str,
                  *, overtime_type: str = "zwykle", day_value: float | None = None,
                  note: str = "") -> dict:
-    hours = max(0.0, float(hours))
+    hours = validate_overtime_hours(hours)
     login_n = str(login or "").strip().casefold()
     doc, _slot_map, rec = _record(date_ymd, slot, login_n, create=True)
     before = dict(rec)
@@ -848,5 +873,6 @@ __all__ = [
     "data_path", "audit_path", "mark_login", "confirm_login", "set_reason",
     "status_for", "set_manual_day", "set_overtime", "summary_for_month",
     "month_records", "decision_records", "audit_for_login", "classify_login",
-    "user_id_for", "absence_conflict",
+    "user_id_for", "absence_conflict", "validate_manual_day_value",
+    "validate_overtime_hours",
 ]
