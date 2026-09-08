@@ -12,8 +12,8 @@ from services import attendance_service, leave_workflow_service, workforce_profi
 _INSTALLED = False
 
 
-def _matches_export_user(row: dict, login: str) -> bool:
-    """Dopasuj nieobecność po user_id z fallbackiem do bieżącego/starego loginu."""
+def _export_identity(login: str) -> tuple[str, set[str]]:
+    """Rozwiąż trwałe user_id i aliasy loginu tylko raz dla całego eksportu."""
     user = workforce_profile_service.get_user(login) or {}
     uid_key = str(user.get("user_id") or "").strip().casefold()
     login_keys = {
@@ -21,7 +21,11 @@ def _matches_export_user(row: dict, login: str) -> bool:
         str(user.get("login") or "").strip().casefold(),
     }
     login_keys.discard("")
+    return uid_key, login_keys
 
+
+def _matches_export_user(row: dict, uid_key: str, login_keys: set[str]) -> bool:
+    """Dopasuj nieobecność po user_id z fallbackiem do bieżącego/starego loginu."""
     row_uid = str(row.get("user_id") or "").strip().casefold()
     if uid_key and row_uid == uid_key:
         return True
@@ -36,6 +40,7 @@ def _matches_export_user(row: dict, login: str) -> bool:
 def _month_absence_index(login: str, year: int, month: int) -> dict[str, list[dict]]:
     """Wczytaj aktywne nieobecności raz i pogrupuj tylko wybrany miesiąc."""
     prefix = f"{year:04d}-{month:02d}-"
+    uid_key, login_keys = _export_identity(login)
     try:
         leaves = leave_workflow_service.read_leaves()
     except Exception:
@@ -43,7 +48,7 @@ def _month_absence_index(login: str, year: int, month: int) -> dict[str, list[di
 
     by_day: dict[str, list[dict]] = {}
     for raw in leaves:
-        if not isinstance(raw, dict) or not _matches_export_user(raw, login):
+        if not isinstance(raw, dict) or not _matches_export_user(raw, uid_key, login_keys):
             continue
         day_text = str(raw.get("date") or "")[:10]
         if not day_text.startswith(prefix):
