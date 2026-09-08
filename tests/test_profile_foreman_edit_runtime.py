@@ -17,7 +17,7 @@ from profile_foreman_edit_runtime import _parse_carryover
 
 
 def test_profile_release_is_current():
-    assert __version__ == "0.13.0"
+    assert __version__ == "0.13.1"
 
 
 def test_profile_shift_modes_match_engine_and_add_dialog():
@@ -29,6 +29,22 @@ def test_profile_shift_modes_match_engine_and_add_dialog():
 
     shift_mode_runtime._patch_add_profile_dialog()
     assert tuple(settings_profiles.ProfileEditDialog.SHIFT_MODES) == shift_mode_runtime.SHIFT_MODE_OPTIONS
+
+
+def test_profile_shift_mode_options_are_built_from_engine(monkeypatch):
+    monkeypatch.setattr(shifts_schedule, "TRYBY", ["111", "112", "212"])
+    options = shift_mode_runtime._build_shift_mode_options()
+    assert tuple(code for code, _label in options) == ("111", "112", "212")
+
+
+def test_profile_shift_mode_sync_patches_legacy_users_panel():
+    import gui_uzytkownicy as legacy_users
+
+    shift_mode_runtime._patch_legacy_users_panel()
+    assert tuple(legacy_users.SHIFT_MODE_CHOICES.values()) == tuple(shifts_schedule.TRYBY)
+    assert legacy_users._shift_mode_label_from_code("112") == dict(
+        shift_mode_runtime.SHIFT_MODE_OPTIONS
+    )["112"]
 
 
 def test_profile_shift_mode_labels_save_as_codes():

@@ -6,17 +6,37 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
+from grafiki import shifts_schedule
 from ui_context_help import add_help_button
 
 _INSTALLED = False
 
-SHIFT_MODE_OPTIONS: tuple[tuple[str, str], ...] = (
-    ("111", "111 — I / I / I (stała I zmiana)"),
-    ("112", "112 — I / I / II (cykl 3 tygodnie)"),
-    ("222", "222 — II / II / II (stała II zmiana)"),
-    ("121", "121 — I / II / I (cykl 3 tygodnie)"),
-    ("212", "212 — II / I / II (cykl 3 tygodnie)"),
-)
+
+def _build_mode_label(mode: Any) -> str:
+    """Zbuduj etykietę UI bez utrzymywania osobnej listy kodów grafiku."""
+    code = str(mode or "").strip()
+    sequence = tuple(
+        "I" if digit == "1" else "II" if digit == "2" else digit
+        for digit in code
+    )
+    if not sequence:
+        return code
+    if len(set(sequence)) == 1:
+        suffix = f"(stała {sequence[0]} zmiana)"
+    else:
+        suffix = f"(cykl {len(sequence)} tygodnie)"
+    return f"{code} — {' / '.join(sequence)} {suffix}"
+
+
+def _build_shift_mode_options() -> tuple[tuple[str, str], ...]:
+    """Zwróć opcje UI bezpośrednio z kanonicznego ``shifts_schedule.TRYBY``."""
+    return tuple(
+        (str(mode), _build_mode_label(mode))
+        for mode in shifts_schedule.TRYBY
+    )
+
+
+SHIFT_MODE_OPTIONS: tuple[tuple[str, str], ...] = _build_shift_mode_options()
 
 _MODE_TO_LABEL = dict(SHIFT_MODE_OPTIONS)
 _LABEL_TO_MODE = {label: mode for mode, label in SHIFT_MODE_OPTIONS}
@@ -103,9 +123,10 @@ def _replace_mode_help(schedule) -> None:
                 widget.destroy()
         except Exception:
             continue
+    available = ", ".join(_MODE_CODES)
     add_help_button(
         schedule,
-        "Wybierz wzorzec grafiku: 111, 112, 222, 121 albo 212. Cyfry oznaczają kolejne tygodnie: I lub II zmianę; po trzecim tygodniu cykl zaczyna się od początku.",
+        f"Wybierz wzorzec grafiku: {available}. Cyfry oznaczają kolejne tygodnie: I lub II zmianę; po trzecim tygodniu cykl zaczyna się od początku.",
         row=0,
         column=2,
         padx=(6, 0),
@@ -174,9 +195,32 @@ def _patch_add_profile_dialog() -> None:
     profiles.ProfileEditDialog.SHIFT_MODES = list(SHIFT_MODE_OPTIONS)
 
 
+def _patch_legacy_users_panel() -> None:
+    """Starszy panel Użytkowników także dostaje opcje z kanonicznego Grafiku."""
+    try:
+        import gui_uzytkownicy as users_ui
+    except Exception:
+        return
+
+    users_ui.SHIFT_MODE_CHOICES = {
+        label: mode for mode, label in SHIFT_MODE_OPTIONS
+    }
+
+    def label_from_code(code: str | None) -> str:
+        normalized = _mode_code(code)
+        if normalized in _MODE_TO_LABEL:
+            return _MODE_TO_LABEL[normalized]
+        if _MODE_CODES:
+            return _MODE_TO_LABEL[_MODE_CODES[0]]
+        return ""
+
+    users_ui._shift_mode_label_from_code = label_from_code
+
+
 def install() -> None:
     global _INSTALLED
     _patch_add_profile_dialog()
+    _patch_legacy_users_panel()
 
     try:
         import profile_foreman_edit_runtime as edit_runtime
