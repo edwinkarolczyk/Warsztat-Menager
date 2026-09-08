@@ -229,6 +229,12 @@ def _install_workforce_extensions() -> None:
         print(f"[WM-DBG][PROFILE][WARN] employee editor finish runtime install failed: {exc!r}")
 
     try:
+        from profile_attendance_export_runtime import install as install_attendance_export
+        install_attendance_export()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] attendance export runtime install failed: {exc!r}")
+
+    try:
         from profile_shift_mode_sync_runtime import install as install_shift_mode_sync
         install_shift_mode_sync()
     except Exception as exc:

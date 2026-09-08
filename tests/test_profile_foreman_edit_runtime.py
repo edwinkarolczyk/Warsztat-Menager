@@ -2,6 +2,7 @@ from __version__ import __version__
 
 import pytest
 
+import profile_attendance_export_runtime as export_runtime
 import profile_employee_editor_finish_runtime as finish_runtime
 import profile_foreman_edit_runtime as foreman_runtime
 import profile_shift_mode_sync_runtime as shift_mode_runtime
@@ -17,7 +18,7 @@ from profile_foreman_edit_runtime import _parse_carryover
 
 
 def test_profile_release_is_current():
-    assert __version__ == "0.13.1"
+    assert __version__ == "0.13.2"
 
 
 def test_profile_shift_modes_match_engine_and_add_dialog():
@@ -318,3 +319,65 @@ def test_employee_inconsistencies_include_conflict_and_double_shift():
 
 def test_employee_inconsistencies_are_empty_when_data_is_clean():
     assert _employee_inconsistencies("jan", 2026, 9, decisions=[], records=[]) == []
+
+
+def test_a3_month_export_reads_absences_once_and_keeps_identity(monkeypatch):
+    calls = {"leaves": 0}
+
+    monkeypatch.setattr(
+        export_runtime.attendance_service,
+        "month_records",
+        lambda _login, _year, _month: [
+            {
+                "date": "2026-09-07",
+                "slot": "RANO",
+                "status": export_runtime.attendance_service.STATUS_PRESENT,
+                "day_value": 1.0,
+                "source": "auto_login",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        export_runtime.workforce_profile_service,
+        "get_user",
+        lambda _login: {"user_id": "USR-0042", "login": "jan"},
+    )
+
+    def read_leaves():
+        calls["leaves"] += 1
+        return [
+            {
+                "user_id": "USR-0042",
+                "login_snapshot": "jan.stary",
+                "date": "2026-09-07",
+                "type": "L4",
+            },
+            {
+                "login": "jan",
+                "date": "2026-09-08",
+                "type": "urlop",
+            },
+            {
+                "user_id": "USR-9999",
+                "login": "inny",
+                "date": "2026-09-09",
+                "type": "NN",
+            },
+            {
+                "user_id": "USR-0042",
+                "date": "2026-10-01",
+                "type": "NN",
+            },
+        ]
+
+    monkeypatch.setattr(export_runtime.leave_workflow_service, "read_leaves", read_leaves)
+
+    rows = export_runtime._attendance_export_rows("jan", 2026, 9)
+
+    assert calls["leaves"] == 1
+    by_day = {row["date"]: row for row in rows}
+    assert by_day["2026-09-07"]["absence"] == "L4"
+    assert by_day["2026-09-08"]["absence"] == "UR"
+    assert by_day["2026-09-08"]["status"] == "Nieobecność"
+    assert "2026-09-09" not in by_day
+    assert "2026-10-01" not in by_day
