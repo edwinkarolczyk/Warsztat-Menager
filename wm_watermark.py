@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.5 SAFE
+# Wersja: 1.0.6 SAFE
+# Zmiany 1.0.6:
+# - Dopina punktową poprawkę przenoszenia korekty Obecności po zdjęciu nieobecności.
 # Zmiany 1.0.5:
 # - Po zbudowaniu panelu dopina spójne logowanie po samym PIN/haśle.
 # - Aktywna sesja pokazuje jednoznacznie zalogowanego użytkownika.
@@ -100,6 +102,17 @@ def _install_login_identity(root) -> None:
         pass
 
 
+def _install_attendance_move_fix() -> None:
+    """Dopnij punktową poprawkę konfliktu przy zmianie RANO/POPO w Obecności."""
+    try:
+        from profile_attendance_move_conflict_runtime import install
+
+        install()
+    except Exception:
+        # Korekta nie może zablokować uruchomienia Profilu ani panelu głównego.
+        pass
+
+
 def _install_tutorial_entry(root) -> None:
     """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
     try:
@@ -121,6 +134,7 @@ def install(root) -> DevelopmentWatermark:
             pass
         _install_guest_login(root)
         _install_login_identity(root)
+        _install_attendance_move_fix()
         _install_tutorial_entry(root)
         return existing
 
@@ -131,5 +145,6 @@ def install(root) -> DevelopmentWatermark:
         pass
     _install_guest_login(root)
     _install_login_identity(root)
+    _install_attendance_move_fix()
     _install_tutorial_entry(root)
     return overlay
