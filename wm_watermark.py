@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.6 SAFE
+# Wersja: 1.0.7 SAFE
+# Zmiany 1.0.7:
+# - Dopina kosmetyczne etykiety prezentacji Dyspozycji (B2).
 # Zmiany 1.0.6:
 # - Dopina punktową poprawkę przenoszenia korekty Obecności po zdjęciu nieobecności.
 # Zmiany 1.0.5:
@@ -113,6 +115,17 @@ def _install_attendance_move_fix() -> None:
         pass
 
 
+def _install_dyspozycje_presentation() -> None:
+    """Dopnij wyłącznie kosmetyczne etykiety listy Dyspozycji."""
+    try:
+        from dyspozycje_presentation_runtime import install
+
+        install()
+    except Exception:
+        # Prezentacja Dyspozycji nie może zablokować panelu głównego.
+        pass
+
+
 def _install_tutorial_entry(root) -> None:
     """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
     try:
@@ -135,6 +148,7 @@ def install(root) -> DevelopmentWatermark:
         _install_guest_login(root)
         _install_login_identity(root)
         _install_attendance_move_fix()
+        _install_dyspozycje_presentation()
         _install_tutorial_entry(root)
         return existing
 
@@ -146,5 +160,6 @@ def install(root) -> DevelopmentWatermark:
     _install_guest_login(root)
     _install_login_identity(root)
     _install_attendance_move_fix()
+    _install_dyspozycje_presentation()
     _install_tutorial_entry(root)
     return overlay
