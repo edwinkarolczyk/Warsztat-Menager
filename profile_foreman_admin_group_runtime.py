@@ -1,4 +1,4 @@
-# version: 1.3.1
+# version: 1.3.2
 """Grupuje rzadziej używane zakładki Brygadzisty w jedną Administrację.
 
 Na głównym poziomie pozostają tylko codzienne widoki: Pulpit, Ruch WM,
@@ -362,9 +362,13 @@ def _build_feedback_tab(panel) -> None:
         _iid, row = cached
         text = str(row.get("message") or "")
         try:
-            panel.clipboard_clear()
-            panel.clipboard_append(text)
-            panel.update_idletasks()
+            root = panel.winfo_toplevel()
+            root.clipboard_clear()
+            root.clipboard_append(text)
+            root.update()
+            copied = str(root.clipboard_get() or "")
+            if copied != text:
+                raise RuntimeError("Schowek nie zawiera pełnej treści opinii.")
             selected_info_var.set("Skopiowano pełną treść opinii do schowka.")
             panel.after(1200, _update_selection_ui)
         except Exception as exc:
