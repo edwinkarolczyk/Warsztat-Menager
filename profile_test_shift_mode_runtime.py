@@ -1,7 +1,8 @@
-# version: 1.0
-"""Dodaje do zakładki TESTOWA kolumnę z ustawionym trybem zmiany pracownika."""
+# version: 1.1
+"""Dopina do TESTOWEJ tryb zmiany bez gubienia istniejących nagłówków."""
 from __future__ import annotations
 
+from datetime import date
 from tkinter import ttk
 from typing import Any
 
@@ -10,6 +11,7 @@ from grafiki.shifts_schedule import _normalize_mode
 from services import workforce_profile_service
 
 _INSTALLED = False
+_ABSENCE_CODES = {"UR", "?UR", "L4", "NN", "ŚW", "UB", "UŻ"}
 
 
 def _key(value: Any) -> str:
@@ -44,6 +46,27 @@ def _configured_shift_mode(login: str) -> str:
     return _normalize_mode(raw_mode)
 
 
+def _today_absence_by_login() -> dict[str, str]:
+    """Zwróć wyłącznie stan nieobecności na dzisiaj, nie saldo urlopu."""
+    try:
+        import profile_calendar_team_runtime as team_runtime
+
+        rows = team_runtime._team_day_rows(date.today())
+    except Exception:
+        return {}
+
+    out: dict[str, str] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        login = _key(row.get("login"))
+        if not login:
+            continue
+        code = str(row.get("status_code") or "").strip().upper()
+        out[login] = code if code in _ABSENCE_CODES else "—"
+    return out
+
+
 def _walk(widget):
     out = []
     try:
@@ -61,6 +84,8 @@ def _decorate_shift_mode_column(panel) -> None:
     if parent is None:
         return
 
+    absences = _today_absence_by_login()
+
     for tree in _walk(parent):
         if not isinstance(tree, ttk.Treeview):
             continue
@@ -73,10 +98,23 @@ def _decorate_shift_mode_column(panel) -> None:
         if "shift_mode" in columns:
             continue
 
+        # Tkinter potrafi zgubić tekst nagłówków po zmianie listy columns.
+        # Zachowujemy je przed dopięciem nowej kolumny i odtwarzamy po configure().
+        headings: dict[str, str] = {}
+        for column in columns:
+            try:
+                headings[column] = str(tree.heading(column, "text") or "")
+            except Exception:
+                headings[column] = ""
+
         new_columns = list(columns)
         new_columns.insert(new_columns.index("work") + 1, "shift_mode")
         try:
             tree.configure(columns=new_columns, displaycolumns=new_columns)
+            for column in columns:
+                tree.heading(column, text=headings.get(column, ""))
+            if "leave" in columns:
+                tree.heading("leave", text="Nieobecność")
             tree.heading("shift_mode", text="Tryb zmiany")
             tree.column(
                 "shift_mode",
@@ -89,6 +127,7 @@ def _decorate_shift_mode_column(panel) -> None:
             continue
 
         login_index = columns.index("login")
+        leave_index = columns.index("leave") if "leave" in columns else -1
         insert_index = new_columns.index("shift_mode")
         for iid in tree.get_children(""):
             try:
@@ -96,6 +135,8 @@ def _decorate_shift_mode_column(panel) -> None:
                 if len(values) != len(columns):
                     continue
                 login = str(values[login_index] or "").strip()
+                if leave_index >= 0:
+                    values[leave_index] = absences.get(_key(login), "—")
                 values.insert(insert_index, _configured_shift_mode(login))
                 tree.item(iid, values=values)
             except Exception:
