@@ -2,7 +2,7 @@
 
 WMM API startuje dopiero po ustawieniu WM_ROOT, żeby zawsze używać właściwych
 danych instalacji. Serwer jest lekki, idempotentny i nie blokuje GUI.
-Panel WMM jest podpinany do Tk wyłącznie w głównym wątku.
+Panel WMM jest osadzany bezpośrednio przez gui_panel w głównym wątku Tk.
 Można wyłączyć API przez WM_DISABLE_WMM_API=1.
 """
 
@@ -38,13 +38,6 @@ def _start_wmm_after_root() -> None:
 
 
 if _wmm_api_enabled():
-    try:
-        from .wmm_panel import install_gui_panel_hook
-
-        install_gui_panel_hook()
-    except Exception:
-        pass
-
     threading.Thread(
         target=_start_wmm_after_root,
         name="wm-wmm-bootstrap",
