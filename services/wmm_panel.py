@@ -74,16 +74,51 @@ def _sidebar_button_texts(side) -> set[str]:
 
 
 def _is_gui_panel_sidebar(side) -> bool:
-    """Rozpoznaj właściwy lewy pasek gui_panel po realnych przyciskach modułów."""
+    """Rozpoznaj właściwy lewy pasek po realnych przyciskach modułów WM."""
+    try:
+        style = str(side.cget("style") or "")
+    except Exception:
+        style = ""
+    if style != "WM.Side.TFrame":
+        return False
+
     texts = _sidebar_button_texts(side)
     if "Dyspozycje" not in texts:
         return False
-    expected = {"Narzędzia", "Maszyny", "Magazyn", "Planista", "Ustawienia", "Profil"}
+    expected = {
+        "Narzędzia",
+        "Maszyny",
+        "Magazyn",
+        "Planista",
+        "Ustawienia",
+        "Profil",
+        "Chat",
+        "Samouczek",
+    }
     return len(texts.intersection(expected)) >= 3
 
 
+def _find_gui_panel_sidebar(root):
+    """Znajdź istniejący sidebar Panelu głównego bez modyfikowania widgetów."""
+    queue = [root]
+    seen: set[int] = set()
+    while queue:
+        widget = queue.pop(0)
+        marker = id(widget)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        if widget is not root and _is_gui_panel_sidebar(widget):
+            return widget
+        try:
+            queue.extend(widget.winfo_children())
+        except Exception:
+            continue
+    return None
+
+
 def _hide_jarvis_alert_card(side) -> None:
-    """Usuń wyłącznie kartę „Alerty Jarvisa”; moduł/przycisk Jarvis zostaje."""
+    """Usuń wyłącznie kartę „Alerty Jarvisa”; przycisk Jarvis zostaje."""
     try:
         children = list(side.winfo_children())
     except Exception:
@@ -103,11 +138,11 @@ def _hide_jarvis_alert_card(side) -> None:
 
 
 def _build_panel(root, side) -> None:
-    """Zbuduj kartę WMM dokładnie po modułach, w miejscu dawnej karty Jarvisa."""
+    """Zbuduj kartę WMM po modułach, w miejscu dawnej karty Alerty Jarvisa."""
     if threading.current_thread() is not threading.main_thread():
         logger.warning("[WMM] Pominięto próbę budowy GUI poza głównym wątkiem Tk")
         return
-    if not _is_gui_panel_sidebar(side):
+    if side is None or not _is_gui_panel_sidebar(side):
         return
 
     _hide_jarvis_alert_card(side)
@@ -189,13 +224,31 @@ def _build_panel(root, side) -> None:
         _update_footer(root)
         root.after(500, refresh_presence)
         print("[WM-WMM][GUI] Panel WMM osadzony zamiast Alertów Jarvisa")
-    except Exception:
+    except Exception as exc:
+        print(f"[WM-WMM][GUI][ERROR] Budowa panelu WMM nieudana: {exc}")
         logger.exception("[WMM] Nie udało się zbudować panelu WMM w gui_panel")
 
 
 def mount_wmm_panel(root, side) -> None:
-    """Osadź WMM synchronicznie; wywołanie ma pochodzić z głównego wątku Tk."""
+    """Osadź WMM w przekazanym sidebarze; wywołuj wyłącznie z wątku Tk."""
     _build_panel(root, side)
 
 
-__all__ = ["mount_wmm_panel"]
+def mount_wmm_from_root(root) -> None:
+    """Znajdź gotowy sidebar Panelu głównego i osadź WMM.
+
+    Funkcja jest przeznaczona do wywołania z istniejącego callbacku GUI. Dzięki
+    temu nie ma żadnego dostępu do Tkintera z wątku pomocniczego.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        return
+    try:
+        side = _find_gui_panel_sidebar(root)
+        if side is None:
+            return
+        _build_panel(root, side)
+    except Exception as exc:
+        print(f"[WM-WMM][GUI][WARN] Nie znaleziono/montowano sidebara: {exc}")
+
+
+__all__ = ["mount_wmm_panel", "mount_wmm_from_root"]
