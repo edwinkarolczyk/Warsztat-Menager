@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.2.1
 """Grupuje rzadziej używane zakładki Brygadzisty w jedną Administrację.
 
 Na głównym poziomie pozostają tylko codzienne widoki: Pulpit, Ruch WM,
@@ -126,8 +126,10 @@ def _build_feedback_tab(panel) -> None:
     )
 
     columns = ("ts", "login", "rola", "status", "message")
+    tree_wrap = ttk.Frame(parent, style="WM.Container.TFrame")
+    tree_wrap.pack(fill="both", expand=True, padx=8, pady=(0, 8))
     tree = ttk.Treeview(
-        parent,
+        tree_wrap,
         columns=columns,
         show="headings",
         style="Foreman.Treeview",
@@ -143,10 +145,7 @@ def _build_feedback_tab(panel) -> None:
     tree.column("rola", width=110, anchor="w")
     tree.column("status", width=110, anchor="center")
     tree.column("message", width=620, anchor="w")
-
-    tree_wrap = ttk.Frame(parent, style="WM.Container.TFrame")
-    tree_wrap.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-    tree.grid(in_=tree_wrap, row=0, column=0, sticky="nsew")
+    tree.grid(row=0, column=0, sticky="nsew")
     scrollbar = ttk.Scrollbar(tree_wrap, orient="vertical", command=tree.yview)
     scrollbar.grid(row=0, column=1, sticky="ns")
     tree.configure(yscrollcommand=scrollbar.set)
