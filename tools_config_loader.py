@@ -1,4 +1,7 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - find_type() ustawia jawny visit_base logicznie jako pierwszy status w pamięci,
+#   bez zmiany kolejności zapisanej w pliku JSON.
 from __future__ import annotations
 
 import glob
@@ -264,6 +267,23 @@ def get_types(cfg: Dict[str, Any], collection: str) -> List[Dict[str, Any]]:
     return list(types or [])
 
 
+def _put_visit_base_first(tool_type: Dict[str, Any]) -> None:
+    """Ustaw visit_base jako pierwszy status tylko w bieżącym obiekcie w pamięci."""
+
+    statuses = tool_type.get("statuses")
+    if not isinstance(statuses, list) or len(statuses) < 2:
+        return
+    base_idx = None
+    for idx, status in enumerate(statuses):
+        if isinstance(status, dict) and bool(status.get("visit_base")):
+            base_idx = idx
+            break
+    if base_idx is None or base_idx == 0:
+        return
+    base = statuses[base_idx]
+    tool_type["statuses"] = [base] + statuses[:base_idx] + statuses[base_idx + 1 :]
+
+
 def find_type(cfg: Dict[str, Any], collection: str, type_name: str) -> Dict[str, Any] | None:
     target = _normalize_type_key(type_name)
     for tool_type in get_types(cfg, collection):
@@ -274,6 +294,7 @@ def find_type(cfg: Dict[str, Any], collection: str, type_name: str) -> Dict[str,
         alias_norm = {_normalize_type_key(alias) for alias in aliases if isinstance(alias, str)}
 
         if target in {name_norm, id_norm, id_base_norm} | alias_norm:
+            _put_visit_base_first(tool_type)
             return tool_type
     return None
 

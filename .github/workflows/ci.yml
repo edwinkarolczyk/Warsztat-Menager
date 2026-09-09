@@ -17,9 +17,89 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pillow pytest
+      - name: Compile whole repository
+        run: |
+          python -m compileall -q .
+      - name: Run profile workforce regressions
+        run: |
+          pytest -q \
+            tests/test_workforce_attendance.py \
+            tests/test_leave_balance_service.py \
+            tests/test_feedback_service.py \
+            tests/test_wm_operational_followup.py \
+            tests/test_profile_foreman_edit_runtime.py \
+            tests/test_profile_foreman_workspace.py \
+            tests/test_profile_workday_policy.py \
+            tests/test_profile_day_pay.py \
+            tests/test_shifts_schedule.py \
+            tests/test_shifts_schedule_anchor.py \
+            tests/test_wm_access_profile_alias.py \
+            test_shifts_schedule_weekend.py
       - name: Run smoke tests (settings)
         run: |
-          pytest -q tests/test_settings_manager.py
+          pytest -q \
+            tests/test_settings_manager.py \
+            tests/test_settings_dirty_state_v2.py \
+            tests/test_profile_settings_navigation.py \
+            tests/test_windows_restart_compat.py
+      - name: Run warehouse PZ/reservation UI regressions
+        run: |
+          pytest -q \
+            tests/test_magazyn_pz_ui.py \
+            tests/test_gui_magazyn_rezerwacje.py
+      - name: Run production planning regressions
+        run: |
+          pytest -q \
+            tests/test_production_bom_reservation.py \
+            tests/test_production_workflow_v2.py \
+            tests/test_production_progress_v3.py \
+            tests/test_planista_semi_progress.py \
+            tests/test_planista_stock_runtime.py \
+            tests/test_planista_dispatch_runtime.py \
+            tests/test_ui_regressions_magazyn_planista.py \
+            tests/test_planista_excel_import.py \
+            tests/test_planista_excel_changes.py \
+            tests/test_planista_excel_orders.py \
+            tests/test_planista_excel_sync_runtime.py \
+            tests/test_planista_excel_sync_e2e.py
+      - name: Run UI and ROOT regressions
+        run: |
+          pytest -q tests/test_ui_root_regressions.py
+      - name: Run DATA_ROOT integrity regressions
+        run: |
+          pytest -q tests/test_data_root_integrity.py
+      - name: Compile hall and machine extension
+        run: |
+          python -m py_compile \
+            gui_maszyny.py \
+            widok_hali/rooms.py \
+            widok_hali/machine_rooms_patch.py \
+            widok_hali/machine_rooms_persistence.py \
+            widok_hali/machine_rooms_ui_patch.py \
+            widok_hali/machine_rooms_editor_patch.py \
+            widok_hali/machine_usage_location_patch.py \
+            widok_hali/machine_drag_location_feedback.py
+      - name: Run hall and machine integration tests
+        run: |
+          pytest -q \
+            tests/test_hall_rooms.py \
+            tests/test_gui_maszyny_rooms_integration.py \
+            tests/test_gui_maszyny_rooms_persistence.py \
+            tests/test_gui_maszyny_room_ui.py \
+            tests/test_gui_maszyny_room_editor.py \
+            tests/test_gui_maszyny_usage_location.py \
+            tests/test_machine_review_correction_runtime.py
+      - name: Run Tk hall/profile smoke under Xvfb
+        run: |
+          xvfb-run -a pytest -q \
+            tests/test_gui_maszyny_rooms_tk_smoke.py \
+            tests/test_gui_maszyny_usage_location_tk.py \
+            tests/test_gui_maszyny_drag_location_feedback_tk.py \
+            tests/test_profile_settings_runtime_tk.py \
+            tests/test_profile_admin_foreman_tk.py \
+            tests/test_profile_own_edit_tk.py \
+            tests/test_profile_user_actions_tk.py \
+            tests/test_profile_calendar_team_tk.py
   static-checks:
     runs-on: ubuntu-latest
     steps:

@@ -1,12 +1,403 @@
-# version: 1.0
+# WM-VERSION: 0.2
+# Plik: rc1_magazyn_fix.py
+# version: 1.7
 # -*- coding: utf-8 -*-
-# RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie
-_MAG_TOOLBAR_INIT = False
-def ensure_magazyn_toolbar_once(build_fn):
-    def wrapper(*args, **kwargs):
-        global _MAG_TOOLBAR_INIT
-        if _MAG_TOOLBAR_INIT:
+# RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
+# 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
+# 1.2: blokada działa dla instancji panelu, więc nowy ekran Magazynu dostaje własny toolbar.
+# 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
+# 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
+# 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
+# 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Fi/Wymiar; ręczne pole Nazwa pozostaje ukryte.
+# 1.7: Półprodukt zapisuje powiązanie z Surowcem wyłącznie po aktualnym technicznym ID.
+
+from functools import wraps
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+
+_MAGAZYN_DISPLAY_COLUMNS = (
+    "id",
+    "nazwa",
+    "rozmiar",
+    "stan",
+    "rezerwacje",
+    "dostepne",
+    "jednostka",
+    "lokalizacja",
+    "zadania",
+    "typ",
+    "sekcja",
+)
+
+_MAGAZYN_COLUMN_WIDTHS = {
+    "id": 95,
+    "nazwa": 240,
+    "rozmiar": 130,
+    "stan": 90,
+    "rezerwacje": 110,
+    "dostepne": 95,
+    "jednostka": 80,
+    "lokalizacja": 130,
+    "zadania": 190,
+    "typ": 100,
+    "sekcja": 110,
+}
+
+
+def _raw_name_dimension(size, mode=None):
+    """Zwróć czytelny wymiar do nazwy; dla pola Fi dodaj pojedynczy prefiks `Fi`."""
+    value = str(size or "").strip()
+    if not value:
+        return ""
+    selected = str(mode or "").strip().casefold()
+    if selected != "fi":
+        return value
+
+    lower = value.casefold()
+    if lower.startswith("fi"):
+        rest = value[2:].lstrip(" :-")
+        return f"Fi {rest}".strip()
+    if value.startswith(("Ø", "ø", "⌀", "Φ", "φ")):
+        value = value[1:].strip()
+    return f"Fi {value}".strip()
+
+
+def _generated_raw_name(kind, size, mode=None):
+    kind = str(kind or "").strip()
+    size = str(size or "").strip()
+    if not kind or not size:
+        return kind or size
+    selected = str(mode or "").strip().casefold()
+    if not selected:
+        selected = "wymiar" if kind.casefold() == "profil" else "fi"
+    dimension = _raw_name_dimension(size, selected)
+    return f"{kind} - {dimension}" if dimension else kind
+
+
+def _ensure_generated_raw_name(raw_vars, owner, kind, size, mode=None):
+    """Utrzymaj techniczną nazwę nawet po usunięciu pola Nazwa z formularza."""
+    name = _generated_raw_name(kind, size, mode)
+    name_var = raw_vars.get("nazwa")
+    if name_var is None:
+        name_var = tk.StringVar(master=owner)
+        raw_vars["nazwa"] = name_var
+    name_var.set(name)
+    return name
+
+
+def _catalog_raw_materials_only(model):
+    """Źródłem listy surowców Planisty jest wyłącznie zakładka Surowce."""
+    out = {}
+    for key, rec in getattr(model, "surowce", {}).items():
+        if not isinstance(rec, dict):
+            continue
+        item_id = str(rec.get("id") or rec.get("kod") or key).strip()
+        if item_id:
+            out[item_id] = {**rec, "id": item_id, "kod": item_id}
+    return out
+
+
+def _canonical_semiproduct_raw_relation(model, raw):
+    """Zwróć jedyną dozwoloną postać relacji Półprodukt -> Surowiec."""
+    if not isinstance(raw, dict):
+        raise ValueError("Półprodukt musi wskazywać istniejący surowiec po ID technicznym.")
+
+    raw_id = str(raw.get("kod") or raw.get("id") or "").strip()
+    catalog = _catalog_raw_materials_only(model)
+    if not raw_id or raw_id not in catalog:
+        raise ValueError("Wybrany surowiec nie istnieje już w kartotece Surowców.")
+
+    try:
+        qty = float(str(raw.get("ilosc_na_szt", 0) or 0).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        qty = 0.0
+    if qty <= 0:
+        raise ValueError("Ilość surowca na sztukę musi być większa od zera.")
+
+    raw_rec = catalog[raw_id]
+    unit = str(raw_rec.get("jednostka") or raw_rec.get("unit") or "mm").strip() or "mm"
+    return {"kod": raw_id, "ilosc_na_szt": qty, "jednostka": unit}
+
+
+def _selected_raw_id(owner):
+    """Rozwiąż ID wyłącznie z aktualnie widocznego wyboru, nigdy ze starej ukrytej wartości."""
+    choice = getattr(owner, "pp_raw_choice", None)
+    display = str(choice.get() if choice is not None else "").strip()
+    mapping = getattr(owner, "_raw_display_to_id", {})
+    current = getattr(owner, "_raw_by_id", {})
+    if not isinstance(mapping, dict) or not isinstance(current, dict):
+        return ""
+    item_id = str(mapping.get(display) or "").strip()
+    return item_id if item_id and item_id in current else ""
+
+
+def _remove_manual_raw_name_row(owner, parent):
+    """Usuń wyłącznie stare ręczne pole Nazwa, nigdy wiersz Rodzaj."""
+    raw_vars = getattr(owner, "s_vars", None)
+    if not isinstance(raw_vars, dict) or "nazwa" not in raw_vars:
+        # Nowy formularz Planisty nie ma technicznej zmiennej Nazwa w UI.
+        # Jego pierwszy wiersz to Rodzaj i musi pozostać widoczny.
+        return False
+
+    for child in parent.winfo_children():
+        try:
+            is_card = (
+                isinstance(child, ttk.LabelFrame)
+                and child.cget("text") == "Karta surowca"
+            )
+        except Exception:
+            is_card = False
+        if not is_card:
+            continue
+
+        row_widgets = list(child.grid_slaves(row=0))
+        has_name_label = False
+        for widget in row_widgets:
+            try:
+                if str(widget.cget("text") or "").strip().casefold() == "nazwa":
+                    has_name_label = True
+                    break
+            except Exception:
+                continue
+        if not has_name_label:
+            return False
+
+        for widget in row_widgets:
+            widget.destroy()
+        return True
+    return False
+
+
+def _raw_kind_mode(owner, kind):
+    modes = getattr(owner, "_kind_dimension_modes", {})
+    if isinstance(modes, dict):
+        return modes.get(kind)
+    return None
+
+
+def _record_raw_kind_mode(model, kind):
+    for item in getattr(model, "raw_kinds", []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("nazwa") or "").strip().casefold() == str(kind or "").strip().casefold():
+            return str(item.get("pole") or "").strip().casefold() or None
+    return None
+
+
+def _install_planista_raw_material_fix():
+    """Instaluje małą poprawkę zgodności bez zmiany formatu zapisanych JSON-ów."""
+    try:
+        import gui_magazyn_bom as gb
+    except Exception:
+        return
+
+    model_cls = getattr(gb, "WarehouseModel", None)
+    view_cls = getattr(gb, "MagazynBOM", None)
+    if model_cls is None or view_cls is None or getattr(view_cls, "_wm_raw_catalog_fix", False):
+        return
+
+    gb.HELP["raw_select"] = (
+        "Wybierz surowiec z aktualnej kartoteki Surowców. "
+        "WM pokazuje czytelny opis, ale powiązanie zapisuje wyłącznie po technicznym ID."
+    )
+
+    def inventory_raw_materials(self):
+        return _catalog_raw_materials_only(self)
+
+    model_cls.inventory_raw_materials = inventory_raw_materials
+
+    original_model_save = model_cls.add_or_update_surowiec
+    if not getattr(original_model_save, "_wm_generated_raw_name", False):
+        @wraps(original_model_save)
+        def model_save_surowiec(self, record):
+            rec = dict(record)
+            kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
+            size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
+            if kind and size:
+                rec["nazwa"] = _generated_raw_name(
+                    kind,
+                    size,
+                    _record_raw_kind_mode(self, kind),
+                )
+            return original_model_save(self, rec)
+
+        model_save_surowiec._wm_generated_raw_name = True
+        model_save_surowiec._wm_original = original_model_save
+        model_cls.add_or_update_surowiec = model_save_surowiec
+
+    original_model_save_semi = model_cls.add_or_update_polprodukt
+    if not getattr(original_model_save_semi, "_wm_raw_id_relation", False):
+        @wraps(original_model_save_semi)
+        def model_save_polprodukt(self, record):
+            rec = dict(record)
+            rec["surowiec"] = _canonical_semiproduct_raw_relation(
+                self,
+                rec.get("surowiec"),
+            )
+            return original_model_save_semi(self, rec)
+
+        model_save_polprodukt._wm_raw_id_relation = True
+        model_save_polprodukt._wm_original = original_model_save_semi
+        model_cls.add_or_update_polprodukt = model_save_polprodukt
+
+    original_build_surowce = view_cls._build_surowce
+    original_save_surowiec = view_cls._save_surowiec
+
+    @wraps(original_build_surowce)
+    def build_surowce(self, parent):
+        result = original_build_surowce(self, parent)
+        # Stary formularz miał ręczne pole „Nazwa” w wierszu 0. Nazwa jest teraz
+        # wartością techniczną wyliczaną z Rodzaj + Fi/Wymiar, więc pole nie jest edytowalne.
+        _remove_manual_raw_name_row(self, parent)
+
+        def sync_generated_name(*_args):
+            if not hasattr(self, "s_vars"):
+                return
+            kind = self.s_vars["rodzaj"].get().strip()
+            size = self.s_vars["rozmiar"].get().strip()
+            _ensure_generated_raw_name(
+                self.s_vars,
+                self,
+                kind,
+                size,
+                _raw_kind_mode(self, kind),
+            )
+
+        if not getattr(self, "_wm_raw_name_traces", False):
+            self.s_vars["rodzaj"].trace_add("write", sync_generated_name)
+            self.s_vars["rozmiar"].trace_add("write", sync_generated_name)
+            self._wm_raw_name_traces = True
+        sync_generated_name()
+        return result
+
+    @wraps(original_save_surowiec)
+    def save_surowiec(self):
+        kind = self.s_vars["rodzaj"].get().strip()
+        size = self.s_vars["rozmiar"].get().strip()
+        if not kind or not size:
+            gb._msg_error(self, "Surowce", "Wymagane pola: rodzaj i wymiar surowca.")
             return
-        _MAG_TOOLBAR_INIT = True
-        return build_fn(*args, **kwargs)
+        _ensure_generated_raw_name(
+            self.s_vars,
+            self,
+            kind,
+            size,
+            _raw_kind_mode(self, kind),
+        )
+        return original_save_surowiec(self)
+
+    def raw_display(self, item_id, rec):
+        name = str(rec.get("nazwa") or "").strip()
+        if not name:
+            kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
+            size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
+            name = _generated_raw_name(kind, size, _raw_kind_mode(self, kind)) or str(item_id)
+        return f"{name}  [{item_id}]"
+
+    def resolve_raw_id(self):
+        return _selected_raw_id(self)
+
+    view_cls._build_surowce = build_surowce
+    view_cls._save_surowiec = save_surowiec
+    view_cls._raw_display = raw_display
+    view_cls._resolve_raw_id = resolve_raw_id
+    view_cls._wm_raw_catalog_fix = True
+
+
+_install_planista_raw_material_fix()
+
+
+def _apply_magazyn_column_layout(owner):
+    """Ustaw czytelną kolejność kolumn bez zmiany formatu rekordów Magazynu."""
+    tree = getattr(owner, "tree", None)
+    if tree is None:
+        return False
+    try:
+        available = tuple(str(column) for column in tree["columns"])
+    except Exception:
+        return False
+    if not available:
+        return False
+
+    ordered = [column for column in _MAGAZYN_DISPLAY_COLUMNS if column in available]
+    ordered.extend(column for column in available if column not in ordered)
+    try:
+        tree.configure(displaycolumns=tuple(ordered))
+        for column, width in _MAGAZYN_COLUMN_WIDTHS.items():
+            if column in available:
+                anchor = "center" if column in {
+                    "stan", "rezerwacje", "dostepne", "jednostka"
+                } else "w"
+                tree.column(column, width=width, anchor=anchor)
+    except Exception:
+        return False
+    return True
+
+
+def _schedule_magazyn_column_layout(owner):
+    if owner is None:
+        return
+    try:
+        owner.after_idle(lambda: _apply_magazyn_column_layout(owner))
+    except Exception:
+        pass
+
+
+def _open_selected_pz(owner):
+    try:
+        import gui_magazyn as gm
+        if hasattr(gm, "_can") and not gm._can(owner, "pz"):
+            messagebox.showwarning("Uprawnienia", "Brak uprawnień do przyjęcia PZ.")
+            return
+    except Exception:
+        pass
+
+    item_id = ""
+    getter = getattr(owner, "_selected_item_id", None)
+    if callable(getter):
+        try:
+            item_id = str(getter() or "").strip()
+        except Exception:
+            item_id = ""
+    if not item_id:
+        messagebox.showinfo("PZ", "Najpierw wybierz pozycję w Magazynie.")
+        return
+
+    try:
+        from gui_magazyn_pz import open_pz_dialog
+        open_pz_dialog(owner, item_id, on_saved=lambda _id=None: owner.refresh())
+    except Exception as exc:
+        messagebox.showerror("PZ", f"Nie udało się otworzyć przyjęcia PZ:\n{exc}")
+
+
+def _append_pz_button(toolbar, owner):
+    if getattr(owner, "_wm_pz_toolbar_button", None) is not None:
+        return
+    try:
+        button = ttk.Button(
+            toolbar,
+            text="PZ / Przyjęcie",
+            command=lambda: _open_selected_pz(owner),
+            style="WM.Side.TButton",
+        )
+        button.pack(side="right", padx=(0, 6))
+        owner._wm_pz_toolbar_button = button
+    except Exception:
+        pass
+
+
+def ensure_magazyn_toolbar_once(build_fn):
+    @wraps(build_fn)
+    def wrapper(*args, **kwargs):
+        owner = args[1] if len(args) >= 2 else kwargs.get("owner")
+        if owner is not None and getattr(owner, "_wm_magazyn_toolbar_built", False):
+            return
+        result = build_fn(*args, **kwargs)
+        if owner is not None:
+            owner._wm_magazyn_toolbar_built = True
+        if len(args) >= 2:
+            _append_pz_button(args[0], owner)
+        _schedule_magazyn_column_layout(owner)
+        return result
     return wrapper

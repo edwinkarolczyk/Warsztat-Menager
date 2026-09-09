@@ -1,4 +1,8 @@
-# version: 1.0
+# version: 1.2
+# Zmiany 1.2:
+# - Główne okno Narzędzi startuje większe i ma bezpieczny minimalny rozmiar.
+# Zmiany 1.1:
+# - Listy Narzędzi używają tej samej wielkości czcionki co Dyspozycje: Segoe UI 11, nagłówki 11 bold, wiersz 30 px.
 """Widok listy narzędzi wydzielony z głównego modułu GUI."""
 
 from __future__ import annotations
@@ -386,6 +390,17 @@ def _progress_tag(progress_text: str) -> str:
 
 
 REFRESH_INTERVAL_SECONDS = 30
+
+
+def _apply_dysp_table_font(tree: ttk.Treeview) -> None:
+    """Wyrównaj czytelność tabel Narzędzi do aktywnej tabeli Dyspozycji."""
+    try:
+        style = ttk.Style(tree)
+        style.configure("Tools.Treeview", font=("Segoe UI", 11), rowheight=30)
+        style.configure("Tools.Treeview.Heading", font=("Segoe UI", 11, "bold"))
+        tree.configure(style="Tools.Treeview")
+    except Exception:
+        pass
 
 
 class ToolsThreeTabsView(ttk.Frame):
@@ -794,6 +809,7 @@ class ToolsThreeTabsView(ttk.Frame):
         self.tv_inprog = ttk.Treeview(
             self.tab_in_progress, columns=cols, show="headings", height=18
         )
+        _apply_dysp_table_font(self.tv_inprog)
         self.tv_inprog.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         headings = {
@@ -869,6 +885,7 @@ class ToolsThreeTabsView(ttk.Frame):
         self.tv_all = ttk.Treeview(
             self.tab_all, columns=cols, show="headings", height=18
         )
+        _apply_dysp_table_font(self.tv_all)
         self.tv_all.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         headings = {
@@ -919,6 +936,7 @@ class ToolsThreeTabsView(ttk.Frame):
         self.tv_tasks = ttk.Treeview(
             self.tab_tasks, columns=cols, show="tree headings", height=18
         )
+        _apply_dysp_table_font(self.tv_tasks)
         self.tv_tasks.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
         self.tv_tasks.heading("#0", text="Narzędzie / Zadanie")
@@ -1393,8 +1411,8 @@ class ToolsBatchLoader:
 class ToolsListWindow:
     """Okno prezentujące listę narzędzi wraz z paskiem przewijania."""
 
-    _DEFAULT_WIDTH = 900
-    _DEFAULT_HEIGHT = 540
+    _DEFAULT_WIDTH = 1180
+    _DEFAULT_HEIGHT = 700
 
     def __init__(
         self,
@@ -1407,6 +1425,8 @@ class ToolsListWindow:
         self.window = tk.Toplevel()
         self.window.title("Narzędzia")
         self.window.geometry(f"{self._DEFAULT_WIDTH}x{self._DEFAULT_HEIGHT}")
+        self.window.minsize(1000, 620)
+        self.window.resizable(True, True)
         ensure_theme_applied(self.window)
         self._center_on_primary_monitor()
         self.window.attributes("-topmost", True)

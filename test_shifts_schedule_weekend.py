@@ -1,5 +1,4 @@
-# version: 1.0
-import datetime as dt
+# version: 1.1
 import datetime as dt
 
 
@@ -9,11 +8,26 @@ def test_week_matrix_weekend(monkeypatch):
     monkeypatch.setattr(
         ss,
         "_load_users",
-        lambda: [{"id": "1", "name": "Alice", "active": True}],
+        lambda: [{
+            "id": "USR-0001",
+            "login": "alice",
+            "name": "Alice",
+            "active": True,
+            "tryb_zmian": "121",
+            "rotacja_start": "",
+        }],
     )
-    monkeypatch.setattr(ss, "_load_modes", lambda: {"modes": {}})
+    monkeypatch.setattr(
+        ss,
+        "_load_modes",
+        lambda: {
+            "anchor_monday": "2025-01-06",
+            "patterns": {},
+            "modes": {"USR-0001": "121"},
+            "user_anchor": {"USR-0001": "2025-01-06"},
+        },
+    )
     monkeypatch.setattr(ss, "_slot_for_mode", lambda mode, widx: "POPO")
-    monkeypatch.setattr(ss, "_week_idx", lambda day: 0)
 
     def fake_times():
         return {
@@ -29,5 +43,5 @@ def test_week_matrix_weekend(monkeypatch):
     days = result["rows"][0]["days"]
 
     assert len(days) == 6
-    assert all(d["dow"] != "Sun" for d in days)
+    assert all(day["dow"] != "Sun" for day in days)
     assert days[-1]["shift"] == "R"

@@ -1,5 +1,26 @@
-# version: 1.0
+# version: 1.0.7
 # Moduł: gui_settings
+# Zmiany 1.0.7:
+# - Nieudany zapis nie oznacza już wartości jako zapisanych i zachowuje możliwość ponownej próby.
+# Zmiany 1.0.6:
+# - Zakładki Ustawień nie pytają już o zapis przy każdym przejściu między nimi.
+# - Potwierdzenie przy zamykaniu pojawia się tylko dla rzeczywistych zmian wartości.
+# - Programowe odświeżenia pól nie ustawiają już fałszywego stanu niezapisanych zmian.
+# Zmiany 1.0.5:
+# - Naprawiono zapis ustawień Dyspozycji w osadzonym panelu: komunikaty używają istniejącego okna nadrzędnego zamiast nieistniejącego self.win.
+# Zmiany 1.0.4:
+# - Ustawienia → Moduły → Dyspozycje pozwalają ustawić liczbę dni przed cyklicznym przeglądem maszyny, kiedy ma powstać automatyczna Dyspozycja.
+# Zmiany 1.0.3:
+# - U1: uproszczono główne Ustawienia do: Ogólne, Wygląd, Użytkownicy, Moduły, Backup, Zaawansowane.
+# - Narzędzia, Magazyn, Dyspozycje i Jarvis przeniesiono pod Moduły bez zmiany ich danych.
+# - Opinie, Statystyki, BOM i znak wodny ukryto z normalnego widoku Ustawień.
+# - Techniczne opcje aktualizacji/debug przeniesiono do Zaawansowanych.
+# Zmiany 1.0.2:
+# - Dodano stały przycisk 'Zapisz wszystko' w stopce Ustawień.
+# - Dodano status ostatniego zapisu z czasem i nazwą aktywnej zakładki.
+# - Log zapisu rozróżnia zapis wykonany od zapisu oczekującego na debounce.
+# Zmiany 1.0.1:
+# - refresh_panel sprawdza schema_path i używa settings_schema.json z katalogu programu, gdy ścieżka jest nieprawidłowa.
 # ⏹ KONIEC WSTĘPU
 
 from __future__ import annotations
@@ -73,6 +94,10 @@ from config.paths import (
 )
 from gui_uzytkownicy import panel_uzytkownicy
 from gui_settings_users_tab import create_users_tab
+try:
+    from wm_watermark import set_enabled as _wm_set_watermark_enabled
+except Exception:
+    _wm_set_watermark_enabled = None
 
 logger = getLogger(__name__)
 
@@ -2267,19 +2292,12 @@ class SettingsPanel:
         tabs_config = [
             (self.tab_ogolne, "Ogólne", ""),
             (self.tab_ui, "Wygląd", ""),
-            (self.tab_paths, "Ścieżki", ""),
-            (self.tab_tools, "Narzędzia", ""),
             (self.tab_modules, "Moduły", ""),
-            (self.tab_dispatches, "Dyspozycje", ""),
-            (self.tab_warehouse, "Magazyn", ""),
             (self.tab_backup, "Backup", ""),
-            (self.tab_feedback, "Opinie", ""),
-            (self.tab_statistics, "Statystyki", ""),
-            (self.tab_jarvis, "Jarvis", ""),
             (self.tab_advanced, "Zaawansowane", ""),
         ]
         if allow_users:
-            tabs_config.insert(3, (self.tab_users, "Użytkownicy", ""))
+            tabs_config.insert(2, (self.tab_users, "Użytkownicy", ""))
 
         for frame, title, subtitle in tabs_config:
             if frame is not None:
@@ -2357,11 +2375,80 @@ class SettingsPanel:
             text="🎨 Wygląd i UI"
         )
         self._ui_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # --- WM: znak wodny programu ---
+        watermark_box = ttk.LabelFrame(
+            self._ui_container,
+            text="🚧 Program w trakcie rozwoju",
+        )
+        # U1: kontrolka watermarku pozostaje kompatybilna, ale jest ukryta z UI.
+
+        self._wm_watermark_var = tk.BooleanVar(
+            master=self.master,
+            value=bool(self.cfg.get("ui.show_development_watermark", True)),
+        )
+
+        def _toggle_wm_watermark():
+            enabled = bool(self._wm_watermark_var.get())
+            try:
+                if _wm_set_watermark_enabled is not None:
+                    _wm_set_watermark_enabled(enabled)
+                else:
+                    self.cfg.set("ui.show_development_watermark", enabled)
+                    self.cfg.save_all()
+            except Exception as exc:
+                logger.exception("[WM][WATERMARK] Nie udało się zapisać ustawienia")
+                messagebox.showerror(
+                    "Znak wodny",
+                    f"Nie udało się zapisać ustawienia:\n{exc}",
+                    parent=self.master,
+                )
+                self._wm_watermark_var.set(not enabled)
+                return
+
+            try:
+                top = self.master.winfo_toplevel()
+                overlay = getattr(top, "_wm_development_watermark", None)
+                if overlay is not None:
+                    overlay._refresh()
+                elif enabled:
+                    from wm_watermark import install as _install_wm_watermark
+                    _install_wm_watermark(top)
+            except Exception:
+                logger.debug("[WM][WATERMARK] Nie udało się odświeżyć warstwy", exc_info=True)
+
+        ttk.Checkbutton(
+            watermark_box,
+            text="Pokaż na środku ekranu znak wodny „PROGRAM W TRAKCIE ROZWOJU”",
+            variable=self._wm_watermark_var,
+            command=_toggle_wm_watermark,
+        ).pack(anchor="w", padx=10, pady=(10, 4))
+        ttk.Label(
+            watermark_box,
+            text="Duży, ukośny i półprzezroczysty napis. Zmiana działa od razu i jest zapisywana w konfiguracji.",
+        ).pack(anchor="w", padx=10, pady=(0, 10))
         self._modules_nb = ttk.Notebook(self.tab_modules)
         self._modules_nb.pack(fill="both", expand=True, padx=8, pady=8)
         self._modules_nb.bind(
             "<<NotebookTabChanged>>", self._on_modules_tab_change, add="+"
         )
+
+        # U1: ręczne sekcje modułowe trafiają do jednego notebooka „Moduły”.
+        self._dispatches_module_frame = ttk.Frame(self._modules_nb)
+        self._modules_nb.add(self._dispatches_module_frame, text="Dyspozycje")
+        self._dispatches_container = ttk.LabelFrame(
+            self._dispatches_module_frame,
+            text="Dyspozycje — ustawienia",
+        )
+        self._dispatches_container.pack(fill="both", expand=True, padx=8, pady=8)
+
+        self._jarvis_module_frame = ttk.Frame(self._modules_nb)
+        self._modules_nb.add(self._jarvis_module_frame, text="Jarvis")
+        self._jarvis_container = ttk.LabelFrame(
+            self._jarvis_module_frame,
+            text="Jarvis i powiadomienia",
+        )
+        self._jarvis_container.pack(fill="both", expand=True, padx=8, pady=8)
 
         self._warehouse_nb = ttk.Notebook(self.tab_warehouse)
         self._warehouse_nb.pack(fill="both", expand=True, padx=8, pady=8)
@@ -2405,8 +2492,7 @@ class SettingsPanel:
         }
         self._build_manual_config_fields()
         self._build_dispatches_settings_tab()
-        self._build_feedback_settings_tab()
-        self._build_statistics_settings_tab()
+        # U1: Opinie i Statystyki nie są już budowane w Ustawieniach.
 
         # state for lazy creation of magazyn subtabs
         self._magazyn_frame: ttk.Frame | None = None
@@ -2424,7 +2510,6 @@ class SettingsPanel:
         warehouse_ids = {
             "magazyn",
             "zamowienia",
-            "produkty",
         }
         self._build_warehouse_diagnostics_tab()
 
@@ -2502,10 +2587,18 @@ class SettingsPanel:
             if tab_id == "system":
                 self._render_system_tab(tab, handlers)
                 continue
+            if tab_id == "produkty":
+                print("[WM-DBG][SETTINGS] U1: pomijam Produkty/BOM w Ustawieniach")
+                continue
+            if tab_id == "dyspo":
+                # U1: aktywna konfiguracja Dyspozycji jest w ręcznej sekcji Moduły.
+                continue
             if tab_id == "narzedzia":
-                frame = self._tools_container
-                for child in frame.winfo_children():
-                    child.destroy()
+                frame = ttk.Frame(self._modules_nb)
+                self._modules_nb.add(frame, text=title)
+                self._register_nested_tab(
+                    title, self.tab_modules, self._modules_nb, frame
+                )
                 path_key = (tab_id,)
                 self._remember_tab_frame(path_key, frame)
                 counts = self._handle_tools_tab(frame, tab, path_key)
@@ -2513,10 +2606,10 @@ class SettingsPanel:
                     self._log_tab_stats(title, *counts)
                 continue
             if tab_id in warehouse_ids:
-                frame = ttk.Frame(self._warehouse_nb)
-                self._warehouse_nb.add(frame, text=title)
+                frame = ttk.Frame(self._modules_nb)
+                self._modules_nb.add(frame, text=title)
                 self._register_nested_tab(
-                    title, self.tab_warehouse, self._warehouse_nb, frame
+                    title, self.tab_modules, self._modules_nb, frame
                 )
                 print(
                     "[WM-DBG][SETTINGS] add warehouse tab: "
@@ -2550,13 +2643,47 @@ class SettingsPanel:
                     self._log_tab_stats(title, *counts)
                 continue
             if tab_id == "aktualizacje":
-                frame = ttk.LabelFrame(self._backup_container, text=title)
-                frame.pack(fill="both", expand=True, padx=8, pady=6)
-                path_key = (tab_id,)
-                self._remember_tab_frame(path_key, frame)
-                counts = self._handle_generic_tab(frame, tab, path_key)
-                if counts:
-                    self._log_tab_stats(title, *counts)
+                backup_tab = copy.deepcopy(tab)
+                backup_groups = []
+                for group in backup_tab.get("groups", []):
+                    if str(group.get("title") or "") != "Automatyzacja":
+                        continue
+                    group = copy.deepcopy(group)
+                    group["fields"] = [
+                        field for field in group.get("fields", [])
+                        if str(field.get("key") or "") != "backup.keep_last"
+                    ]
+                    backup_groups.append(group)
+                backup_tab["groups"] = backup_groups
+
+                if backup_groups:
+                    frame = ttk.LabelFrame(self._backup_container, text=title)
+                    frame.pack(fill="both", expand=True, padx=8, pady=6)
+                    path_key = (tab_id, "u1_backup")
+                    self._remember_tab_frame(path_key, frame)
+                    counts = self._handle_generic_tab(frame, backup_tab, path_key)
+                    if counts:
+                        self._log_tab_stats(title, *counts)
+
+                advanced_tab = copy.deepcopy(tab)
+                advanced_tab["groups"] = [
+                    copy.deepcopy(group)
+                    for group in tab.get("groups", [])
+                    if str(group.get("title") or "") in {"Ścieżki danych", "Operacje"}
+                ]
+                if advanced_tab["groups"]:
+                    adv_frame = ttk.LabelFrame(
+                        self._advanced_container,
+                        text="Aktualizacje — techniczne",
+                    )
+                    adv_frame.pack(fill="both", expand=True, padx=8, pady=6)
+                    adv_path = (tab_id, "u1_advanced")
+                    self._remember_tab_frame(adv_path, adv_frame)
+                    counts = self._handle_generic_tab(
+                        adv_frame, advanced_tab, adv_path
+                    )
+                    if counts:
+                        self._log_tab_stats("Aktualizacje — techniczne", *counts)
                 continue
             if tab_id == "testy_audyt":
                 frame = ttk.LabelFrame(self._advanced_container, text=title)
@@ -2632,7 +2759,19 @@ class SettingsPanel:
             side="left", padx=5
         )
 
-        self.btn_save: ttk.Button | None = None
+        if not hasattr(self, "_save_status_text"):
+            self._save_status_text = "Brak zapisu w tej sesji"
+
+        right_btns = ttk.Frame(self.btns)
+        right_btns.pack(side="right", padx=5)
+        self._save_status_var = tk.StringVar(value=self._save_status_text)
+        ttk.Label(right_btns, textvariable=self._save_status_var).pack(
+            side="left", padx=(5, 12)
+        )
+        self.btn_save = ttk.Button(
+            right_btns, text="Zapisz wszystko", command=self._save_from_footer
+        )
+        self.btn_save.pack(side="left", padx=5)
 
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -2810,6 +2949,10 @@ class SettingsPanel:
         blink.pack(fill="x", padx=8, pady=8)
         blink.columnconfigure(1, weight=1)
 
+        automation = ttk.LabelFrame(parent, text="Automatyzacja przeglądów maszyn")
+        automation.pack(fill="x", padx=8, pady=8)
+        automation.columnconfigure(1, weight=1)
+
         values = {
             "dyspozycje.ui.closed_foreground": tk.StringVar(
                 value=str(_cfg_get("dyspozycje.ui.closed_foreground", "#9ca3af"))
@@ -2845,6 +2988,9 @@ class SettingsPanel:
 
         blink_enabled = tk.BooleanVar(
             value=bool(_cfg_get("dyspozycje.ui.blink_enabled", True))
+        )
+        machine_cycle_days_before = tk.StringVar(
+            value=str(_cfg_get("dyspozycje.machine_cycle.days_before", 7))
         )
 
         def _row(parent_widget, row: int, label: str, key: str):
@@ -2886,6 +3032,21 @@ class SettingsPanel:
         _row(blink, 1, "Miganie nowych [ms]:", "dyspozycje.ui.new_blink_ms")
         _row(blink, 2, "Miganie po terminie [ms]:", "dyspozycje.ui.overdue_blink_ms")
 
+        ttk.Label(automation, text="Dodaj automatyczną Dyspozycję [dni przed terminem]:").grid(
+            row=0, column=0, sticky="w", padx=8, pady=4
+        )
+        ttk.Spinbox(
+            automation,
+            from_=0,
+            to=365,
+            textvariable=machine_cycle_days_before,
+            width=8,
+        ).grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        ttk.Label(
+            automation,
+            text="0 = w dniu przeglądu. Domyślnie: 7 dni. Zakres: 0–365.",
+        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 6))
+
         ttk.Label(
             parent,
             text=(
@@ -2909,6 +3070,10 @@ class SettingsPanel:
         def _save_dispatches_ui() -> None:
             try:
                 _cfg_set("dyspozycje.ui.blink_enabled", bool(blink_enabled.get()))
+                _cfg_set(
+                    "dyspozycje.machine_cycle.days_before",
+                    _safe_int(machine_cycle_days_before.get(), 7, 0, 365),
+                )
                 for key, var in values.items():
                     if key.endswith("_ms"):
                         default = 2000 if key.endswith("new_blink_ms") else 500
@@ -2921,7 +3086,7 @@ class SettingsPanel:
                 messagebox.showinfo(
                     "Dyspozycje",
                     "Zapisano ustawienia wyglądu dyspozycji.",
-                    parent=self.win,
+                    parent=parent.winfo_toplevel(),
                 )
             except Exception as exc:
                 logger.exception(
@@ -2930,7 +3095,7 @@ class SettingsPanel:
                 messagebox.showerror(
                     "Dyspozycje",
                     f"Nie udało się zapisać ustawień: {exc}",
-                    parent=self.win,
+                    parent=parent.winfo_toplevel(),
                 )
 
         ttk.Button(
@@ -2965,21 +3130,6 @@ class SettingsPanel:
             option_type="bool",
         )
 
-        ttk.Label(
-            security_frame, text="Data startu rotacji (YYYY-MM-DD):"
-        ).pack(anchor="w", padx=4, pady=(8, 2))
-        self.var_attendance_rotation_start = tk.StringVar(
-            value=str(cfg.get("attendance.rotation_start", "") or "")
-        )
-        ttk.Entry(
-            security_frame, textvariable=self.var_attendance_rotation_start, width=20
-        ).pack(anchor="w", padx=4, pady=(0, 4))
-        self._register_manual_var(
-            "attendance.rotation_start",
-            self.var_attendance_rotation_start,
-            default=self.var_attendance_rotation_start.get(),
-            option_type="str",
-        )
 
         paths_frame = ttk.LabelFrame(
             self._paths_container, text="Ścieżki konfiguracyjne"
@@ -4233,23 +4383,27 @@ class SettingsPanel:
         return btn
 
     def _on_var_write(self, key: str, var: tk.Variable) -> None:
-        """Handle Tk variable updates by tracking unsaved state and cache."""
+        """Handle Tk variable updates by tracking only real user changes."""
 
-        setattr(self, "_unsaved", True)
         try:
             self.settings_state[key] = var.get()
         except Exception:
             pass
         if getattr(self, "_saving", False):
             return
-        self._mark_dirty()
-        self._status(f"Zmieniono: {key}")
+        changed = self._has_real_changes()
+        self._dirty = changed
+        self._unsaved = changed
+        if changed:
+            self._mark_save_dirty()
+            self._status(f"Zmieniono: {key}")
 
     # ------------------------------------------------------------------
     # Autosave helpers
     # ------------------------------------------------------------------
     def _mark_dirty(self) -> None:
         self._dirty = True
+        self._mark_save_dirty()
 
     def _resolve_autosave_delay(self) -> int:
         try:
@@ -6308,10 +6462,75 @@ class SettingsPanel:
         _refresh_backups()
         _append("[WM-DBG] [SETTINGS] zakładka Patche: OK")
 
+    def _active_settings_tab_name(self) -> str:
+        """Return the visible top-level settings tab name."""
+
+        try:
+            selected = self.nb.select()
+            name = str(self.nb.tab(selected, "text") or "").strip()
+            return name or "Ustawienia"
+        except Exception:
+            return "Ustawienia"
+
+    def _set_save_status_text(self, text: str) -> None:
+        self._save_status_text = str(text)
+        var = getattr(self, "_save_status_var", None)
+        if var is not None:
+            try:
+                var.set(self._save_status_text)
+            except Exception:
+                pass
+
+    def _mark_save_dirty(self) -> None:
+        self._set_save_status_text("Niezapisane zmiany")
+
+    def _save_from_footer(self) -> None:
+        try:
+            self.save()
+        except Exception as exc:
+            self._set_save_status_text(f"Błąd zapisu: {exc}")
+            logger.exception("[SETTINGS] ręczny zapis wszystkich ustawień nie powiódł się")
+            messagebox.showerror(
+                "Ustawienia",
+                f"Nie udało się zapisać ustawień:\n{exc}",
+                parent=self.master,
+            )
+
+    def _record_settings_save(self, source_tab: str) -> None:
+        now = datetime.datetime.now()
+        pending = bool(getattr(self.cfg, "_pending_save", False))
+        state_text = "Zapis oczekuje" if pending else "Zapisano"
+        self._set_save_status_text(
+            f"{state_text}: {now:%H:%M:%S} | zakładka: {source_tab}"
+        )
+        state_log = "queued" if pending else "saved"
+        message = (
+            f"[SETTINGS] SAVE | zakładka={source_tab} | "
+            f"czas={now:%Y-%m-%d %H:%M:%S} | stan={state_log}"
+        )
+        logger.info(message)
+        try:
+            log_akcja(message)
+        except Exception:
+            logger.debug("[SETTINGS] Nie udało się dopisać wpisu log_akcja", exc_info=True)
+
+    def _has_real_changes(self) -> bool:
+        """Return True only when a current setting differs from its loaded value."""
+
+        for key, var in self.vars.items():
+            try:
+                current = var.get()
+            except Exception:
+                continue
+            if key not in self._initial or current != self._initial.get(key):
+                return True
+        return False
+
     def _confirm_save_changes(self, *, parent=None, allow_cancel: bool = False) -> bool:
-        dirty = getattr(self, "_dirty", False)
-        unsaved = getattr(self, "_unsaved", False)
-        if not (dirty or unsaved):
+        changed = self._has_real_changes()
+        self._dirty = changed
+        self._unsaved = changed
+        if not changed:
             return True
 
         parent = parent or self.master
@@ -6330,15 +6549,8 @@ class SettingsPanel:
         return True
 
     def _on_tab_change(self, _=None):
-        previous_tab = getattr(self, "_last_tab", None)
-        if not self._confirm_save_changes(parent=self.master, allow_cancel=True):
-            if previous_tab:
-                try:
-                    self.nb.select(previous_tab)
-                except Exception:
-                    pass
-            return
-
+        # Zmiana zakładki nie jest opuszczeniem Ustawień. Nie pytamy tu o zapis;
+        # użytkownik ma stały przycisk "Zapisz wszystko", autosave i ochronę przy zamykaniu.
         if self._magazyn_frame is not None and not self._magazyn_initialized:
             current_top = self.nb.select()
             if current_top == str(self.tab_warehouse):
@@ -6408,12 +6620,15 @@ class SettingsPanel:
         log_akcja(f"[SETTINGS] zastosowano moduły {uid}: {', '.join(disabled)}")
 
     def save(self) -> None:
+        source_tab = self._active_settings_tab_name()
         special_orders: dict[str, Any] = {}
+        pending_initial: dict[str, Any] = {}
         drive_only_re = re.compile(r"^[A-Za-z]:$")
         for key, var in self.vars.items():
             if key.startswith("_orders."):
                 name = key.split(".", 1)[1]
                 special_orders[name] = var.get()
+                pending_initial[key] = special_orders[name]
                 continue
             opt = self._options.get(key, {})
             value = var.get()
@@ -6444,16 +6659,21 @@ class SettingsPanel:
                 if allowed and value not in allowed:
                     value = allowed[0]
             self.cfg.set(key, value)
-            self._initial[key] = value
+            pending_initial[key] = value
         if special_orders:
             self._apply_orders_config(special_orders)
-            for name, value in special_orders.items():
-                self._initial[f"_orders.{name}"] = value
         self._saving = True
         try:
             self.cfg.save_all()
+        except Exception:
+            self._dirty = self._has_real_changes()
+            self._unsaved = self._dirty
+            if self._dirty:
+                self._mark_save_dirty()
+            raise
         finally:
             self._saving = False
+        self._initial.update(pending_initial)
         self._unsaved = False
         self._dirty = False
         if self._user_var is not None:
@@ -6463,12 +6683,29 @@ class SettingsPanel:
                 log_akcja(
                     f"[SETTINGS] zapisano moduły {uid}: {', '.join(disabled)}"
                 )
+        self._record_settings_save(source_tab)
 
     def refresh_panel(self) -> None:
         """Reload configuration and rebuild widgets."""
 
+        schema_path = self.schema_path
+        try:
+            schema_candidate = Path(str(schema_path))
+            if not schema_candidate.is_file():
+                fallback = (Path(__file__).resolve().parent / "settings_schema.json").resolve()
+                print(
+                    f"[WM-DBG][SETTINGS] invalid schema_path={schema_path}; "
+                    f"fallback={fallback}"
+                )
+                schema_path = str(fallback)
+                self.schema_path = schema_path
+        except Exception:
+            fallback = (Path(__file__).resolve().parent / "settings_schema.json").resolve()
+            schema_path = str(fallback)
+            self.schema_path = schema_path
+
         self.cfg = ConfigManager.refresh(
-            config_path=self.config_path, schema_path=self.schema_path
+            config_path=self.config_path, schema_path=schema_path
         )
         self.vars.clear()
         self._initial.clear()

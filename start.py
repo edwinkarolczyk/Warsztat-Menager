@@ -1,6 +1,25 @@
 # WM-VERSION: 0.1
-# version: 1.0
+# version: 1.1.8
 # Moduł: start
+# Zmiany 1.1.8:
+# - Po faktycznym pobraniu aktualizacji WM uruchamia świeży proces zamiast kontynuować na starych modułach w pamięci.
+# - Restart po aktualizacji pomija drugi check Git w nowym procesie.
+# Zmiany 1.1.7:
+# - Lokalne dane runtime (data/, wydruki/, logs/, backup/, wm_root.json) nie blokują już aktualizacji kodu.
+# - Przy samych zmianach runtime updater używa git pull --ff-only, który bezpiecznie odmawia przy konflikcie.
+# - Lokalne zmiany plików programu nadal blokują automatyczną aktualizację.
+# Zmiany 1.1.6:
+# - Po faktycznej aktualizacji ekran potwierdzenia pozostaje widoczny przez 2,5 s.
+# - Gdy repozytorium jest aktualne, szybkie przejście do WM pozostaje bez zmian.
+# Zmiany 1.1.5:
+# - Dodano ekran sprawdzania aktualizacji z dużym animowanym spinnerem przed uruchomieniem WM.
+# - Status pokazuje sprawdzanie, pobieranie oraz wynik aktualizacji; operacje Git działają poza wątkiem GUI.
+# Zmiany 1.1.4:
+# - Przywrócono automatyczny git fetch/pull z gałęzi Rozwiniecie przy uruchomieniu WM.
+# - Aktualizacja wykonywana jest tylko raz, przed main(); późniejsze wywołania Git podczas budowy logowania pozostają blokowane.
+# Zmiany 1.1.3:
+# - Wyłączono synchroniczne operacje Git przy starcie aplikacji, aby sieć/repozytorium nie blokowały GUI.
+# - Aktualizacja repozytorium nie jest wykonywana automatycznie przed uruchomieniem okna WM.
 # ⏹ KONIEC WSTĘPU
 
 # start.py
@@ -21,6 +40,8 @@ from datetime import datetime, timedelta
 import logging
 import subprocess
 import shutil
+import threading
+import queue
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox, Toplevel
@@ -31,6 +52,7 @@ from utils_json import ensure_json
 from utils import error_dialogs
 from config.paths import get_app_root, p_config, p_settings_schema
 from config_manager import ConfigManager
+from wm_startup_debug import checkpoint as _wm_startup_checkpoint
 try:
     from core import root_paths as wm_root_paths
 except Exception:  # pragma: no cover - awaryjnie nie blokuj startu
@@ -174,7 +196,9 @@ def _post_config_bootstrap() -> None:
     if _POST_CONFIG_BOOTSTRAP_DONE:
         return
 
+    _wm_startup_checkpoint("BEFORE_CONFIG_MANAGER")
     manager = _ensure_config_manager()
+    _wm_startup_checkpoint("AFTER_CONFIG_MANAGER", ok=manager is not None)
     if manager is None:
         return
 
@@ -233,6 +257,7 @@ from utils.moduly import zaladuj_manifest
 def _print_root_diagnostics(manager) -> None:
     """Emit podstawowe informacje diagnostyczne o ścieżkach <root>."""
 
+    _wm_startup_checkpoint("BEFORE_ROOT_BOOTSTRAP")
     if wm_root_paths is not None:
         try:
             wm_root_paths.print_root_diagnostics(ROOT_SNAPSHOT)
@@ -417,32 +442,12 @@ def show_startup_error(e):
 
 # ====== AUTO UPDATE ======
 def auto_update_on_start():
-    """Run git pull if ``updates.auto`` flag is enabled.
+    """Automatyczna aktualizacja przy starcie jest celowo wyłączona.
 
-    Returns ``True`` if the repository was updated, otherwise ``False``.
+    Aktualizacje Git wykonywane synchronicznie podczas startu potrafią zablokować
+    główny wątek aplikacji (np. oczekiwanie na sieć, Git lub blokadę repozytorium).
+    Zostawiamy updater dostępny dla późniejszego uruchomienia ręcznego/asynchronicznego.
     """
-    try:
-        cfg = ConfigManager()
-    except Exception as e:
-        _error(f"ConfigManager init failed: {e}")
-        return False
-    if cfg.get("updates.auto", False):
-        try:
-            output = _run_git_pull(Path.cwd(), _now_stamp())
-            if output and "Already up to date." not in output:
-                return True
-        except Exception as e:
-            _error(f"auto_update_on_start error: {e}")
-            msg = str(e).lower()
-            if "lokalne zmiany" in msg or "local changes" in msg:
-                try:
-                    r = tk.Tk()
-                    ensure_theme_applied(r)
-                    r.withdraw()
-                    error_dialogs.show_error_dialog("Aktualizacje", str(e))
-                    r.destroy()
-                except Exception:
-                    pass
     return False
 
 # ====== USER FILE (NOWE) ======
@@ -682,10 +687,55 @@ def _auto_login_if_enabled(root) -> bool:
     return True
 
 
+def _wm_git_status_paths(status_text: str) -> list[str]:
+    """Wyciągnij ścieżki z `git status --porcelain`."""
+    paths: list[str] = []
+    for raw_line in str(status_text or "").splitlines():
+        if not raw_line.strip():
+            continue
+        path_text = raw_line[3:] if len(raw_line) >= 4 else raw_line
+        if " -> " in path_text:
+            path_text = path_text.split(" -> ", 1)[-1]
+        path_text = path_text.strip().strip('"').replace("\\", "/")
+        if path_text:
+            paths.append(path_text)
+    return paths
+
+
+def _wm_git_runtime_only_dirty(paths: list[str]) -> bool:
+    """True, gdy wszystkie lokalne zmiany dotyczą wyłącznie danych runtime WM."""
+    if not paths:
+        return False
+    runtime_prefixes = ("data/", "wydruki/", "logs/", "backup/")
+    runtime_files = {"wm_root.json"}
+    for value in paths:
+        normalized = str(value or "").strip().replace("\\", "/").lstrip("./")
+        if normalized in runtime_files:
+            continue
+        if any(normalized.startswith(prefix) for prefix in runtime_prefixes):
+            continue
+        return False
+    return True
+
+
 def _wm_git_check_on_start(
     preferred_branch: str | None = None,
+    status_callback=None,
 ):
-    """Automatyczny check aktualizacji z repozytorium."""
+    """Automatyczny check aktualizacji z repozytorium.
+
+    ``status_callback`` jest opcjonalny i służy wyłącznie do prezentowania
+    postępu w ekranie startowym. Sama logika Git pozostaje bez zmian.
+    """
+
+    def _status(message: str) -> None:
+        if callable(status_callback):
+            try:
+                status_callback(message)
+            except Exception:
+                pass
+
+    _status("Sprawdzam aktualizacje...")
 
     if preferred_branch is None:
         try:
@@ -700,7 +750,8 @@ def _wm_git_check_on_start(
     try:
         if not shutil.which("git"):
             print("[WM-DBG][GIT] git.exe nie znaleziony – pomijam check.")
-            return
+            _status("Git niedostępny — pomijam aktualizację")
+            return "skipped"
 
         subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
@@ -742,39 +793,235 @@ def _wm_git_check_on_start(
                 capture_output=True,
                 text=True,
             )
-            if status_proc.returncode == 0 and status_proc.stdout.strip():
+            dirty_paths = (
+                _wm_git_status_paths(status_proc.stdout)
+                if status_proc.returncode == 0
+                else []
+            )
+            runtime_only_dirty = _wm_git_runtime_only_dirty(dirty_paths)
+
+            if dirty_paths and not runtime_only_dirty:
                 print(
-                    "[WM-DBG][GIT] skipped: local changes (commit or stash required)"
+                    "[WM-DBG][GIT] skipped: local code/config changes "
+                    f"({', '.join(dirty_paths[:8])})"
                 )
+                _status("Pominięto aktualizację — zmieniony kod lokalny")
+                result = "skipped"
             else:
-                print(
-                    "[WM-DBG][GIT] Wykryto nowsze commity w origin, wykonuję git pull --rebase..."
-                )
-                pull_proc = subprocess.run(
-                    ["git", "pull", "--rebase", "origin", preferred_branch],
-                    check=False,
-                )
-                if pull_proc.returncode == 0:
-                    print("[WM-DBG][GIT] Aktualizacja lokalnego repo zakończona.")
+                if runtime_only_dirty:
+                    print(
+                        "[WM-DBG][GIT] Lokalne zmiany dotyczą tylko danych runtime; "
+                        "próbuję bezpiecznego git pull --ff-only."
+                    )
+                    _status("Pobieram aktualizację WM — dane lokalne zostają...")
+                    pull_cmd = [
+                        "git", "pull", "--ff-only", "origin", preferred_branch
+                    ]
+                    pull_label = "git pull --ff-only"
                 else:
                     print(
-                        "[WM-DBG][GIT] git pull --rebase zakończony kodem "
+                        "[WM-DBG][GIT] Wykryto nowsze commity w origin, "
+                        "wykonuję git pull --rebase..."
+                    )
+                    _status("Pobieram aktualizację WM...")
+                    pull_cmd = [
+                        "git", "pull", "--rebase", "origin", preferred_branch
+                    ]
+                    pull_label = "git pull --rebase"
+
+                pull_proc = subprocess.run(pull_cmd, check=False)
+                if pull_proc.returncode == 0:
+                    print("[WM-DBG][GIT] Aktualizacja lokalnego repo zakończona.")
+                    _status("Aktualizacja zakończona ✓")
+                    result = "updated"
+                elif runtime_only_dirty:
+                    print(
+                        f"[WM-DBG][GIT] {pull_label} odmówił aktualizacji "
+                        f"(kod {pull_proc.returncode}) — lokalne dane pozostawione bez zmian."
+                    )
+                    _status("Aktualizacja zablokowana — konflikt z lokalnymi danymi")
+                    result = "blocked"
+                else:
+                    print(
+                        f"[WM-DBG][GIT] {pull_label} zakończony kodem "
                         f"{pull_proc.returncode}."
                     )
+                    _status("Błąd pobierania aktualizacji")
+                    result = "error"
         else:
             print("[WM-DBG][GIT] Repozytorium aktualne, brak zmian.")
+            _status("WM jest aktualny ✓")
+            result = "current"
 
         if ahead > 0:
             print(
                 "[WM-DBG][GIT] Lokalny branch jest przed origin – brak automatycznych akcji."
             )
 
+        return locals().get("result", "current")
     except Exception as exc:
         print(f"[WM-DBG][GIT] Wyjątek w _wm_git_check_on_start: {exc}")
+        _status("Nie udało się sprawdzić aktualizacji")
+        return "error"
+
+
+def _wm_git_update_splash() -> str:
+    """Pokaż prosty ekran aktualizacji i wykonaj Git poza wątkiem Tk."""
+
+    try:
+        splash = tk.Tk()
+    except Exception:
+        return _wm_git_check_on_start()
+
+    splash.title("Warsztat Menager — aktualizacja")
+    splash.configure(bg="#111214")
+    splash.resizable(False, False)
+    width, height = 520, 330
+    try:
+        sx = (splash.winfo_screenwidth() - width) // 2
+        sy = (splash.winfo_screenheight() - height) // 2
+        splash.geometry(f"{width}x{height}+{sx}+{sy}")
+    except Exception:
+        splash.geometry(f"{width}x{height}")
+
+    try:
+        splash.attributes("-topmost", True)
+    except Exception:
+        pass
+
+    tk.Label(
+        splash,
+        text="Warsztat Menager",
+        font=("Segoe UI", 22, "bold"),
+        bg="#111214",
+        fg="#f3f4f6",
+    ).pack(pady=(28, 8))
+
+    canvas = tk.Canvas(
+        splash,
+        width=120,
+        height=120,
+        bg="#111214",
+        highlightthickness=0,
+    )
+    canvas.pack(pady=(8, 12))
+    arc = canvas.create_arc(
+        16,
+        16,
+        104,
+        104,
+        start=0,
+        extent=260,
+        style="arc",
+        width=10,
+        outline="#e5e7eb",
+    )
+
+    status_var = tk.StringVar(value="Sprawdzam aktualizacje...")
+    tk.Label(
+        splash,
+        textvariable=status_var,
+        font=("Segoe UI", 13),
+        bg="#111214",
+        fg="#d1d5db",
+    ).pack(pady=(4, 4))
+
+    tk.Label(
+        splash,
+        text="Nie zamykaj programu podczas pobierania zmian.",
+        font=("Segoe UI", 9),
+        bg="#111214",
+        fg="#9ca3af",
+    ).pack(pady=(0, 12))
+
+    events: queue.Queue[tuple[str, str]] = queue.Queue()
+    result_box = {"value": "current"}
+    animation = {"angle": 0, "running": True}
+
+    def _animate() -> None:
+        if not animation["running"]:
+            return
+        animation["angle"] = (animation["angle"] - 18) % 360
+        try:
+            canvas.itemconfigure(arc, start=animation["angle"])
+        except Exception:
+            return
+        splash.after(45, _animate)
+
+    def _worker() -> None:
+        result = _wm_git_check_on_start(
+            status_callback=lambda message: events.put(("status", message))
+        )
+        events.put(("done", str(result or "current")))
+
+    def _poll() -> None:
+        try:
+            while True:
+                kind, value = events.get_nowait()
+                if kind == "status":
+                    status_var.set(value)
+                elif kind == "done":
+                    result_box["value"] = value
+                    animation["running"] = False
+                    if value == "updated":
+                        status_var.set("Aktualizacja zakończona ✓")
+                    elif value == "current":
+                        status_var.set("WM jest aktualny ✓")
+                    elif value == "skipped":
+                        status_var.set("Aktualizacja pominięta — zmieniony kod lokalny")
+                    elif value == "blocked":
+                        status_var.set("Aktualizacja zablokowana — konflikt z lokalnymi danymi")
+                    else:
+                        status_var.set("Nie udało się sprawdzić aktualizacji")
+                    if value == "updated":
+                        close_delay_ms = 2500
+                    elif value == "current":
+                        close_delay_ms = 650
+                    elif value in {"skipped", "blocked"}:
+                        close_delay_ms = 2200
+                    else:
+                        close_delay_ms = 1000
+                    splash.after(close_delay_ms, splash.destroy)
+                    return
+        except queue.Empty:
+            pass
+        splash.after(70, _poll)
+
+    threading.Thread(target=_worker, name="wm-startup-git", daemon=True).start()
+    _animate()
+    _poll()
+    try:
+        splash.mainloop()
+    finally:
+        try:
+            if splash.winfo_exists():
+                splash.destroy()
+        except Exception:
+            pass
+    return result_box["value"]
+
+
+def _wm_restart_after_update() -> None:
+    """Uruchom świeży proces WM po zmianie plików programu przez Git."""
+
+    os.environ["WM_RESTARTED_AFTER_UPDATE"] = "1"
+    argv = [sys.executable, *sys.argv]
+    print("[WM-DBG][GIT] Restartuję WM po pobranej aktualizacji.")
+    try:
+        os.execv(sys.executable, argv)
+    except Exception as exc:
+        print(f"[WM-DBG][GIT] os.execv nieudany: {exc}; próbuję nowego procesu.")
+        try:
+            subprocess.Popen(argv, cwd=str(APP_ROOT))
+        except Exception as spawn_exc:
+            print(f"[WM-DBG][GIT] Restart WM nieudany: {spawn_exc}")
+            raise SystemExit(1) from spawn_exc
+        raise SystemExit(0)
 
 
 # ====== MAIN ======
 def main():
+    _wm_startup_checkpoint("MAIN_ENTER")
     global SESSION_ID, BOOTSTRAP_ACTIVE
     init_crash_handler()
     # Opcjonalnie wycisz WARNING Qt
@@ -812,6 +1059,7 @@ def main():
     manager = _ensure_config_manager()
     _print_root_diagnostics(manager)
     _post_config_bootstrap()
+    _wm_startup_checkpoint("AFTER_CONFIG_BOOTSTRAP")
     _info(f"Uzywam Pythona: {sys.executable or sys.version}")
     _info(f"Katalog roboczy: \"{os.getcwd()}\"")
     _info("Start programu Warsztat Menager (start.py 1.1.2)")
@@ -843,7 +1091,11 @@ def main():
 
     # UWAGA: minimalizacja działa tylko w wersji .py, nie przeszkadza w EXE.
     time.sleep(0.3)
-    minimize_console()
+    _wm_startup_checkpoint("BEFORE_CONSOLE_MINIMIZE")
+    if os.environ.get("WM_STARTUP_DEBUG", "1").strip().lower() not in {"0", "false", "off", "no"}:
+        _wm_startup_checkpoint("CONSOLE_MINIMIZE_SKIPPED_DEBUG")
+    else:
+        minimize_console()
 
     updated = auto_update_on_start()
 
@@ -854,7 +1106,8 @@ def main():
         except Exception as e:
             _error(f"Nie można wyświetlić changelog: {e}")
 
-    update_available = _git_has_updates(Path.cwd())
+    # Nie wykonujemy sieciowego Git check podczas startu GUI.
+    update_available = False
 
     # Wstępna inicjalizacja konfiguracji, jeśli masz ConfigManager, zostawiamy symbolicznie:
     try:
@@ -884,6 +1137,7 @@ def main():
     except Exception:
         _error("ConfigManager: problem (pomijam)")
 
+    _wm_startup_checkpoint("AFTER_UPDATE_CHECKS_BEFORE_JARVIS")
     jarvis_stop_fn = None
     try:
         from core.jarvis_engine import run_jarvis_background, stop_jarvis as _stop_jarvis
@@ -903,7 +1157,9 @@ def main():
 
     # === GUI start ===
     try:
+        _wm_startup_checkpoint("BEFORE_TK_CREATE")
         root = tk.Tk()
+        _wm_startup_checkpoint("AFTER_TK_CREATE")
         ensure_theme_applied(root)
 
         # [NOWE] Theme od wejścia — dokładnie to, o co prosiłeś:
@@ -955,6 +1211,7 @@ def main():
             pass
 
         _show_tutorial_if_first_run(root)
+        _wm_startup_checkpoint("AFTER_TUTORIAL")
 
         _info(f"[{SESSION_ID}] Uruchamiam ekran logowania...")
 
@@ -979,8 +1236,11 @@ def main():
                 embedded_login = False
 
         if not auto_logged and not (embedded_login and guest_start):
+            _wm_startup_checkpoint("BEFORE_LOGIN_IMPORT")
             import gui_logowanie
+            _wm_startup_checkpoint("AFTER_LOGIN_IMPORT")
 
+            _wm_startup_checkpoint("BEFORE_LOGIN_SCREEN")
             returned_root = gui_logowanie.ekran_logowania(
                 root,
                 on_login=lambda login, rola, extra=None: _on_login(
@@ -1006,6 +1266,7 @@ def main():
 
         # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
         # to po prostu zostawiamy pętlę główną jak dotąd:
+        _wm_startup_checkpoint("BEFORE_MAINLOOP")
         root.mainloop()
 
         if jarvis_stop_fn:
@@ -1041,7 +1302,21 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[ERROR] Problem z manifestem modułów: {e}")
     # --- Koniec integracji manifestu ---
-    _wm_git_check_on_start()
+    # Przywrócony automatyczny Git check/pull przy starcie.
+    # Na czas tej jednej operacji wyłączamy blokadę bootstrapową z updates_utils,
+    # po czym włączamy ją z powrotem przed budową GUI/logowania.
+    restarted_after_update = os.environ.pop("WM_RESTARTED_AFTER_UPDATE", "") == "1"
+    update_result = "current"
+    if not restarted_after_update:
+        BOOTSTRAP_ACTIVE = False
+        try:
+            update_result = _wm_git_update_splash()
+        finally:
+            BOOTSTRAP_ACTIVE = True
+        if update_result == "updated":
+            _wm_restart_after_update()
+    else:
+        print("[WM-DBG][GIT] Świeży proces po aktualizacji — pomijam ponowny check Git.")
     main()
 
 # ⏹ KONIEC KODU

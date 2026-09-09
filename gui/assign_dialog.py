@@ -34,7 +34,8 @@ def ask_user_to_assign(parent) -> Optional[str]:
         pass
 
     # dane
-    profiles = ProfileService.list_profiles() if ProfileService else []
+    all_profiles = ProfileService.list_profiles() if ProfileService else []
+    profiles = list(all_profiles)
     items = [f'{p["name"]}  —  {p["login"]} ({p["role"]})'.strip() for p in profiles]
 
     # UI
@@ -75,16 +76,16 @@ def ask_user_to_assign(parent) -> Optional[str]:
 
     # filtrowanie
     def _refilter(*_):
+        nonlocal profiles, items
         needle = q.get().strip().lower()
         lst.delete(0, tk.END)
         filtered = []
-        for p in profiles:
+        for p in all_profiles:
             text = f'{p["name"]}  —  {p["login"]} ({p["role"]})'
             if needle in text.lower():
                 filtered.append(p)
                 lst.insert(tk.END, text)
         # zachowaj mapowanie
-        nonlocal profiles, items
         profiles = filtered
         items = [f'{p["name"]}  —  {p["login"]} ({p["role"]})' for p in profiles]
         if items:

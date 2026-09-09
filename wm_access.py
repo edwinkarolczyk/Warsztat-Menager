@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.2
 import json
 from pathlib import Path
 
@@ -22,6 +22,8 @@ ALL_ACCESS_MODULES = [
     "feedback",
 ]
 
+# Domyślne dane zachowują historyczną nazwę ``profil`` jako wejście migracyjne.
+# Każdy odczyt roboczy normalizuje ją do jednego kanonicznego klucza ``profile``.
 DEFAULT_ROLE_MODULES = {
     "administrator": {
         "panel_glowny": True,
@@ -338,38 +340,59 @@ def _all_default_role_modules() -> dict[str, dict[str, bool]]:
     }
 
 
-def ensure_default_role_modules_config() -> dict:
-    """Dopisz brakujące access.role_modules do aktywnego config.json.
+def _stored_role_modules(cfg: ConfigManager) -> dict:
+    """Czytaj realny zapis globalny, bez aliasów przywracanych przez defaults.
 
-    config.defaults.json jest tylko szablonem. Jeżeli aktywny <ROOT>/config.json
-    powstał wcześniej, może nie mieć sekcji access.role_modules. Wtedy WM powinien
-    sam dopisać domyślne role, zamiast wymagać ręcznej edycji JSON.
+    Testowe/fallbackowe konfiguratory bez ``global_cfg`` mogą udostępniać tylko
+    ``get``; wtedy odczytujemy ich wartość bezpośrednio.
+    """
+    if hasattr(cfg, "global_cfg"):
+        global_cfg = getattr(cfg, "global_cfg", {})
+        if not isinstance(global_cfg, dict):
+            return {}
+        access = global_cfg.get("access")
+        if not isinstance(access, dict):
+            return {}
+        role_modules = access.get("role_modules")
+    else:
+        try:
+            role_modules = cfg.get("access.role_modules", {})
+        except Exception:
+            role_modules = {}
+    if not isinstance(role_modules, dict):
+        return {}
+    return {
+        str(role): dict(mapping)
+        for role, mapping in role_modules.items()
+        if isinstance(mapping, dict)
+    }
+
+
+def ensure_default_role_modules_config() -> dict:
+    """Idempotentnie uzupełnij ``access.role_modules`` w aktywnym config.json.
+
+    Migracja patrzy na faktycznie zapisaną warstwę globalną. Legacy ``profil``
+    może zostać zapisane kanonicznie jako ``profile`` dokładnie raz; następne
+    odczyty nie powodują już ``save_all()``.
     """
 
     cfg = ConfigManager()
-    existing = cfg.get("access.role_modules", {})
-    changed = False
-
-    if not isinstance(existing, dict):
-        existing = {}
-        changed = True
+    stored = _stored_role_modules(cfg)
+    existing = {
+        role: _normalize_modules_map(mapping)
+        for role, mapping in stored.items()
+        if isinstance(mapping, dict)
+    }
 
     for role, default_modules in DEFAULT_ROLE_MODULES.items():
-        role_map = existing.get(role)
-        if not isinstance(role_map, dict):
-            existing[role] = dict(default_modules)
-            changed = True
-            continue
-        normalized_map = _normalize_modules_map(role_map)
-        for module, allowed in default_modules.items():
-            if module not in normalized_map:
-                normalized_map[module] = bool(allowed)
-                changed = True
-        if normalized_map != role_map:
-            existing[role] = normalized_map
-            changed = True
+        normalized_defaults = _normalize_modules_map(default_modules)
+        role_map = existing.setdefault(role, {})
+        for module, allowed in normalized_defaults.items():
+            role_map.setdefault(module, bool(allowed))
 
-    if changed:
+    # Porównuj z realnym zapisem, a nie z merged defaults. Jeśli zapis zawiera
+    # alias ``profil``, pierwszy przebieg go kanonizuje; drugi jest już no-op.
+    if existing != stored:
         cfg.set("access.role_modules", existing)
         if hasattr(cfg, "save_all"):
             cfg.save_all()
@@ -391,7 +414,12 @@ def _cfg_get_role_modules() -> dict:
 
 def _cfg_set_role_modules(role_modules: dict) -> None:
     cfg = ConfigManager()
-    cfg.set("access.role_modules", role_modules)
+    normalized = {
+        str(role): _normalize_modules_map(mapping)
+        for role, mapping in (role_modules or {}).items()
+        if isinstance(mapping, dict)
+    }
+    cfg.set("access.role_modules", normalized)
     if hasattr(cfg, "save_all"):
         cfg.save_all()
     else:
@@ -413,13 +441,17 @@ def get_role_modules(role: str) -> dict[str, bool]:
     """Zwróć mapę modułów dla roli z configu z fallbackiem do domyślnych."""
 
     role_key = normalize_role_name(role)
-    defaults = dict(DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"]))
+    defaults = _normalize_modules_map(
+        DEFAULT_ROLE_MODULES.get(role_key, DEFAULT_ROLE_MODULES["operator"])
+    )
     configured = ensure_default_role_modules_config()
     configured_for_role = configured.get(role_key)
     if isinstance(configured_for_role, dict):
         defaults.update(_normalize_modules_map(configured_for_role))
     for module in ALL_ACCESS_MODULES:
-        defaults.setdefault(module, False)
+        module_key = normalize_module_name(module)
+        if module_key:
+            defaults.setdefault(module_key, False)
     return defaults
 
 

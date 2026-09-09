@@ -3,6 +3,7 @@ pillow
 tk
 pandas
 openpyxl
+python-docx
 reportlab
 odfpy
 pypandoc

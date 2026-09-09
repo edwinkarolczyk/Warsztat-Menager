@@ -1,12 +1,11 @@
-# version: 1.0
+# version: 1.1
 # presence.py (enhanced)
-import os, json, time, tempfile, platform, atexit, traceback
+import os, json, time, tempfile, platform, atexit, traceback, threading
 import logging
 from datetime import datetime, timezone
 
 from config_manager import ConfigManager
 
-# Initialize module logger
 logger = logging.getLogger(__name__)
 
 config = {}
@@ -23,26 +22,33 @@ def set_config(cfg=None, cfg_path=None):
 
 try:
     from tkinter import TclError
-except ImportError:  # pragma: no cover - fallback when tkinter is unavailable
+except ImportError:  # pragma: no cover
     class TclError(Exception):
         pass
 
 try:
     from logger import log_akcja
-except ImportError:  # pragma: no cover - logger module might be absent in tests
+except ImportError:  # pragma: no cover
     logging.basicConfig(level=logging.INFO)
 
     def log_akcja(msg: str) -> None:
         logger.info(msg)
 
-# Track the currently registered atexit handler to avoid duplicates
 _atexit_handler = None
+_session_lock = threading.RLock()
+_session_stop: threading.Event | None = None
+_session_thread: threading.Thread | None = None
+_session_login = ""
+_session_role = ""
+
 
 def _now_utc_iso():
     return datetime.now(timezone.utc).isoformat()
 
+
 def _get_cfg():
     return config if isinstance(config, dict) else {}
+
 
 def _cfg_dir():
     try:
@@ -56,9 +62,11 @@ def _cfg_dir():
             return os.path.dirname(config_path)
         return os.getcwd()
 
+
 def _presence_path():
     base = _cfg_dir()
     return os.path.join(base, "presence.json")
+
 
 def _atomic_write(path, data_dict):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
@@ -78,8 +86,8 @@ def _atomic_write(path, data_dict):
                     if os.path.exists(path):
                         os.remove(path)
                     os.rename(tmp_path, path)
-                except OSError as e:
-                    logger.exception("rename fallback failed for %s: %s", path, e)
+                except OSError:
+                    logger.exception("rename fallback failed for %s", path)
         finally:
             try:
                 os.remove(LOCK_PATH)
@@ -89,8 +97,9 @@ def _atomic_write(path, data_dict):
         if os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
-            except OSError as e:
-                logger.exception("cleanup failed for %s: %s", tmp_path, e)
+            except OSError:
+                logger.exception("cleanup failed for %s", tmp_path)
+
 
 def _read_all():
     path = _presence_path()
@@ -100,23 +109,41 @@ def _read_all():
                 d = json.load(f) or {}
             if isinstance(d, dict):
                 return d
-        except (OSError, json.JSONDecodeError) as e:
-            logger.exception("reading presence file failed: %s", e)
+        except (OSError, json.JSONDecodeError):
+            logger.exception("reading presence file failed")
     return {}
 
-def heartbeat(login, role=None, machine=None, logout=False):
-    """Jednorazowy zapis bicia serca. logout=True oznacza świadome wylogowanie."""
-    if not login: return False
+
+def _stop_background_session(*, mark_logout: bool = False, login: str = "", role: str = "") -> None:
+    global _session_stop, _session_thread, _session_login, _session_role
+    with _session_lock:
+        stop = _session_stop
+        active_login = _session_login
+        active_role = _session_role
+        _session_stop = None
+        _session_thread = None
+        _session_login = ""
+        _session_role = ""
+        if stop is not None:
+            stop.set()
+    if mark_logout and (login or active_login):
+        try:
+            _heartbeat_write(login or active_login, role or active_role, logout=True)
+        except Exception:
+            logger.exception("background session logout failed")
+
+
+def _heartbeat_write(login, role=None, machine=None, logout=False):
+    if not login:
+        return False
     path = _presence_path()
     data = _read_all()
-
     if not machine:
         try:
             machine = platform.node()
-        except OSError as e:
-            logger.exception("platform.node failed: %s", e)
+        except OSError:
+            logger.exception("platform.node failed")
             machine = "unknown"
-
     key = f"{login}@{machine}"
     data[key] = {
         "login": login,
@@ -128,20 +155,70 @@ def heartbeat(login, role=None, machine=None, logout=False):
     _atomic_write(path, data)
     return True
 
-def end_session(login, role=None, machine=None):
-    """Oznacz użytkownika jako wylogowanego (natychmiast offline)."""
+
+def heartbeat(login, role=None, machine=None, logout=False):
+    """Jednorazowy zapis bicia serca. logout=True kończy aktywną sesję."""
+    if logout:
+        with _session_lock:
+            if _session_login and str(_session_login).casefold() == str(login or "").casefold():
+                stop = _session_stop
+                if stop is not None:
+                    stop.set()
+    return _heartbeat_write(login, role, machine, logout)
+
+
+def start_session(login, role=None, interval_sec=None):
+    """Uruchom niezależny od widoku GUI heartbeat aktywnej sesji WM."""
+    global _session_stop, _session_thread, _session_login, _session_role
+    login_text = str(login or "").strip()
+    if not login_text:
+        return
+    if interval_sec is None:
+        try:
+            interval_sec = int(_get_cfg().get("presence", {}).get("heartbeat_sec", 30))
+        except Exception:
+            interval_sec = 30
+    interval_sec = max(5, int(interval_sec))
+
+    _stop_background_session(mark_logout=False)
+    stop = threading.Event()
+    with _session_lock:
+        _session_stop = stop
+        _session_login = login_text
+        _session_role = str(role or "")
+
     try:
-        heartbeat(login, role, machine, logout=True)
+        _heartbeat_write(login_text, role, logout=False)
+    except Exception:
+        logger.exception("initial session heartbeat failed")
+
+    def _worker():
+        while not stop.wait(interval_sec):
+            try:
+                _heartbeat_write(login_text, role, logout=False)
+            except Exception:
+                logger.exception("background heartbeat failed")
+
+    thread = threading.Thread(target=_worker, name="wm-presence-heartbeat", daemon=True)
+    with _session_lock:
+        _session_thread = thread
+    thread.start()
+
+
+def end_session(login, role=None, machine=None):
+    """Oznacz użytkownika jako wylogowanego i zatrzymaj heartbeat."""
+    try:
+        with _session_lock:
+            stop = _session_stop
+            if stop is not None:
+                stop.set()
+        _heartbeat_write(login, role, machine, logout=True)
     except Exception:
         logger.exception("end_session heartbeat failed")
 
-def start_heartbeat(root, login, role=None, interval_ms=None):
-    """Uruchom cykliczne bicie serca.
 
-    interval_ms z configu: presence.heartbeat_sec (domyślnie 30s).
-    Kolejne wywołania zastępują poprzedni hook ``atexit`` aby nie
-    gromadzić wielu rejestracji zakończenia programu.
-    """
+def start_heartbeat(root, login, role=None, interval_ms=None):
+    """Uruchom Tk heartbeat dla zgodności ze starszym kodem."""
     if not root or not login:
         return
     cfg = _get_cfg()
@@ -157,33 +234,23 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
             heartbeat(login, role, logout=False)
         except (OSError, ValueError) as e:
             log_akcja(f"[USERS-DBG] heartbeat error: {e}")
-        except Exception as e:  # unexpected
-            log_akcja(
-                f"[USERS-DBG] unexpected heartbeat error: {e}\n{traceback.format_exc()}"
-            )
+        except Exception as e:
+            log_akcja(f"[USERS-DBG] unexpected heartbeat error: {e}\n{traceback.format_exc()}")
         finally:
             try:
                 root.after(interval_ms, _tick)
             except TclError:
                 log_akcja("[USERS-DBG] heartbeat scheduling stopped")
             except Exception as e:
-                log_akcja(
-                    f"[USERS-DBG] unexpected scheduling error: {e}\n{traceback.format_exc()}"
-                )
+                log_akcja(f"[USERS-DBG] unexpected scheduling error: {e}\n{traceback.format_exc()}")
 
-    # Rejestruj zakończenie procesu (program zamykany) => natychmiast offline
     def _on_exit():
         try:
             end_session(login, role)
-        except (OSError, ValueError) as e:
-            log_akcja(f"[USERS-DBG] end_session error: {e}")
         except Exception as e:
-            log_akcja(
-                f"[USERS-DBG] unexpected end_session error: {e}\n{traceback.format_exc()}"
-            )
+            log_akcja(f"[USERS-DBG] end_session error: {e}")
 
     global _atexit_handler
-
     try:
         unreg = getattr(atexit, "unregister", None)
         if _atexit_handler and unreg:
@@ -194,19 +261,14 @@ def start_heartbeat(root, login, role=None, interval_ms=None):
         if _atexit_handler is None or unreg:
             atexit.register(_on_exit)
             _atexit_handler = _on_exit
-    except (RuntimeError, ValueError) as e:
-        log_akcja(f"[USERS-DBG] atexit register error: {e}")
     except Exception as e:
-        log_akcja(
-            f"[USERS-DBG] unexpected atexit register error: {e}\n{traceback.format_exc()}"
-        )
+        log_akcja(f"[USERS-DBG] atexit register error: {e}")
 
     _tick()
 
+
 def read_presence(max_age_sec=None):
-    """Zwróć listę rekordów z presence.json + online/offline.
-       Jeśli logout=True => zawsze offline niezależnie od wieku wpisu.
-       max_age_sec z configu: presence.online_window_sec (domyślnie 120s)."""
+    """Zwróć listę rekordów z presence.json + online/offline."""
     cfg = _get_cfg()
     if max_age_sec is None:
         try:
@@ -218,7 +280,7 @@ def read_presence(max_age_sec=None):
     out = []
     now = datetime.now(timezone.utc).timestamp()
     if isinstance(data, dict):
-        for key, rec in data.items():
+        for _key, rec in data.items():
             ts_iso = rec.get("ts")
             try:
                 ts = datetime.fromisoformat(ts_iso).timestamp() if ts_iso else 0
@@ -227,9 +289,9 @@ def read_presence(max_age_sec=None):
             age = now - ts if ts else 999999
             online = (age <= max_age_sec) and (not rec.get("logout"))
             out.append({
-                "login": rec.get("login",""),
-                "role": rec.get("role",""),
-                "machine": rec.get("machine",""),
+                "login": rec.get("login", ""),
+                "role": rec.get("role", ""),
+                "machine": rec.get("machine", ""),
                 "last_ts": ts_iso or "",
                 "seconds_ago": int(age) if ts else None,
                 "online": online,

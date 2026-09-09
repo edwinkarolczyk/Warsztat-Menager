@@ -1,9 +1,29 @@
-# version: 1.0
+# version: 1.5
+# Zmiany 1.5:
+# - Kreator pokazuje polskie nazwy typów Dyspozycji, zachowując techniczne wartości w danych.
+# Zmiany 1.4:
+# - Zamknięcie automatycznej Dyspozycji przeglądu z kreatora aktualizuje również serwis maszyny.
+# Zmiany 1.3:
+# - Zlecenie wykonania wybiera realne Zlecenie, Produkt albo Półprodukt i ilość do wykonania.
+# - Dyspozycja zapisuje nr zlecenia/poziom wykonania oraz podgląd zapotrzebowania z Magazynu.
+# - Wyszukiwarka działa również dla źródeł wykonania.
+# Zmiany 1.2:
+# - Nowa Dyspozycja pokazuje od razu bieżącą datę w polu terminu.
+# - Termin jest tylko do odczytu; zmiana odbywa się przez kalendarz lub szybkie przyciski.
+# - Przy wyszukiwarce obiektu dodano etykietę „Wyszukaj:”.
+# Zmiany 1.1:
+# - Termin jest edytowany jako DD-MM-RR, z kalendarzem oraz skrótami +2 dni, +1 tydzień i +2 tygodnie.
+# - Do pliku termin nadal trafia jako YYYY-MM-DD; błędny format jest blokowany.
+# - Brak przypisanego użytkownika automatycznie ustawia Dyspozycję dla wszystkich.
+# - Autor zapisu jest pobierany z bieżącej sesji.
 """Wspólny kreator Dyspozycji z dynamicznymi listami obiektów."""
 
 from __future__ import annotations
 
+import calendar
+import datetime as _dt
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Any
 
@@ -12,19 +32,496 @@ from dyspozycje_sources import (
     load_machine_choices,
     load_tool_choices,
     load_zlecenie_wykonania_choices,
+    load_zlecenie_wykonania_context,
 )
 from dyspozycje_store import (
     add_dyspozycja,
     close_dyspozycja,
+    load_dyspozycje,
     make_dyspozycja,
     update_dyspozycja,
 )
+from maszyny_dyspozycje import sync_machine_review_from_dyspozycja
+
+_DYSP_TYPE_LABELS = {
+    "narzedzie": "Narzędzie",
+    "maszyna": "Maszyna",
+    "magazyn": "Magazyn",
+    "zlecenie_wykonania": "Wykonanie produkcji",
+}
+
+
+def _dysp_type_value(value: Any) -> str:
+    raw = str(value or "").strip()
+    if raw == "zamowienie":
+        return "zlecenie_wykonania"
+    for key, label in _DYSP_TYPE_LABELS.items():
+        if raw.casefold() == label.casefold():
+            return key
+    return raw
+
+
+def _dysp_type_label(value: Any) -> str:
+    key = _dysp_type_value(value)
+    return _DYSP_TYPE_LABELS.get(key, str(value or ""))
 
 try:
     from profiles_store import load_profiles_users, resolve_profiles_path
 except Exception:  # pragma: no cover
     load_profiles_users = None  # type: ignore
     resolve_profiles_path = None  # type: ignore
+
+
+def _deadline_to_display(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%Y-%m-%d", "%d-%m-%y", "%d-%m-%Y"):
+        try:
+            return _dt.datetime.strptime(raw, fmt).strftime("%d-%m-%y")
+        except ValueError:
+            continue
+    return raw
+
+
+def _deadline_to_iso(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for fmt in ("%d-%m-%y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            return _dt.datetime.strptime(raw, fmt).date().isoformat()
+        except ValueError:
+            continue
+    raise ValueError("Termin musi mieć format DD-MM-RR, np. 27-08-26.")
+
+
+def _normalize_object_id(value: str) -> set[str]:
+    raw = str(value or "").strip()
+    out = {raw} if raw else set()
+    if raw.isdigit():
+        out.add(raw.zfill(3))
+        out.add(str(int(raw)))
+    return {item for item in out if item}
+
+
+def _dysp_date_text(row: dict[str, Any]) -> str:
+    return str(
+        row.get("updated_at")
+        or row.get("created_at")
+        or row.get("utworzono")
+        or row.get("data")
+        or ""
+    ).strip()
+
+
+def _dysp_title_text(row: dict[str, Any]) -> str:
+    return str(row.get("tytul") or "Dyspozycja").strip()
+
+
+def _dysp_description_text(row: dict[str, Any]) -> str:
+    return str(row.get("opis") or row.get("description") or "").strip()
+
+
+def _dysp_assignee_text(row: dict[str, Any]) -> str:
+    if bool(row.get("dla_wszystkich")):
+        return "wszyscy"
+    return str(row.get("przypisane_do") or "—").strip() or "—"
+
+
+def _find_recent_dyspozycje_for_object(
+    typ: str,
+    object_id: str,
+    *,
+    limit: int = 5,
+    skip_id: str = "",
+) -> list[dict[str, Any]]:
+    typ_norm = str(typ or "").strip().lower()
+    variants = _normalize_object_id(object_id)
+    if not typ_norm or not variants:
+        return []
+
+    try:
+        rows = load_dyspozycje()
+    except Exception:
+        rows = []
+
+    matched: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+
+        row_id = str(row.get("id") or "").strip()
+        if skip_id and row_id == skip_id:
+            continue
+
+        row_typ = str(
+            row.get("typ_dyspozycji") or row.get("typ") or ""
+        ).strip().lower()
+        if row_typ != typ_norm:
+            continue
+
+        row_object_id = str(
+            row.get("obiekt_id")
+            or row.get("object_id")
+            or row.get("narzedzie_id")
+            or row.get("maszyna_id")
+            or ""
+        ).strip()
+        if not variants.intersection(_normalize_object_id(row_object_id)):
+            continue
+
+        matched.append(row)
+
+    matched.sort(key=_dysp_date_text, reverse=True)
+    return matched[:limit]
+
+
+def _format_dyspozycje_history(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "Brak wcześniejszych dyspozycji dla tego obiektu"
+
+    lines: list[str] = []
+    for row in rows:
+        date_text = _dysp_date_text(row)
+        if len(date_text) >= 10:
+            date_text = date_text[:10]
+        priority = str(row.get("priorytet") or "normalny").strip()
+        status = str(row.get("status") or "—").strip()
+        title = _dysp_title_text(row)
+        opis = _dysp_description_text(row)
+        assignee = _dysp_assignee_text(row)
+
+        block = (
+            f"{date_text or '—'} | {priority} | {status}\n"
+            f"{title}"
+        )
+        if opis and opis != title:
+            block += f"\nOpis: {opis}"
+        block += f"\nPrzypisane: {assignee}"
+        lines.append(block)
+
+    return "\n\n".join(lines)
+
+
+def _task_title(task: Any) -> str:
+    if isinstance(task, dict):
+        return str(
+            task.get("tytul")
+            or task.get("title")
+            or task.get("text")
+            or task.get("nazwa")
+            or task.get("opis")
+            or ""
+        ).strip()
+    return str(task or "").strip()
+
+
+def _task_done(task: Any) -> bool:
+    if isinstance(task, dict):
+        return bool(task.get("done") or task.get("wykonane"))
+    return False
+
+
+def _extract_tool_tasks(tool: dict[str, Any]) -> list[str]:
+    raw = tool.get("zadania")
+    tasks: list[Any] = []
+    if isinstance(raw, list):
+        tasks = raw
+    elif isinstance(raw, dict):
+        for value in raw.values():
+            if isinstance(value, list):
+                tasks.extend(value)
+            elif isinstance(value, dict):
+                for title, done in value.items():
+                    tasks.append({"tytul": str(title), "done": bool(done)})
+            elif isinstance(value, str) and value.strip():
+                tasks.append(value.strip())
+    elif isinstance(raw, str) and raw.strip():
+        tasks = [line.strip() for line in raw.splitlines() if line.strip()]
+
+    out: list[str] = []
+    for task in tasks:
+        title = _task_title(task)
+        if not title:
+            continue
+        mark = "☑" if _task_done(task) else "☐"
+        out.append(f"{mark} {title}")
+    return out
+
+
+def _format_machine_months(value: Any) -> str:
+    months = {
+        1: "Styczeń",
+        2: "Luty",
+        3: "Marzec",
+        4: "Kwiecień",
+        5: "Maj",
+        6: "Czerwiec",
+        7: "Lipiec",
+        8: "Sierpień",
+        9: "Wrzesień",
+        10: "Październik",
+        11: "Listopad",
+        12: "Grudzień",
+    }
+    if not value:
+        return "—"
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        return str(value)
+    out: list[str] = []
+    for item in value:
+        try:
+            out.append(months.get(int(item), str(item)))
+        except (TypeError, ValueError):
+            out.append(str(item))
+    return ", ".join(out) if out else "—"
+
+
+def _find_tool_preview(tool_id: str) -> dict[str, str]:
+    variants = _normalize_object_id(tool_id)
+    if not variants:
+        return {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+    except Exception:
+        return {}
+    try:
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        rid_variants = _normalize_object_id(rid)
+        if not variants.intersection(rid_variants):
+            continue
+        preview = {
+            "ID": rid or tool_id,
+            "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
+            "Typ": str(row.get("typ") or row.get("type") or "—"),
+            "Status": str(row.get("status") or "—"),
+        }
+        tasks = _extract_tool_tasks(row)
+        if tasks:
+            preview["Zadania narzędzia"] = "\n".join(tasks[:12])
+            if len(tasks) > 12:
+                preview["Zadania narzędzia"] += (
+                    f"\n… oraz {len(tasks) - 12} więcej"
+                )
+        else:
+            preview["Zadania narzędzia"] = (
+                "Brak zadań przypisanych do narzędzia"
+            )
+        return preview
+    return {}
+
+
+def _find_machine_preview(machine_id: str) -> dict[str, str]:
+    variants = _normalize_object_id(machine_id)
+    if not variants:
+        return {}
+    try:
+        rows = load_machine_choices()
+    except Exception:
+        rows = []
+    for object_id, label in rows or []:
+        oid = str(object_id or "").strip()
+        if variants.intersection(_normalize_object_id(oid)):
+            return {
+                "ID": oid or machine_id,
+                "Nazwa": str(label or "—"),
+                "Typ": "—",
+                "Status": "—",
+                "Lokalizacja": "—",
+            }
+    try:
+        from gui_maszyny import load_machines_rows
+        machines = load_machines_rows()
+    except Exception:
+        machines = []
+    for row in machines or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr_ewid") or "").strip()
+        if not variants.intersection(_normalize_object_id(rid)):
+            continue
+        workers = row.get("review_workers") or []
+        if isinstance(workers, list):
+            workers_text = ", ".join(
+                str(item) for item in workers if str(item).strip()
+            )
+        else:
+            workers_text = str(workers or "—")
+        return {
+            "ID": rid or machine_id,
+            "Nazwa": str(row.get("nazwa") or row.get("name") or "—"),
+            "Typ": str(row.get("typ") or row.get("type") or "—"),
+            "Status": str(row.get("status") or "—"),
+            "Lokalizacja": str(row.get("lokalizacja") or row.get("hala") or "—"),
+            "Domyślny typ przeglądu": str(
+                row.get("default_review_type") or "—"
+            ),
+            "Miesiące przeglądu": _format_machine_months(
+                row.get("review_months")
+            ),
+            "Sugerowani serwisanci": workers_text or "—",
+            "Wpisy serwisowe": str(
+                len(row.get("reviews") or row.get("zadania") or [])
+            ),
+        }
+    return {}
+
+
+def _tool_data_for_card(tool_id: str) -> dict[str, Any]:
+    variants = _normalize_object_id(tool_id)
+    if not variants:
+        return {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        if variants.intersection(_normalize_object_id(rid)):
+            return dict(row)
+    return {}
+
+
+def _machine_data_for_card(machine_id: str) -> dict[str, Any]:
+    variants = _normalize_object_id(machine_id)
+    if not variants:
+        return {}
+    try:
+        from gui_maszyny import load_machines_rows
+        rows = load_machines_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr_ewid") or "").strip()
+        if variants.intersection(_normalize_object_id(rid)):
+            return dict(row)
+    return {}
+
+
+def _cards_output_dir() -> Path:
+    base = Path.cwd() / "wydruki" / "karty"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _print_tool_card_from_dyspo(
+    master: tk.Widget,
+    object_id: str,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    tool_id = str(object_id or "").strip()
+    if not tool_id:
+        messagebox.showwarning("Dyspozycje", "Brak numeru narzędzia.", parent=master)
+        return
+    tool = _tool_data_for_card(tool_id)
+    if not tool:
+        messagebox.showwarning(
+            "Dyspozycje",
+            f"Nie znaleziono danych narzędzia: {tool_id}",
+            parent=master,
+        )
+        return
+    try:
+        from tool_card_pdf import generate_tool_card
+        generate_tool_card(
+            tool,
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować karty narzędzia:\n{exc}",
+            parent=master,
+        )
+
+
+def _print_machine_card_from_dyspo(
+    master: tk.Widget,
+    object_id: str,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    machine_id = str(object_id or "").strip()
+    if not machine_id:
+        messagebox.showwarning("Dyspozycje", "Brak numeru maszyny.", parent=master)
+        return
+    machine = _machine_data_for_card(machine_id)
+    if not machine:
+        messagebox.showwarning(
+            "Dyspozycje",
+            f"Nie znaleziono danych maszyny: {machine_id}",
+            parent=master,
+        )
+        return
+    try:
+        from machine_card_pdf import generate_machine_card
+        generate_machine_card(
+            machine,
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować karty maszyny:\n{exc}",
+            parent=master,
+        )
+
+
+def _print_blank_tool_card_from_dyspo(
+    master: tk.Widget,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    try:
+        from tool_card_pdf import generate_blank_tool_card
+
+        generate_blank_tool_card(
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować pustej karty narzędzia:\n{exc}",
+            parent=master,
+        )
+
+
+def _print_blank_machine_card_from_dyspo(
+    master: tk.Widget,
+    dyspozycja: dict[str, Any] | None = None,
+) -> None:
+    try:
+        from machine_card_pdf import generate_blank_machine_card
+
+        generate_blank_machine_card(
+            _cards_output_dir(),
+            dyspozycja=dyspozycja,
+            open_after=True,
+        )
+    except Exception as exc:
+        messagebox.showerror(
+            "Dyspozycje",
+            f"Nie udało się wygenerować pustej karty maszyny:\n{exc}",
+            parent=master,
+        )
 
 
 def _try_open_tool_editor(master: tk.Widget, object_id: str) -> None:
@@ -144,11 +641,13 @@ def open_dyspozycje_creator(
     ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
     ttk.Label(frame, text="Typ Dyspozycji:").grid(row=1, column=0, sticky="w", pady=4)
-    var_type = tk.StringVar(value=str(ctx.get("typ_dyspozycji") or "narzedzie"))
+    initial_type = _dysp_type_value(ctx.get("typ_dyspozycji") or "narzedzie")
+    var_type = tk.StringVar(value=initial_type)
+    var_type_display = tk.StringVar(value=_dysp_type_label(initial_type))
     cb_type = ttk.Combobox(
         frame,
-        textvariable=var_type,
-        values=["narzedzie", "maszyna", "magazyn", "zlecenie_wykonania"],
+        textvariable=var_type_display,
+        values=list(_DYSP_TYPE_LABELS.values()),
         state="readonly",
         width=24,
     )
@@ -168,7 +667,18 @@ def open_dyspozycje_creator(
     )
     cb_object.grid(row=3, column=1, sticky="ew", pady=4)
 
+    var_exec_qty = tk.StringVar(value=str(((ctx.get('meta') or {}).get('ilosc_do_wykonania') if isinstance(ctx.get('meta'), dict) else '') or '1'))
+    exec_qty_frame = ttk.Frame(frame)
+    exec_qty_frame.grid(row=3, column=2, sticky="w", padx=(10, 0), pady=4)
+    ttk.Label(exec_qty_frame, text="Ilość do wykonania:").pack(side="left")
+    ent_exec_qty = ttk.Entry(exec_qty_frame, textvariable=var_exec_qty, width=12)
+    ent_exec_qty.pack(side="left", padx=(6, 0))
+    exec_qty_frame.grid_remove()
+
     var_object_search = tk.StringVar()
+    lbl_object_search = ttk.Label(frame, text="Wyszukaj:")
+    lbl_object_search.grid(row=2, column=0, sticky="w", pady=4)
+    lbl_object_search.grid_remove()
     ent_object_search = ttk.Entry(frame, textvariable=var_object_search)
     ent_object_search.grid(row=2, column=1, sticky="ew", pady=4)
     ent_object_search.grid_remove()
@@ -190,10 +700,40 @@ def open_dyspozycje_creator(
     )
     cb_priority.grid(row=5, column=1, sticky="w", pady=4)
 
-    ttk.Label(frame, text="Termin (YYYY-MM-DD):").grid(row=6, column=0, sticky="w", pady=4)
-    var_deadline = tk.StringVar(value=str(ctx.get("termin") or ""))
-    ent_deadline = ttk.Entry(frame, textvariable=var_deadline, width=24)
-    ent_deadline.grid(row=6, column=1, sticky="w", pady=4)
+    ttk.Label(frame, text="Termin (DD-MM-RR):").grid(row=6, column=0, sticky="w", pady=4)
+    initial_deadline = _deadline_to_display(ctx.get("termin") or "")
+    if not initial_deadline:
+        initial_deadline = _dt.date.today().strftime("%d-%m-%y")
+    var_deadline = tk.StringVar(value=initial_deadline)
+    deadline_frame = ttk.Frame(frame)
+    deadline_frame.grid(row=6, column=1, sticky="w", pady=4)
+    ent_deadline = ttk.Entry(
+        deadline_frame,
+        textvariable=var_deadline,
+        width=14,
+        state="readonly",
+    )
+    ent_deadline.pack(side="left")
+    ttk.Button(
+        deadline_frame,
+        text="📅 Kalendarz",
+        command=lambda: _open_deadline_calendar(),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+2 dni",
+        command=lambda: _set_deadline_offset(2),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+1 tydzień",
+        command=lambda: _set_deadline_offset(7),
+    ).pack(side="left", padx=(8, 0))
+    ttk.Button(
+        deadline_frame,
+        text="+2 tygodnie",
+        command=lambda: _set_deadline_offset(14),
+    ).pack(side="left", padx=(8, 0))
 
     var_all = tk.BooleanVar(value=bool(ctx.get("dla_wszystkich", False)))
     chk_all = ttk.Checkbutton(frame, text="Dyspozycja dla wszystkich", variable=var_all)
@@ -213,6 +753,7 @@ def open_dyspozycje_creator(
     object_panel = ttk.LabelFrame(frame, text="Powiązany obiekt dyspozycji")
     object_panel.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=(14, 0))
     object_panel.columnconfigure(0, weight=1)
+    object_panel.rowconfigure(1, weight=1)
 
     var_object_panel_info = tk.StringVar(
         value="Wybierz typ i obiekt dyspozycji, aby zobaczyć powiązany element."
@@ -225,12 +766,155 @@ def open_dyspozycje_creator(
     )
     lbl_object_panel_info.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 6))
 
+    object_card = ttk.Frame(object_panel)
+    object_card.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 8))
+    object_card.columnconfigure(1, weight=1)
+
     object_panel_buttons = ttk.Frame(object_panel)
-    object_panel_buttons.grid(row=1, column=0, sticky="w", padx=10, pady=(0, 10))
+    object_panel_buttons.grid(row=2, column=0, sticky="w", padx=10, pady=(0, 10))
 
     options_map: dict[str, str] = {}
     all_labels: list[str] = []
     source_module = {"value": ""}
+    execution_context = {"value": {}}
+    execution_qty_touched = {"value": False}
+
+    def _set_deadline_offset(days: int) -> None:
+        target = _dt.date.today() + _dt.timedelta(days=int(days))
+        var_deadline.set(target.strftime("%d-%m-%y"))
+
+    def _open_deadline_calendar() -> None:
+        try:
+            initial_iso = _deadline_to_iso(var_deadline.get())
+            initial = _dt.date.fromisoformat(initial_iso) if initial_iso else _dt.date.today()
+        except Exception:
+            initial = _dt.date.today()
+
+        picker = tk.Toplevel(win)
+        picker.title("Wybierz termin")
+        picker.resizable(False, False)
+        picker.transient(win)
+        state = {"year": initial.year, "month": initial.month}
+        month_names = [
+            "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+            "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień",
+        ]
+
+        top = ttk.Frame(picker, padding=(10, 10, 10, 4))
+        top.pack(fill="x")
+        title_var = tk.StringVar()
+        ttk.Button(top, text="◀", width=3, command=lambda: _move_month(-1)).pack(side="left")
+        ttk.Label(top, textvariable=title_var, width=20, anchor="center").pack(side="left", padx=8)
+        ttk.Button(top, text="▶", width=3, command=lambda: _move_month(1)).pack(side="left")
+
+        body = ttk.Frame(picker, padding=(10, 4, 10, 10))
+        body.pack(fill="both", expand=True)
+
+        def _close_picker() -> None:
+            try:
+                picker.grab_release()
+            except Exception:
+                pass
+            try:
+                picker.destroy()
+            finally:
+                try:
+                    win.grab_set()
+                except Exception:
+                    pass
+
+        def _pick_day(day: int) -> None:
+            chosen = _dt.date(state["year"], state["month"], int(day))
+            var_deadline.set(chosen.strftime("%d-%m-%y"))
+            _close_picker()
+
+        def _render_month() -> None:
+            for child in body.winfo_children():
+                child.destroy()
+            title_var.set(f"{month_names[state['month'] - 1]} {state['year']}")
+            for col, label in enumerate(("Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd")):
+                ttk.Label(body, text=label, width=4, anchor="center").grid(
+                    row=0, column=col, padx=1, pady=(0, 4)
+                )
+            weeks = calendar.monthcalendar(state["year"], state["month"])
+            for row_idx, week in enumerate(weeks, start=1):
+                for col_idx, day in enumerate(week):
+                    if day == 0:
+                        ttk.Label(body, text="", width=4).grid(row=row_idx, column=col_idx)
+                    else:
+                        ttk.Button(
+                            body,
+                            text=str(day),
+                            width=4,
+                            command=lambda d=day: _pick_day(d),
+                        ).grid(row=row_idx, column=col_idx, padx=1, pady=1)
+
+        def _move_month(delta: int) -> None:
+            month = state["month"] + int(delta)
+            year = state["year"]
+            if month < 1:
+                month = 12
+                year -= 1
+            elif month > 12:
+                month = 1
+                year += 1
+            state["year"] = year
+            state["month"] = month
+            _render_month()
+
+        picker.protocol("WM_DELETE_WINDOW", _close_picker)
+        _render_month()
+        picker.update_idletasks()
+        try:
+            x = win.winfo_rootx() + max(0, (win.winfo_width() - picker.winfo_width()) // 2)
+            y = win.winfo_rooty() + max(0, (win.winfo_height() - picker.winfo_height()) // 2)
+            picker.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+        try:
+            picker.grab_set()
+        except Exception:
+            pass
+
+    def _current_dyspozycja_for_print() -> dict[str, Any]:
+        try:
+            deadline = _deadline_to_iso(var_deadline.get())
+        except ValueError:
+            deadline = var_deadline.get().strip()
+        assigned = var_assigned.get().strip()
+        for_all = bool(var_all.get()) or not assigned
+        return {
+            "opis": txt_desc.get("1.0", "end").strip(),
+            "termin": deadline,
+            "przypisane_do": "" if for_all else assigned,
+            "priorytet": var_priority.get().strip(),
+            "autor": str(autor or ctx.get("autor") or "").strip(),
+        }
+
+    def _clear_object_card() -> None:
+        for child in object_card.winfo_children():
+            child.destroy()
+
+    def _render_object_card(title: str, data: dict[str, str]) -> None:
+        _clear_object_card()
+        ttk.Label(
+            object_card,
+            text=title,
+            font=("Segoe UI", 11, "bold"),
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        if not data:
+            ttk.Label(
+                object_card,
+                text="Nie znaleziono danych powiązanego obiektu.",
+            ).grid(row=1, column=0, columnspan=2, sticky="w")
+            return
+        for idx, (label, value) in enumerate(data.items(), start=1):
+            ttk.Label(object_card, text=f"{label}:").grid(
+                row=idx, column=0, sticky="e", padx=(0, 8), pady=2
+            )
+            ttk.Label(
+                object_card, text=value, justify="left", wraplength=900
+            ).grid(row=idx, column=1, sticky="w", pady=2)
 
     btn_open_tool = ttk.Button(
         object_panel_buttons,
@@ -240,6 +924,24 @@ def open_dyspozycje_creator(
             options_map.get(var_object_display.get().strip(), ""),
         ),
     )
+    btn_print_tool_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj kartę narzędzia",
+        command=lambda: _print_tool_card_from_dyspo(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
+            _current_dyspozycja_for_print(),
+        ),
+    )
+    btn_print_blank_tool_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj pustą kartę narzędzia",
+        command=lambda: _print_blank_tool_card_from_dyspo(
+            win,
+            _current_dyspozycja_for_print(),
+        ),
+    )
+
     btn_open_machine = ttk.Button(
         object_panel_buttons,
         text="Otwórz użytkowanie maszyny",
@@ -250,8 +952,52 @@ def open_dyspozycje_creator(
         ),
     )
 
+    btn_print_machine_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj kartę maszyny",
+        command=lambda: _print_machine_card_from_dyspo(
+            win,
+            options_map.get(var_object_display.get().strip(), ""),
+            _current_dyspozycja_for_print(),
+        ),
+    )
+
+    btn_print_blank_machine_card = ttk.Button(
+        object_panel_buttons,
+        text="Drukuj pustą kartę maszyny",
+        command=lambda: _print_blank_machine_card_from_dyspo(
+            win,
+            _current_dyspozycja_for_print(),
+        ),
+    )
+
     if not edit_mode:
         object_panel.grid_remove()
+
+    def _execution_requirements(object_id: str, qty_value: str):
+        ctx_exec = load_zlecenie_wykonania_context(object_id) or {}
+        try:
+            qty = float(str(qty_value or '1').replace(',', '.'))
+        except (TypeError, ValueError):
+            return ctx_exec, None
+        try:
+            from produkty_store import ProductCatalog
+            from polprodukty_store import SemiProductCatalog
+            from planowanie_zapotrzebowanie import RequirementCalculator
+            pc = ProductCatalog()
+            calc = RequirementCalculator(pc, SemiProductCatalog(pc.cfg))
+            level = str(ctx_exec.get('poziom_wykonania') or '')
+            if level == 'zlecenie':
+                result = calc.calculate_with_stock(str(ctx_exec.get('product_code') or ''), qty)
+            elif level == 'produkt':
+                result = calc.calculate_with_stock(str(ctx_exec.get('product_code') or ''), qty)
+            elif level == 'polprodukt':
+                result = calc.calculate_semi_with_stock(str(ctx_exec.get('polprodukt_code') or ''), qty, ignore_root_stock=True)
+            else:
+                result = None
+        except Exception:
+            result = None
+        return ctx_exec, result
 
     def _refresh_object_panel(*_args) -> None:
         if not edit_mode:
@@ -262,20 +1008,77 @@ def open_dyspozycje_creator(
 
         for child in object_panel_buttons.winfo_children():
             child.pack_forget()
+        _clear_object_card()
 
         if typ == "narzedzie":
             var_object_panel_info.set(
                 "Narzędzie powiązane z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
             )
+            tool_preview = _find_tool_preview(object_id)
+            history = _find_recent_dyspozycje_for_object(
+                "narzedzie",
+                object_id,
+                skip_id=existing_id,
+            )
+            tool_preview["Ostatnie dyspozycje"] = _format_dyspozycje_history(
+                history
+            )
+            _render_object_card(
+                "Karta narzędzia",
+                tool_preview,
+            )
             btn_open_tool.pack(side="left")
+            btn_print_tool_card.pack(side="left", padx=(8, 0))
+            btn_print_blank_tool_card.pack(side="left", padx=(8, 0))
         elif typ == "maszyna":
             var_object_panel_info.set(
                 "Maszyna powiązana z dyspozycją: "
                 f"{selected_label or object_id or 'brak wyboru'}"
             )
+            machine_preview = _find_machine_preview(object_id)
+            history = _find_recent_dyspozycje_for_object(
+                "maszyna",
+                object_id,
+                skip_id=existing_id,
+            )
+            machine_preview["Ostatnie dyspozycje"] = (
+                _format_dyspozycje_history(history)
+            )
+            _render_object_card(
+                "Karta maszyny",
+                machine_preview,
+            )
             btn_open_machine.pack(side="left")
+            btn_print_machine_card.pack(side="left", padx=(8, 0))
+            btn_print_blank_machine_card.pack(side="left", padx=(8, 0))
+        elif typ == 'zlecenie_wykonania':
+            object_panel.grid()
+            ctx_exec, req = _execution_requirements(object_id, var_exec_qty.get())
+            execution_context['value'] = ctx_exec
+            level = str(ctx_exec.get('poziom_wykonania') or 'wykonanie')
+            preview = {
+                'Poziom': level,
+                'Nr zlecenia': str(ctx_exec.get('nr_zlecenia') or '—'),
+                'Produkt': str(ctx_exec.get('product_code') or '—'),
+                'Półprodukt': str(ctx_exec.get('polprodukt_code') or '—'),
+                'Ilość do wykonania': var_exec_qty.get(),
+            }
+            if isinstance(req, dict):
+                shortages = []
+                for row in req.get('rows') or []:
+                    try:
+                        missing = float(row.get('brak') or 0)
+                    except (TypeError, ValueError):
+                        missing = 0
+                    if missing > 0:
+                        shortages.append(f"{row.get('typ','')} {row.get('kod','')}: {missing:g} {row.get('jednostka','')}")
+                preview['Braki / do wykonania'] = '\n'.join(shortages[:18]) if shortages else 'Brak braków wg bieżącego Magazynu'
+            var_object_panel_info.set('Wykonanie powiązane z Planowaniem i bieżącym stanem Magazynu.')
+            _render_object_card('Wykonanie produkcyjne', preview)
         else:
+            if not edit_mode:
+                object_panel.grid_remove()
             var_object_panel_info.set(
                 "Dla tego typu dyspozycji nie ma jeszcze edytora "
                 "kontekstowego w dolnym panelu."
@@ -303,9 +1106,11 @@ def open_dyspozycje_creator(
         labels = list(all_labels)
         cb_object.configure(values=labels)
         var_object_search.set("")
-        if source_key in {"narzedzia", "maszyny"}:
+        if source_key in {"narzedzia", "maszyny", "zlecenia"}:
+            lbl_object_search.grid()
             ent_object_search.grid()
         else:
+            lbl_object_search.grid_remove()
             ent_object_search.grid_remove()
 
         ctx_object_id = str(ctx.get("obiekt_id") or "").strip()
@@ -318,15 +1123,28 @@ def open_dyspozycje_creator(
         if not picked and labels:
             picked = labels[0]
         var_object_display.set(picked)
+        if source_key == 'zlecenia':
+            exec_qty_frame.grid()
+            selected_id = options_map.get(picked, '')
+            selected_ctx = load_zlecenie_wykonania_context(selected_id) or {}
+            execution_context['value'] = selected_ctx
+            if not edit_mode and not execution_qty_touched['value']:
+                var_exec_qty.set(str(selected_ctx.get('ilosc_domyslna') or 1))
+        else:
+            exec_qty_frame.grid_remove()
         _refresh_object_panel()
 
     _toggle_assigned()
     var_all.trace_add("write", _toggle_assigned)
-    cb_type.bind("<<ComboboxSelected>>", _refresh_object_choices)
+    def _on_type_selected(*_args) -> None:
+        var_type.set(_dysp_type_value(var_type_display.get()))
+        _refresh_object_choices()
+
+    cb_type.bind("<<ComboboxSelected>>", _on_type_selected)
     _refresh_object_choices()
 
     def _filter_objects(*_args) -> None:
-        if source_module["value"] not in {"narzedzia", "maszyny"}:
+        if source_module["value"] not in {"narzedzia", "maszyny", "zlecenia"}:
             return
         query = var_object_search.get().strip().lower()
         if not query:
@@ -346,6 +1164,12 @@ def open_dyspozycje_creator(
             var_object_display.set("")
         _refresh_object_panel()
 
+    def _mark_exec_qty(*_args):
+        execution_qty_touched['value'] = True
+        if var_type.get().strip().lower() == 'zlecenie_wykonania':
+            _refresh_object_panel()
+
+    var_exec_qty.trace_add('write', _mark_exec_qty)
     var_object_search.trace_add("write", _filter_objects)
     cb_object.bind("<<ComboboxSelected>>", _refresh_object_panel)
     _refresh_object_panel()
@@ -361,11 +1185,11 @@ def open_dyspozycje_creator(
 
     def _actor_login() -> str:
         for candidate in (
-            autor,
-            ctx.get("autor"),
             getattr(root, "active_login", ""),
             getattr(root, "_wm_login", ""),
             getattr(root, "login", ""),
+            autor,
+            ctx.get("autor"),
         ):
             text = str(candidate or "").strip()
             if text:
@@ -374,6 +1198,13 @@ def open_dyspozycje_creator(
 
     def _close_current() -> None:
         if not edit_mode or not existing_id:
+            return
+        if var_type.get().strip().lower() == 'zlecenie_wykonania':
+            messagebox.showinfo(
+                'Dyspozycje',
+                'Dyspozycję wykonania zamknij z głównej listy Dyspozycji. Tam WM rozliczy ilość wykonaną i naddatek półproduktu.',
+                parent=win,
+            )
             return
         if not messagebox.askyesno(
             "Dyspozycje",
@@ -389,6 +1220,12 @@ def open_dyspozycje_creator(
                 parent=win,
             )
             return
+        try:
+            sync_machine_review_from_dyspozycja(
+                changed, actor=_actor_login()
+            )
+        except Exception:
+            pass
         _event_updated()
         messagebox.showinfo("Dyspozycje", "Dyspozycja została zamknięta.", parent=win)
         win.destroy()
@@ -404,19 +1241,67 @@ def open_dyspozycje_creator(
             )
             return
 
-        title = str(ctx.get("tytul") or "").strip() or selected_label or var_type.get().strip()
+        try:
+            deadline_iso = _deadline_to_iso(var_deadline.get())
+        except ValueError:
+            messagebox.showwarning(
+                "Dyspozycje",
+                "Termin musi mieć format DD-MM-RR, np. 27-08-26.",
+                parent=win,
+            )
+            ent_deadline.focus_set()
+            return
+
+        assigned = var_assigned.get().strip()
+        for_all = bool(var_all.get()) or not assigned
+        if for_all:
+            assigned = ""
+            if not var_all.get():
+                var_all.set(True)
+
+        meta_payload = dict(ctx.get("meta") or {}) if isinstance(ctx.get("meta"), dict) else {}
+        meta_payload["object_label"] = selected_label
+        exec_level = ""
+        if var_type.get().strip().lower() == "zlecenie_wykonania":
+            try:
+                exec_qty = float(var_exec_qty.get().strip().replace(",", "."))
+            except ValueError:
+                messagebox.showwarning("Dyspozycje", "Ilość do wykonania musi być liczbą.", parent=win)
+                return
+            if exec_qty <= 0:
+                messagebox.showwarning("Dyspozycje", "Ilość do wykonania musi być większa od zera.", parent=win)
+                return
+            if exec_qty.is_integer():
+                exec_qty = int(exec_qty)
+            exec_ctx, req = _execution_requirements(object_id, str(exec_qty))
+            meta_payload.update(exec_ctx)
+            meta_payload["ilosc_do_wykonania"] = exec_qty
+            exec_level = str(exec_ctx.get("poziom_wykonania") or "")
+            if isinstance(req, dict):
+                meta_payload["zapotrzebowanie"] = list(req.get("rows") or [])
+                meta_payload["zapotrzebowanie_uwagi"] = list(req.get("warnings") or [])
+
+        title = str(ctx.get("tytul") or "").strip()
+        if not title and var_type.get().strip().lower() == "zlecenie_wykonania":
+            if exec_level == "zlecenie":
+                title = f"Wykonaj Zlecenie {meta_payload.get('nr_zlecenia') or ''}".strip()
+            elif exec_level == "produkt":
+                title = f"Wykonaj produkt {meta_payload.get('product_code') or ''}".strip()
+            elif exec_level == "polprodukt":
+                title = f"Wykonaj półprodukt {meta_payload.get('polprodukt_code') or ''}".strip()
+        title = title or selected_label or var_type.get().strip()
         payload = {
             "typ_dyspozycji": var_type.get().strip(),
             "tytul": title,
             "opis": txt_desc.get("1.0", "end").strip(),
-            "autor": str(autor or ctx.get("autor") or "").strip(),
-            "przypisane_do": "" if var_all.get() else var_assigned.get().strip(),
-            "dla_wszystkich": bool(var_all.get()),
-            "termin": var_deadline.get().strip(),
+            "autor": _actor_login(),
+            "przypisane_do": assigned,
+            "dla_wszystkich": for_all,
+            "termin": deadline_iso,
             "priorytet": var_priority.get().strip(),
             "modul_zrodlowy": source_module["value"],
             "obiekt_id": object_id,
-            "meta": {"object_label": selected_label},
+            "meta": meta_payload,
         }
 
         if edit_mode and existing_id:

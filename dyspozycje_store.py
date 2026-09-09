@@ -1,4 +1,11 @@
-# version: 1.0
+# version: 1.2
+# Zmiany 1.2:
+# - Przy rozpoczęciu Dyspozycji zapisywany jest wykonawca i czas rozpoczęcia.
+# - Przypisanie pozostaje bez zmian; wykonawca jest osobnym polem rekordu.
+# Zmiany 1.1:
+# - Dodano kontrolowane przejścia statusów Nowa -> W toku -> Wstrzymana/Zamknięta.
+# - Każda zmiana statusu zapisuje użytkownika i czas w meta.historia_statusow.
+# - Zamknięcie korzysta ze wspólnego mechanizmu zmiany statusu.
 # -*- coding: utf-8 -*-
 """Wspólny store dla modułu Dyspozycje.
 
@@ -31,6 +38,10 @@ except Exception:  # pragma: no cover
     wm_root_paths = None  # type: ignore
 
 
+_DYSP_DEBUG_STORE = False
+_DYSP_LEGACY_WARNED = False
+
+
 DISP_FILE_NAME = "dyspozycje.json"
 DISP_DIR_NAME = "dyspozycje"
 DISP_ALLOWED_TYPES = {
@@ -57,26 +68,29 @@ def _runtime_cfg_manager():
         if start_mod is not None:
             mgr = getattr(start_mod, "CONFIG_MANAGER", None)
             if mgr is not None:
-                try:
-                    print(
-                        "[WM-DBG][DYSP][STORE] runtime manager=start.CONFIG_MANAGER "
-                        f"{type(mgr).__name__}"
-                    )
-                except Exception:
-                    pass
+                if _DYSP_DEBUG_STORE:
+                    try:
+                        print(
+                            "[WM-DBG][DYSP][STORE] "
+                            "runtime manager=start.CONFIG_MANAGER "
+                            f"{type(mgr).__name__}"
+                        )
+                    except Exception:
+                        pass
                 return mgr
     except Exception:
         pass
     if ConfigManager is not None:
         try:
             mgr = ConfigManager()
-            try:
-                print(
-                    "[WM-DBG][DYSP][STORE] runtime manager=ConfigManager() "
-                    f"{type(mgr).__name__}"
-                )
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(
+                        "[WM-DBG][DYSP][STORE] runtime manager=ConfigManager() "
+                        f"{type(mgr).__name__}"
+                    )
+                except Exception:
+                    pass
             return mgr
         except Exception:
             pass
@@ -88,10 +102,11 @@ def _data_root() -> Path:
     if mgr is not None:
         try:
             path = Path(mgr.path_data())
-            try:
-                print(f"[WM-DBG][DYSP][STORE] data_root={path}")
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(f"[WM-DBG][DYSP][STORE] data_root={path}")
+                except Exception:
+                    pass
             return path
         except Exception:
             pass
@@ -107,10 +122,11 @@ def _anchor_root() -> Path:
                 continue
             try:
                 path = Path(method())
-                try:
-                    print(f"[WM-DBG][DYSP][STORE] anchor_root={path}")
-                except Exception:
-                    pass
+                if _DYSP_DEBUG_STORE:
+                    try:
+                        print(f"[WM-DBG][DYSP][STORE] anchor_root={path}")
+                    except Exception:
+                        pass
                 return path
             except Exception:
                 continue
@@ -135,6 +151,8 @@ def _active_dyspozycje_path() -> Path:
 
 
 def _migrate_legacy_if_needed(target: Path) -> None:
+    global _DYSP_LEGACY_WARNED
+
     legacy_candidates = [
         _legacy_root_dyspozycje_path(),
         _legacy_dyspozycje_path(),
@@ -153,37 +171,39 @@ def _migrate_legacy_if_needed(target: Path) -> None:
         if not legacy.exists():
             continue
         if target.exists():
-            try:
+            if not _DYSP_LEGACY_WARNED:
                 print(
                     "[WM-DBG][DYSP][STORE][WARN] legacy dyspozycje exists "
                     f"but active is data dyspozycje: {legacy}"
                 )
-            except Exception:
-                pass
+                _DYSP_LEGACY_WARNED = True
             continue
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(legacy, target)
-            print(
-                "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
-                f"{legacy} -> {target}"
-            )
+            if _DYSP_DEBUG_STORE:
+                print(
+                    "[WM-DBG][DYSP][STORE] migrated legacy dyspozycje: "
+                    f"{legacy} -> {target}"
+                )
             return
         except Exception as exc:
-            try:
-                print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
-            except Exception:
-                pass
+            if _DYSP_DEBUG_STORE:
+                try:
+                    print(f"[WM-DBG][DYSP][STORE] migration failed: {exc}")
+                except Exception:
+                    pass
 
 
 def get_dyspozycje_path() -> Path:
     path = _active_dyspozycje_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy_if_needed(path)
-    try:
-        print(f"[WM-DBG][DYSP][STORE] dyspozycje_path={path}")
-    except Exception:
-        pass
+    if _DYSP_DEBUG_STORE:
+        try:
+            print(f"[WM-DBG][DYSP][STORE] dyspozycje_path={path}")
+        except Exception:
+            pass
     return path
 
 
@@ -252,6 +272,8 @@ def make_dyspozycja(
         "modul_zrodlowy": str(modul_zrodlowy or "").strip().lower(),
         "obiekt_id": str(obiekt_id or "").strip(),
         "utworzono": _now_iso(),
+        "wykonuje": "",
+        "rozpoczal_at": "",
         "wykonano": "",
         "zamknieto_at": "",
         "zamkniete_przez": "",
@@ -277,6 +299,8 @@ def normalize_dyspozycja(item: dict[str, Any] | None) -> dict[str, Any]:
         "modul_zrodlowy": str(src.get("modul_zrodlowy") or "").strip().lower(),
         "obiekt_id": str(src.get("obiekt_id") or "").strip(),
         "utworzono": str(src.get("utworzono") or _now_iso()).strip(),
+        "wykonuje": _normalize_login(src.get("wykonuje")),
+        "rozpoczal_at": str(src.get("rozpoczal_at") or "").strip(),
         "wykonano": str(src.get("wykonano") or "").strip(),
         "zamknieto_at": str(src.get("zamknieto_at") or "").strip(),
         "zamkniete_przez": _normalize_login(src.get("zamkniete_przez")),
@@ -365,21 +389,84 @@ def update_dyspozycja(
     return deepcopy(changed)
 
 
+def set_dyspozycja_status(
+    dyspozycja_id: str,
+    new_status: str,
+    *,
+    changed_by: str = "",
+    uwagi: str = "",
+) -> dict[str, Any] | None:
+    """Zmień status zgodnie z obiegiem i dopisz historię kto/kiedy."""
+
+    target = str(new_status or "").strip().lower()
+    if target not in DISP_ALLOWED_STATUSES:
+        return None
+
+    current_item = get_dyspozycja(dyspozycja_id)
+    if not current_item:
+        return None
+
+    current = _normalize_status(current_item.get("status"))
+    if target == current:
+        return deepcopy(current_item)
+
+    allowed_transitions = {
+        "nowa": {"w_toku"},
+        "w_toku": {"wstrzymana", "zamknieta"},
+        "wstrzymana": {"w_toku", "zamknieta"},
+        "zamknieta": set(),
+    }
+    if target not in allowed_transitions.get(current, set()):
+        return None
+
+    now = _now_iso()
+    who = _normalize_login(changed_by)
+    meta = dict(current_item.get("meta") or {})
+    history_raw = meta.get("historia_statusow")
+    history = list(history_raw) if isinstance(history_raw, list) else []
+    history.append(
+        {
+            "z": current,
+            "na": target,
+            "kto": who,
+            "kiedy": now,
+        }
+    )
+    meta["historia_statusow"] = history
+
+    updates: dict[str, Any] = {
+        "status": target,
+        "meta": meta,
+    }
+    if current == "nowa" and target == "w_toku":
+        updates["wykonuje"] = who
+        updates["rozpoczal_at"] = now
+    if target == "zamknieta":
+        updates.update(
+            {
+                "wykonano": now,
+                "zamknieto_at": now,
+                "zamkniete_przez": who,
+            }
+        )
+        if str(uwagi or "").strip():
+            updates["uwagi"] = str(uwagi).strip()
+
+    return update_dyspozycja(dyspozycja_id, updates)
+
+
 def close_dyspozycja(
     dyspozycja_id: str,
     *,
     uwagi: str = "",
     closed_by: str = "",
 ) -> dict[str, Any] | None:
-    updates = {
-        "status": "zamknieta",
-        "wykonano": _now_iso(),
-        "zamknieto_at": _now_iso(),
-        "zamkniete_przez": _normalize_login(closed_by),
-    }
-    if str(uwagi or "").strip():
-        updates["uwagi"] = str(uwagi).strip()
-    return update_dyspozycja(dyspozycja_id, updates)
+    return set_dyspozycja_status(
+        dyspozycja_id,
+        "zamknieta",
+        changed_by=closed_by,
+        uwagi=uwagi,
+    )
 
 
 def delete_dyspozycja(dyspozycja_id: str) -> bool:
@@ -456,6 +543,7 @@ __all__ = [
     "make_dyspozycja",
     "normalize_dyspozycja",
     "save_dyspozycje",
+    "set_dyspozycja_status",
     "update_dyspozycja",
     "visible_for_login",
 ]

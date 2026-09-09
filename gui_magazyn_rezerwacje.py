@@ -1,8 +1,10 @@
 # ===============================================
 # Plik: gui_magazyn_rezerwacje.py
 # ===============================================
-# version: 1.0
+# version: 1.0.2
 # Zmiany:
+# - 1.0.2: rezerwacja używa kanonicznego LM.rezerwuj() i nie zapisuje nieobsługiwanej operacji REZERWUJ.
+# - 1.0.1: zwalnianie rezerwacji używa kanonicznego LM.zwolnij_rezerwacje() i nie zapisuje nieobsługiwanej operacji ZWOLNIJ.
 # - Nowe okno dialogowe do rezerwowania i zwalniania rezerwacji magazynowych.
 # - Obsługa pól: item_id, ilość, komentarz, historia.
 # - Integracja z magazyn_io / logika_magazyn.
@@ -92,16 +94,33 @@ def open_rezerwuj_dialog(master, item_id):
         ok, qty = _validate_and_reserve(var_qty.get(), var_cel_typ.get(), it)
         if not ok:
             return
-        it["rezerwacje"] = it.get("rezerwacje", 0) + qty
-        LM.append_history(
-            items,
-            item_id,
-            user="",
-            op="REZERWUJ",
-            qty=qty,
-            comment=var_comment.get(),
-        )
-        magazyn_io.save(data)
+
+        try:
+            reserved = LM.rezerwuj(
+                item_id,
+                qty,
+                uzytkownik="",
+                kontekst=var_comment.get(),
+            )
+        except (KeyError, ValueError, RuntimeError) as exc:
+            messagebox.showerror("Błąd", str(exc), parent=win)
+            return
+        except Exception as exc:
+            messagebox.showerror(
+                "Błąd",
+                f"Nie udało się utworzyć rezerwacji:\n{exc}",
+                parent=win,
+            )
+            return
+
+        if reserved <= 0:
+            messagebox.showerror(
+                "Błąd",
+                "Brak wystarczającej dostępności do rezerwacji.",
+                parent=win,
+            )
+            return
+
         win.destroy()
 
     ttk.Button(frm, text="OK", command=do_save).grid(row=4, column=0, pady=8)
@@ -143,20 +162,25 @@ def open_zwolnij_rezerwacje_dialog(master, item_id):
                 "Błąd", "Ilość musi być większa od zera.", parent=win
             )
             return
-        data = magazyn_io.load()
-        items = data.get("items", {})
-        it = items.get(item_id)
-        if it is None:
+
+        try:
+            LM.zwolnij_rezerwacje(
+                item_id,
+                qty,
+                uzytkownik="",
+                kontekst=var_comment.get(),
+            )
+        except (KeyError, ValueError, RuntimeError) as exc:
+            messagebox.showerror("Błąd", str(exc), parent=win)
+            return
+        except Exception as exc:
             messagebox.showerror(
-                "Błąd", "Nie znaleziono pozycji w magazynie.", parent=win
+                "Błąd",
+                f"Nie udało się zwolnić rezerwacji:\n{exc}",
+                parent=win,
             )
             return
-        it["rezerwacje"] = max(0, it.get("rezerwacje", 0) - qty)
-        LM.append_history(
-            items, item_id, user="", op="ZWOLNIJ", qty=qty,
-            comment=var_comment.get()
-        )
-        magazyn_io.save(data)
+
         win.destroy()
 
     ttk.Button(frm, text="OK", command=do_save).grid(row=3, column=0, pady=8)

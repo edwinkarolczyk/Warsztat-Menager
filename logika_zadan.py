@@ -1,4 +1,8 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Statusy zachowują flagę visit_base z definicji narzędzi.
+# - Jawnie oznaczony status bazowy jest zwracany jako pierwszy niezależnie od kolejności w pliku.
+# - Dodano get_base_status() z fallbackiem do pierwszego statusu dla starych konfiguracji.
 """Utilities for loading tool tasks definitions with caching."""
 
 from __future__ import annotations
@@ -44,6 +48,7 @@ def invalidate_cache() -> None:
         _TOOL_TASKS_MTIME = None
         print("[WM-DBG][NARZ] Cache zadań wyczyszczony.")
 
+
 __all__ = [
     "TOOL_TASKS_PATH",
     "HISTORY_PATH",
@@ -52,6 +57,7 @@ __all__ = [
     "get_default_collection",
     "get_tool_types",
     "get_statuses",
+    "get_base_status",
     "get_tasks",
     "should_autocheck",
     "get_tool_types_list",
@@ -133,19 +139,48 @@ def get_tool_types(collection: str | None = None) -> list[dict]:
 
 
 def get_statuses(type_id: str, collection: str | None = None) -> list[dict]:
-    """Return statuses for given tool type."""
+    """Return statuses for given tool type, with the explicit visit base first."""
     _ensure_cache()
     coll = collection or _default_collection()
     with _CACHE_LOCK:
         tasks = _TOOL_TASKS_CACHE or {}
         types_list = tasks.get(coll, [])
     for t in types_list:
-        if t.get("id") == type_id:
-            return [
-                {"id": s.get("id"), "name": s.get("name", s.get("id"))}
-                for s in (t.get("statuses") or [])
-            ]
+        if t.get("id") != type_id:
+            continue
+
+        result: list[dict] = []
+        explicit_base_index: int | None = None
+        for s in (t.get("statuses") or []):
+            is_base = bool(s.get("visit_base"))
+            row = {
+                "id": s.get("id"),
+                "name": s.get("name", s.get("id")),
+                "visit_base": is_base,
+            }
+            if is_base and explicit_base_index is None:
+                explicit_base_index = len(result)
+            result.append(row)
+
+        # Stare GUI wizyt traktuje pierwszy status jako bazowy. Jeżeli mamy
+        # jawne visit_base, przenosimy go logicznie na początek odpowiedzi,
+        # nie zmieniając kolejności zapisanej w pliku konfiguracyjnym.
+        if explicit_base_index is not None and explicit_base_index > 0:
+            base = result.pop(explicit_base_index)
+            result.insert(0, base)
+        return result
     return []
+
+
+def get_base_status(type_id: str, collection: str | None = None) -> dict | None:
+    """Return the visit base status; fall back to the first status for legacy data."""
+    statuses = get_statuses(type_id, collection=collection)
+    if not statuses:
+        return None
+    for status in statuses:
+        if bool(status.get("visit_base")):
+            return status
+    return statuses[0]
 
 
 def get_tasks(type_id: str, status_id: str, collection: str | None = None) -> list[str]:
@@ -176,9 +211,6 @@ def should_autocheck(
         cfg = cfg.merged
     return tools_autocheck.should_autocheck(status_id, collection_id, cfg)
 
-get_tool_types_list = get_tool_types
-get_statuses_for_type = get_statuses
-
 
 get_tool_types_list = get_tool_types
 get_statuses_for_type = get_statuses
@@ -187,4 +219,3 @@ get_statuses_for_type = get_statuses
 # Backward compatibility aliases
 get_tool_types_list = get_tool_types
 get_statuses_for_type = get_statuses
-

@@ -1,5 +1,14 @@
 # Plik: gui_narzedzia.py
-# version: 1.0
+# version: 1.5.33
+# Zmiany 1.5.33:
+# - [NARZĘDZIA] Udostępniono nowemu edytorowi bieżącą listę zdjęć bez czekania na zapis JSON.
+# - Dodano zdarzenia odświeżania po dodaniu, usunięciu, zmianie kolejności zdjęć i zmianie DXF.
+# - Nowy widok może usunąć pojedyncze zdjęcie i ustawić wybrane zdjęcie jako główne.
+#
+# Zmiany 1.5.32:
+# - [NARZĘDZIA] Walidacja przy wejściu nie wymaga wycofanego płaskiego klucza zadań serwisowych.
+# - Zadania serwisowe nadal są pobierane z aktualnych definicji typ/status i istniejących fallbacków.
+#
 # Zmiany 1.5.31:
 # - [NARZĘDZIA] Przywrócono kompatybilność ze starymi plikami JSON (listy i klucz "items").
 #
@@ -492,6 +501,10 @@ from utils import error_dialogs
 import logger as app_logger
 
 
+_ACTIVE_TOOL_EDITOR_OPENER = None
+_ACTIVE_TOOL_EDITOR_ROOT = None
+
+
 def _external_tool_id_variants(tool_id: str) -> set[str]:
     """Warianty ID narzędzia do porównania: 42 / 042."""
     raw = str(tool_id or "").strip()
@@ -506,50 +519,170 @@ def _external_get_tool_id(tool: Mapping[str, Any]) -> str:
     return str(tool.get("id") or tool.get("nr") or tool.get("numer") or "").strip()
 
 
-def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
-    """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
-    variants = _external_tool_id_variants(tool_id)
+def _external_load_tools_rows() -> list[Mapping[str, Any]]:
+    """
+    Ładuje narzędzia dla wejścia z Dyspozycji.
+
+    Ma być odporne na różne sygnatury load_tools_rows_with_fallback()
+    i nie może wymagać wcześniej otwartego modułu Narzędzia.
+    """
+    print("[WM-DBG][DYSPO->NARZ] _external_load_tools_rows start")
+    attempts = []
 
     try:
         cfg = get_config()
-        rows, _primary = load_tools_rows_with_fallback(cfg, resolve_rel)
-    except Exception:
-        rows = []
+        attempts.append(
+            (
+                "[WM-DBG][DYSPO->NARZ] próba "
+                "load_tools_rows_with_fallback(cfg, resolve_rel)",
+                lambda: load_tools_rows_with_fallback(cfg, resolve_rel),
+            )
+        )
+    except Exception as exc:
+        print(f"[WM-DBG][DYSPO->NARZ][ERR] próba ładowania narzędzi nieudana: {exc}")
 
-    for row in rows or []:
+    attempts.append(
+        (
+            "[WM-DBG][DYSPO->NARZ] próba load_tools_rows_with_fallback()",
+            lambda: load_tools_rows_with_fallback(),
+        )
+    )
+
+    for diagnostic, attempt in attempts:
+        print(diagnostic)
+        try:
+            result = attempt()
+        except Exception as exc:
+            print(f"[WM-DBG][DYSPO->NARZ][ERR] próba ładowania narzędzi nieudana: {exc}")
+            continue
+
+        if isinstance(result, tuple):
+            rows = result[0] if result else []
+        else:
+            rows = result
+
+        if isinstance(rows, list):
+            print(f"[WM-DBG][DYSPO->NARZ] załadowano rows={len(rows)} typ={type(result)}")
+            return [row for row in rows if isinstance(row, Mapping)]
+
+    rows: list[Mapping[str, Any]] = []
+    print("[WM-DBG][DYSPO->NARZ] fallback iter_tools_json()")
+    try:
+        for idx, entry in enumerate(iter_tools_json()):
+            if isinstance(entry, tuple):
+                path, data = entry
+            else:
+                path = entry
+                try:
+                    data = _safe_read_json(str(path), {})
+                except Exception:
+                    data = {}
+            if idx < 10:
+                print(f"[WM-DBG][DYSPO->NARZ] iter_tools_json[{idx}] path={path}")
+            if isinstance(data, Mapping):
+                row = dict(data)
+                row.setdefault("_path", str(path))
+                if not _external_get_tool_id(row):
+                    stem = Path(str(path)).stem
+                    row.setdefault("id", stem)
+                    row.setdefault("nr", stem)
+                    row.setdefault("numer", stem)
+                rows.append(row)
+    except Exception:
+        pass
+
+    print(f"[WM-DBG][DYSPO->NARZ] _external_load_tools_rows koniec rows={len(rows)}")
+    return rows
+
+
+def _external_find_tool_by_id(tool_id: str) -> dict[str, Any] | None:
+    """Znajduje narzędzie po ID bez wymagania otwartego modułu Narzędzia."""
+    variants = _external_tool_id_variants(tool_id)
+    print(f"[WM-DBG][DYSPO->NARZ] szukam narzędzia tool_id={tool_id!r}, variants={variants}")
+
+    rows = _external_load_tools_rows()
+
+    for idx, row in enumerate(rows or []):
         if not isinstance(row, Mapping):
             continue
         row_id = _external_get_tool_id(row)
+        if idx < 10:
+            print(f"[WM-DBG][DYSPO->NARZ] row[{idx}] id={row_id!r}")
         if row_id in variants:
+            print(f"[WM-DBG][DYSPO->NARZ] znaleziono narzędzie row_id={row_id!r}")
             return dict(row)
         if row_id.isdigit() and str(int(row_id)) in variants:
+            print(f"[WM-DBG][DYSPO->NARZ] znaleziono narzędzie row_id={row_id!r}")
             return dict(row)
 
+    print(f"[WM-DBG][DYSPO->NARZ][WARN] nie znaleziono narzędzia tool_id={tool_id!r}")
     return None
+
+
+def _external_find_tool_path(tool: Mapping[str, Any]) -> str:
+    """Zwraca ścieżkę pliku narzędzia dla pełnego edytora."""
+    path = str(tool.get("_path") or tool.get("path") or tool.get("plik") or "").strip()
+    if path:
+        return path
+
+    tool_id = _external_get_tool_id(tool)
+    if not tool_id:
+        return ""
+
+    candidates: list[Path] = []
+    try:
+        base = Path(_resolve_tools_dir())
+        candidates.extend(
+            [
+                base / f"{tool_id}.json",
+                base / f"{tool_id.zfill(3)}.json"
+                if tool_id.isdigit()
+                else base / f"{tool_id}.json",
+            ]
+        )
+    except Exception:
+        pass
+
+    try:
+        for entry in iter_tools_json():
+            if isinstance(entry, tuple):
+                candidate_path = Path(str(entry[0]))
+            else:
+                candidate_path = Path(str(entry))
+            if candidate_path.stem in _external_tool_id_variants(tool_id):
+                candidates.append(candidate_path)
+    except Exception:
+        pass
+
+    for candidate in candidates:
+        try:
+            if candidate.exists():
+                return str(candidate)
+        except Exception:
+            continue
+    return ""
+
+
+def _active_tool_editor_available() -> bool:
+    root = globals().get("_ACTIVE_TOOL_EDITOR_ROOT")
+    opener = globals().get("_ACTIVE_TOOL_EDITOR_OPENER")
+    if not callable(opener):
+        return False
+    try:
+        if root is not None and hasattr(root, "winfo_exists"):
+            return bool(root.winfo_exists())
+    except Exception:
+        return False
+    return root is not None
 
 
 def open_tool_from_external_context(master: tk.Misc | None, tool_id: str) -> bool:
     """
     Publiczny helper dla Dyspozycji.
-
-    Otwiera ten sam widok szczegółów narzędzia, którego używa lista narzędzi,
-    bez wymogu wcześniejszego otwarcia modułu Narzędzia.
+    Otwiera pełny edytor narzędzia z modułu Narzędzia.
     """
-    tool = _external_find_tool_by_id(tool_id)
-    if not tool:
-        return False
-
-    try:
-        from tools_templates import load_default_templates
-
-        templates = load_default_templates()
-    except Exception:
-        templates = []
-
-    from narzedzia_ui.detail_view import open_tool_detail
-
-    open_tool_detail(master, tool, templates=templates)
-    return True
+    print(f"[WM-DBG][DYSPO->NARZ] open_tool_from_external_context tool_id={tool_id!r}")
+    return open_tool_editor_by_id(master, tool_id)
 
 
 logger = getLogger(__name__)
@@ -1066,6 +1199,17 @@ _TOOLS_CFG_CACHE: dict | None = None
 _TOOLS_PRIMARY_PATH: str | None = None
 _TOOLS_MIGRATED = False
 _TOOLS_BRIDGE = ToolDataBridge()
+_SUPPRESS_TOOL_CONFIG_POPUPS = 0
+
+
+@contextmanager
+def _suppress_tool_config_popups():
+    global _SUPPRESS_TOOL_CONFIG_POPUPS
+    _SUPPRESS_TOOL_CONFIG_POPUPS += 1
+    try:
+        yield
+    finally:
+        _SUPPRESS_TOOL_CONFIG_POPUPS = max(0, _SUPPRESS_TOOL_CONFIG_POPUPS - 1)
 
 
 def _init_tools_data(cfg: dict | None = None) -> tuple[dict, list[dict], str, bool]:
@@ -2203,6 +2347,13 @@ except Exception:  # pragma: no cover - tolerancja środowiska
 def _notify_missing_configuration(category: str, message: str) -> None:
     """Show one-time warning for missing configuration pieces."""
 
+    if _SUPPRESS_TOOL_CONFIG_POPUPS:
+        try:
+            print(f"[WM-DBG][NARZ][WARN] {message}")
+        except Exception:
+            pass
+        return
+
     key = category.strip().lower()
     if not key:
         key = message.strip().lower()
@@ -2275,8 +2426,10 @@ def _maybe_seed_config_templates():
         missing.append("zadania (produkcja)")
     else:
         _dbg("[WM-DBG][narzedzia] pomijam warning 'zadania (produkcja)' – dane istnieją")
-    if not _clean_list(cfg.get("szablony_zadan_narzedzia_stare")):
-        missing.append("zadania (serwis)")
+    # Zadania serwisowe nie są już wymagane jako płaski klucz
+    # ``szablony_zadan_narzedzia_stare``. Aktualny moduł pobiera je z
+    # definicji typ/status (z zachowaniem istniejących fallbacków), więc brak
+    # starego klucza nie może blokować wejścia do Narzędzi fałszywym popupem.
     if not _clean_list(cfg.get("typy_narzedzi")):
         try:
             default_collection = getattr(LZ, "get_default_collection", lambda: "")()
@@ -2843,6 +2996,7 @@ class _TaskTemplateUI:
         self._types: list[dict] = []
         self._statuses: list[dict] = []
         self._ui_updating = False
+        self._initial_render = True
         self.tasks_state: list[dict] = []
 
         self.var_collection = tk.StringVar()
@@ -2865,6 +3019,7 @@ class _TaskTemplateUI:
         self.lst.pack(fill="both", expand=True)
 
         self._render_collections_initial()
+        self._initial_render = False
 
     # ===================== helpers =====================
     @contextmanager
@@ -2940,7 +3095,7 @@ class _TaskTemplateUI:
             self._set_info("")
         else:
             self._set_info("Brak typów narzędzi w ustawieniach.")
-            if cid:
+            if cid and not self._initial_render:
                 _notify_missing_configuration(
                     "types",
                     (
@@ -2977,13 +3132,14 @@ class _TaskTemplateUI:
         else:
             if tid:
                 self._set_info("Brak statusów w ustawieniach dla wybranego typu.")
-                _notify_missing_configuration(
-                    "statuses",
-                    (
-                        "Brak zdefiniowanych statusów dla wybranego typu. "
-                        "Dodaj statusy w module Ustawienia → Narzędzia."
-                    ),
-                )
+                if not self._initial_render:
+                    _notify_missing_configuration(
+                        "statuses",
+                        (
+                            "Brak zdefiniowanych statusów dla wybranego typu. "
+                            "Dodaj statusy w module Ustawienia → Narzędzia."
+                        ),
+                    )
             else:
                 self._set_info("")
         with self._suspend_ui():
@@ -3037,13 +3193,14 @@ class _TaskTemplateUI:
             else:
                 if cid and tid and sid:
                     self._set_info("Brak zadań w ustawieniach dla wybranego statusu.")
-                    _notify_missing_configuration(
-                        "tasks",
-                        (
-                            "Brak zdefiniowanych zadań dla wybranego statusu. "
-                            "Dodaj zadania w module Ustawienia → Narzędzia."
-                        ),
-                    )
+                    if not self._initial_render:
+                        _notify_missing_configuration(
+                            "tasks",
+                            (
+                                "Brak zdefiniowanych zadań dla wybranego statusu. "
+                                "Dodaj zadania w module Ustawienia → Narzędzia."
+                            ),
+                        )
                 else:
                     self._set_info("")
                 self.lst.insert(tk.END, "-- brak zadań --")
@@ -3098,7 +3255,8 @@ def build_task_template(parent):
     """Build simple comboboxes for collection/type/status and a tasks list."""
 
     LZ.invalidate_cache()
-    ui = _TaskTemplateUI(parent)
+    with _suppress_tool_config_popups():
+        ui = _TaskTemplateUI(parent)
     return {
         "cb_collection": ui.cb_collection,
         "cb_type": ui.cb_type,
@@ -3937,6 +4095,38 @@ def _phase_for_status(tool_mode: str, status_text: str) -> str | None:
 
 # ===================== UI GŁÓWNY =====================
 _OPEN_TOOL_EDITOR_BY_ID: Callable[[str], bool] | None = None
+_OPEN_TOOL_EDITOR_OWNER: tk.Misc | None = None
+
+
+def _safe_tool_editor_parent(master: tk.Misc | None) -> tk.Misc | None:
+    """Zwraca żywego parenta dla Toplevel albo None, gdy master jest martwy."""
+    if master is None:
+        return None
+    try:
+        if hasattr(master, "winfo_exists") and not master.winfo_exists():
+            return None
+    except Exception:
+        return None
+    try:
+        top = master.winfo_toplevel()
+        if hasattr(top, "winfo_exists") and top.winfo_exists():
+            return top
+    except Exception:
+        return None
+    return master
+
+
+def _tool_editor_opener_alive() -> bool:
+    opener = globals().get("_OPEN_TOOL_EDITOR_BY_ID")
+    owner = globals().get("_OPEN_TOOL_EDITOR_OWNER")
+    if not callable(opener):
+        return False
+    if owner is None:
+        return False
+    try:
+        return bool(owner.winfo_exists())
+    except Exception:
+        return False
 
 
 def open_tool_editor_by_id(
@@ -3946,10 +4136,83 @@ def open_tool_editor_by_id(
     current_role: str | None = None,
 ) -> bool:
     """Otwórz narzędzie przez edytor podpięty do głównej listy narzędzi."""
-    del master, current_user, current_role
+    global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
+
+    print(f"[WM-DBG][DYSPO->NARZ] open_tool_editor_by_id tool_id={tool_id!r}")
+    print(f"[WM-DBG][DYSPO->NARZ] opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
+    print(f"[WM-DBG][DYSPO->NARZ] master={master!r}")
+
+    normalized = str(tool_id or "").strip()
+    if not normalized:
+        return False
+
+    if _tool_editor_opener_alive():
+        try:
+            opened = _OPEN_TOOL_EDITOR_BY_ID(normalized)  # type: ignore[misc]
+        except Exception as exc:
+            print(f"[WM-DBG][DYSPO->NARZ][ERR] opener failed: {exc}")
+            opened = False
+        if opened:
+            return True
+
+    _OPEN_TOOL_EDITOR_BY_ID = None
+    _OPEN_TOOL_EDITOR_OWNER = None
+
     if _OPEN_TOOL_EDITOR_BY_ID is None:
-        raise RuntimeError("Moduł Narzędzia nie został jeszcze otwarty.")
-    return _OPEN_TOOL_EDITOR_BY_ID(str(tool_id or "").strip())
+        print("[WM-DBG][DYSPO->NARZ] Brak aktywnego callbacka edytora, tworzę moduł Narzędzia w Toplevel")
+        try:
+            parent = _safe_tool_editor_parent(master)
+            print(f"[WM-DBG][DYSPO->NARZ] safe parent={parent!r}")
+            try:
+                win = tk.Toplevel(parent) if parent is not None else tk.Toplevel()
+            except tk.TclError as exc:
+                print(f"[WM-DBG][DYSPO->NARZ][WARN] parent Toplevel failed: {exc}; retry without parent")
+                win = tk.Toplevel()
+            win.title("Narzędzia")
+            win.geometry("1400x850")
+            win.resizable(True, True)
+            try:
+                apply_theme(win)
+                ensure_theme_applied(win)
+            except Exception:
+                pass
+
+            frame = ttk.Frame(win, style="WM.TFrame")
+            frame.pack(fill="both", expand=True)
+
+            def _clear_external_opener_on_close() -> None:
+                global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
+                if _OPEN_TOOL_EDITOR_OWNER is win:
+                    _OPEN_TOOL_EDITOR_BY_ID = None
+                    _OPEN_TOOL_EDITOR_OWNER = None
+                win.destroy()
+
+            win.protocol("WM_DELETE_WINDOW", _clear_external_opener_on_close)
+
+            panel_narzedzia(
+                win,
+                frame,
+                login=current_user or None,
+                rola=current_role,
+            )
+            print(f"[WM-DBG][DYSPO->NARZ] panel_narzedzia zbudowany, opener callable={callable(_OPEN_TOOL_EDITOR_BY_ID)}")
+            print(f"[WM-DBG][DYSPO->NARZ] planuję ponowne otwarcie tool_id={tool_id!r} za 300ms")
+            win.after(
+                300,
+                lambda: open_tool_editor_by_id(
+                    win,
+                    tool_id,
+                    current_user=current_user,
+                    current_role=current_role,
+                ),
+            )
+            return True
+        except Exception as exc:
+            raise RuntimeError(
+                "Nie udało się automatycznie otworzyć modułu Narzędzia dla edycji narzędzia."
+            ) from exc
+
+    return False
 
 
 def panel_narzedzia(root, frame, login=None, rola=None):
@@ -3969,6 +4232,27 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     bridge = _TOOLS_BRIDGE
     STATE.current_login = login
     STATE.current_role = rola
+
+    def _cards_output_dir() -> Path:
+        base = Path.cwd() / "wydruki" / "karty"
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+
+    def _print_blank_tool_card_from_tools() -> None:
+        try:
+            from tool_card_pdf import generate_blank_tool_card
+
+            generate_blank_tool_card(
+                _cards_output_dir(),
+                open_after=True,
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Narzędzia",
+                f"Nie udało się wygenerować pustej karty narzędzia:\n{exc}",
+                parent=root if hasattr(root, "winfo_exists") else None,
+            )
+
     STATE.assign_tree = None
     STATE.assign_row_data.clear()
     STATE.cmb_user_var = None
@@ -4136,6 +4420,14 @@ def panel_narzedzia(root, frame, login=None, rola=None):
             return False
         return False
 
+    global _OPEN_TOOL_EDITOR_BY_ID, _OPEN_TOOL_EDITOR_OWNER
+    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
+    try:
+        _OPEN_TOOL_EDITOR_OWNER = frame.winfo_toplevel()
+    except Exception:
+        _OPEN_TOOL_EDITOR_OWNER = root
+    print("[WM-DBG][DYSPO->NARZ] zarejestrowano _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id")
+
     class _ToolsViewFallback:
         def _refresh_all(self) -> None:
             return None
@@ -4143,8 +4435,17 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         def bind_open_detail(self, *_args: object, **_kwargs: object) -> None:
             return None
 
+    tools_actions = ttk.Frame(frame, style="WM.TFrame")
+    tools_actions.pack(fill="x", padx=10, pady=(10, 0))
+    ttk.Button(
+        tools_actions,
+        text="Drukuj pustą kartę narzędzia",
+        command=_print_blank_tool_card_from_tools,
+        style="WM.Side.TButton",
+    ).pack(side="left")
+
     tools_wrap = ttk.Frame(frame, style="WM.Card.TFrame")
-    tools_wrap.pack(fill="both", expand=True, padx=10, pady=10)
+    tools_wrap.pack(fill="both", expand=True, padx=10, pady=(6, 10))
     try:
         tools_view = ToolsThreeTabsView(
             tools_wrap,
@@ -4415,8 +4716,12 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         var_op = tk.StringVar(master=dialog_master, value=start.get("opis", ""))
         var_pr = tk.StringVar(master=dialog_master, value=start.get("pracownik", login or ""))
         images = list(start.get("obrazy", []))
+        # Nowy widok korzysta z tej samej, żywej listy co klasyczny formularz.
+        # Dzięki temu miniatura i karuzela reagują przed zapisaniem pliku JSON.
+        dlg._wm_tool_images = images  # type: ignore[attr-defined]
         var_dxf = tk.StringVar(master=dialog_master, value=start.get("dxf", ""))
         var_dxf_png = tk.StringVar(master=dialog_master, value=start.get("dxf_png", ""))
+        dlg._wm_tool_dxf_preview_get = var_dxf_png.get  # type: ignore[attr-defined]
         wizyty_data = list((tool.get("wizyty") if editing else []) or [])
 
         main_container = ttk.Frame(dlg, padding=10, style="WM.TFrame")
@@ -5353,8 +5658,44 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         )
         dxf_lbl.pack(side="left", padx=6)
 
+        def _emit_tool_media_changed() -> None:
+            try:
+                dlg.event_generate("<<ToolMediaChanged>>", when="tail")
+            except Exception:
+                pass
+
         def _refresh_images_label() -> None:
             images_var.set(_format_images_label())
+            _emit_tool_media_changed()
+
+        def _get_live_images() -> List[str]:
+            return list(images)
+
+        def _set_primary_image(raw_path: str) -> bool:
+            wanted = str(raw_path or "").strip()
+            for index, value in enumerate(images):
+                if str(value or "").strip() != wanted:
+                    continue
+                if index:
+                    images.insert(0, images.pop(index))
+                    _refresh_images_label()
+                return True
+            return False
+
+        def _remove_live_image(raw_path: str) -> bool:
+            wanted = str(raw_path or "").strip()
+            for index, value in enumerate(images):
+                if str(value or "").strip() != wanted:
+                    continue
+                images.pop(index)
+                _refresh_images_label()
+                preview_tooltip.hide_tooltip()
+                return True
+            return False
+
+        dlg._wm_tool_images_get = _get_live_images  # type: ignore[attr-defined]
+        dlg._wm_tool_image_set_primary = _set_primary_image  # type: ignore[attr-defined]
+        dlg._wm_tool_image_remove = _remove_live_image  # type: ignore[attr-defined]
 
         def clear_images() -> None:
             if not images:
@@ -5429,9 +5770,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 var_dxf.set(rel)
                 dxf_lbl.config(text=os.path.basename(dest))
                 png = _generate_dxf_preview(dest)
-                if png:
-                    rel_png = os.path.relpath(png, _resolve_tools_dir())
-                    var_dxf_png.set(rel_png)
+                rel_png = os.path.relpath(png, _resolve_tools_dir()) if png else ""
+                var_dxf_png.set(rel_png)
+                _emit_tool_media_changed()
             except (OSError, shutil.Error) as e:
                 _dbg("Błąd kopiowania DXF:", e)
 
@@ -5678,12 +6019,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 f"status={status_clean} → {len(defaults)} zadań"
             )
             if not defaults:
-                _notify_missing_configuration(
-                    "tasks",
-                    (
-                        "Brak zdefiniowanych zadań dla wybranego statusu. "
-                        "Dodaj zadania w module Ustawienia → Narzędzia."
-                    ),
+                print(
+                    "[WM-DBG][NARZ][WARN] Brakuje ustawień dla zadania "
+                    f"{status_clean!r}. Uzupełnij je w module Ustawienia — Narzędzia."
                 )
             added = False
             for title in defaults:
@@ -6794,6 +7132,10 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     data_obj["__prev_path__"] = str(tool_path or "")
 
                 _save_tool(data_obj)
+                try:
+                    dlg.event_generate("<<ToolSaved>>", when="tail")
+                except Exception:
+                    pass
 
                 if renamed:
                     # FIX(TOOLS): aktualizacja stanu po zmianie numeru
@@ -6943,13 +7285,15 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         dlg.bind("<Control-w>", _kb_close)
         dlg.bind("<F5>", _kb_refresh)
 
+    global _ACTIVE_TOOL_EDITOR_OPENER, _ACTIVE_TOOL_EDITOR_ROOT
+    _ACTIVE_TOOL_EDITOR_ROOT = root
+    _ACTIVE_TOOL_EDITOR_OPENER = lambda tool: open_tool_dialog(tool)
+
     # ===================== BINDY / START =====================
     _dbg("Init panel_narzedzia – start listy")
     btn_add.configure(command=choose_mode_and_add)
     if tools_view is not None:
         tools_view.bind_open_detail(_open_tool_by_id)
-    global _OPEN_TOOL_EDITOR_BY_ID
-    _OPEN_TOOL_EDITOR_BY_ID = _open_tool_by_id
     refresh_list()
 
 __all__ = [

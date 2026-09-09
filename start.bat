@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 cd /d "%~dp0"
 
 REM → Zminimalizuj okno CMD, aby schowało się na pasek zadań
@@ -25,10 +26,10 @@ if not defined PYTHON_EXE (
   exit /b 1
 )
 
-echo [INFO] Uzywam Pythona: %PYTHON_EXE%
+echo [INFO] Używam Pythona: %PYTHON_EXE%
 echo [INFO] Katalog roboczy: "%cd%"
 
-%PYTHON_EXE% -u start.py
+%PYTHON_EXE% -u wm_launch.py
 set ERR=%ERRORLEVEL%
 
 endlocal & set ERR=%ERR%

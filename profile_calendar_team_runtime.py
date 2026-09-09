@@ -1,0 +1,638 @@
+# version: 1.4
+"""Rozszerza istniejący Kalendarz Profilu o dane Zespołu dla Brygadzisty.
+
+Od 1.4 finalny kalendarz Brygadzisty ładuje dane zespołu zbiorczo dla całego
+miesiąca: profile, urlopy, grafik i ewidencja Obecności są czytane po jednym
+razie. Kafelki nadal pokazują skrót zespołu, a kliknięty dzień korzysta z tego
+samego modelu danych bez mnożenia odczytów przez liczbę dni i pracowników.
+"""
+from __future__ import annotations
+
+import calendar
+import tkinter as tk
+from datetime import date, datetime, timedelta
+from tkinter import ttk
+from typing import Any
+
+from config_manager import ConfigManager
+from grafiki.shifts_schedule import _normalize_mode as _schedule_normalize_mode
+from grafiki.shifts_schedule import _slot_for_mode as _schedule_slot_for_mode
+from services import attendance_service, day_pay_service, workforce_profile_service
+from ui_context_help import add_help_button
+
+_INSTALLED = False
+_OPEN_DAY_WINDOWS: dict[tuple[int, str], tk.Toplevel] = {}
+
+
+def _active_login() -> str:
+    try:
+        from services.profile_service import ProfileService
+        return str(ProfileService.ensure_active_user_or_none() or "").strip()
+    except Exception:
+        return ""
+
+
+def _is_foreman() -> bool:
+    login = _active_login()
+    return bool(login and workforce_profile_service.is_foreman(login))
+
+
+def _slot_text(slot: str | None) -> str:
+    return {"RANO": "06–14", "POPO": "14–22"}.get(str(slot or ""), "—")
+
+
+def _leave_code(kind: Any) -> str:
+    key = str(kind or "").strip().casefold()
+    return {
+        "urlop": "UR",
+        "l4": "L4",
+        "nn": "NN",
+        "sila_wyzsza": "ŚW",
+        "siła_wyższa": "ŚW",
+        "force_majeure": "ŚW",
+        "urlop_bezplatny": "UB",
+        "urlop_bezpłatny": "UB",
+        "unpaid": "UB",
+    }.get(key, str(kind or "").strip().upper())
+
+
+def _short_name(user: dict) -> str:
+    first = str(user.get("imie") or "").strip()
+    if first:
+        return first
+    shown = workforce_profile_service.display_name(user)
+    return shown.split()[0] if shown else str(user.get("login") or "—")
+
+
+def _parse_profile_date(value: Any) -> date | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except Exception:
+        return None
+
+
+def _planned_slot_from_user(user: dict, day: date, shifts_cfg: dict) -> str | None:
+    """Wylicz zmianę z już wczytanego profilu, bez ponownego czytania profiles.json."""
+    role = str(user.get("rola") or user.get("role") or "").strip().casefold()
+    login = str(user.get("login") or "").strip()
+    if not login or role == "guest":
+        return None
+
+    employed_from = _parse_profile_date(user.get("zatrudniony_od"))
+    employed_to = _parse_profile_date(user.get("zatrudniony_do"))
+    if employed_from and day < employed_from:
+        return None
+    if employed_to and day > employed_to:
+        return None
+
+    raw_days = user.get("workdays")
+    if raw_days is None:
+        raw_days = user.get("dni_pracy")
+    try:
+        workdays = {int(item) for item in (raw_days or [0, 1, 2, 3, 4])}
+    except Exception:
+        workdays = {0, 1, 2, 3, 4}
+    if day.weekday() not in workdays:
+        return None
+
+    uid = str(user.get("user_id") or user.get("id") or login).strip()
+    modes = shifts_cfg.get("modes") if isinstance(shifts_cfg.get("modes"), dict) else {}
+    anchors = shifts_cfg.get("user_anchor") if isinstance(shifts_cfg.get("user_anchor"), dict) else {}
+    raw_mode = (
+        modes.get(uid)
+        or modes.get(login)
+        or user.get("tryb_zmian")
+        or user.get("zmiana_plan")
+        or user.get("shift_mode")
+        or "111"
+    )
+    mode = _schedule_normalize_mode(raw_mode)
+
+    raw_anchor = (
+        anchors.get(uid)
+        or anchors.get(login)
+        or user.get("rotacja_start")
+        or user.get("shift_start")
+        or "2025-01-06"
+    )
+    anchor = _parse_profile_date(raw_anchor) or date(2025, 1, 6)
+    anchor = anchor - timedelta(days=anchor.weekday())
+    monday = day - timedelta(days=day.weekday())
+    week_idx = (monday - anchor).days // 7
+    return _schedule_slot_for_mode(mode, week_idx)
+
+
+def _record_matches_user(record: dict, storage_key: Any, user: dict) -> bool:
+    login = str(user.get("login") or "").strip().casefold()
+    uid = str(user.get("user_id") or user.get("id") or "").strip().casefold()
+    storage = str(storage_key or "").strip().casefold()
+    record_uid = str(record.get("user_id") or "").strip().casefold()
+    snapshot = str(record.get("login_snapshot") or record.get("login") or "").strip().casefold()
+    return bool(
+        (uid and (storage == uid or record_uid == uid))
+        or (login and (storage == login or snapshot == login))
+    )
+
+
+def _attendance_for_user(day_map: dict, user: dict, preferred_slot: str | None) -> dict | None:
+    slots = [preferred_slot] if preferred_slot in attendance_service.VALID_SLOTS else []
+    slots.extend(slot for slot in (attendance_service.RANO, attendance_service.POPO) if slot not in slots)
+    for slot in slots:
+        slot_map = day_map.get(slot)
+        if not isinstance(slot_map, dict):
+            continue
+        for storage_key, record in slot_map.items():
+            if not isinstance(record, dict) or not _record_matches_user(record, storage_key, user):
+                continue
+            row = dict(record)
+            row.update(
+                {
+                    "date": str(day_map.get("_date") or ""),
+                    "slot": slot,
+                    "login": str(user.get("login") or "").strip().casefold(),
+                    "synthetic": False,
+                }
+            )
+            return row
+    return None
+
+
+def _load_team_snapshots() -> tuple[list[dict], dict, dict, list[dict], list[dict]]:
+    """Wczytaj wszystkie źródła potrzebne Kalendarzowi dokładnie raz."""
+    try:
+        from services.leave_workflow_service import read_leaves, read_requests
+        leaves = list(read_leaves() or [])
+        requests = list(read_requests() or [])
+    except Exception:
+        leaves, requests = [], []
+
+    users = workforce_profile_service.list_users(active_only=True)
+    try:
+        cfg = ConfigManager()
+        shifts_cfg = cfg.get("shifts", {})
+        if not isinstance(shifts_cfg, dict):
+            shifts_cfg = {}
+    except Exception:
+        shifts_cfg = {}
+
+    try:
+        attendance_doc = attendance_service._read(attendance_service.data_path(), {})
+        if not isinstance(attendance_doc, dict):
+            attendance_doc = {}
+    except Exception:
+        attendance_doc = {}
+
+    return users, shifts_cfg, attendance_doc, leaves, requests
+
+
+def _team_day_rows_from_snapshots(
+    day: date,
+    users: list[dict],
+    shifts_cfg: dict,
+    attendance_doc: dict,
+    leaves: list[dict],
+    requests: list[dict],
+    *,
+    now: datetime | None = None,
+) -> list[dict]:
+    """Zbuduj jeden dzień wyłącznie z już wczytanych danych."""
+    day_text = day.isoformat()
+    raw_day_map = attendance_doc.get(day_text, {}) if isinstance(attendance_doc, dict) else {}
+    day_map = dict(raw_day_map) if isinstance(raw_day_map, dict) else {}
+    day_map["_date"] = day_text
+
+    pending_by_login: set[str] = set()
+    for request in requests:
+        if str(request.get("status") or "").strip().casefold() != "pending":
+            continue
+        if day_text in {str(value)[:10] for value in (request.get("dates") or [])}:
+            pending_by_login.add(str(request.get("login") or "").strip().casefold())
+
+    leave_by_login: dict[str, dict] = {}
+    for row in leaves:
+        if str(row.get("date") or "")[:10] != day_text:
+            continue
+        login = str(row.get("login") or "").strip().casefold()
+        if login:
+            leave_by_login[login] = dict(row)
+
+    current = now or datetime.now()
+    out: list[dict] = []
+    for user in users:
+        role = str(user.get("rola") or user.get("role") or "").strip().casefold()
+        login = str(user.get("login") or "").strip()
+        if not login or role == "guest":
+            continue
+        key = login.casefold()
+        try:
+            slot = _planned_slot_from_user(user, day, shifts_cfg)
+        except Exception:
+            slot = None
+
+        att_row = _attendance_for_user(day_map, user, slot)
+        if att_row is None and slot in attendance_service.VALID_SLOTS:
+            due = attendance_service._decision_due(day, slot, current)
+            att_row = {
+                "date": day_text,
+                "slot": slot,
+                "login": key,
+                "user_id": str(user.get("user_id") or user.get("id") or login),
+                "planned": True,
+                "status": attendance_service.STATUS_MISSING if due else attendance_service.STATUS_PLANNED,
+                "day_value": 0.0,
+                "confirmed": False,
+                "approval_required": bool(due),
+                "source": "schedule",
+                "reason": "",
+                "first_login_ts": "",
+                "logged_ts": "",
+                "synthetic": True,
+            }
+
+        leave = leave_by_login.get(key)
+        status_code = ""
+        status_text = ""
+        pay_percent = None
+        pay_label = "—"
+        if leave:
+            status_code = _leave_code(leave.get("type"))
+            labels = {
+                "UR": "Urlop",
+                "L4": "L4",
+                "NN": "NN",
+                "ŚW": "Siła wyższa",
+                "UB": "Urlop bezpłatny",
+            }
+            status_text = labels.get(status_code, status_code)
+            pay_percent = leave.get("pay_percent")
+            if pay_percent is None:
+                pay_percent = day_pay_service.compensation(status_code).get("pay_percent")
+        elif key in pending_by_login:
+            status_code = "?UR"
+            status_text = "Urlop — oczekuje"
+        elif att_row:
+            reason = str(att_row.get("reason") or "").strip()
+            if reason:
+                status_code = day_pay_service.normalize_code(reason)
+                status_text = str(att_row.get("pay_label") or status_code)
+                pay_percent = att_row.get("pay_percent")
+            else:
+                status = str(att_row.get("status") or "")
+                if status == attendance_service.STATUS_PRESENT:
+                    status_code = "PRACA"
+                    status_text = "Obecność potwierdzona"
+                    pay_percent = att_row.get("pay_percent", 100.0)
+                elif status == attendance_service.STATUS_MISSING:
+                    status_code = "BR"
+                    status_text = "Brak logowania — decyzja"
+                elif status in {attendance_service.STATUS_PENDING_LATE, attendance_service.STATUS_SATURDAY}:
+                    status_code = "DEC"
+                    status_text = "Do decyzji Brygadzisty"
+                else:
+                    status_code = "PLAN"
+                    status_text = "Zaplanowana zmiana"
+        elif slot:
+            status_code = "PLAN"
+            status_text = "Zaplanowana zmiana"
+        else:
+            status_code = "WOLNE"
+            status_text = "Wolne"
+
+        if pay_percent is not None:
+            try:
+                pay_label = f"{float(pay_percent):g}%"
+            except Exception:
+                pay_label = str(pay_percent)
+        elif status_code in {"BR", "DEC", "?UR"}:
+            pay_label = "do decyzji"
+
+        summary_status = {
+            "PRACA": _slot_text(slot or (att_row or {}).get("slot")),
+            "PLAN": _slot_text(slot or (att_row or {}).get("slot")),
+            "UR": "UR",
+            "?UR": "?UR",
+            "L4": "L4",
+            "ŚW": "ŚW",
+            "UB": "UB",
+            "NN": "NN",
+            "BR": "BR",
+            "DEC": "DEC",
+            "WOLNE": "wolne",
+        }.get(status_code, status_code)
+
+        out.append({
+            "login": login,
+            "name": workforce_profile_service.display_name(user),
+            "short_name": _short_name(user),
+            "slot": slot or str((att_row or {}).get("slot") or ""),
+            "shift": _slot_text(slot or (att_row or {}).get("slot")),
+            "status_code": status_code,
+            "status": status_text,
+            "summary": summary_status,
+            "pay_percent": pay_percent,
+            "pay_label": pay_label,
+            "_attendance_row": dict(att_row or {}),
+        })
+    return out
+
+
+def _team_day_rows(day: date) -> list[dict]:
+    """Zbuduj stan jednego dnia jednym odczytem źródeł zespołu."""
+    snapshots = _load_team_snapshots()
+    return _team_day_rows_from_snapshots(day, *snapshots)
+
+
+def _team_month_rows(year: int, month: int) -> dict[int, list[dict]]:
+    """Zbuduj skróty wszystkich dni miesiąca na jednym snapshotcie źródeł."""
+    users, shifts_cfg, attendance_doc, leaves, requests = _load_team_snapshots()
+    current = datetime.now()
+    days = calendar.monthrange(int(year), int(month))[1]
+    return {
+        day_number: _team_day_rows_from_snapshots(
+            date(int(year), int(month), day_number),
+            users,
+            shifts_cfg,
+            attendance_doc,
+            leaves,
+            requests,
+            now=current,
+        )
+        for day_number in range(1, days + 1)
+    }
+
+
+def _emit_calendar_update(owner) -> None:
+    try:
+        owner.winfo_toplevel().event_generate("<<LeavesUpdated>>", when="tail")
+    except Exception:
+        pass
+
+
+def _install_refresh_bridge() -> None:
+    """Po zapisie obecności uruchom istniejący mechanizm odświeżenia kalendarza."""
+    try:
+        import profile_foreman_edit_runtime as edit_runtime
+
+        if not getattr(edit_runtime, "_wm_calendar_refresh_bridge_v1", False):
+            original_editor = edit_runtime.open_employee_editor
+
+            def open_employee_editor(owner, login: str, *, initial_tab: str = "Dane", on_saved=None) -> None:
+                def saved() -> None:
+                    try:
+                        if callable(on_saved):
+                            on_saved()
+                    finally:
+                        _emit_calendar_update(owner)
+
+                return original_editor(owner, login, initial_tab=initial_tab, on_saved=saved)
+
+            edit_runtime.open_employee_editor = open_employee_editor
+            edit_runtime._wm_calendar_refresh_bridge_v1 = True
+    except Exception:
+        pass
+
+    try:
+        import profile_attendance_edit_runtime as attendance_edit
+        import profile_attendance_finalize_runtime as attendance_final
+
+        if not getattr(attendance_edit, "_wm_calendar_refresh_bridge_v1", False):
+            original_case = attendance_edit._open_case_dialog
+
+            def open_case(owner, case: dict, on_saved=None) -> None:
+                def saved() -> None:
+                    try:
+                        if callable(on_saved):
+                            on_saved()
+                    finally:
+                        _emit_calendar_update(owner)
+
+                return original_case(owner, case, on_saved=saved)
+
+            attendance_edit._open_case_dialog = open_case
+            if getattr(attendance_final, "_open_case_dialog", None) is original_case:
+                attendance_final._open_case_dialog = open_case
+            attendance_edit._wm_calendar_refresh_bridge_v1 = True
+    except Exception:
+        pass
+
+
+def _open_day_details(panel, day_number: int) -> None:
+    selected_day = date(panel.year, panel.month, int(day_number))
+    try:
+        window_owner = panel.winfo_toplevel()
+    except Exception:
+        window_owner = panel
+    window_key = (id(window_owner), selected_day.isoformat())
+    existing = _OPEN_DAY_WINDOWS.get(window_key)
+    if existing is not None:
+        try:
+            if existing.winfo_exists():
+                existing.deiconify()
+                existing.lift()
+                try:
+                    existing.focus_force()
+                except Exception:
+                    pass
+                return
+        except Exception:
+            pass
+        _OPEN_DAY_WINDOWS.pop(window_key, None)
+
+    win = tk.Toplevel(panel)
+    _OPEN_DAY_WINDOWS[window_key] = win
+    win.title(f"Zespół — {selected_day.strftime('%d-%m-%Y')}")
+    win.geometry("780x470")
+    try:
+        win.transient(panel.winfo_toplevel())
+    except Exception:
+        pass
+
+    body = ttk.Frame(win, padding=12)
+    body.pack(fill="both", expand=True)
+    top = ttk.Frame(body)
+    top.pack(fill="x", pady=(0, 8))
+    ttk.Label(top, text=f"Zespół — {selected_day.strftime('%d-%m-%Y')}").pack(side="left")
+    add_help_button(
+        top,
+        "Zmiana pochodzi z Grafiku. Status łączy Urlopy, L4, Siłę wyższą i Obecność; procent płatności jest tylko informacją źródłową pod przyszłe sugerowane wypłaty.",
+    ).pack(side="left", padx=(6, 0))
+
+    cols = ("name", "shift", "status", "pay")
+    tree = ttk.Treeview(body, columns=cols, show="headings", height=14)
+    for key, label, width in (
+        ("name", "Pracownik", 210),
+        ("shift", "Zmiana", 110),
+        ("status", "Status", 280),
+        ("pay", "Płatność", 100),
+    ):
+        tree.heading(key, text=label)
+        tree.column(key, width=width, anchor="w" if key in {"name", "status"} else "center")
+    tree.pack(fill="both", expand=True)
+    tree.tag_configure("ok", foreground="#22c55e")
+    tree.tag_configure("warn", foreground="#f59e0b")
+    tree.tag_configure("bad", foreground="#ef4444")
+    tree.tag_configure("muted", foreground="#A7A9AB")
+
+    by_iid: dict[str, dict] = {}
+
+    def refresh_rows() -> None:
+        try:
+            if not win.winfo_exists():
+                return
+        except Exception:
+            return
+        tree.delete(*tree.get_children())
+        by_iid.clear()
+        for row in _team_day_rows(selected_day):
+            code = row["status_code"]
+            tag = "bad" if code in {"BR", "NN"} else ("warn" if code in {"DEC", "?UR", "ŚW"} else ("muted" if code == "WOLNE" else "ok"))
+            iid = tree.insert("", "end", values=(row["name"], row["shift"], row["status"], row["pay_label"]), tags=(tag,))
+            by_iid[iid] = row
+
+    refresh_rows()
+
+    def open_profile(_event=None) -> None:
+        selected = tree.selection()
+        if not selected:
+            return
+        row = by_iid.get(selected[0])
+        if not row:
+            return
+        try:
+            import profile_foreman_edit_runtime as edit_runtime
+            tab = "Urlopy" if row["status_code"] in {"UR", "?UR", "L4", "ŚW", "UB", "NN"} else "Obecność"
+            edit_runtime.open_employee_editor(panel, row["login"], initial_tab=tab, on_saved=panel.refresh)
+        except Exception:
+            pass
+
+    tree.bind("<Double-1>", open_profile, add="+")
+
+    event_host = None
+    event_binding = None
+    try:
+        event_host = panel.winfo_toplevel()
+
+        def on_external_update(_event=None) -> None:
+            try:
+                if win.winfo_exists():
+                    win.after_idle(refresh_rows)
+            except Exception:
+                pass
+
+        event_binding = event_host.bind("<<LeavesUpdated>>", on_external_update, add="+")
+    except Exception:
+        event_host = None
+        event_binding = None
+
+    def close() -> None:
+        if event_host is not None and event_binding:
+            try:
+                event_host.unbind("<<LeavesUpdated>>", event_binding)
+            except Exception:
+                pass
+        if _OPEN_DAY_WINDOWS.get(window_key) is win:
+            _OPEN_DAY_WINDOWS.pop(window_key, None)
+        try:
+            win.destroy()
+        except Exception:
+            pass
+
+    try:
+        win.protocol("WM_DELETE_WINDOW", close)
+    except Exception:
+        pass
+
+    bottom = ttk.Frame(body)
+    bottom.pack(fill="x", pady=(8, 0))
+    ttk.Button(bottom, text="Otwórz profil", command=open_profile).pack(side="left")
+    ttk.Button(bottom, text="Zamknij", command=close).pack(side="right")
+
+
+def install() -> None:
+    global _INSTALLED
+    _install_refresh_bridge()
+    if _INSTALLED:
+        return
+    import gui_profile_calendar as calendar_ui
+
+    cls = calendar_ui.ProfileCalendarPanel
+    if getattr(cls, "_wm_team_calendar", False):
+        _INSTALLED = True
+        return
+
+    original_build = cls._build
+    original_render = cls._render_calendar
+
+    def _build(self):
+        original_build(self)
+        if not _is_foreman():
+            return
+        self._wm_calendar_mode = tk.StringVar(value="Mój")
+        body = getattr(self, "calendar_box", None)
+        body = body.master if body is not None else None
+        bar = ttk.Frame(self, style="WM.Container.TFrame")
+        if body is not None:
+            bar.pack(fill="x", padx=12, pady=(0, 6), before=body)
+        else:
+            bar.pack(fill="x", padx=12, pady=(0, 6))
+        ttk.Label(bar, text="Widok:", style="WM.Muted.TLabel").pack(side="left")
+
+        def switch(mode: str) -> None:
+            self._wm_calendar_mode.set(mode)
+            self.selection_start = self.selection_end = None
+            self._render_calendar()
+
+        ttk.Radiobutton(bar, text="Mój", value="Mój", variable=self._wm_calendar_mode, command=lambda: switch("Mój")).pack(side="left", padx=(6, 0))
+        ttk.Radiobutton(bar, text="Zespół", value="Zespół", variable=self._wm_calendar_mode, command=lambda: switch("Zespół")).pack(side="left", padx=(6, 0))
+        add_help_button(
+            bar,
+            "Mój pokazuje Twój dotychczasowy kalendarz i wnioski. Zespół pokazuje skrót zmian i nieobecności wszystkich pracowników; kliknij dzień, aby zobaczyć pełne szczegóły.",
+        ).pack(side="left", padx=(6, 0))
+        ttk.Label(
+            bar,
+            text="Zespół: 06–14 / 14–22 / UR / ?UR / L4 / ŚW / BR / DEC",
+            style="WM.Muted.TLabel",
+        ).pack(side="left", padx=(14, 0))
+
+    def _render_calendar(self):
+        original_render(self)
+        if not _is_foreman() or str(getattr(self, "_wm_calendar_mode", tk.StringVar(value="Mój")).get()) != "Zespół":
+            return
+
+        rows_by_day = _team_month_rows(self.year, self.month)
+        for child in self.calendar_box.winfo_children():
+            if not isinstance(child, tk.Button):
+                continue
+            try:
+                day_number = int(str(child.cget("text")).splitlines()[0])
+            except Exception:
+                continue
+            rows = rows_by_day.get(day_number, [])
+            visible = [row for row in rows if row["status_code"] != "WOLNE"]
+            shown = visible[:3]
+            lines = [str(day_number)] + [f"{row['short_name']} {row['summary']}" for row in shown]
+            if len(visible) > len(shown):
+                lines.append(f"+{len(visible) - len(shown)} więcej")
+            codes = {row["status_code"] for row in rows}
+            bg = calendar_ui.WM_BAD if codes.intersection({"BR", "NN"}) else (calendar_ui.WM_WARN if codes.intersection({"DEC", "?UR", "ŚW"}) else calendar_ui.WM_BG_ELEV)
+            child.configure(
+                text="\n".join(lines),
+                command=lambda d=day_number: _open_day_details(self, d),
+                bg=bg,
+                fg="#ffffff" if bg != calendar_ui.WM_BG_ELEV else calendar_ui.WM_TEXT,
+                justify="left",
+                anchor="nw",
+                height=4,
+                font=("Segoe UI", 9),
+            )
+
+    cls._build = _build
+    cls._render_calendar = _render_calendar
+    cls._wm_team_calendar = True
+    _INSTALLED = True
+
+
+__all__ = ["install", "_team_day_rows", "_team_month_rows"]

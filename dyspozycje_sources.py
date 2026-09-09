@@ -1,5 +1,11 @@
-# version: 1.0
+# version: 1.2
 """Źródła danych dla Dyspozycji (bez GUI)."""
+# Zmiany 1.2:
+# - Lista Magazynu w kreatorze korzysta z logika_magazyn.load_magazyn(include_external=True).
+# - Klucze techniczne items/meta nie są już traktowane jak pozycje magazynowe.
+# Zmiany 1.1:
+# - Zlecenie wykonania korzysta z realnego Planowania oraz katalogów Produkt/Półprodukt.
+# - Dodano kontekst źródła: poziom wykonania, nr zlecenia, produkt i ilość.
 
 from __future__ import annotations
 
@@ -367,173 +373,203 @@ def load_machine_choices() -> List[Tuple[str, str]]:
 # MAGAZYN
 # =========================================================
 def load_magazyn_choices() -> List[Tuple[str, str]]:
+    """Zwróć realne pozycje z tego samego loadera, którego używa moduł Magazyn."""
+    try:
+        from logika_magazyn import load_magazyn
+
+        data = load_magazyn(include_external=True) or {}
+    except Exception as exc:
+        try:
+            print(f"[WM-DBG][DYSP][SRC] canonical magazyn load failed: {exc}")
+        except Exception:
+            pass
+        return []
+
+    rows = data.get("pozycje") or data.get("items") or {}
+    if isinstance(rows, dict):
+        iterable = list(rows.items())
+    elif isinstance(rows, list):
+        iterable = [("", row) for row in rows]
+    else:
+        return []
+
+    type_labels = {
+        "surowiec": "Surowiec",
+        "półprodukt": "Półprodukt",
+        "polprodukt": "Półprodukt",
+        "produkt": "Produkt",
+    }
+    type_order = {"surowiec": 0, "półprodukt": 1, "polprodukt": 1, "produkt": 2}
     out: List[Tuple[str, str]] = []
     seen: set[str] = set()
 
-    candidates = [
-        _warehouse_file_path(),
-        os.path.join(_magazyn_dir_path(), "katalog.json"),
-        os.path.join(_magazyn_dir_path(), "stany.json"),
-    ]
-    try:
-        print(f"[WM-DBG][DYSP][SRC] magazyn_candidates={candidates}")
-    except Exception:
-        pass
-
-    for path in [p for p in candidates if p]:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
+    for key, raw in iterable:
+        if not isinstance(raw, dict):
             continue
+        code = str(
+            raw.get("id")
+            or raw.get("kod")
+            or raw.get("nr")
+            or raw.get("symbol")
+            or key
+            or ""
+        ).strip()
+        if not code:
+            continue
+        folded = code.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        name = str(raw.get("nazwa") or raw.get("name") or raw.get("opis") or "").strip()
+        raw_type = str(raw.get("typ") or "").strip().lower()
+        section = type_labels.get(raw_type, raw_type.capitalize() if raw_type else "Magazyn")
+        main = f"{code} - {name}" if name and name != code else code
+        out.append((code, f"{section} | {main}"))
 
-        rows = []
-        if isinstance(data, dict):
-            if isinstance(data.get("items"), list):
-                rows = data.get("items") or []
-            elif isinstance(data.get("pozycje"), list):
-                rows = data.get("pozycje") or []
-            elif isinstance(data.get("magazyn"), list):
-                rows = data.get("magazyn") or []
-            elif isinstance(data.get("produkty"), list):
-                rows = data.get("produkty") or []
-            elif isinstance(data.get("stany"), list):
-                rows = data.get("stany") or []
-            elif isinstance(data.get("lista"), list):
-                rows = data.get("lista") or []
-            elif isinstance(data.get("rows"), list):
-                rows = data.get("rows") or []
-            elif isinstance(data.get("data"), list):
-                rows = data.get("data") or []
-            else:
-                for key, row in data.items():
-                    if isinstance(row, dict):
-                        code = str(
-                            row.get("id")
-                            or row.get("kod")
-                            or row.get("nr")
-                            or row.get("symbol")
-                            or row.get("index")
-                            or row.get("numer")
-                            or key
-                        ).strip()
-                        if not code or code.lower() in seen:
-                            continue
-                        seen.add(code.lower())
-                        name = str(
-                            row.get("nazwa")
-                            or row.get("name")
-                            or row.get("opis")
-                            or row.get("typ")
-                            or row.get("material")
-                            or ""
-                        ).strip()
-                        label = f"{code} - {name}" if name else code
-                        out.append((code, label))
-                if out:
-                    return out
-                continue
-        elif isinstance(data, list):
-            rows = data
+    def _sort_key(item: Tuple[str, str]):
+        code, label = item
+        raw = rows.get(code) if isinstance(rows, dict) else None
+        typ = str((raw or {}).get("typ") or "").strip().lower() if isinstance(raw, dict) else ""
+        return (type_order.get(typ, 9), label.casefold())
 
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-
-            if isinstance(row.get("pozycja"), dict):
-                row = row.get("pozycja") or row
-            elif isinstance(row.get("item"), dict):
-                row = row.get("item") or row
-
-            code = str(
-                row.get("id")
-                or row.get("kod")
-                or row.get("nr")
-                or row.get("symbol")
-                or row.get("index")
-                or row.get("numer")
-                or ""
-            ).strip()
-            if not code or code.lower() in seen:
-                continue
-            seen.add(code.lower())
-            name = str(
-                row.get("nazwa")
-                or row.get("name")
-                or row.get("opis")
-                or row.get("typ")
-                or row.get("material")
-                or ""
-            ).strip()
-            label = f"{code} - {name}" if name else code
-            out.append((code, label))
-
-        if out:
-            return out
-
+    out.sort(key=_sort_key)
     return out
 
 
 # =========================================================
 # ZLECENIE WYKONANIA
 # =========================================================
+def _read_json_dict(path: str) -> dict:
+    try:
+        with open(path, 'r', encoding='utf-8') as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _planowanie_file_path() -> str:
+    return _data_path('planowanie', 'plan.json')
+
+
+def _product_record(code: str) -> dict:
+    path = os.path.join(_produkty_dir_path(), f'{code}.json')
+    data = _read_json_dict(path)
+    if not data:
+        return {}
+    return {
+        'kod': str(data.get('kod') or data.get('symbol') or code).strip(),
+        'nazwa': str(data.get('nazwa') or data.get('name') or '').strip(),
+    }
+
+
+def _semi_record(code: str) -> dict:
+    path = os.path.join(_polprodukty_dir_path(), f'{code}.json')
+    data = _read_json_dict(path)
+    if not data:
+        return {}
+    return {
+        'kod': str(data.get('kod') or data.get('id') or code).strip(),
+        'nazwa': str(data.get('nazwa') or data.get('name') or '').strip(),
+    }
+
+
+def _plan_orders() -> list[dict]:
+    data = _read_json_dict(_planowanie_file_path())
+    rows = data.get('orders') or []
+    return [dict(row) for row in rows if isinstance(row, dict)]
+
+
 def load_zlecenie_wykonania_choices() -> List[Tuple[str, str]]:
     out: List[Tuple[str, str]] = []
     seen: set[str] = set()
 
-    candidates = [
-        ("produkt", _produkty_dir_path()),
-        ("polprodukt", _polprodukty_dir_path()),
-    ]
+    for row in _plan_orders():
+        number = str(row.get('number') or '').strip()
+        if not number:
+            continue
+        object_id = f'zlecenie:{number}'
+        key = object_id.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        product = str(row.get('product_code') or row.get('symbol') or '').strip()
+        qty = row.get('qty', '')
+        label = f'ZLECENIE {number}'
+        if product:
+            label += f' — {product}'
+        if qty not in ('', None):
+            label += f' × {qty}'
+        out.append((object_id, label))
 
-    for prefix, folder in candidates:
+    for prefix, folder, label_prefix in (
+        ('produkt', _produkty_dir_path(), 'PRODUKT'),
+        ('polprodukt', _polprodukty_dir_path(), 'PÓŁPRODUKT'),
+    ):
         try:
             names = sorted(os.listdir(folder))
         except Exception:
             names = []
         for filename in names:
-            if not filename.endswith(".json"):
+            if not filename.lower().endswith('.json'):
                 continue
             code = os.path.splitext(filename)[0].strip()
-            if not code:
+            if not code or code.lower() == 'bom':
                 continue
-            key = f"{prefix}:{code}".lower()
-            if key in seen:
+            object_id = f'{prefix}:{code}'
+            if object_id.casefold() in seen:
                 continue
-            seen.add(key)
-            label = f"{prefix.upper()} - {code}"
-            out.append((f"{prefix}:{code}", label))
-
-    # katalog magazynowy jako "elementy / pozycje magazynowe"
-    katalog_candidates = [
-        os.path.join(_magazyn_dir_path(), "katalog.json"),
-    ]
-    katalog = {}
-    try:
-        for katalog_path in katalog_candidates:
-            try:
-                with open(katalog_path, "r", encoding="utf-8") as f:
-                    katalog = json.load(f)
-                if katalog:
-                    break
-            except Exception:
-                continue
-    except Exception:
-        katalog = {}
-
-    if isinstance(katalog, dict):
-        for key, row in katalog.items():
-            code = str(key or "").strip()
-            if not code:
-                continue
-            uniq = f"element:{code}".lower()
-            if uniq in seen:
-                continue
-            seen.add(uniq)
-            name = ""
-            if isinstance(row, dict):
-                name = str(row.get("nazwa") or "").strip()
-            label = f"ELEMENT - {code}" + (f" - {name}" if name else "")
-            out.append((f"element:{code}", label))
+            seen.add(object_id.casefold())
+            rec = _product_record(code) if prefix == 'produkt' else _semi_record(code)
+            name = str(rec.get('nazwa') or '').strip()
+            label = f'{label_prefix} — {code}' + (f' — {name}' if name else '')
+            out.append((object_id, label))
 
     return out
+
+
+def load_zlecenie_wykonania_context(object_id: str) -> dict:
+    raw = str(object_id or '').strip()
+    if ':' not in raw:
+        return {}
+    prefix, code = raw.split(':', 1)
+    prefix = prefix.strip().lower()
+    code = code.strip()
+    if not code:
+        return {}
+
+    if prefix == 'zlecenie':
+        for row in _plan_orders():
+            number = str(row.get('number') or '').strip()
+            if number.casefold() != code.casefold():
+                continue
+            product_code = str(row.get('product_code') or row.get('symbol') or '').strip()
+            return {
+                'poziom_wykonania': 'zlecenie',
+                'nr_zlecenia': number,
+                'order_id': str(row.get('id') or ''),
+                'product_code': product_code,
+                'ilosc_domyslna': row.get('qty', 1),
+                'client': str(row.get('client') or ''),
+            }
+        return {'poziom_wykonania': 'zlecenie', 'nr_zlecenia': code, 'ilosc_domyslna': 1}
+
+    if prefix == 'produkt':
+        rec = _product_record(code)
+        return {
+            'poziom_wykonania': 'produkt',
+            'product_code': str(rec.get('kod') or code),
+            'product_name': str(rec.get('nazwa') or ''),
+            'ilosc_domyslna': 1,
+        }
+
+    if prefix == 'polprodukt':
+        rec = _semi_record(code)
+        return {
+            'poziom_wykonania': 'polprodukt',
+            'polprodukt_code': str(rec.get('kod') or code),
+            'polprodukt_name': str(rec.get('nazwa') or ''),
+            'ilosc_domyslna': 1,
+        }
+
+    return {}

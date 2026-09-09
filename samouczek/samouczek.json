@@ -1,0 +1,245 @@
+{
+  "format_version": 1,
+  "title": "Samouczek Warsztat Menager",
+  "branch": "Rozwiniecie",
+  "wm_version": "0.13.2",
+  "updated": "2026-09-09",
+  "slides": [
+    {
+      "module": "Start",
+      "title": "Jak korzystać z samouczka",
+      "lead": "Samouczek prowadzi po WM krok po kroku. Każdy ekran mówi, gdzie kliknąć, co wpisać i czego spodziewać się dalej.",
+      "steps": [
+        "Wybierz temat z listy po lewej albo użyj przycisków Wstecz i Dalej.",
+        "Wykonuj kroki po kolei w normalnym WM — samouczek nie zmienia danych programu.",
+        "Zwracaj uwagę na podpowiedzi oznaczone ! przy polach i przyciskach."
+      ],
+      "tip": "W nagłówku samouczka widzisz bieżącą wersję WM oraz datę ostatniej aktualizacji instrukcji."
+    },
+    {
+      "module": "Panel główny",
+      "title": "Otwieranie modułu",
+      "lead": "Moduły WM otwierasz z lewego panelu.",
+      "steps": [
+        "Kliknij nazwę modułu, np. Narzędzia, Maszyny albo Magazyn.",
+        "Środkowa część WM zostanie zastąpiona wybranym widokiem, a lewy panel pozostanie dostępny.",
+        "Aby przejść do innego obszaru, kliknij kolejny moduł z lewej strony."
+      ],
+      "tip": "Samouczek jest osobnym przyciskiem pod modułami i nie bierze udziału w ich uprawnieniach."
+    },
+    {
+      "module": "Dyspozycje",
+      "title": "Dodawanie dyspozycji",
+      "lead": "Nową dyspozycję tworzysz z poziomu modułu Dyspozycje.",
+      "steps": [
+        "Kliknij Dyspozycje w lewym panelu.",
+        "Kliknij Dodaj Dyspozycję.",
+        "Wybierz typ i obiekt, uzupełnij termin oraz opis zadania.",
+        "Kliknij Zapisz. Nowa dyspozycja pojawi się na liście."
+      ],
+      "tip": "Jeśli przy polu widzisz !, użyj go przed zapisem — podpowiedź wyjaśnia znaczenie pola w maksymalnie dwóch krótkich zdaniach."
+    },
+    {
+      "module": "Narzędzia",
+      "title": "Edycja narzędzia",
+      "lead": "Najpierw wybierasz istniejącą kartę, dopiero potem ją zmieniasz.",
+      "steps": [
+        "Kliknij Narzędzia.",
+        "Wyszukaj narzędzie po numerze lub nazwie i zaznacz je na liście.",
+        "Kliknij Edytuj i zmień tylko potrzebne dane.",
+        "Kliknij Zapisz, aby zatwierdzić zmiany."
+      ],
+      "tip": "Nie zmieniaj technicznego ID bez potrzeby. Powiązania WM powinny opierać się na stałym identyfikatorze rekordu."
+    },
+    {
+      "module": "Maszyny",
+      "title": "Zgłoszenie problemu z maszyną",
+      "lead": "Kartę maszyny możesz wykorzystać do oznaczenia awarii albo potrzeby serwisu.",
+      "steps": [
+        "Kliknij Maszyny.",
+        "Znajdź maszynę po numerze, nazwie albo lokalizacji.",
+        "Otwórz jej kartę i ustaw właściwy status problemowy, np. Awaria lub Serwis / przegląd.",
+        "Zapisz zmianę i sprawdź, czy maszyna pojawia się w miejscach wymagających reakcji."
+      ],
+      "tip": "Maszyna oznaczona jako Sprawna nie powinna zaśmiecać list wymagających reakcji."
+    },
+    {
+      "module": "Profil",
+      "title": "Moja obecność",
+      "lead": "Na swoim Profilu możesz szybko sprawdzić bieżący miesiąc i stan dzisiejszego dnia.",
+      "steps": [
+        "Otwórz Profil.",
+        "Znajdź kartę Moja obecność.",
+        "Sprawdź podsumowanie miesiąca: liczbę dniówek, braków, pozycji do decyzji i godzin nadliczbowych.",
+        "Niżej sprawdź dzisiejszą zmianę, godzinę pierwszego logowania oraz aktualny stan dnia."
+      ],
+      "tip": "! przy karcie wyjaśnia, że braki i pozycje do decyzji wynikają z Grafiku oraz faktycznych logowań zapisanych w WM."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Kalendarz zespołu i szczegóły dnia",
+      "lead": "Brygadzista ma jeden zaawansowany kalendarz Zespołu. Szczegóły wybranego dnia są pokazywane obok kalendarza bez otwierania osobnego okna.",
+      "steps": [
+        "Otwórz Profil i przejdź do Kalendarza. Widok Brygadzisty od razu pokazuje Zespół — nie ma już przełącznika Mój / Zespół.",
+        "Kliknij dzień w kalendarzu. Po prawej zobaczysz pracowników oraz kolumny Pracownik, Zmiana, Status, Wejście, Dn., Nadgodz. i %.",
+        "Zaznacz pracownika i kliknij Obecność, aby otworzyć jego Profil od razu na pełnej edycji Obecności.",
+        "Kliknij Urlopy, aby przejść bezpośrednio do zakładki Urlopy tego pracownika.",
+        "Możesz też kliknąć pracownika dwukrotnie — WM otworzy jego Obecność."
+      ],
+      "tip": "! przy kalendarzu przypomina, że pracownik nadal ma prosty kalendarz osobisty do składania wniosków urlopowych, a Brygadzista pracuje na jednym kalendarzu zespołu."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Edycja danych pracownika",
+      "lead": "Brygadzista może edytować profil pracownika bez zmiany jego stałego User ID.",
+      "steps": [
+        "Otwórz listę pracowników i wybierz osobę do edycji.",
+        "Wejdź w edycję profilu. Dostępne są zwykłe zakładki m.in. Podstawowe, Obecność, Urlopy, Grafik, Historia i Uprawnienia.",
+        "W zakładce Podstawowe popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
+        "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w historii."
+      ],
+      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są teraz normalnymi zakładkami — nie trzeba ich szukać pod Więcej."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Pełna edycja obecności w Profilu",
+      "lead": "Całą korektę dnia wykonujesz bezpośrednio w zakładce Obecność pracownika, bez dodatkowego okna ręcznej korekty.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz Obecność.",
+        "Wybierz miesiąc. Tabela Ewidencja miesiąca pokazuje datę, dzień tygodnia, zmianę, pierwsze logowanie, status, dniówkę, nieobecność, nadgodziny i źródło.",
+        "Kliknij zapisany dzień, aby jego dane pojawiły się w sekcji Edycja zaznaczonego dnia. Jeśli chcesz dopisać nowy wpis, kliknij Nowy dzień.",
+        "Ustaw Datę i Zmianę RANO albo POPO. W razie potrzeby popraw Pierwsze logowanie w formacie GG:MM.",
+        "Ustaw Dniówkę 0, 0.5 albo 1 oraz Nieobecność: Brak, ŚW, L4, NN, UR, UŻ albo UB.",
+        "Wpisz Nadgodziny i wybierz typ: zwykle, sobota, niedziela albo święto. Dodaj Powód / uwagę, jeśli jest potrzebny.",
+        "Kliknij Zapisz wszystko. WM zapisuje zmianę, dniówkę, nieobecność, czas wejścia i nadgodziny jako jedną korektę; jeśli któryś element jest błędny, cała korekta jest cofana."
+      ],
+      "tip": "! przy polach wyjaśnia zasady korekty. L4, NN, UR, UŻ i UB wymagają dniówki 0, natomiast ŚW może współistnieć z pracą."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Praca w dniu wolnym",
+      "lead": "Dzień wyłączony w Grafik → Dni pracy jest traktowany jako wolny i zwykła dniówka wymaga jawnego wyjątku.",
+      "steps": [
+        "Otwórz profil pracownika i przejdź do Obecności.",
+        "Wybierz albo utwórz dzień, który w Grafiku pracownika jest wyłączony jako dzień pracy.",
+        "Jeżeli pracownik faktycznie pracował, zaznacz Praca w dniu wolnym.",
+        "Uzupełnij dniówkę, zmianę, pierwsze logowanie lub nadgodziny tak jak przy zwykłej korekcie.",
+        "Kliknij Zapisz wszystko. Bez zaznaczenia wyjątku WM nie pozwoli dopisać zwykłej pracy do dnia wolnego."
+      ],
+      "tip": "! przy Praca w dniu wolnym przypomina, żeby używać tej opcji tylko dla faktycznie przepracowanego dnia poza zwykłym grafikiem. Sam urlop lub L4 może obejmować dzień wolny bez tego zaznaczenia."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Konflikt dniówki z nieobecnością",
+      "lead": "Sprzeczne dane poprawiasz teraz w jednym formularzu Obecności i zatwierdzasz jednym przyciskiem Zapisz wszystko.",
+      "steps": [
+        "Otwórz problematyczny dzień w zakładce Obecność pracownika.",
+        "Jeżeli prawidłowa jest nieobecność L4, NN, UR, UŻ albo UB, wybierz ją i ustaw Dniówkę na 0 oraz Nadgodziny na 0.",
+        "Jeżeli prawidłowa jest praca, ustaw Nieobecność na Brak albo ŚW i wpisz właściwą dniówkę, zmianę oraz ewentualne nadgodziny.",
+        "Sprawdź pozostałe pola, wpisz Powód / uwagę i kliknij Zapisz wszystko.",
+        "WM zachowuje wcześniejsze operacje w audycie, a aktywny stan dnia jest aktualizowany bez tworzenia drugiego aktywnego wpisu."
+      ],
+      "tip": "! przy Nieobecności i Dniówce pokazuje najważniejsze zależności. Nie szukaj już osobnych przycisków Zapisz nieobecność ani Zapisz decyzję."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Miesięczny eksport obecności i niezgodności",
+      "lead": "W zakładce Obecność możesz przygotować zestawienie jednego pracownika i od razu zobaczyć dane wymagające korekty.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz Obecność.",
+        "Wybierz miesiąc. Nad tabelą zobaczysz podsumowanie Dniówki, Nadgodziny, Braki i Do decyzji oraz informację o liczbie niezgodności.",
+        "Kliknij Eksportuj miesiąc i wskaż miejsce zapisania pliku XLSX.",
+        "W arkuszu Ewidencja znajdziesz szczegóły dni, a arkusz Podsumowanie zbiera wartości miesięczne.",
+        "Jeśli WM pokazuje ⚠ Niezgodności, zaznacz problematyczny dzień i popraw go bezpośrednio w edytorze poniżej."
+      ],
+      "tip": "! przy eksporcie wyjaśnia, że plik dotyczy tylko wybranego pracownika i miesiąca. Zielone ✓ Brak niezgodności oznacza, że WM nie wykrył problemów w tym zestawieniu."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Saldo urlopu i zaległy urlop",
+      "lead": "W profilu pracownika możesz ustawić roczny wymiar urlopu i jego zaległe pule.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz zakładkę Urlopy.",
+        "W polu Rok wybierz rok rozliczenia i wpisz Urlop należny, np. 20 albo 26 dni.",
+        "Jeśli trzeba, wpisz Korektę dodatnią albo ujemną.",
+        "W polu Zaległy wg roku wpisz pule w formacie np. 2024=2; 2025=4.",
+        "Kliknij Zapisz saldo. WM pokaże wartości Zaległy, Wykorzystano, Oczekuje i Pozostało."
+      ],
+      "tip": "! przy roku i zaległym urlopie wyjaśnia, dla jakiego rozliczenia oglądasz saldo oraz że WM wykorzystuje najpierw najstarszą zaległą pulę."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Dodawanie L4 albo NN",
+      "lead": "Nieobecność możesz wpisać bezpośrednio do ewidencji pracownika.",
+      "steps": [
+        "Otwórz profil pracownika i wybierz Urlopy.",
+        "Wpisz zakres w polach Nieobecność od i Nieobecność do.",
+        "Dodaj uwagę, jeśli jest potrzebna.",
+        "Kliknij Dodaj L4 albo Dodaj NN.",
+        "Po zapisie nieobecność trafi do tej samej ewidencji, z której korzystają kalendarz i obecność."
+      ],
+      "tip": "! przy tych przyciskach przypomina, że WM nie będzie oczekiwał logowania pracownika w zapisanym dniu nieobecności."
+    },
+    {
+      "module": "Użytkownicy / Grafik",
+      "title": "Ustawianie grafiku pracownika",
+      "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Te same ustawienia są wykorzystywane przez Obecność i Kalendarz.",
+      "steps": [
+        "Otwórz Ustawienia i przejdź do Użytkowników albo otwórz edycję pracownika z Profilu brygadzisty.",
+        "Wybierz pracownika i przejdź do jego ustawień Grafiku.",
+        "Wybierz tryb zmian: 111 = I / I / I, 112 = I / I / II, 222 = II / II / II, 121 = I / II / I albo 212 = II / I / II.",
+        "Ustaw datę kotwiczną pracownika oraz Dni pracy. Dzień wyłączony jest traktowany jako Wolne i nie powinien tworzyć zwykłego braku obecności.",
+        "Zapisz profil. Po trzecim tygodniu wzorzec zmian zaczyna się od początku."
+      ],
+      "tip": "! przy trybie grafiku, dacie kotwicznej i dniach pracy wyjaśnia ich wpływ na cykl. Zmiana loginu nie powinna zgubić grafiku, ponieważ ustawienia są wiązane ze stałym User ID."
+    },
+    {
+      "module": "Użytkownicy",
+      "title": "Reset PIN pracownika",
+      "lead": "Brygadzista nie odczytuje starego PIN-u — może ustawić nowy.",
+      "steps": [
+        "Otwórz listę Użytkowników i zaznacz pracownika.",
+        "Kliknij Resetuj PIN.",
+        "Wpisz nowy PIN, a następnie wpisz go ponownie.",
+        "Po zgodnym potwierdzeniu WM zapisze nowy PIN i odnotuje operację w historii."
+      ],
+      "tip": "! przy resecie PIN przypomina, że istniejący PIN nie jest wyświetlany. Nowy PIN musi mieć co najmniej 4 cyfry."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Historia i uprawnienia pracownika",
+      "lead": "Historia i Uprawnienia są dostępne jako zwykłe zakładki w edytorze pracownika.",
+      "steps": [
+        "Otwórz profil pracownika.",
+        "Kliknij Historia, aby zobaczyć zapisane operacje i wcześniejsze korekty.",
+        "Kliknij Uprawnienia, gdy chcesz sprawdzić albo zmienić indywidualny dostęp pracownika do modułów.",
+        "Po wykonaniu korekty wróć do Historii lub ją odśwież, aby sprawdzić najnowszy wpis audytowy."
+      ],
+      "tip": "Historia zachowuje ślad wcześniejszych zmian. Nie trzeba już otwierać Historii ani Uprawnień przez zakładkę Więcej."
+    },
+    {
+      "module": "Profil brygadzisty",
+      "title": "Aktywny WM i alert wniosków urlopowych",
+      "lead": "Brygadzista widzi, kto ma aktywną sesję WM, a oczekujące wnioski urlopowe są sygnalizowane wyraźnym alertem.",
+      "steps": [
+        "Otwórz Profil brygadzisty i przejdź do Obecności. W tabeli sprawdź kolumnę Aktywny WM — ● online oznacza aktywną sesję pracownika.",
+        "Po zalogowaniu jako Brygadzista zwróć uwagę na migający czerwony komunikat, jeśli są wnioski urlopowe do akceptacji.",
+        "W komunikacie zobaczysz liczbę oczekujących wniosków oraz pierwszych pracowników i terminy.",
+        "Przejdź do Profil → Brygadzista → Urlopy, aby rozpatrzyć oczekujące wnioski."
+      ],
+      "tip": "Alert jest informacyjny i nie zatwierdza urlopu samodzielnie. Znika po czasie; decyzję nadal podejmujesz w zakładce Urlopy."
+    },
+    {
+      "module": "Usuwanie",
+      "title": "Bezpieczne usuwanie danych",
+      "lead": "Przed usunięciem rekordu sprawdź jego powiązania.",
+      "steps": [
+        "Zaznacz rekord, który chcesz usunąć.",
+        "Kliknij Usuń i przeczytaj komunikat potwierdzający.",
+        "Jeżeli WM informuje o stanie, rezerwacji lub powiązaniu, nie omijaj blokady.",
+        "Po potwierdzeniu sprawdź, czy rekord zniknął z listy i nie pozostał jako martwe powiązanie."
+      ],
+      "tip": "Samouczek opisuje działanie. Nie wykonuje operacji usuwania i nie ma bezpośredniego dostępu do danych produkcyjnych."
+    }
+  ]
+}
