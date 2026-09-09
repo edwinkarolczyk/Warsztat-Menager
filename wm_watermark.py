@@ -1,6 +1,9 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.4 SAFE
+# Wersja: 1.0.5 SAFE
+# Zmiany 1.0.5:
+# - Po zbudowaniu panelu dopina spójne logowanie po samym PIN/haśle.
+# - Aktywna sesja pokazuje jednoznacznie zalogowanego użytkownika.
 # Zmiany 1.0.4:
 # - Hook po zbudowaniu panelu dopina izolowany przycisk „Samouczek” pod modułami.
 # Zmiany 1.0.3:
@@ -85,6 +88,18 @@ def _install_guest_login(root) -> None:
         pass
 
 
+def _install_login_identity(root) -> None:
+    """Dopnij logowanie po PIN i jednoznaczną informację o aktywnej sesji."""
+    try:
+        from login_identity_runtime import install as install_login_identity
+
+        install_login_identity(root)
+    except Exception:
+        # Runtime logowania jest dodatkiem do istniejącego popupu i nie może
+        # zablokować gotowego panelu.
+        pass
+
+
 def _install_tutorial_entry(root) -> None:
     """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
     try:
@@ -105,6 +120,7 @@ def install(root) -> DevelopmentWatermark:
         except Exception:
             pass
         _install_guest_login(root)
+        _install_login_identity(root)
         _install_tutorial_entry(root)
         return existing
 
@@ -114,5 +130,6 @@ def install(root) -> DevelopmentWatermark:
     except Exception:
         pass
     _install_guest_login(root)
+    _install_login_identity(root)
     _install_tutorial_entry(root)
     return overlay
