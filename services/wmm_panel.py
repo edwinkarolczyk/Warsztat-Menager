@@ -5,6 +5,9 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+_HOOK_INSTALLED = False
+_ORIGINAL_FRAME_INIT = None
+
 
 def _panel_exists(root) -> bool:
     try:
@@ -53,11 +56,39 @@ def _format_users(users: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _hide_jarvis_alert_card(side) -> None:
+    """Ukryj wyłącznie pomarańczową kartę „Alerty Jarvisa” w sidebarze."""
+    try:
+        children = list(side.winfo_children())
+    except Exception:
+        return
+    for child in children:
+        try:
+            labels = list(child.winfo_children())
+        except Exception:
+            continue
+        is_jarvis_alert = False
+        for label in labels:
+            try:
+                if str(label.cget("text") or "").strip() == "Alerty Jarvisa":
+                    is_jarvis_alert = True
+                    break
+            except Exception:
+                continue
+        if is_jarvis_alert:
+            try:
+                child.destroy()
+            except Exception:
+                pass
+
+
 def _build_panel(root, side) -> None:
-    """Zbuduj panel WMM. Ta funkcja może działać wyłącznie w wątku Tk."""
+    """Zbuduj panel WMM w miejscu karty Alerty Jarvisa, tylko w wątku Tk."""
     if threading.current_thread() is not threading.main_thread():
         logger.warning("[WMM] Pominięto próbę budowy GUI poza głównym wątkiem Tk")
         return
+
+    _hide_jarvis_alert_card(side)
     if _panel_exists(root):
         _update_footer(root)
         return
@@ -134,6 +165,19 @@ def _build_panel(root, side) -> None:
             except Exception:
                 logger.exception("[WMM] Błąd odświeżania statusu WMM")
 
+        def rebuild_after_sidebar(_event=None) -> None:
+            try:
+                root.after_idle(lambda r=root, s=side: _build_panel(r, s))
+            except Exception:
+                pass
+
+        if not getattr(root, "_wmm_sidebar_reload_bound", False):
+            try:
+                root.bind("<<SidebarReload>>", rebuild_after_sidebar, add="+")
+                root._wmm_sidebar_reload_bound = True
+            except Exception:
+                pass
+
         _update_footer(root)
         root.after(500, refresh_presence)
     except Exception:
@@ -145,4 +189,52 @@ def mount_wmm_panel(root, side) -> None:
     _build_panel(root, side)
 
 
-__all__ = ["mount_wmm_panel"]
+def install_gui_panel_hook() -> None:
+    """Jednorazowo wykryj sidebar gui_panel bez dotykania Tk z wątku tła.
+
+    Hook działa tylko do chwili utworzenia właściwego sidebara, po czym od razu
+    przywraca oryginalny ttk.Frame.__init__. Sam panel WMM powstaje przez
+    after_idle w głównym wątku Tk.
+    """
+    global _HOOK_INSTALLED, _ORIGINAL_FRAME_INIT
+    if _HOOK_INSTALLED:
+        return
+
+    try:
+        from tkinter import ttk
+    except Exception:
+        return
+
+    original = ttk.Frame.__init__
+    _ORIGINAL_FRAME_INIT = original
+
+    def frame_init(self, master=None, **kw):
+        global _HOOK_INSTALLED
+        original(self, master, **kw)
+
+        if threading.current_thread() is not threading.main_thread():
+            return
+        style = str(kw.get("style") or "")
+        try:
+            width = int(kw.get("width") or 0)
+        except Exception:
+            width = 0
+        if style != "WM.Side.TFrame" or width != 220 or master is None:
+            return
+
+        try:
+            ttk.Frame.__init__ = original
+        except Exception:
+            pass
+        _HOOK_INSTALLED = True
+
+        try:
+            root = self.winfo_toplevel()
+            root.after_idle(lambda r=root, s=self: _build_panel(r, s))
+        except Exception:
+            logger.exception("[WMM] Nie udało się zaplanować panelu WMM")
+
+    ttk.Frame.__init__ = frame_init
+
+
+__all__ = ["install_gui_panel_hook", "mount_wmm_panel"]
