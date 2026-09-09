@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.13.0",
-  "updated": "2026-09-08",
+  "wm_version": "0.13.2",
+  "updated": "2026-09-09",
   "slides": [
     {
       "module": "Start",
