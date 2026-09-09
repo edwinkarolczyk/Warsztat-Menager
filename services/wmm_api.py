@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import socket
+import string
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -15,6 +18,8 @@ _PORT = int(os.environ.get("WM_WMM_PORT", "8765") or "8765")
 _SERVER: ThreadingHTTPServer | None = None
 _THREAD: threading.Thread | None = None
 _LOCK = threading.Lock()
+_KEY_LOCK = threading.Lock()
+_KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
@@ -48,8 +53,57 @@ def _lan_ip() -> str:
         return "127.0.0.1"
 
 
+def _root_dir() -> Path:
+    raw = str(os.environ.get("WM_ROOT", "") or "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return Path.cwd().resolve()
+
+
+def _pairing_file() -> Path:
+    return _root_dir() / "data" / "wmm" / "pairing.json"
+
+
+def _pairing_key() -> str:
+    """Stały 6-znakowy klucz instalacji WM, przechowywany w WM_ROOT."""
+    with _KEY_LOCK:
+        path = _pairing_file()
+        try:
+            if path.is_file():
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                key = str(raw.get("key", "") if isinstance(raw, dict) else "").strip().upper()
+                if len(key) == 6 and all(ch in _KEY_ALPHABET for ch in key):
+                    return key
+        except Exception:
+            logger.exception("[WMM API] nie udało się odczytać klucza parowania")
+
+        key = "".join(secrets.choice(_KEY_ALPHABET) for _ in range(6))
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps({"key": key}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            logger.exception("[WMM API] nie udało się zapisać klucza parowania")
+        return key
+
+
+def pairing_info() -> dict[str, Any]:
+    ip = _lan_ip()
+    key = _pairing_key()
+    base_url = f"http://{ip}:{_PORT}"
+    return {
+        "host": ip,
+        "port": _PORT,
+        "key": key,
+        "base_url": base_url,
+        "qr": f"WMM://CONNECT?host={ip}&port={_PORT}&key={key}",
+    }
+
+
 class _WmmHandler(BaseHTTPRequestHandler):
-    server_version = "WarsztatMenagerWMM/1.0"
+    server_version = "WarsztatMenagerWMM/1.1"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         logger.debug("[WMM API] " + fmt, *args)
@@ -91,6 +145,9 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     "wmm": True,
                 },
             )
+            return
+        if self.path == "/api/v1/pairing":
+            self._send(200, {"ok": True, **pairing_info()})
             return
         self._send(404, {"ok": False, "error": "Nie znaleziono endpointu."})
 
@@ -141,10 +198,11 @@ def start_wmm_api() -> tuple[str, int] | None:
             daemon=True,
         )
         _THREAD.start()
-        ip = _lan_ip()
-        print(f"[WM-WMM] API aktywne: http://{ip}:{_PORT}")
-        logger.info("[WMM API] aktywne: http://%s:%s", ip, _PORT)
-        return ip, _PORT
+        info = pairing_info()
+        print(f"[WM-WMM] API aktywne: {info['base_url']}")
+        print(f"[WM-WMM] QR: {info['qr']}")
+        logger.info("[WMM API] aktywne: %s", info["base_url"])
+        return str(info["host"]), _PORT
 
 
 def stop_wmm_api() -> None:
