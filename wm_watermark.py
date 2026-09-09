@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.7 SAFE
+# Wersja: 1.0.8 SAFE
+# Zmiany 1.0.8:
+# - Dopina testowy scalony widok Brygadzisty i poprawki kliknięć Kalendarza.
 # Zmiany 1.0.7:
 # - Dopina kosmetyczne etykiety prezentacji Dyspozycji (B2).
 # Zmiany 1.0.6:
@@ -126,6 +128,17 @@ def _install_dyspozycje_presentation() -> None:
         pass
 
 
+def _install_foreman_test_workspace() -> None:
+    """Dopnij izolowaną kartę TESTOWA i końcowe interakcje Kalendarza."""
+    try:
+        from profile_foreman_test_workspace_runtime import install
+
+        install()
+    except Exception:
+        # Testowy widok nie może zablokować Profilu ani głównego panelu.
+        pass
+
+
 def _install_tutorial_entry(root) -> None:
     """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
     try:
@@ -149,6 +162,7 @@ def install(root) -> DevelopmentWatermark:
         _install_login_identity(root)
         _install_attendance_move_fix()
         _install_dyspozycje_presentation()
+        _install_foreman_test_workspace()
         _install_tutorial_entry(root)
         return existing
 
@@ -161,5 +175,6 @@ def install(root) -> DevelopmentWatermark:
     _install_login_identity(root)
     _install_attendance_move_fix()
     _install_dyspozycje_presentation()
+    _install_foreman_test_workspace()
     _install_tutorial_entry(root)
     return overlay
