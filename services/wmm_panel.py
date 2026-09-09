@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import logging
-import sys
 import threading
-import time
 
 logger = logging.getLogger(__name__)
 
-_WATCHER_STARTED = False
-_WATCHER_LOCK = threading.Lock()
+_HOOK_INSTALLED = False
+_ORIGINAL_FRAME_INIT = None
 
 
 def _panel_exists(root) -> bool:
@@ -20,7 +18,7 @@ def _panel_exists(root) -> bool:
 
 
 def _update_footer(root) -> None:
-    """Dopisz zgodność WMM do istniejącej stopki WM bez przebudowy stopki."""
+    """Dopisz zgodność WMM do istniejącej stopki WM."""
     try:
         from __version__ import __version__ as wm_version
         from services.wmm_api import WMM_COMPAT_VERSION
@@ -29,7 +27,6 @@ def _update_footer(root) -> None:
             f"Warsztat Menager v{wm_version} | "
             f"Kompatybilne z WMM v{WMM_COMPAT_VERSION}"
         )
-
         queue = [root]
         while queue:
             widget = queue.pop(0)
@@ -59,29 +56,11 @@ def _format_users(users: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _find_sidebar(root):
-    """Znajdź stały lewy sidebar utworzony bezpośrednio przez gui_panel."""
-    try:
-        for child in root.winfo_children():
-            try:
-                info = child.pack_info()
-            except Exception:
-                continue
-            if str(info.get("side", "")).lower() != "left":
-                continue
-            try:
-                style = str(child.cget("style") or "")
-            except Exception:
-                style = ""
-            if style == "WM.Side.TFrame":
-                return child
-    except Exception:
-        pass
-    return None
-
-
-def _build_panel(root) -> None:
-    """Dodaj stały panel WMM na samym dole lewego panelu głównego WM."""
+def _build_panel(root, side) -> None:
+    """Zbuduj panel WMM. Ta funkcja może działać wyłącznie w wątku Tk."""
+    if threading.current_thread() is not threading.main_thread():
+        logger.warning("[WMM] Pominięto próbę budowy GUI poza głównym wątkiem Tk")
+        return
     if _panel_exists(root):
         _update_footer(root)
         return
@@ -95,7 +74,6 @@ def _build_panel(root) -> None:
 
         from services.wmm_api import mobile_status, pairing_info
 
-        side = _find_sidebar(root)
         if side is None or not side.winfo_exists():
             return
 
@@ -105,14 +83,12 @@ def _build_panel(root) -> None:
         root._wmm_main_panel = panel
 
         ttk.Label(panel, text="WMM", style="WM.H2.TLabel").pack(anchor="w")
-
-        api_label = ttk.Label(
+        ttk.Label(
             panel,
             text="● API aktywne",
             style="WM.Muted.TLabel",
             foreground="#22c55e",
-        )
-        api_label.pack(anchor="w", pady=(0, 4))
+        ).pack(anchor="w", pady=(0, 4))
 
         qr = qrcode.QRCode(version=None, box_size=2, border=2)
         qr.add_data(str(info["qr"]))
@@ -167,49 +143,46 @@ def _build_panel(root) -> None:
         logger.exception("[WMM] Nie udało się zbudować panelu WMM w gui_panel")
 
 
-def _resolve_root():
-    module = sys.modules.get("gui_panel")
-    if module is not None:
-        for attr in ("root_global", "root"):
-            root = getattr(module, attr, None)
-            if root is not None:
-                return root
+def install_gui_panel_hook() -> None:
+    """Podepnij WMM do tworzenia stałego sidebara bez używania wątku Tk.
+
+    Hook nie dotyka żadnego widgetu w tle. Rozpoznaje wyłącznie sidebar
+    gui_panel (WM.Side.TFrame, width=220), a sam panel jest budowany przez
+    after_idle w tym samym, głównym wątku Tk.
+    """
+    global _HOOK_INSTALLED, _ORIGINAL_FRAME_INIT
+    if _HOOK_INSTALLED:
+        return
+
     try:
-        import tkinter as tk
-
-        return tk._default_root
+        from tkinter import ttk
     except Exception:
-        return None
+        return
 
+    original = ttk.Frame.__init__
+    _ORIGINAL_FRAME_INIT = original
 
-def _watch_gui_panel() -> None:
-    """Podłącz panel, gdy właściwy sidebar gui_panel jest już utworzony."""
-    while True:
-        try:
-            root = _resolve_root()
-            if root is not None:
-                try:
-                    exists = bool(root.winfo_exists())
-                except Exception:
-                    exists = False
-                if exists:
-                    try:
-                        root.after(0, lambda r=root: _build_panel(r))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-        time.sleep(0.5)
+    def frame_init(self, master=None, cnf=None, **kw):
+        original(self, master, cnf, **kw)
 
-
-def start_gui_panel_watcher() -> None:
-    global _WATCHER_STARTED
-    with _WATCHER_LOCK:
-        if _WATCHER_STARTED:
+        if threading.current_thread() is not threading.main_thread():
             return
-        _WATCHER_STARTED = True
-        threading.Thread(
-            target=_watch_gui_panel,
-            name="wm-wmm-gui-panel",
-            daemon=True,
-        ).start()
+        style = str(kw.get("style") or "")
+        try:
+            width = int(kw.get("width") or 0)
+        except Exception:
+            width = 0
+        if style != "WM.Side.TFrame" or width != 220 or master is None:
+            return
+
+        try:
+            root = self.winfo_toplevel()
+            root.after_idle(lambda r=root, s=self: _build_panel(r, s))
+        except Exception:
+            logger.exception("[WMM] Nie udało się zaplanować panelu WMM")
+
+    ttk.Frame.__init__ = frame_init
+    _HOOK_INSTALLED = True
+
+
+__all__ = ["install_gui_panel_hook"]
