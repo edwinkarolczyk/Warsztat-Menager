@@ -1,4 +1,4 @@
-# version: 1.2.1
+# version: 1.3
 """Grupuje rzadziej używane zakładki Brygadzisty w jedną Administrację.
 
 Na głównym poziomie pozostają tylko codzienne widoki: Pulpit, Ruch WM,
@@ -20,7 +20,9 @@ from ui_context_help import add_help_button
 
 _INSTALLED = False
 _ADMIN_NAMES = ("Użytkownicy", "Opinie", "Statystyki")
-_FEEDBACK_STATUSES = ("Nowa", "W trakcie", "Zamknięta")
+_FEEDBACK_OPEN = "Do zrobienia"
+_FEEDBACK_DONE = "Zrobione"
+_FEEDBACK_FILTERS = ("Otwarte", "Zrobione", "Wszystkie")
 
 
 def _feedback_path() -> str:
@@ -97,8 +99,64 @@ def _feedback_signature(row: dict) -> tuple[str, str, str]:
 
 
 def _feedback_status(row: dict) -> str:
-    value = str(row.get("status") or "").strip()
-    return value or "Nowa"
+    """Zwróć prosty status, zachowując zgodność ze starszymi wpisami."""
+    value = str(row.get("status") or "").strip().casefold()
+    if value in {
+        "zrobione",
+        "zamknięta",
+        "zamknieta",
+        "zamknięte",
+        "zamkniete",
+        "done",
+        "closed",
+    }:
+        return _FEEDBACK_DONE
+    return _FEEDBACK_OPEN
+
+
+def _feedback_month_year(value) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return parsed.strftime("%m:%y")
+    except Exception:
+        if len(raw) >= 7 and raw[4:5] == "-":
+            return f"{raw[5:7]}:{raw[2:4]}"
+        return raw[:5]
+
+
+def _feedback_closed_label(row: dict) -> str:
+    actor = str(row.get("closed_by") or "").strip()
+    raw = str(row.get("closed_at") or "").strip()
+    if not actor and not raw:
+        return ""
+    shown = raw
+    if raw:
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            shown = parsed.strftime("%d.%m.%Y %H:%M")
+        except Exception:
+            pass
+    return f"Zrobione: {actor or '—'} — {shown or '—'}"
+
+
+def _feedback_two_lines(value) -> str:
+    """Pokaż całą opinię w dwóch logicznych wierszach bez wielokropka."""
+    text = " ".join(str(value or "").replace("\n", " ").split())
+    if len(text) <= 115:
+        return text
+
+    middle = len(text) // 2
+    left = text.rfind(" ", 0, middle + 1)
+    right = text.find(" ", middle)
+    candidates = [pos for pos in (left, right) if pos > 0]
+    if candidates:
+        split_at = min(candidates, key=lambda pos: abs(pos - middle))
+    else:
+        split_at = middle
+    return f"{text[:split_at].strip()}\n{text[split_at:].strip()}"
 
 
 def _build_feedback_tab(panel) -> None:
@@ -112,8 +170,12 @@ def _build_feedback_tab(panel) -> None:
         except Exception:
             pass
 
+    style = ttk.Style(panel)
+    style.configure("Feedback.Treeview", font=("Segoe UI", 10), rowheight=46)
+    style.configure("Feedback.Treeview.Heading", font=("Segoe UI", 10, "bold"))
+
     header = ttk.Frame(parent, style="WM.Container.TFrame")
-    header.pack(fill="x", padx=8, pady=(8, 6))
+    header.pack(fill="x", padx=8, pady=(8, 4))
     ttk.Label(
         header,
         text="Opinie przesłane z modułu „Wyślij opinię”.",
@@ -122,8 +184,41 @@ def _build_feedback_tab(panel) -> None:
 
     info_var = tk.StringVar(value="")
     ttk.Label(parent, textvariable=info_var, style="WM.Muted.TLabel").pack(
-        anchor="w", padx=8, pady=(0, 6)
+        anchor="w", padx=8, pady=(0, 5)
     )
+
+    actions = ttk.Frame(parent, style="WM.Container.TFrame")
+    actions.pack(fill="x", padx=8, pady=(0, 6))
+
+    filter_var = tk.StringVar(value="Otwarte")
+    ttk.Label(actions, text="Pokaż:").pack(side="left")
+    for label in _FEEDBACK_FILTERS:
+        ttk.Radiobutton(
+            actions,
+            text=label,
+            value=label,
+            variable=filter_var,
+            command=lambda: _refresh(),
+        ).pack(side="left", padx=(6, 0))
+
+    add_help_button(
+        actions,
+        "Status określa, czy zgłoszona opinia została już obsłużona. "
+        "Zrobione opinie pozostają w historii.",
+    ).pack(side="right", padx=(6, 0))
+
+    action_var = tk.StringVar(value="✓ Oznacz jako zrobione")
+    action_button = ttk.Button(actions, textvariable=action_var)
+    action_button.pack(side="right", padx=(6, 0))
+    refresh_button = ttk.Button(actions, text="Odśwież")
+    refresh_button.pack(side="right", padx=(6, 0))
+
+    selected_info_var = tk.StringVar(value="")
+    ttk.Label(
+        parent,
+        textvariable=selected_info_var,
+        style="WM.Muted.TLabel",
+    ).pack(anchor="w", padx=8, pady=(0, 5))
 
     columns = ("ts", "login", "rola", "status", "message")
     tree_wrap = ttk.Frame(parent, style="WM.Container.TFrame")
@@ -132,66 +227,36 @@ def _build_feedback_tab(panel) -> None:
         tree_wrap,
         columns=columns,
         show="headings",
-        style="Foreman.Treeview",
-        height=13,
+        style="Feedback.Treeview",
+        height=8,
     )
     tree.heading("ts", text="Data")
     tree.heading("login", text="Login")
     tree.heading("rola", text="Rola")
     tree.heading("status", text="Status")
     tree.heading("message", text="Opinia")
-    tree.column("ts", width=155, anchor="w")
-    tree.column("login", width=115, anchor="w")
-    tree.column("rola", width=110, anchor="w")
-    tree.column("status", width=110, anchor="center")
-    tree.column("message", width=620, anchor="w")
+    tree.column("ts", width=58, minwidth=58, anchor="center", stretch=False)
+    tree.column("login", width=90, minwidth=70, anchor="w", stretch=False)
+    tree.column("rola", width=90, minwidth=70, anchor="w", stretch=False)
+    tree.column("status", width=105, minwidth=95, anchor="center", stretch=False)
+    tree.column("message", width=850, minwidth=500, anchor="w", stretch=True)
     tree.grid(row=0, column=0, sticky="nsew")
-    scrollbar = ttk.Scrollbar(tree_wrap, orient="vertical", command=tree.yview)
-    scrollbar.grid(row=0, column=1, sticky="ns")
-    tree.configure(yscrollcommand=scrollbar.set)
+
+    y_scrollbar = ttk.Scrollbar(tree_wrap, orient="vertical", command=tree.yview)
+    y_scrollbar.grid(row=0, column=1, sticky="ns")
+    x_scrollbar = ttk.Scrollbar(tree_wrap, orient="horizontal", command=tree.xview)
+    x_scrollbar.grid(row=1, column=0, sticky="ew")
+    tree.configure(
+        yscrollcommand=y_scrollbar.set,
+        xscrollcommand=x_scrollbar.set,
+    )
     tree_wrap.grid_rowconfigure(0, weight=1)
     tree_wrap.grid_columnconfigure(0, weight=1)
 
-    actions = ttk.Frame(parent, style="WM.Container.TFrame")
-    actions.pack(fill="x", padx=8, pady=(0, 8))
-    ttk.Label(actions, text="Status:").pack(side="left")
-
-    status_var = tk.StringVar(value="Nowa")
-    status_box = ttk.Combobox(
-        actions,
-        textvariable=status_var,
-        values=_FEEDBACK_STATUSES,
-        state="readonly",
-        width=14,
-    )
-    status_box.pack(side="left", padx=(6, 4))
-    add_help_button(
-        actions,
-        "Status opisuje etap obsługi opinii: Nowa, W trakcie albo Zamknięta. "
-        "Przy zamknięciu WM zapisuje login i datę osoby zamykającej.",
-    ).pack(side="left", padx=(0, 8))
-
-    details_box = ttk.LabelFrame(
-        parent,
-        text="Treść i historia opinii",
-        style="WM.Section.TLabelframe",
-        padding=8,
-    )
-    details_box.pack(fill="x", padx=8, pady=(0, 8))
-    details = tk.Text(details_box, height=8, wrap="word")
-    details.pack(fill="x", expand=True)
-    details.configure(state="disabled")
+    tree.tag_configure("feedback_open", foreground="#f59e0b")
+    tree.tag_configure("feedback_done", foreground="#22c55e")
 
     rows_cache: dict[str, dict] = {}
-
-    def _set_details(value: str) -> None:
-        try:
-            details.configure(state="normal")
-            details.delete("1.0", "end")
-            details.insert("1.0", value)
-            details.configure(state="disabled")
-        except Exception:
-            pass
 
     def _selected_cached() -> tuple[str, dict] | None:
         selected = tree.selection()
@@ -203,43 +268,23 @@ def _build_feedback_tab(panel) -> None:
             return None
         return iid, row
 
-    def _render_details(row: dict) -> None:
-        lines = [
-            f"Data: {row.get('ts', '')}",
-            f"Login: {row.get('login', '')}",
-            f"Rola: {row.get('rola', '')}",
-            f"Status: {_feedback_status(row)}",
-        ]
-        closed_by = str(row.get("closed_by") or "").strip()
-        closed_at = str(row.get("closed_at") or "").strip()
-        if closed_by or closed_at:
-            lines.append(
-                "Ostatnie zamknięcie: "
-                f"{closed_at or '—'} | przez: {closed_by or '—'}"
-            )
-
-        history = row.get("status_history")
-        if isinstance(history, list) and history:
-            lines.append("")
-            lines.append("Historia statusu:")
-            for item in history[-8:]:
-                if not isinstance(item, dict):
-                    continue
-                lines.append(
-                    f"- {item.get('ts', '')} | {item.get('status', '')} "
-                    f"| {item.get('by', '')}"
-                )
-
-        lines.extend(["", str(row.get("message") or "")])
-        _set_details("\n".join(lines))
-
-    def _show_selected(_event=None) -> None:
+    def _update_selection_ui(_event=None) -> None:
         cached = _selected_cached()
         if cached is None:
+            action_button.state(["disabled"])
+            action_var.set("✓ Oznacz jako zrobione")
+            selected_info_var.set("")
             return
+
+        action_button.state(["!disabled"])
         _iid, row = cached
-        status_var.set(_feedback_status(row))
-        _render_details(row)
+        status = _feedback_status(row)
+        if status == _FEEDBACK_DONE:
+            action_var.set("↶ Przywróć do otwartych")
+            selected_info_var.set(_feedback_closed_label(row))
+        else:
+            action_var.set("✓ Oznacz jako zrobione")
+            selected_info_var.set("Do zrobienia")
 
     def _refresh(*, select_iid: str | None = None) -> None:
         rows_cache.clear()
@@ -250,8 +295,13 @@ def _build_feedback_tab(panel) -> None:
             rows = _load_feedback_rows(path)
         except Exception as exc:
             info_var.set(f"Błąd odczytu opinii: {exc}")
-            _set_details("")
+            selected_info_var.set("")
+            action_button.state(["disabled"])
             return
+
+        open_count = sum(1 for row in rows if _feedback_status(row) == _FEEDBACK_OPEN)
+        done_count = len(rows) - open_count
+        selected_filter = filter_var.get()
 
         indexed = list(enumerate(rows))
         indexed.sort(
@@ -259,37 +309,47 @@ def _build_feedback_tab(panel) -> None:
             reverse=True,
         )
 
+        shown_count = 0
         for source_index, row in indexed:
+            status = _feedback_status(row)
+            if selected_filter == "Otwarte" and status != _FEEDBACK_OPEN:
+                continue
+            if selected_filter == "Zrobione" and status != _FEEDBACK_DONE:
+                continue
+
             iid = str(source_index)
             rows_cache[iid] = dict(row)
-            message = str(row.get("message") or "")
-            short = message.replace("\n", " ").strip()
-            if len(short) > 140:
-                short = short[:140] + "…"
+            tag = "feedback_done" if status == _FEEDBACK_DONE else "feedback_open"
             tree.insert(
                 "",
                 "end",
                 iid=iid,
                 values=(
-                    str(row.get("ts") or ""),
+                    _feedback_month_year(row.get("ts")),
                     str(row.get("login") or ""),
                     str(row.get("rola") or ""),
-                    _feedback_status(row),
-                    short,
+                    status,
+                    _feedback_two_lines(row.get("message")),
                 ),
+                tags=(tag,),
             )
+            shown_count += 1
 
-        info_var.set(f"Wczytano opinii: {len(rows)} | Plik: {path}")
-        _set_details("")
-        status_var.set("Nowa")
+        info_var.set(
+            f"Opinie: {len(rows)} | Do zrobienia: {open_count} | "
+            f"Zrobione: {done_count} | Pokazano: {shown_count}"
+        )
+        selected_info_var.set("")
+        action_button.state(["disabled"])
+        action_var.set("✓ Oznacz jako zrobione")
 
         if select_iid is not None and tree.exists(select_iid):
             tree.selection_set(select_iid)
             tree.focus(select_iid)
             tree.see(select_iid)
-            _show_selected()
+            _update_selection_ui()
 
-    def _save_status() -> None:
+    def _toggle_status() -> None:
         cached = _selected_cached()
         if cached is None:
             messagebox.showinfo(
@@ -300,15 +360,6 @@ def _build_feedback_tab(panel) -> None:
             return
 
         iid, cached_row = cached
-        new_status = str(status_var.get() or "").strip()
-        if new_status not in _FEEDBACK_STATUSES:
-            messagebox.showerror(
-                "Opinie",
-                "Wybierz prawidłowy status opinii.",
-                parent=panel.winfo_toplevel(),
-            )
-            return
-
         path = _feedback_path()
         try:
             rows = _load_feedback_rows(path)
@@ -345,15 +396,11 @@ def _build_feedback_tab(panel) -> None:
             return
 
         row = rows[target_index]
-        old_status = _feedback_status(row)
-        if old_status == new_status and str(row.get("status") or "").strip():
-            messagebox.showinfo(
-                "Opinie",
-                "Ta opinia ma już wybrany status.",
-                parent=panel.winfo_toplevel(),
-            )
-            return
-
+        new_status = (
+            _FEEDBACK_OPEN
+            if _feedback_status(row) == _FEEDBACK_DONE
+            else _FEEDBACK_DONE
+        )
         now = datetime.now().astimezone().isoformat(timespec="seconds")
         actor = _active_login(panel)
 
@@ -367,9 +414,12 @@ def _build_feedback_tab(panel) -> None:
         history.append({"ts": now, "status": new_status, "by": actor})
         row["status_history"] = history
 
-        if new_status == "Zamknięta":
+        if new_status == _FEEDBACK_DONE:
             row["closed_at"] = now
             row["closed_by"] = actor
+        else:
+            row.pop("closed_at", None)
+            row.pop("closed_by", None)
 
         try:
             _save_feedback_rows(path, rows)
@@ -383,11 +433,9 @@ def _build_feedback_tab(panel) -> None:
 
         _refresh(select_iid=str(target_index))
 
-    ttk.Button(actions, text="Zapisz status", command=_save_status).pack(
-        side="left", padx=(0, 6)
-    )
-    ttk.Button(actions, text="Odśwież", command=_refresh).pack(side="right")
-    tree.bind("<<TreeviewSelect>>", _show_selected)
+    action_button.configure(command=_toggle_status)
+    refresh_button.configure(command=_refresh)
+    tree.bind("<<TreeviewSelect>>", _update_selection_ui)
 
     panel._wm_feedback_tree = tree
     panel._wm_feedback_refresh = _refresh
