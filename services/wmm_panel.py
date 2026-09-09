@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-import inspect
 import logging
-import os
 import threading
 
 logger = logging.getLogger(__name__)
 
-_HOOK_INSTALLED = False
-_ORIGINAL_FRAME_INIT = None
 
-
-def _panel_exists(root) -> bool:
+def _panel_exists(root, side=None) -> bool:
     try:
         panel = getattr(root, "_wmm_main_panel", None)
-        return bool(panel) and bool(panel.winfo_exists())
+        if not panel or not panel.winfo_exists():
+            return False
+        if side is not None and panel.master is not side:
+            return False
+        return True
     except Exception:
         return False
 
@@ -58,8 +57,33 @@ def _format_users(users: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _sidebar_button_texts(side) -> set[str]:
+    out: set[str] = set()
+    try:
+        children = list(side.winfo_children())
+    except Exception:
+        return out
+    for child in children:
+        try:
+            text = str(child.cget("text") or "").strip()
+        except Exception:
+            text = ""
+        if text:
+            out.add(text.replace("  🔒", "").strip())
+    return out
+
+
+def _is_gui_panel_sidebar(side) -> bool:
+    """Rozpoznaj właściwy lewy pasek gui_panel po realnych przyciskach modułów."""
+    texts = _sidebar_button_texts(side)
+    if "Dyspozycje" not in texts:
+        return False
+    expected = {"Narzędzia", "Maszyny", "Magazyn", "Planista", "Ustawienia", "Profil"}
+    return len(texts.intersection(expected)) >= 3
+
+
 def _hide_jarvis_alert_card(side) -> None:
-    """Ukryj wyłącznie kartę „Alerty Jarvisa” w sidebarze."""
+    """Usuń wyłącznie kartę „Alerty Jarvisa”; moduł/przycisk Jarvis zostaje."""
     try:
         children = list(side.winfo_children())
     except Exception:
@@ -79,13 +103,15 @@ def _hide_jarvis_alert_card(side) -> None:
 
 
 def _build_panel(root, side) -> None:
-    """Zbuduj panel WMM dokładnie w miejscu dawnej karty Alerty Jarvisa."""
+    """Zbuduj kartę WMM dokładnie po modułach, w miejscu dawnej karty Jarvisa."""
     if threading.current_thread() is not threading.main_thread():
         logger.warning("[WMM] Pominięto próbę budowy GUI poza głównym wątkiem Tk")
         return
+    if not _is_gui_panel_sidebar(side):
+        return
 
     _hide_jarvis_alert_card(side)
-    if _panel_exists(root):
+    if _panel_exists(root, side):
         _update_footer(root)
         return
 
@@ -98,13 +124,8 @@ def _build_panel(root, side) -> None:
 
         from services.wmm_api import mobile_status, pairing_info
 
-        if side is None or not side.winfo_exists():
-            return
-
         info = pairing_info()
         panel = ttk.Frame(side, style="WM.Card.TFrame", padding=8)
-        # Bez side="bottom": panel trafia dokładnie po przyciskach modułów,
-        # czyli w miejsce, w którym wcześniej był blok „Alerty Jarvisa”.
         panel.pack(fill="x", padx=10, pady=6)
         root._wmm_main_panel = panel
 
@@ -167,109 +188,14 @@ def _build_panel(root, side) -> None:
 
         _update_footer(root)
         root.after(500, refresh_presence)
-        print("[WM-WMM][GUI] Panel WMM osadzony w lewym pasku gui_panel")
+        print("[WM-WMM][GUI] Panel WMM osadzony zamiast Alertów Jarvisa")
     except Exception:
         logger.exception("[WMM] Nie udało się zbudować panelu WMM w gui_panel")
 
 
-def _ensure_panel_loop(root, side) -> None:
-    """Odtwarzaj panel po clear_frame(side), zawsze z głównego wątku Tk."""
-    if getattr(root, "_wmm_ensure_loop_started", False):
-        return
-    root._wmm_ensure_loop_started = True
-
-    def ensure() -> None:
-        try:
-            if not side.winfo_exists():
-                root._wmm_ensure_loop_started = False
-                return
-            _hide_jarvis_alert_card(side)
-            if not _panel_exists(root):
-                _build_panel(root, side)
-            else:
-                _update_footer(root)
-            root.after(1000, ensure)
-        except Exception:
-            logger.exception("[WMM] Błąd kontroli panelu WMM")
-            try:
-                root.after(1000, ensure)
-            except Exception:
-                root._wmm_ensure_loop_started = False
-
-    root.after_idle(ensure)
-
-
 def mount_wmm_panel(root, side) -> None:
-    """Osadź panel WMM w istniejącym sidebarze gui_panel."""
-    _ensure_panel_loop(root, side)
+    """Osadź WMM synchronicznie; wywołanie ma pochodzić z głównego wątku Tk."""
+    _build_panel(root, side)
 
 
-def _created_by_gui_panel() -> bool:
-    """Rozpoznaj wyłącznie sidebar tworzony przez gui_panel.uruchom_panel()."""
-    try:
-        frame = inspect.currentframe()
-        for _ in range(10):
-            frame = frame.f_back if frame is not None else None
-            if frame is None:
-                break
-            filename = os.path.basename(str(frame.f_code.co_filename or "")).lower()
-            function = str(frame.f_code.co_name or "")
-            if filename == "gui_panel.py" and function == "uruchom_panel":
-                return True
-    except Exception:
-        pass
-    return False
-
-
-def install_gui_panel_hook() -> None:
-    """Wykryj tylko właściwy sidebar Panelu głównego i zamontuj w nim WMM.
-
-    Wcześniej hook mógł złapać inny WM.Side.TFrame (np. ekran logowania), przez
-    co właściwy sidebar gui_panel nie dostawał WMM. Teraz akceptowany jest tylko
-    Frame utworzony bezpośrednio podczas gui_panel.uruchom_panel().
-    """
-    global _HOOK_INSTALLED, _ORIGINAL_FRAME_INIT
-    if _HOOK_INSTALLED:
-        return
-
-    try:
-        from tkinter import ttk
-    except Exception:
-        return
-
-    original = ttk.Frame.__init__
-    _ORIGINAL_FRAME_INIT = original
-
-    def frame_init(self, master=None, **kw):
-        global _HOOK_INSTALLED
-        original(self, master, **kw)
-
-        if threading.current_thread() is not threading.main_thread():
-            return
-        style = str(kw.get("style") or "")
-        try:
-            width = int(kw.get("width") or 0)
-        except Exception:
-            width = 0
-        if style != "WM.Side.TFrame" or width != 220 or master is None:
-            return
-        if not _created_by_gui_panel():
-            return
-
-        # Dopiero znalezienie prawdziwego sidebara gui_panel kończy hook.
-        try:
-            ttk.Frame.__init__ = original
-        except Exception:
-            pass
-        _HOOK_INSTALLED = True
-
-        try:
-            root = self.winfo_toplevel()
-            _ensure_panel_loop(root, self)
-        except Exception:
-            logger.exception("[WMM] Nie udało się uruchomić panelu WMM")
-
-    ttk.Frame.__init__ = frame_init
-
-
-__all__ = ["install_gui_panel_hook", "mount_wmm_panel"]
+__all__ = ["mount_wmm_panel"]
