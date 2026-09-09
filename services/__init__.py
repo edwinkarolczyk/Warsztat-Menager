@@ -23,15 +23,15 @@ def _wmm_api_enabled() -> bool:
 
 
 def _start_wmm_after_root() -> None:
-    """Poczekaj na aktywny WM_ROOT i dopiero wtedy uruchom API oraz panel QR."""
+    """Poczekaj na aktywny WM_ROOT i dopiero wtedy uruchom API oraz panel WMM."""
     for _ in range(240):  # maks. około 2 minuty na wybór ROOT przy starcie
         if str(os.environ.get("WM_ROOT", "") or "").strip():
             try:
                 from .wmm_api import start_wmm_api
-                from .wmm_login_panel import start_login_panel_watcher
+                from .wmm_panel import start_gui_panel_watcher
 
                 start_wmm_api()
-                start_login_panel_watcher()
+                start_gui_panel_watcher()
             except Exception:
                 pass
             return
