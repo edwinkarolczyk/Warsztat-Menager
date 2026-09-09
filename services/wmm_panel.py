@@ -57,7 +57,7 @@ def _format_users(users: list[dict]) -> str:
 
 
 def _hide_jarvis_alert_card(side) -> None:
-    """Ukryj wyłącznie pomarańczową kartę „Alerty Jarvisa” w sidebarze."""
+    """Ukryj wyłącznie kartę „Alerty Jarvisa” w sidebarze."""
     try:
         children = list(side.winfo_children())
     except Exception:
@@ -67,19 +67,13 @@ def _hide_jarvis_alert_card(side) -> None:
             labels = list(child.winfo_children())
         except Exception:
             continue
-        is_jarvis_alert = False
         for label in labels:
             try:
                 if str(label.cget("text") or "").strip() == "Alerty Jarvisa":
-                    is_jarvis_alert = True
+                    child.destroy()
                     break
             except Exception:
                 continue
-        if is_jarvis_alert:
-            try:
-                child.destroy()
-            except Exception:
-                pass
 
 
 def _build_panel(root, side) -> None:
@@ -111,11 +105,12 @@ def _build_panel(root, side) -> None:
         root._wmm_main_panel = panel
 
         ttk.Label(panel, text="WMM", style="WM.H2.TLabel").pack(anchor="w")
-        ttk.Label(
+        tk.Label(
             panel,
             text="● API aktywne",
-            style="WM.Muted.TLabel",
-            foreground="#22c55e",
+            fg="#22c55e",
+            bg="#1A1D1F",
+            bd=0,
         ).pack(anchor="w", pady=(0, 4))
 
         qr = qrcode.QRCode(version=None, box_size=2, border=2)
@@ -133,11 +128,12 @@ def _build_panel(root, side) -> None:
             style="WM.Muted.TLabel",
         ).pack(anchor="center")
 
-        presence_label = ttk.Label(
+        presence_label = tk.Label(
             panel,
             text="Brak zalogowanych WMM",
-            style="WM.Muted.TLabel",
-            foreground="#9aa0a6",
+            fg="#9aa0a6",
+            bg="#1A1D1F",
+            bd=0,
             justify="left",
             wraplength=170,
         )
@@ -153,30 +149,17 @@ def _build_panel(root, side) -> None:
                 if users:
                     presence_label.configure(
                         text="Połączeni:\n" + _format_users(users),
-                        foreground="#22c55e",
+                        fg="#22c55e",
                     )
                 else:
                     presence_label.configure(
                         text="Brak zalogowanych WMM",
-                        foreground="#9aa0a6",
+                        fg="#9aa0a6",
                     )
                 _update_footer(root)
                 root.after(2000, refresh_presence)
             except Exception:
                 logger.exception("[WMM] Błąd odświeżania statusu WMM")
-
-        def rebuild_after_sidebar(_event=None) -> None:
-            try:
-                root.after_idle(lambda r=root, s=side: _build_panel(r, s))
-            except Exception:
-                pass
-
-        if not getattr(root, "_wmm_sidebar_reload_bound", False):
-            try:
-                root.bind("<<SidebarReload>>", rebuild_after_sidebar, add="+")
-                root._wmm_sidebar_reload_bound = True
-            except Exception:
-                pass
 
         _update_footer(root)
         root.after(500, refresh_presence)
@@ -184,18 +167,40 @@ def _build_panel(root, side) -> None:
         logger.exception("[WMM] Nie udało się zbudować panelu WMM w gui_panel")
 
 
+def _ensure_panel_loop(root, side) -> None:
+    """Odtwarzaj panel po clear_frame(side), zawsze z głównego wątku Tk."""
+    if getattr(root, "_wmm_ensure_loop_started", False):
+        return
+    root._wmm_ensure_loop_started = True
+
+    def ensure() -> None:
+        try:
+            if not side.winfo_exists():
+                root._wmm_ensure_loop_started = False
+                return
+            _hide_jarvis_alert_card(side)
+            if not _panel_exists(root):
+                _build_panel(root, side)
+            else:
+                _update_footer(root)
+            root.after(1000, ensure)
+        except Exception:
+            logger.exception("[WMM] Błąd kontroli panelu WMM")
+            try:
+                root.after(1000, ensure)
+            except Exception:
+                root._wmm_ensure_loop_started = False
+
+    root.after_idle(ensure)
+
+
 def mount_wmm_panel(root, side) -> None:
     """Osadź panel WMM w istniejącym sidebarze gui_panel."""
-    _build_panel(root, side)
+    _ensure_panel_loop(root, side)
 
 
 def install_gui_panel_hook() -> None:
-    """Jednorazowo wykryj sidebar gui_panel bez dotykania Tk z wątku tła.
-
-    Hook działa tylko do chwili utworzenia właściwego sidebara, po czym od razu
-    przywraca oryginalny ttk.Frame.__init__. Sam panel WMM powstaje przez
-    after_idle w głównym wątku Tk.
-    """
+    """Jednorazowo wykryj sidebar gui_panel, potem pilnuj go przez root.after()."""
     global _HOOK_INSTALLED, _ORIGINAL_FRAME_INIT
     if _HOOK_INSTALLED:
         return
@@ -230,9 +235,9 @@ def install_gui_panel_hook() -> None:
 
         try:
             root = self.winfo_toplevel()
-            root.after_idle(lambda r=root, s=self: _build_panel(r, s))
+            _ensure_panel_loop(root, self)
         except Exception:
-            logger.exception("[WMM] Nie udało się zaplanować panelu WMM")
+            logger.exception("[WMM] Nie udało się uruchomić panelu WMM")
 
     ttk.Frame.__init__ = frame_init
 
