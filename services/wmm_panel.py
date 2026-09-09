@@ -162,8 +162,10 @@ def install_gui_panel_hook() -> None:
     original = ttk.Frame.__init__
     _ORIGINAL_FRAME_INIT = original
 
-    def frame_init(self, master=None, cnf=None, **kw):
-        original(self, master, cnf, **kw)
+    def frame_init(self, master=None, **kw):
+        # ttk.Frame.__init__ w Pythonie 3.13 przyjmuje tylko master + **kw.
+        # Nie przekazujemy dodatkowego pozycyjnego cnf, bo powoduje TypeError.
+        original(self, master, **kw)
 
         if threading.current_thread() is not threading.main_thread():
             return
