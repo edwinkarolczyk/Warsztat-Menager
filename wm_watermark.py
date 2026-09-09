@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.8 SAFE
+# Wersja: 1.0.9 SAFE
+# Zmiany 1.0.9:
+# - Dopina kolumnę Tryb zmiany do testowego scalonego widoku Brygadzisty.
 # Zmiany 1.0.8:
 # - Dopina testowy scalony widok Brygadzisty i poprawki kliknięć Kalendarza.
 # Zmiany 1.0.7:
@@ -139,6 +141,17 @@ def _install_foreman_test_workspace() -> None:
         pass
 
 
+def _install_test_shift_mode() -> None:
+    """Dopnij ustawiony tryb zmiany do kolumn testowego widoku Brygadzisty."""
+    try:
+        from profile_test_shift_mode_runtime import install
+
+        install()
+    except Exception:
+        # Dodatkowa kolumna TESTOWEJ nie może zablokować Profilu.
+        pass
+
+
 def _install_tutorial_entry(root) -> None:
     """Dopnij niezależny przycisk samouczka po zbudowaniu głównego panelu."""
     try:
@@ -163,6 +176,7 @@ def install(root) -> DevelopmentWatermark:
         _install_attendance_move_fix()
         _install_dyspozycje_presentation()
         _install_foreman_test_workspace()
+        _install_test_shift_mode()
         _install_tutorial_entry(root)
         return existing
 
@@ -176,5 +190,6 @@ def install(root) -> DevelopmentWatermark:
     _install_attendance_move_fix()
     _install_dyspozycje_presentation()
     _install_foreman_test_workspace()
+    _install_test_shift_mode()
     _install_tutorial_entry(root)
     return overlay
