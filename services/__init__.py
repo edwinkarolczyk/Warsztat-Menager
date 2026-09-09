@@ -2,7 +2,7 @@
 
 WMM API startuje dopiero po ustawieniu WM_ROOT, żeby zawsze używać właściwych
 danych instalacji. Serwer jest lekki, idempotentny i nie blokuje GUI.
-Panel WMM jest montowany po przebudowie właściwego sidebara gui_panel.
+Panel WMM montuje się z callbacków wykonywanych już w głównym wątku Tk.
 Można wyłączyć API przez WM_DISABLE_WMM_API=1.
 """
 
@@ -38,12 +38,23 @@ def _start_wmm_after_root() -> None:
         time.sleep(0.5)
 
 
-def _wrap_clear_frame(original):
-    """Owiń clear_frame tak, aby po zbudowaniu sidebara zamontować WMM.
+def _schedule_mount_from_root(root) -> None:
+    """Zaplanuj montaż WMM; wywołuj wyłącznie z głównego wątku Tk."""
+    if threading.current_thread() is not threading.main_thread():
+        return
+    try:
+        from .wmm_panel import mount_wmm_from_root
 
-    Wrapper sam wykonuje się w wątku GUI; wątek instalacyjny jedynie podmienia
-    referencję funkcji i nigdy nie dotyka widgetów Tk.
-    """
+        root.after_idle(lambda r=root: mount_wmm_from_root(r))
+    except Exception as exc:
+        try:
+            print(f"[WM-WMM][GUI][WARN] Nie udało się zaplanować WMM: {exc}")
+        except Exception:
+            pass
+
+
+def _wrap_clear_frame(original):
+    """Po clear_frame spróbuj zamontować WMM na gotowym Panelu głównym."""
     if not callable(original):
         return original
     if getattr(original, "_wmm_sidebar_hook", False):
@@ -56,21 +67,7 @@ def _wrap_clear_frame(original):
             return result
         try:
             root = frame.winfo_toplevel()
-
-            def mount() -> None:
-                try:
-                    from .wmm_panel import mount_wmm_panel
-
-                    mount_wmm_panel(root, frame)
-                except Exception as exc:
-                    try:
-                        print(f"[WM-WMM][GUI][WARN] Nie udało się osadzić WMM: {exc}")
-                    except Exception:
-                        pass
-
-            # Każdy clear_frame może tu trafić. Sam mount_wmm_panel rozpoznaje
-            # właściwy sidebar po realnych przyciskach modułów i ignoruje resztę.
-            root.after_idle(mount)
+            _schedule_mount_from_root(root)
         except Exception:
             pass
         return result
@@ -79,8 +76,42 @@ def _wrap_clear_frame(original):
     return clear_frame_with_wmm
 
 
+def _wrap_uruchom_panel(original):
+    """Po pełnym zbudowaniu gui_panel zamontuj WMM bez zgadywania momentu."""
+    if not callable(original):
+        return original
+    if getattr(original, "_wmm_panel_hook", False):
+        return original
+
+    @functools.wraps(original)
+    def uruchom_panel_with_wmm(root, *args, **kwargs):
+        result = original(root, *args, **kwargs)
+        _schedule_mount_from_root(root)
+        return result
+
+    uruchom_panel_with_wmm._wmm_panel_hook = True  # type: ignore[attr-defined]
+    return uruchom_panel_with_wmm
+
+
+def _wrap_module_source(original):
+    """Awaryjny punkt montażu przy pierwszym odświeżeniu źródła modułu."""
+    if not callable(original):
+        return original
+    if getattr(original, "_wmm_source_hook", False):
+        return original
+
+    @functools.wraps(original)
+    def wm_set_module_source_with_wmm(root, *args, **kwargs):
+        result = original(root, *args, **kwargs)
+        _schedule_mount_from_root(root)
+        return result
+
+    wm_set_module_source_with_wmm._wmm_source_hook = True  # type: ignore[attr-defined]
+    return wm_set_module_source_with_wmm
+
+
 def _install_wmm_sidebar_mount_hook() -> None:
-    """Podepnij helper oraz dokładną referencję clear_frame używaną przez gui_panel."""
+    """Podepnij wyłącznie istniejące funkcje WM; wątek nie dotyka Tkintera."""
     try:
         from utils import gui_helpers
 
@@ -88,22 +119,40 @@ def _install_wmm_sidebar_mount_hook() -> None:
     except Exception:
         pass
 
-    # gui_panel może być zaimportowany wcześniej i mieć własną referencję
-    # ``from utils.gui_helpers import clear_frame``. Czekamy wyłącznie na tę
-    # referencję i podmieniamy ją; nie wykonujemy żadnych operacji Tk w tym wątku.
+    # gui_panel może być w trakcie importu. Wątek jedynie podmienia referencje
+    # funkcji; wszystkie operacje na widgetach wykonują dopiero ich wywołania
+    # w głównym wątku GUI.
     def patch_gui_panel_reference() -> None:
-        for _ in range(240):
+        for _ in range(480):
             module = sys.modules.get("gui_panel")
             if module is not None:
-                current = getattr(module, "clear_frame", None)
-                if callable(current):
+                clear_ref = getattr(module, "clear_frame", None)
+                run_ref = getattr(module, "uruchom_panel", None)
+                source_ref = getattr(module, "wm_set_module_source", None)
+
+                if callable(clear_ref):
                     try:
-                        setattr(module, "clear_frame", _wrap_clear_frame(current))
-                        print("[WM-WMM][GUI] Hook clear_frame gui_panel aktywny")
+                        setattr(module, "clear_frame", _wrap_clear_frame(clear_ref))
+                    except Exception:
+                        pass
+                if callable(run_ref):
+                    try:
+                        setattr(module, "uruchom_panel", _wrap_uruchom_panel(run_ref))
+                    except Exception:
+                        pass
+                if callable(source_ref):
+                    try:
+                        setattr(module, "wm_set_module_source", _wrap_module_source(source_ref))
+                    except Exception:
+                        pass
+
+                if callable(run_ref) and callable(source_ref):
+                    try:
+                        print("[WM-WMM][GUI] Hook Panelu głównego WMM aktywny")
                     except Exception:
                         pass
                     return
-            time.sleep(0.25)
+            time.sleep(0.05)
 
     threading.Thread(
         target=patch_gui_panel_reference,
