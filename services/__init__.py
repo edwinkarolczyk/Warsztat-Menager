@@ -7,11 +7,16 @@ idempotentny i nie blokuje GUI. Można go wyłączyć przez WM_DISABLE_WMM_API=1
 from __future__ import annotations
 
 import os
+import sys
 
 
 def _wmm_api_enabled() -> bool:
     value = str(os.environ.get("WM_DISABLE_WMM_API", "") or "").strip().lower()
-    return value not in {"1", "true", "yes", "on"}
+    if value in {"1", "true", "yes", "on"}:
+        return False
+    if "pytest" in sys.modules:
+        return False
+    return True
 
 
 if _wmm_api_enabled():
