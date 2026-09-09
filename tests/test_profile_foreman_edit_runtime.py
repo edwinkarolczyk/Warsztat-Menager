@@ -43,6 +43,9 @@ def test_profile_shift_mode_sync_patches_legacy_users_panel():
 
     shift_mode_runtime._patch_legacy_users_panel()
     assert tuple(legacy_users.SHIFT_MODE_CHOICES.values()) == tuple(shifts_schedule.TRYBY)
+    assert legacy_users._shift_mode_label_from_code("112") == dict(
+        shift_mode_runtime.SHIFT_MODE_OPTIONS
+    )["112"]
 
 
 def test_profile_shift_mode_labels_save_as_codes():
