@@ -5,9 +5,6 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-_HOOK_INSTALLED = False
-_ORIGINAL_FRAME_INIT = None
-
 
 def _panel_exists(root) -> bool:
     try:
@@ -143,48 +140,9 @@ def _build_panel(root, side) -> None:
         logger.exception("[WMM] Nie udało się zbudować panelu WMM w gui_panel")
 
 
-def install_gui_panel_hook() -> None:
-    """Podepnij WMM do tworzenia stałego sidebara bez używania wątku Tk.
-
-    Hook nie dotyka żadnego widgetu w tle. Rozpoznaje wyłącznie sidebar
-    gui_panel (WM.Side.TFrame, width=220), a sam panel jest budowany przez
-    after_idle w tym samym, głównym wątku Tk.
-    """
-    global _HOOK_INSTALLED, _ORIGINAL_FRAME_INIT
-    if _HOOK_INSTALLED:
-        return
-
-    try:
-        from tkinter import ttk
-    except Exception:
-        return
-
-    original = ttk.Frame.__init__
-    _ORIGINAL_FRAME_INIT = original
-
-    def frame_init(self, master=None, **kw):
-        # ttk.Frame.__init__ w Pythonie 3.13 przyjmuje tylko master + **kw.
-        # Nie przekazujemy dodatkowego pozycyjnego cnf, bo powoduje TypeError.
-        original(self, master, **kw)
-
-        if threading.current_thread() is not threading.main_thread():
-            return
-        style = str(kw.get("style") or "")
-        try:
-            width = int(kw.get("width") or 0)
-        except Exception:
-            width = 0
-        if style != "WM.Side.TFrame" or width != 220 or master is None:
-            return
-
-        try:
-            root = self.winfo_toplevel()
-            root.after_idle(lambda r=root, s=self: _build_panel(r, s))
-        except Exception:
-            logger.exception("[WMM] Nie udało się zaplanować panelu WMM")
-
-    ttk.Frame.__init__ = frame_init
-    _HOOK_INSTALLED = True
+def mount_wmm_panel(root, side) -> None:
+    """Osadź panel WMM w istniejącym sidebarze gui_panel."""
+    _build_panel(root, side)
 
 
-__all__ = ["install_gui_panel_hook"]
+__all__ = ["mount_wmm_panel"]
