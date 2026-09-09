@@ -265,6 +265,12 @@ def _install_workforce_extensions() -> None:
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] operational followup failed: {exc!r}")
 
+    try:
+        from profile_tree_autofit_runtime import install as install_tree_autofit
+        install_tree_autofit()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] tree autofit install failed: {exc!r}")
+
 
 def install() -> None:
     global _INSTALLED
