@@ -1,5 +1,6 @@
 # Minimalne zależności (rozszerzymy w razie potrzeb)
 pillow
+qrcode
 tk
 pandas
 openpyxl
