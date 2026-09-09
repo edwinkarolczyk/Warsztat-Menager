@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.3.1
 """Grupuje rzadziej używane zakładki Brygadzisty w jedną Administrację.
 
 Na głównym poziomie pozostają tylko codzienne widoki: Pulpit, Ruch WM,
@@ -210,6 +210,8 @@ def _build_feedback_tab(panel) -> None:
     action_var = tk.StringVar(value="✓ Oznacz jako zrobione")
     action_button = ttk.Button(actions, textvariable=action_var)
     action_button.pack(side="right", padx=(6, 0))
+    copy_button = ttk.Button(actions, text="Kopiuj opinię")
+    copy_button.pack(side="right", padx=(6, 0))
     refresh_button = ttk.Button(actions, text="Odśwież")
     refresh_button.pack(side="right", padx=(6, 0))
 
@@ -272,11 +274,13 @@ def _build_feedback_tab(panel) -> None:
         cached = _selected_cached()
         if cached is None:
             action_button.state(["disabled"])
+            copy_button.state(["disabled"])
             action_var.set("✓ Oznacz jako zrobione")
             selected_info_var.set("")
             return
 
         action_button.state(["!disabled"])
+        copy_button.state(["!disabled"])
         _iid, row = cached
         status = _feedback_status(row)
         if status == _FEEDBACK_DONE:
@@ -297,6 +301,7 @@ def _build_feedback_tab(panel) -> None:
             info_var.set(f"Błąd odczytu opinii: {exc}")
             selected_info_var.set("")
             action_button.state(["disabled"])
+            copy_button.state(["disabled"])
             return
 
         open_count = sum(1 for row in rows if _feedback_status(row) == _FEEDBACK_OPEN)
@@ -341,6 +346,7 @@ def _build_feedback_tab(panel) -> None:
         )
         selected_info_var.set("")
         action_button.state(["disabled"])
+        copy_button.state(["disabled"])
         action_var.set("✓ Oznacz jako zrobione")
 
         if select_iid is not None and tree.exists(select_iid):
@@ -348,6 +354,25 @@ def _build_feedback_tab(panel) -> None:
             tree.focus(select_iid)
             tree.see(select_iid)
             _update_selection_ui()
+
+    def _copy_selected() -> None:
+        cached = _selected_cached()
+        if cached is None:
+            return
+        _iid, row = cached
+        text = str(row.get("message") or "")
+        try:
+            panel.clipboard_clear()
+            panel.clipboard_append(text)
+            panel.update_idletasks()
+            selected_info_var.set("Skopiowano pełną treść opinii do schowka.")
+            panel.after(1200, _update_selection_ui)
+        except Exception as exc:
+            messagebox.showerror(
+                "Opinie",
+                f"Nie udało się skopiować opinii:\n{exc}",
+                parent=panel.winfo_toplevel(),
+            )
 
     def _toggle_status() -> None:
         cached = _selected_cached()
@@ -434,6 +459,7 @@ def _build_feedback_tab(panel) -> None:
         _refresh(select_iid=str(target_index))
 
     action_button.configure(command=_toggle_status)
+    copy_button.configure(command=_copy_selected)
     refresh_button.configure(command=_refresh)
     tree.bind("<<TreeviewSelect>>", _update_selection_ui)
 
