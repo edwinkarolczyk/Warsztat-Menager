@@ -44,7 +44,7 @@ def _schedule_popup(root) -> None:
     try:
         from .wmm_panel import show_wmm_popup
 
-        root.after(700, lambda r=root: show_wmm_popup(r))
+        root.after(250, lambda r=root: show_wmm_popup(r))
     except Exception as exc:
         try:
             print(f"[WM-WMM][GUI][WARN] Nie udało się zaplanować okna WMM: {exc}")
@@ -69,17 +69,57 @@ def _wrap_uruchom_panel(original):
     return uruchom_panel_with_wmm
 
 
+def _wrap_module_source(original):
+    """Awaryjnie pokaż WMM przy pierwszym realnym otwarciu modułu.
+
+    gui_panel bywa już w trakcie uruchamiania, gdy wątek instalacyjny zdąży
+    podmienić ``uruchom_panel``. ``wm_set_module_source`` jest natomiast wołane
+    chwilę później przez faktycznie otwierany moduł i działa w głównym wątku Tk.
+    """
+    if not callable(original):
+        return original
+    if getattr(original, "_wmm_popup_source_hook", False):
+        return original
+
+    @functools.wraps(original)
+    def wm_set_module_source_with_wmm(root, *args, **kwargs):
+        result = original(root, *args, **kwargs)
+        try:
+            if not getattr(root, "_wmm_popup_scheduled", False):
+                root._wmm_popup_scheduled = True
+                _schedule_popup(root)
+        except Exception:
+            pass
+        return result
+
+    wm_set_module_source_with_wmm._wmm_popup_source_hook = True  # type: ignore[attr-defined]
+    return wm_set_module_source_with_wmm
+
+
 def _install_wmm_popup_hook() -> None:
-    """Podepnij tylko uruchom_panel; bez hooków widgetów i sidebara."""
+    """Podepnij tylko bezpieczne funkcje gui_panel; bez hooków widgetów."""
 
     def patch_gui_panel_reference() -> None:
         for _ in range(480):
             module = sys.modules.get("gui_panel")
             if module is not None:
                 run_ref = getattr(module, "uruchom_panel", None)
+                source_ref = getattr(module, "wm_set_module_source", None)
+                patched = False
                 if callable(run_ref):
                     try:
                         setattr(module, "uruchom_panel", _wrap_uruchom_panel(run_ref))
+                        patched = True
+                    except Exception:
+                        pass
+                if callable(source_ref):
+                    try:
+                        setattr(module, "wm_set_module_source", _wrap_module_source(source_ref))
+                        patched = True
+                    except Exception:
+                        pass
+                if patched:
+                    try:
                         print("[WM-WMM][GUI] Hook okna WMM aktywny")
                     except Exception:
                         pass
