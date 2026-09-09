@@ -583,6 +583,9 @@ def _export_attendance_xlsx(path: str | Path, login: str, year: int, month: int)
     sm.column_dimensions["A"].width = 24
     sm.column_dimensions["B"].width = 16
 
+    from profile_attendance_export_runtime import _prepare_xlsx_for_print
+
+    _prepare_xlsx_for_print(wb)
     output.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output)
     return output

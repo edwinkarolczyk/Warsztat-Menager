@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date
-from pathlib import Path
 from typing import Any
 
 from services import attendance_service, leave_workflow_service, workforce_profile_service
@@ -135,38 +134,29 @@ def _attendance_export_rows(login: str, year: int, month: int) -> list[dict]:
     return out
 
 
-def _prepare_xlsx_for_print(path: str | Path) -> Path:
-    """Ustaw zapisany miesięczny Excel tak, aby dało się go od razu wydrukować."""
-    output = Path(path)
-    try:
-        from openpyxl import load_workbook
+def _prepare_xlsx_for_print(wb: Any) -> None:
+    """Ustaw wydruk na skoroszycie w pamięci, przed jego zapisem."""
+    ws = wb["Ewidencja"]
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "5:5"
+    ws.print_area = f"A1:J{ws.max_row}"
+    ws.print_options.horizontalCentered = True
+    ws.page_margins.left = 0.25
+    ws.page_margins.right = 0.25
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.5
 
-        wb = load_workbook(output)
-        ws = wb["Ewidencja"]
-        ws.page_setup.orientation = "landscape"
-        ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = 0
-        ws.sheet_properties.pageSetUpPr.fitToPage = True
-        ws.print_title_rows = "5:5"
-        ws.print_area = f"A1:J{ws.max_row}"
-        ws.print_options.horizontalCentered = True
-        ws.page_margins.left = 0.25
-        ws.page_margins.right = 0.25
-        ws.page_margins.top = 0.5
-        ws.page_margins.bottom = 0.5
-
-        if "Podsumowanie" in wb.sheetnames:
-            sm = wb["Podsumowanie"]
-            sm.page_setup.orientation = "portrait"
-            sm.page_setup.fitToWidth = 1
-            sm.page_setup.fitToHeight = 0
-            sm.sheet_properties.pageSetUpPr.fitToPage = True
-            sm.print_area = f"A1:B{sm.max_row}"
-            sm.print_options.horizontalCentered = True
-        wb.save(output)
-    except Exception as exc:
-        print(f"[WM-DBG][PROFILE][WARN] print-ready xlsx setup failed: {exc!r}")
-    return output
+    if "Podsumowanie" in wb.sheetnames:
+        sm = wb["Podsumowanie"]
+        sm.page_setup.orientation = "portrait"
+        sm.page_setup.fitToWidth = 1
+        sm.page_setup.fitToHeight = 0
+        sm.sheet_properties.pageSetUpPr.fitToPage = True
+        sm.print_area = f"A1:B{sm.max_row}"
+        sm.print_options.horizontalCentered = True
 
 
 def install() -> None:
@@ -177,14 +167,7 @@ def install() -> None:
         _INSTALLED = True
         return
 
-    original_export_xlsx = target._export_attendance_xlsx
-
-    def export_xlsx_print_ready(path: str | Path, login: str, year: int, month: int) -> Path:
-        output = original_export_xlsx(path, login, year, month)
-        return _prepare_xlsx_for_print(output)
-
     target._attendance_export_rows = _attendance_export_rows
-    target._export_attendance_xlsx = export_xlsx_print_ready
     target._wm_attendance_export_opt_v1 = True
     _INSTALLED = True
 
