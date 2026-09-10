@@ -51,13 +51,30 @@ Ten plik zapisuje ustalenia, które wpływają na sposób dalszego rozwoju. Jeż
 - Przy kolejnych poprawianych ekranach uwzględniamy wspólny mechanizm `!` przy istotnych polach, przyciskach i opcjach.
 - Tekst pomocy ma mieć maksymalnie dwa krótkie zdania i nie tworzymy osobnego mechanizmu dla każdego modułu.
 
+### DEC-009 — zakres bezpieczeństwa zapisu Maszyn w WM 1.0.1
+
+- Data: 2026-09-10
+- Powiązany fix: `WM10-001A`.
+- Decyzja użytkownika: naprawiamy wyłącznie fizyczne bezpieczeństwo wspólnego zapisu Maszyn WM <-> WMM, bez zmian UI i bez zmian modelu danych.
+- `data/maszyny/maszyny.json` ma wspólną blokadę między procesami WM i WMM.
+- WMM obejmuje blokadą cały cykl odczyt -> modyfikacja -> zapis maszyny.
+- Format JSON pozostaje bez zmian.
+- Wykrywanie stale-data/conflict przez `revision`/ETag i HTTP 409 pozostaje osobnym przyszłym zakresem i nie wchodzi do 1.0.1.
+
+### DEC-010 — jedno źródło technicznej wersji WM
+
+- Data: 2026-09-10
+- Technicznym źródłem prawdy numeru wersji aplikacji jest `__version__.py`.
+- Dla zakończonego fixa `WM10-001A` ustawiono `__version__ = "1.0.1"`.
+- Testy odwołujące się do konkretnej wersji muszą odpowiadać bieżącej wersji wydania.
+
 ## Otwarte pytania
 
 Tutaj zapisujemy pytania wymagające decyzji przed implementacją.
 
 | ID | Temat | Pytanie | Stan | Decyzja |
 |---|---|---|---|---|
-| Q-001 | Wersja aplikacji | Gdzie ma być jedno techniczne źródło numeru wersji WM, aby UI/build/logi nie rozjechały się między plikami? | OTWARTE | — |
+| Q-001 | Wersja aplikacji | Gdzie ma być jedno techniczne źródło numeru wersji WM, aby UI/build/logi nie rozjechały się między plikami? | ZAMKNIĘTE | `__version__.py` |
 | Q-002 | Konflikty WMM | Czy przy konflikcie 409 WMM ma tylko wymagać odświeżenia, czy pokazywać również porównanie „moja wersja / aktualna wersja”? | OTWARTE | — |
 | Q-003 | WMM użytkownik | Jak dokładnie identyfikujemy pracownika w historii zmian WMM: PIN/sesja WM, wybór użytkownika czy osobne logowanie mobilne? | OTWARTE | — |
 

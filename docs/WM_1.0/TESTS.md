@@ -22,6 +22,7 @@ Nie oznaczamy testu jako zaliczony bez wykonania go na aktualnej wersji. Na star
 | WM10-T013 | Zapis trafia wyłącznie do poprawnego WM_ROOT | DO TESTU |
 | WM10-T014 | Brak duplikatu po pojedynczej operacji użytkownika | DO TESTU |
 | WM10-T015 | Uszkodzony/niepełny zapis nie niszczy poprzedniej poprawnej wersji danych | DO TESTU |
+| WM10-T030 | Blokada zapisu Maszyn serializuje równoległe wejścia, a aktualizacja WMM zachowuje strukturę dokumentu i pozostałe rekordy | ZALICZONY — 1.0.1 CI |
 
 ## Moduły
 
@@ -48,6 +49,22 @@ Nie oznaczamy testu jako zaliczony bez wykonania go na aktualnej wersji. Na star
 | WMM-T007 | Ponowiony request nie tworzy duplikatu | DO TESTU |
 | WMM-T008 | WM desktop i WMM próbują zapisać ten sam obszar danych — brak utraty zmian/uszkodzenia JSON | DO TESTU |
 | WMM-T009 | Restart WM/API w trakcie pracy klienta kończy się kontrolowanym błędem i poprawnym stanem danych | DO TESTU |
+
+## Wynik CI dla WM 1.0.1
+
+Commit kodu: `c6cde038220aed2d92eccee877bb9168896f856c`.
+
+- `R07 Smoke` (`r07_smoke.yml`): **SUCCESS**.
+- `R08 Smoke`: **SUCCESS**.
+- Główny `R07 Smoke` (`ci.yml`): **SUCCESS**.
+- Kompilacja całego repo: **SUCCESS**.
+- Regresje Profil/obecności: **SUCCESS**.
+- ROOT i DATA_ROOT: **SUCCESS**.
+- Planista: **SUCCESS**.
+- Integracja hali i Maszyn, wraz z `tests/test_machine_file_guard.py`: **SUCCESS**.
+- Static checks: **SUCCESS**.
+
+Nie oznacza to jeszcze zaliczenia scenariusza rzeczywistych dwóch procesów WM/WMM edytujących ten sam rekord z różnymi wersjami danych. Ten scenariusz pozostaje do osobnego testu i przyszłej obsługi konfliktów `revision`/409.
 
 ## Warunek wydania
 
