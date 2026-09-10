@@ -1,5 +1,5 @@
-# version: 1.0
-"""Wspólna blokada pliku danych Maszyn dla WM desktop i WMM."""
+# version: 1.1
+"""Wspólne blokady plików danych dla WM desktop i WMM."""
 
 from __future__ import annotations
 
@@ -63,15 +63,16 @@ def _release_os_lock(handle) -> None:
 
 
 @contextmanager
-def machine_file_lock(
-    machine_json_path: str | os.PathLike[str],
+def file_write_lock(
+    target_path: str | os.PathLike[str],
     *,
     timeout: float = 10.0,
     poll_interval: float = 0.05,
+    label: str = "danych",
 ) -> Iterator[None]:
-    """Zablokuj zapis jednego ``maszyny.json`` między procesami WM/WMM."""
+    """Zablokuj zapis wskazanego zasobu między wątkami i procesami."""
 
-    target = Path(machine_json_path)
+    target = Path(target_path)
     lock_path = target.with_name(target.name + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -79,7 +80,7 @@ def machine_file_lock(
     wait_seconds = max(0.0, float(timeout))
     if not process_lock.acquire(timeout=wait_seconds):
         raise TimeoutError(
-            f"Przekroczono czas oczekiwania na zapis Maszyn: {target}"
+            f"Przekroczono czas oczekiwania na zapis {label}: {target}"
         )
 
     handle = None
@@ -93,7 +94,7 @@ def machine_file_lock(
                 break
             if time.monotonic() >= deadline:
                 raise TimeoutError(
-                    f"Przekroczono czas oczekiwania na blokadę Maszyn: {target}"
+                    f"Przekroczono czas oczekiwania na blokadę {label}: {target}"
                 )
             time.sleep(max(0.01, float(poll_interval)))
         yield
@@ -105,3 +106,21 @@ def machine_file_lock(
             finally:
                 handle.close()
         process_lock.release()
+
+
+@contextmanager
+def machine_file_lock(
+    machine_json_path: str | os.PathLike[str],
+    *,
+    timeout: float = 10.0,
+    poll_interval: float = 0.05,
+) -> Iterator[None]:
+    """Zablokuj zapis jednego ``maszyny.json`` między procesami WM/WMM."""
+
+    with file_write_lock(
+        machine_json_path,
+        timeout=timeout,
+        poll_interval=poll_interval,
+        label="Maszyn",
+    ):
+        yield
