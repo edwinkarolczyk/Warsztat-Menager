@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import logging
 import os
@@ -20,7 +21,7 @@ _THREAD: threading.Thread | None = None
 _LOCK = threading.Lock()
 _KEY_LOCK = threading.Lock()
 _KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-WMM_COMPAT_VERSION = "0.5.1"
+WMM_COMPAT_VERSION = "0.5.2"
 _SESSION_TTL_SECONDS = 90
 _SESSIONS: dict[str, dict[str, Any]] = {}
 _SESSIONS_LOCK = threading.Lock()
@@ -64,8 +65,13 @@ def _root_dir() -> Path:
     return Path.cwd().resolve()
 
 
+def _data_dir() -> Path:
+    root = _root_dir()
+    return root if root.name.casefold() == "data" else root / "data"
+
+
 def _pairing_file() -> Path:
-    return _root_dir() / "data" / "wmm" / "pairing.json"
+    return _data_dir() / "wmm" / "pairing.json"
 
 
 def _pairing_key() -> str:
@@ -105,6 +111,157 @@ def pairing_info() -> dict[str, Any]:
         "qr": f"WMM://CONNECT?host={ip}&port={_PORT}&key={key}",
         "wmm_version": WMM_COMPAT_VERSION,
     }
+
+
+def _read_json_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Nie można odczytać {path.name}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError(f"Plik {path.name} nie zawiera obiektu JSON.")
+    return value
+
+
+def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    temp = path.with_name(path.name + ".wmm.tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        os.replace(temp, path)
+    except OSError as exc:
+        try:
+            temp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise RuntimeError(f"Nie można zapisać {path.name}: {exc}") from exc
+
+
+def _planista_orders() -> list[dict[str, Any]]:
+    folder = _data_dir() / "zlecenia"
+    if not folder.is_dir():
+        raise RuntimeError("Brak katalogu data/zlecenia.")
+    rows: list[dict[str, Any]] = []
+    for path in sorted(folder.glob("*.json")):
+        if path.name.startswith("_"):
+            continue
+        try:
+            row = _read_json_object(path)
+        except RuntimeError:
+            logger.exception("[WMM API] pominięto uszkodzone zlecenie: %s", path)
+            continue
+        row.setdefault("id", path.stem)
+        rows.append(row)
+    return rows
+
+
+def _planista_products() -> list[dict[str, Any]]:
+    folder = _data_dir() / "produkty"
+    if not folder.is_dir():
+        raise RuntimeError("Brak katalogu data/produkty.")
+    rows: list[dict[str, Any]] = []
+    for path in sorted(folder.glob("*.json")):
+        try:
+            row = _read_json_object(path)
+        except RuntimeError:
+            logger.exception("[WMM API] pominięto uszkodzony produkt: %s", path)
+            continue
+        code = str(
+            row.get("kod")
+            or row.get("oznaczenie")
+            or row.get("symbol")
+            or path.stem
+        ).strip()
+        if not code:
+            continue
+        rows.append(
+            {
+                "kod": code,
+                "nazwa": str(row.get("nazwa") or code).strip(),
+                "version": row.get("version", row.get("wersja")),
+            }
+        )
+    return rows
+
+
+def _next_order_id() -> str:
+    folder = _data_dir() / "zlecenia"
+    numbers: list[int] = []
+    for path in folder.glob("*.json"):
+        try:
+            numbers.append(int(path.stem))
+        except ValueError:
+            continue
+    return f"{(max(numbers) + 1 if numbers else 1):06d}"
+
+
+def _create_planista_order(payload: dict[str, Any]) -> dict[str, Any]:
+    product_code = str(payload.get("product_code") or "").strip()
+    if not product_code:
+        raise RuntimeError("Wybierz produkt.")
+    products = {str(item.get("kod") or ""): item for item in _planista_products()}
+    if product_code not in products:
+        raise RuntimeError(f"Brak produktu WM: {product_code}")
+    try:
+        quantity = float(payload.get("quantity"))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("Ilość musi być liczbą.") from exc
+    if quantity <= 0:
+        raise RuntimeError("Ilość musi być większa od zera.")
+
+    external_no = str(payload.get("external_no") or "").strip()
+    if external_no:
+        wanted = external_no.casefold()
+        product_wanted = product_code.casefold()
+        for existing in _planista_orders():
+            if (
+                str(existing.get("zlec_wew") or "").strip().casefold() == wanted
+                and str(existing.get("produkt") or "").strip().casefold() == product_wanted
+            ):
+                raise RuntimeError(
+                    "Istnieje już zlecenie z tym samym Zleceniem wew i Produktem."
+                )
+
+    order_id = _next_order_id()
+    now = datetime.now()
+    product = products[product_code]
+    order: dict[str, Any] = {
+        "id": order_id,
+        "produkt": product_code,
+        "ilosc": quantity,
+        "wykonano": 0.0,
+        "status": "nowe",
+        "termin": str(payload.get("due_date") or "").strip(),
+        "rzaz_mm": 2.0,
+        "utworzono": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "uwagi": str(payload.get("notes") or ""),
+        "plan_polprodukty": {},
+        "zapotrzebowanie_surowce": {},
+        "rezerwacje_polprodukty": {},
+        "rezerwacje_surowce": {},
+        "materialy_zarezerwowane": False,
+        "historia": [
+            {
+                "kiedy": now.isoformat(timespec="seconds"),
+                "kto": "WMM",
+                "co": "utworzenie",
+            }
+        ],
+    }
+    version = product.get("version")
+    if version not in (None, ""):
+        order["version"] = version
+    if external_no:
+        order["zlec_wew"] = external_no
+
+    target = _data_dir() / "zlecenia" / f"{order_id}.json"
+    if target.exists():
+        raise RuntimeError(f"Plik {target.name} już istnieje.")
+    _write_json_atomic(target, order)
+    return order
 
 
 def _prune_sessions(now: float | None = None) -> None:
@@ -171,7 +328,7 @@ def mobile_status() -> dict[str, Any]:
 
 
 class _WmmHandler(BaseHTTPRequestHandler):
-    server_version = "WarsztatMenagerWMM/1.2"
+    server_version = "WarsztatMenagerWMM/1.3"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         logger.debug("[WMM API] " + fmt, *args)
@@ -199,8 +356,23 @@ class _WmmHandler(BaseHTTPRequestHandler):
         except Exception:
             return {}
 
+    def _has_pairing_key(self) -> bool:
+        supplied = str(
+            self.headers.get("X-WMM-Key")
+            or self.headers.get("X-Cidex-Token")
+            or ""
+        ).strip().upper()
+        return bool(supplied) and secrets.compare_digest(supplied, _pairing_key())
+
+    def _require_pairing_key(self) -> bool:
+        if self._has_pairing_key():
+            return True
+        self._send(401, {"ok": False, "error": "Brak lub błędny klucz połączenia WMM."})
+        return False
+
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/health":
+        path = self.path.split("?", 1)[0]
+        if path == "/health":
             self._send(
                 200,
                 {
@@ -211,7 +383,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                 },
             )
             return
-        if self.path == "/api/v1/info":
+        if path == "/api/v1/info":
             self._send(
                 200,
                 {
@@ -220,18 +392,43 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     "api_version": "1",
                     "wmm": True,
                     "wmm_version": WMM_COMPAT_VERSION,
+                    "features": {
+                        "planista_read": True,
+                        "planista_create": True,
+                    },
                 },
             )
             return
-        if self.path == "/api/v1/pairing":
+        if path == "/api/v1/pairing":
             self._send(200, {"ok": True, **pairing_info()})
+            return
+        if path == "/api/v1/planista/orders":
+            if not self._require_pairing_key():
+                return
+            try:
+                rows = _planista_orders()
+            except RuntimeError as exc:
+                self._send(400, {"ok": False, "error": str(exc)})
+                return
+            self._send(200, {"ok": True, "count": len(rows), "items": rows})
+            return
+        if path == "/api/v1/planista/products":
+            if not self._require_pairing_key():
+                return
+            try:
+                rows = _planista_products()
+            except RuntimeError as exc:
+                self._send(400, {"ok": False, "error": str(exc)})
+                return
+            self._send(200, {"ok": True, "count": len(rows), "items": rows})
             return
         self._send(404, {"ok": False, "error": "Nie znaleziono endpointu."})
 
     def do_POST(self) -> None:  # noqa: N802
+        path = self.path.split("?", 1)[0]
         payload = self._read_json()
 
-        if self.path == "/api/v1/mobile/heartbeat":
+        if path == "/api/v1/mobile/heartbeat":
             session_id = str(payload.get("session_id", "") or "").strip()
             user = _touch_session(session_id)
             if user is None:
@@ -240,13 +437,24 @@ class _WmmHandler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True, "user": user})
             return
 
-        if self.path == "/api/v1/auth/logout":
+        if path == "/api/v1/auth/logout":
             session_id = str(payload.get("session_id", "") or "").strip()
             _drop_session(session_id)
             self._send(200, {"ok": True})
             return
 
-        if self.path != "/api/v1/auth/login":
+        if path == "/api/v1/planista/orders":
+            if not self._require_pairing_key():
+                return
+            try:
+                order = _create_planista_order(payload)
+            except RuntimeError as exc:
+                self._send(400, {"ok": False, "error": str(exc)})
+                return
+            self._send(201, {"ok": True, "item": order})
+            return
+
+        if path != "/api/v1/auth/login":
             self._send(404, {"ok": False, "error": "Nie znaleziono endpointu."})
             return
 
