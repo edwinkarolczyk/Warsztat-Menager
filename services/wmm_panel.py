@@ -257,11 +257,39 @@ def show_wmm_popup(root) -> None:
         popup.configure(bg="#171A1D")
         _center_window(popup, root, 390, 565)
 
-        def close_popup() -> None:
-            try:
+        pending_timers: set[str] = set()
+        closed = False
+
+        def schedule(delay, callback) -> None:
+            if closed:
+                return
+
+            def run() -> None:
+                pending_timers.discard(timer_id)
+                if not closed:
+                    callback()
+
+            timer_id = popup.after(delay, run)
+            pending_timers.add(timer_id)
+
+        def cancel_timers(event=None) -> None:
+            nonlocal closed
+            if event is not None and event.widget is not popup:
+                return
+            closed = True
+            for timer_id in tuple(pending_timers):
+                try:
+                    popup.after_cancel(timer_id)
+                except tk.TclError:
+                    pass
+            pending_timers.clear()
+            if getattr(root, "_wmm_popup", None) is popup:
                 root._wmm_popup = None
-            except Exception:
-                pass
+
+        popup.bind("<Destroy>", cancel_timers, add="+")
+
+        def close_popup() -> None:
+            cancel_timers()
             try:
                 popup.destroy()
             except Exception:
@@ -386,16 +414,16 @@ def show_wmm_popup(root) -> None:
                     presence_var.set("Brak zalogowanych WMM")
                     presence_label.configure(fg="#9AA0A6")
                 _update_footer(root)
-                popup.after(2000, refresh_presence)
+                schedule(2000, refresh_presence)
             except Exception:
                 logger.exception("[WMM] Błąd odświeżania okna połączenia")
 
         _update_footer(root)
-        popup.after(500, refresh_presence)
+        schedule(500, refresh_presence)
         popup.lift()
         try:
             popup.attributes("-topmost", True)
-            popup.after(250, lambda: popup.attributes("-topmost", False))
+            schedule(250, lambda: popup.attributes("-topmost", False))
         except Exception:
             pass
         print("[WM-WMM][GUI] Otwarto okno połączenia WMM")
