@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.13.2",
-  "updated": "2026-09-09",
+  "wm_version": "0.13.3",
+  "updated": "2026-09-10",
   "slides": [
     {
       "module": "Start",
@@ -17,6 +17,18 @@
       "tip": "W nagłówku samouczka widzisz bieżącą wersję WM oraz datę ostatniej aktualizacji instrukcji."
     },
     {
+      "module": "Logowanie",
+      "title": "Logowanie samym PIN-em",
+      "lead": "Na ekranie Gościa nie musisz wybierać loginu. WM rozpoznaje aktywnego użytkownika po jego unikalnym PIN-ie albo haśle.",
+      "steps": [
+        "W nagłówku znajdź pole PIN obok przycisku Zaloguj.",
+        "Wpisz swój PIN i kliknij Zaloguj.",
+        "WM rozpozna użytkownika, zapisze aktywną sesję oraz — jeśli logowanie przypada na zmianę RANO lub POPO — odnotuje wejście w Obecności.",
+        "Po poprawnym logowaniu zobaczysz informację o aktywnym użytkowniku i możesz przejść do swoich modułów."
+      ],
+      "tip": "PIN powinien być unikalny dla aktywnego użytkownika. Jeśli ten sam PIN ma więcej niż jedna aktywna osoba, WM przerwie logowanie i poprosi o uporządkowanie danych."
+    },
+    {
       "module": "Panel główny",
       "title": "Otwieranie modułu",
       "lead": "Moduły WM otwierasz z lewego panelu.",
@@ -28,6 +40,19 @@
       "tip": "Samouczek jest osobnym przyciskiem pod modułami i nie bierze udziału w ich uprawnieniach."
     },
     {
+      "module": "WMM",
+      "title": "Połączenie Warsztat Menager Mobile",
+      "lead": "Po pierwszym otwarciu panelu modułu WM pokazuje okno połączenia WMM z kodem QR i aktualnym stanem API.",
+      "steps": [
+        "Otwórz pierwszy moduł po uruchomieniu WM. Pojawi się okno Warsztat Menager Mobile — połączenie.",
+        "Sprawdź zielony komunikat API aktywne oraz widoczne dane hosta, portu, klucza i zgodnej wersji WMM.",
+        "W aplikacji WMM zeskanuj kod QR z okna WM, aby pobrać dane połączenia.",
+        "Jeżeli nie możesz skanować QR, kliknij Kopiuj dane i wykorzystaj skopiowane dane połączenia.",
+        "Po zalogowaniu telefonu okno pokaże pod QR połączonych użytkowników WMM. Kliknij Zamknij, gdy nie potrzebujesz już danych parowania."
+      ],
+      "tip": "! Dane parowania służą do połączenia aplikacji WMM z tym konkretnym WM_ROOT. WMM loguje użytkownika jego PIN-em, a WM nie pokazuje PIN-u w danych połączenia."
+    },
+    {
       "module": "Dyspozycje",
       "title": "Dodawanie dyspozycji",
       "lead": "Nową dyspozycję tworzysz z poziomu modułu Dyspozycje.",
@@ -35,9 +60,10 @@
         "Kliknij Dyspozycje w lewym panelu.",
         "Kliknij Dodaj Dyspozycję.",
         "Wybierz typ i obiekt, uzupełnij termin oraz opis zadania.",
-        "Kliknij Zapisz. Nowa dyspozycja pojawi się na liście."
+        "Kliknij Zapisz. Nowa dyspozycja pojawi się na liście.",
+        "Na liście odczytuj czytelne nazwy typów, priorytetów i statusów. Dla Narzędzi i Maszyn WM pokazuje bieżący status obiektu, a przy terminie informację np. dziś, jutro albo ile dni pozostało."
       ],
-      "tip": "Jeśli przy polu widzisz !, użyj go przed zapisem — podpowiedź wyjaśnia znaczenie pola w maksymalnie dwóch krótkich zdaniach."
+      "tip": "! Obiekt może być pokazany jako ID wraz z czytelną nazwą. Prezentacja nie zmienia danych dyspozycji — ułatwia tylko ich odczytanie."
     },
     {
       "module": "Narzędzia",
@@ -90,15 +116,41 @@
     },
     {
       "module": "Profil brygadzisty",
+      "title": "Administracja profili",
+      "lead": "Rzadziej używane funkcje Brygadzisty są zgrupowane w jednej zakładce Administracja, żeby codzienny widok Profilu był prostszy.",
+      "steps": [
+        "Otwórz Profil jako Brygadzista.",
+        "Do codziennej pracy używaj głównych zakładek Pulpit, Zespół, Obecność i Urlopy.",
+        "Kliknij Administracja, gdy potrzebujesz zarządzania kontami, Opinii albo Statystyk.",
+        "W Administracji wybierz odpowiednią wewnętrzną zakładkę i wykonaj potrzebną operację."
+      ],
+      "tip": "! przy Administracji wyjaśnia, że Użytkownicy, Opinie i Statystyki są zebrane w jednym miejscu. Nie są usunięte — tylko przeniesione z głównego poziomu Profilu."
+    },
+    {
+      "module": "Profil brygadzisty → Administracja",
+      "title": "Obsługa Opinii",
+      "lead": "Zakładka Opinie służy do przeglądania zgłoszeń przesłanych z modułu Wyślij opinię i oznaczania, które zostały już obsłużone.",
+      "steps": [
+        "Otwórz Profil → Brygadzista → Administracja → Opinie.",
+        "Wybierz filtr Otwarte, Zrobione albo Wszystkie. Nad tabelą zobaczysz też liczbę wszystkich opinii, pozycji do zrobienia i zrobionych.",
+        "Zaznacz opinię. Tabela pokazuje datę, login, rolę, status oraz pełną treść rozłożoną czytelnie na wiersze.",
+        "Kliknij Kopiuj opinię, jeśli chcesz przenieść pełną treść do schowka.",
+        "Po wykonaniu sprawy kliknij ✓ Oznacz jako zrobione. WM zapisze, kto i kiedy zamknął opinię.",
+        "Jeśli zamknięcie było pomyłką, wybierz opinię w Zrobione lub Wszystkie i kliknij ↶ Przywróć do otwartych."
+      ],
+      "tip": "! Status nie usuwa opinii. Zrobione zgłoszenia pozostają w historii i można je później przywrócić do otwartych."
+    },
+    {
+      "module": "Profil brygadzisty",
       "title": "Edycja danych pracownika",
       "lead": "Brygadzista może edytować profil pracownika bez zmiany jego stałego User ID.",
       "steps": [
-        "Otwórz listę pracowników i wybierz osobę do edycji.",
+        "Otwórz Profil → Brygadzista → Administracja → Użytkownicy i wybierz osobę do edycji.",
         "Wejdź w edycję profilu. Dostępne są zwykłe zakładki m.in. Podstawowe, Obecność, Urlopy, Grafik, Historia i Uprawnienia.",
         "W zakładce Podstawowe popraw login, imię, nazwisko, rolę, status, daty zatrudnienia, telefon albo e-mail.",
         "Kliknij Zapisz dane. WM zachowa stały User ID i zapisze zmianę w historii."
       ],
-      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są teraz normalnymi zakładkami — nie trzeba ich szukać pod Więcej."
+      "tip": "! przy User ID przypomina, że to techniczny, stały identyfikator pracownika. Historia i Uprawnienia są normalnymi zakładkami edytora pracownika."
     },
     {
       "module": "Profil brygadzisty",
@@ -185,8 +237,8 @@
       "title": "Ustawianie grafiku pracownika",
       "lead": "Grafik pracownika ma własny tryb i własną datę kotwiczną. Te same ustawienia są wykorzystywane przez Obecność i Kalendarz.",
       "steps": [
-        "Otwórz Ustawienia i przejdź do Użytkowników albo otwórz edycję pracownika z Profilu brygadzisty.",
-        "Wybierz pracownika i przejdź do jego ustawień Grafiku.",
+        "Otwórz Profil → Brygadzista → Administracja → Użytkownicy i wybierz pracownika.",
+        "Przejdź do jego ustawień Grafiku.",
         "Wybierz tryb zmian: 111 = I / I / I, 112 = I / I / II, 222 = II / II / II, 121 = I / II / I albo 212 = II / I / II.",
         "Ustaw datę kotwiczną pracownika oraz Dni pracy. Dzień wyłączony jest traktowany jako Wolne i nie powinien tworzyć zwykłego braku obecności.",
         "Zapisz profil. Po trzecim tygodniu wzorzec zmian zaczyna się od początku."
@@ -198,12 +250,12 @@
       "title": "Reset PIN pracownika",
       "lead": "Brygadzista nie odczytuje starego PIN-u — może ustawić nowy.",
       "steps": [
-        "Otwórz listę Użytkowników i zaznacz pracownika.",
+        "Otwórz Profil → Brygadzista → Administracja → Użytkownicy i zaznacz pracownika.",
         "Kliknij Resetuj PIN.",
         "Wpisz nowy PIN, a następnie wpisz go ponownie.",
         "Po zgodnym potwierdzeniu WM zapisze nowy PIN i odnotuje operację w historii."
       ],
-      "tip": "! przy resecie PIN przypomina, że istniejący PIN nie jest wyświetlany. Nowy PIN musi mieć co najmniej 4 cyfry."
+      "tip": "! przy resecie PIN przypomina, że istniejący PIN nie jest wyświetlany. Nowy PIN musi mieć co najmniej 4 cyfry i powinien być unikalny."
     },
     {
       "module": "Profil brygadzisty",
@@ -215,7 +267,7 @@
         "Kliknij Uprawnienia, gdy chcesz sprawdzić albo zmienić indywidualny dostęp pracownika do modułów.",
         "Po wykonaniu korekty wróć do Historii lub ją odśwież, aby sprawdzić najnowszy wpis audytowy."
       ],
-      "tip": "Historia zachowuje ślad wcześniejszych zmian. Nie trzeba już otwierać Historii ani Uprawnień przez zakładkę Więcej."
+      "tip": "Historia zachowuje ślad wcześniejszych zmian. Nie trzeba otwierać Historii ani Uprawnień przez dodatkowe menu."
     },
     {
       "module": "Profil brygadzisty",
