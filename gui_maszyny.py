@@ -1,4 +1,6 @@
-# version: 2.5
+# version: 2.6
+# Zmiany 2.6:
+# - Zapis Maszyn z desktopowego WM korzysta ze wspólnej blokady pliku z WMM.
 """Bezpieczny punkt wejścia modułu Maszyny z warstwowym rozszerzeniem hali.
 
 Oryginalna, działająca implementacja Maszyn pozostaje bez zmian w
@@ -11,6 +13,7 @@ from __future__ import annotations
 import sys
 
 import gui_maszyny_legacy as _legacy
+from machine_file_guard import machine_file_lock as _machine_file_lock
 from machine_card_root_runtime import (
     install_machine_cards_root_path as _install_machine_cards_root_path,
 )
@@ -31,6 +34,17 @@ from widok_hali.machine_drag_location_feedback import (
     install_machine_drag_location_feedback as _install_machine_drag_location_feedback,
 )
 from machine_location_filter_runtime import install as _install_machine_location_filter
+
+
+if not getattr(_legacy, "_WM10_MACHINE_FILE_GUARD", False):
+    _original_save_machines = _legacy._save_machines
+
+    def _guarded_save_machines(primary_path: str, rows: list[dict]) -> bool:
+        with _machine_file_lock(primary_path):
+            return bool(_original_save_machines(primary_path, rows))
+
+    _legacy._save_machines = _guarded_save_machines
+    _legacy._WM10_MACHINE_FILE_GUARD = True
 
 _install_machine_cards_root_path()
 _install_machine_rooms(_legacy)
