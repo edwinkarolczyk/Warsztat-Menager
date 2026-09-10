@@ -1,10 +1,12 @@
-# version: 1.9.7
+# version: 1.9.8
 """Aktywny Profil WM z Kalendarzem i panelem Brygadzisty.
 
 Diagnostyka wydajności Profilu korzysta z ``wm_perf`` i wypisuje do konsoli
 czas każdego ważnego etapu budowy, odświeżenia oraz leniwego ładowania zakładek.
 Od 1.9.7 powtórne ``load_by_login`` dla już zbudowanego tego samego profilu nie
-niszczy i nie buduje całego widoku drugi raz.
+niszczy i nie buduje całego widoku drugi raz. Od 1.9.8 panel Brygadzisty jest
+przygotowywany po pierwszym renderze Profilu przez ``after_idle()``, dzięki czemu
+pierwsze kliknięcie zakładki nie uruchamia dopiero kosztownego budowania panelu.
 """
 from __future__ import annotations
 
@@ -506,6 +508,13 @@ class ProfileView(_BaseProfileView):
                 if state["foreman"]:
                     perf("PROFILE_LAZY_FOREMAN SKIP already_loaded=True")
                     return
+                try:
+                    if not foreman_tab.winfo_exists():
+                        perf("PROFILE_LAZY_FOREMAN SKIP widget_destroyed=True")
+                        return
+                except Exception:
+                    perf("PROFILE_LAZY_FOREMAN SKIP widget_destroyed=True")
+                    return
                 lazy_flow = PerfFlow("PROFILE_LAZY_FOREMAN")
                 state["foreman"] = True
                 try:
@@ -557,6 +566,11 @@ class ProfileView(_BaseProfileView):
                 else:
                     notebook.select(profile_tab)
             flow.mark(f"selection_ready:{previous}")
+
+            if is_foreman and previous != "Brygadzista":
+                with perf_span("PROFILE_RENDER_BODY:schedule_foreman_warmup"):
+                    notebook.after_idle(ensure_foreman)
+                perf("PROFILE_FOREMAN_WARMUP scheduled=after_idle")
         finally:
             flow.end()
 
