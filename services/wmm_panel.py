@@ -16,6 +16,18 @@ def _update_footer(root) -> None:
             f"Warsztat Menager v{wm_version} | "
             f"Kompatybilne z WMM v{WMM_COMPAT_VERSION}"
         )
+        cached = getattr(root, "_wmm_footer_widgets", ())
+        if cached:
+            try:
+                if all(widget.winfo_exists() for widget in cached):
+                    for widget in cached:
+                        if widget.cget("text") != wanted:
+                            widget.configure(text=wanted)
+                    return
+            except Exception:
+                pass
+        root._wmm_footer_widgets = ()
+        found = []
         queue = [root]
         while queue:
             widget = queue.pop(0)
@@ -27,11 +39,15 @@ def _update_footer(root) -> None:
                 text = str(widget.cget("text") or "")
             except Exception:
                 continue
-            if text.startswith("Warsztat Menager v") and text != wanted:
+            if text.startswith("Warsztat Menager v"):
+                found.append(widget)
+                if text == wanted:
+                    continue
                 try:
                     widget.configure(text=wanted)
                 except Exception:
                     pass
+        root._wmm_footer_widgets = tuple(found)
     except Exception:
         logger.exception("[WMM] Nie udało się uzupełnić stopki WM")
 
