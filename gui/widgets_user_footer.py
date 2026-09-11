@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 """Widgets related to the user footer (tasks + shift progress)."""
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from typing import Dict, Iterable, List, Tuple
 import tkinter as tk
 from tkinter import ttk
 
+from grafiki import shifts_schedule
 from logger import log_akcja
 from profile_tasks import get_tasks_for as _profile_get_tasks
 
@@ -227,18 +228,23 @@ def _build_tasks_tile(parent: tk.Widget, login: str) -> ttk.Frame:
 
 def _shift_bounds(moment: datetime) -> Tuple[datetime, datetime, str]:
     date_ref = moment.date()
-    start_day = datetime.combine(date_ref, datetime.min.time(), tzinfo=moment.tzinfo)
-    early = start_day.replace(hour=6, minute=0)
-    mid = start_day.replace(hour=14, minute=0)
-    night_start = start_day.replace(hour=22, minute=0)
+    times = shifts_schedule._shift_times()
+
+    def _at(day, value):
+        return datetime.combine(day, value).replace(tzinfo=moment.tzinfo)
+
+    early = _at(date_ref, times["R_START"])
+    mid = _at(date_ref, times["P_START"])
+    night_start = _at(date_ref, times["P_END"])
     if moment < early:
-        prev = start_day - timedelta(days=1)
-        return prev.replace(hour=22), early, "NOC"
+        prev = date_ref - timedelta(days=1)
+        return _at(prev, times["P_END"]), early, "NOC"
     if moment < mid:
-        return early, mid, "RANO"
+        return early, _at(date_ref, times["R_END"]), "RANO"
     if moment < night_start:
         return mid, night_start, "POŁUDNIE"
-    return night_start, (night_start + timedelta(hours=8)), "NOC"
+    next_day = date_ref + timedelta(days=1)
+    return night_start, _at(next_day, times["R_START"]), "NOC"
 
 
 def _shift_progress(now: datetime) -> Tuple[int, bool]:
