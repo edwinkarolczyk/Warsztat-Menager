@@ -2,8 +2,8 @@
   "format_version": 1,
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
-  "wm_version": "0.13.3",
-  "updated": "2026-09-10",
+  "wm_version": "1.0.2",
+  "updated": "2026-09-11",
   "slides": [
     {
       "module": "Start",
@@ -41,16 +41,19 @@
     },
     {
       "module": "WMM",
-      "title": "Połączenie Warsztat Menager Mobile",
-      "lead": "Po pierwszym otwarciu panelu modułu WM pokazuje okno połączenia WMM z kodem QR i aktualnym stanem API.",
+      "title": "Połączenie i praca z Warsztat Menager Mobile",
+      "lead": "Po pierwszym otwarciu panelu modułu WM pokazuje okno połączenia WMM z kodem QR i aktualnym stanem API. Po sparowaniu telefon korzysta z danych tego samego WM_ROOT.",
       "steps": [
         "Otwórz pierwszy moduł po uruchomieniu WM. Pojawi się okno Warsztat Menager Mobile — połączenie.",
         "Sprawdź zielony komunikat API aktywne oraz widoczne dane hosta, portu, klucza i zgodnej wersji WMM.",
-        "W aplikacji WMM zeskanuj kod QR z okna WM, aby pobrać dane połączenia.",
-        "Jeżeli nie możesz skanować QR, kliknij Kopiuj dane i wykorzystaj skopiowane dane połączenia.",
-        "Po zalogowaniu telefonu okno pokaże pod QR połączonych użytkowników WMM. Kliknij Zamknij, gdy nie potrzebujesz już danych parowania."
+        "W aplikacji WMM zeskanuj kod QR z okna WM, aby pobrać dane połączenia. Jeżeli nie możesz skanować QR, kliknij Kopiuj dane.",
+        "Zaloguj się w WMM. Okno WM pokaże pod QR połączonych użytkowników; lista odświeża się automatycznie.",
+        "W WMM możesz odczytywać Planistę, Maszyny, Narzędzia, Dyspozycje i Magazyn. Kod QR maszyny lub narzędzia może otworzyć właściwy obiekt po jego istniejącym identyfikatorze.",
+        "W Maszynach możesz przez WMM zmienić status, dodać uwagę albo zdjęcie. W Narzędziach możesz zmienić status albo dodać zdjęcie.",
+        "W Planista możesz utworzyć nowe zlecenie, a w Dyspozycjach zmienić obsługiwany przez WMM status. Magazyn jest udostępniony mobilnie do odczytu.",
+        "Kliknij Zamknij w oknie połączenia WM, gdy nie potrzebujesz już danych parowania."
       ],
-      "tip": "! Dane parowania służą do połączenia aplikacji WMM z tym konkretnym WM_ROOT. WMM loguje użytkownika jego PIN-em, a WM nie pokazuje PIN-u w danych połączenia."
+      "tip": "! Zdjęcie wysyłane z WMM może mieć maksymalnie 20 MB. Operacje mobilne zapisują autora wynikającego z zalogowanej sesji WMM i korzystają z zabezpieczonych zapisów w tym samym WM_ROOT."
     },
     {
       "module": "Dyspozycje",
