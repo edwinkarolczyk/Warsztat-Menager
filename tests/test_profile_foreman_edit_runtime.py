@@ -24,7 +24,7 @@ def test_profile_release_is_current():
 def test_profile_shift_modes_match_engine_and_add_dialog():
     expected_codes = tuple(code for code, _label in shift_mode_runtime.SHIFT_MODE_OPTIONS)
     assert expected_codes == tuple(shifts_schedule.TRYBY)
-    assert expected_codes == ("111", "112", "222", "121", "212")
+    assert expected_codes == ("11", "22", "12", "21")
 
     import ustawienia_uzytkownicy as settings_profiles
 
@@ -33,9 +33,9 @@ def test_profile_shift_modes_match_engine_and_add_dialog():
 
 
 def test_profile_shift_mode_options_are_built_from_engine(monkeypatch):
-    monkeypatch.setattr(shifts_schedule, "TRYBY", ["111", "112", "212"])
+    monkeypatch.setattr(shifts_schedule, "TRYBY", ["11", "12", "21"])
     options = shift_mode_runtime._build_shift_mode_options()
-    assert tuple(code for code, _label in options) == ("111", "112", "212")
+    assert tuple(code for code, _label in options) == ("11", "12", "21")
 
 
 def test_profile_shift_mode_sync_patches_legacy_users_panel():
@@ -45,17 +45,19 @@ def test_profile_shift_mode_sync_patches_legacy_users_panel():
     assert tuple(legacy_users.SHIFT_MODE_CHOICES.values()) == tuple(shifts_schedule.TRYBY)
     assert legacy_users._shift_mode_label_from_code("112") == dict(
         shift_mode_runtime.SHIFT_MODE_OPTIONS
-    )["112"]
+    )["12"]
 
 
 def test_profile_shift_mode_labels_save_as_codes():
     labels = dict(shift_mode_runtime.SHIFT_MODE_OPTIONS)
-    assert shift_mode_runtime._mode_code(labels["111"]) == "111"
-    assert shift_mode_runtime._mode_code(labels["112"]) == "112"
-    assert shift_mode_runtime._mode_code(labels["222"]) == "222"
-    assert shift_mode_runtime._mode_code(labels["121"]) == "121"
-    assert shift_mode_runtime._mode_code(labels["212"]) == "212"
-    assert shift_mode_runtime._mode_label("112") == labels["112"]
+    assert shift_mode_runtime._mode_code(labels["11"]) == "11"
+    assert shift_mode_runtime._mode_code(labels["22"]) == "22"
+    assert shift_mode_runtime._mode_code(labels["12"]) == "12"
+    assert shift_mode_runtime._mode_code(labels["21"]) == "21"
+    assert shift_mode_runtime._mode_code("121") == "12"
+    assert shift_mode_runtime._mode_code("212") == "21"
+    assert shift_mode_runtime._mode_code("112") == "12"
+    assert shift_mode_runtime._mode_label("112") == labels["12"]
 
 
 def test_carryover_keeps_source_years():
