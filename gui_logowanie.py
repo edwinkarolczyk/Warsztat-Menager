@@ -300,6 +300,13 @@ def _parse_ts_z(s: str):
         return None
 
 
+def _canonical_shift_hours(func):
+    """Oznacz resolver jako kanoniczny, aby stary runtime Profilu go nie nadpisał."""
+    func._wm_workforce_hours = True
+    return func
+
+
+@_canonical_shift_hours
 def _slot_now(now: datetime):
     times = shifts_schedule._shift_times()
     t = now.time()
