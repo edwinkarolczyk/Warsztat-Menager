@@ -175,16 +175,12 @@ def _install_cached_editor_refresh() -> None:
                 if editor.winfo_exists():
                     editor.model = GMB.WarehouseModel()
                     editor._kind_dimension_modes = {
-                        str(item["nazwa"]): str(
-                            item.get("pole") or "wymiar"
-                        ).casefold()
+                        str(item["nazwa"]): str(item.get("pole") or "wymiar").casefold()
                         for item in editor.model.raw_kinds
                         if isinstance(item, dict) and item.get("nazwa")
                     }
                     if hasattr(editor, "s_kind_combo"):
-                        editor.s_kind_combo.configure(
-                            values=tuple(editor._kind_dimension_modes)
-                        )
+                        editor.s_kind_combo.configure(values=tuple(editor._kind_dimension_modes))
             except Exception:
                 pass
         return current(self, label)
@@ -208,9 +204,7 @@ def _install_live_reservation_state() -> None:
         def effective(code, own):
             try:
                 rec = LM.get_item(code) or {}
-                total_now = max(
-                    0.0, float(rec.get("rezerwacje", 0) or 0)
-                )
+                total_now = max(0.0, float(rec.get("rezerwacje", 0) or 0))
             except Exception:
                 total_now = 0.0
             return min(max(0.0, float(own or 0)), total_now)
@@ -296,9 +290,7 @@ def _install_full_transactions() -> None:
             with order_create_lock(ZL._data_dir()):
                 warehouse = _canonical_warehouse_snapshot()
                 disp_path, disp_snapshot = _disposition_snapshot()
-                before = {
-                    p.name for p in ZL._orders_dir().glob("*.json")
-                }
+                before = {p.name for p in ZL._orders_dir().glob("*.json")}
                 try:
                     return current_create(*args, **kwargs)
                 except Exception:

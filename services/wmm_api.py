@@ -47,11 +47,7 @@ def _strict_wmm_root_dir() -> Path:
         pointer = wm_root_paths.root_file_path()
         if pointer.is_file():
             payload = json.loads(pointer.read_text(encoding="utf-8"))
-            configured = (
-                str(payload.get("root") or "").strip()
-                if isinstance(payload, dict)
-                else ""
-            )
+            configured = str(payload.get("root") or "").strip() if isinstance(payload, dict) else ""
             if configured:
                 resolved = _existing_root(configured)
                 if resolved is not None:
