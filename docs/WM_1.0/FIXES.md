@@ -19,7 +19,7 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-001A | 1.0.1 | KRYTYCZNY | Maszyny / WMM | Zabezpieczyć wspólny plik `data/maszyny/maszyny.json`: blokada między procesami WM/WMM, pełny cykl WMM odczyt -> zmiana -> zapis pod blokadą, bez zmiany formatu JSON. | NAPRAWIONE | `54ee84bf`, `046109b3`, `c6cde038` |
 | WM10-001B | 1.0.4 | KRYTYCZNY | Narzędzia / WMM | Zabezpieczyć pojedyncze `data/narzedzia/<nr>.json`: wspólna blokada WM/WMM i atomowy zapis pliku, bez zmiany formatu danych i UI. | NAPRAWIONE | `4c0ff529`, `234583b7`, `dc738f0e`, `41a33c28` |
 | WM10-002 | 1.0.7 | WYSOKI | ID użytkowników | Zachować trwałe `user_id` przy zmianie loginu: przed zmianą uzupełnić brakujące `user_id` w historycznych rekordach tej osoby bez hurtowej migracji i bez nadpisywania istniejących ID. | NAPRAWIONE | `f70d8ce1`, `9553659e`, `8f96719d`, `65aa7d24` |
-| WM10-003 | 1.0.x | WYSOKI | Grafik / zmiany | Potwierdzić jedno wspólne źródło godzin zmian i trybów grafiku, bez duplikowania konfiguracji. | DO AUDYTU | — |
+| WM10-003 | 1.0.8 | WYSOKI | Grafik / zmiany | Ujednolicić godziny zmian w Logowaniu, Obecności i pasku postępu z kanonicznym `grafiki.shifts_schedule._shift_times()` oraz zabezpieczyć przed legacy nadpisaniem resolvera logowania. | NAPRAWIONE | `b21796d9`, `9e2e9d70`, `6c9182f6`, `ed394094`, `e1a581df`, `7fcd1e6d` |
 | WM10-004 | 1.0.x | ŚREDNI | Profil / Brygadzista | Zweryfikować i ewentualnie poprawić przygotowanie panelu Brygadzisty po wejściu do Profilu, aby pierwszy klik nie powodował odczuwalnego budowania widoku. | DO AUDYTU | — |
 | WM10-005 | 1.0.x | WYSOKI | Planista | Test pełnego przepływu Zlecenie -> Produkt -> Półprodukt -> Surowiec, zapis/restart/refresh i jednoznaczność identyfikatorów. | DO AUDYTU | — |
 | WM10-005A | 1.0.5 | KRYTYCZNY | Planista / WMM | Zabezpieczyć równoczesne tworzenie zleceń przez desktop WM i WMM wspólną blokadą obejmującą generowanie ID oraz zapis zlecenia. | NAPRAWIONE | `4ec03658`, `227b9739`, `2a4467fe` |
@@ -106,6 +106,18 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Test został dopięty do głównego kroku `Run profile workforce regressions`.
 - Wynik CI: **SUCCESS** dla commita `65aa7d24da06018dc99473d94c90cd8a9a667599` (run `34579591256`); R07 i R08 również **SUCCESS**.
 - Kompatybilność: zmiana nie rusza endpointów ani formatu komunikacji WMM; WMM 0.5.9 pozostaje zgodne.
+
+## WM10-003 — zamknięcie
+
+- Wersja: **1.0.8**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano wyłącznie wspólne źródło godzin dla Logowania, Obecności i paska postępu zmiany, test niestandardowych godzin oraz podbicie wersji; bez zmian modelu danych, trybów grafiku i WMM.
+- Implementacja: `services/attendance_service.py`, `gui_logowanie.py` i `gui/widgets_user_footer.py` pobierają granice zmian z `grafiki.shifts_schedule._shift_times()`.
+- Resolver `_slot_now()` na ekranie logowania jest oznaczony jako kanoniczny, dzięki czemu starszy runtime Profilu nie zastępuje go własnymi godzinami 05:00/14:00/23:59.
+- Test: `tests/test_shift_hours_sync.py` sprawdza wspólne zachowanie dla godzin 05:30–13:30 oraz 13:30–21:30, w tym granice zmian i 50% postępu pierwszej zmiany o 09:30.
+- Test został dopięty do głównego kroku `Run profile workforce regressions`.
+- Wynik CI: **SUCCESS** dla commita `7fcd1e6d14a2597040e643e48f7b6f606a005ff8` (run `34583503458`); R07 i R08 również **SUCCESS**.
+- Ograniczenie: 1.0.8 nie zmienia nazw istniejących etykiet paska (`RANO`, `POŁUDNIE`, `NOC`) ani wyglądu UI; ujednolica wyłącznie godziny i logikę ich użycia.
 
 ## Zasada zamykania fixa
 
