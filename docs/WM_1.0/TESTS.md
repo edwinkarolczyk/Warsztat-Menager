@@ -24,6 +24,7 @@ Nie oznaczamy testu jako zaliczony bez wykonania go na aktualnej wersji. Na star
 | WM10-T015 | Uszkodzony/niepełny zapis nie niszczy poprzedniej poprawnej wersji danych | DO TESTU |
 | WM10-T030 | Blokada zapisu Maszyn serializuje równoległe wejścia, a aktualizacja WMM zachowuje strukturę dokumentu i pozostałe rekordy | ZALICZONY — 1.0.1 CI |
 | WM10-T031 | Dyspozycje: równoległe transakcje nie gubią rekordów, JSON pozostaje poprawny, a błąd atomowego `replace` nie niszczy poprzedniego pliku | ZALICZONY — 1.0.3 CI |
+| WM10-T032 | Narzędzia: desktop i WMM używają wspólnej blokady pojedynczego pliku, a błąd atomowego `replace` nie niszczy poprzedniego JSON | ZALICZONY — 1.0.4 CI |
 
 ## Moduły
 
@@ -80,6 +81,19 @@ Commit z uruchomionym pełnym głównym CI: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb
 - Kompilacja całego repo: **SUCCESS**.
 
 WM 1.0.3 zabezpiecza fizyczną transakcję zapisu Dyspozycji. Nie oznacza jeszcze rozwiązania semantycznego konfliktu starej wersji tego samego rekordu (`revision`/ETag/409).
+
+## Wynik CI dla WM 1.0.4
+
+Commit z uruchomionym pełnym głównym CI: `41a33c28d7c3a5e9a2af6ff6a98312741043a297`.
+
+- Wszystkie cztery check-runy GitHub Actions dla tego commita: **SUCCESS**.
+- `static-checks`: **SUCCESS**.
+- Główny `ci.yml`: wszystkie kroki **SUCCESS**.
+- `Run tool write guard regressions`: **SUCCESS**.
+- `tests/test_tool_file_guard.py` sprawdza, że desktopowy zapis czeka na wspólną blokadę pliku, WMM `_update_tool(...)` korzysta z tej samej blokady i błąd `os.replace` nie niszczy poprzedniego poprawnego JSON.
+- Kompilacja całego repo oraz pozostałe regresje głównego pipeline'u: **SUCCESS**.
+
+WM 1.0.4 zabezpiecza fizyczny zapis pojedynczego pliku Narzędzia. Nie oznacza jeszcze rozwiązania konfliktu starego formularza z nowszą zmianą (`revision`/ETag/409) ani widocznej informacji o aktualnym edytującym użytkowniku.
 
 ## Warunek wydania
 
