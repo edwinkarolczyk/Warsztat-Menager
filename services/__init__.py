@@ -1,7 +1,7 @@
 """Usługi Warsztat Menager.
 
 WMM API startuje dopiero po ustawieniu WM_ROOT, żeby zawsze używać właściwych
-danych instalacji. Okno połączenia WMM otwiera się po uruchomieniu Panelu głównego.
+danych instalacji. Status WMM jest osadzany w Panelu głównym; QR otwiera przycisk.
 Można wyłączyć API przez WM_DISABLE_WMM_API=1.
 """
 
@@ -38,13 +38,13 @@ def _start_wmm_after_root() -> None:
 
 
 def _schedule_popup(root) -> None:
-    """Zaplanuj okno WMM wyłącznie z głównego wątku Tk."""
+    """Osadź panel WMM wyłącznie z głównego wątku Tk."""
     if threading.current_thread() is not threading.main_thread():
         return
     try:
-        from .wmm_panel import show_wmm_popup
+        from .wmm_panel import mount_wmm_panel
 
-        root.after(250, lambda r=root: show_wmm_popup(r))
+        mount_wmm_panel(root)
     except Exception as exc:
         try:
             print(f"[WM-WMM][GUI][WARN] Nie udało się zaplanować okna WMM: {exc}")
@@ -53,7 +53,7 @@ def _schedule_popup(root) -> None:
 
 
 def _wrap_uruchom_panel(original):
-    """Po pełnym zbudowaniu gui_panel pokaż jedno okno połączenia WMM."""
+    """Po pełnym zbudowaniu gui_panel osadź status WMM."""
     if not callable(original):
         return original
     if getattr(original, "_wmm_popup_hook", False):
@@ -70,7 +70,7 @@ def _wrap_uruchom_panel(original):
 
 
 def _wrap_module_source(original):
-    """Awaryjnie pokaż WMM przy pierwszym realnym otwarciu modułu.
+    """Awaryjnie osadź status WMM przy pierwszym otwarciu modułu.
 
     gui_panel bywa już w trakcie uruchamiania, gdy wątek instalacyjny zdąży
     podmienić ``uruchom_panel``. ``wm_set_module_source`` jest natomiast wołane

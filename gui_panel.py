@@ -849,7 +849,13 @@ def uruchom_panel(root, login, rola):
             f"Moduł '{module_label}' jest wyłączony dla Twojej rangi albo dla Twojego konta.",
         )
 
-    side  = ttk.Frame(root, style="WM.Side.TFrame", width=220); side.pack(side="left", fill="y")
+    side_shell = ttk.Frame(root, style="WM.Side.TFrame", width=220)
+    side_shell.pack(side="left", fill="y")
+    wmm_host = ttk.Frame(side_shell, style="WM.Side.TFrame")
+    wmm_host.pack(side="bottom", fill="x")
+    root._wmm_panel_host = wmm_host
+    side = ttk.Frame(side_shell, style="WM.Side.TFrame", width=220)
+    side.pack(side="top", fill="both", expand=True)
     main  = ttk.Frame(root, style="WM.TFrame");               main.pack(side="right", fill="both", expand=True)
 
     header  = ttk.Frame(main, style="WM.TFrame");      header.pack(fill="x", padx=12, pady=(10,6))
@@ -1732,6 +1738,9 @@ def uruchom_panel(root, login, rola):
         root.update_idletasks()
 
     _build_sidebar(initial=True)
+    from services.wmm_panel import mount_wmm_panel
+
+    mount_wmm_panel(root)
 
     # Znak wodny musi zostać dodany PO zbudowaniu panelu — wcześniej clear_frame()
     # usuwał go natychmiast. Instalacja przez after_idle gwarantuje, że warstwa

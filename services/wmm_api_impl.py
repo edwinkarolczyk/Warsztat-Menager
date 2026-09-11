@@ -541,6 +541,11 @@ def _drop_session(session_id: str) -> None:
         _SESSIONS.pop(session_id, None)
 
 
+def api_running() -> bool:
+    """Stan lokalnego serwera, bez wykonywania żądania sieciowego z GUI."""
+    return bool(_SERVER is not None and _THREAD is not None and _THREAD.is_alive())
+
+
 def mobile_status() -> dict[str, Any]:
     with _SESSIONS_LOCK:
         _prune_sessions()

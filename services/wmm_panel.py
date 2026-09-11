@@ -245,7 +245,7 @@ def _center_window(win, root, width: int, height: int) -> None:
 
 
 def show_wmm_popup(root) -> None:
-    """Pokaż jedno proste okno połączenia WMM po otwarciu Panelu głównego."""
+    """Pokaż dane parowania QR na żądanie użytkownika."""
     if threading.current_thread() is not threading.main_thread():
         return
 
@@ -262,7 +262,7 @@ def show_wmm_popup(root) -> None:
     try:
         import tkinter as tk
 
-        from services.wmm_api import mobile_status, pairing_info
+        from services.wmm_api import api_running, mobile_status, pairing_info
 
         info = pairing_info()
         popup = tk.Toplevel(root)
@@ -320,13 +320,14 @@ def show_wmm_popup(root) -> None:
             bg="#171A1D",
             font=("Segoe UI", 16, "bold"),
         ).pack(pady=(16, 2))
-        tk.Label(
+        api_label = tk.Label(
             popup,
-            text="● API aktywne",
+            text="Sprawdzanie API…",
             fg="#22C55E",
             bg="#171A1D",
             font=("Segoe UI", 10, "bold"),
-        ).pack(pady=(0, 10))
+        )
+        api_label.pack(pady=(0, 10))
 
         qr_canvas = tk.Canvas(popup, bd=0, bg="white", highlightthickness=0)
         qr_canvas.pack(pady=(0, 10))
@@ -420,7 +421,12 @@ def show_wmm_popup(root) -> None:
             try:
                 if not popup.winfo_exists():
                     return
-                state = mobile_status()
+                running = api_running()
+                api_label.configure(
+                    text="● API działa" if running else "● API nie działa",
+                    fg="#22C55E" if running else "#EF4444",
+                )
+                state = mobile_status() if running else {}
                 users = state.get("users") if isinstance(state, dict) else []
                 users = users if isinstance(users, list) else []
                 if users:
@@ -447,4 +453,94 @@ def show_wmm_popup(root) -> None:
         logger.exception("[WMM] Nie udało się otworzyć okna połączenia WMM")
 
 
-__all__ = ["show_wmm_popup"]
+__all__ = ["show_wmm_popup", "mount_wmm_panel"]
+
+
+def mount_wmm_panel(root) -> None:
+    """Osadź status WMM w stałej części paska; QR tylko na żądanie."""
+    if threading.current_thread() is not threading.main_thread():
+        return
+    host = getattr(root, '_wmm_panel_host', None)
+    if host is None or not host.winfo_exists():
+        return
+    existing = getattr(host, '_wmm_status_panel', None)
+    if existing is not None and existing.winfo_exists():
+        return
+
+    import tkinter as tk
+    from tkinter import ttk
+    from ui_context_help import add_help_button
+    from services.wmm_api import api_running, mobile_status, pairing_info
+
+    panel = ttk.Frame(host, style='WM.Card.TFrame')
+    panel.pack(fill='x', padx=8, pady=8)
+    host._wmm_status_panel = panel
+    ttk.Label(panel, text='WMM — Połączenie',
+              style='WM.Card.TLabel').pack(anchor='w')
+    status = ttk.Label(panel, text='Sprawdzanie API…')
+    status.pack(anchor='w')
+    address = ttk.Label(panel, text='Adres: —', wraplength=200)
+    address.pack(anchor='w')
+    users = ttk.Label(panel, text='Brak połączonych', wraplength=200)
+    users.pack(anchor='w')
+    actions = ttk.Frame(panel)
+    actions.pack(fill='x', pady=(4, 0))
+    ttk.Button(actions, text='Pokaż QR',
+               command=lambda: show_wmm_popup(root)).pack(side='left')
+    add_help_button(
+        actions,
+        'Panel pokazuje stan API i połączonych użytkowników WMM. '
+        'Przycisk Pokaż QR otwiera dane parowania telefonu.',
+    ).pack(side='left', padx=4)
+
+    timer = None
+    closed = False
+    last_address = None
+
+    def cleanup(event):
+        nonlocal timer, closed
+        if event.widget is not panel:
+            return
+        closed = True
+        if timer is not None:
+            try:
+                panel.after_cancel(timer)
+            except tk.TclError:
+                pass
+            timer = None
+        host._wmm_status_panel = None
+        popup = getattr(root, '_wmm_popup', None)
+        if popup is not None:
+            popup.destroy()
+
+    def refresh():
+        nonlocal timer, last_address
+        timer = None
+        if closed:
+            return
+        try:
+            running = api_running()
+            status.configure(text='● API działa' if running else '● API nie działa',
+                             foreground='#22C55E' if running else '#EF4444')
+            if running and last_address is None:
+                info = pairing_info()
+                last_address = f"{info['host']}:{info['port']}"
+            if not running:
+                last_address = None
+            address.configure(text=last_address or 'Adres: —')
+            state = mobile_status() if running else {}
+            connected = state.get('users') or []
+            users.configure(text=('Połączeni: ' + _format_users(connected)
+                                  if connected else 'Brak połączonych'))
+            _update_footer(root)
+        except Exception:
+            status.configure(text='● Nie można odczytać stanu', foreground='#EF4444')
+            address.configure(text='Adres: —')
+            users.configure(text='Połączeni: —')
+            logger.exception('[WMM] Błąd odświeżania panelu')
+        finally:
+            if not closed:
+                timer = panel.after(2000, refresh)
+
+    panel.bind('<Destroy>', cleanup, add='+')
+    refresh()

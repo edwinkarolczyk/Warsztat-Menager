@@ -54,7 +54,7 @@ def test_popup_cancels_tcl_timers_and_reopens(
     monkeypatch.setattr(wmm_panel, '_update_footer', Mock())
     status = Mock(return_value={'users': []})
     monkeypatch.setitem(sys.modules, 'services.wmm_api', SimpleNamespace(
-        pairing_info=lambda: {}, mobile_status=status,
+        pairing_info=lambda: {}, mobile_status=status, api_running=lambda: True,
     ))
     root = SimpleNamespace()
     wmm_panel.show_wmm_popup(root)
