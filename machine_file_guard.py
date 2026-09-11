@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Wspólne blokady plików danych dla WM desktop i WMM."""
 
 from __future__ import annotations
@@ -106,6 +106,25 @@ def file_write_lock(
             finally:
                 handle.close()
         process_lock.release()
+
+
+@contextmanager
+def order_create_lock(
+    data_dir: str | os.PathLike[str],
+    *,
+    timeout: float = 10.0,
+    poll_interval: float = 0.05,
+) -> Iterator[None]:
+    """Serializuj tworzenie numerowanego zlecenia między WM i WMM."""
+
+    sequence_guard = Path(data_dir) / "zlecenia" / "_order_sequence"
+    with file_write_lock(
+        sequence_guard,
+        timeout=timeout,
+        poll_interval=poll_interval,
+        label="Zleceń",
+    ):
+        yield
 
 
 @contextmanager

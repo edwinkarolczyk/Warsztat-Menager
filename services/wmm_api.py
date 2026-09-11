@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 from urllib.parse import unquote, urlparse
 
-from machine_file_guard import file_write_lock, machine_file_lock
+from machine_file_guard import file_write_lock, machine_file_lock, order_create_lock
 from services import wmm_api_impl as _impl
 
 
@@ -47,7 +47,11 @@ def _strict_wmm_root_dir() -> Path:
         pointer = wm_root_paths.root_file_path()
         if pointer.is_file():
             payload = json.loads(pointer.read_text(encoding="utf-8"))
-            configured = str(payload.get("root") or "").strip() if isinstance(payload, dict) else ""
+            configured = (
+                str(payload.get("root") or "").strip()
+                if isinstance(payload, dict)
+                else ""
+            )
             if configured:
                 resolved = _existing_root(configured)
                 if resolved is not None:
@@ -95,8 +99,7 @@ if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
     _original_create_planista_order = _impl._create_planista_order
 
     def _guarded_create_planista_order(payload, author):
-        sequence_guard = _impl._data_dir() / "zlecenia" / "_wmm_order_sequence"
-        with file_write_lock(sequence_guard, label="Zleceń"):
+        with order_create_lock(_impl._data_dir()):
             return _original_create_planista_order(payload, author)
 
     _impl._create_planista_order = _guarded_create_planista_order
