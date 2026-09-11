@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 """Wspólne blokady plików danych dla WM desktop i WMM."""
 
 from __future__ import annotations
@@ -123,6 +123,27 @@ def order_create_lock(
         timeout=timeout,
         poll_interval=poll_interval,
         label="Zleceń",
+    ):
+        yield
+
+
+@contextmanager
+def warehouse_transaction_lock(
+    warehouse_json_path: str | os.PathLike[str],
+    *,
+    timeout: float = 10.0,
+    poll_interval: float = 0.05,
+) -> Iterator[None]:
+    """Serializuj pełny odczyt -> zmianę -> zapis kanonicznego Magazynu."""
+
+    transaction_guard = Path(warehouse_json_path).with_name(
+        "_warehouse_transaction"
+    )
+    with file_write_lock(
+        transaction_guard,
+        timeout=timeout,
+        poll_interval=poll_interval,
+        label="Magazynu",
     ):
         yield
 

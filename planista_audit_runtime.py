@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_audit_runtime.py
-# version: 1.2
+# version: 1.3
 """Domknięcie problemów spójności wykrytych w drugim audycie Planisty."""
 from __future__ import annotations
 
@@ -190,6 +190,41 @@ def _install_cached_editor_refresh() -> None:
     GPP.PlanistaPanel._load_catalog = load_catalog
 
 
+def _install_warehouse_write_transactions() -> None:
+    from machine_file_guard import warehouse_transaction_lock
+    import logika_magazyn as LM
+
+    mutators = (
+        "add_item_type",
+        "remove_item_type",
+        "set_order",
+        "upsert_item",
+        "delete_item",
+        "zuzyj",
+        "zwrot",
+        "rezerwuj",
+        "zwolnij_rezerwacje",
+        "rezerwuj_materialy",
+    )
+
+    def make_wrapper(fn):
+        def wrapped(*args, **kwargs):
+            with warehouse_transaction_lock(LM._warehouse_path()):
+                return fn(*args, **kwargs)
+
+        wrapped._wm_warehouse_write_transaction = True
+        wrapped._wm_original = fn
+        return wrapped
+
+    for name in mutators:
+        current = getattr(LM, name, None)
+        if current is None:
+            continue
+        if getattr(current, "_wm_warehouse_write_transaction", False):
+            continue
+        setattr(LM, name, make_wrapper(current))
+
+
 def _install_live_reservation_state() -> None:
     import logika_magazyn as LM
     import planista_safety_runtime as PSR
@@ -312,6 +347,7 @@ def install_planista_audit_runtime() -> None:
     _install_active_product_loader()
     _install_fresh_dependency_checks()
     _install_cached_editor_refresh()
+    _install_warehouse_write_transactions()
     _install_live_reservation_state()
     _install_full_transactions()
 

@@ -1,5 +1,8 @@
-# version: 1.1
+# version: 1.2
+import json
+import multiprocessing
 from pathlib import Path
+import time
 
 import planista_stock_runtime as PSR
 
@@ -10,6 +13,38 @@ class _FakeLM:
     @classmethod
     def save_magazyn(cls, data):
         cls.saved = data
+
+
+def _reserve_in_separate_process(warehouse_path, start_event, result_queue):
+    import logika_magazyn as LM
+    import planista_audit_runtime as PAR
+
+    class _Config:
+        @staticmethod
+        def get(key, default=None):
+            if key == "magazyn_rezerwacje":
+                return True
+            return default
+
+    LM.MAGAZYN_PATH = str(warehouse_path)
+    LM._CFG = _Config()
+    LM.zapisz_stan_magazynu = lambda *_args, **_kwargs: None
+    PAR._install_warehouse_write_transactions()
+
+    original_load = LM.load_magazyn
+
+    def slow_load(*args, **kwargs):
+        data = original_load(*args, **kwargs)
+        time.sleep(0.2)
+        return data
+
+    LM.load_magazyn = slow_load
+    start_event.wait(timeout=5.0)
+    try:
+        reserved = LM.rezerwuj("MAT-001", 6.0, "pytest")
+        result_queue.put(("ok", reserved))
+    except Exception as exc:  # pragma: no cover - diagnostyka procesu potomnego
+        result_queue.put(("error", repr(exc)))
 
 
 def test_legacy_planista_stock_moves_to_missing_physical_card(monkeypatch):
@@ -199,3 +234,56 @@ def test_delete_rolls_back_definition_when_warehouse_save_fails(tmp_path, monkey
 
     assert definitions_path.read_text(encoding="utf-8") == original
     assert FailingLM.calls == 2
+
+
+def test_parallel_reservations_share_one_cross_process_transaction_lock(tmp_path):
+    warehouse_path = tmp_path / "magazyn.json"
+    warehouse_path.write_text(
+        json.dumps(
+            {
+                "pozycje": {
+                    "MAT-001": {
+                        "id": "MAT-001",
+                        "nazwa": "Materiał testowy",
+                        "typ": "materiał",
+                        "jednostka": "szt",
+                        "stan": 10.0,
+                        "rezerwacje": 0.0,
+                    }
+                },
+                "historia": [],
+                "meta": {"order": ["MAT-001"], "item_types": ["materiał"]},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    ctx = multiprocessing.get_context("spawn")
+    start_event = ctx.Event()
+    result_queue = ctx.Queue()
+    workers = [
+        ctx.Process(
+            target=_reserve_in_separate_process,
+            args=(str(warehouse_path), start_event, result_queue),
+        )
+        for _ in range(2)
+    ]
+
+    for worker in workers:
+        worker.start()
+    start_event.set()
+    for worker in workers:
+        worker.join(timeout=10.0)
+
+    assert all(not worker.is_alive() for worker in workers)
+    assert all(worker.exitcode == 0 for worker in workers)
+
+    results = [result_queue.get(timeout=5.0) for _ in workers]
+    assert all(status == "ok" for status, _value in results)
+    assert sorted(value for _status, value in results) == [4.0, 6.0]
+
+    saved = json.loads(warehouse_path.read_text(encoding="utf-8"))
+    items = saved.get("items") or saved.get("pozycje") or {}
+    assert items["MAT-001"]["rezerwacje"] == 10.0
