@@ -1,4 +1,6 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Zapisy zadań pojedynczego narzędzia korzystają ze wspólnego, blokowanego writer-a JSON.
 """Helper utilities for working with narzędzia JSON data."""
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from config.paths import p_tools_data, p_tools_defs
 from config_manager import ConfigManager
+from utils_json import safe_write_json
 
 
 def _tools_data_dir() -> Path:
@@ -144,7 +147,6 @@ def is_pending_task(task: dict) -> bool:
     if not isinstance(task, dict):
         return False
     done_val = task.get("done")
-    # False musi być traktowane jako "pending" (bug: False nie wpadało do pending)
     if done_val in (None, "", "nie", "false", "False", "0", 0, False):
         return True
     try:
@@ -243,6 +245,7 @@ def assign_task_any(tool_doc: dict, key: Union[int, Tuple[str, str]], login: str
 
 
 def save_tool_json(path: Path, doc: dict):
-    """Persist ``doc`` to ``path`` using UTF-8 and two-space indentation."""
+    """Persist ``doc`` through the guarded tool JSON writer."""
 
-    path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not safe_write_json(str(path), doc):
+        raise OSError(f"Nie udało się zapisać narzędzia: {path}")
