@@ -5,12 +5,12 @@
 - Produkt: Warsztat Menager
 - Linia wersji: **WM 1.0.x**
 - Wersja bazowa: **1.0.0**
-- Aktualna wersja techniczna: **1.0.3**
+- Aktualna wersja techniczna: **1.0.4**
 - Data przyjęcia bazy: **2026-09-10**
 - Gałąź robocza: `Rozwiniecie`
 - Commit bazowy produktu: `184cf180abcb5681f0e6205724ac0a3a2807b19e`
 - Commit inicjalizujący rejestr WM 1.0: `7f82870670acb88f8ad04cfc9a67312fd41455d9`
-- Ostatni przetestowany commit kodu 1.0.3: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e`
+- Ostatni przetestowany commit kodu 1.0.4: `41a33c28d7c3a5e9a2af6ff6a98312741043a297`
 - Etap: **stabilizacja produktu**
 - Nowe duże funkcje: **wstrzymane do czasu ustabilizowania obecnych modułów**
 
@@ -35,11 +35,11 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 | Profil / Brygadzista | DO AUDYTU | ładowanie, uprawnienia, refresh |
 | Planista / Zlecenia | DO AUDYTU | zapis, restart, identyfikatory, rezerwacje |
 | Maszyny | STABILIZACJA | blokada zapisu WM/WMM gotowa; edytor i pozostałe zapisy nadal do audytu |
-| Narzędzia | DO AUDYTU | zapis, powiązania, refresh |
+| Narzędzia | STABILIZACJA | blokada pojedynczych plików WM/WMM i zapis atomowy gotowe; konflikty starej wersji danych i funkcjonalny refresh nadal do audytu |
 | Dyspozycje | STABILIZACJA | WM 1.0.3 zabezpieczyło pełne transakcje zapisu; uprawnienia/statusy/historia nadal do dalszego audytu funkcjonalnego |
 | Magazyn | DO AUDYTU | źródło danych, zapis, refresh |
 | ROOT / config | DO AUDYTU | jedno źródło ścieżek |
-| WMM API w WM | BETA / STABILIZACJA | blokady plików Maszyn i Dyspozycji gotowe; wykrywanie konfliktów `revision`/409 pozostaje osobnym etapem |
+| WMM API w WM | BETA / STABILIZACJA | fizyczne blokady Maszyn, Dyspozycji i pojedynczych plików Narzędzi gotowe; wykrywanie konfliktów `revision`/409 pozostaje osobnym etapem |
 | WMM mobile | ROZWÓJ RÓWNOLEGŁY | test 3–5 klientów jednocześnie |
 
 ## WM 1.0.1 — wynik
@@ -68,10 +68,22 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 - Commit implementacji: `52f472f0cb34a5fcb1f0a0365a0e6f042802a70e`.
 - Commit z zielonym głównym CI: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e` — **SUCCESS**.
 
+## WM 1.0.4 — wynik
+
+- Fix: `WM10-001B`.
+- Zakres: fizyczne zabezpieczenie pojedynczych plików `data/narzedzia/<nr>.json` przy zapisach desktopowego WM i WMM.
+- Desktopowe zapisy pojedynczego narzędzia korzystają z tego samego `file_write_lock(...)` co WMM.
+- Pojedyncze pliki narzędzi są zapisywane atomowo przez unikalny plik tymczasowy i `os.replace`.
+- Zapisy zadań narzędzia przez `save_tool_json(...)` zostały skierowane przez ten sam chroniony writer.
+- Format JSON Narzędzi i UI nie zostały zmienione; plik zbiorczy `narzedzia.json` nie został objęty tą zmianą.
+- Regresja `tests/test_tool_file_guard.py` sprawdza wspólną blokadę WM/WMM oraz zachowanie poprzedniego JSON po błędzie atomowego `replace`.
+- Commit z zielonym głównym CI: `41a33c28d7c3a5e9a2af6ff6a98312741043a297` — **SUCCESS**.
+- Ograniczenie: 1.0.4 nie wykrywa długotrwałego konfliktu starego formularza z nowszą zmianą WMM; `revision`/ETag/409 lub widoczny soft-lock pozostają osobnym zadaniem.
+
 ## Reguła pracy dziennej
 
 Nie robimy zmian na siłę. Jeżeli zakres jednego dnia zaczyna obejmować zbyt wiele modułów, danych lub zależności, zatrzymujemy się w bezpiecznym punkcie, zapisujemy stan i kontynuujemy kolejnego dnia. Preferowane jest 1–3 małe, przetestowane poprawki zamiast dużego pakietu zmian.
 
 ## Stan na 2026-09-11
 
-Aktualny punkt stabilizacji: **WM 1.0.3**. Następny fix wybieramy dopiero po osobnej analizie i akceptacji zakresu.
+Aktualny punkt stabilizacji: **WM 1.0.4**. Następny fix wybieramy dopiero po osobnej analizie i akceptacji zakresu.
