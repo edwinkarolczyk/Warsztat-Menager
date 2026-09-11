@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 from datetime import date, time, timedelta
 
 import grafiki.shifts_schedule as shifts_schedule
@@ -20,7 +20,7 @@ def _patch_loads(monkeypatch, modes=None, users=None):
     return modes
 
 
-def test_exactly_five_canonical_patterns(monkeypatch):
+def test_exactly_four_canonical_patterns(monkeypatch):
     stale = {
         "anchor_monday": "2025-01-06",
         "patterns": {
@@ -30,42 +30,53 @@ def test_exactly_five_canonical_patterns(monkeypatch):
             "212": "212",
             "112": "112",
             "12": "12",
-            "1212": "1212",
+            "21": "21",
         },
         "modes": {},
         "user_anchor": {},
     }
     _patch_loads(monkeypatch, modes=stale)
     assert shifts_schedule._available_patterns() == {
-        "111": "111",
-        "112": "112",
-        "222": "222",
-        "121": "121",
-        "212": "212",
+        "11": "11",
+        "22": "22",
+        "12": "12",
+        "21": "21",
     }
 
 
-def test_literal_three_week_cycle_and_wrap(monkeypatch):
+def test_two_week_cycle_and_wrap(monkeypatch):
     _patch_loads(monkeypatch)
     expected = {
-        "111": ["RANO", "RANO", "RANO", "RANO"],
-        "112": ["RANO", "RANO", "POPO", "RANO"],
-        "222": ["POPO", "POPO", "POPO", "POPO"],
-        "121": ["RANO", "POPO", "RANO", "RANO"],
-        "212": ["POPO", "RANO", "POPO", "POPO"],
+        "11": ["RANO", "RANO", "RANO", "RANO", "RANO", "RANO"],
+        "22": ["POPO", "POPO", "POPO", "POPO", "POPO", "POPO"],
+        "12": ["RANO", "POPO", "RANO", "POPO", "RANO", "POPO"],
+        "21": ["POPO", "RANO", "POPO", "RANO", "POPO", "RANO"],
     }
     for mode, slots in expected.items():
-        assert [shifts_schedule._slot_for_mode(mode, idx) for idx in range(4)] == slots
+        assert [shifts_schedule._slot_for_mode(mode, idx) for idx in range(6)] == slots
+
+
+def test_alternating_modes_are_complementary(monkeypatch):
+    _patch_loads(monkeypatch)
+    for week_idx in range(-4, 8):
+        assert shifts_schedule._slot_for_mode("12", week_idx) != shifts_schedule._slot_for_mode(
+            "21", week_idx
+        )
 
 
 def test_legacy_aliases_are_canonicalized(monkeypatch):
     _patch_loads(monkeypatch)
-    assert shifts_schedule._normalize_mode("1111") == "111"
-    assert shifts_schedule._normalize_mode("2222") == "222"
-    assert shifts_schedule._normalize_mode("1212") == "121"
-    assert shifts_schedule._normalize_mode("2121") == "212"
-    assert shifts_schedule._normalize_mode("I") == "111"
-    assert shifts_schedule._normalize_mode("II") == "222"
+    assert shifts_schedule._normalize_mode("111") == "11"
+    assert shifts_schedule._normalize_mode("1111") == "11"
+    assert shifts_schedule._normalize_mode("222") == "22"
+    assert shifts_schedule._normalize_mode("2222") == "22"
+    assert shifts_schedule._normalize_mode("112") == "12"
+    assert shifts_schedule._normalize_mode("121") == "12"
+    assert shifts_schedule._normalize_mode("1212") == "12"
+    assert shifts_schedule._normalize_mode("212") == "21"
+    assert shifts_schedule._normalize_mode("2121") == "21"
+    assert shifts_schedule._normalize_mode("I") == "11"
+    assert shifts_schedule._normalize_mode("II") == "22"
 
 
 def test_each_employee_has_independent_anchor(monkeypatch):
@@ -107,7 +118,7 @@ def test_anchor_is_normalized_to_monday_and_legacy_login_is_fallback(monkeypatch
     _patch_loads(monkeypatch, modes=modes, users=users)
 
     mode, anchor = shifts_schedule.get_user_schedule("USR-0001")
-    assert mode == "212"
+    assert mode == "21"
     assert anchor == "2026-08-31"
 
 
@@ -123,7 +134,7 @@ def test_stable_user_id_wins_over_legacy_login(monkeypatch):
     }
     _patch_loads(monkeypatch, modes=modes, users=users)
 
-    assert shifts_schedule.get_user_schedule("USR-0001") == ("121", "2026-08-31")
+    assert shifts_schedule.get_user_schedule("USR-0001") == ("12", "2026-08-31")
 
 
 def test_cycle_handles_year_boundary_and_dates_before_anchor(monkeypatch):
@@ -139,9 +150,9 @@ def test_cycle_handles_year_boundary_and_dates_before_anchor(monkeypatch):
     _patch_loads(monkeypatch, modes=modes, users=users)
 
     assert shifts_schedule._week_idx_for_user("USR-0001", date(2026, 1, 19)) == 3
-    assert shifts_schedule._slot_for_mode("121", 3) == "RANO"
+    assert shifts_schedule._slot_for_mode("121", 3) == "POPO"
     assert shifts_schedule._week_idx_for_user("USR-0001", date(2025, 12, 22)) == -1
-    assert shifts_schedule._slot_for_mode("121", -1) == "RANO"
+    assert shifts_schedule._slot_for_mode("121", -1) == "POPO"
 
 
 def test_week_matrix_with_saturday(monkeypatch):
@@ -168,11 +179,11 @@ def test_week_matrix_with_saturday(monkeypatch):
     result = shifts_schedule.week_matrix(date(2025, 1, 11))
     assert result["week_start"] == "2025-01-06"
     assert len(result["rows"]) == 1
+    assert result["rows"][0]["mode"] == "12"
     saturday = result["rows"][0]["days"][5]
     assert saturday["date"] == "2025-01-11"
     assert saturday["dow"] == "Sat"
     assert saturday["shift"] == "R"
-
 
 
 def test_global_anchor_does_not_drive_employee_schedule(monkeypatch):
@@ -188,8 +199,9 @@ def test_global_anchor_does_not_drive_employee_schedule(monkeypatch):
     _patch_loads(monkeypatch, modes=modes, users=users)
 
     mode, anchor = shifts_schedule.get_user_schedule("USR-0001")
-    assert mode == "112"
+    assert mode == "12"
     assert anchor == "2025-01-06"
+
 
 def test_set_anchor_monday(monkeypatch, make_manager):
     schema = {
