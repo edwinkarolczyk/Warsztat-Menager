@@ -1,4 +1,4 @@
-# version: 1.5
+# version: 1.6
 """Jedno źródło prawdy dla dniówek i nadgodzin WM.
 
 Warstwa jest zgodna z istniejącym ``attendance_utils`` i rozszerza jego
@@ -84,7 +84,11 @@ def _shift_rules() -> dict[str, dict[str, time]]:
     try:
         if _grafik_shift_times is None:
             raise RuntimeError("Brak resolvera godzin Grafiku")
-        (rano_start, rano_end), (popo_start, popo_end) = _grafik_shift_times()
+        times = _grafik_shift_times()
+        rano_start = times["R_START"]
+        rano_end = times["R_END"]
+        popo_start = times["P_START"]
+        popo_end = times["P_END"]
     except Exception:
         rano_start, rano_end = time(6, 0), time(14, 0)
         popo_start, popo_end = time(14, 0), time(22, 0)
