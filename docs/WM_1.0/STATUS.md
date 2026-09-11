@@ -5,15 +5,15 @@
 - Produkt: Warsztat Menager
 - Linia wersji: **WM 1.0.x**
 - Wersja bazowa: **1.0.0**
-- Aktualna wersja techniczna: **1.0.7**
+- Aktualna wersja techniczna: **1.0.8**
 - Data przyjęcia bazy: **2026-09-10**
 - Gałąź robocza: `Rozwiniecie`
 - Commit bazowy produktu: `184cf180abcb5681f0e6205724ac0a3a2807b19e`
 - Commit inicjalizujący rejestr WM 1.0: `7f82870670acb88f8ad04cfc9a67312fd41455d9`
-- Ostatni przetestowany commit kodu 1.0.7: `65aa7d24da06018dc99473d94c90cd8a9a667599`
+- Ostatni przetestowany commit kodu 1.0.8: `7fcd1e6d14a2597040e643e48f7b6f606a005ff8`
 - Etap: **stabilizacja produktu**
 - Nowe duże funkcje: **wstrzymane do czasu ustabilizowania obecnych modułów**
-- Zgodność mobilna: **WMM 0.5.9** pozostaje kompatybilne z WM 1.0.7.
+- Zgodność mobilna: **WMM 0.5.9** pozostaje kompatybilne z WM 1.0.8.
 
 ## Cel
 
@@ -32,9 +32,9 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 
 | Obszar | Stan | Następny krok |
 |---|---|---|
-| Logowanie / sesja | DO AUDYTU | końcowy smoke + lifecycle |
+| Logowanie / sesja | STABILIZACJA | godziny zmian zsynchronizowane z Grafikiem w 1.0.8; pozostał końcowy smoke + lifecycle |
 | Profil / Brygadzista | STABILIZACJA | `user_id` przy zmianie loginu zabezpieczone w 1.0.7; do sprawdzenia pierwszy klik Brygadzisty i refresh |
-| Grafik / zmiany | DO AUDYTU | potwierdzić jedno źródło godzin i trybów |
+| Grafik / zmiany | STABILIZACJA | godziny Logowania, Obecności i paska postępu mają wspólne źródło; tryby 111/112/222/121/212 pozostają kanoniczne |
 | Planista / Zlecenia | STABILIZACJA | numeracja WM/WMM i rezerwacje zabezpieczone; pozostał pełny test E2E + restart/refresh |
 | Maszyny | STABILIZACJA | blokada zapisu WM/WMM gotowa; edytor i ergonomia nadal do audytu |
 | Narzędzia | STABILIZACJA | blokada pojedynczych plików WM/WMM i zapis atomowy gotowe; konflikt starej wersji danych pozostaje osobnym etapem |
@@ -54,16 +54,17 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 - **1.0.5** — Planista: wspólna blokada tworzenia zlecenia WM/WMM i unikalne ID.
 - **1.0.6** — Magazyn/Planista: serializacja pełnego read-modify-write dla rezerwacji.
 - **1.0.7** — Profil/tożsamość: ochrona trwałego `user_id` przy zmianie loginu oraz targeted backfill rekordów legacy tej osoby.
+- **1.0.8** — Grafik/zmiany: wspólne godziny dla Logowania, Obecności i paska postępu zmiany.
 
-## WM 1.0.7 — wynik
+## WM 1.0.8 — wynik
 
-- Fix: `WM10-002`.
-- Nowe wpisy Obecności i Urlopów już wcześniej używały `user_id`; nie wykonano więc hurtowej migracji.
-- Przed faktyczną zmianą loginu WM uzupełnia brakujące `user_id` tylko w historycznych rekordach tej osoby: Opinie, Urlopy, wnioski urlopowe, Obecność, audit Obecności i historia administracyjna Profilu.
-- Istniejące `user_id` nie są nadpisywane, a stary login pozostaje snapshotem historycznym.
-- Nie zmieniono UI ani kontraktu API WMM.
-- Test regresyjny: `tests/test_profile_identity_runtime.py`.
-- Główny CI dla commita `65aa7d24da06018dc99473d94c90cd8a9a667599`: **SUCCESS**; workflowy R07 i R08 również **SUCCESS**.
+- Fix: `WM10-003`.
+- Logowanie, Obecność i pasek postępu zmiany korzystają z `grafiki.shifts_schedule._shift_times()` jako wspólnego źródła godzin.
+- Kanoniczny resolver logowania jest chroniony przed starszym runtime'em, który wcześniej mógł przywrócić własne zakresy 05:00–14:00 / 14:00–23:59.
+- Tryby grafiku `111 / 112 / 222 / 121 / 212` nie zostały przebudowane.
+- Nie zmieniono modelu danych, endpointów ani kontraktu WMM.
+- Test regresyjny: `tests/test_shift_hours_sync.py` z godzinami 05:30–13:30 / 13:30–21:30.
+- Główny CI dla commita `7fcd1e6d14a2597040e643e48f7b6f606a005ff8` (run `34583503458`): **SUCCESS**; workflowy R07 i R08 również **SUCCESS**.
 
 ## Reguła pracy dziennej
 
@@ -71,4 +72,4 @@ Nie robimy zmian na siłę. Jeżeli zakres jednego dnia zaczyna obejmować zbyt 
 
 ## Stan na 2026-09-11
 
-Aktualny punkt stabilizacji: **WM 1.0.7**. Najbliższe otwarte bloki: Grafik/zmiany, pełny Planista E2E, role Dyspozycji, Profil/Brygadzista, edytor Maszyn oraz końcowe ROOT/lifecycle.
+Aktualny punkt stabilizacji: **WM 1.0.8**. Najbliższe otwarte bloki: pełny Planista E2E, role Dyspozycji, Profil/Brygadzista, edytor Maszyn oraz końcowe ROOT/lifecycle.
