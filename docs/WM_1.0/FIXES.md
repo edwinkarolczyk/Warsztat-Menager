@@ -30,6 +30,8 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-008 | 1.0.x | ŚREDNI | UI / lifecycle | Przejść ciężkie widoki pod kątem zbędnych pełnych refreshy, wielokrotnego skanowania katalogów oraz nieanulowanych `after()`. | DO AUDYTU | — |
 | WM10-009 | 1.0.x | ŚREDNI | Pomoc `!` | Przy kolejnych poprawianych ekranach stosować wspólny mechanizm pomocy kontekstowej `!` przy istotnych polach i akcjach, maks. dwa krótkie zdania. | DO AUDYTU | — |
 | WM10-010 | 1.0.9 | ŚREDNI | Profil / Obecność / UI | Utrzymać okno pracownika po `Zapisz wszystko`, dodać bezpieczne wielozaznaczenie dni, dopasować szerokości kolumn oraz komunikat o remoncie WM z wyłączeniem w Ustawieniach i wejściem do istniejącego `Wyślij opinię`. | NAPRAWIONE | `c17eda6a`, `7d9f274a`, `b95658f0`, `994d79a9`, `d22fb713`, `f762fa2b` |
+| WM10-011 | 1.0.10 | WYSOKI | Grafik / cykl zmian | Zastąpić błędny cykl 3-tygodniowy trybami 11/22/12/21; 12 i 21 mają zmieniać zmianę co tydzień i pozostawać przeciwstawne. Stare kody zachować jako aliasy zgodności. | NAPRAWIONE | `282e8848`, `a6bc4d71`, `8b1afe82`, `362811e2`, `edf8688f`, `82c6026e` |
+| WM10-012 | 1.0.11 | ŚREDNI | Profil / Grafik / Brygadzista UI | Dodać wspólny kalendarz do pola `Tydzień bazowy` oraz ponawiać autofit szerokości tabel po pokazaniu zakładki Profil -> Brygadzista. | NAPRAWIONE | `114284e5`, `b3266f19`, `e70aafda`, `ebab562b`, `0db9bd75`, `2280ebeb` |
 | WMM-001 | osobna wersja WMM | KRYTYCZNY | Współbieżność | Zabezpieczyć konflikt równoczesnej edycji tego samego rekordu przez kilku klientów; preferowane `revision`/ETag i odpowiedź 409 przy starych danych. | DO AUDYTU | — |
 | WMM-002 | osobna wersja WMM | KRYTYCZNY | Zapis WM <-> WMM | Potwierdzić, że desktop WM i API nie mogą równocześnie nadpisać tego samego pliku/rekordu; fizyczne blokady Maszyn, Dyspozycji i pojedynczych plików Narzędzi są już wdrożone. | DO AUDYTU | `54ee84bf` (Maszyny), `52f472f0` (Dyspozycje), `41a33c28` (Narzędzia) |
 | WMM-003 | osobna wersja WMM | WYSOKI | Idempotencja | Ponowienie requestu nie może tworzyć duplikatu zlecenia, zdarzenia ani zdjęcia. | DO AUDYTU | — |
@@ -132,6 +134,27 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Nie zmieniono JSON-ów Obecności, endpointów, kontraktu API ani WMM.
 - Test: `tests/test_wm_ui_renovation_runtime.py`; test został dopięty do `Run profile workforce regressions`.
 - Wynik CI: **SUCCESS** dla commita `f762fa2b7ca8f0260798cade3f8a72415585d9cf` (main run `34585823490`); R07 `34585823569` i R08 `34585823555` również **SUCCESS**.
+
+## WM10-011 — zamknięcie
+
+- Wersja: **1.0.10**
+- Data: **2026-09-11**
+- Decyzja użytkownika: potwierdzono, że właściwy grafik ma tryby 11/22 oraz przeciwstawne rotacje 12/21 zmieniające zmianę co tydzień; błędny cykl trzytygodniowy miał zostać usunięty i objęty testami.
+- Implementacja: `grafiki/shifts_schedule.py` używa kanonicznych wzorców `11`, `22`, `12`, `21`. `12` daje I/II/I/II..., a `21` II/I/II/I.... Stare `111`, `222`, `121`, `212`, `112` pozostają aliasami zgodności i nie wymagają hurtowej migracji danych.
+- UI Profilu buduje listę trybów bezpośrednio z kanonicznego `TRYBY`; pomoc `!` opisuje cykl dwutygodniowy.
+- Testy sprawdzają sześć kolejnych tygodni, przeciwstawność 12/21, daty przed kotwicą, przejście roku oraz stare aliasy.
+- Wynik CI: **SUCCESS** dla commita `82c6026e6cc3b2ff6be1927bcdec7be5bba31239` (main run `34588541774`); R07 `34588541772` i R08 `34588541842` również **SUCCESS**.
+
+## WM10-012 — zamknięcie
+
+- Wersja: **1.0.11**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano wyłącznie kalendarz przy `Tydzień bazowy`, poprawę odświeżania szerokości tabel w Profil -> Brygadzista oraz testy; bez zmian logiki danych.
+- Implementacja: `profile_shift_mode_sync_runtime.py` używa wspólnego `calendar_ui_runtime.open_date_picker(...)`. Wybrana data jest sprowadzana do poniedziałku tygodnia bazowego, a pole pozostaje tylko do odczytu.
+- `profile_tree_autofit_runtime.py` wykonuje autofit po utworzeniu tabeli oraz ponownie na `<Map>` — od razu i po krótkim ustabilizowaniu layoutu Notebooka. Nie zmienia kolejności ani źródła danych kolumn.
+- Test: `tests/test_profile_ui_refresh_1011.py` sprawdza normalizację daty do poniedziałku oraz dwukrotny autofit po pokazaniu tabeli; test jest w głównym kroku `Run profile workforce regressions`.
+- Wynik CI: **SUCCESS** dla commita `2280ebeb51339f334ff8f3663f6951bf67c64731` (main run `34592160771`); R07 `34592160770` i R08 `34592160783` również **SUCCESS**.
+- WMM/API/JSON nie zostały zmienione.
 
 ## Zasada zamykania fixa
 
