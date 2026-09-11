@@ -22,6 +22,7 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-003 | 1.0.x | WYSOKI | Grafik / zmiany | Potwierdzić jedno wspólne źródło godzin zmian i trybów grafiku, bez duplikowania konfiguracji. | DO AUDYTU | — |
 | WM10-004 | 1.0.x | ŚREDNI | Profil / Brygadzista | Zweryfikować i ewentualnie poprawić przygotowanie panelu Brygadzisty po wejściu do Profilu, aby pierwszy klik nie powodował odczuwalnego budowania widoku. | DO AUDYTU | — |
 | WM10-005 | 1.0.x | WYSOKI | Planista | Test pełnego przepływu Zlecenie -> Produkt -> Półprodukt -> Surowiec, zapis/restart/refresh i jednoznaczność identyfikatorów. | DO AUDYTU | — |
+| WM10-005A | 1.0.5 | KRYTYCZNY | Planista / WMM | Zabezpieczyć równoczesne tworzenie zleceń przez desktop WM i WMM wspólną blokadą obejmującą generowanie ID oraz zapis zlecenia. | NAPRAWIONE | `4ec03658`, `227b9739`, `2a4467fe` |
 | WM10-006 | 1.0.x | WYSOKI | Dyspozycje / role | Potwierdzić pełne uprawnienia brygadzisty oraz ograniczenia zwykłych użytkowników przy dodawaniu i edycji dyspozycji. | DO AUDYTU | — |
 | WM10-006B | 1.0.3 | KRYTYCZNY | Dyspozycje / zapis | Zabezpieczyć `data/dyspozycje/dyspozycje.json`: wspólna blokada WM/WMM dla pełnej transakcji odczyt -> zmiana -> zapis oraz atomowy zapis `tmp -> os.replace`, bez zmiany formatu JSON. | NAPRAWIONE | `52f472f0`, `ad71b90a`, `ec5c4d87` |
 | WM10-007 | 1.0.x | ŚREDNI | Maszyny | Dokończyć audyt edytora maszyny: zapis, lokalizacja, sekcje danych, zdjęcia/dokumenty i ergonomia bez przebudowy architektury. | DO AUDYTU | — |
@@ -68,6 +69,17 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Główny CI uruchamia ten test jako osobny krok `Run tool write guard regressions`.
 - Wynik CI: **SUCCESS** dla commita `41a33c28d7c3a5e9a2af6ff6a98312741043a297`.
 - Ograniczenie: fizyczna blokada nie chroni przed zapisaniem starego formularza po wcześniejszej nowszej zmianie z WMM; obsługa `revision`/ETag/409 lub soft-lock/presence pozostaje osobnym zadaniem.
+
+## WM10-005A — zamknięcie
+
+- Wersja: **1.0.5**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano wyłącznie wspólną blokadę tworzenia zlecenia WM <-> WMM, test współbieżności oraz podbicie wersji; bez zmian UI, BOM i logiki rezerwacji.
+- Implementacja: `order_create_lock(...)` korzysta ze wspólnego guarda `data/zlecenia/_order_sequence`; desktop Planisty obejmuje blokadą cały cykl tworzenia wraz ze snapshotem/rollbackiem, a WMM używa tego samego guarda.
+- Test: `tests/test_order_create_guard.py` równocześnie uruchamia tworzenie zlecenia z desktopu i WMM, wymusza okno wyścigu podczas pobierania numeru i potwierdza dwa różne ID oraz dwa zapisane pliki JSON.
+- Główny CI uruchamia test w kroku `Run production planning regressions`; wszystkie kroki tego workflow zakończyły się powodzeniem.
+- Wynik CI: **SUCCESS** dla commita `2a4467fe9ed1921ba94ba6d0756cde989b7d08db` (run `34576085995`).
+- Ograniczenie: 1.0.5 nie zmienia ogólnej współbieżności rezerwacji magazynowych ani rollbacku magazynu między niezależnymi operacjami; ten temat pozostaje osobnym fixem po 1.0.5.
 
 ## Zasada zamykania fixa
 
