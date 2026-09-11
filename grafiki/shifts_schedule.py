@@ -1,8 +1,9 @@
-# version: 1.3
+# version: 1.4
 # Plik: grafiki/shifts_schedule.py
-# Zmiany 1.2:
-# - Kanoniczne wzorce grafiku: 111, 112, 121, 212, 222.
-# - 121/212 są literalnym cyklem trzytygodniowym.
+# Zmiany 1.4:
+# - Kanoniczne tryby grafiku: 11, 22, 12, 21.
+# - 12/21 są naprzemiennym cyklem dwutygodniowym.
+# - Stare wartości 111/222/121/212/112 są aliasami zgodności.
 # - Każdy pracownik ma własną datę kotwiczną tygodnia 1.
 # - Konfiguracja grafiku jest wiązana z trwałym user_id z fallbackiem do loginu.
 """Silnik grafiku zmian Warsztat Menager."""
@@ -19,31 +20,37 @@ from config_manager import ConfigManager
 from profile_utils import ensure_profiles_file
 
 _DEFAULT_PATTERNS = {
-    "111": "111",
-    "112": "112",
-    "222": "222",
-    "121": "121",
-    "212": "212",
+    "11": "11",
+    "22": "22",
+    "12": "12",
+    "21": "21",
 }
 
 _LEGACY_MODE_ALIASES = {
-    "1111": "111",
-    "2222": "222",
-    "1212": "121",
-    "2121": "212",
-    "I": "111",
-    "1": "111",
-    "II": "222",
-    "2": "222",
+    "111": "11",
+    "1111": "11",
+    "222": "22",
+    "2222": "22",
+    "112": "12",
+    "121": "12",
+    "1212": "12",
+    "212": "21",
+    "2121": "21",
+    "I": "11",
+    "1": "11",
+    "II": "22",
+    "2": "22",
 }
 
 
-def _normalize_mode(value: object, *, fallback: str = "111") -> str:
+def _normalize_mode(value: object, *, fallback: str = "11") -> str:
     raw = str(value or "").strip().upper()
     raw = _LEGACY_MODE_ALIASES.get(raw, raw)
     if raw in _DEFAULT_PATTERNS:
         return raw
-    return fallback if fallback in _DEFAULT_PATTERNS else "111"
+    fallback_raw = str(fallback or "").strip().upper()
+    fallback_raw = _LEGACY_MODE_ALIASES.get(fallback_raw, fallback_raw)
+    return fallback_raw if fallback_raw in _DEFAULT_PATTERNS else "11"
 
 
 def _default_users_file() -> str:
@@ -176,7 +183,7 @@ def _load_users() -> List[Dict[str, str]]:
             continue
         uid = str(raw_user.get("user_id") or raw_user.get("id") or raw_user.get("login") or "").strip()
         login = str(raw_user.get("login") or "").strip()
-        mode = _normalize_mode(raw_user.get("tryb_zmian") or raw_user.get("zmiana_plan") or "111")
+        mode = _normalize_mode(raw_user.get("tryb_zmian") or raw_user.get("zmiana_plan") or "11")
         if uid:
             defaults_map[uid] = mode
         if login:
@@ -313,7 +320,7 @@ def _load_users() -> List[Dict[str, str]]:
             or user.get("zmiana_plan")
             or defaults_map.get(uid)
             or defaults_map.get(login)
-            or "111"
+            or "11"
         )
         _USER_DEFAULTS[uid] = default_mode
         if login:
@@ -361,7 +368,7 @@ def get_user_schedule(user_id: str, fallback_mode: str = "") -> tuple[str, str]:
         or (user or {}).get("tryb_zmian")
         or _USER_DEFAULTS.get(stable_id)
         or (_USER_DEFAULTS.get(login) if login else None)
-        or "111"
+        or "11"
     )
     mode = _normalize_mode(raw_mode)
 
@@ -433,10 +440,10 @@ _user_week_idx = _week_idx_for_user
 
 
 def _slot_for_mode(mode: str, week_idx: int) -> str:
-    """Zwróć zmianę dla literalnego trzytygodniowego wzorca."""
+    """Zwróć zmianę dla kanonicznego dwutygodniowego wzorca."""
     canonical = _normalize_mode(mode)
     pattern = _DEFAULT_PATTERNS[canonical]
-    digit = pattern[int(week_idx) % 3]
+    digit = pattern[int(week_idx) % len(pattern)]
     return "RANO" if digit == "1" else "POPO"
 
 
