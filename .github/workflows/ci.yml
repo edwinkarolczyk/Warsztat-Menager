@@ -27,6 +27,7 @@ jobs:
             tests/test_leave_balance_service.py \
             tests/test_feedback_service.py \
             tests/test_wm_operational_followup.py \
+            tests/test_profile_identity_runtime.py \
             tests/test_profile_foreman_edit_runtime.py \
             tests/test_profile_foreman_workspace.py \
             tests/test_profile_workday_policy.py \
