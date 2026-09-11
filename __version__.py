@@ -11,7 +11,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.8"
+__version__ = "1.0.9"
 
 
 def get_version() -> str:
