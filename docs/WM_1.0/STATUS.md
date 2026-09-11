@@ -5,12 +5,12 @@
 - Produkt: Warsztat Menager
 - Linia wersji: **WM 1.0.x**
 - Wersja bazowa: **1.0.0**
-- Aktualna wersja techniczna: **1.0.1**
+- Aktualna wersja techniczna: **1.0.3**
 - Data przyjęcia bazy: **2026-09-10**
 - Gałąź robocza: `Rozwiniecie`
 - Commit bazowy produktu: `184cf180abcb5681f0e6205724ac0a3a2807b19e`
 - Commit inicjalizujący rejestr WM 1.0: `7f82870670acb88f8ad04cfc9a67312fd41455d9`
-- Ostatni przetestowany commit kodu 1.0.1: `c6cde038220aed2d92eccee877bb9168896f856c`
+- Ostatni przetestowany commit kodu 1.0.3: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e`
 - Etap: **stabilizacja produktu**
 - Nowe duże funkcje: **wstrzymane do czasu ustabilizowania obecnych modułów**
 
@@ -34,12 +34,12 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 | Logowanie / sesja | DO AUDYTU | smoke test + lifecycle |
 | Profil / Brygadzista | DO AUDYTU | ładowanie, uprawnienia, refresh |
 | Planista / Zlecenia | DO AUDYTU | zapis, restart, identyfikatory, rezerwacje |
-| Maszyny | STABILIZACJA | WM 1.0.1 zabezpieczyło fizyczny zapis WM/WMM; edytor i pozostałe zapisy nadal do audytu |
+| Maszyny | STABILIZACJA | blokada zapisu WM/WMM gotowa; edytor i pozostałe zapisy nadal do audytu |
 | Narzędzia | DO AUDYTU | zapis, powiązania, refresh |
-| Dyspozycje | DO AUDYTU | uprawnienia, statusy, historia, trwałość zapisu |
+| Dyspozycje | STABILIZACJA | WM 1.0.3 zabezpieczyło pełne transakcje zapisu; uprawnienia/statusy/historia nadal do dalszego audytu funkcjonalnego |
 | Magazyn | DO AUDYTU | źródło danych, zapis, refresh |
 | ROOT / config | DO AUDYTU | jedno źródło ścieżek |
-| WMM API w WM | BETA / STABILIZACJA | blokada pliku Maszyn gotowa; wykrywanie konfliktów `revision`/409 pozostaje osobnym etapem |
+| WMM API w WM | BETA / STABILIZACJA | blokady plików Maszyn i Dyspozycji gotowe; wykrywanie konfliktów `revision`/409 pozostaje osobnym etapem |
 | WMM mobile | ROZWÓJ RÓWNOLEGŁY | test 3–5 klientów jednocześnie |
 
 ## WM 1.0.1 — wynik
@@ -51,10 +51,27 @@ Doprowadzić WM do stanu, w którym obecne funkcje są szybkie, przewidywalne i 
 - Istniejący atomowy zapis danych pozostał zachowany.
 - CI dla commita `c6cde038220aed2d92eccee877bb9168896f856c`: R07, R08 i główny `ci.yml` — **SUCCESS**.
 
+## WM 1.0.2 — wynik
+
+- Wersja została podniesiona po stabilizacji integracji WMM.
+- Commit wersji: `37bbc7f4b671bbc0641e6ca4cefafcf9ebf869ff`.
+- Rejestr stabilizacji nie został wtedy wyrównany i został uzupełniony przy zamknięciu 1.0.3.
+
+## WM 1.0.3 — wynik
+
+- Fix: `WM10-006B`.
+- Zakres: bezpieczny zapis `data/dyspozycje/dyspozycje.json` przy równoległych operacjach WM/WMM.
+- `add`, `update`, `delete` i zmiana statusu obejmują wspólną blokadą cały cykl odczyt -> modyfikacja -> zapis.
+- Zapis jest atomowy: plik tymczasowy w tym samym katalogu, następnie `os.replace`.
+- Format JSON Dyspozycji nie został zmieniony.
+- Dodano regresję `tests/test_dyspozycje_store_write_guard.py` i uruchamianie jej w głównym CI.
+- Commit implementacji: `52f472f0cb34a5fcb1f0a0365a0e6f042802a70e`.
+- Commit z zielonym głównym CI: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e` — **SUCCESS**.
+
 ## Reguła pracy dziennej
 
 Nie robimy zmian na siłę. Jeżeli zakres jednego dnia zaczyna obejmować zbyt wiele modułów, danych lub zależności, zatrzymujemy się w bezpiecznym punkcie, zapisujemy stan i kontynuujemy kolejnego dnia. Preferowane jest 1–3 małe, przetestowane poprawki zamiast dużego pakietu zmian.
 
-## Stan na koniec 2026-09-10
+## Stan na 2026-09-11
 
-Dzień zamknięty na **WM 1.0.1**. Nie rozpoczynamy dziś kolejnego fixa; następna sesja zaczyna się od wyboru i akceptacji następnego małego zakresu stabilizacyjnego.
+Aktualny punkt stabilizacji: **WM 1.0.3**. Następny fix wybieramy dopiero po osobnej analizie i akceptacji zakresu.

@@ -23,6 +23,7 @@ Nie oznaczamy testu jako zaliczony bez wykonania go na aktualnej wersji. Na star
 | WM10-T014 | Brak duplikatu po pojedynczej operacji użytkownika | DO TESTU |
 | WM10-T015 | Uszkodzony/niepełny zapis nie niszczy poprzedniej poprawnej wersji danych | DO TESTU |
 | WM10-T030 | Blokada zapisu Maszyn serializuje równoległe wejścia, a aktualizacja WMM zachowuje strukturę dokumentu i pozostałe rekordy | ZALICZONY — 1.0.1 CI |
+| WM10-T031 | Dyspozycje: równoległe transakcje nie gubią rekordów, JSON pozostaje poprawny, a błąd atomowego `replace` nie niszczy poprzedniego pliku | ZALICZONY — 1.0.3 CI |
 
 ## Moduły
 
@@ -65,6 +66,20 @@ Commit kodu: `c6cde038220aed2d92eccee877bb9168896f856c`.
 - Static checks: **SUCCESS**.
 
 Nie oznacza to jeszcze zaliczenia scenariusza rzeczywistych dwóch procesów WM/WMM edytujących ten sam rekord z różnymi wersjami danych. Ten scenariusz pozostaje do osobnego testu i przyszłej obsługi konfliktów `revision`/409.
+
+## Wynik CI dla WM 1.0.3
+
+Commit z uruchomionym pełnym głównym CI: `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e`.
+
+- `R07 Smoke` (`r07_smoke.yml`): **SUCCESS**.
+- Pozostałe check-runy smoke dla tego commita: **SUCCESS**.
+- `static-checks`: **SUCCESS**.
+- Główny `ci.yml`: wszystkie kroki **SUCCESS**.
+- `Run disposition write guard regressions`: **SUCCESS**.
+- `tests/test_dyspozycje_store_write_guard.py`: sprawdza 16 równoległych zapisów oraz awarię `os.replace` bez utraty poprzedniego JSON.
+- Kompilacja całego repo: **SUCCESS**.
+
+WM 1.0.3 zabezpiecza fizyczną transakcję zapisu Dyspozycji. Nie oznacza jeszcze rozwiązania semantycznego konfliktu starej wersji tego samego rekordu (`revision`/ETag/409).
 
 ## Warunek wydania
 

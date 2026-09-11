@@ -22,11 +22,12 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-004 | 1.0.x | ŚREDNI | Profil / Brygadzista | Zweryfikować i ewentualnie poprawić przygotowanie panelu Brygadzisty po wejściu do Profilu, aby pierwszy klik nie powodował odczuwalnego budowania widoku. | DO AUDYTU | — |
 | WM10-005 | 1.0.x | WYSOKI | Planista | Test pełnego przepływu Zlecenie -> Produkt -> Półprodukt -> Surowiec, zapis/restart/refresh i jednoznaczność identyfikatorów. | DO AUDYTU | — |
 | WM10-006 | 1.0.x | WYSOKI | Dyspozycje / role | Potwierdzić pełne uprawnienia brygadzisty oraz ograniczenia zwykłych użytkowników przy dodawaniu i edycji dyspozycji. | DO AUDYTU | — |
+| WM10-006B | 1.0.3 | KRYTYCZNY | Dyspozycje / zapis | Zabezpieczyć `data/dyspozycje/dyspozycje.json`: wspólna blokada WM/WMM dla pełnej transakcji odczyt -> zmiana -> zapis oraz atomowy zapis `tmp -> os.replace`, bez zmiany formatu JSON. | NAPRAWIONE | `52f472f0`, `ad71b90a`, `ec5c4d87` |
 | WM10-007 | 1.0.x | ŚREDNI | Maszyny | Dokończyć audyt edytora maszyny: zapis, lokalizacja, sekcje danych, zdjęcia/dokumenty i ergonomia bez przebudowy architektury. | DO AUDYTU | — |
 | WM10-008 | 1.0.x | ŚREDNI | UI / lifecycle | Przejść ciężkie widoki pod kątem zbędnych pełnych refreshy, wielokrotnego skanowania katalogów oraz nieanulowanych `after()`. | DO AUDYTU | — |
 | WM10-009 | 1.0.x | ŚREDNI | Pomoc `!` | Przy kolejnych poprawianych ekranach stosować wspólny mechanizm pomocy kontekstowej `!` przy istotnych polach i akcjach, maks. dwa krótkie zdania. | DO AUDYTU | — |
 | WMM-001 | osobna wersja WMM | KRYTYCZNY | Współbieżność | Zabezpieczyć konflikt równoczesnej edycji tego samego rekordu przez kilku klientów; preferowane `revision`/ETag i odpowiedź 409 przy starych danych. | DO AUDYTU | — |
-| WMM-002 | osobna wersja WMM | KRYTYCZNY | Zapis WM <-> WMM | Potwierdzić, że desktop WM i API nie mogą równocześnie nadpisać tego samego pliku/rekordu; część dotycząca pliku Maszyn została zabezpieczona w `WM10-001A`. | DO AUDYTU | `54ee84bf` (Maszyny) |
+| WMM-002 | osobna wersja WMM | KRYTYCZNY | Zapis WM <-> WMM | Potwierdzić, że desktop WM i API nie mogą równocześnie nadpisać tego samego pliku/rekordu; fizyczne blokady plików Maszyn i Dyspozycji są już wdrożone. | DO AUDYTU | `54ee84bf` (Maszyny), `52f472f0` (Dyspozycje) |
 | WMM-003 | osobna wersja WMM | WYSOKI | Idempotencja | Ponowienie requestu nie może tworzyć duplikatu zlecenia, zdarzenia ani zdjęcia. | DO AUDYTU | — |
 | WMM-004 | osobna wersja WMM | WYSOKI | Historia | Każda operacja zapisu powinna być identyfikowalna: użytkownik, czas, operacja i — gdy potrzebne — urządzenie/sesja. | DO AUDYTU | — |
 | WMM-005 | osobna wersja WMM | WYSOKI | Test współbieżny | Test 3–5 klientów WMM jednocześnie: odczyt, zmiana statusów, zdjęcia, dyspozycje i konflikt tej samej pozycji. | DO AUDYTU | — |
@@ -40,6 +41,18 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Test: `tests/test_machine_file_guard.py` + pełny `ci.yml`.
 - Wynik CI: **SUCCESS** dla commita `c6cde038220aed2d92eccee877bb9168896f856c`.
 - Ograniczenie: wykrywanie semantycznego konfliktu starej wersji rekordu (`revision`/409) nie należy do 1.0.1 i pozostaje osobnym przyszłym fixem.
+
+## WM10-006B — zamknięcie
+
+- Wersja: **1.0.3**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano wyłącznie zabezpieczenie zapisu Dyspozycji, zapis atomowy, test regresyjny, wersję 1.0.3 i wyrównanie rejestru stabilizacji.
+- Implementacja: istniejący `file_write_lock(...)` chroni pełne transakcje `add`, `update`, `delete` i zmiany statusu; zapis kończy się atomowym `os.replace`.
+- Format `dyspozycje.json` nie został zmieniony. UI i logika przejść statusów nie zostały rozszerzone.
+- Test: `tests/test_dyspozycje_store_write_guard.py` sprawdza 16 równoległych zapisów bez utraty rekordów oraz zachowanie poprzedniego poprawnego JSON po błędzie `os.replace`.
+- Główny CI uruchamia ten test jako osobny krok `Run disposition write guard regressions`.
+- Wynik CI: **SUCCESS** dla commita `ec5c4d87aa2b4fd4e5eb35c13c6edbe95eb6503e`.
+- Ograniczenie: ten fix nie rozwiązuje semantycznego konfliktu dwóch klientów edytujących ten sam rekord na podstawie starej wersji danych; `revision`/ETag/409 pozostaje osobnym zadaniem.
 
 ## Zasada zamykania fixa
 
