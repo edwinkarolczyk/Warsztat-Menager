@@ -68,6 +68,9 @@ jobs:
       - name: Run DATA_ROOT integrity regressions
         run: |
           pytest -q tests/test_data_root_integrity.py
+      - name: Run disposition write guard regressions
+        run: |
+          pytest -q tests/test_dyspozycje_store_write_guard.py
       - name: Compile hall and machine extension
         run: |
           python -m py_compile \
