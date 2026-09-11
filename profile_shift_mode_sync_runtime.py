@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Ujednolica listę trybów grafiku w dodawaniu i edycji profilu pracownika."""
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ _MODE_CODES = tuple(mode for mode, _label in SHIFT_MODE_OPTIONS)
 
 
 def _mode_code(value: Any) -> str:
-    """Zamień kod lub etykietę UI na kanoniczny kod grafiku."""
+    """Zamień kod, etykietę lub stary alias na kanoniczny kod grafiku."""
     text = str(value or "").strip()
     if text in _MODE_CODES:
         return text
@@ -53,6 +53,10 @@ def _mode_code(value: Any) -> str:
     prefix = text.split("—", 1)[0].strip()
     if prefix in _MODE_CODES:
         return prefix
+    aliases = getattr(shifts_schedule, "_LEGACY_MODE_ALIASES", {})
+    normalized = aliases.get(prefix.upper(), prefix)
+    if normalized in _MODE_CODES:
+        return normalized
     return text
 
 
@@ -126,7 +130,7 @@ def _replace_mode_help(schedule) -> None:
     available = ", ".join(_MODE_CODES)
     add_help_button(
         schedule,
-        f"Wybierz wzorzec grafiku: {available}. Cyfry oznaczają kolejne tygodnie: I lub II zmianę; po trzecim tygodniu cykl zaczyna się od początku.",
+        f"Wybierz wzorzec grafiku: {available}. 12 oznacza I → II → I → II, a 21 oznacza II → I → II → I; cykl powtarza się co dwa tygodnie.",
         row=0,
         column=2,
         padx=(6, 0),
@@ -193,6 +197,9 @@ def _patch_add_profile_dialog() -> None:
     except Exception:
         return
     profiles.ProfileEditDialog.SHIFT_MODES = list(SHIFT_MODE_OPTIONS)
+    profiles.ProfileEditDialog.LEGACY_SHIFT_ALIASES = dict(
+        getattr(shifts_schedule, "_LEGACY_MODE_ALIASES", {})
+    )
 
 
 def _patch_legacy_users_panel() -> None:
