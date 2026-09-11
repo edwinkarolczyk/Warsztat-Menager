@@ -1,11 +1,18 @@
-# version: 1.0
+# version: 1.1
+# Zmiany 1.1:
+# - Pojedyncze pliki narzędzi data/narzedzia/<nr>.json są zapisywane atomowo.
+# - Ich zapis korzysta ze wspólnej blokady pliku używanej także przez WMM.
 from __future__ import annotations
 
 import copy
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
+import uuid
+
+from machine_file_guard import file_write_lock
 
 try:
     from config_manager import get_root, resolve_rel
@@ -140,6 +147,35 @@ def safe_read_json(path: str, default: Any = None, *, ensure: bool = True) -> An
         return copy.deepcopy(default)
 
 
+def _is_tool_item_path(path: str) -> bool:
+    """Rozpoznaj pojedynczy plik narzędzia, bez plików konfiguracyjnych/indexu."""
+
+    try:
+        target = Path(path)
+        return (
+            target.suffix.casefold() == ".json"
+            and target.parent.name.casefold() == "narzedzia"
+            and target.stem.isdigit()
+        )
+    except Exception:
+        return False
+
+
+def _write_json_atomic(path: str, data: Any) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temp.open("w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+        os.replace(temp, target)
+    finally:
+        try:
+            temp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def safe_write_json(path: str, data: Any) -> bool:
     """Safely write JSON ensuring parent directories exist."""
 
@@ -148,8 +184,12 @@ def safe_write_json(path: str, data: Any) -> bool:
             logger.error("[JSON] Próba zapisu do katalogu (nie pliku): %s", path)
             return False
         _ensure_parent(path)
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
+        if _is_tool_item_path(path):
+            with file_write_lock(path, label="Narzędzi"):
+                _write_json_atomic(path, data)
+        else:
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
         logger.info("[JSON] Zapisano %s", path)
         return True
     except Exception as exc:
@@ -256,4 +296,3 @@ def normalize_tools_index(doc: Any) -> Dict[str, Any]:
 
 
 _safe_read_json = safe_read_json
-
