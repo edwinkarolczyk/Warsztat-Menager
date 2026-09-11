@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
-# version: 1.4.14
+# version: 1.4.15
 # Plik: gui_logowanie.py (beta)
+# Zmiany 1.4.15:
+# - Godziny zmian na ekranie logowania pochodzą z kanonicznego Grafiku.
 # Zmiany 1.4.13:
 # - Logowanie korzysta z kanonicznego grafiku pracownika i jego indywidualnej daty kotwicznej.
 # Zmiany 1.4.12.1:
@@ -299,28 +301,22 @@ def _parse_ts_z(s: str):
 
 
 def _slot_now(now: datetime):
+    times = shifts_schedule._shift_times()
     t = now.time()
-    if t >= datetime.strptime("06:00", "%H:%M").time() and t < datetime.strptime(
-        "14:00", "%H:%M"
-    ).time():
+    if times["R_START"] <= t < times["R_END"]:
         return "RANO"
-    if t >= datetime.strptime("14:00", "%H:%M").time() and t < datetime.strptime(
-        "22:00", "%H:%M"
-    ).time():
+    if times["P_START"] <= t < times["P_END"]:
         return "POPO"
     return None
 
 
 def _shift_bounds_for_slot(now: datetime, slot: str):
     d = now.date()
+    times = shifts_schedule._shift_times()
     if slot == "RANO":
-        s = datetime.combine(d, datetime.strptime("06:00", "%H:%M").time())
-        e = datetime.combine(d, datetime.strptime("14:00", "%H:%M").time())
-        return s, e
+        return datetime.combine(d, times["R_START"]), datetime.combine(d, times["R_END"])
     if slot == "POPO":
-        s = datetime.combine(d, datetime.strptime("14:00", "%H:%M").time())
-        e = datetime.combine(d, datetime.strptime("22:00", "%H:%M").time())
-        return s, e
+        return datetime.combine(d, times["P_START"]), datetime.combine(d, times["P_END"])
     return None, None
 
 
