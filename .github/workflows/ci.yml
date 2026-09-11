@@ -71,6 +71,9 @@ jobs:
       - name: Run disposition write guard regressions
         run: |
           pytest -q tests/test_dyspozycje_store_write_guard.py
+      - name: Run tool write guard regressions
+        run: |
+          pytest -q tests/test_tool_file_guard.py
       - name: Compile hall and machine extension
         run: |
           python -m py_compile \
