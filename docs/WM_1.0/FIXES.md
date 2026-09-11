@@ -18,7 +18,7 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-001 | 1.0.x | KRYTYCZNY | Zapisy / ROOT | Przejść wszystkie główne moduły pod kątem niespójnych ścieżek, podwójnych zapisów, zapisu poza ROOT i trwałości po restarcie. | DO AUDYTU | — |
 | WM10-001A | 1.0.1 | KRYTYCZNY | Maszyny / WMM | Zabezpieczyć wspólny plik `data/maszyny/maszyny.json`: blokada między procesami WM/WMM, pełny cykl WMM odczyt -> zmiana -> zapis pod blokadą, bez zmiany formatu JSON. | NAPRAWIONE | `54ee84bf`, `046109b3`, `c6cde038` |
 | WM10-001B | 1.0.4 | KRYTYCZNY | Narzędzia / WMM | Zabezpieczyć pojedyncze `data/narzedzia/<nr>.json`: wspólna blokada WM/WMM i atomowy zapis pliku, bez zmiany formatu danych i UI. | NAPRAWIONE | `4c0ff529`, `234583b7`, `dc738f0e`, `41a33c28` |
-| WM10-002 | 1.0.x | WYSOKI | ID użytkowników | Sprawdzić miejsca nadal bazujące na loginie zamiast trwałego `user_id`, szczególnie historia/obecność/opinie i powiązane zapisy. | DO AUDYTU | — |
+| WM10-002 | 1.0.7 | WYSOKI | ID użytkowników | Zachować trwałe `user_id` przy zmianie loginu: przed zmianą uzupełnić brakujące `user_id` w historycznych rekordach tej osoby bez hurtowej migracji i bez nadpisywania istniejących ID. | NAPRAWIONE | `f70d8ce1`, `9553659e`, `8f96719d`, `65aa7d24` |
 | WM10-003 | 1.0.x | WYSOKI | Grafik / zmiany | Potwierdzić jedno wspólne źródło godzin zmian i trybów grafiku, bez duplikowania konfiguracji. | DO AUDYTU | — |
 | WM10-004 | 1.0.x | ŚREDNI | Profil / Brygadzista | Zweryfikować i ewentualnie poprawić przygotowanie panelu Brygadzisty po wejściu do Profilu, aby pierwszy klik nie powodował odczuwalnego budowania widoku. | DO AUDYTU | — |
 | WM10-005 | 1.0.x | WYSOKI | Planista | Test pełnego przepływu Zlecenie -> Produkt -> Półprodukt -> Surowiec, zapis/restart/refresh i jednoznaczność identyfikatorów. | DO AUDYTU | — |
@@ -93,6 +93,19 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Główny CI przeszedł krok `Run production planning regressions` oraz wszystkie pozostałe kroki.
 - Wynik CI: **SUCCESS** dla commita `b8a3fa8427db9572d346b06381b8b83d5fc88a7f` (run `34577264917`); workflowy R07 i R08 również zakończyły się **SUCCESS**.
 - Ograniczenie: 1.0.6 nie wprowadza semantycznego wersjonowania rekordów (`revision`/ETag/409) dla konfliktów edycji; to pozostaje osobnym zadaniem.
+
+## WM10-002 — zamknięcie
+
+- Wersja: **1.0.7**
+- Data: **2026-09-11**
+- Decyzja użytkownika: po raporcie stabilizacji zaakceptowano dalszą pracę nad spójnością `user_id` vs login bez zmian UI i bez hurtowej migracji danych.
+- Audyt potwierdził, że nowe wpisy Obecności i Urlopów już zapisują trwałe `user_id` oraz `login_snapshot`; luka dotyczyła głównie starszych rekordów i danych zapisanych historycznie po loginie.
+- Implementacja: przed faktyczną zmianą loginu `profile_identity_runtime.py` uzupełnia brakujący `user_id` tylko w rekordach tej jednej osoby: Opinie, Urlopy, wnioski urlopowe, Obecność, audit Obecności i historia administracyjna Profilu. Stary login pozostaje jako snapshot/czytelna historia.
+- Istniejący `user_id` nigdy nie jest nadpisywany. Nie wykonywana jest migracja całej bazy przy starcie programu.
+- Test: `tests/test_profile_identity_runtime.py` sprawdza dopisanie `USR-0042` do rekordów legacy oraz ochronę istniejącego obcego ID.
+- Test został dopięty do głównego kroku `Run profile workforce regressions`.
+- Wynik CI: **SUCCESS** dla commita `65aa7d24da06018dc99473d94c90cd8a9a667599` (run `34579591256`); R07 i R08 również **SUCCESS**.
+- Kompatybilność: zmiana nie rusza endpointów ani formatu komunikacji WMM; WMM 0.5.9 pozostaje zgodne.
 
 ## Zasada zamykania fixa
 
