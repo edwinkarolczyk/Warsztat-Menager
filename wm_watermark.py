@@ -1,6 +1,8 @@
 """Globalny znak wodny WM: PROGRAM W TRAKCIE ROZWOJU.
 # Plik: wm_watermark.py
-# Wersja: 1.0.9 SAFE
+# Wersja: 1.0.10 SAFE
+# Zmiany 1.0.10:
+# - Dopina kosmetyczny pakiet remontowy WM: komunikat startowy i usprawnienia Obecności.
 # Zmiany 1.0.9:
 # - Dopina kolumnę Tryb zmiany do testowego scalonego widoku Brygadzisty.
 # Zmiany 1.0.8:
@@ -163,6 +165,17 @@ def _install_tutorial_entry(root) -> None:
         pass
 
 
+def _install_renovation_ui(root) -> None:
+    """Dopnij komunikat remontowy i kosmetykę edytora Obecności."""
+    try:
+        from wm_ui_renovation_runtime import install
+
+        install(root)
+    except Exception:
+        # Kosmetyka remontowa nie może zablokować startu panelu.
+        pass
+
+
 def install(root) -> DevelopmentWatermark:
     """Zachowaj zgodność API bez tworzenia warstwy znaku wodnego."""
     existing = getattr(root, "_wm_development_watermark", None)
@@ -178,6 +191,7 @@ def install(root) -> DevelopmentWatermark:
         _install_foreman_test_workspace()
         _install_test_shift_mode()
         _install_tutorial_entry(root)
+        _install_renovation_ui(root)
         return existing
 
     overlay = DevelopmentWatermark(root)
@@ -192,4 +206,5 @@ def install(root) -> DevelopmentWatermark:
     _install_foreman_test_workspace()
     _install_test_shift_mode()
     _install_tutorial_entry(root)
+    _install_renovation_ui(root)
     return overlay
