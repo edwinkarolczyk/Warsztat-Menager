@@ -1,7 +1,6 @@
-# version: 1.0
+# version: 1.1
 from datetime import datetime, time
 
-import gui_logowanie
 from gui import widgets_user_footer as user_footer
 from services import attendance_service
 
@@ -38,6 +37,8 @@ def test_attendance_reads_canonical_shift_time_mapping(monkeypatch):
 
 
 def test_login_uses_canonical_shift_hours(monkeypatch):
+    import gui_logowanie
+
     monkeypatch.setattr(
         gui_logowanie.shifts_schedule,
         "_shift_times",
