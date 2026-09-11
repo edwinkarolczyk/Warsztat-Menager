@@ -1,4 +1,7 @@
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - Zapis Dyspozycji jest atomowy i chroniony wspólną blokadą WM/WMM.
+# - Operacje modyfikujące obejmują blokadą cały cykl odczyt -> zmiana -> zapis.
 # Zmiany 1.2:
 # - Przy rozpoczęciu Dyspozycji zapisywany jest wykonawca i czas rozpoczęcia.
 # - Przypisanie pozostaje bez zmian; wykonawca jest osobnym polem rekordu.
@@ -19,6 +22,7 @@ Cel:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import uuid
@@ -26,6 +30,8 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from machine_file_guard import file_write_lock
 
 try:
     from config_manager import ConfigManager
@@ -310,8 +316,7 @@ def normalize_dyspozycja(item: dict[str, Any] | None) -> dict[str, Any]:
     return normalized
 
 
-def load_dyspozycje() -> list[dict[str, Any]]:
-    path = get_dyspozycje_path()
+def _load_dyspozycje_from_path(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     try:
@@ -334,22 +339,44 @@ def load_dyspozycje() -> list[dict[str, Any]]:
     return out
 
 
-def save_dyspozycje(items: list[dict[str, Any]]) -> Path:
-    path = get_dyspozycje_path()
+def load_dyspozycje() -> list[dict[str, Any]]:
+    return _load_dyspozycje_from_path(get_dyspozycje_path())
+
+
+def _save_dyspozycje_unlocked(
+    path: Path,
+    items: list[dict[str, Any]],
+) -> Path:
     payload = _default_payload()
     payload["items"] = [
         normalize_dyspozycja(item) for item in items if isinstance(item, dict)
     ]
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temp_path.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        os.replace(temp_path, path)
+    finally:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
     return path
 
 
+def save_dyspozycje(items: list[dict[str, Any]]) -> Path:
+    path = get_dyspozycje_path()
+    with file_write_lock(path, label="Dyspozycji"):
+        return _save_dyspozycje_unlocked(path, items)
+
+
 def add_dyspozycja(item: dict[str, Any]) -> dict[str, Any]:
-    items = load_dyspozycje()
+    path = get_dyspozycje_path()
     record = normalize_dyspozycja(item)
-    items.append(record)
-    save_dyspozycje(items)
+    with file_write_lock(path, label="Dyspozycji"):
+        items = _load_dyspozycje_from_path(path)
+        items.append(record)
+        _save_dyspozycje_unlocked(path, items)
     return deepcopy(record)
 
 
@@ -371,22 +398,24 @@ def update_dyspozycja(
     if not needle:
         return None
 
-    items = load_dyspozycje()
-    changed: dict[str, Any] | None = None
-    for idx, item in enumerate(items):
-        if str(item.get("id") or "").strip() != needle:
-            continue
-        merged = dict(item)
-        merged.update(dict(updates or {}))
-        normalized = normalize_dyspozycja(merged)
-        items[idx] = normalized
-        changed = normalized
-        break
+    path = get_dyspozycje_path()
+    with file_write_lock(path, label="Dyspozycji"):
+        items = _load_dyspozycje_from_path(path)
+        changed: dict[str, Any] | None = None
+        for idx, item in enumerate(items):
+            if str(item.get("id") or "").strip() != needle:
+                continue
+            merged = dict(item)
+            merged.update(dict(updates or {}))
+            normalized = normalize_dyspozycja(merged)
+            items[idx] = normalized
+            changed = normalized
+            break
 
-    if changed is None:
-        return None
-    save_dyspozycje(items)
-    return deepcopy(changed)
+        if changed is None:
+            return None
+        _save_dyspozycje_unlocked(path, items)
+        return deepcopy(changed)
 
 
 def set_dyspozycja_status(
@@ -402,57 +431,77 @@ def set_dyspozycja_status(
     if target not in DISP_ALLOWED_STATUSES:
         return None
 
-    current_item = get_dyspozycja(dyspozycja_id)
-    if not current_item:
+    needle = str(dyspozycja_id or "").strip()
+    if not needle:
         return None
 
-    current = _normalize_status(current_item.get("status"))
-    if target == current:
-        return deepcopy(current_item)
+    path = get_dyspozycje_path()
+    with file_write_lock(path, label="Dyspozycji"):
+        items = _load_dyspozycje_from_path(path)
+        item_index = next(
+            (
+                idx
+                for idx, item in enumerate(items)
+                if str(item.get("id") or "").strip() == needle
+            ),
+            None,
+        )
+        if item_index is None:
+            return None
 
-    allowed_transitions = {
-        "nowa": {"w_toku"},
-        "w_toku": {"wstrzymana", "zamknieta"},
-        "wstrzymana": {"w_toku", "zamknieta"},
-        "zamknieta": set(),
-    }
-    if target not in allowed_transitions.get(current, set()):
-        return None
+        current_item = items[item_index]
+        current = _normalize_status(current_item.get("status"))
+        if target == current:
+            return deepcopy(current_item)
 
-    now = _now_iso()
-    who = _normalize_login(changed_by)
-    meta = dict(current_item.get("meta") or {})
-    history_raw = meta.get("historia_statusow")
-    history = list(history_raw) if isinstance(history_raw, list) else []
-    history.append(
-        {
-            "z": current,
-            "na": target,
-            "kto": who,
-            "kiedy": now,
+        allowed_transitions = {
+            "nowa": {"w_toku"},
+            "w_toku": {"wstrzymana", "zamknieta"},
+            "wstrzymana": {"w_toku", "zamknieta"},
+            "zamknieta": set(),
         }
-    )
-    meta["historia_statusow"] = history
+        if target not in allowed_transitions.get(current, set()):
+            return None
 
-    updates: dict[str, Any] = {
-        "status": target,
-        "meta": meta,
-    }
-    if current == "nowa" and target == "w_toku":
-        updates["wykonuje"] = who
-        updates["rozpoczal_at"] = now
-    if target == "zamknieta":
-        updates.update(
+        now = _now_iso()
+        who = _normalize_login(changed_by)
+        meta = dict(current_item.get("meta") or {})
+        history_raw = meta.get("historia_statusow")
+        history = list(history_raw) if isinstance(history_raw, list) else []
+        history.append(
             {
-                "wykonano": now,
-                "zamknieto_at": now,
-                "zamkniete_przez": who,
+                "z": current,
+                "na": target,
+                "kto": who,
+                "kiedy": now,
             }
         )
-        if str(uwagi or "").strip():
-            updates["uwagi"] = str(uwagi).strip()
+        meta["historia_statusow"] = history
 
-    return update_dyspozycja(dyspozycja_id, updates)
+        updates: dict[str, Any] = {
+            "status": target,
+            "meta": meta,
+        }
+        if current == "nowa" and target == "w_toku":
+            updates["wykonuje"] = who
+            updates["rozpoczal_at"] = now
+        if target == "zamknieta":
+            updates.update(
+                {
+                    "wykonano": now,
+                    "zamknieto_at": now,
+                    "zamkniete_przez": who,
+                }
+            )
+            if str(uwagi or "").strip():
+                updates["uwagi"] = str(uwagi).strip()
+
+        merged = dict(current_item)
+        merged.update(updates)
+        changed = normalize_dyspozycja(merged)
+        items[item_index] = changed
+        _save_dyspozycje_unlocked(path, items)
+        return deepcopy(changed)
 
 
 def close_dyspozycja(
@@ -473,12 +522,19 @@ def delete_dyspozycja(dyspozycja_id: str) -> bool:
     needle = str(dyspozycja_id or "").strip()
     if not needle:
         return False
-    items = load_dyspozycje()
-    filtered = [item for item in items if str(item.get("id") or "").strip() != needle]
-    if len(filtered) == len(items):
-        return False
-    save_dyspozycje(filtered)
-    return True
+
+    path = get_dyspozycje_path()
+    with file_write_lock(path, label="Dyspozycji"):
+        items = _load_dyspozycje_from_path(path)
+        filtered = [
+            item
+            for item in items
+            if str(item.get("id") or "").strip() != needle
+        ]
+        if len(filtered) == len(items):
+            return False
+        _save_dyspozycje_unlocked(path, filtered)
+        return True
 
 
 def visible_for_login(login: str) -> list[dict[str, Any]]:
