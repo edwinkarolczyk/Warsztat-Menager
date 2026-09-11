@@ -1,11 +1,13 @@
-# version: 1.2
+# version: 1.3
 """Ujednolica listę trybów grafiku w dodawaniu i edycji profilu pracownika."""
 from __future__ import annotations
 
+from datetime import date, timedelta
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
+from calendar_ui_runtime import open_date_picker
 from grafiki import shifts_schedule
 from ui_context_help import add_help_button
 
@@ -64,6 +66,18 @@ def _mode_label(value: Any) -> str:
     """Zwróć czytelną etykietę dla kodu grafiku."""
     code = _mode_code(value)
     return _MODE_TO_LABEL.get(code, str(value or "").strip())
+
+
+def _anchor_monday_iso(value: Any) -> str:
+    """Zwróć poniedziałek tygodnia wskazanej daty w formacie ISO."""
+    if isinstance(value, date):
+        picked = value
+    else:
+        try:
+            picked = date.fromisoformat(str(value or "").strip()[:10])
+        except Exception:
+            picked = date.today()
+    return (picked - timedelta(days=picked.weekday())).isoformat()
 
 
 def _walk(widget):
@@ -138,6 +152,64 @@ def _replace_mode_help(schedule) -> None:
     )
 
 
+def _install_anchor_calendar(schedule, win: tk.Toplevel) -> None:
+    """Dodaj wspólny kalendarz do pola Tydzień bazowy w edytorze pracownika."""
+    if getattr(schedule, "_wm_anchor_calendar_v1", False):
+        return
+
+    anchor_entry = None
+    for widget in schedule.winfo_children():
+        if not isinstance(widget, ttk.Entry):
+            continue
+        try:
+            info = widget.grid_info()
+            if int(info.get("row", -1)) == 1 and int(info.get("column", -1)) == 1:
+                anchor_entry = widget
+                break
+        except Exception:
+            continue
+    if anchor_entry is None:
+        return
+
+    var_name = str(anchor_entry.cget("textvariable") or "")
+    if not var_name:
+        return
+
+    try:
+        anchor_entry.configure(state="readonly")
+    except Exception:
+        pass
+
+    def _pick_anchor() -> None:
+        try:
+            initial = date.fromisoformat(str(win.getvar(var_name) or "")[:10])
+        except Exception:
+            initial = date.today()
+
+        def _selected(picked: date) -> None:
+            win.setvar(var_name, _anchor_monday_iso(picked))
+
+        open_date_picker(
+            win,
+            initial=initial,
+            on_select=_selected,
+            title="Tydzień bazowy — tydzień 1",
+        )
+
+    try:
+        anchor_entry.bind("<Button-1>", lambda _event: _pick_anchor(), add="+")
+    except Exception:
+        pass
+
+    ttk.Button(schedule, text="📅", width=3, command=_pick_anchor).grid(
+        row=1,
+        column=3,
+        padx=(4, 0),
+        sticky="w",
+    )
+    schedule._wm_anchor_calendar_v1 = True
+
+
 def _decorate_employee_window(win: tk.Toplevel) -> None:
     _fit_employee_window(win)
     if getattr(win, "_wm_shift_modes_synced_v1", False):
@@ -145,6 +217,8 @@ def _decorate_employee_window(win: tk.Toplevel) -> None:
     schedule = _find_tab(win, "Grafik")
     if schedule is None:
         return
+
+    _install_anchor_calendar(schedule, win)
 
     combo = next((w for w in _walk(schedule) if isinstance(w, ttk.Combobox)), None)
     save_button = next(
@@ -271,4 +345,10 @@ def install() -> None:
     _INSTALLED = True
 
 
-__all__ = ["SHIFT_MODE_OPTIONS", "_mode_code", "_mode_label", "install"]
+__all__ = [
+    "SHIFT_MODE_OPTIONS",
+    "_mode_code",
+    "_mode_label",
+    "_anchor_monday_iso",
+    "install",
+]
