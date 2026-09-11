@@ -29,6 +29,7 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-007 | 1.0.x | ŚREDNI | Maszyny | Dokończyć audyt edytora maszyny: zapis, lokalizacja, sekcje danych, zdjęcia/dokumenty i ergonomia bez przebudowy architektury. | DO AUDYTU | — |
 | WM10-008 | 1.0.x | ŚREDNI | UI / lifecycle | Przejść ciężkie widoki pod kątem zbędnych pełnych refreshy, wielokrotnego skanowania katalogów oraz nieanulowanych `after()`. | DO AUDYTU | — |
 | WM10-009 | 1.0.x | ŚREDNI | Pomoc `!` | Przy kolejnych poprawianych ekranach stosować wspólny mechanizm pomocy kontekstowej `!` przy istotnych polach i akcjach, maks. dwa krótkie zdania. | DO AUDYTU | — |
+| WM10-010 | 1.0.9 | ŚREDNI | Profil / Obecność / UI | Utrzymać okno pracownika po `Zapisz wszystko`, dodać bezpieczne wielozaznaczenie dni, dopasować szerokości kolumn oraz komunikat o remoncie WM z wyłączeniem w Ustawieniach i wejściem do istniejącego `Wyślij opinię`. | NAPRAWIONE | `c17eda6a`, `7d9f274a`, `b95658f0`, `994d79a9`, `d22fb713`, `f762fa2b` |
 | WMM-001 | osobna wersja WMM | KRYTYCZNY | Współbieżność | Zabezpieczyć konflikt równoczesnej edycji tego samego rekordu przez kilku klientów; preferowane `revision`/ETag i odpowiedź 409 przy starych danych. | DO AUDYTU | — |
 | WMM-002 | osobna wersja WMM | KRYTYCZNY | Zapis WM <-> WMM | Potwierdzić, że desktop WM i API nie mogą równocześnie nadpisać tego samego pliku/rekordu; fizyczne blokady Maszyn, Dyspozycji i pojedynczych plików Narzędzi są już wdrożone. | DO AUDYTU | `54ee84bf` (Maszyny), `52f472f0` (Dyspozycje), `41a33c28` (Narzędzia) |
 | WMM-003 | osobna wersja WMM | WYSOKI | Idempotencja | Ponowienie requestu nie może tworzyć duplikatu zlecenia, zdarzenia ani zdjęcia. | DO AUDYTU | — |
@@ -118,6 +119,19 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Test został dopięty do głównego kroku `Run profile workforce regressions`.
 - Wynik CI: **SUCCESS** dla commita `7fcd1e6d14a2597040e643e48f7b6f606a005ff8` (run `34583503458`); R07 i R08 również **SUCCESS**.
 - Ograniczenie: 1.0.8 nie zmienia nazw istniejących etykiet paska (`RANO`, `POŁUDNIE`, `NOC`) ani wyglądu UI; ujednolica wyłącznie godziny i logikę ich użycia.
+
+## WM10-010 — zamknięcie
+
+- Wersja: **1.0.9**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano kosmetyczny pakiet remontowy bez przebudowy modelu danych i bez zmian logiki rozliczania Obecności: pozostawienie okna po zapisie, wielozaznaczenie dni, szerokości kolumn oraz wyłączalny komunikat remontowy z wejściem do istniejącego modułu opinii.
+- Implementacja: `wm_ui_renovation_runtime.py` opakowuje końcowy builder Obecności tak, aby zapis odświeżał bieżącą kartę i nie wywoływał przebudowy nadrzędnego panelu. Tabela dostała `selectmode=extended`, czytelniejsze szerokości oraz pomoc `!`.
+- Edycja grupowa korzysta z istniejących walidatorów i writerów. Do zaznaczonych dni przenoszone są tylko pola faktycznie zmienione po wielozaznaczeniu; daty i pierwsze logowanie pozostają indywidualne.
+- Główny panel pokazuje po zalogowaniu komunikat o trwającym remoncie WM, podpisany `Edwin K.`. Przycisk `Wyślij opinię` uruchamia istniejący formularz opinii, bez duplikowania mechanizmu zapisu.
+- `Ustawienia -> Ogólne` zawierają przełącznik komunikatu startowego oraz wspólną pomoc kontekstową `!`.
+- Nie zmieniono JSON-ów Obecności, endpointów, kontraktu API ani WMM.
+- Test: `tests/test_wm_ui_renovation_runtime.py`; test został dopięty do `Run profile workforce regressions`.
+- Wynik CI: **SUCCESS** dla commita `f762fa2b7ca8f0260798cade3f8a72415585d9cf` (main run `34585823490`); R07 `34585823569` i R08 `34585823555` również **SUCCESS**.
 
 ## Zasada zamykania fixa
 
