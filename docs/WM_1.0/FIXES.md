@@ -23,6 +23,7 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 | WM10-004 | 1.0.x | ŚREDNI | Profil / Brygadzista | Zweryfikować i ewentualnie poprawić przygotowanie panelu Brygadzisty po wejściu do Profilu, aby pierwszy klik nie powodował odczuwalnego budowania widoku. | DO AUDYTU | — |
 | WM10-005 | 1.0.x | WYSOKI | Planista | Test pełnego przepływu Zlecenie -> Produkt -> Półprodukt -> Surowiec, zapis/restart/refresh i jednoznaczność identyfikatorów. | DO AUDYTU | — |
 | WM10-005A | 1.0.5 | KRYTYCZNY | Planista / WMM | Zabezpieczyć równoczesne tworzenie zleceń przez desktop WM i WMM wspólną blokadą obejmującą generowanie ID oraz zapis zlecenia. | NAPRAWIONE | `4ec03658`, `227b9739`, `2a4467fe` |
+| WM10-005B | 1.0.6 | KRYTYCZNY | Planista / Magazyn | Serializować pełne transakcje odczyt -> zmiana -> zapis kanonicznego Magazynu dla rezerwacji i pozostałych mutatorów, aby równoległe procesy nie traciły aktualizacji. | NAPRAWIONE | `b8a3fa84` |
 | WM10-006 | 1.0.x | WYSOKI | Dyspozycje / role | Potwierdzić pełne uprawnienia brygadzisty oraz ograniczenia zwykłych użytkowników przy dodawaniu i edycji dyspozycji. | DO AUDYTU | — |
 | WM10-006B | 1.0.3 | KRYTYCZNY | Dyspozycje / zapis | Zabezpieczyć `data/dyspozycje/dyspozycje.json`: wspólna blokada WM/WMM dla pełnej transakcji odczyt -> zmiana -> zapis oraz atomowy zapis `tmp -> os.replace`, bez zmiany formatu JSON. | NAPRAWIONE | `52f472f0`, `ad71b90a`, `ec5c4d87` |
 | WM10-007 | 1.0.x | ŚREDNI | Maszyny | Dokończyć audyt edytora maszyny: zapis, lokalizacja, sekcje danych, zdjęcia/dokumenty i ergonomia bez przebudowy architektury. | DO AUDYTU | — |
@@ -80,6 +81,18 @@ Ten plik jest bieżącym źródłem prawdy dla stabilizacji WM 1.0.x. Stare road
 - Główny CI uruchamia test w kroku `Run production planning regressions`; wszystkie kroki tego workflow zakończyły się powodzeniem.
 - Wynik CI: **SUCCESS** dla commita `2a4467fe9ed1921ba94ba6d0756cde989b7d08db` (run `34576085995`).
 - Ograniczenie: 1.0.5 nie zmienia ogólnej współbieżności rezerwacji magazynowych ani rollbacku magazynu między niezależnymi operacjami; ten temat pozostaje osobnym fixem po 1.0.5.
+
+## WM10-005B — zamknięcie
+
+- Wersja: **1.0.6**
+- Data: **2026-09-11**
+- Decyzja użytkownika: zaakceptowano podbicie stopki/wersji i kolejny fix stabilizacyjny; bez zmian UI, modelu danych i kontraktu API WMM.
+- Kompatybilność: **WMM 0.5.9** pozostaje zgodne z WM 1.0.6; nie zmieniono endpointów, payloadów ani formatu danych używanego przez aplikację mobilną.
+- Implementacja: `warehouse_transaction_lock(...)` serializuje pełny cykl odczyt -> zmiana -> zapis kanonicznego Magazynu. Publiczne mutatory magazynowe instalowane przez runtime Planisty korzystają ze wspólnej blokady między procesami.
+- Test: `tests/test_planista_stock_runtime.py::test_parallel_reservations_share_one_cross_process_transaction_lock` uruchamia dwa osobne procesy, które równocześnie próbują zarezerwować po 6 z dostępnych 10 jednostek; wynik musi wynieść 6 + 4, a końcowa rezerwacja dokładnie 10.
+- Główny CI przeszedł krok `Run production planning regressions` oraz wszystkie pozostałe kroki.
+- Wynik CI: **SUCCESS** dla commita `b8a3fa8427db9572d346b06381b8b83d5fc88a7f` (run `34577264917`); workflowy R07 i R08 również zakończyły się **SUCCESS**.
+- Ograniczenie: 1.0.6 nie wprowadza semantycznego wersjonowania rekordów (`revision`/ETag/409) dla konfliktów edycji; to pozostaje osobnym zadaniem.
 
 ## Zasada zamykania fixa
 
