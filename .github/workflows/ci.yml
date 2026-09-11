@@ -34,6 +34,7 @@ jobs:
             tests/test_profile_day_pay.py \
             tests/test_shifts_schedule.py \
             tests/test_shift_hours_sync.py \
+            tests/test_wm_ui_renovation_runtime.py \
             tests/test_shifts_schedule_anchor.py \
             tests/test_wm_access_profile_alias.py \
             test_shifts_schedule_weekend.py
