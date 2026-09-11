@@ -1,4 +1,4 @@
-# version: 2.7
+# version: 2.8
 """Ujednolica Profile brygadzisty i podpina aktywne rozszerzenia Profilu."""
 from __future__ import annotations
 
@@ -158,6 +158,13 @@ def _install_workforce_extensions() -> None:
         install_workforce()
     except Exception as exc:
         print(f"[WM-DBG][PROFILE][WARN] workforce runtime install failed: {exc!r}")
+
+    try:
+        from profile_identity_runtime import install as install_profile_identity
+        install_profile_identity()
+    except Exception as exc:
+        print(f"[WM-DBG][PROFILE][WARN] identity guard install failed: {exc!r}")
+
     try:
         from profile_leave_card_runtime import install as install_leave_card
         install_leave_card()
