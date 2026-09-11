@@ -1,4 +1,4 @@
-# version: 1.0
+# version: 1.1
 # Moduł: panel_tutorial_runtime
 # Izolowane wejście do samouczka w panelu głównym WM.
 
@@ -9,18 +9,38 @@ from tkinter import messagebox, ttk
 
 
 def _find_sidebar(root: tk.Misc) -> tk.Misc | None:
-    """Znajdź lewy panel po jego istniejącym stylu, bez zależności od kolejności widgetów."""
+    """Znajdź właściwy panel z przyciskami modułów, także wewnątrz side_shell."""
     try:
-        children = list(root.winfo_children())
+        first_level = list(root.winfo_children())
     except Exception:
         return None
-    for child in children:
+
+    candidates = []
+
+    def _collect(widget):
         try:
-            if str(child.cget("style") or "") == "WM.Side.TFrame":
-                return child
+            if str(widget.cget("style") or "") == "WM.Side.TFrame":
+                candidates.append(widget)
+        except Exception:
+            pass
+        try:
+            children = list(widget.winfo_children())
+        except Exception:
+            children = []
+        for child in children:
+            _collect(child)
+
+    for child in first_level:
+        _collect(child)
+
+    for candidate in candidates:
+        try:
+            if any(isinstance(child, ttk.Button) for child in candidate.winfo_children()):
+                return candidate
         except Exception:
             continue
-    return None
+
+    return candidates[-1] if candidates else None
 
 
 def _open_tutorial(root: tk.Misc) -> None:
