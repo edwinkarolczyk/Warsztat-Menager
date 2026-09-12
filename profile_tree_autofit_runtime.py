@@ -29,7 +29,12 @@ def _autofit_tree(tree: ttk.Treeview) -> None:
         style = ttk.Style(tree)
         body_font = style.lookup("Foreman.Treeview", "font") or "TkDefaultFont"
         heading_font = style.lookup("Foreman.Treeview.Heading", "font") or body_font
-        rows = list(tree.get_children(""))
+        rows = []
+        for iid in tree.get_children(""):
+            try:
+                rows.append(tree.item(iid, "values") or ())
+            except Exception:
+                rows.append(())
 
         for index, column in enumerate(columns):
             try:
@@ -38,9 +43,8 @@ def _autofit_tree(tree: ttk.Treeview) -> None:
                 heading = column
 
             width = _font_width(tree, heading_font, heading) + 24
-            for iid in rows:
+            for values in rows:
                 try:
-                    values = tree.item(iid, "values") or ()
                     value = values[index] if index < len(values) else ""
                 except Exception:
                     value = ""
