@@ -352,13 +352,14 @@ def _all_decisions(year: int, month: int) -> list[dict]:
             continue
         display_name = workforce_profile_service.display_name(user)
         by_key: dict[tuple[str, str], dict] = {}
-        for row in attendance_service.decision_records(login, year, month):
+        month_rows = attendance_service.month_records(login, year, month)
+        for row in attendance_service.decision_records_from_rows(month_rows):
             item = dict(row)
             item["display_name"] = display_name
             item["login"] = login
             by_key[(str(item.get("date") or ""), str(item.get("slot") or ""))] = item
 
-        for row in attendance_service.month_records(login, year, month):
+        for row in month_rows:
             day_text = str(row.get("date") or "")[:10]
             slot = str(row.get("slot") or attendance_service.RANO)
             reason = _absence_label(row.get("reason"))
@@ -805,9 +806,12 @@ def _render_attendance(self) -> None:
     if parent is None:
         return
     self._clear(parent)
+    parent.grid_columnconfigure(0, weight=1)
+    parent.grid_rowconfigure(1, weight=1, uniform="attendance")
+    parent.grid_rowconfigure(2, weight=2, uniform="attendance")
 
     top = ttk.Frame(parent, style="WM.Container.TFrame")
-    top.pack(fill="x", padx=8, pady=(8, 6))
+    top.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 6))
     ttk.Label(top, text="Miesiąc:", style="WM.Muted.TLabel").pack(side="left")
     if not hasattr(self, "_wm_att_month_var"):
         self._wm_att_month_var = tk.StringVar(value=date.today().strftime("%Y-%m"))
@@ -844,7 +848,7 @@ def _render_attendance(self) -> None:
         style="WM.Section.TLabelframe",
         padding=8,
     )
-    queue_box.pack(fill="x", padx=8, pady=(0, 8))
+    queue_box.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
 
     counters = ttk.Frame(queue_box, style="WM.Container.TFrame")
     counters.pack(fill="x", pady=(0, 6))
@@ -873,7 +877,7 @@ def _render_attendance(self) -> None:
             ("login", "Pierwsze logowanie", 120, "center"),
             ("state", "Stan", 220, "w"),
         ],
-        height=6,
+        height=3,
     )
     qmap: dict[str, dict] = {}
     qnames: list[str] = []
@@ -914,7 +918,7 @@ def _render_attendance(self) -> None:
 
     qtree.bind("<Double-1>", open_queue_case, add="+")
     qactions = ttk.Frame(queue_box, style="WM.Container.TFrame")
-    qactions.pack(fill="x", pady=(6, 0))
+    qactions.pack(side="bottom", fill="x", pady=(6, 0), before=qtree.master)
     ttk.Button(qactions, text="Rozstrzygnij zaznaczone", command=open_queue_case).pack(side="left")
     add_help_button(
         qactions,
@@ -927,7 +931,7 @@ def _render_attendance(self) -> None:
         style="WM.Section.TLabelframe",
         padding=8,
     )
-    box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+    box.grid(row=2, column=0, sticky="nsew", padx=8, pady=(0, 8))
     tree = self._make_tree(
         box,
         [
@@ -942,7 +946,7 @@ def _render_attendance(self) -> None:
             ("miss", "🔴 Brak", 56, "center"),
             ("pending", "🟠 Decyz.", 66, "center"),
         ],
-        height=10,
+        height=4,
     )
     team = _team_by_login(self)
     mapping: dict[str, str] = {}
@@ -983,7 +987,7 @@ def _render_attendance(self) -> None:
     self._wm_attendance_user_by_iid = mapping
 
     actions = ttk.Frame(parent, style="WM.Container.TFrame")
-    actions.pack(fill="x", padx=8, pady=(0, 8))
+    actions.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 8))
 
     def selected_login() -> str:
         selected = tree.selection()

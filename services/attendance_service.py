@@ -792,8 +792,13 @@ def month_records(login: str, year: int, month: int, *, now: datetime | None = N
 def decision_records(login: str, year: int, month: int, *, now: datetime | None = None) -> list[dict]:
     """Pozycje, dla których Brygadzista ma podjąć decyzję."""
     now = now or datetime.now()
+    return decision_records_from_rows(month_records(login, year, month, now=now))
+
+
+def decision_records_from_rows(records: list[dict]) -> list[dict]:
+    """Wybierz decyzje z już obliczonego miesiąca bez ponownego odczytu."""
     out: list[dict] = []
-    for row in month_records(login, year, month, now=now):
+    for row in records:
         if row.get("reason") or str(row.get("status") or "") == STATUS_EXCUSED:
             continue
         if row.get("approval_required") is False:

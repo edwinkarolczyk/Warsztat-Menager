@@ -198,7 +198,16 @@ def _decorate_online_column(panel) -> None:
     new_columns = list(old_columns)
     new_columns.insert(insert_at, "wm_online")
     try:
+        headings = {key: tree.heading(key) for key in old_columns}
+        settings = {key: tree.column(key) for key in old_columns}
         tree.configure(columns=new_columns, displaycolumns=new_columns)
+        for key in old_columns:
+            heading = dict(headings[key])
+            heading.pop("state", None)
+            column = dict(settings[key])
+            column.pop("id", None)
+            tree.heading(key, **heading)
+            tree.column(key, **column)
         tree.heading("wm_online", text="Aktywny WM")
         tree.column("wm_online", width=90, minwidth=82, anchor="center", stretch=False)
     except Exception:
