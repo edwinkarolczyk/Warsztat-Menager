@@ -152,13 +152,20 @@ def mark_read(login: str, msg_id: str, read: bool = True) -> bool:
     path = _path(login)
     arr = _read_all(login)
     changed = False
+    expected = bool(read)
     for message in arr:
-        if message.get("id") == msg_id and message.get("folder") == "inbox":
-            message["read"] = bool(read)
+        if (
+            message.get("id") == msg_id
+            and message.get("folder") == "inbox"
+            and bool(message.get("read")) != expected
+        ):
+            message["read"] = expected
             changed = True
+    if not changed:
+        return False
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         for message in arr:
             fh.write(json.dumps(message, ensure_ascii=False) + "\n")
     os.replace(tmp, path)
-    return changed
+    return True
