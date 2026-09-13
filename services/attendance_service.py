@@ -770,6 +770,25 @@ def month_records(login: str, year: int, month: int, *, now: datetime | None = N
         has_login = bool(str(item.get("first_login_ts") or item.get("logged_ts") or "").strip())
         reason = str(item.get("reason") or "").strip()
         status = str(item.get("status") or "")
+        # Starszy zapis planu nie może tworzyć braku w wolny weekend.
+        # Zachowaj wszystkie ślady rzeczywistej pracy i decyzji brygadzisty.
+        if (
+            day_obj
+            and day_obj.weekday() >= 5
+            and item.get("planned")
+            and status in {"", STATUS_PLANNED, STATUS_MISSING}
+            and not has_login
+            and not reason
+            and not item.get("confirmed")
+            and not item.get("confirmed_by")
+            and not item.get("confirmed_ts")
+            and not item.get("overtime")
+            and not item.get("note")
+            and item.get("day_value") in (None, 0, 0.0, "", "0", "0.0")
+            and str(item.get("source") or "") in {"", "schedule"}
+            and _planned_slot_for_day(login_n, day_obj) is None
+        ):
+            continue
         if (
             day_obj
             and item.get("planned")
