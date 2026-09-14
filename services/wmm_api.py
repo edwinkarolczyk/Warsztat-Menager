@@ -1,4 +1,4 @@
-# version: 1.2
+# version: 1.3
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
@@ -138,6 +138,15 @@ if not getattr(_impl, "_WM10_MEDIA_ROUTE_FIX", False):
 
     _impl._WmmHandler.do_GET = _guarded_do_get
     _impl._WM10_MEDIA_ROUTE_FIX = True
+
+
+if not getattr(_impl, "_WMM_WAREHOUSE_RECEIVE_V1", False):
+    try:
+        from services.wmm_warehouse_mobile import install as _install_wmm_warehouse_mobile
+
+        _install_wmm_warehouse_mobile(_impl)
+    except Exception:
+        _impl.logger.exception("[WMM API] nie udało się uruchomić przyjęć Magazynu WMM")
 
 
 # Zachowaj dotychczasowy publiczny moduł i wszystkie jego symbole.
