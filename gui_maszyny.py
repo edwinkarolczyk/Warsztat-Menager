@@ -1,4 +1,6 @@
-# version: 2.7
+# version: 2.8
+# Zmiany 2.8:
+# - QR WMM można zapisać jako etykietę PDF A5 lub A6 do druku.
 # Zmiany 2.7:
 # - Dodano QR WMM dla zaznaczonej maszyny bez zmian w modelu danych.
 # Zmiany 2.6:
