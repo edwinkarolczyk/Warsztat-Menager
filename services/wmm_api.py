@@ -1,4 +1,4 @@
-# version: 1.3
+# version: 1.4
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ from urllib.parse import unquote, urlparse
 
 from machine_file_guard import file_write_lock, machine_file_lock, order_create_lock
 from services import wmm_api_impl as _impl
+
+_MACHINE_QR_PREFIX = "WMM:MACHINE:"
 
 
 def _existing_root(candidate: str | os.PathLike[str]) -> Path | None:
@@ -100,6 +102,26 @@ if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
 
     _impl._create_planista_order = _guarded_create_planista_order
     _impl._WM10_ORDER_CREATE_GUARD = True
+
+
+def _machine_id_from_qr(value: object) -> str:
+    raw = str(value or "").strip()
+    if raw[: len(_MACHINE_QR_PREFIX)].upper() == _MACHINE_QR_PREFIX:
+        return raw[len(_MACHINE_QR_PREFIX) :].strip()
+    return raw
+
+
+if not getattr(_impl, "_WM_MACHINE_QR_RESOLVE_V1", False):
+    _original_find_machine = _impl._find_machine
+
+    def _find_machine_with_qr(machine_id: str):
+        resolved_id = _machine_id_from_qr(machine_id)
+        if not resolved_id:
+            return None
+        return _original_find_machine(resolved_id)
+
+    _impl._find_machine = _find_machine_with_qr
+    _impl._WM_MACHINE_QR_RESOLVE_V1 = True
 
 
 def _valid_media_component(value: str) -> bool:

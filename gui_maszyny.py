@@ -1,4 +1,6 @@
-# version: 2.6
+# version: 2.7
+# Zmiany 2.7:
+# - Dodano QR WMM dla zaznaczonej maszyny bez zmian w modelu danych.
 # Zmiany 2.6:
 # - Zapis Maszyn z desktopowego WM korzysta ze wspólnej blokady pliku z WMM.
 """Bezpieczny punkt wejścia modułu Maszyny z warstwowym rozszerzeniem hali.
@@ -17,6 +19,7 @@ from machine_file_guard import machine_file_lock as _machine_file_lock
 from machine_card_root_runtime import (
     install_machine_cards_root_path as _install_machine_cards_root_path,
 )
+from machine_qr_runtime import install_machine_qr as _install_machine_qr
 from widok_hali.machine_rooms_patch import install_machine_rooms as _install_machine_rooms
 from widok_hali.machine_rooms_persistence import (
     install_machine_room_persistence as _install_machine_room_persistence,
@@ -54,6 +57,7 @@ _install_machine_room_editor(_legacy)
 _install_machine_usage_location(_legacy)
 _install_machine_drag_location_feedback(_legacy)
 _install_machine_location_filter(_legacy)
+_install_machine_qr(_legacy)
 
 # Kluczowe dla zgodności: użytkownik ``import gui_maszyny`` dostaje dokładnie
 # moduł z dotychczasową implementacją, a nie proxy z kopiami jego symboli.
