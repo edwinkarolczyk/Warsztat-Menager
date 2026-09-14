@@ -3,7 +3,7 @@
   "title": "Samouczek Warsztat Menager",
   "branch": "Rozwiniecie",
   "wm_version": "1.0.11",
-  "updated": "2026-09-12",
+  "updated": "2026-09-14",
   "slides": [
     {
       "module": "Start",
@@ -176,12 +176,13 @@
       "lead": "Dzień wyłączony w Grafik → Dni pracy jest traktowany jako wolny i zwykła dniówka wymaga jawnego wyjątku.",
       "steps": [
         "Otwórz profil pracownika i przejdź do Obecności.",
-        "Wybierz albo utwórz dzień, który w Grafiku pracownika jest wyłączony jako dzień pracy.",
-        "Jeżeli pracownik faktycznie pracował, zaznacz Praca w dniu wolnym.",
+        "Sprawdź grafik pracownika. Wolna sobota lub niedziela bez zaplanowanej pracy nie jest pokazywana w ewidencji jako pusty Brak.",
+        "Jeżeli sobota albo niedziela jest zaznaczona w Grafiku jako dzień pracy, pozostaje widoczna i jest rozliczana jak zaplanowany dzień.",
+        "Jeżeli pracownik faktycznie pracował w dniu wolnym, wybierz albo utwórz ten dzień i zaznacz Praca w dniu wolnym.",
         "Uzupełnij dniówkę, zmianę, pierwsze logowanie lub nadgodziny tak jak przy zwykłej korekcie.",
         "Kliknij Zapisz wszystko. Bez zaznaczenia wyjątku WM nie pozwoli dopisać zwykłej pracy do dnia wolnego."
       ],
-      "tip": "! przy Praca w dniu wolnym przypomina, żeby używać tej opcji tylko dla faktycznie przepracowanego dnia poza zwykłym grafikiem. Sam urlop lub L4 może obejmować dzień wolny bez tego zaznaczenia."
+      "tip": "! Wolny weekend bez pracy nie tworzy Braku. Faktyczne logowanie, nadgodziny, nieobecność albo ręczna korekta nadal pozostają widoczne; Praca w dniu wolnym służy do świadomego dopisania pracy poza zwykłym grafikiem."
     },
     {
       "module": "Profil brygadzisty",
