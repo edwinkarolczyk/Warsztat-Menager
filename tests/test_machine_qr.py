@@ -1,12 +1,32 @@
 import json
 
-from machine_qr_runtime import machine_qr_payload
+from machine_qr_runtime import (
+    _pip_qrcode_command,
+    build_machine_qr_image,
+    machine_qr_payload,
+)
 from services import wmm_api
 
 
 def test_machine_qr_payload_uses_existing_machine_id():
     assert machine_qr_payload("42") == "WMM:MACHINE:42"
     assert machine_qr_payload("  M-071  ") == "WMM:MACHINE:M-071"
+
+
+def test_machine_qr_image_can_be_generated():
+    image = build_machine_qr_image("WMM:MACHINE:66")
+    assert image.width > 0
+    assert image.height > 0
+
+
+def test_machine_qr_installer_uses_current_python():
+    assert _pip_qrcode_command("C:/Python/python.exe") == [
+        "C:/Python/python.exe",
+        "-m",
+        "pip",
+        "install",
+        "qrcode",
+    ]
 
 
 def test_wmm_resolves_prefixed_and_legacy_machine_codes(tmp_path, monkeypatch):

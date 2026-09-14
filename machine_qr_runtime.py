@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
+import subprocess
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Any
@@ -16,6 +19,129 @@ def machine_qr_payload(machine_id: object) -> str:
     if not value:
         raise ValueError("Brak identyfikatora maszyny.")
     return f"{MACHINE_QR_PREFIX}{value}"
+
+
+def build_machine_qr_image(payload: str):
+    """Wygeneruj obraz QR bez zależności od Tkintera."""
+
+    import qrcode
+
+    qr = qrcode.QRCode(version=None, box_size=8, border=2)
+    qr.add_data(payload)
+    qr.make(fit=True)
+    return qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+
+def _pip_qrcode_command(python_executable: str | None = None) -> list[str]:
+    return [
+        python_executable or sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "qrcode",
+    ]
+
+
+def install_qrcode_package() -> tuple[bool, str]:
+    """Zainstaluj brakującą obsługę QR po wyraźnej akcji użytkownika."""
+
+    if getattr(sys, "frozen", False):
+        return (
+            False,
+            "Ta wersja EXE nie zawiera biblioteki qrcode. "
+            "Zaktualizuj program do buildu zawierającego obsługę QR.",
+        )
+
+    try:
+        result = subprocess.run(
+            _pip_qrcode_command(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except Exception as exc:
+        return False, f"Nie udało się uruchomić instalatora: {exc}"
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        if len(detail) > 800:
+            detail = detail[-800:]
+        return False, detail or "Instalacja biblioteki qrcode nie powiodła się."
+
+    importlib.invalidate_caches()
+    return True, "Obsługa QR została zainstalowana."
+
+
+def _render_qr_image(
+    frame: ttk.Frame,
+    win: tk.Toplevel,
+    payload: str,
+) -> bool:
+    for child in frame.winfo_children():
+        child.destroy()
+
+    try:
+        from PIL import ImageTk
+
+        image = build_machine_qr_image(payload)
+        photo = ImageTk.PhotoImage(image)
+        image_label = ttk.Label(frame, image=photo)
+        image_label.image = photo
+        image_label.pack(pady=4)
+        win._wm_machine_qr_photo = photo
+        return True
+    except ModuleNotFoundError as exc:
+        if exc.name != "qrcode":
+            raise
+
+        ttk.Label(
+            frame,
+            text=(
+                "Brakuje biblioteki obsługującej kody QR.\n"
+                "Kliknij poniżej, aby zainstalować ją dla tego WM."
+            ),
+            justify="center",
+        ).pack(padx=12, pady=(18, 10))
+
+        if getattr(sys, "frozen", False):
+            ttk.Label(
+                frame,
+                text=(
+                    "Ta wersja EXE wymaga aktualizacji do buildu "
+                    "zawierającego qrcode."
+                ),
+                justify="center",
+            ).pack(padx=12, pady=(0, 18))
+            return False
+
+        install_button = ttk.Button(frame, text="Zainstaluj obsługę QR")
+        install_button.pack(pady=(0, 18))
+
+        def _install_and_retry() -> None:
+            install_button.state(["disabled"])
+            win.update_idletasks()
+            ok, detail = install_qrcode_package()
+            if ok:
+                _render_qr_image(frame, win, payload)
+                return
+            install_button.state(["!disabled"])
+            messagebox.showerror(
+                "Kod QR WMM",
+                f"Nie udało się zainstalować obsługi QR:\n{detail}",
+                parent=win,
+            )
+
+        install_button.configure(command=_install_and_retry)
+        return False
+    except Exception as exc:
+        ttk.Label(
+            frame,
+            text=f"Nie udało się wygenerować obrazu QR:\n{exc}",
+            justify="center",
+        ).pack(padx=12, pady=18)
+        return False
 
 
 def open_machine_qr(
@@ -46,25 +172,9 @@ def open_machine_qr(
         font=("Segoe UI", 11, "bold"),
     ).pack(pady=(0, 8))
 
-    try:
-        import qrcode
-        from PIL import ImageTk
-
-        qr = qrcode.QRCode(version=None, box_size=8, border=2)
-        qr.add_data(payload)
-        qr.make(fit=True)
-        image = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-        photo = ImageTk.PhotoImage(image)
-        image_label = ttk.Label(body, image=photo)
-        image_label.image = photo
-        image_label.pack(pady=4)
-        win._wm_machine_qr_photo = photo
-    except Exception as exc:
-        ttk.Label(
-            body,
-            text=f"Nie udało się wygenerować obrazu QR:\n{exc}",
-            justify="center",
-        ).pack(padx=12, pady=18)
+    qr_frame = ttk.Frame(body)
+    qr_frame.pack(fill="both", expand=True)
+    _render_qr_image(qr_frame, win, payload)
 
     ttk.Label(body, text=payload).pack(pady=(8, 4))
 
