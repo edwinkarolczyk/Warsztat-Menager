@@ -1,4 +1,7 @@
-# version: 2.8
+# version: 2.9
+# Zmiany 2.9:
+# - Naprawiono widok edycji maszyny i przywrócono stały przycisk wydruku planu przeglądów.
+# - Dodano zbiorczy wydruk QR wszystkich maszyn oraz QR w edycji maszyny.
 # Zmiany 2.8:
 # - QR WMM można zapisać jako etykietę PDF A5 lub A6 do druku.
 # Zmiany 2.7:
@@ -22,6 +25,9 @@ from machine_card_root_runtime import (
     install_machine_cards_root_path as _install_machine_cards_root_path,
 )
 from machine_qr_runtime import install_machine_qr as _install_machine_qr
+from machine_ui_repair_runtime import (
+    install_machine_ui_repair as _install_machine_ui_repair,
+)
 from widok_hali.machine_rooms_patch import install_machine_rooms as _install_machine_rooms
 from widok_hali.machine_rooms_persistence import (
     install_machine_room_persistence as _install_machine_room_persistence,
@@ -60,6 +66,7 @@ _install_machine_usage_location(_legacy)
 _install_machine_drag_location_feedback(_legacy)
 _install_machine_location_filter(_legacy)
 _install_machine_qr(_legacy)
+_install_machine_ui_repair(_legacy)
 
 # Kluczowe dla zgodności: użytkownik ``import gui_maszyny`` dostaje dokładnie
 # moduł z dotychczasową implementacją, a nie proxy z kopiami jego symboli.

@@ -1,4 +1,5 @@
-# version: 2.6
+# version: 2.7
+# 2.7: WM 1.0.12 - naprawa widoku i wydruków w module Maszyny.
 # -*- coding: utf-8 -*-
 """Centralna wersja aplikacji WM.
 
@@ -11,7 +12,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.11"
+__version__ = "1.0.12"
 
 
 def get_version() -> str:
