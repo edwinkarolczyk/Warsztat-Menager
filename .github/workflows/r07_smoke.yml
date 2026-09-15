@@ -18,7 +18,10 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install pillow pytest
+          pip install pillow qrcode pytest
       - name: Run smoke tests
         run: |
-          pytest -q tests/test_settings_manager.py
+          pytest -q \
+            tests/test_settings_manager.py \
+            tests/test_wmm_machine_mobile.py \
+            tests/test_wmm_machine_mobile_v4.py
