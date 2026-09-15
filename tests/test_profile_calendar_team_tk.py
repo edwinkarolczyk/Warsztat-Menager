@@ -1,4 +1,5 @@
-# version: 1.5
+# version: 1.6
+from datetime import date
 import tkinter as tk
 from tkinter import ttk
 
@@ -56,6 +57,34 @@ def test_team_tile_lines_use_two_columns_and_six_people_limit():
     assert "Login5 06–14" in lines[3] and "Login6 06–14" in lines[3]
     assert "+1" in lines[3]
     assert "Login7" not in "\n".join(lines)
+
+
+def test_team_day_color_priority_is_green_warn_red_and_neutral():
+    assert final_fix._team_tile_color_kind([
+        {"status_code": "PLAN"},
+        {"status_code": "PRACA"},
+        {"status_code": "UR"},
+        {"status_code": "L4"},
+    ]) == "ok"
+    assert final_fix._team_tile_color_kind([
+        {"status_code": "PLAN"},
+        {"status_code": "DEC"},
+    ]) == "warn"
+    assert final_fix._team_tile_color_kind([
+        {"status_code": "DEC"},
+        {"status_code": "BR"},
+    ]) == "bad"
+    assert final_fix._team_tile_color_kind([
+        {"status_code": "WOLNE"},
+    ]) == "neutral"
+
+
+def test_today_marker_matches_only_exact_day():
+    current = date(2026, 9, 15)
+    assert final_fix._is_today(2026, 9, 15, today=current) is True
+    assert final_fix._is_today(2026, 9, 14, today=current) is False
+    assert final_fix._is_today(2026, 8, 15, today=current) is False
+    assert final_fix._is_today(2025, 9, 15, today=current) is False
 
 
 def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
@@ -165,6 +194,9 @@ def test_foreman_calendar_is_single_advanced_view_with_inline_day(monkeypatch):
         grids = [cell.grid_info() for cell in cells]
         assert [int(info["column"]) for info in grids] == [0, 1, 0, 1]
         assert [int(info["row"]) for info in grids] == [1, 1, 2, 2]
+
+        # ŚW jest ostrzeżeniem, więc cały przykładowy dzień ma kolor ostrzegawczy.
+        assert str(sample_frame.cget("background")) == calendar_ui.WM_WARN
 
         detail_tree = panel._wm_team_detail_tree
         assert len(detail_tree.get_children()) == 4
