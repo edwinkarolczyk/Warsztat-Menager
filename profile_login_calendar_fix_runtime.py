@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Końcowa spójność logowania z Obecnością i czytelne kafelki Kalendarza.
 
 Zakres jest celowo mały:
@@ -6,16 +6,20 @@ Zakres jest celowo mały:
   ale ten sam zapis jest następnie uzupełniany przez kanoniczny AttendanceService,
 - Kalendarz Brygadzisty wykorzystuje już wczytany snapshot miesiąca,
 - każdy dzień pokazuje do sześciu osób w siatce 2 kolumn x 3 wiersze,
-  z osobnym obramowaniem zamiast wyrównywania nazw spacjami.
+  z osobnym obramowaniem zamiast wyrównywania nazw spacjami,
+- dzień bez problemu jest zielony, ostrzeżenie żółte, realny problem czerwony,
+  a osobna ramka wyróżnia wyłącznie bieżący dzień.
 """
 from __future__ import annotations
 
+from datetime import date
 import tkinter as tk
 from typing import Any, Callable
 
 from services import attendance_service
 
 _INSTALLED = False
+_TODAY_BORDER = "#FF6B1A"
 
 
 def _bridge_mark_login(
@@ -58,6 +62,41 @@ def _team_tile_lines(day_number: int, rows: list[dict], *, max_people: int = 6) 
     return [str(int(day_number)), *paired]
 
 
+def _team_tile_color_kind(rows: list[dict]) -> str:
+    """Zwróć semantyczny kolor dnia na podstawie najpoważniejszego statusu."""
+    codes = {
+        str(row.get("status_code") or "").strip().upper()
+        for row in rows
+        if isinstance(row, dict)
+    }
+    if codes.intersection({"BR", "NN"}):
+        return "bad"
+    if codes.intersection({"DEC", "?UR", "ŚW"}):
+        return "warn"
+    if any(code and code != "WOLNE" for code in codes):
+        return "ok"
+    return "neutral"
+
+
+def _team_tile_background(rows: list[dict], calendar_ui) -> str:
+    kind = _team_tile_color_kind(rows)
+    return {
+        "bad": calendar_ui.WM_BAD,
+        "warn": calendar_ui.WM_WARN,
+        "ok": calendar_ui.WM_OK,
+        "neutral": calendar_ui.WM_BG_ELEV,
+    }[kind]
+
+
+def _is_today(year: int, month: int, day_number: int, *, today: date | None = None) -> bool:
+    current = today or date.today()
+    return (int(year), int(month), int(day_number)) == (
+        current.year,
+        current.month,
+        current.day,
+    )
+
+
 def _install_login_bridge() -> None:
     import attendance_utils
 
@@ -95,7 +134,14 @@ def _tile_background(button: tk.Button) -> str:
         return "#1A1D1F"
 
 
-def _build_team_overlay(calendar_box, button: tk.Button, day_number: int, rows: list[dict]):
+def _build_team_overlay(
+    calendar_box,
+    button: tk.Button,
+    day_number: int,
+    rows: list[dict],
+    *,
+    is_today: bool = False,
+):
     """Połóż na przycisku dnia prawdziwą siatkę 2x3 z osobnymi ramkami."""
     try:
         grid = button.grid_info()
@@ -110,7 +156,9 @@ def _build_team_overlay(calendar_box, button: tk.Button, day_number: int, rows: 
         bg=bg,
         bd=1,
         relief="solid",
-        highlightthickness=0,
+        highlightthickness=2 if is_today else 0,
+        highlightbackground=_TODAY_BORDER,
+        highlightcolor=_TODAY_BORDER,
         takefocus=0,
     )
     frame.grid(
@@ -178,7 +226,7 @@ def _install_calendar_tiles() -> None:
     import profile_calendar_team_runtime as team_runtime
 
     cls = calendar_ui.ProfileCalendarPanel
-    if getattr(cls, "_wm_two_column_team_tiles_v2", False):
+    if getattr(cls, "_wm_two_column_team_tiles_v3", False):
         return
 
     original_render = cls._render_calendar
@@ -222,15 +270,26 @@ def _install_calendar_tiles() -> None:
                 day_number = int(str(child.cget("text")).splitlines()[0])
             except Exception:
                 continue
+
+            rows = rows_by_day.get(day_number, [])
+            bg = _team_tile_background(rows, calendar_ui)
             try:
-                child.configure(text=str(day_number), height=4, anchor="nw", justify="left")
+                child.configure(
+                    text=str(day_number),
+                    height=4,
+                    anchor="nw",
+                    justify="left",
+                    bg=bg,
+                    fg="#ffffff" if bg != calendar_ui.WM_BG_ELEV else calendar_ui.WM_TEXT,
+                )
             except Exception:
                 pass
             overlay = _build_team_overlay(
                 self.calendar_box,
                 child,
                 day_number,
-                rows_by_day.get(day_number, []),
+                rows,
+                is_today=_is_today(self.year, self.month, day_number),
             )
             if overlay is not None:
                 overlays.append(overlay)
@@ -241,7 +300,7 @@ def _install_calendar_tiles() -> None:
         return result
 
     cls._render_calendar = render
-    cls._wm_two_column_team_tiles_v2 = True
+    cls._wm_two_column_team_tiles_v3 = True
 
 
 def install() -> None:
@@ -256,5 +315,7 @@ __all__ = [
     "_bridge_mark_login",
     "_team_tile_entries",
     "_team_tile_lines",
+    "_team_tile_color_kind",
+    "_is_today",
     "_build_team_overlay",
 ]
