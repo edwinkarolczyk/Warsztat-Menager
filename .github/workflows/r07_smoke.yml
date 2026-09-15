@@ -24,4 +24,5 @@ jobs:
           pytest -q \
             tests/test_settings_manager.py \
             tests/test_wmm_machine_mobile.py \
-            tests/test_wmm_machine_mobile_v4.py
+            tests/test_wmm_machine_mobile_v4.py \
+            tests/test_wmm_machine_mobile_v5.py
