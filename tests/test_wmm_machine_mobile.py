@@ -70,12 +70,7 @@ def test_quick_repair_does_not_duplicate_existing_failure(monkeypatch):
         mobile.start_quick_repair(impl, "42", "edwin")
 
 
-def test_planned_review_uses_only_existing_wm_schema(monkeypatch):
-    monkeypatch.setattr(
-        mobile.datetime,
-        "now",
-        classmethod(lambda cls: __import__("datetime").datetime(2026, 9, 15, 7, 10, 0)),
-    )
+def test_planned_review_uses_only_existing_wm_schema():
     impl = FakeImpl({"id": "42", "status": "ok", "reviews": []})
 
     updated, review = mobile.add_planned_review(
@@ -87,6 +82,7 @@ def test_planned_review_uses_only_existing_wm_schema(monkeypatch):
         description="Smarowanie prowadnic",
     )
 
+    assert review["id"].startswith("rev_")
     assert review["type"] == "Konserwacja"
     assert review["planned_date"] == "2026-10-20"
     assert review["status"] == "planned"
