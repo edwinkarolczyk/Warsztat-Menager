@@ -1,4 +1,4 @@
-# version: 1.6
+# version: 1.7
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
@@ -187,6 +187,15 @@ if not getattr(_impl, "_WMM_MACHINE_MOBILE_V4", False):
         _install_wmm_machine_mobile_v4(_impl)
     except Exception:
         _impl.logger.exception("[WMM API] nie udało się uruchomić akcji zaplanowanych przeglądów WMM")
+
+
+if not getattr(_impl, "_WMM_MACHINE_MOBILE_V5", False):
+    try:
+        from services.wmm_machine_mobile_v5 import install as _install_wmm_machine_mobile_v5
+
+        _install_wmm_machine_mobile_v5(_impl)
+    except Exception:
+        _impl.logger.exception("[WMM API] nie udało się uruchomić pełnej listy przeglądów WMM")
 
 
 # Zachowaj dotychczasowy publiczny moduł i wszystkie jego symbole.
