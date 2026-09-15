@@ -11,6 +11,10 @@ class FakeImpl:
     def __init__(self, machine):
         self.machine = copy.deepcopy(machine)
 
+    def _find_machine(self, machine_id):
+        assert machine_id == "42"
+        return copy.deepcopy(self.machine)
+
     def _update_machine(self, machine_id, mutator):
         assert machine_id == "42"
         mutator(self.machine)
@@ -90,6 +94,92 @@ def test_quick_repair_does_not_duplicate_existing_failure(monkeypatch):
 
     with pytest.raises(RuntimeError, match="już status Awaria"):
         mobile.start_quick_repair(impl, "42", "edwin")
+
+
+def _fake_cycle_entries(machine):
+    persisted = [
+        dict(item)
+        for item in machine.get("reviews", [])
+        if isinstance(item, dict) and item.get("source") == "cycle" and item.get("status") != "done"
+    ]
+    if persisted:
+        return persisted
+    return [
+        {
+            "id": "cycle_2026_09",
+            "date": "2026-09-20",
+            "type": "Przegląd okresowy",
+            "status": "planned",
+            "source": "cycle",
+            "suggested_people": ["edwin"],
+            "display_type": "Przegląd cykliczny",
+        }
+    ]
+
+
+def _fake_apply_status(machine, new_status, *, actor, note):
+    machine["status"] = new_status
+    machine["status_current"] = {
+        "status": new_status,
+        "started_at": "2026-09-15T08:00:00",
+        "changed_by": actor,
+        "note": note,
+    }
+
+
+def test_cycle_review_uses_existing_wm_schedule_and_materializes_on_action(monkeypatch):
+    times = iter(("2026-09-15T08:00:00", "2026-09-15T08:25:00"))
+    monkeypatch.setattr(mobile, "_now_iso", lambda: next(times))
+    monkeypatch.setattr(mobile, "_wm_combined_cycle_entries", _fake_cycle_entries)
+    monkeypatch.setattr(mobile, "_apply_wm_machine_status", _fake_apply_status)
+    monkeypatch.setattr(mobile, "_sync_review_to_disposition", lambda *args, **kwargs: None)
+
+    impl = FakeImpl({"id": "42", "status": "ok", "reviews": []})
+
+    planned = mobile.cycle_reviews(impl, "42")
+    assert [item["id"] for item in planned] == ["cycle_2026_09"]
+    assert impl.machine["reviews"] == []
+
+    started, review = mobile.start_cycle_review(
+        impl,
+        "42",
+        "cycle_2026_09",
+        "edwin",
+    )
+    assert len(started["reviews"]) == 1
+    assert review["id"].startswith("rev_")
+    assert review["source"] == "cycle"
+    assert review["cycle_year"] == 2026
+    assert review["cycle_month"] == 9
+    assert review["planned_date"] == "2026-09-20"
+    assert review["status"] == "in_progress"
+    assert review["started_by"] == "edwin"
+    assert started["status"] == "alert"
+
+    current_id = review["id"]
+    completed, done = mobile.complete_cycle_review(
+        impl,
+        "42",
+        current_id,
+        "edwin",
+        "Smarowanie i kontrola osłon",
+    )
+    assert len(completed["reviews"]) == 1
+    assert done["id"] == current_id
+    assert done["status"] == "done"
+    assert done["completed_by"] == ["edwin"]
+    assert done["completed_at"] == "2026-09-15T08:25:00"
+    assert done["result_note"].startswith("[WMM]")
+    assert completed["status"] == "ok"
+
+
+def test_cycle_review_rejects_id_not_present_in_wm_schedule(monkeypatch):
+    monkeypatch.setattr(mobile, "_wm_combined_cycle_entries", _fake_cycle_entries)
+    impl = FakeImpl({"id": "42", "status": "ok", "reviews": []})
+
+    with pytest.raises(RuntimeError, match="nie jest już aktywny"):
+        mobile.start_cycle_review(impl, "42", "cycle_2099_12", "edwin")
+    assert impl.machine["reviews"] == []
 
 
 def test_mobile_module_does_not_create_planned_reviews():
