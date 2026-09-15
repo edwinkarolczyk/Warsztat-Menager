@@ -7,6 +7,7 @@ bez zmiany modelu danych Maszyn.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -69,25 +70,33 @@ def create_all_machine_qr_pdf(
     if not machines:
         raise ValueError("Brak maszyn z identyfikatorem do wydruku QR.")
 
-    pages = [
-        build_machine_qr_print_page(
-            machine_qr_payload(machine["id"]),
-            machine["id"],
-            label=machine["name"],
-            page_format=page_format,
-        )
-        for machine in machines
-    ]
-
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    pages[0].save(
-        path,
-        "PDF",
-        resolution=float(PRINT_DPI),
-        save_all=True,
-        append_images=pages[1:],
-    )
+    temp_path = path.with_name(path.name + ".tmp")
+    temp_path.unlink(missing_ok=True)
+    try:
+        for index, machine in enumerate(machines):
+            page = build_machine_qr_print_page(
+                machine_qr_payload(machine["id"]),
+                machine["id"],
+                label=machine["name"],
+                page_format=page_format,
+            )
+            try:
+                page.save(
+                    temp_path,
+                    "PDF",
+                    resolution=float(PRINT_DPI),
+                    append=index > 0,
+                )
+            finally:
+                close = getattr(page, "close", None)
+                if callable(close):
+                    close()
+        os.replace(temp_path, path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
     return path, len(machines)
 
 
