@@ -36,11 +36,24 @@ class FakeSessionImpl:
 
 def test_active_author_requires_real_wmm_session():
     assert mobile._active_author(
-        FakeHandler(), FakeSessionImpl({"login": "edwin", "name": "Edwin"})
+        FakeHandler(),
+        FakeSessionImpl({"user_id": "u-42", "login": "edwin", "name": "Edwin"}),
     ) == "edwin"
+    assert mobile._active_identity(
+        FakeHandler(),
+        FakeSessionImpl({"user_id": "u-42", "login": "edwin", "name": "Edwin"}),
+    ) == ("u-42", "edwin")
 
     with pytest.raises(PermissionError, match="Sesja użytkownika WMM wygasła"):
-        mobile._active_author(FakeHandler("stara-sesja"), FakeSessionImpl({"login": "edwin"}))
+        mobile._active_author(
+            FakeHandler("stara-sesja"),
+            FakeSessionImpl({"user_id": "u-42", "login": "edwin"}),
+        )
+
+    with pytest.raises(PermissionError, match="trwałego ID"):
+        mobile._active_identity(
+            FakeHandler(), FakeSessionImpl({"login": "edwin", "name": "Edwin"})
+        )
 
 
 def test_wmm_note_contains_source_and_login():
@@ -119,13 +132,14 @@ def test_manual_planned_review_is_used_without_creating_second_entry(monkeypatch
 
     impl = FakeImpl({"id": "42", "status": "ok", "reviews": [copy.deepcopy(manual)]})
     started, review = mobile._start_planned_review(
-        impl, "42", "rev_manual_1", "edwin"
+        impl, "42", "rev_manual_1", "edwin", "u-42"
     )
 
     assert len(started["reviews"]) == 1
     assert review["id"] == "rev_manual_1"
     assert review["status"] == "in_progress"
     assert review["started_by"] == "edwin"
+    assert review["started_by_user_id"] == "u-42"
     assert started["status_current"]["changed_by"] == "edwin"
     assert "[WMM] edwin" in started["status_current"]["note"]
 
@@ -141,6 +155,7 @@ def test_manual_planned_review_can_be_completed_with_login(monkeypatch):
         "source": "manual",
         "started_at": "2026-09-15T09:30:00",
         "started_by": "edwin",
+        "started_by_user_id": "u-42",
     }
     monkeypatch.setattr(
         machines_gui,
@@ -165,15 +180,19 @@ def test_manual_planned_review_can_be_completed_with_login(monkeypatch):
         impl,
         "42",
         "rev_manual_1",
-        "edwin",
+        "edwin2",
         "Smarowanie i kontrola",
+        "u-42",
     )
 
     assert len(completed["reviews"]) == 1
     assert review["status"] == "done"
-    assert review["completed_by"] == ["edwin"]
-    assert review["result_note"].startswith("[WMM] edwin")
-    assert completed["status_current"]["changed_by"] == "edwin"
+    assert review["started_by"] == "edwin"
+    assert review["started_by_user_id"] == "u-42"
+    assert review["completed_by"] == ["edwin2"]
+    assert review["completed_by_user_ids"] == ["u-42"]
+    assert review["result_note"].startswith("[WMM] edwin2")
+    assert completed["status_current"]["changed_by"] == "edwin2"
 
 
 def test_completing_one_review_keeps_alert_for_another_active_review(monkeypatch):
@@ -214,10 +233,11 @@ def test_completing_one_review_keeps_alert_for_another_active_review(monkeypatch
         }
     )
     completed, review = mobile._complete_planned_review(
-        impl, "42", "rev_manual_1", "edwin"
+        impl, "42", "rev_manual_1", "edwin", actor_user_id="u-42"
     )
 
     assert review["status"] == "done"
+    assert review["completed_by_user_ids"] == ["u-42"]
     assert completed["reviews"][1]["status"] == "in_progress"
     assert completed["status"] == "alert"
     assert status_changes == []

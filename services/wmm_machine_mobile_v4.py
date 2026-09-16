@@ -32,21 +32,32 @@ def _wmm_note(actor: str, action: str, extra: object = "") -> str:
     return base + (f" — {suffix}" if suffix else "")
 
 
-def _active_author(handler: Any, impl: Any) -> str:
-    """Zwróć login tylko z aktywnej sesji WMM; nie zapisuj anonimowego 'WMM'."""
+def _active_identity(handler: Any, impl: Any) -> tuple[str, str]:
+    """Zwróć trwałe user_id i czytelny login wyłącznie z aktywnej sesji WMM."""
 
     session_id = str(handler.headers.get("X-WMM-Session") or "").strip()
     user = impl._touch_session(session_id) if session_id else None
     if not isinstance(user, dict):
         raise PermissionError(
-            "Sesja użytkownika WMM wygasła. Zaloguj się ponownie, aby zapis miał właściwy login."
+            "Sesja użytkownika WMM wygasła. Zaloguj się ponownie, aby zapis miał właściwego autora."
         )
     actor = str(user.get("login") or user.get("name") or "").strip()
+    user_id = str(user.get("user_id") or user.get("id") or "").strip()
     if not actor:
         raise PermissionError(
             "Nie udało się ustalić loginu użytkownika WMM. Zaloguj się ponownie."
         )
-    return actor
+    if not user_id:
+        raise PermissionError(
+            "Nie udało się ustalić trwałego ID użytkownika WMM. Zaloguj się ponownie."
+        )
+    return user_id, actor
+
+
+def _active_author(handler: Any, impl: Any) -> str:
+    """Zgodność wsteczna: zwróć czytelny login z aktywnej sesji WMM."""
+
+    return _active_identity(handler, impl)[1]
 
 
 def _status_key(value: object) -> str:
@@ -125,6 +136,7 @@ def _start_planned_review(
     machine_id: str,
     review_id: str,
     actor: str,
+    actor_user_id: str = "",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     result: dict[str, Any] = {}
 
@@ -140,6 +152,8 @@ def _start_planned_review(
         review["status"] = "in_progress"
         review["started_at"] = _now_iso()
         review["started_by"] = actor
+        if actor_user_id:
+            review["started_by_user_id"] = actor_user_id
         note = _wmm_note(
             actor,
             "Rozpoczęto zaplanowany przegląd",
@@ -165,6 +179,7 @@ def _complete_planned_review(
     review_id: str,
     actor: str,
     result_note: str = "",
+    actor_user_id: str = "",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     result: dict[str, Any] = {}
 
@@ -179,6 +194,8 @@ def _complete_planned_review(
         review["status"] = "done"
         review["completed_at"] = _now_iso()
         review["completed_by"] = [actor]
+        if actor_user_id:
+            review["completed_by_user_ids"] = [actor_user_id]
         review["result_note"] = note
         legacy._sync_review_to_disposition(
             machine,
@@ -282,7 +299,7 @@ def install(impl: Any) -> None:
         if not self._require_pairing_key():
             return None
         try:
-            actor = _active_author(self, impl)
+            actor_user_id, actor = _active_identity(self, impl)
             if repair_start:
                 item = _start_quick_repair(
                     impl,
@@ -290,7 +307,7 @@ def install(impl: Any) -> None:
                     actor,
                     str(payload.get("note") or payload.get("uwaga") or ""),
                 )
-                self._send(200, {"ok": True, "item": item, "author": actor})
+                self._send(200, {"ok": True, "item": item, "author": actor, "author_user_id": actor_user_id})
                 return None
             if repair_finish:
                 item, duration = _finish_quick_repair(
@@ -306,6 +323,7 @@ def install(impl: Any) -> None:
                         "item": item,
                         "duration_minutes": duration,
                         "author": actor,
+                        "author_user_id": actor_user_id,
                     },
                 )
                 return None
@@ -315,7 +333,7 @@ def install(impl: Any) -> None:
             action = planned_match.group(3)
             if action == "start":
                 item, review = _start_planned_review(
-                    impl, machine_id, review_id, actor
+                    impl, machine_id, review_id, actor, actor_user_id
                 )
             else:
                 item, review = _complete_planned_review(
@@ -324,10 +342,17 @@ def install(impl: Any) -> None:
                     review_id,
                     actor,
                     str(payload.get("note") or payload.get("uwaga") or ""),
+                    actor_user_id,
                 )
             self._send(
                 200,
-                {"ok": True, "item": item, "review": review, "author": actor},
+                {
+                    "ok": True,
+                    "item": item,
+                    "review": review,
+                    "author": actor,
+                    "author_user_id": actor_user_id,
+                },
             )
         except PermissionError as exc:
             self._send(401, {"ok": False, "error": str(exc), "reauth": True})
