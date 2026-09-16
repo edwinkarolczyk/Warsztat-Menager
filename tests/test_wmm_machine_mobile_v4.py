@@ -174,3 +174,50 @@ def test_manual_planned_review_can_be_completed_with_login(monkeypatch):
     assert review["completed_by"] == ["edwin"]
     assert review["result_note"].startswith("[WMM] edwin")
     assert completed["status_current"]["changed_by"] == "edwin"
+
+
+def test_completing_one_review_keeps_alert_for_another_active_review(monkeypatch):
+    first = {
+        "id": "rev_manual_1",
+        "status": "in_progress",
+        "source": "manual",
+    }
+    second = {
+        "id": "rev_manual_2",
+        "status": "in_progress",
+        "source": "manual",
+    }
+    monkeypatch.setattr(
+        mobile,
+        "_find_display_entry",
+        lambda machine, review_id: next(
+            item for item in machine["reviews"] if item["id"] == review_id
+        ),
+    )
+    monkeypatch.setattr(
+        mobile.legacy,
+        "_sync_review_to_disposition",
+        lambda *args, **kwargs: None,
+    )
+    status_changes = []
+    monkeypatch.setattr(
+        mobile.legacy,
+        "_apply_wm_machine_status",
+        lambda machine, new_status, **kwargs: status_changes.append(new_status),
+    )
+
+    impl = FakeImpl(
+        {
+            "id": "42",
+            "status": "alert",
+            "reviews": [copy.deepcopy(first), copy.deepcopy(second)],
+        }
+    )
+    completed, review = mobile._complete_planned_review(
+        impl, "42", "rev_manual_1", "edwin"
+    )
+
+    assert review["status"] == "done"
+    assert completed["reviews"][1]["status"] == "in_progress"
+    assert completed["status"] == "alert"
+    assert status_changes == []

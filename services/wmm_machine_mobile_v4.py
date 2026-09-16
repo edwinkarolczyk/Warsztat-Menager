@@ -187,7 +187,14 @@ def _complete_planned_review(
             actor=actor,
             note=note,
         )
-        if legacy._normalize_status(machine.get("status")) == "alert":
+        has_active_review = any(
+            _status_key(item.get("status")) == "in_progress"
+            for item in legacy._machine_reviews(machine)
+        )
+        if (
+            legacy._normalize_status(machine.get("status")) == "alert"
+            and not has_active_review
+        ):
             legacy._apply_wm_machine_status(machine, "ok", actor=actor, note=note)
         result.update(review)
 
