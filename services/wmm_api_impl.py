@@ -451,6 +451,38 @@ def _canonical_tool_status(tool: dict[str, Any], requested: str) -> str:
     )
 
 
+def _apply_tool_status_from_wmm(
+    tool: dict[str, Any], requested: str, *, actor: str, note: str
+) -> bool:
+    canonical = _canonical_tool_status(tool, requested)
+    previous = str(tool.get("status") or "").strip()
+    if previous.casefold() == canonical.casefold():
+        return False
+
+    details = f"{previous or 'brak'} → {canonical}"
+    if note:
+        details += f" — {note}"
+        tool["opis"] = note
+    history = tool.get("historia")
+    if not isinstance(history, list):
+        history = []
+    history.append(
+        {
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "by": actor,
+            "action": "status_changed",
+            "typ": "status_changed",
+            "z": previous,
+            "na": canonical,
+            "details": details,
+            "source": "WMM",
+        }
+    )
+    tool["historia"] = history
+    tool["status"] = canonical
+    return True
+
+
 def _apply_machine_status_from_wmm(
     machine: dict[str, Any], status: str, *, actor: str, note: str
 ) -> None:
@@ -953,11 +985,12 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     if not status:
                         raise RuntimeError("Brak statusu narzędzia.")
                     def mutate(row: dict[str, Any]) -> None:
-                        canonical = _canonical_tool_status(row, status)
-                        row["status"] = canonical
-                        if note:
-                            row["opis"] = note
-                        _append_history(row, f"status: {canonical}", author, note)
+                        _apply_tool_status_from_wmm(
+                            row,
+                            status,
+                            actor=author,
+                            note=note,
+                        )
                     item = _update_tool(tool_id, mutate)
                 else:
                     filename, data = self._read_multipart_photo()
