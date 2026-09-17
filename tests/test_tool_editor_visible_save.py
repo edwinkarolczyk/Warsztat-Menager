@@ -11,7 +11,7 @@ class _FakeTk:
         self.calls.append(command)
 
 
-class _FakeButton:
+class _FakeSaveControl:
     def __init__(self, command="save-command"):
         self.command = command
         self.tk = _FakeTk()
@@ -22,7 +22,7 @@ class _FakeButton:
 
 
 def test_dashboard_save_invokes_existing_editor_save(monkeypatch):
-    button = _FakeButton()
+    button = _FakeSaveControl()
     monkeypatch.setattr(runtime, "_find_save_button", lambda window: button)
 
     assert runtime._invoke_editor_save(object()) is True
