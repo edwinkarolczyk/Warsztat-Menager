@@ -379,6 +379,99 @@ def _find_tool(tool_id: str) -> dict[str, Any] | None:
     return row
 
 
+def _tool_collection(tool: dict[str, Any]) -> str:
+    mode = str(tool.get("tryb") or tool.get("mode") or "").strip().upper()
+    if mode in {"NOWE", "NN"}:
+        return "NN"
+    if mode in {"SN", "ST"}:
+        return mode
+    if mode == "STARE":
+        try:
+            from config_manager import ConfigManager
+
+            enabled = ConfigManager().get("tools.collections_enabled", []) or []
+            return next((item for item in ("SN", "ST") if item in enabled), "SN")
+        except Exception:
+            return "SN"
+    raw_id = str(tool.get("id") or tool.get("numer") or tool.get("nr") or "")
+    try:
+        from utils.tool_mode_helpers import infer_mode_from_id
+
+        return "NN" if infer_mode_from_id(raw_id) == "NN" else "SN"
+    except Exception:
+        return "SN"
+
+
+def _tool_status_options(tool: dict[str, Any]) -> list[dict[str, str]]:
+    type_name = str(
+        tool.get("typ") or tool.get("typ_narzedzia") or tool.get("type") or ""
+    ).strip()
+    if not type_name:
+        return []
+    collection = _tool_collection(tool)
+    definitions_path: str | None = None
+    try:
+        from config_manager import ConfigManager
+
+        cfg = ConfigManager()
+        paths = cfg.get("tools.collections_paths", {}) or {}
+        if isinstance(paths, dict):
+            definitions_path = paths.get(collection)
+        definitions_path = definitions_path or cfg.get("tools.definitions_path", None)
+    except Exception:
+        pass
+
+    from tools_config_loader import find_type, load_config
+
+    definitions = load_config(definitions_path)
+    tool_type = find_type(definitions, collection, type_name)
+    if not tool_type and collection == "ST":
+        tool_type = find_type(definitions, "SN", type_name)
+    if not tool_type:
+        return []
+    result: list[dict[str, str]] = []
+    for raw in tool_type.get("statuses") or []:
+        if isinstance(raw, dict):
+            status_id = str(raw.get("id") or raw.get("name") or "").strip()
+            name = str(raw.get("name") or raw.get("id") or "").strip()
+        else:
+            status_id = name = str(raw or "").strip()
+        if name:
+            result.append({"id": status_id or name, "name": name})
+    return result
+
+
+def _canonical_tool_status(tool: dict[str, Any], requested: str) -> str:
+    needle = str(requested or "").strip().casefold()
+    for option in _tool_status_options(tool):
+        if needle in {option["id"].casefold(), option["name"].casefold()}:
+            return option["name"]
+    raise RuntimeError(
+        "Ten status nie jest przypisany w WM do rodzaju tego narzędzia."
+    )
+
+
+def _apply_machine_status_from_wmm(
+    machine: dict[str, Any], status: str, *, actor: str, note: str
+) -> None:
+    from gui_maszyny_legacy import (
+        _apply_machine_status_change,
+        _normalize_machine_status,
+    )
+
+    canonical = _normalize_machine_status(status)
+    if canonical not in {"ok", "alert", "warn"}:
+        raise RuntimeError("Nieprawidłowy status maszyny.")
+    _apply_machine_status_change(
+        machine,
+        canonical,
+        actor=actor,
+        note=note,
+    )
+    if note:
+        machine["uwagi"] = note
+
+
 def _update_tool(tool_id: str, mutator) -> dict[str, Any]:
     path = _tool_path(tool_id)
     if path is None:
@@ -729,6 +822,18 @@ class _WmmHandler(BaseHTTPRequestHandler):
             self._send(404, {"ok": False, "error": "Nie znaleziono obiektu dla tego kodu QR."})
             return
 
+        tool_statuses_match = re.fullmatch(r"/api/v1/tools/([^/]+)/statuses", path)
+        if tool_statuses_match:
+            if not self._require_pairing_key():
+                return
+            tool = _find_tool(unquote(tool_statuses_match.group(1)))
+            if tool is None:
+                self._send(404, {"ok": False, "error": "Nie znaleziono narzędzia."})
+                return
+            statuses = _tool_status_options(tool)
+            self._send(200, {"ok": True, "count": len(statuses), "items": statuses})
+            return
+
         for prefix, finder in (("/api/v1/machines/", _find_machine), ("/api/v1/tools/", _find_tool)):
             if path.startswith(prefix):
                 if not self._require_pairing_key():
@@ -808,10 +913,9 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     if not status:
                         raise RuntimeError("Brak statusu maszyny.")
                     def mutate(row: dict[str, Any]) -> None:
-                        row["status"] = status
-                        if note:
-                            row["uwagi"] = note
-                        _append_history(row, f"status: {status}", author, note)
+                        _apply_machine_status_from_wmm(
+                            row, status, actor=author, note=note
+                        )
                     item = _update_machine(machine_id, mutate)
                 elif action == "note":
                     note = str(payload.get("note") or "").strip()
@@ -849,10 +953,11 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     if not status:
                         raise RuntimeError("Brak statusu narzędzia.")
                     def mutate(row: dict[str, Any]) -> None:
-                        row["status"] = status
+                        canonical = _canonical_tool_status(row, status)
+                        row["status"] = canonical
                         if note:
                             row["opis"] = note
-                        _append_history(row, f"status: {status}", author, note)
+                        _append_history(row, f"status: {canonical}", author, note)
                     item = _update_tool(tool_id, mutate)
                 else:
                     filename, data = self._read_multipart_photo()

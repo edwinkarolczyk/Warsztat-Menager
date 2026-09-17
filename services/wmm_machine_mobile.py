@@ -93,12 +93,13 @@ def _begin_repair_period(
     *,
     author: str,
     note: str,
+    author_user_id: str = "",
 ) -> None:
     """Rozpocznij Awarię bez dopisywania osobnego rekordu poprzedniego stanu."""
 
     now = _now_iso()
     machine["status"] = "warn"
-    machine["status_current"] = {
+    current = {
         "status": "warn",
         "label": _STATUS_LABELS["warn"],
         "started_at": now,
@@ -106,6 +107,9 @@ def _begin_repair_period(
         "note": note,
         "photos": [],
     }
+    if author_user_id:
+        current["changed_by_user_id"] = author_user_id
+    machine["status_current"] = current
 
 
 def _finish_repair_period(
@@ -113,6 +117,7 @@ def _finish_repair_period(
     *,
     author: str,
     close_note: str,
+    author_user_id: str = "",
 ) -> int:
     """Zamknij dokładnie jeden okres Awarii i ustaw bieżący stan Sprawna."""
 
@@ -135,6 +140,8 @@ def _finish_repair_period(
     closed["ended_at"] = now
     closed["duration_minutes"] = _duration_minutes(closed.get("started_at"), now)
     closed["closed_by"] = author
+    if author_user_id:
+        closed["closed_by_user_id"] = author_user_id
     closed["close_note"] = close_note
 
     history = machine.get("status_history")
@@ -144,7 +151,7 @@ def _finish_repair_period(
     machine["status_history"] = history
 
     machine["status"] = "ok"
-    machine["status_current"] = {
+    next_current = {
         "status": "ok",
         "label": _STATUS_LABELS["ok"],
         "started_at": now,
@@ -152,6 +159,9 @@ def _finish_repair_period(
         "note": close_note,
         "photos": [],
     }
+    if author_user_id:
+        next_current["changed_by_user_id"] = author_user_id
+    machine["status_current"] = next_current
     return int(closed.get("duration_minutes") or 0)
 
 

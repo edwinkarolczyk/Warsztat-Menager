@@ -224,6 +224,7 @@ def _start_quick_repair(
     machine_id: str,
     actor: str,
     note: str = "",
+    actor_user_id: str = "",
 ) -> dict[str, Any]:
     text = _wmm_note(actor, "Szybka naprawa — rozpoczęcie", note)
 
@@ -232,7 +233,12 @@ def _start_quick_repair(
             raise RuntimeError(
                 "Maszyna ma już status Awaria. Zakończ bieżącą naprawę zamiast rozpoczynać następną."
             )
-        legacy._begin_repair_period(machine, author=actor, note=text)
+        legacy._begin_repair_period(
+            machine,
+            author=actor,
+            note=text,
+            author_user_id=actor_user_id,
+        )
 
     return impl._update_machine(machine_id, mutate)
 
@@ -242,6 +248,7 @@ def _finish_quick_repair(
     machine_id: str,
     actor: str,
     note: str = "",
+    actor_user_id: str = "",
 ) -> tuple[dict[str, Any], int]:
     text = _wmm_note(actor, "Szybka naprawa — zakończenie", note)
     result = {"duration": 0}
@@ -253,6 +260,7 @@ def _finish_quick_repair(
             machine,
             author=actor,
             close_note=text,
+            author_user_id=actor_user_id,
         )
 
     updated = impl._update_machine(machine_id, mutate)
@@ -306,6 +314,7 @@ def install(impl: Any) -> None:
                     unquote(repair_start.group(1)),
                     actor,
                     str(payload.get("note") or payload.get("uwaga") or ""),
+                    actor_user_id,
                 )
                 self._send(200, {"ok": True, "item": item, "author": actor, "author_user_id": actor_user_id})
                 return None
@@ -315,6 +324,7 @@ def install(impl: Any) -> None:
                     unquote(repair_finish.group(1)),
                     actor,
                     str(payload.get("note") or payload.get("uwaga") or ""),
+                    actor_user_id,
                 )
                 self._send(
                     200,

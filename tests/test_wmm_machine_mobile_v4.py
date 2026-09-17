@@ -62,6 +62,25 @@ def test_wmm_note_contains_source_and_login():
     assert "czujnik" in note
 
 
+def test_quick_repair_keeps_stable_user_id_after_login_change(monkeypatch):
+    times = iter(("2026-09-15T07:00:00", "2026-09-15T07:35:00"))
+    monkeypatch.setattr(mobile.legacy, "_now_iso", lambda: next(times))
+    impl = FakeImpl({"id": "42", "status": "ok", "status_history": []})
+
+    started = mobile._start_quick_repair(
+        impl, "42", "edwin", "Czujnik", actor_user_id="u-42"
+    )
+    assert started["status_current"]["changed_by"] == "edwin"
+    assert started["status_current"]["changed_by_user_id"] == "u-42"
+
+    finished, _duration = mobile._finish_quick_repair(
+        impl, "42", "edwin2", "Wymieniony", actor_user_id="u-42"
+    )
+    assert finished["status_history"][0]["closed_by"] == "edwin2"
+    assert finished["status_history"][0]["closed_by_user_id"] == "u-42"
+    assert finished["status_current"]["changed_by_user_id"] == "u-42"
+
+
 def test_planned_list_contains_manual_and_cycle(monkeypatch):
     import gui_maszyny_legacy as machines_gui
 
