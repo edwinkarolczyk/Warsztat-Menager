@@ -55,7 +55,11 @@ def test_tool_status_adds_one_canonical_history_entry(monkeypatch):
         "_canonical_tool_status",
         lambda tool, requested: "W ostrzeniu",
     )
-    tool = {"status": "Przegląd", "historia": []}
+    tool = {
+        "status": "Przegląd",
+        "opis": "Stały opis techniczny narzędzia",
+        "historia": [],
+    }
 
     changed = api._apply_tool_status_from_wmm(
         tool,
@@ -66,12 +70,14 @@ def test_tool_status_adds_one_canonical_history_entry(monkeypatch):
 
     assert changed is True
     assert tool["status"] == "W ostrzeniu"
+    assert tool["opis"] == "Stały opis techniczny narzędzia"
     assert len(tool["historia"]) == 1
     assert tool["historia"][0]["action"] == "status_changed"
     assert tool["historia"][0]["z"] == "Przegląd"
     assert tool["historia"][0]["na"] == "W ostrzeniu"
     assert tool["historia"][0]["source"] == "WMM"
     assert "Przegląd → W ostrzeniu" in tool["historia"][0]["details"]
+    assert "Do ostrzenia" in tool["historia"][0]["details"]
 
 
 def test_selecting_current_tool_status_is_noop(monkeypatch):

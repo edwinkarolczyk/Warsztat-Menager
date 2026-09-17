@@ -462,7 +462,6 @@ def _apply_tool_status_from_wmm(
     details = f"{previous or 'brak'} → {canonical}"
     if note:
         details += f" — {note}"
-        tool["opis"] = note
     history = tool.get("historia")
     if not isinstance(history, list):
         history = []
