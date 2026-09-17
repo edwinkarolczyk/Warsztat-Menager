@@ -1,4 +1,8 @@
-# version: 2.12
+# version: 2.13
+# Zmiany 2.13:
+# - Podgląd edycji narzędzia ma zawsze widoczny przycisk „Zapisz zmiany” pod polami danych.
+# - Przycisk używa dokładnie tej samej funkcji zapisu co dolny pasek edytora.
+#
 # Zmiany 2.12:
 # - Nowy edytor ignoruje martwe widgety Tk podczas dekorowania okna.
 # - Gdy lista zdjęć formularza jest pusta, zdjęcia są odtwarzane z rekordu narzędzia.

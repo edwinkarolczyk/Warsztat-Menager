@@ -50,6 +50,21 @@ def _find_save_button(window: tk.Toplevel) -> ttk.Button | None:
     return None
 
 
+def _invoke_editor_save(window: tk.Toplevel) -> bool:
+    """Uruchom istniejący zapis także z przycisku umieszczonego w Podglądzie."""
+    source = _find_save_button(window)
+    if source is None:
+        return False
+    try:
+        command_name = str(source.cget("command") or "").strip()
+        if not command_name:
+            return False
+        source.tk.call(command_name)
+        return True
+    except Exception:
+        return False
+
+
 def _build_dashboard_polished(window, notebook, colors):
     """Podgląd z przewijalnym środkiem i bez czterech dużych liczników."""
     dash = ttk.Frame(notebook, padding=(10, 8), style="WM.Card.TFrame")
@@ -120,6 +135,21 @@ def _build_dashboard_polished(window, notebook, colors):
     name_widget = _variant._clone_basic_field(window, details, 2, "Nazwa", "Nazwa")
     type_widget = _variant._clone_basic_field(window, details, 3, "Typ", "Typ")
     status_widget = _variant._clone_basic_field(window, details, 4, "Status", "Status")
+
+    save_action = ttk.Button(
+        details,
+        text="Zapisz zmiany",
+        command=lambda: _invoke_editor_save(window),
+        style="WM.Side.TButton",
+    )
+    save_action.grid(
+        row=5,
+        column=1,
+        sticky="e",
+        padx=12,
+        pady=(10, 12),
+    )
+    window._wm_polish_dashboard_save = save_action
 
     lifecycle = _variant._make_card(content, colors, accent=colors["blue"])
     lifecycle.grid(row=0, column=1, sticky="nsew", padx=(7, 0), pady=(0, 7))
@@ -615,6 +645,7 @@ def _paint_dirty(window):
         return
     label = getattr(window, "_wm_polish_dirty_label", None)
     save = getattr(window, "_wm_polish_save_button", None)
+    dashboard_save = getattr(window, "_wm_polish_dashboard_save", None)
     if label is None or save is None:
         return
 
@@ -628,9 +659,13 @@ def _paint_dirty(window):
             if not label.winfo_manager():
                 label.pack(side="left", padx=(8, 0), pady=2)
             save.state(["!disabled"])
+            if dashboard_save is not None:
+                dashboard_save.state(["!disabled"])
         else:
             label.pack_forget()
             save.state(["disabled"])
+            if dashboard_save is not None:
+                dashboard_save.state(["disabled"])
         window._wm_polish_dirty = dirty
         window._wm_polish_dirty_painted = True
     except Exception:
