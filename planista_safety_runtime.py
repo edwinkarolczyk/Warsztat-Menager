@@ -155,6 +155,7 @@ def _install_progress_guard() -> None:
     # delegują do bezpieczniejszej implementacji ZP.
     ZL.update_zlecenie = ZP.update_zlecenie
     ZL.report_wykonano = ZP.report_wykonano
+    ZL.rozlicz_material = ZP.rozlicz_material
 
     if not getattr(ZL.create_zlecenie, "_wm_reservation_state", False):
         original_create = ZL.create_zlecenie
@@ -355,7 +356,8 @@ def _install_orders_help() -> None:
     help_by_text = {
         "Ustaw / zmień termin": "Ustawia termin realizacji wybranego zlecenia. Termin jest synchronizowany z powiązaną dyspozycją.",
         "Ilość / rzaz / półprodukty…": "Zmienia ilość produktu, rzaz i ewentualne korekty półproduktów. Po zapisie WM ponownie liczy zapotrzebowanie i rezerwacje.",
-        "Wykonano…": "Rozlicza łączną wykonaną ilość zlecenia. WM zużywa odpowiednią część zarezerwowanych półproduktów i surowców.",
+        "Wykonano…": "Zapisuje łączną wykonaną ilość zlecenia. Nie zmienia stanów ani rezerwacji magazynu.",
+        "Rozlicz materiał": "Świadomie rozlicza materiał do zapisanej ilości wykonanej. Ta operacja zmienia stan i rezerwacje magazynu.",
         "Pokaż zapotrzebowanie": "Pokazuje półprodukty i surowce potrzebne do realizacji zlecenia. W tym miejscu zobaczysz również wykryte braki materiałowe.",
         "Drukuj małe zlecenie": "Przygotowuje skrócony wydruk wybranego zlecenia produkcyjnego. Wydruk otwierany jest z bieżących danych Planisty.",
     }
