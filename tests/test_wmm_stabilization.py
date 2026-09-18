@@ -126,3 +126,50 @@ def test_wmm_concurrent_tool_updates_keep_both_changes(tmp_path, monkeypatch):
     saved = json.loads(target.read_text(encoding="utf-8"))
     assert saved["uwagi_a"] == "A"
     assert saved["uwagi_b"] == "B"
+
+
+def test_wmm_idempotency_replays_success_without_second_write():
+    from services import wmm_api
+
+    with wmm_api._IDEMPOTENCY_LOCK:
+        wmm_api._IDEMPOTENCY_CACHE.clear()
+
+    calls: list[int] = []
+
+    def operation() -> dict:
+        calls.append(1)
+        return {"id": "001", "status": "Do naprawy"}
+
+    first_replayed, first = wmm_api._run_idempotent(
+        "wmm-test-request-001", "/api/v1/tools/001/status", operation
+    )
+    second_replayed, second = wmm_api._run_idempotent(
+        "wmm-test-request-001", "/api/v1/tools/001/status", operation
+    )
+
+    assert first_replayed is False
+    assert second_replayed is True
+    assert first == second
+    assert calls == [1]
+
+
+def test_wmm_idempotency_same_request_id_is_scoped_by_endpoint():
+    from services import wmm_api
+
+    with wmm_api._IDEMPOTENCY_LOCK:
+        wmm_api._IDEMPOTENCY_CACHE.clear()
+
+    calls: list[str] = []
+
+    def first() -> dict:
+        calls.append("tool")
+        return {"id": "001"}
+
+    def second() -> dict:
+        calls.append("machine")
+        return {"id": "42"}
+
+    wmm_api._run_idempotent("wmm-shared-request", "/api/v1/tools/001/status", first)
+    wmm_api._run_idempotent("wmm-shared-request", "/api/v1/machines/42/status", second)
+
+    assert calls == ["tool", "machine"]
