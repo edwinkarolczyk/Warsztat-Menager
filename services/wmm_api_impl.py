@@ -31,6 +31,10 @@ _SESSIONS_LOCK = threading.Lock()
 _KEY_CLIENT_LAST_SEEN = 0.0
 _MAX_JSON_BYTES = 128_000
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+_IDEMPOTENCY_TTL_SECONDS = 15 * 60
+_IDEMPOTENCY_MAX_ENTRIES = 2048
+_IDEMPOTENCY_CACHE: dict[str, dict[str, Any]] = {}
+_IDEMPOTENCY_LOCK = threading.Lock()
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
@@ -625,6 +629,59 @@ def _store_photo(kind: str, object_id: str, filename: str, data: bytes, author: 
     }
 
 
+def _clone_idempotent_result(value: Any) -> Any:
+    try:
+        return json.loads(json.dumps(value, ensure_ascii=False))
+    except Exception:
+        return value
+
+
+def _prune_idempotency(now: float | None = None) -> None:
+    """Usuń stare odpowiedzi z krótkiego cache ochrony przed podwójnym POST-em."""
+
+    current = time.time() if now is None else now
+    stale = [
+        key
+        for key, entry in _IDEMPOTENCY_CACHE.items()
+        if current - float(entry.get("created_at", 0.0) or 0.0) > _IDEMPOTENCY_TTL_SECONDS
+    ]
+    for key in stale:
+        _IDEMPOTENCY_CACHE.pop(key, None)
+    if len(_IDEMPOTENCY_CACHE) <= _IDEMPOTENCY_MAX_ENTRIES:
+        return
+    ordered = sorted(
+        _IDEMPOTENCY_CACHE.items(),
+        key=lambda item: float(item[1].get("created_at", 0.0) or 0.0),
+    )
+    for key, _entry in ordered[: len(_IDEMPOTENCY_CACHE) - _IDEMPOTENCY_MAX_ENTRIES]:
+        _IDEMPOTENCY_CACHE.pop(key, None)
+
+
+def _run_idempotent(request_id: str, path: str, operation):
+    """Wykonaj zapis najwyżej raz dla pary endpoint + request_id.
+
+    Blokada obejmuje również sam zapis. Dzięki temu dwa równoległe telefony lub
+    ponowienie po utracie odpowiedzi nie przejdą jednocześnie przez cache.
+    """
+
+    request_key = str(request_id or "").strip()
+    if not request_key:
+        return False, operation()
+    cache_key = f"{path}\n{request_key}"
+    with _IDEMPOTENCY_LOCK:
+        _prune_idempotency()
+        cached = _IDEMPOTENCY_CACHE.get(cache_key)
+        if isinstance(cached, dict) and "result" in cached:
+            return True, _clone_idempotent_result(cached["result"])
+        result = operation()
+        _IDEMPOTENCY_CACHE[cache_key] = {
+            "created_at": time.time(),
+            "result": _clone_idempotent_result(result),
+        }
+        _prune_idempotency()
+        return False, result
+
+
 def _prune_sessions(now: float | None = None) -> None:
     current = time.time() if now is None else now
     stale = [sid for sid, session in _SESSIONS.items() if current - float(session.get("last_seen", 0.0) or 0.0) > _SESSION_TTL_SECONDS]
@@ -783,6 +840,18 @@ class _WmmHandler(BaseHTTPRequestHandler):
             return str(user.get("login") or user.get("name") or "WMM").strip() or "WMM"
         return "WMM"
 
+    def _request_id(self) -> str:
+        raw = str(
+            self.headers.get("X-WMM-Request-ID")
+            or self.headers.get("Idempotency-Key")
+            or ""
+        ).strip()
+        if not raw or len(raw) > 128:
+            return ""
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", raw):
+            return ""
+        return raw
+
     def _send_rows(self, loader) -> None:
         try:
             rows = loader()
@@ -799,7 +868,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/v1/info":
             self._has_pairing_key()
-            self._send(200, {"ok": True, "service": "Warsztat Menager", "api_version": "1", "wmm": True, "wmm_version": WMM_COMPAT_VERSION, "channel": "beta", "features": {"planista_read": True, "planista_create": True, "machines_read": True, "machines_write": True, "machine_photos": True, "tools_read": True, "tools_write": True, "tool_photos": True, "dispositions_read": True, "dispositions_write": True, "warehouse_read": True, "qr_resolve": True}})
+            self._send(200, {"ok": True, "service": "Warsztat Menager", "api_version": "1", "wmm": True, "wmm_version": WMM_COMPAT_VERSION, "channel": "beta", "features": {"planista_read": True, "planista_create": True, "machines_read": True, "machines_write": True, "machine_photos": True, "tools_read": True, "tools_write": True, "tool_photos": True, "dispositions_read": True, "dispositions_write": True, "warehouse_read": True, "qr_resolve": True, "idempotency": True}})
             return
         if path == "/api/v1/pairing":
             self._send(200, {"ok": True, **pairing_info()})
@@ -926,11 +995,15 @@ class _WmmHandler(BaseHTTPRequestHandler):
 
         if path == "/api/v1/planista/orders":
             try:
-                order = _create_planista_order(payload, author)
+                replayed, order = _run_idempotent(
+                    self._request_id(),
+                    path,
+                    lambda: _create_planista_order(payload, author),
+                )
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
                 return
-            self._send(201, {"ok": True, "item": order})
+            self._send(201, {"ok": True, "item": order, "replayed": replayed})
             return
 
         machine_match = re.fullmatch(r"/api/v1/machines/([^/]+)/(status|note|photos)", path)
@@ -938,25 +1011,26 @@ class _WmmHandler(BaseHTTPRequestHandler):
             machine_id = unquote(machine_match.group(1))
             action = machine_match.group(2)
             try:
-                if action == "status":
-                    status = str(payload.get("status") or "").strip()
-                    note = str(payload.get("note") or "").strip()
-                    if not status:
-                        raise RuntimeError("Brak statusu maszyny.")
-                    def mutate(row: dict[str, Any]) -> None:
-                        _apply_machine_status_from_wmm(
-                            row, status, actor=author, note=note
-                        )
-                    item = _update_machine(machine_id, mutate)
-                elif action == "note":
-                    note = str(payload.get("note") or "").strip()
-                    if not note:
-                        raise RuntimeError("Uwaga jest pusta.")
-                    def mutate(row: dict[str, Any]) -> None:
-                        row["uwagi"] = note
-                        _append_history(row, "uwaga", author, note)
-                    item = _update_machine(machine_id, mutate)
-                else:
+                def perform_machine_action() -> dict[str, Any]:
+                    if action == "status":
+                        status = str(payload.get("status") or "").strip()
+                        note = str(payload.get("note") or "").strip()
+                        if not status:
+                            raise RuntimeError("Brak statusu maszyny.")
+                        def mutate(row: dict[str, Any]) -> None:
+                            _apply_machine_status_from_wmm(
+                                row, status, actor=author, note=note
+                            )
+                        return _update_machine(machine_id, mutate)
+                    if action == "note":
+                        note = str(payload.get("note") or "").strip()
+                        if not note:
+                            raise RuntimeError("Uwaga jest pusta.")
+                        def mutate(row: dict[str, Any]) -> None:
+                            row["uwagi"] = note
+                            _append_history(row, "uwaga", author, note)
+                        return _update_machine(machine_id, mutate)
+
                     filename, data = self._read_multipart_photo()
                     photo = _store_photo("machines", machine_id, filename, data, author)
                     def mutate(row: dict[str, Any]) -> None:
@@ -964,8 +1038,12 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
-                    item = _update_machine(machine_id, mutate)
-                self._send(200, {"ok": True, "item": item})
+                    return _update_machine(machine_id, mutate)
+
+                replayed, item = _run_idempotent(
+                    self._request_id(), path, perform_machine_action
+                )
+                self._send(200, {"ok": True, "item": item, "replayed": replayed})
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
@@ -978,20 +1056,21 @@ class _WmmHandler(BaseHTTPRequestHandler):
             tool_id = unquote(tool_match.group(1))
             action = tool_match.group(2)
             try:
-                if action == "status":
-                    status = str(payload.get("status") or "").strip()
-                    note = str(payload.get("note") or "").strip()
-                    if not status:
-                        raise RuntimeError("Brak statusu narzędzia.")
-                    def mutate(row: dict[str, Any]) -> None:
-                        _apply_tool_status_from_wmm(
-                            row,
-                            status,
-                            actor=author,
-                            note=note,
-                        )
-                    item = _update_tool(tool_id, mutate)
-                else:
+                def perform_tool_action() -> dict[str, Any]:
+                    if action == "status":
+                        status = str(payload.get("status") or "").strip()
+                        note = str(payload.get("note") or "").strip()
+                        if not status:
+                            raise RuntimeError("Brak statusu narzędzia.")
+                        def mutate(row: dict[str, Any]) -> None:
+                            _apply_tool_status_from_wmm(
+                                row,
+                                status,
+                                actor=author,
+                                note=note,
+                            )
+                        return _update_tool(tool_id, mutate)
+
                     filename, data = self._read_multipart_photo()
                     photo = _store_photo("tools", tool_id, filename, data, author)
                     def mutate(row: dict[str, Any]) -> None:
@@ -999,8 +1078,12 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
-                    item = _update_tool(tool_id, mutate)
-                self._send(200, {"ok": True, "item": item})
+                    return _update_tool(tool_id, mutate)
+
+                replayed, item = _run_idempotent(
+                    self._request_id(), path, perform_tool_action
+                )
+                self._send(200, {"ok": True, "item": item, "replayed": replayed})
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
@@ -1011,8 +1094,16 @@ class _WmmHandler(BaseHTTPRequestHandler):
         disposition_match = re.fullmatch(r"/api/v1/dispositions/([^/]+)/status", path)
         if disposition_match:
             try:
-                item = _set_disposition_status(unquote(disposition_match.group(1)), str(payload.get("status") or "").strip(), author)
-                self._send(200, {"ok": True, "item": item})
+                replayed, item = _run_idempotent(
+                    self._request_id(),
+                    path,
+                    lambda: _set_disposition_status(
+                        unquote(disposition_match.group(1)),
+                        str(payload.get("status") or "").strip(),
+                        author,
+                    ),
+                )
+                self._send(200, {"ok": True, "item": item, "replayed": replayed})
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             return
