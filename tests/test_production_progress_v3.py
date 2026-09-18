@@ -115,8 +115,10 @@ def test_report_done_validates_all_stock_before_any_mutation(monkeypatch):
     monkeypatch.setattr(zp.LM, "zwolnij_rezerwacje", lambda *a, **k: calls.append(("release", a)))
     monkeypatch.setattr(zp.LM, "zuzyj", lambda *a, **k: calls.append(("consume", a)))
 
+    order["wykonano"] = 50.0
+    order["materialy_rozliczono_do"] = 40.0
     with pytest.raises(ValueError, match="stan magazynowy jest za mały"):
-        zp.report_wykonano("000001", 50, kto="Edwin")
+        zp.rozlicz_material("000001", kto="Edwin")
 
     assert calls == []
 
@@ -154,7 +156,9 @@ def test_partial_report_keeps_only_this_orders_remaining_reservation(monkeypatch
 
     monkeypatch.setattr(zp, "_replan_remaining", fake_replan)
 
-    zp.report_wykonano("000001", 50, kto="Edwin")
+    order["wykonano"] = 50.0
+    order["materialy_rozliczono_do"] = 40.0
+    zp.rozlicz_material("000001", kto="Edwin")
 
     # Z 60 szt. rezerwacji dla tego zlecenia zuzyto 1/6 = 10.
     # Do przeliczenia moze zostac przekazane tylko pozostale 50, a nie stare 60.
@@ -162,3 +166,31 @@ def test_partial_report_keeps_only_this_orders_remaining_reservation(monkeypatch
     # Globalnie bylo 100 rezerwacji, wiec 40 nalezalo do innych zlecen.
     assert state["POL-OS"]["rezerwacje"] == 90.0
     assert state["POL-OS"]["stan"] == 90.0
+
+
+def test_report_done_does_not_touch_warehouse_or_reservations(monkeypatch):
+    order = _base_order(
+        ilosc=100.0,
+        wykonano=40.0,
+        rezerwacje_polprodukty={"POL-OS": 60.0},
+        rezerwacje_surowce={"SUR-1": 6000.0},
+        zapotrzebowanie_surowce={"SUR-1": {"ilosc": 6000.0, "jednostka": "mm"}},
+    )
+    before_pp = dict(order["rezerwacje_polprodukty"])
+    before_raw = dict(order["rezerwacje_surowce"])
+    warehouse_calls = []
+
+    monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
+    monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
+    monkeypatch.setattr(zp.ZL, "_write_json", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "_sync_execution_disposition", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.LM, "zwolnij_rezerwacje", lambda *a, **k: warehouse_calls.append(("release", a)))
+    monkeypatch.setattr(zp.LM, "zuzyj", lambda *a, **k: warehouse_calls.append(("consume", a)))
+
+    result = zp.report_wykonano("000001", 100, kto="Edwin")
+
+    assert result["wykonano"] == 100.0
+    assert result["status"] == "zakończone"
+    assert result["rezerwacje_polprodukty"] == before_pp
+    assert result["rezerwacje_surowce"] == before_raw
+    assert warehouse_calls == []
