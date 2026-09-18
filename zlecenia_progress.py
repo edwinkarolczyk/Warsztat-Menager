@@ -279,13 +279,14 @@ def _consume_mapping(order, mapping_name, consumption, kto, context):
 
 
 def report_wykonano(zlec_id, wykonano, kto="system"):
+    """Zapisz postęp produkcji bez rozliczania magazynu."""
     p = ZL._order_path(zlec_id)
     order = ZL._read_json(p)
     old, new = _f(order.get("wykonano")), float(wykonano)
     qty = _f(order.get("ilosc"))
 
     if new < old:
-        raise ValueError("Nie można zmniejszyć ilości już rozliczonej.")
+        raise ValueError("Nie można zmniejszyć ilości już wykonanej.")
     if new < 0:
         raise ValueError("Wykonana ilość nie może być ujemna.")
     if new > qty + 1e-9:
@@ -293,24 +294,51 @@ def report_wykonano(zlec_id, wykonano, kto="system"):
             "Wykonano nie może przekraczać ilości zlecenia. "
             "Najpierw zwiększ ilość produktu w zleceniu."
         )
-
-    delta = new - old
-    if delta <= 0:
+    if new <= old:
         return order
 
-    remaining_before = max(0.0, qty - old)
+    order["wykonano"] = new
+    if qty > 0 and new >= qty:
+        order["status"] = "zakończone"
+    elif new > 0 and order.get("status") == "nowe":
+        order["status"] = "w trakcie"
+
+    order.setdefault("historia", []).append(
+        {
+            "kiedy": datetime.now().isoformat(timespec="seconds"),
+            "kto": kto,
+            "co": f"wykonano -> {new:g} (bez rozliczenia materiału)",
+        }
+    )
+    ZL._write_json(p, order)
+    ZL._sync_execution_disposition(order, autor=kto)
+    return order
+
+
+def rozlicz_material(zlec_id, kto="system"):
+    """Rozlicz magazyn wyłącznie do ilości już zapisanej jako wykonana."""
+    p = ZL._order_path(zlec_id)
+    order = ZL._read_json(p)
+    qty = _f(order.get("ilosc"))
+    done = _f(order.get("wykonano"))
+    settled = _f(order.get("materialy_rozliczono_do"))
+
+    if done <= settled + 1e-9:
+        return order
+    if done < 0 or done > qty + 1e-9:
+        raise ValueError("Nieprawidłowa ilość wykonana do rozliczenia materiału.")
+
+    delta = done - settled
+    remaining_before = max(0.0, qty - settled)
     factor = delta / remaining_before if remaining_before > 0 else 0.0
     factor = max(0.0, min(1.0, factor))
-    context = f"wykonanie:{zlec_id}"
+    context = f"rozliczenie-materialu:{zlec_id}"
 
     semis, raw = _planned_consumption(order, factor)
     _validate_stock_before_consumption(semis, raw)
 
-    _consume_mapping(
-        order, "rezerwacje_polprodukty", semis, kto, context
-    )
+    _consume_mapping(order, "rezerwacje_polprodukty", semis, kto, context)
 
-    # Surowiec ma osobna mape rezerwacji, ale ilosc zuzycia pochodzi z planu surowcow.
     raw_reservations = dict(order.get("rezerwacje_surowce") or {})
     for code, amount in raw.items():
         rec = LM.get_item(code) or {}
@@ -324,17 +352,12 @@ def report_wykonano(zlec_id, wykonano, kto="system"):
         k: v for k, v in raw_reservations.items() if _f(v) > 1e-9
     }
 
-    order["wykonano"] = new
-    if qty > 0 and new >= qty:
-        order["status"] = "zakończone"
-    elif new > 0 and order.get("status") == "nowe":
-        order["status"] = "w trakcie"
-
+    order["materialy_rozliczono_do"] = done
     order.setdefault("historia", []).append(
         {
             "kiedy": datetime.now().isoformat(timespec="seconds"),
             "kto": kto,
-            "co": f"wykonano -> {new:g}",
+            "co": f"rozliczono materiał do -> {done:g}",
         }
     )
 
