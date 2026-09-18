@@ -1,6 +1,8 @@
 # =============================
 # FILE: zlecenia_logika.py
-# version: 2.0.1
+# version: 2.0.2
+# Zmiany 2.0.2:
+# - usunięcie zlecenia zwalnia jego rezerwacje i usuwa powiązane Dyspozycje.
 # Zmiany 2.0.1:
 # - zachowano zgodność API reserve_materials: domyślnie zwraca mapę dostępnych stanów.
 # Zmiany 2.0:
@@ -436,16 +438,47 @@ def report_wykonano(zlec_id, wykonano, kto="system"):
     return j
 
 
-def delete_zlecenie(zlec_id: str) -> bool:
+def delete_zlecenie(zlec_id: str, kto: str = "system") -> bool:
     p = _order_path(zlec_id)
-    if p.exists():
-        try:
-            j = _read_json(p)
-            _release_reservations(j.get("rezerwacje_polprodukty"), "system", f"usuniecie:{zlec_id}")
-            _release_reservations(j.get("rezerwacje_surowce"), "system", f"usuniecie:{zlec_id}")
-        except Exception:
-            pass
-        p.unlink()
-        print(f"[INFO][delete_zlecenie] Usunięto {p.name}")
-        return True
-    return False
+    if not p.exists():
+        return False
+
+    # Dyspozycje wykonania i braków surowca są rekordami pochodnymi tego zlecenia.
+    # Usuwamy je razem ze zleceniem, aby po kasowaniu nie zostawały osierocone wpisy.
+    try:
+        import dyspozycje_store as DS
+
+        prefix = f"zlecenie:{zlec_id}"
+        linked = [
+            item
+            for item in DS.load_dyspozycje()
+            if str(item.get("obiekt_id") or "") == prefix
+            or str(item.get("obiekt_id") or "").startswith(prefix + ":")
+        ]
+        for item in linked:
+            dysp_id = str(item.get("id") or "").strip()
+            if dysp_id:
+                DS.delete_dyspozycja(dysp_id)
+    except Exception as exc:
+        raise RuntimeError(f"Nie udało się usunąć powiązanych dyspozycji: {exc}") from exc
+
+    try:
+        j = _read_json(p)
+        _release_reservations(
+            j.get("rezerwacje_polprodukty"),
+            kto,
+            f"usuniecie:{zlec_id}",
+        )
+        _release_reservations(
+            j.get("rezerwacje_surowce"),
+            kto,
+            f"usuniecie:{zlec_id}",
+        )
+    except Exception:
+        # Zachowujemy dotychczasową odporność usuwania: brak/stary format rezerwacji
+        # nie może zablokować usunięcia samego zlecenia.
+        pass
+
+    p.unlink()
+    print(f"[INFO][delete_zlecenie] Usunięto {p.name} | kto={kto}")
+    return True
