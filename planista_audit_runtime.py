@@ -291,6 +291,10 @@ def _install_full_transactions() -> None:
     if getattr(current_report, "_wm_warehouse_transaction", False):
         current_report = current_report._wm_original
 
+    current_settle = ZP.rozlicz_material
+    if getattr(current_settle, "_wm_warehouse_transaction", False):
+        current_settle = current_settle._wm_original
+
     current_update = ZP.update_zlecenie
 
     def transactional_existing(fn):
@@ -316,8 +320,10 @@ def _install_full_transactions() -> None:
 
     ZP.update_zlecenie = transactional_existing(current_update)
     ZP.report_wykonano = transactional_existing(current_report)
+    ZP.rozlicz_material = transactional_existing(current_settle)
     ZL.update_zlecenie = ZP.update_zlecenie
     ZL.report_wykonano = ZP.report_wykonano
+    ZL.rozlicz_material = ZP.rozlicz_material
 
     current_create = ZL.create_zlecenie
     if not getattr(current_create, "_wm_full_transaction", False):
