@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_safety_runtime.py
-# version: 1.3
+# version: 1.4
 
 from pathlib import Path
 
@@ -135,7 +135,13 @@ def test_operations_dictionary_is_a_planista_catalog():
 def test_planista_editor_exposes_requested_actions():
     text = Path("planista_editor_runtime.py").read_text(encoding="utf-8")
     assert 'text="Dodaj zlecenie"' in text
-    assert 'text="Edytuj zlecenie"' in text
+    assert 'self.tree.bind("<Double-1>", lambda _e: self.edit_order())' in text
+    assert 'text="Dane podstawowe"' in text
+    assert 'text="Realizacja"' in text
+    assert 'text="Półprodukty"' in text
+    assert 'text="Zapotrzebowanie"' in text
+    assert 'text="Usuń zlecenie"' in text
+    assert 'text="Drukuj"' in text
     assert 'text="Zapisz zmianę"' in text
     assert "_edit_operation" in text
     assert "_edit_raw_kind" in text
