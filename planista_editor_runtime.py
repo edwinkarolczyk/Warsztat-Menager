@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_editor_runtime.py
-# version: 1.0
+# version: 1.1
+# 1.1: jeden edytor zlecenia po dwukliku: dane, realizacja, półprodukty, zapotrzebowanie, druk i usuwanie.
 """Dodawanie/edycja zleceń oraz edycja słowników Planisty."""
 from __future__ import annotations
 
@@ -127,36 +128,361 @@ def _install_order_editor() -> None:
         if not order:
             messagebox.showinfo("Planista", "Wybierz zlecenie do edycji.", parent=self)
             return
+
         dlg = tk.Toplevel(self.root)
-        dlg.title(f"Edytuj zlecenie {order.get('id')}")
+        dlg.title(f"Edycja zlecenia {order.get('id')}")
         dlg.transient(self.root)
+        dlg.geometry("1120x720")
+        dlg.minsize(900, 600)
         dlg.grab_set()
-        frm = ttk.Frame(dlg, padding=12)
-        frm.pack(fill="both", expand=True)
 
-        qty = tk.StringVar(value=_fmt(order.get("ilosc", 0)))
-        term = tk.StringVar(value=GPP._display_date(order.get("termin")) or date.today().strftime("%d-%m-%y"))
-        cut = tk.StringVar(value=_fmt(order.get("rzaz_mm", ZL.DEFAULT_CUT_MM)))
-        internal = tk.StringVar(value=str(order.get("zlec_wew") or ""))
-        notes = tk.StringVar(value=str(order.get("uwagi") or ""))
+        # Wizualna karta z zaokrąglonym obrysem. Zewnętrzna ramka okna pozostaje
+        # systemowa; zaokrąglenie dotyczy właściwego edytora WM.
+        canvas = tk.Canvas(dlg, bg="#111418", highlightthickness=0, bd=0)
+        canvas.pack(fill="both", expand=True)
+        card = tk.Frame(canvas, bg="#1b1f24", bd=0, highlightthickness=0)
+        card_window = canvas.create_window(28, 28, anchor="nw", window=card)
+        card_shape = {"id": None}
 
-        ttk.Label(frm, text=f"Produkt: {order.get('produkt')}   |   Zlecenie: {order.get('id')}", font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 8))
-        fields = (("Ilość", qty, 1), ("Rzaz [mm]", cut, 3), ("Zlecenie wewnętrzne", internal, 4), ("Uwagi", notes, 5))
-        for label, var, row in fields:
-            ttk.Label(frm, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
-            ttk.Entry(frm, textvariable=var).grid(row=row, column=1, sticky="ew", pady=3)
-        ttk.Label(frm, text="Termin").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=3)
-        tk.Entry(frm, textvariable=term, state="readonly", readonlybackground="#2e7d32", fg="white", justify="center").grid(row=2, column=1, sticky="ew", pady=3)
-        ttk.Button(frm, text="📅", command=lambda: GPP._open_date_calendar(dlg, term), width=3).grid(row=2, column=2, sticky="w", padx=(4, 0))
-        add_help_button(frm, "Zmiana ilości lub rzazu przeliczy tylko pozostałą do wykonania część zlecenia i odświeży rezerwacje. Już rozliczone wykonanie nie jest cofane.", row=1, column=2, padx=(4, 0))
+        def redraw_card(_event=None):
+            width = max(160, canvas.winfo_width())
+            height = max(160, canvas.winfo_height())
+            x1, y1, x2, y2 = 16, 16, width - 16, height - 16
+            radius = 18
+            points = (
+                x1 + radius, y1, x2 - radius, y1, x2, y1,
+                x2, y1 + radius, x2, y2 - radius, x2, y2,
+                x2 - radius, y2, x1 + radius, y2, x1, y2,
+                x1, y2 - radius, x1, y1 + radius, x1, y1,
+            )
+            if card_shape["id"] is None:
+                card_shape["id"] = canvas.create_polygon(
+                    points,
+                    smooth=True,
+                    splinesteps=24,
+                    fill="#1b1f24",
+                    outline="#3a414b",
+                    width=1,
+                )
+                canvas.tag_lower(card_shape["id"])
+            else:
+                canvas.coords(card_shape["id"], *points)
+            canvas.coords(card_window, 28, 28)
+            canvas.itemconfigure(
+                card_window,
+                width=max(80, width - 56),
+                height=max(80, height - 56),
+            )
 
-        def save():
+        canvas.bind("<Configure>", redraw_card)
+        card.grid_rowconfigure(1, weight=1)
+        card.grid_columnconfigure(0, weight=1)
+
+        header = ttk.Frame(card)
+        header.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 10))
+        title_var = tk.StringVar()
+        subtitle_var = tk.StringVar()
+        ttk.Label(header, textvariable=title_var, font=("Arial", 14, "bold")).pack(anchor="w")
+        ttk.Label(header, textvariable=subtitle_var).pack(anchor="w", pady=(3, 0))
+
+        notebook = ttk.Notebook(card)
+        notebook.grid(row=1, column=0, sticky="nsew", padx=10)
+
+        basic_tab = ttk.Frame(notebook, padding=16)
+        realization_tab = ttk.Frame(notebook, padding=16)
+        semis_tab = ttk.Frame(notebook, padding=16)
+        requirements_tab = ttk.Frame(notebook, padding=16)
+        notebook.add(basic_tab, text="Dane podstawowe")
+        notebook.add(realization_tab, text="Realizacja")
+        notebook.add(semis_tab, text="Półprodukty")
+        notebook.add(requirements_tab, text="Zapotrzebowanie")
+
+        qty = tk.StringVar()
+        term = tk.StringVar()
+        cut = tk.StringVar()
+        internal = tk.StringVar()
+        notes = tk.StringVar()
+        status_var = tk.StringVar()
+        ordered_var = tk.StringVar()
+        done_total_var = tk.StringVar()
+        remaining_var = tk.StringVar()
+        done_input = tk.StringVar()
+
+        basic_tab.columnconfigure(1, weight=1)
+        ttk.Label(basic_tab, text="Zlecenie warsztatowe").grid(row=0, column=0, sticky="w", pady=4)
+        order_id_label = ttk.Label(basic_tab)
+        order_id_label.grid(row=0, column=1, sticky="w", pady=4)
+        add_help_button(
+            basic_tab,
+            "Stały numer warsztatowy zlecenia. Nie jest tym samym co numer zlecenia wewnętrznego.",
+            row=0,
+            column=2,
+            padx=(6, 0),
+        )
+
+        ttk.Label(basic_tab, text="Produkt").grid(row=1, column=0, sticky="w", pady=4)
+        product_label = ttk.Label(basic_tab)
+        product_label.grid(row=1, column=1, sticky="w", pady=4)
+
+        ttk.Label(basic_tab, text="Wersja BOM").grid(row=2, column=0, sticky="w", pady=4)
+        version_label = ttk.Label(basic_tab)
+        version_label.grid(row=2, column=1, sticky="w", pady=4)
+
+        ttk.Label(basic_tab, text="Zlecenie wewnętrzne").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Entry(basic_tab, textvariable=internal).grid(row=3, column=1, sticky="ew", pady=4)
+
+        ttk.Label(basic_tab, text="Ilość").grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Entry(basic_tab, textvariable=qty).grid(row=4, column=1, sticky="ew", pady=4)
+        add_help_button(
+            basic_tab,
+            "Zmiana ilości przelicza pozostałą część zlecenia, BOM i rezerwacje. Już rozliczone wykonanie nie jest cofane.",
+            row=4,
+            column=2,
+            padx=(6, 0),
+        )
+
+        ttk.Label(basic_tab, text="Termin").grid(row=5, column=0, sticky="w", pady=4)
+        tk.Entry(
+            basic_tab,
+            textvariable=term,
+            state="readonly",
+            readonlybackground="#2e7d32",
+            fg="white",
+            justify="center",
+        ).grid(row=5, column=1, sticky="ew", pady=4)
+        ttk.Button(
+            basic_tab,
+            text="📅",
+            width=3,
+            command=lambda: GPP._open_date_calendar(dlg, term),
+        ).grid(row=5, column=2, sticky="w", padx=(6, 0))
+
+        ttk.Label(basic_tab, text="Rzaz [mm]").grid(row=6, column=0, sticky="w", pady=4)
+        ttk.Entry(basic_tab, textvariable=cut).grid(row=6, column=1, sticky="ew", pady=4)
+        add_help_button(
+            basic_tab,
+            "Rzaz wpływa na zapotrzebowanie materiałowe półproduktów liniowych. Zapis przeliczy plan i rezerwacje.",
+            row=6,
+            column=2,
+            padx=(6, 0),
+        )
+
+        ttk.Label(basic_tab, text="Uwagi").grid(row=7, column=0, sticky="w", pady=4)
+        ttk.Entry(basic_tab, textvariable=notes).grid(row=7, column=1, sticky="ew", pady=4)
+
+        ttk.Label(basic_tab, text="Status").grid(row=8, column=0, sticky="w", pady=4)
+        ttk.Label(basic_tab, textvariable=status_var).grid(row=8, column=1, sticky="w", pady=4)
+
+        ttk.Label(realization_tab, text="Zamówiono", font=("Arial", 10, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(0, 40)
+        )
+        ttk.Label(realization_tab, text="Wykonano", font=("Arial", 10, "bold")).grid(
+            row=0, column=1, sticky="w", padx=(0, 40)
+        )
+        ttk.Label(realization_tab, text="Pozostało", font=("Arial", 10, "bold")).grid(
+            row=0, column=2, sticky="w"
+        )
+        ttk.Label(realization_tab, textvariable=ordered_var, font=("Arial", 16, "bold")).grid(
+            row=1, column=0, sticky="w", pady=(4, 18)
+        )
+        ttk.Label(realization_tab, textvariable=done_total_var, font=("Arial", 16, "bold")).grid(
+            row=1, column=1, sticky="w", pady=(4, 18)
+        )
+        ttk.Label(realization_tab, textvariable=remaining_var, font=("Arial", 16, "bold")).grid(
+            row=1, column=2, sticky="w", pady=(4, 18)
+        )
+        ttk.Separator(realization_tab).grid(row=2, column=0, columnspan=4, sticky="ew", pady=(0, 14))
+        ttk.Label(realization_tab, text="Nowa łączna ilość wykonana").grid(row=3, column=0, sticky="w")
+        ttk.Entry(realization_tab, textvariable=done_input, width=16).grid(
+            row=3, column=1, sticky="w", padx=(8, 4)
+        )
+        add_help_button(
+            realization_tab,
+            "Wpisz łączną liczbę wykonanych sztuk. WM rozliczy przyrost i sprawdzi postęp półproduktów.",
+            row=3,
+            column=2,
+            padx=(4, 0),
+        )
+
+        semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
+        semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=12)
+        semi_labels = {
+            "nazwa": "Półprodukt",
+            "potrzeba": "Do zlecenia",
+            "magazyn": "Z magazynu",
+            "do_wyk": "Do wykonania",
+            "wykonano": "Wykonano",
+            "pozostalo": "Pozostało",
+            "id": "ID",
+        }
+        semi_widths = {
+            "nazwa": 240,
+            "potrzeba": 100,
+            "magazyn": 100,
+            "do_wyk": 110,
+            "wykonano": 100,
+            "pozostalo": 100,
+            "id": 90,
+        }
+        for col in semi_cols:
+            semi_tree.heading(col, text=semi_labels[col])
+            semi_tree.column(col, width=semi_widths[col], anchor="w")
+        semi_tree.pack(fill="both", expand=True)
+
+        semi_edit = ttk.Frame(semis_tab)
+        semi_edit.pack(fill="x", pady=(10, 0))
+        semi_target = tk.StringVar()
+        semi_done = tk.StringVar()
+        ttk.Label(semi_edit, text="Do zlecenia:").pack(side="left")
+        ttk.Entry(semi_edit, textvariable=semi_target, width=10).pack(side="left", padx=(6, 14))
+        ttk.Label(semi_edit, text="Wykonano:").pack(side="left")
+        ttk.Entry(semi_edit, textvariable=semi_done, width=10).pack(side="left", padx=(6, 6))
+
+        req_text = tk.Text(
+            requirements_tab,
+            wrap="word",
+            relief="flat",
+            bg="#171a1f",
+            fg="#e9eef3",
+            insertbackground="#e9eef3",
+            padx=10,
+            pady=10,
+        )
+        req_text.pack(fill="both", expand=True)
+        req_text.configure(state="disabled")
+
+        def load_order():
+            return ZL._read_json(ZL._order_path(order["id"]))
+
+        def requirements_text(current):
+            lines = []
+            for code, rec in (current.get("plan_polprodukty") or {}).items():
+                if not isinstance(rec, dict):
+                    continue
+                lines.append(
+                    f"{rec.get('nazwa') or code}: potrzeba {_fmt(rec.get('potrzeba', 0))} | "
+                    f"z magazynu {_fmt(rec.get('z_magazynu', 0))} | "
+                    f"do wykonania {_fmt(rec.get('do_wykonania', 0))}"
+                )
+            raw = current.get("zapotrzebowanie_surowce") or {}
+            if raw:
+                lines += ["", "SUROWIEC:"]
+                for code, rec in raw.items():
+                    if isinstance(rec, dict):
+                        lines.append(
+                            f"{code}: {GPP._fmt_amount(rec.get('ilosc', 0), rec.get('jednostka', ''))}"
+                        )
+            shortages = current.get("braki") or []
+            if shortages:
+                lines += ["", "BRAKI SUROWCA:"]
+                for rec in shortages:
+                    lines.append(
+                        f"{rec.get('nazwa') or rec.get('kod')}: brakuje "
+                        f"{GPP._fmt_amount(rec.get('brakuje', 0), rec.get('jednostka', ''))}"
+                    )
+            return "\n".join(lines) if lines else "Brak danych."
+
+        def semi_rows(current):
+            try:
+                import planista_semi_progress_runtime as PS
+
+                return PS.semi_progress_rows(current)
+            except Exception:
+                rows = []
+                progress = current.get("wykonano_polprodukty") or {}
+                for code, rec in (current.get("plan_polprodukty") or {}).items():
+                    if not isinstance(rec, dict):
+                        continue
+                    need = float(rec.get("potrzeba", 0) or 0)
+                    from_stock = float(rec.get("z_magazynu", 0) or 0)
+                    to_make = float(rec.get("do_wykonania", max(0.0, need - from_stock)) or 0)
+                    done = float(progress.get(code, 0) or 0)
+                    rows.append(
+                        {
+                            "kod": str(code),
+                            "nazwa": str(rec.get("nazwa") or code),
+                            "potrzeba": need,
+                            "z_magazynu": from_stock,
+                            "do_wykonania": to_make,
+                            "wykonano": done,
+                            "pozostalo": max(0.0, to_make - done),
+                        }
+                    )
+                return rows
+
+        def refresh_main_selection():
+            self.refresh()
+            oid = str(order.get("id") or "")
+            if oid and self.tree.exists(oid):
+                self.tree.selection_set(oid)
+                self.tree.focus(oid)
+                self.tree.see(oid)
+
+        def refresh_editor(*, reset_inputs=False):
+            nonlocal order
+            try:
+                order = load_order()
+            except Exception:
+                dlg.destroy()
+                self.refresh()
+                return
+
+            qty_value = float(order.get("ilosc", 0) or 0)
+            done_value = float(order.get("wykonano", 0) or 0)
+            title_var.set(f"Edycja zlecenia {order.get('id')}")
+            subtitle_var.set(
+                f"Produkt: {order.get('produkt', '')}   |   Status: {order.get('status', '')}   |   "
+                f"Wersja BOM: {order.get('version') or '—'}"
+            )
+            order_id_label.configure(text=str(order.get("id") or ""))
+            product_label.configure(text=str(order.get("produkt") or ""))
+            version_label.configure(text=str(order.get("version") or "—"))
+            status_var.set(str(order.get("status") or ""))
+
+            if reset_inputs:
+                qty.set(_fmt(qty_value))
+                term.set(GPP._display_date(order.get("termin")) or date.today().strftime("%d-%m-%y"))
+                cut.set(_fmt(order.get("rzaz_mm", ZL.DEFAULT_CUT_MM)))
+                internal.set(str(order.get("zlec_wew") or ""))
+                notes.set(str(order.get("uwagi") or ""))
+
+            ordered_var.set(_fmt(qty_value))
+            done_total_var.set(_fmt(done_value))
+            remaining_var.set(_fmt(max(0.0, qty_value - done_value)))
+            done_input.set(_fmt(done_value))
+
+            semi_tree.delete(*semi_tree.get_children())
+            for row in semi_rows(order):
+                semi_tree.insert(
+                    "",
+                    "end",
+                    iid=row["kod"],
+                    values=(
+                        row["nazwa"],
+                        _fmt(row["potrzeba"]),
+                        _fmt(row["z_magazynu"]),
+                        _fmt(row["do_wykonania"]),
+                        _fmt(row["wykonano"]),
+                        _fmt(row["pozostalo"]),
+                        row["kod"],
+                    ),
+                )
+            semi_target.set("")
+            semi_done.set("")
+
+            req_text.configure(state="normal")
+            req_text.delete("1.0", "end")
+            req_text.insert("1.0", requirements_text(order))
+            req_text.configure(state="disabled")
+
+        def save_basic():
+            nonlocal order
             try:
                 qty_value = float(qty.get().replace(",", "."))
                 cut_value = float(cut.get().replace(",", "."))
                 if qty_value < 0 or cut_value < 0:
                     raise ValueError("Ilość i rzaz nie mogą być ujemne.")
-                ZP.update_zlecenie(
+                order = ZP.update_zlecenie(
                     order["id"],
                     ilosc=qty_value,
                     termin=GPP._iso_date(term.get()),
@@ -167,15 +493,171 @@ def _install_order_editor() -> None:
                 )
             except Exception as exc:
                 messagebox.showerror("Edytuj zlecenie", str(exc), parent=dlg)
+                return False
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+            return True
+
+        def save_done():
+            nonlocal order
+            try:
+                new_value = float(done_input.get().replace(",", "."))
+                allow = False
+                try:
+                    import planista_semi_progress_runtime as PS
+
+                    shortages = PS.semi_shortages_for_completion(order, new_value)
+                except Exception:
+                    shortages = []
+                if shortages:
+                    details = "\n".join(
+                        f"• {row['nazwa']}: brakuje zgłosić {_fmt(row['brakuje'])} szt."
+                        for row in shortages
+                    )
+                    allow = messagebox.askyesno(
+                        "Brak postępu półproduktów",
+                        "Zgłoszony postęp półproduktów jest za mały dla tej liczby gotowych produktów:\n\n"
+                        + details
+                        + "\n\nZatwierdzić wykonanie produktu mimo to?",
+                        parent=dlg,
+                    )
+                    if not allow:
+                        return
+                try:
+                    order = ZP.report_wykonano(
+                        order["id"],
+                        new_value,
+                        kto=self.login or "system",
+                        allow_incomplete_semis=allow,
+                    )
+                except TypeError:
+                    order = ZP.report_wykonano(
+                        order["id"],
+                        new_value,
+                        kto=self.login or "system",
+                    )
+            except Exception as exc:
+                messagebox.showerror("Rozliczenie", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        ttk.Button(realization_tab, text="Zapisz wykonanie", command=save_done).grid(
+            row=3, column=3, sticky="w", padx=(10, 0)
+        )
+
+        def on_semi_select(_event=None):
+            selection = semi_tree.selection()
+            if not selection:
+                semi_target.set("")
+                semi_done.set("")
+                return
+            code = selection[0]
+            row = next((item for item in semi_rows(order) if item["kod"] == code), None)
+            if row:
+                semi_target.set(_fmt(row["potrzeba"]))
+                semi_done.set(_fmt(row["wykonano"]))
+
+        def save_semi_target():
+            nonlocal order
+            selection = semi_tree.selection()
+            if not selection:
+                messagebox.showinfo("Półprodukty", "Wybierz półprodukt.", parent=dlg)
+                return
+            try:
+                selected_code = selection[0]
+                new_target = float(semi_target.get().replace(",", "."))
+                rows = semi_rows(order)
+                overrides = {row["kod"]: float(row["potrzeba"]) for row in rows}
+                overrides[selected_code] = new_target
+                if any(value < 0 for value in overrides.values()):
+                    raise ValueError("Ilość półproduktu nie może być ujemna.")
+                order = ZP.update_zlecenie(
+                    order["id"],
+                    korekty_polproduktow=overrides,
+                    kto=self.login or "system",
+                )
+            except Exception as exc:
+                messagebox.showerror("Półprodukty", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        def save_semi_done():
+            nonlocal order
+            selection = semi_tree.selection()
+            if not selection:
+                messagebox.showinfo("Półprodukty", "Wybierz półprodukt.", parent=dlg)
+                return
+            try:
+                import planista_semi_progress_runtime as PS
+
+                order = PS.report_polprodukt_wykonano(
+                    order["id"],
+                    selection[0],
+                    float(semi_done.get().replace(",", ".")),
+                    kto=self.login or "system",
+                )
+            except Exception as exc:
+                messagebox.showerror("Postęp półproduktów", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        semi_tree.bind("<<TreeviewSelect>>", on_semi_select)
+        ttk.Button(semi_edit, text="Zapisz ilość", command=save_semi_target).pack(side="left", padx=(6, 4))
+        add_help_button(
+            semi_edit,
+            "Zmienia docelową ilość zaznaczonego półproduktu i ponownie przelicza zapotrzebowanie.",
+            command_only=False,
+        ).pack(side="left", padx=(0, 14))
+        ttk.Button(semi_edit, text="Zapisz postęp", command=save_semi_done).pack(side="left", padx=(6, 4))
+        add_help_button(
+            semi_edit,
+            "Zapisuje łączną wykonaną ilość zaznaczonego półproduktu. Nie można zmniejszyć już zgłoszonego postępu.",
+            command_only=False,
+        ).pack(side="left")
+
+        footer = ttk.Frame(card)
+        footer.grid(row=2, column=0, sticky="ew", padx=10, pady=(12, 8))
+
+        def delete_order():
+            nonlocal order
+            oid = str(order.get("id") or "")
+            if not messagebox.askyesno(
+                "Usuń zlecenie",
+                f"Czy na pewno usunąć zlecenie {oid}?\n\n"
+                "Zostaną zwolnione jego rezerwacje i usunięte powiązane dyspozycje.",
+                parent=dlg,
+            ):
+                return
+            try:
+                if not ZL.delete_zlecenie(oid, kto=self.login or "system"):
+                    raise RuntimeError("Zlecenie już nie istnieje.")
+            except Exception as exc:
+                messagebox.showerror("Usuń zlecenie", str(exc), parent=dlg)
                 return
             dlg.destroy()
             self.refresh()
 
-        buttons = ttk.Frame(frm)
-        buttons.grid(row=6, column=0, columnspan=3, sticky="e", pady=(10, 0))
-        ttk.Button(buttons, text="Anuluj", command=dlg.destroy).pack(side="right")
-        ttk.Button(buttons, text="Zapisz zmiany", command=save).pack(side="right", padx=(0, 6))
-        frm.columnconfigure(1, weight=1)
+        def print_current():
+            oid = str(order.get("id") or "")
+            if oid and self.tree.exists(oid):
+                self.tree.selection_set(oid)
+                self.tree.focus(oid)
+            self.print_work_order()
+
+        ttk.Button(footer, text="Usuń zlecenie", command=delete_order).pack(side="left")
+        add_help_button(
+            footer,
+            "Usuwa zlecenie po potwierdzeniu. WM zwalnia jego rezerwacje i usuwa powiązane dyspozycje.",
+            command_only=False,
+        ).pack(side="left", padx=(4, 0))
+        ttk.Button(footer, text="Zamknij", command=dlg.destroy).pack(side="right")
+        ttk.Button(footer, text="Drukuj", command=print_current).pack(side="right", padx=(0, 6))
+        ttk.Button(footer, text="Zapisz", command=save_basic).pack(side="right", padx=(0, 6))
+
+        refresh_editor(reset_inputs=True)
 
     def build_orders(self, parent):
         old_build(self, parent)
@@ -183,17 +665,20 @@ def _install_order_editor() -> None:
         if not frames:
             return
         bar = frames[-1]
-        children = list(bar.winfo_children())
-        before = children[0] if children else None
-        add_btn = ttk.Button(bar, text="Dodaj zlecenie", command=self.add_order)
-        edit_btn = ttk.Button(bar, text="Edytuj zlecenie", command=self.edit_order)
-        pack_args = {"side": "left", "padx": (0, 6)}
-        if before is not None:
-            pack_args["before"] = before
-        add_btn.pack(**pack_args)
-        add_help_button(bar, "Tworzy nowe zlecenie na podstawie wybranego produktu i jego aktualnego BOM. Planista wyliczy półprodukty, surowce oraz rezerwacje.", command_only=False).pack(side="left", padx=(0, 6), before=before if before is not None else None)
-        edit_btn.pack(side="left", padx=(0, 6), before=before if before is not None else None)
-        add_help_button(bar, "Edytuje ilość, termin, rzaz, numer wewnętrzny i uwagi wybranego zlecenia. Zmiany wpływające na zapotrzebowanie są automatycznie przeliczane.", command_only=False).pack(side="left", padx=(0, 10), before=before if before is not None else None)
+
+        # Operacje na pojedynczym zleceniu są w jednym edytorze otwieranym dwuklikiem.
+        # Excel ma własny pasek i zostaje poza edycją pojedynczego zlecenia.
+        for child in list(bar.winfo_children()):
+            child.destroy()
+
+        ttk.Button(bar, text="Dodaj zlecenie", command=self.add_order).pack(side="left")
+        add_help_button(
+            bar,
+            "Tworzy nowe zlecenie na podstawie wybranego produktu i jego aktualnego BOM. Planista wyliczy półprodukty, surowce oraz rezerwacje.",
+            command_only=False,
+        ).pack(side="left", padx=(4, 0))
+
+        self.tree.bind("<Double-1>", lambda _e: self.edit_order())
 
     Panel.add_order = add_order
     Panel.edit_order = edit_order
