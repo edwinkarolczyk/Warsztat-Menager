@@ -56,9 +56,23 @@ def install_planista_transaction_runtime() -> None:
         transactional_report._wm_original = current_report
         ZP.report_wykonano = transactional_report
 
+    current_settle = ZP.rozlicz_material
+    if not getattr(current_settle, "_wm_warehouse_transaction", False):
+        def transactional_settle(zlec_id, kto="system"):
+            snapshot = _warehouse_snapshot()
+            try:
+                return current_settle(zlec_id, kto=kto)
+            except Exception:
+                _restore_warehouse(snapshot)
+                raise
+        transactional_settle._wm_warehouse_transaction = True
+        transactional_settle._wm_original = current_settle
+        ZP.rozlicz_material = transactional_settle
+
     # Wszystkie starsze wejścia korzystają z tej samej implementacji.
     ZL.update_zlecenie = ZP.update_zlecenie
     ZL.report_wykonano = ZP.report_wykonano
+    ZL.rozlicz_material = ZP.rozlicz_material
 
 
 __all__ = ["install_planista_transaction_runtime"]
