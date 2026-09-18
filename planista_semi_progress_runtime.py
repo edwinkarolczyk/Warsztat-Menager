@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_semi_progress_runtime.py
-# version: 1.0
+# version: 1.1
+# 1.1: postęp półproduktów pozostaje w backendzie, a przycisk przeniesiono do wspólnego edytora zlecenia.
 """Postęp półproduktów w zleceniu oraz powiązania Półprodukt -> Produkt."""
 from __future__ import annotations
 
@@ -496,17 +497,9 @@ def install_planista_semi_progress_runtime() -> None:
         ttk.Button(frm, text="Zapisz", command=save).grid(row=2, column=1, sticky="e", pady=(10, 0))
 
     def build_orders(self, parent):
+        # UI postępu półproduktów jest teraz częścią wspólnego edytora zlecenia
+        # otwieranego dwuklikiem. Metoda report_semis zostaje dla zgodności API.
         old_build_orders(self, parent)
-        bars = [child for child in parent.winfo_children() if isinstance(child, ttk.Frame)]
-        if not bars:
-            return
-        bar = bars[-1]
-        ttk.Button(bar, text="Wykonano półprodukty…", command=self.report_semis).pack(side="left", padx=(6, 0))
-        add_help_button(
-            bar,
-            "Rejestruje postęp wykonania poszczególnych półproduktów w wybranym zleceniu. WM wykorzystuje ten postęp do kontroli, czy można rozliczyć odpowiednią liczbę gotowych produktów.",
-            command_only=False,
-        ).pack(side="left", padx=(4, 0))
 
     Panel.report_semis = report_semis
     Panel.report_done = report_done
