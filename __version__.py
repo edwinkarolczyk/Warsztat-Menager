@@ -1,4 +1,5 @@
-# version: 2.7
+# version: 2.8
+# 2.8: WM 1.0.13 - wspólny edytor zlecenia Planisty, usuwanie i uporządkowanie paska akcji.
 # 2.7: WM 1.0.12 - naprawa widoku i wydruków w module Maszyny.
 # -*- coding: utf-8 -*-
 """Centralna wersja aplikacji WM.
@@ -12,7 +13,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.12"
+__version__ = "1.0.13"
 
 
 def get_version() -> str:
