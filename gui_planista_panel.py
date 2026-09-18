@@ -137,6 +137,7 @@ class PlanistaPanel(ttk.Frame):
         ttk.Button(buttons, text="Ustaw / zmień termin", command=self.edit_term).pack(side="left")
         ttk.Button(buttons, text="Ilość / rzaz / półprodukty…", command=self.edit_production).pack(side="left", padx=6)
         ttk.Button(buttons, text="Wykonano…", command=self.report_done).pack(side="left")
+        ttk.Button(buttons, text="Rozlicz materiał", command=self.settle_material).pack(side="left", padx=(6, 0))
         ttk.Button(buttons, text="Pokaż zapotrzebowanie", command=self.show_requirements).pack(side="left", padx=6)
         ttk.Button(buttons, text="Drukuj małe zlecenie", command=self.print_work_order).pack(side="left")
 
@@ -353,6 +354,34 @@ class PlanistaPanel(ttk.Frame):
             self.refresh()
 
         ttk.Button(frm, text="Zapisz", command=save).grid(row=2, column=1, sticky="e", pady=(10, 0))
+
+    def settle_material(self):
+        order = self._selected()
+        if not order:
+            messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self)
+            return
+        done = float(order.get("wykonano", 0) or 0)
+        settled = float(order.get("materialy_rozliczono_do", 0) or 0)
+        if done <= settled:
+            messagebox.showinfo(
+                "Rozliczenie materiału",
+                "Nie ma nowego wykonania do rozliczenia.",
+                parent=self,
+            )
+            return
+        if not messagebox.askyesno(
+            "Rozliczenie materiału",
+            f"Rozliczyć materiał dla wykonania od {_fmt_qty(settled)} do {_fmt_qty(done)} szt.?\n"
+            "Ta operacja zmieni stan i rezerwacje magazynu.",
+            parent=self,
+        ):
+            return
+        try:
+            ZP.rozlicz_material(order["id"], kto=self.login or "system")
+        except Exception as exc:
+            messagebox.showerror("Rozliczenie materiału", str(exc), parent=self)
+            return
+        self.refresh()
 
     def show_requirements(self):
         order = self._selected()
