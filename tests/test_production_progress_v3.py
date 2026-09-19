@@ -126,6 +126,7 @@ def test_report_done_validates_all_stock_before_any_mutation(monkeypatch):
 def test_partial_report_keeps_only_this_orders_remaining_reservation(monkeypatch):
     order = _base_order(
         ilosc=100.0,
+        pozostalo=60.0,
         wykonano=40.0,
         rezerwacje_polprodukty={"POL-OS": 60.0},
         rezerwacje_surowce={},
@@ -194,3 +195,59 @@ def test_report_done_does_not_touch_warehouse_or_reservations(monkeypatch):
     assert result["rezerwacje_polprodukty"] == before_pp
     assert result["rezerwacje_surowce"] == before_raw
     assert warehouse_calls == []
+
+
+def test_settlement_uses_replanned_quantity_after_order_increase(monkeypatch):
+    # 100 szt. -> 50 wykonanych -> zamówienie zwiększone do 120.
+    # Nowy plan obejmuje 70 szt., ale trzeba rozliczyć 50 wykonanych.
+    order = _base_order(
+        ilosc=120.0,
+        wykonano=50.0,
+        pozostalo=70.0,
+        materialy_rozliczono_do=0.0,
+        rezerwacje_polprodukty={"POL-OS": 70.0},
+        zapotrzebowanie_surowce={},
+    )
+    state = {"POL-OS": {"stan": 120.0, "rezerwacje": 70.0}}
+    consumed = []
+
+    monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
+    monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
+    monkeypatch.setattr(zp.ZL, "_write_json", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "_sync_execution_disposition", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp, "_sync_material_dispositions", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp, "_replan_remaining", lambda obj, *_a: obj)
+    monkeypatch.setattr(zp.LM, "get_item", lambda code: state.get(code))
+    monkeypatch.setattr(
+        zp.LM,
+        "zwolnij_rezerwacje",
+        lambda code, amount, *_a, **_k: state[code].__setitem__(
+            "rezerwacje", state[code]["rezerwacje"] - amount
+        ),
+    )
+
+    def consume(code, amount, *_a, **_k):
+        consumed.append((code, amount))
+        state[code]["stan"] -= amount
+
+    monkeypatch.setattr(zp.LM, "zuzyj", consume)
+
+    result = zp.rozlicz_material("000001", kto="Edwin")
+
+    assert consumed == [("POL-OS", pytest.approx(50.0))]
+    assert state["POL-OS"]["stan"] == pytest.approx(70.0)
+    assert state["POL-OS"]["rezerwacje"] == pytest.approx(20.0)
+    assert result["materialy_rozliczono_do"] == 50.0
+    zp.rozlicz_material("000001", kto="Edwin")
+    assert len(consumed) == 1
+
+
+def test_settlement_refuses_plan_not_covering_unsettled_work(monkeypatch):
+    order = _base_order(
+        ilosc=120.0, wykonano=50.0, pozostalo=20.0,
+        rezerwacje_polprodukty={"POL-OS": 20.0},
+    )
+    monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
+    monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
+    with pytest.raises(ValueError, match="Plan materiałowy nie obejmuje"):
+        zp.rozlicz_material("000001", kto="Edwin")
