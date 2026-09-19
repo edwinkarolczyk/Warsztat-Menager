@@ -329,9 +329,15 @@ def rozlicz_material(zlec_id, kto="system"):
         raise ValueError("Nieprawidłowa ilość wykonana do rozliczenia materiału.")
 
     delta = done - settled
-    remaining_before = max(0.0, qty - settled)
-    factor = delta / remaining_before if remaining_before > 0 else 0.0
-    factor = max(0.0, min(1.0, factor))
+    # Plan po zmianie ilości obejmuje tylko pozostałe sztuki, a nie całe
+    # zamówienie. Pierwotny plan nie ma pola "pozostalo" i obejmuje całość.
+    planned_qty = _f(order.get("pozostalo", qty))
+    if planned_qty <= 0 or delta > planned_qty + 1e-9:
+        raise ValueError(
+            "Plan materiałowy nie obejmuje całego nierozliczonego wykonania. "
+            "Sprawdź i przelicz plan przed rozliczeniem."
+        )
+    factor = min(1.0, delta / planned_qty)
     context = f"rozliczenie-materialu:{zlec_id}"
 
     semis, raw = _planned_consumption(order, factor)
