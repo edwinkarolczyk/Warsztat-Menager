@@ -1071,6 +1071,8 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             )
                         return _update_tool(tool_id, mutate)
 
+                    if _tool_path(tool_id) is None:
+                        raise RuntimeError("Nie znaleziono narzędzia.")
                     filename, data = self._read_multipart_photo()
                     photo = _store_photo("tools", tool_id, filename, data, author)
                     def mutate(row: dict[str, Any]) -> None:

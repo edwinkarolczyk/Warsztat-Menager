@@ -51,6 +51,26 @@ def test_wmm_media_route_accepts_stored_photo_url(tmp_path, monkeypatch):
     assert sent == [target]
 
 
+def test_wmm_photo_for_missing_tool_does_not_create_orphan_file(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+
+    from services import wmm_api
+
+    handler = object.__new__(wmm_api._WmmHandler)
+    handler.path = "/api/v1/tools/missing/photos"
+    handler._require_pairing_key = lambda: True
+    handler._author = lambda: "Edwin"
+    handler._request_id = lambda: ""
+    handler._read_multipart_photo = lambda: ("photo.jpg", b"photo")
+    responses = []
+    handler._send = lambda status, payload: responses.append((status, payload))
+
+    handler.do_POST()
+
+    assert responses == [(400, {"ok": False, "error": "Nie znaleziono narzędzia."})]
+    assert not (root / "data" / "narzedzia" / "attachments" / "missing").exists()
+
+
 def test_wmm_concurrent_order_create_uses_distinct_ids(tmp_path, monkeypatch):
     root = _prepare_root(tmp_path, monkeypatch)
     products = root / "data" / "produkty"
