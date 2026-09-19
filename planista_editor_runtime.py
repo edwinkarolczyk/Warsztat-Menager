@@ -298,7 +298,7 @@ def _install_order_editor() -> None:
         )
         add_help_button(
             realization_tab,
-            "Wpisz łączną liczbę wykonanych sztuk. WM rozliczy przyrost i sprawdzi postęp półproduktów.",
+            "Wpisz łączną liczbę wykonanych sztuk. WM zapisze przyrost bez zmiany magazynu.",
             row=3,
             column=2,
             padx=(4, 0),
@@ -544,6 +544,53 @@ def _install_order_editor() -> None:
 
         ttk.Button(realization_tab, text="Zapisz wykonanie", command=save_done).grid(
             row=3, column=3, sticky="w", padx=(10, 0)
+        )
+        add_help_button(
+            realization_tab,
+            "Zapisuje postęp produkcji bez zmiany magazynu.",
+            row=4,
+            column=3,
+            padx=(10, 0),
+        )
+
+        def settle_material():
+            nonlocal order
+            # Ponownie odczytaj dane: inne okno mogło zapisać wykonanie.
+            try:
+                fresh = load_order()
+                done = float(fresh.get("wykonano", 0) or 0)
+                settled = float(fresh.get("materialy_rozliczono_do", 0) or 0)
+                if done <= settled:
+                    messagebox.showinfo(
+                        "Rozliczenie materiału",
+                        "Nie ma nowego wykonania do rozliczenia.",
+                        parent=dlg,
+                    )
+                    refresh_editor(reset_inputs=True)
+                    return
+                if not messagebox.askyesno(
+                    "Rozliczenie materiału",
+                    f"Rozliczyć materiał dla wykonania od {_fmt(settled)} do {_fmt(done)} szt.?\n"
+                    "Ta operacja zmieni stan i rezerwacje magazynu.",
+                    parent=dlg,
+                ):
+                    return
+                order = ZP.rozlicz_material(fresh["id"], kto=self.login or "system")
+            except Exception as exc:
+                messagebox.showerror("Rozliczenie materiału", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        ttk.Button(realization_tab, text="Rozlicz materiał", command=settle_material).grid(
+            row=5, column=3, sticky="w", padx=(10, 0), pady=(8, 0)
+        )
+        add_help_button(
+            realization_tab,
+            "Rozlicza wyłącznie wykonane, jeszcze nierozliczone sztuki. Zmienia stan i rezerwacje magazynu.",
+            row=5,
+            column=2,
+            padx=(4, 0),
         )
 
         def on_semi_select(_event=None):
