@@ -251,3 +251,78 @@ def test_settlement_refuses_plan_not_covering_unsettled_work(monkeypatch):
     monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
     with pytest.raises(ValueError, match="Plan materiałowy nie obejmuje"):
         zp.rozlicz_material("000001", kto="Edwin")
+
+
+def test_finish_after_replan_preserves_unsettled_material(monkeypatch):
+    # 100 -> wykonano 50 -> zamówiono 120 -> wykonano 120 -> rozlicz.
+    order = _base_order(
+        ilosc=100.0, wykonano=50.0, materialy_rozliczono_do=0.0,
+        rezerwacje_polprodukty={"POL-OS": 100.0},
+        zapotrzebowanie_surowce={"SUR-1": {"ilosc": 100.0, "jednostka": "szt"}},
+    )
+    state = {
+        "POL-OS": {"stan": 200.0, "rezerwacje": 100.0},
+        "SUR-1": {"stan": 200.0, "rezerwacje": 100.0},
+    }
+    consumed = []
+    monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
+    monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
+    monkeypatch.setattr(zp.ZL, "_write_json", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "_sync_execution_disposition", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp, "_sync_material_dispositions", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "_release_reservations", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "build_production_plan", lambda _p, qty, **_k: (
+        {"POL-OS": {"potrzeba": qty}}, {"SUR-1": {"ilosc": qty, "jednostka": "szt"}}
+    ))
+    monkeypatch.setattr(zp.ZL, "check_materials", lambda *_a: [])
+    monkeypatch.setattr(zp.ZL, "_reserve_semis", lambda plan, *_a: {
+        code: rec["potrzeba"] for code, rec in plan.items()
+    })
+    monkeypatch.setattr(zp.ZL, "reserve_materials", lambda raw, *_a, **_k: (
+        {}, {code: rec["ilosc"] for code, rec in raw.items()}
+    ))
+    monkeypatch.setattr(zp.LM, "get_item", lambda code: state.get(code))
+    monkeypatch.setattr(
+        zp.LM, "zwolnij_rezerwacje",
+        lambda code, amount, *_a, **_k: state[code].__setitem__(
+            "rezerwacje", state[code]["rezerwacje"] - amount
+        ),
+    )
+
+    def consume(code, amount, *_a, **_k):
+        consumed.append((code, amount))
+        state[code]["stan"] -= amount
+
+    monkeypatch.setattr(zp.LM, "zuzyj", consume)
+    order["ilosc"] = 120.0
+    zp._replan_remaining(order, "Edwin")
+    assert order["materialy_oczekujace"]["ilosc"] == 50.0
+    assert order["pozostalo"] == 70.0
+    zp.report_wykonano("000001", 120.0, kto="Edwin")
+    assert consumed == []
+    zp.rozlicz_material("000001", kto="Edwin")
+    assert consumed == [("POL-OS", pytest.approx(120.0)), ("SUR-1", pytest.approx(120.0))]
+    assert order["materialy_rozliczono_do"] == 120.0
+    assert "materialy_oczekujace" not in order
+    zp.rozlicz_material("000001", kto="Edwin")
+    assert len(consumed) == 2
+
+
+def test_repeated_replan_does_not_duplicate_pending_material(monkeypatch):
+    order = _base_order(
+        ilosc=120.0, wykonano=50.0, pozostalo=70.0,
+        materialy_oczekujace={
+            "ilosc": 50.0, "polprodukty": {"POL-OS": 50.0}, "surowce": {},
+        },
+        rezerwacje_polprodukty={"POL-OS": 70.0},
+    )
+    monkeypatch.setattr(zp.ZL, "_release_reservations", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "build_production_plan", lambda _p, qty, **_k: (
+        {"POL-OS": {"potrzeba": qty}}, {}
+    ))
+    monkeypatch.setattr(zp.ZL, "check_materials", lambda *_a: [])
+    monkeypatch.setattr(zp.ZL, "_reserve_semis", lambda *_a: {})
+    monkeypatch.setattr(zp.ZL, "reserve_materials", lambda *_a, **_k: ({}, {}))
+    zp._replan_remaining(order, "Edwin")
+    assert order["materialy_oczekujace"]["ilosc"] == 50.0
+    assert order["materialy_oczekujace"]["polprodukty"] == {"POL-OS": 50.0}
