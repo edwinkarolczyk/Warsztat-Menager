@@ -43,8 +43,44 @@ def _remaining_overrides(order, remaining):
     return out
 
 
+def _pending_materials(order):
+    """Migawka nierozliczonego wykonania sprzed przeliczenia planu."""
+    done = _f(order.get("wykonano"))
+    settled = _f(order.get("materialy_rozliczono_do"))
+    pending = max(0.0, done - settled)
+    if pending <= 1e-9:
+        return None
+    plan_qty = _f(order.get("pozostalo", order.get("ilosc")))
+    if plan_qty <= 0:
+        raise ValueError("Brak zakresu planu dla nierozliczonego wykonania.")
+    covered = min(pending, plan_qty)
+    semis, raw = _planned_consumption(order, covered / plan_qty)
+    return {"ilosc": covered, "polprodukty": semis, "surowce": raw}
+
+
 def _replan_remaining(order, kto="system"):
     """Zwalnia tylko rezerwacje tego zlecenia i planuje pozostala ilosc."""
+    # Przed zastąpieniem planu zachowaj materiał na wykonane,
+    # ale jeszcze nierozliczone sztuki. Rezerwacje nadal są oddzielne.
+    previous = _pending_materials(order)
+    if previous:
+        existing = order.get("materialy_oczekujace") or {}
+        if existing and _f(existing.get("ilosc")) > 0:
+            # Stary plan obejmuje tylko część po ostatnim przeliczeniu.
+            already = _f(existing.get("ilosc"))
+            previous["ilosc"] = max(0.0, previous["ilosc"] - already)
+            if previous["ilosc"] <= 1e-9:
+                previous = None
+        if previous:
+            existing = order.setdefault("materialy_oczekujace", {
+                "ilosc": 0.0, "polprodukty": {}, "surowce": {},
+            })
+            existing["ilosc"] = _f(existing.get("ilosc")) + previous["ilosc"]
+            for key in ("polprodukty", "surowce"):
+                dest = existing.setdefault(key, {})
+                for code, amount in previous[key].items():
+                    dest[code] = _f(dest.get(code)) + amount
+
     ZL._release_reservations(
         order.get("rezerwacje_polprodukty"), kto, f"przeliczenie:{order.get('id')}"
     )
@@ -329,18 +365,25 @@ def rozlicz_material(zlec_id, kto="system"):
         raise ValueError("Nieprawidłowa ilość wykonana do rozliczenia materiału.")
 
     delta = done - settled
-    # Plan po zmianie ilości obejmuje tylko pozostałe sztuki, a nie całe
-    # zamówienie. Pierwotny plan nie ma pola "pozostalo" i obejmuje całość.
+    pending = order.get("materialy_oczekujace") or {}
+    pending_qty = _f(pending.get("ilosc"))
+    if pending_qty > delta + 1e-9:
+        raise ValueError("Zapisane oczekujące zużycie przekracza nierozliczone wykonanie.")
+    current_qty = max(0.0, delta - pending_qty)
     planned_qty = _f(order.get("pozostalo", qty))
-    if planned_qty <= 0 or delta > planned_qty + 1e-9:
+    if current_qty > planned_qty + 1e-9 or (current_qty > 1e-9 and planned_qty <= 0):
         raise ValueError(
             "Plan materiałowy nie obejmuje całego nierozliczonego wykonania. "
             "Sprawdź i przelicz plan przed rozliczeniem."
         )
-    factor = min(1.0, delta / planned_qty)
+    factor = min(1.0, current_qty / planned_qty) if planned_qty > 0 else 0.0
     context = f"rozliczenie-materialu:{zlec_id}"
 
     semis, raw = _planned_consumption(order, factor)
+    for code, amount in (pending.get("polprodukty") or {}).items():
+        semis[code] = _f(semis.get(code)) + _f(amount)
+    for code, amount in (pending.get("surowce") or {}).items():
+        raw[code] = _f(raw.get(code)) + _f(amount)
     _validate_stock_before_consumption(semis, raw)
 
     _consume_mapping(order, "rezerwacje_polprodukty", semis, kto, context)
@@ -359,6 +402,7 @@ def rozlicz_material(zlec_id, kto="system"):
     }
 
     order["materialy_rozliczono_do"] = done
+    order.pop("materialy_oczekujace", None)
     order.setdefault("historia", []).append(
         {
             "kiedy": datetime.now().isoformat(timespec="seconds"),
