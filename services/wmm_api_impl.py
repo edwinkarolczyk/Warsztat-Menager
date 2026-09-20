@@ -1031,6 +1031,8 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             _append_history(row, "uwaga", author, note)
                         return _update_machine(machine_id, mutate)
 
+                    if _find_machine(machine_id) is None:
+                        raise RuntimeError("Nie znaleziono maszyny.")
                     filename, data = self._read_multipart_photo()
                     photo = _store_photo("machines", machine_id, filename, data, author)
                     def mutate(row: dict[str, Any]) -> None:
