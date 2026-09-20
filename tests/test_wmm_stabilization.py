@@ -216,3 +216,81 @@ def test_wmm_idempotency_same_request_id_is_scoped_by_endpoint():
     wmm_api._run_idempotent("wmm-shared-request", "/api/v1/machines/42/status", second)
 
     assert calls == ["tool", "machine"]
+
+
+def test_wmm_idempotency_survives_api_restart(tmp_path, monkeypatch):
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    calls = []
+
+    def operation():
+        calls.append(1)
+        return {"id": "001", "status": "Do naprawy"}
+
+    first, row = api._run_idempotent(
+        "restart-case-001", "/api/v1/tools/001/status", operation, "payload-a"
+    )
+    assert first is False
+    assert row["status"] == "Do naprawy"
+    assert (tmp_path / "ledger.json").is_file()
+
+    # Symulacja nowego procesu API po utracie odpowiedzi HTTP.
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    replayed, restored = api._run_idempotent(
+        "restart-case-001", "/api/v1/tools/001/status", operation, "payload-a"
+    )
+    assert replayed is True
+    assert restored == row
+    assert calls == [1]
+
+
+def test_wmm_pending_after_crash_is_not_reexecuted(tmp_path, monkeypatch):
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    calls = []
+
+    def interrupted():
+        calls.append(1)
+        raise RuntimeError("Odpowiedź zgubiona po wykonaniu mutacji")
+
+    with pytest.raises(RuntimeError, match="Odpowiedź"):
+        api._run_idempotent("pending-case-001", "/api/v1/tools/001/photos",
+                            interrupted, "photo-a")
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    with pytest.raises(api.WmmIdempotencyPending, match="Niepewny"):
+        api._run_idempotent("pending-case-001", "/api/v1/tools/001/photos",
+                            interrupted, "photo-a")
+    assert calls == [1]
+
+
+def test_wmm_revision_rejects_stale_machine_and_tool_changes():
+    from services import wmm_api as api
+
+    original = {"status": "ok", "historia": []}
+    snapshot = api._wmm_revision_item(original)["wmm_revision"]
+    api._wmm_expect_revision(original, snapshot)
+    original["status"] = "warn"
+    with pytest.raises(api.WmmRevisionConflict, match="Odśwież"):
+        api._wmm_expect_revision(original, snapshot)
+    assert api._wmm_revision(original) == api._wmm_revision({**original, "photos": []})
+
+
+def test_wmm_request_id_different_payload_does_not_replay(tmp_path, monkeypatch):
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    api._run_idempotent("payload-case-001", "/api/v1/tools/001/status",
+                        lambda: {"id": "001"}, "payload-a")
+    with pytest.raises(api.WmmIdempotencyConflict, match="innymi danymi"):
+        api._run_idempotent("payload-case-001", "/api/v1/tools/001/status",
+                            lambda: {"id": "001"}, "payload-b")
