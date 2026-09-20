@@ -171,9 +171,11 @@ def test_wmm_concurrent_tool_updates_keep_both_changes(tmp_path, monkeypatch):
     assert saved["uwagi_b"] == "B"
 
 
-def test_wmm_idempotency_replays_success_without_second_write():
+def test_wmm_idempotency_replays_success_without_second_write(tmp_path, monkeypatch):
     from services import wmm_api
 
+    monkeypatch.setattr(wmm_api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(wmm_api, "_IDEMPOTENCY_LOADED_PATH", None)
     with wmm_api._IDEMPOTENCY_LOCK:
         wmm_api._IDEMPOTENCY_CACHE.clear()
 
@@ -196,9 +198,11 @@ def test_wmm_idempotency_replays_success_without_second_write():
     assert calls == [1]
 
 
-def test_wmm_idempotency_same_request_id_is_scoped_by_endpoint():
+def test_wmm_idempotency_same_request_id_is_scoped_by_endpoint(tmp_path, monkeypatch):
     from services import wmm_api
 
+    monkeypatch.setattr(wmm_api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(wmm_api, "_IDEMPOTENCY_LOADED_PATH", None)
     with wmm_api._IDEMPOTENCY_LOCK:
         wmm_api._IDEMPOTENCY_CACHE.clear()
 
