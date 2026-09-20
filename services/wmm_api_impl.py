@@ -987,11 +987,11 @@ class _WmmHandler(BaseHTTPRequestHandler):
             code = unquote(str((parse_qs(parsed.query).get("code") or [""])[0])).strip()
             item = _find_machine(code)
             if item is not None:
-                self._send(200, {"ok": True, "item": {**item, "entity": "machine"}})
+                self._send(200, {"ok": True, "item": {**_wmm_revision_item(item), "entity": "machine"}})
                 return
             tool = _find_tool(code)
             if tool is not None:
-                self._send(200, {"ok": True, "item": {**tool, "entity": "tool"}})
+                self._send(200, {"ok": True, "item": {**_wmm_revision_item(tool), "entity": "tool"}})
                 return
             self._send(404, {"ok": False, "error": "Nie znaleziono obiektu dla tego kodu QR."})
             return
@@ -1019,7 +1019,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                 if item is None:
                     self._send(404, {"ok": False, "error": "Nie znaleziono obiektu."})
                 else:
-                    self._send(200, {"ok": True, "item": item})
+                    self._send(200, {"ok": True, "item": _wmm_revision_item(item)})
                 return
         self._send(404, {"ok": False, "error": "Nie znaleziono endpointu."})
 
@@ -1066,6 +1066,12 @@ class _WmmHandler(BaseHTTPRequestHandler):
         if not self._require_pairing_key():
             return
         author = self._author()
+        payload_fingerprint = hashlib.sha256(
+            json.dumps(
+                {"author": author, "payload": payload},
+                ensure_ascii=False, sort_keys=True, default=str,
+            ).encode("utf-8")
+        ).hexdigest()
 
         if path == "/api/v1/planista/orders":
             try:
@@ -1073,6 +1079,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     self._request_id(),
                     path,
                     lambda: _create_planista_order(payload, author),
+                    payload_fingerprint,
                 )
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
@@ -1092,6 +1099,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         if not status:
                             raise RuntimeError("Brak statusu maszyny.")
                         def mutate(row: dict[str, Any]) -> None:
+                            _wmm_expect_revision(row, str(payload.get("base_revision") or ""))
                             _apply_machine_status_from_wmm(
                                 row, status, actor=author, note=note
                             )
@@ -1117,9 +1125,15 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     return _update_machine(machine_id, mutate)
 
                 replayed, item = _run_idempotent(
-                    self._request_id(), path, perform_machine_action
+                    self._request_id(), path, perform_machine_action, payload_fingerprint
                 )
-                self._send(200, {"ok": True, "item": item, "replayed": replayed})
+                self._send(200, {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed})
+            except WmmRevisionConflict as exc:
+                self._send(409, {"ok": False, "code": "WMM_REVISION_CONFLICT", "error": str(exc)})
+            except WmmIdempotencyPending as exc:
+                self._send(409, {"ok": False, "code": "WMM_PENDING", "error": str(exc)})
+            except WmmIdempotencyConflict as exc:
+                self._send(409, {"ok": False, "code": "WMM_IDEMPOTENCY_CONFLICT", "error": str(exc)})
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
@@ -1139,6 +1153,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         if not status:
                             raise RuntimeError("Brak statusu narzędzia.")
                         def mutate(row: dict[str, Any]) -> None:
+                            _wmm_expect_revision(row, str(payload.get("base_revision") or ""))
                             _apply_tool_status_from_wmm(
                                 row,
                                 status,
@@ -1159,9 +1174,15 @@ class _WmmHandler(BaseHTTPRequestHandler):
                     return _update_tool(tool_id, mutate)
 
                 replayed, item = _run_idempotent(
-                    self._request_id(), path, perform_tool_action
+                    self._request_id(), path, perform_tool_action, payload_fingerprint
                 )
-                self._send(200, {"ok": True, "item": item, "replayed": replayed})
+                self._send(200, {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed})
+            except WmmRevisionConflict as exc:
+                self._send(409, {"ok": False, "code": "WMM_REVISION_CONFLICT", "error": str(exc)})
+            except WmmIdempotencyPending as exc:
+                self._send(409, {"ok": False, "code": "WMM_PENDING", "error": str(exc)})
+            except WmmIdempotencyConflict as exc:
+                self._send(409, {"ok": False, "code": "WMM_IDEMPOTENCY_CONFLICT", "error": str(exc)})
             except RuntimeError as exc:
                 self._send(400, {"ok": False, "error": str(exc)})
             except Exception as exc:
@@ -1180,6 +1201,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         str(payload.get("status") or "").strip(),
                         author,
                     ),
+                    payload_fingerprint,
                 )
                 self._send(200, {"ok": True, "item": item, "replayed": replayed})
             except RuntimeError as exc:
