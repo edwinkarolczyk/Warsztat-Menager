@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
 import json
 import logging
 import mimetypes
@@ -31,10 +32,11 @@ _SESSIONS_LOCK = threading.Lock()
 _KEY_CLIENT_LAST_SEEN = 0.0
 _MAX_JSON_BYTES = 128_000
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-_IDEMPOTENCY_TTL_SECONDS = 15 * 60
-_IDEMPOTENCY_MAX_ENTRIES = 2048
+_IDEMPOTENCY_TTL_SECONDS = 30 * 24 * 60 * 60
+_IDEMPOTENCY_MAX_ENTRIES = 20000
 _IDEMPOTENCY_CACHE: dict[str, dict[str, Any]] = {}
 _IDEMPOTENCY_LOCK = threading.Lock()
+_IDEMPOTENCY_LOADED_PATH: Path | None = None
 
 
 def _json_bytes(payload: dict[str, Any]) -> bytes:
@@ -629,57 +631,129 @@ def _store_photo(kind: str, object_id: str, filename: str, data: bytes, author: 
     }
 
 
+class WmmIdempotencyPending(RuntimeError):
+    """Niepewny wynik zapisu; nie ponawiać operacji w ciemno."""
+
+
+class WmmIdempotencyConflict(RuntimeError):
+    """Request-ID użyto do dwóch różnych operacji."""
+
+
+class WmmRevisionConflict(RuntimeError):
+    """Stan WM różni się od stanu widzianego na telefonie."""
+
+
 def _clone_idempotent_result(value: Any) -> Any:
-    try:
-        return json.loads(json.dumps(value, ensure_ascii=False))
-    except Exception:
-        return value
+    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _idempotency_path() -> Path:
+    return _data_dir() / "wmm" / "idempotency.json"
+
+
+def _load_idempotency() -> None:
+    global _IDEMPOTENCY_LOADED_PATH
+    path = _idempotency_path()
+    if _IDEMPOTENCY_LOADED_PATH == path:
+        return
+    if path.exists():
+        raw = _read_json(path)
+        if not isinstance(raw, dict) or not isinstance(raw.get("requests"), dict):
+            raise RuntimeError("Rejestr idempotencji WMM jest uszkodzony; zapisy wstrzymane.")
+        entries = raw["requests"]
+        if not all(isinstance(key, str) and isinstance(entry, dict) for key, entry in entries.items()):
+            raise RuntimeError("Rejestr idempotencji WMM jest uszkodzony; zapisy wstrzymane.")
+        _IDEMPOTENCY_CACHE.clear()
+        _IDEMPOTENCY_CACHE.update(entries)
+    else:
+        _IDEMPOTENCY_CACHE.clear()
+    _IDEMPOTENCY_LOADED_PATH = path
+
+
+def _persist_idempotency() -> None:
+    _write_json_atomic(_idempotency_path(), {
+        "schema_version": 1, "requests": _IDEMPOTENCY_CACHE,
+    })
 
 
 def _prune_idempotency(now: float | None = None) -> None:
-    """Usuń stare odpowiedzi z krótkiego cache ochrony przed podwójnym POST-em."""
-
     current = time.time() if now is None else now
-    stale = [
-        key
-        for key, entry in _IDEMPOTENCY_CACHE.items()
-        if current - float(entry.get("created_at", 0.0) or 0.0) > _IDEMPOTENCY_TTL_SECONDS
-    ]
-    for key in stale:
-        _IDEMPOTENCY_CACHE.pop(key, None)
-    if len(_IDEMPOTENCY_CACHE) <= _IDEMPOTENCY_MAX_ENTRIES:
-        return
-    ordered = sorted(
-        _IDEMPOTENCY_CACHE.items(),
-        key=lambda item: float(item[1].get("created_at", 0.0) or 0.0),
+    for key, entry in list(_IDEMPOTENCY_CACHE.items()):
+        if entry.get("state") == "done" and (
+            current - float(entry.get("created_at", 0.0) or 0.0)
+            > _IDEMPOTENCY_TTL_SECONDS
+        ):
+            _IDEMPOTENCY_CACHE.pop(key, None)
+    finished = sorted(
+        ((key, entry) for key, entry in _IDEMPOTENCY_CACHE.items()
+         if entry.get("state") == "done"),
+        key=lambda pair: float(pair[1].get("created_at", 0.0) or 0.0),
     )
-    for key, _entry in ordered[: len(_IDEMPOTENCY_CACHE) - _IDEMPOTENCY_MAX_ENTRIES]:
+    for key, _entry in finished[:max(0, len(finished) - _IDEMPOTENCY_MAX_ENTRIES)]:
         _IDEMPOTENCY_CACHE.pop(key, None)
 
 
-def _run_idempotent(request_id: str, path: str, operation):
-    """Wykonaj zapis najwyżej raz dla pary endpoint + request_id.
+def _run_idempotent(request_id: str, path: str, operation, fingerprint: str = ""):
+    """Trwały dziennik: pending przed mutacją, done po mutacji.
 
-    Blokada obejmuje również sam zapis. Dzięki temu dwa równoległe telefony lub
-    ponowienie po utracie odpowiedzi nie przejdą jednocześnie przez cache.
+    Po restarcie pending zatrzymuje niepewne ponowienie aż do weryfikacji w WM.
     """
-
     request_key = str(request_id or "").strip()
     if not request_key:
         return False, operation()
-    cache_key = f"{path}\n{request_key}"
+    cache_key = f"{path}\\n{request_key}"
     with _IDEMPOTENCY_LOCK:
+        _load_idempotency()
         _prune_idempotency()
         cached = _IDEMPOTENCY_CACHE.get(cache_key)
-        if isinstance(cached, dict) and "result" in cached:
-            return True, _clone_idempotent_result(cached["result"])
+        if cached is not None:
+            if cached.get("fingerprint", "") != fingerprint:
+                raise WmmIdempotencyConflict(
+                    "Ten sam request-ID został użyty z innymi danymi."
+                )
+            if cached.get("state") == "done":
+                return True, _clone_idempotent_result(cached["result"])
+            raise WmmIdempotencyPending(
+                "Niepewny wynik poprzedniego zapisu. Sprawdź stan w WM."
+            )
+        _IDEMPOTENCY_CACHE[cache_key] = {
+            "created_at": time.time(), "state": "pending",
+            "fingerprint": fingerprint,
+        }
+        try:
+            _persist_idempotency()
+        except Exception:
+            _IDEMPOTENCY_CACHE.pop(cache_key, None)
+            raise
         result = operation()
         _IDEMPOTENCY_CACHE[cache_key] = {
-            "created_at": time.time(),
-            "result": _clone_idempotent_result(result),
+            "created_at": time.time(), "state": "done",
+            "fingerprint": fingerprint, "result": _clone_idempotent_result(result),
         }
         _prune_idempotency()
+        _persist_idempotency()
         return False, result
+
+
+def _wmm_revision(row: dict[str, Any]) -> str:
+    fields = (
+        "status", "status_label", "status_current", "historia", "uwagi",
+        "photos", "przeglady", "next_review",
+    )
+    value = {key: row[key] for key in fields if key in row}
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _wmm_revision_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {**row, "wmm_revision": _wmm_revision(row)}
+
+
+def _wmm_expect_revision(row: dict[str, Any], expected: str) -> None:
+    if expected and _wmm_revision(row) != expected:
+        raise WmmRevisionConflict(
+            "Dane zmienił inny użytkownik. Odśwież kartę przed ponowieniem."
+        )
 
 
 def _prune_sessions(now: float | None = None) -> None:
