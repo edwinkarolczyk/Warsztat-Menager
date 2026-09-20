@@ -298,3 +298,63 @@ def test_wmm_request_id_different_payload_does_not_replay(tmp_path, monkeypatch)
     with pytest.raises(api.WmmIdempotencyConflict, match="innymi danymi"):
         api._run_idempotent("payload-case-001", "/api/v1/tools/001/status",
                             lambda: {"id": "001"}, "payload-b")
+
+
+def test_wmm_two_phones_stale_machine_write_cannot_overwrite(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "maszyny" / "maszyny.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps([{"id": "42", "status": "ok", "historia": []}]),
+                      encoding="utf-8")
+
+    from services import wmm_api as api
+
+    revision = api._wmm_revision(api._find_machine("42"))
+
+    def first_phone(row):
+        api._wmm_expect_revision(row, revision)
+        row["status"] = "warn"
+        row["historia"].append({"action": "status_changed", "by": "Marek"})
+
+    api._update_machine("42", first_phone)
+
+    def second_phone(row):
+        api._wmm_expect_revision(row, revision)
+        row["status"] = "alert"
+
+    with pytest.raises(api.WmmRevisionConflict, match="Odśwież"):
+        api._update_machine("42", second_phone)
+
+    saved = json.loads(target.read_text(encoding="utf-8"))
+    assert saved[0]["status"] == "warn"
+    assert len(saved[0]["historia"]) == 1
+
+
+def test_wmm_two_phones_stale_tool_write_cannot_overwrite(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "narzedzia" / "001.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        json.dumps({"id": "001", "status": "Dostępne", "historia": []}),
+        encoding="utf-8",
+    )
+
+    from services import wmm_api as api
+
+    revision = api._wmm_revision(api._find_tool("001"))
+
+    def first_phone(row):
+        api._wmm_expect_revision(row, revision)
+        row["status"] = "Do naprawy"
+
+    api._update_tool("001", first_phone)
+
+    def second_phone(row):
+        api._wmm_expect_revision(row, revision)
+        row["status"] = "Do ostrzenia"
+
+    with pytest.raises(api.WmmRevisionConflict, match="Odśwież"):
+        api._update_tool("001", second_phone)
+
+    saved = json.loads(target.read_text(encoding="utf-8"))
+    assert saved["status"] == "Do naprawy"
