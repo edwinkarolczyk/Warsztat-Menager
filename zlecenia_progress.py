@@ -47,7 +47,8 @@ def _pending_materials(order):
     """Migawka nierozliczonego wykonania sprzed przeliczenia planu."""
     done = _f(order.get("wykonano"))
     settled = _f(order.get("materialy_rozliczono_do"))
-    pending = max(0.0, done - settled)
+    already = _f((order.get("materialy_oczekujace") or {}).get("ilosc"))
+    pending = max(0.0, done - settled - already)
     if pending <= 1e-9:
         return None
     plan_qty = _f(order.get("pozostalo", order.get("ilosc")))
@@ -65,12 +66,6 @@ def _replan_remaining(order, kto="system"):
     previous = _pending_materials(order)
     if previous:
         existing = order.get("materialy_oczekujace") or {}
-        if existing and _f(existing.get("ilosc")) > 0:
-            # Stary plan obejmuje tylko część po ostatnim przeliczeniu.
-            already = _f(existing.get("ilosc"))
-            previous["ilosc"] = max(0.0, previous["ilosc"] - already)
-            if previous["ilosc"] <= 1e-9:
-                previous = None
         if previous:
             existing = order.setdefault("materialy_oczekujace", {
                 "ilosc": 0.0, "polprodukty": {}, "surowce": {},
