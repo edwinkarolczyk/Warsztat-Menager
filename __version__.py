@@ -1,4 +1,5 @@
-# version: 3.0
+# version: 3.1
+# 3.1: WM 1.0.16 - zachowanie nierozliczonego materiału przy zmianie ilości zlecenia.
 # 3.0: WM 1.0.15 - rozliczenie materiału we wspólnym edytorze i poprawny zakres planu.
 # 2.9: WM 1.0.14 - wykonanie zlecenia oddzielone od świadomego rozliczenia materiału.
 # 2.8: WM 1.0.13 - wspólny edytor zlecenia Planisty, usuwanie i uporządkowanie paska akcji.
@@ -15,7 +16,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.15"
+__version__ = "1.0.16"
 
 
 def get_version() -> str:
