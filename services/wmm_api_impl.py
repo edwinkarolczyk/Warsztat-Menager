@@ -725,7 +725,13 @@ def _run_idempotent(request_id: str, path: str, operation, fingerprint: str = ""
         except Exception:
             _IDEMPOTENCY_CACHE.pop(cache_key, None)
             raise
-        result = operation()
+        try:
+            result = operation()
+        except WmmRevisionConflict:
+            # Odrzucono przed mutacją: pozwól na świadomą nową próbę po odświeżeniu.
+            _IDEMPOTENCY_CACHE.pop(cache_key, None)
+            _persist_idempotency()
+            raise
         _IDEMPOTENCY_CACHE[cache_key] = {
             "created_at": time.time(), "state": "done",
             "fingerprint": fingerprint, "result": _clone_idempotent_result(result),
@@ -741,6 +747,7 @@ def _wmm_revision(row: dict[str, Any]) -> str:
         "photos", "przeglady", "next_review",
     )
     value = {key: row[key] for key in fields if key in row}
+    value.setdefault("photos", [])
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
