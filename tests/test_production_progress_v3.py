@@ -294,9 +294,11 @@ def test_finish_after_replan_preserves_unsettled_material(monkeypatch):
         state[code]["stan"] -= amount
 
     monkeypatch.setattr(zp.LM, "zuzyj", consume)
-    order["ilosc"] = 120.0
-    zp._replan_remaining(order, "Edwin")
+    monkeypatch.setattr(zp, "_credit_new_surplus", lambda *_a, **_k: {})
+    zp.update_zlecenie("000001", ilosc=120.0, kto="Edwin")
     assert order["materialy_oczekujace"]["ilosc"] == 50.0
+    assert order["materialy_oczekujace"]["polprodukty"]["POL-OS"] == pytest.approx(50.0)
+    assert order["materialy_oczekujace"]["surowce"]["SUR-1"] == pytest.approx(50.0)
     assert order["pozostalo"] == 70.0
     zp.report_wykonano("000001", 120.0, kto="Edwin")
     assert consumed == []
