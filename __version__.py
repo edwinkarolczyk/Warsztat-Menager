@@ -1,4 +1,5 @@
-# version: 3.1
+# version: 3.2
+# 3.2: WM 1.0.17 - migawka materiału przed zmianą ilości zlecenia.
 # 3.1: WM 1.0.16 - zachowanie nierozliczonego materiału przy zmianie ilości zlecenia.
 # 3.0: WM 1.0.15 - rozliczenie materiału we wspólnym edytorze i poprawny zakres planu.
 # 2.9: WM 1.0.14 - wykonanie zlecenia oddzielone od świadomego rozliczenia materiału.
@@ -16,7 +17,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.16"
+__version__ = "1.0.17"
 
 
 def get_version() -> str:
