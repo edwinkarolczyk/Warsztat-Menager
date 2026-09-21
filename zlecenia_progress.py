@@ -59,22 +59,20 @@ def _pending_materials(order):
     return {"ilosc": covered, "polprodukty": semis, "surowce": raw}
 
 
-def _replan_remaining(order, kto="system"):
+def _replan_remaining(order, kto="system", pending_snapshot=None):
     """Zwalnia tylko rezerwacje tego zlecenia i planuje pozostala ilosc."""
     # Przed zastąpieniem planu zachowaj materiał na wykonane,
     # ale jeszcze nierozliczone sztuki. Rezerwacje nadal są oddzielne.
-    previous = _pending_materials(order)
+    previous = pending_snapshot if pending_snapshot is not None else _pending_materials(order)
     if previous:
-        existing = order.get("materialy_oczekujace") or {}
-        if previous:
-            existing = order.setdefault("materialy_oczekujace", {
-                "ilosc": 0.0, "polprodukty": {}, "surowce": {},
-            })
-            existing["ilosc"] = _f(existing.get("ilosc")) + previous["ilosc"]
-            for key in ("polprodukty", "surowce"):
-                dest = existing.setdefault(key, {})
-                for code, amount in previous[key].items():
-                    dest[code] = _f(dest.get(code)) + amount
+        existing = order.setdefault("materialy_oczekujace", {
+            "ilosc": 0.0, "polprodukty": {}, "surowce": {},
+        })
+        existing["ilosc"] = _f(existing.get("ilosc")) + previous["ilosc"]
+        for key in ("polprodukty", "surowce"):
+            dest = existing.setdefault(key, {})
+            for code, amount in previous[key].items():
+                dest[code] = _f(dest.get(code)) + amount
 
     ZL._release_reservations(
         order.get("rezerwacje_polprodukty"), kto, f"przeliczenie:{order.get('id')}"
@@ -211,12 +209,15 @@ def update_zlecenie(
     order = ZL._read_json(p)
     old_qty = _f(order.get("ilosc"))
     changed, replan = [], False
+    pending_snapshot = None
 
     if ilosc is not None:
         new_qty = float(ilosc)
         if new_qty < 0:
             raise ValueError("Ilość nie może być ujemna.")
         if new_qty != old_qty:
+            # Migawka musi korzystać ze STAREJ ilości i starego planu.
+            pending_snapshot = _pending_materials(order)
             order["ilosc"] = new_qty
             replan = True
             changed.append(f"ilosc -> {new_qty:g}")
@@ -253,7 +254,7 @@ def update_zlecenie(
         changed.append(f"zlec_wew -> {zlec_wew}")
 
     if replan:
-        _replan_remaining(order, kto)
+        _replan_remaining(order, kto, pending_snapshot=pending_snapshot)
     if changed:
         order.setdefault("historia", []).append(
             {
