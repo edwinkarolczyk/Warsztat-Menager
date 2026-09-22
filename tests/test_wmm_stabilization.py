@@ -330,6 +330,41 @@ def test_wmm_two_phones_stale_machine_write_cannot_overwrite(tmp_path, monkeypat
     assert len(saved[0]["historia"]) == 1
 
 
+def test_wmm_two_phones_stale_machine_note_cannot_overwrite(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "maszyny" / "maszyny.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        json.dumps([{"id": "42", "status": "ok", "uwagi": "", "historia": []}]),
+        encoding="utf-8",
+    )
+
+    from services import wmm_api as api
+
+    revision = api._wmm_revision(api._find_machine("42"))
+
+    def send_note(note):
+        handler = object.__new__(api._WmmHandler)
+        handler.path = "/api/v1/machines/42/note"
+        handler._read_json = lambda: {"note": note, "base_revision": revision}
+        handler._require_pairing_key = lambda: True
+        handler._author = lambda: "Edwin"
+        handler._request_id = lambda: ""
+        responses = []
+        handler._send = lambda status, payload: responses.append((status, payload))
+        handler.do_POST()
+        return responses
+
+    assert send_note("Pierwsza uwaga")[0][0] == 200
+    stale_response = send_note("Nieaktualna uwaga")
+
+    assert stale_response[0][0] == 409
+    assert stale_response[0][1]["code"] == "WMM_REVISION_CONFLICT"
+    saved = json.loads(target.read_text(encoding="utf-8"))
+    assert saved[0]["uwagi"] == "Pierwsza uwaga"
+    assert len(saved[0]["historia"]) == 1
+
+
 def test_wmm_two_phones_stale_tool_write_cannot_overwrite(tmp_path, monkeypatch):
     root = _prepare_root(tmp_path, monkeypatch)
     target = root / "data" / "narzedzia" / "001.json"

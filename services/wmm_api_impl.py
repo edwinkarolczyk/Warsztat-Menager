@@ -1116,6 +1116,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         if not note:
                             raise RuntimeError("Uwaga jest pusta.")
                         def mutate(row: dict[str, Any]) -> None:
+                            _wmm_expect_revision(row, str(payload.get("base_revision") or ""))
                             row["uwagi"] = note
                             _append_history(row, "uwaga", author, note)
                         return _update_machine(machine_id, mutate)
