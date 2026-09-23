@@ -581,12 +581,12 @@ def test_wmm_multipart_preserves_terminal_photo_bytes():
     from services import wmm_api as api
 
     boundary = b"PHOTOBOUNDARY"
-    photo_bytes = b"\\xff\\xd8test-image-\\r\\n"
+    photo_bytes = b"\xff\xd8test-image-\r\n"
     part = (
-        b"--" + boundary + b"\\r\\n"
-        + b'Content-Disposition: form-data; name="photo"; filename="test.jpg"\\r\\n'
-        + b"Content-Type: image/jpeg\\r\\n\\r\\n"
-        + photo_bytes + b"\\r\\n--" + boundary + b"--\\r\\n"
+        b"--" + boundary + b"\r\n"
+        + b'Content-Disposition: form-data; name="photo"; filename="test.jpg"\r\n'
+        + b"Content-Type: image/jpeg\r\n\r\n"
+        + photo_bytes + b"\r\n--" + boundary + b"--\r\n"
     )
     handler = object.__new__(api._WmmHandler)
     handler.headers = {"Content-Type": "multipart/form-data; boundary=PHOTOBOUNDARY"}
