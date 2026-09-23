@@ -434,3 +434,143 @@ def test_wmm_mutation_without_revision_cannot_write(
     assert responses[0][1]["code"] == "WMM_REVISION_CONFLICT"
     assert "Odśwież" in responses[0][1]["error"]
     assert target.read_bytes() == before
+
+
+def test_wmm_pending_note_after_crash_reconciles_without_duplicate(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "maszyny" / "maszyny.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        json.dumps([{"id": "42", "status": "ok", "uwagi": "", "historia": []}]),
+        encoding="utf-8",
+    )
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    request_id = "wmm-note-reconcile-001"
+    path = "/api/v1/machines/42/note"
+    calls = []
+
+    def operation():
+        calls.append(1)
+
+        def mutate(row):
+            row["uwagi"] = "Test po restarcie"
+            api._append_history(row, "uwaga", "Edwin", "Test po restarcie")
+            api._wmm_mark_applied(row, request_id, path)
+
+        updated = api._update_machine("42", mutate)
+        if len(calls) == 1:
+            raise RuntimeError("Awaria po zapisaniu karty WM, przed done")
+        return updated
+
+    with pytest.raises(RuntimeError, match="Awaria"):
+        api._run_idempotent(request_id, path, operation, "note-fingerprint")
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    replayed, result = api._run_idempotent(
+        request_id, path, operation, "note-fingerprint"
+    )
+
+    assert replayed is True
+    assert len(calls) == 1
+    assert result["uwagi"] == "Test po restarcie"
+    persisted = json.loads(target.read_text(encoding="utf-8"))[0]
+    assert len(persisted["historia"]) == 1
+
+
+def test_wmm_pending_photo_reconciles_and_orphan_uses_same_path(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "maszyny" / "maszyny.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        json.dumps([{"id": "42", "status": "ok", "photos": [], "historia": []}]),
+        encoding="utf-8",
+    )
+    from services import wmm_api as api
+    import hashlib
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    request_id = "wmm-photo-reconcile-001"
+    path = "/api/v1/machines/42/photos"
+    data = b"fake photo bytes"
+    photo_sha = hashlib.sha256(data).hexdigest()
+    calls = []
+
+    def operation():
+        calls.append(1)
+
+        def mutate(row):
+            photo = api._store_photo(
+                "machines", "42", "photo.jpg", data, "Edwin",
+                request_id=request_id, photo_sha256=photo_sha,
+            )
+            row["photos"].append(photo)
+            api._append_history(row, "zdjęcie", "Edwin", photo["name"])
+            api._wmm_mark_applied(row, request_id, path)
+
+        updated = api._update_machine("42", mutate)
+        if len(calls) == 1:
+            raise RuntimeError("Awaria przed done")
+        return updated
+
+    with pytest.raises(RuntimeError, match="Awaria"):
+        api._run_idempotent(request_id, path, operation, photo_sha)
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    replayed, row = api._run_idempotent(request_id, path, operation, photo_sha)
+    assert replayed is True
+    assert len(calls) == 1
+    assert len(row["photos"]) == 1
+    assert len(row["historia"]) == 1
+    assert row["photos"][0]["sha256"] == photo_sha
+    assert len(list((root / "data" / "maszyny" / "attachments" / "42").glob("*.jpg"))) == 1
+
+
+def test_wmm_pending_photo_before_card_write_can_retry_without_orphan(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / "narzedzia" / "001.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(json.dumps({"id": "001", "photos": [], "historia": []}),
+                      encoding="utf-8")
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    request_id = "wmm-tool-orphan-001"
+    path = "/api/v1/tools/001/photos"
+    calls = []
+
+    def operation():
+        calls.append(1)
+        if len(calls) == 1:
+            api._store_photo(
+                "tools", "001", "photo.jpg", b"photo bytes", "Edwin",
+                request_id=request_id,
+            )
+            raise RuntimeError("Awaria przed zapisaniem metadanych")
+
+        def mutate(row):
+            photo = api._store_photo(
+                "tools", "001", "photo.jpg", b"photo bytes", "Edwin",
+                request_id=request_id,
+            )
+            row["photos"].append(photo)
+            api._wmm_mark_applied(row, request_id, path)
+
+        return api._update_tool("001", mutate)
+
+    with pytest.raises(RuntimeError, match="Awaria"):
+        api._run_idempotent(request_id, path, operation, "same-file")
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    replayed, row = api._run_idempotent(request_id, path, operation, "same-file")
+    assert replayed is False
+    assert len(calls) == 2
+    assert len(row["photos"]) == 1
+    assert len(list((root / "data" / "narzedzia" / "attachments" / "001").glob("*.jpg"))) == 1
