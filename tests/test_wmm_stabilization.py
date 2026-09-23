@@ -393,3 +393,44 @@ def test_wmm_two_phones_stale_tool_write_cannot_overwrite(tmp_path, monkeypatch)
 
     saved = json.loads(target.read_text(encoding="utf-8"))
     assert saved["status"] == "Do naprawy"
+
+
+@pytest.mark.parametrize(
+    "route,folder,filename,initial,mutation",
+    [
+        ("/api/v1/machines/42/note", "maszyny", "maszyny.json",
+         [{"id": "42", "status": "ok", "uwagi": "Pierwsza", "historia": []}],
+         {"note": "Druga"}),
+        ("/api/v1/machines/42/status", "maszyny", "maszyny.json",
+         [{"id": "42", "status": "ok", "historia": []}],
+         {"status": "warn"}),
+        ("/api/v1/tools/001/status", "narzedzia", "001.json",
+         {"id": "001", "status": "Dostępne", "historia": []},
+         {"status": "Do naprawy"}),
+    ],
+)
+def test_wmm_mutation_without_revision_cannot_write(
+    tmp_path, monkeypatch, route, folder, filename, initial, mutation
+):
+    root = _prepare_root(tmp_path, monkeypatch)
+    target = root / "data" / folder / filename
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(initial, ensure_ascii=False), encoding="utf-8")
+    before = target.read_bytes()
+
+    from services import wmm_api as api
+
+    handler = object.__new__(api._WmmHandler)
+    handler.path = route
+    handler._read_json = lambda: mutation
+    handler._require_pairing_key = lambda: True
+    handler._author = lambda: "Edwin"
+    handler._request_id = lambda: ""
+    responses = []
+    handler._send = lambda status, payload: responses.append((status, payload))
+    handler.do_POST()
+
+    assert responses[0][0] == 409
+    assert responses[0][1]["code"] == "WMM_REVISION_CONFLICT"
+    assert "Odśwież" in responses[0][1]["error"]
+    assert target.read_bytes() == before
