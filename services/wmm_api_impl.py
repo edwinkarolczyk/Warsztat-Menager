@@ -768,7 +768,14 @@ def _run_idempotent(request_id: str, path: str, operation, fingerprint: str = ""
                     _persist_idempotency()
                     return True, restored
                 # Znacznik i stan obiektu są w jednej atomowej mutacji.
-                result = operation()
+                try:
+                    result = operation()
+                except WmmRevisionConflict:
+                    # Żaden zapis nie nastąpił: nowa świadoma próba po
+                    # odświeżeniu karty może otrzymać własny request-ID.
+                    _IDEMPOTENCY_CACHE.pop(cache_key, None)
+                    _persist_idempotency()
+                    raise
                 _IDEMPOTENCY_CACHE[cache_key] = {
                     "created_at": cached.get("created_at", time.time()),
                     "state": "done", "fingerprint": fingerprint,
