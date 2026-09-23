@@ -252,7 +252,7 @@ def test_wmm_idempotency_survives_api_restart(tmp_path, monkeypatch):
     assert calls == [1]
 
 
-def test_wmm_pending_after_crash_is_not_reexecuted(tmp_path, monkeypatch):
+def test_wmm_legacy_pending_stays_blocked_without_reconciliation_proof(tmp_path, monkeypatch):
     from services import wmm_api as api
 
     monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
@@ -267,6 +267,11 @@ def test_wmm_pending_after_crash_is_not_reexecuted(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="Odpowiedź"):
         api._run_idempotent("pending-case-001", "/api/v1/tools/001/photos",
                             interrupted, "photo-a")
+    # Stary pending z WMM 0.5.29 nie posiada atomowego znacznika w karcie WM,
+    # więc nie wolno zgadywać, czy operacja była wykonana.
+    for entry in api._IDEMPOTENCY_CACHE.values():
+        entry["reconcile_safe"] = False
+    api._persist_idempotency()
     api._IDEMPOTENCY_CACHE.clear()
     monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
     with pytest.raises(api.WmmIdempotencyPending, match="Niepewny"):
