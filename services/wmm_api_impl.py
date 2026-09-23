@@ -643,23 +643,35 @@ def _store_photo(
     }
 
 
-def _wmm_mark_applied(row: dict[str, Any], request_id: str) -> None:
-    """Znacznik zapisujemy atomowo z kartą WM."""
+def _wmm_mark_applied(row: dict[str, Any], request_id: str, path: str) -> None:
+    """Znacznik (endpoint, request-ID) zapisujemy atomowo z kartą WM."""
     if not request_id:
         return
     markers = row.get("wmm_applied_requests")
     if not isinstance(markers, list):
         markers = []
-    if request_id not in markers:
-        markers.append(request_id)
+    marker = f"{path}|{request_id}"
+    if marker not in markers:
+        markers.append(marker)
     row["wmm_applied_requests"] = markers[-2048:]
 
 
-def _wmm_applied(row: dict[str, Any] | None, request_id: str) -> bool:
+def _wmm_applied(row: dict[str, Any] | None, request_id: str, path: str) -> bool:
     if not row or not request_id:
         return False
     markers = row.get("wmm_applied_requests")
-    return isinstance(markers, list) and request_id in markers
+    if isinstance(markers, list) and f"{path}|{request_id}" in markers:
+        return True
+    # Zdjęcia przechowują request-ID również w samych metadanych, nawet gdy
+    # starszy znacznik wypadnie z krótkiej listy na intensywnie używanej karcie.
+    if path.endswith("/photos"):
+        photos = row.get("photos")
+        return isinstance(photos, list) and any(
+            isinstance(photo, dict)
+            and photo.get("wmm_request_id") == request_id
+            for photo in photos
+        )
+    return False
 
 
 def _wmm_reconcile_result(path: str, request_id: str) -> dict[str, Any] | None:
@@ -667,11 +679,11 @@ def _wmm_reconcile_result(path: str, request_id: str) -> dict[str, Any] | None:
     machine_match = re.fullmatch(r"/api/v1/machines/([^/]+)/(status|note|photos)", path)
     if machine_match:
         row = _find_machine(unquote(machine_match.group(1)))
-        return row if _wmm_applied(row, request_id) else None
+        return row if _wmm_applied(row, request_id, path) else None
     tool_match = re.fullmatch(r"/api/v1/tools/([^/]+)/(status|photos)", path)
     if tool_match:
         row = _find_tool(unquote(tool_match.group(1)))
-        return row if _wmm_applied(row, request_id) else None
+        return row if _wmm_applied(row, request_id, path) else None
     return None
 
 
@@ -1195,7 +1207,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             _apply_machine_status_from_wmm(
                                 row, status, actor=author, note=note
                             )
-                            _wmm_mark_applied(row, request_id)
+                            _wmm_mark_applied(row, request_id, path)
                         return _update_machine(machine_id, mutate)
                     if action == "note":
                         note = str(payload.get("note") or "").strip()
@@ -1205,7 +1217,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             _wmm_expect_revision(row, str(payload.get("base_revision") or ""))
                             row["uwagi"] = note
                             _append_history(row, "uwaga", author, note)
-                            _wmm_mark_applied(row, request_id)
+                            _wmm_mark_applied(row, request_id, path)
                         return _update_machine(machine_id, mutate)
 
                     if _find_machine(machine_id) is None:
@@ -1224,7 +1236,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
-                        _wmm_mark_applied(row, request_id)
+                        _wmm_mark_applied(row, request_id, path)
                     return _update_machine(machine_id, mutate)
 
                 replayed, item = _run_idempotent(
@@ -1263,7 +1275,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                                 actor=author,
                                 note=note,
                             )
-                            _wmm_mark_applied(row, request_id)
+                            _wmm_mark_applied(row, request_id, path)
                         return _update_tool(tool_id, mutate)
 
                     if _tool_path(tool_id) is None:
@@ -1282,7 +1294,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
-                        _wmm_mark_applied(row, request_id)
+                        _wmm_mark_applied(row, request_id, path)
                     return _update_tool(tool_id, mutate)
 
                 replayed, item = _run_idempotent(
