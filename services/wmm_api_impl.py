@@ -757,7 +757,11 @@ def _wmm_revision_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _wmm_expect_revision(row: dict[str, Any], expected: str) -> None:
-    if expected and _wmm_revision(row) != expected:
+    if not str(expected or "").strip():
+        raise WmmRevisionConflict(
+            "Brak rewizji danych. Odśwież kartę przed ponowieniem."
+        )
+    if _wmm_revision(row) != expected:
         raise WmmRevisionConflict(
             "Dane zmienił inny użytkownik. Odśwież kartę przed ponowieniem."
         )
