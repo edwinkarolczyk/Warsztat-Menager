@@ -981,7 +981,10 @@ class _WmmHandler(BaseHTTPRequestHandler):
             header_text = head.decode("utf-8", errors="replace")
             filename_match = re.search(r'filename="([^"]*)"', header_text, re.I)
             filename = filename_match.group(1) if filename_match else "photo.jpg"
-            payload = data.rstrip(b"\r\n-")
+            # Multipart dodaje dokładnie CRLF przed następną granicą.
+            # rstrip(b"\\r\\n-") ucinał także legalne bajty kończące zdjęcie,
+            # więc hash całej zawartości przestawał się zgadzać.
+            payload = data[:-2] if data.endswith(b"\r\n") else data
             if not payload:
                 raise RuntimeError("Przesłane zdjęcie jest puste.")
             return filename, payload
