@@ -614,21 +614,65 @@ def _media_root(kind: str, object_id: str) -> Path:
     return _data_dir() / "narzedzia" / "attachments" / str(object_id)
 
 
-def _store_photo(kind: str, object_id: str, filename: str, data: bytes, author: str) -> dict[str, Any]:
+def _store_photo(
+    kind: str, object_id: str, filename: str, data: bytes, author: str,
+    *, request_id: str = "", photo_sha256: str = "",
+) -> dict[str, Any]:
     folder = _media_root(kind, object_id)
     folder.mkdir(parents=True, exist_ok=True)
     safe = _safe_filename(filename)
     suffix = Path(safe).suffix.lower() or ".jpg"
-    stored = f"wmm_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(3)}{suffix}"
+    # Ten sam request po restarcie używa tej samej nazwy pliku.
+    safe_request = re.sub(r"[^A-Za-z0-9_-]", "_", request_id)[:110]
+    stored = (
+        f"wmm_{safe_request}{suffix}" if safe_request
+        else f"wmm_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(3)}{suffix}"
+    )
     target = folder / stored
-    target.write_bytes(data)
+    temp = folder / (stored + ".upload.tmp")
+    temp.write_bytes(data)
+    os.replace(temp, target)
     return {
         "name": stored,
         "filename": stored,
         "url": f"/api/v1/media/{kind}/{str(object_id)}/{stored}",
         "author": author,
         "created_at": datetime.now().isoformat(timespec="seconds"),
+        **({"wmm_request_id": request_id} if request_id else {}),
+        **({"sha256": photo_sha256} if photo_sha256 else {}),
     }
+
+
+def _wmm_mark_applied(row: dict[str, Any], request_id: str) -> None:
+    """Znacznik zapisujemy atomowo z kartą WM."""
+    if not request_id:
+        return
+    markers = row.get("wmm_applied_requests")
+    if not isinstance(markers, list):
+        markers = []
+    if request_id not in markers:
+        markers.append(request_id)
+    row["wmm_applied_requests"] = markers[-2048:]
+
+
+def _wmm_applied(row: dict[str, Any] | None, request_id: str) -> bool:
+    if not row or not request_id:
+        return False
+    markers = row.get("wmm_applied_requests")
+    return isinstance(markers, list) and request_id in markers
+
+
+def _wmm_reconcile_result(path: str, request_id: str) -> dict[str, Any] | None:
+    """Odczytaj wynik zapisany w WM nawet po awarii między zapisem a done."""
+    machine_match = re.fullmatch(r"/api/v1/machines/([^/]+)/(status|note|photos)", path)
+    if machine_match:
+        row = _find_machine(unquote(machine_match.group(1)))
+        return row if _wmm_applied(row, request_id) else None
+    tool_match = re.fullmatch(r"/api/v1/tools/([^/]+)/(status|photos)", path)
+    if tool_match:
+        row = _find_tool(unquote(tool_match.group(1)))
+        return row if _wmm_applied(row, request_id) else None
+    return None
 
 
 class WmmIdempotencyPending(RuntimeError):
@@ -713,12 +757,34 @@ def _run_idempotent(request_id: str, path: str, operation, fingerprint: str = ""
                 )
             if cached.get("state") == "done":
                 return True, _clone_idempotent_result(cached["result"])
+            if cached.get("reconcile_safe") is True:
+                restored = _wmm_reconcile_result(path, request_key)
+                if restored is not None:
+                    _IDEMPOTENCY_CACHE[cache_key] = {
+                        "created_at": cached.get("created_at", time.time()),
+                        "state": "done", "fingerprint": fingerprint,
+                        "result": _clone_idempotent_result(restored),
+                    }
+                    _persist_idempotency()
+                    return True, restored
+                # Znacznik i stan obiektu są w jednej atomowej mutacji.
+                result = operation()
+                _IDEMPOTENCY_CACHE[cache_key] = {
+                    "created_at": cached.get("created_at", time.time()),
+                    "state": "done", "fingerprint": fingerprint,
+                    "result": _clone_idempotent_result(result),
+                }
+                _persist_idempotency()
+                return False, result
             raise WmmIdempotencyPending(
-                "Niepewny wynik poprzedniego zapisu. Sprawdź stan w WM."
+                "Niepewny wynik starszego zapisu WMM. Sprawdź stan w WM."
             )
         _IDEMPOTENCY_CACHE[cache_key] = {
             "created_at": time.time(), "state": "pending",
             "fingerprint": fingerprint,
+            "reconcile_safe": bool(
+                re.fullmatch(r"/api/v1/(machines|tools)/[^/]+/(status|note|photos)", path)
+            ),
         }
         try:
             _persist_idempotency()
