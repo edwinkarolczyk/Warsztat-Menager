@@ -58,6 +58,7 @@ def test_wmm_photo_for_missing_tool_does_not_create_orphan_file(tmp_path, monkey
 
     handler = object.__new__(wmm_api._WmmHandler)
     handler.path = "/api/v1/tools/missing/photos"
+    handler.headers = {}
     handler._require_pairing_key = lambda: True
     handler._author = lambda: "Edwin"
     handler._request_id = lambda: ""
@@ -81,6 +82,7 @@ def test_wmm_photo_for_missing_machine_does_not_create_orphan_file(tmp_path, mon
 
     handler = object.__new__(wmm_api._WmmHandler)
     handler.path = "/api/v1/machines/missing/photos"
+    handler.headers = {}
     handler._require_pairing_key = lambda: True
     handler._author = lambda: "Edwin"
     handler._request_id = lambda: ""
