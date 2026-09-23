@@ -574,3 +574,26 @@ def test_wmm_pending_photo_before_card_write_can_retry_without_orphan(tmp_path, 
     assert len(calls) == 2
     assert len(row["photos"]) == 1
     assert len(list((root / "data" / "narzedzia" / "attachments" / "001").glob("*.jpg"))) == 1
+
+
+def test_wmm_multipart_preserves_terminal_photo_bytes():
+    import io
+    from services import wmm_api as api
+
+    boundary = b"PHOTOBOUNDARY"
+    photo_bytes = b"\\xff\\xd8test-image-\\r\\n"
+    part = (
+        b"--" + boundary + b"\\r\\n"
+        + b'Content-Disposition: form-data; name="photo"; filename="test.jpg"\\r\\n'
+        + b"Content-Type: image/jpeg\\r\\n\\r\\n"
+        + photo_bytes + b"\\r\\n--" + boundary + b"--\\r\\n"
+    )
+    handler = object.__new__(api._WmmHandler)
+    handler.headers = {"Content-Type": "multipart/form-data; boundary=PHOTOBOUNDARY"}
+    handler.rfile = io.BytesIO(part)
+    handler._content_length = lambda: len(part)
+
+    filename, parsed = handler._read_multipart_photo()
+
+    assert filename == "test.jpg"
+    assert parsed == photo_bytes
