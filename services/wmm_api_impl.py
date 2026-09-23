@@ -1143,9 +1143,14 @@ class _WmmHandler(BaseHTTPRequestHandler):
         if not self._require_pairing_key():
             return
         author = self._author()
+        request_id = self._request_id()
+        photo_sha256 = str(self.headers.get("X-WMM-Photo-SHA256") or "").strip().lower()
+        if is_photo and photo_sha256 and not re.fullmatch(r"[a-f0-9]{64}", photo_sha256):
+            self._send(400, {"ok": False, "error": "Nieprawidłowy SHA-256 zdjęcia."})
+            return
         payload_fingerprint = hashlib.sha256(
             json.dumps(
-                {"author": author, "payload": payload},
+                {"author": author, "payload": payload, "photo_sha256": photo_sha256},
                 ensure_ascii=False, sort_keys=True, default=str,
             ).encode("utf-8")
         ).hexdigest()
@@ -1180,6 +1185,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             _apply_machine_status_from_wmm(
                                 row, status, actor=author, note=note
                             )
+                            _wmm_mark_applied(row, request_id)
                         return _update_machine(machine_id, mutate)
                     if action == "note":
                         note = str(payload.get("note") or "").strip()
@@ -1189,21 +1195,30 @@ class _WmmHandler(BaseHTTPRequestHandler):
                             _wmm_expect_revision(row, str(payload.get("base_revision") or ""))
                             row["uwagi"] = note
                             _append_history(row, "uwaga", author, note)
+                            _wmm_mark_applied(row, request_id)
                         return _update_machine(machine_id, mutate)
 
                     if _find_machine(machine_id) is None:
                         raise RuntimeError("Nie znaleziono maszyny.")
                     filename, data = self._read_multipart_photo()
-                    photo = _store_photo("machines", machine_id, filename, data, author)
+                    actual_sha256 = hashlib.sha256(data).hexdigest()
+                    if photo_sha256 and photo_sha256 != actual_sha256:
+                        raise RuntimeError("Zdjęcie różni się od pliku wybranego w WMM.")
                     def mutate(row: dict[str, Any]) -> None:
+                        photo = _store_photo(
+                            "machines", machine_id, filename, data, author,
+                            request_id=request_id,
+                            photo_sha256=actual_sha256,
+                        )
                         photos = row.get("photos") if isinstance(row.get("photos"), list) else []
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
+                        _wmm_mark_applied(row, request_id)
                     return _update_machine(machine_id, mutate)
 
                 replayed, item = _run_idempotent(
-                    self._request_id(), path, perform_machine_action, payload_fingerprint
+                    request_id, path, perform_machine_action, payload_fingerprint
                 )
                 self._send(200, {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed})
             except WmmRevisionConflict as exc:
@@ -1238,21 +1253,30 @@ class _WmmHandler(BaseHTTPRequestHandler):
                                 actor=author,
                                 note=note,
                             )
+                            _wmm_mark_applied(row, request_id)
                         return _update_tool(tool_id, mutate)
 
                     if _tool_path(tool_id) is None:
                         raise RuntimeError("Nie znaleziono narzędzia.")
                     filename, data = self._read_multipart_photo()
-                    photo = _store_photo("tools", tool_id, filename, data, author)
+                    actual_sha256 = hashlib.sha256(data).hexdigest()
+                    if photo_sha256 and photo_sha256 != actual_sha256:
+                        raise RuntimeError("Zdjęcie różni się od pliku wybranego w WMM.")
                     def mutate(row: dict[str, Any]) -> None:
+                        photo = _store_photo(
+                            "tools", tool_id, filename, data, author,
+                            request_id=request_id,
+                            photo_sha256=actual_sha256,
+                        )
                         photos = row.get("photos") if isinstance(row.get("photos"), list) else []
                         photos.append(photo)
                         row["photos"] = photos
                         _append_history(row, "zdjęcie", author, photo["name"])
+                        _wmm_mark_applied(row, request_id)
                     return _update_tool(tool_id, mutate)
 
                 replayed, item = _run_idempotent(
-                    self._request_id(), path, perform_tool_action, payload_fingerprint
+                    request_id, path, perform_tool_action, payload_fingerprint
                 )
                 self._send(200, {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed})
             except WmmRevisionConflict as exc:
