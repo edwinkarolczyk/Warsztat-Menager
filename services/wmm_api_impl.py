@@ -1151,7 +1151,10 @@ class _WmmHandler(BaseHTTPRequestHandler):
             return
         author = self._author()
         request_id = self._request_id()
-        photo_sha256 = str(self.headers.get("X-WMM-Photo-SHA256") or "").strip().lower()
+        photo_sha256 = (
+            str(self.headers.get("X-WMM-Photo-SHA256") or "").strip().lower()
+            if is_photo else ""
+        )
         if is_photo and photo_sha256 and not re.fullmatch(r"[a-f0-9]{64}", photo_sha256):
             self._send(400, {"ok": False, "error": "Nieprawidłowy SHA-256 zdjęcia."})
             return
