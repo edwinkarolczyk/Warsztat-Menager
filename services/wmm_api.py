@@ -1,4 +1,4 @@
-# version: 1.9
+# version: 1.10
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
