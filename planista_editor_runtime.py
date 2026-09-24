@@ -366,7 +366,7 @@ def _install_order_editor() -> None:
             done_input.set(_fmt(proposal["complete_sets"]))
             messagebox.showinfo(
                 "Potwierdź produkt",
-                "Uzupełniono proponowaną ilość. Użyj «Zapisz wykonanie», "
+                "Uzupełniono proponowaną ilość. Użyj «Potwierdź wykonanie produktu», "
                 "aby potwierdzić faktycznie gotowe produkty.",
                 parent=dlg,
             )
@@ -881,7 +881,7 @@ def _install_order_editor() -> None:
                 if operations and requested > current + 1e-9:
                     raise ValueError(
                         "Ten półprodukt wymaga zakończenia ostatniej operacji. "
-                        "Zgłoś postęp przez «Zapisz operację»."
+                        "Zgłoś postęp przez «Zapisz wykonanie operacji»."
                     )
                 order = PS.report_polprodukt_wykonano(
                     order["id"],
