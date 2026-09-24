@@ -156,6 +156,9 @@ def test_start_and_footer_use_separate_hide_and_explicit_exit_paths():
     assert "wm_background.shutdown()" in start
     assert 'getattr(root, "_wm_exit_app", root.quit)()' in panel
     assert "pystray" in requirements
+    settings = Path("ustawienia_systemu.py").read_text(encoding="utf-8")
+    assert 'background = getattr(window, "_wm_background_runtime", None)' in settings
+    assert "background.on_close()" in settings
 
 
 def test_real_api_survives_hidden_window_and_stops_on_exit(tmp_path, monkeypatch):
