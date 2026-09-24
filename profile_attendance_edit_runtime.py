@@ -281,6 +281,7 @@ def _replace_absence_for_day(
     *,
     attendance_slot: str,
     source_slot: str | None = None,
+    override_reason: str = "",
 ) -> str:
     actor = leave_workflow_service._require_foreman(actor_login)
     day_text = leave_workflow_service._parse_day(day_text).isoformat()
@@ -313,6 +314,14 @@ def _replace_absence_for_day(
         and current_codes == [code]
         and current_shifts == [target_slot]
     )
+    paid_leave_check = {"shortage": 0.0}
+    if code in {"UR", "UŻ"} and not same_canonical:
+        paid_leave_check = leave_workflow_service.require_paid_leave_balance(
+            login, [day_text],
+            replacing_dates=[day_text] if "UR" in current_codes or "UŻ" in current_codes else (),
+            override_actor=actor if override_reason else "",
+            override_reason=override_reason,
+        )
     if code == "BRAK":
         same_canonical = not active_rows
 
@@ -366,6 +375,12 @@ def _replace_absence_for_day(
                 if code in {"UR", "UŻ"}:
                     sources = leave_workflow_service._source_years_for_dates(login, [day_text])
                     new_row["leave_source_year"] = int(sources.get(day_text, int(day_text[:4])))
+                    if paid_leave_check["shortage"] > 1e-9:
+                        new_row["over_balance_override"] = True
+                        new_row["override_actor"] = actor
+                        new_row["override_reason"] = str(override_reason).strip()
+                        new_row["override_at"] = created
+                        new_row["override_balance"] = paid_leave_check["balance"]
                 rows.append(new_row)
 
             leave_workflow_service._write_json(leave_workflow_service.leaves_path(), rows)
