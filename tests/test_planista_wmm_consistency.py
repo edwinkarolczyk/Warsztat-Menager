@@ -60,3 +60,35 @@ def test_wmm_refuses_unlinked_production_close(monkeypatch):
     })
     with pytest.raises(RuntimeError, match="bez powiązanego"):
         API._set_disposition_status("D1", "zamknieta", "Edwin")
+
+
+def test_headless_wmm_creation_rolls_back_partial_order(monkeypatch, tmp_path):
+    import logika_magazyn as LM
+    import planista_audit_runtime as PAR
+
+    data = tmp_path / "data"
+    orders = data / "zlecenia"
+    orders.mkdir(parents=True)
+    monkeypatch.setattr(ZL, "_data_dir", lambda: data)
+    monkeypatch.setattr(API, "_data_dir", lambda: data)
+    monkeypatch.setattr(API, "_planista_products", lambda: [
+        {"kod": "P1", "version": 1}
+    ])
+    monkeypatch.setattr(LM, "_warehouse_path", lambda: data / "magazyn.json")
+    stock = {"RAW": 20}
+    monkeypatch.setattr(PAR, "_canonical_warehouse_snapshot", lambda: dict(stock))
+    monkeypatch.setattr(PAR, "_restore_canonical_warehouse",
+                        lambda original: stock.update(original))
+    monkeypatch.setattr(PAR, "_disposition_snapshot", lambda: (None, None))
+    monkeypatch.setattr(PAR, "_restore_disposition_snapshot", lambda *_: None)
+
+    def fail_after_first_write(*_args, **_kwargs):
+        (orders / "000125.json").write_text('{"id":"000125"}', encoding="utf-8")
+        stock["RAW"] -= 5
+        raise RuntimeError("przerwany zapis")
+
+    monkeypatch.setattr(ZL, "create_zlecenie", fail_after_first_write)
+    with pytest.raises(RuntimeError, match="przerwany zapis"):
+        API._create_planista_order({"product_code": "P1", "quantity": 6}, "Edwin")
+    assert stock["RAW"] == 20
+    assert not (orders / "000125.json").exists()
