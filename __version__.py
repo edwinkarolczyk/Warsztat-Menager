@@ -1,4 +1,5 @@
-# version: 3.4
+# version: 3.5
+# 3.5: WM 1.0.20 - kontrola salda płatnego urlopu; wyjątek brygadzisty z przyczyną i historią.
 # 3.4: WM 1.0.19 - API WMM uruchamiane z WM; ikona obok zegara i powiadomienia o połączeniu.
 # 3.3: WM 1.0.18 - wymagaj rewizji przy zmianie statusu i uwag WMM.
 # 3.2: WM 1.0.17 - migawka materiału przed zmianą ilości zlecenia.
@@ -19,7 +20,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.19"
+__version__ = "1.0.20"
 
 
 def get_version() -> str:
