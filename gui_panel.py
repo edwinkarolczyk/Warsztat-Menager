@@ -581,6 +581,9 @@ except Exception as exc:  # pragma: no cover - diagnostyka GUI
 
 def panel_magazyn(root, frame, login=None, rola=None):
     """Adapter do ``open_panel_magazyn`` osadzający widok w kontenerze."""
+    setattr(root, "_wm_rola", rola or "")
+    setattr(frame, "rola", rola or "")
+    setattr(frame, "login", login or "")
     open_panel_magazyn(root, container=frame)
 
 

@@ -6184,7 +6184,6 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                 )
             repaint_tasks()
             repaint_hist()
-            repaint_hist()
 
         # ---- REAKCJA NA ZMIANĘ STATUSU ----
         def _on_status_change(_=None, *, force: bool = False):

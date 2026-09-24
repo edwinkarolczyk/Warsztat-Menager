@@ -50,6 +50,7 @@ from ui_theme import apply_theme_safe as apply_theme
 
 import logika_magazyn as LM
 from gui_magazyn_edit import open_edit_dialog
+from gui_magazyn_stock_adjustment import open_stock_adjustment_dialog
 from gui_magazyn_rezerwacje import (
     open_rezerwuj_dialog,
     open_zwolnij_rezerwacje_dialog,
@@ -288,6 +289,13 @@ def build_magazyn_toolbar(toolbar: ttk.Frame, owner):
         command=owner._edit_selected_item,
         style="WM.Side.TButton",
     ).pack(side="right", padx=(0, 6))
+    if str(getattr(owner, "user_role", "") or "").strip().casefold() == "brygadzista":
+        ttk.Button(
+            toolbar,
+            text="Stan faktyczny",
+            command=owner._adjust_selected_stock,
+            style="WM.Side.TButton",
+        ).pack(side="right", padx=(0, 6))
     ttk.Button(
         toolbar,
         text="Dodaj",
@@ -518,6 +526,12 @@ def _load_data():
 
     items, order, format_name = _normalize_magazyn_payload(data)
     try:
+        from magazyn_stock_adjustment import overlay_actual_states
+
+        overlay_actual_states(items)
+    except Exception as exc:
+        wm_err("gui.magazyn", "actual stock overlay failed", exc)
+    try:
         print(
             "[WM-DBG][MAGAZYN] normalized "
             f"format={format_name} items={len(items)} order={len(order)}"
@@ -673,9 +687,19 @@ class MagazynFrame(ttk.Frame):
     def __init__(self, master, config=None):
         super().__init__(master, padding=(8, 8, 8, 8), style="WM.TFrame")
         self.config_obj = config or {}
+        top = self.master.winfo_toplevel()
         self.user_role = (
-            getattr(self.master.winfo_toplevel(), "role", "")
-            or getattr(self.master, "role", "")
+            getattr(self.master, "role", "")
+            or getattr(self.master, "rola", "")
+            or getattr(top, "role", "")
+            or getattr(top, "rola", "")
+            or getattr(top, "_wm_rola", "")
+        )
+        self.user_login = (
+            getattr(self.master, "login", "")
+            or getattr(top, "active_login", "")
+            or getattr(top, "current_user", "")
+            or getattr(top, "username", "")
         )
         self._quick_add_to_orders = _quick_add_to_orders.__get__(self, self.__class__)
 
@@ -911,6 +935,34 @@ class MagazynFrame(ttk.Frame):
             )
             return
         open_edit_dialog(self, item_id, on_saved=lambda _id=item_id: self.refresh())
+
+    def _adjust_selected_stock(self):
+        if str(self.user_role or "").strip().casefold() != "brygadzista":
+            messagebox.showwarning(
+                "Uprawnienia",
+                "Korektę faktycznego stanu może wykonać tylko Brygadzista.",
+                parent=self,
+            )
+            return
+        item_id = self._selected_item_id()
+        if not item_id:
+            messagebox.showinfo(
+                "Magazyn",
+                "Najpierw wybierz pozycję magazynową.",
+                parent=self,
+            )
+            return
+        item = getattr(self, "_items_map", {}).get(item_id)
+        if not isinstance(item, dict):
+            messagebox.showerror("Magazyn", "Nie znaleziono wybranej pozycji.", parent=self)
+            return
+        open_stock_adjustment_dialog(
+            self,
+            item_id,
+            item,
+            self.user_login or "brygadzista",
+            on_saved=lambda _id=item_id: self.refresh(),
+        )
 
     def _selected_item_id(self):
         sel = self.tree.selection()
