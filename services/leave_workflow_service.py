@@ -266,7 +266,7 @@ def require_paid_leave_balance(
     for year, days in by_year.items():
         bal = get_balance(login, year)
         available = float(bal.get("remaining") or 0) - float(bal.get("pending") or 0)
-        available += sum(1 for day in ignored_pending if day.startswith(f"{year:04d}-"))
+        available += min(float(bal.get("pending") or 0), sum(1 for day in ignored_pending if day.startswith(f"{year:04d}-")))
         required = sum(1 for day in days if day not in old_paid)
         if required > available + 1e-9:
             shortage += required - max(0.0, available)
@@ -473,6 +473,13 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
             "note": str(request.get("note") or ""),
             "request_id": request.get("id"),
             "leave_source_year": int(source_year.get(day, int(day[:4]))),
+            **({
+                "over_balance_override": True,
+                "override_actor": actor,
+                "override_reason": str(override_reason).strip(),
+                "override_at": created,
+                "override_balance": check["balance"],
+            } if check["shortage"] > 1e-9 else {}),
         })
 
     updated = dict(request)
