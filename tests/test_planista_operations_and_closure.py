@@ -71,6 +71,7 @@ def test_dispatch_close_never_reconsumes_material(monkeypatch):
     monkeypatch.setattr(PD, "find_active_planista_dispatch", lambda _id: {
         "id": "D1", "status": "w_toku",
     })
+    monkeypatch.setattr(PD, "find_closed_planista_dispatch", lambda _id: None)
     monkeypatch.setattr(DA, "is_role_action_allowed", lambda *_args: True)
     calls = []
     monkeypatch.setattr(PM, "release_execution_reservations", lambda *args, **kwargs: calls.append(("release", args[0])))
@@ -85,3 +86,33 @@ def test_dispatch_close_never_reconsumes_material(monkeypatch):
     )
     assert result["status"] == "zamknieta"
     assert calls == [("release", "D1"), ("D1", "zamknieta")]
+
+
+def test_repeat_close_returns_existing_without_releasing_again(monkeypatch):
+    order = {"id": "000125", "ilosc": 6, "wykonano": 6,
+             "materialy_rozliczono_do": 6}
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: Path("000125.json"))
+    monkeypatch.setattr(ZL, "_read_json", lambda _path: dict(order))
+    monkeypatch.setattr(DA, "is_role_action_allowed", lambda *_args: True)
+    monkeypatch.setattr(PD, "find_closed_planista_dispatch", lambda _oid: {
+        "id": "D1", "status": "zamknieta",
+    })
+    monkeypatch.setattr(PD, "find_active_planista_dispatch", lambda _oid: None)
+
+    def should_not_release(*_args, **_kwargs):
+        raise AssertionError("Rezerwacja nie może być zwolniona ponownie")
+
+    monkeypatch.setattr(PM, "release_execution_reservations", should_not_release)
+    assert PD.close_completed_planista_dispatch(
+        "000125", who="Edwin", role="brygadzista",
+    )["status"] == "zamknieta"
+
+
+def test_ensure_dispatch_does_not_duplicate_closed_one(monkeypatch):
+    monkeypatch.setattr(PD, "find_active_planista_dispatch", lambda _oid: None)
+    monkeypatch.setattr(PD, "find_closed_planista_dispatch", lambda _oid: {
+        "id": "D1", "status": "zamknieta",
+    })
+    record, created = PD.ensure_planista_dispatch({"id": "000125"})
+    assert record["id"] == "D1"
+    assert created is False
