@@ -139,6 +139,51 @@ def test_missing_tray_never_leaves_invisible_window_running():
     assert root.destroyed
 
 
+
+def test_missing_pystray_diagnostic_names_install_command(monkeypatch):
+    import services.wm_tray_runtime as tray
+
+    root = FakeRoot()
+    seen = []
+
+    def no_module(*_args):
+        raise ModuleNotFoundError("No module named 'pystray'", name="pystray")
+
+    monkeypatch.setattr(tray.WmTrayRuntime, "_warn", lambda _self, value: seen.append(value))
+    runtime = WmTrayRuntime(
+        root,
+        api_start=lambda: True,
+        api_stop=lambda: None,
+        status_provider=lambda: {"users": []},
+        icon_factory=no_module,
+    )
+    runtime.install()
+    assert runtime.icon is None
+    assert len(seen) == 1
+    assert "py -3.13 -m pip install pystray" in seen[0]
+    assert "EXE" in seen[0]
+    runtime.shutdown()
+
+
+def test_other_tray_failure_does_not_claim_missing_pystray(monkeypatch):
+    import services.wm_tray_runtime as tray
+
+    root = FakeRoot()
+    seen = []
+    monkeypatch.setattr(tray.WmTrayRuntime, "_warn", lambda _self, value: seen.append(value))
+    runtime = WmTrayRuntime(
+        root,
+        api_start=lambda: True,
+        api_stop=lambda: None,
+        status_provider=lambda: {"users": []},
+        icon_factory=lambda *_args: (_ for _ in ()).throw(RuntimeError("GDI error")),
+    )
+    runtime.install()
+    assert "RuntimeError: GDI error" in seen[0]
+    assert "pip install" not in seen[0]
+    runtime.shutdown()
+
+
 def test_failed_api_is_not_misreported_as_started_or_stopped():
     root = FakeRoot()
     runtime, events, _icons = make_runtime(root, api_ok=False)
