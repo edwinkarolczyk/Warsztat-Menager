@@ -260,6 +260,13 @@ def close_completed_planista_dispatch(order_id: str, *, who: str, role: str) -> 
     if not state["ready"]:
         raise ValueError(state["reason"])
     dispatch = state["dispatch"]
+    # This dyspozycja may have its own reservation ledger from Start.
+    # Release any unused reservations; never invoke its second consumption path.
+    from planowanie_magazyn import release_execution_reservations
+    release_execution_reservations(
+        str(dispatch["id"]), user=who,
+        context=f"Zamknięcie z Planisty {order_id}",
+    )
     changed = DS.set_dyspozycja_status(
         str(dispatch["id"]), "zamknieta", changed_by=who,
     )
