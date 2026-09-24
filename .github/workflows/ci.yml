@@ -20,6 +20,14 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run WM 1.0 production settlement regressions
+        run: |
+          pytest -q \\
+            tests/test_planista_completion_proposal.py \\
+            tests/test_planista_operations_and_closure.py \\
+            tests/test_planista_semi_progress.py \\
+            tests/test_planista_dispatch_runtime.py \\
+            tests/test_production_progress_v3.py
       - name: Run profile workforce regressions
         run: |
           pytest -q \
