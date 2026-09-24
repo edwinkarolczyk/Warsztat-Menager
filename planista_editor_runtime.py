@@ -224,6 +224,19 @@ def _install_order_editor() -> None:
         done_input = tk.StringVar()
         allow_overproduction = tk.BooleanVar(value=False)
 
+        summary = ttk.Frame(header)
+        summary.pack(fill="x", pady=(10, 0))
+        for index, (caption, variable) in enumerate((
+            ("PLAN PRODUKTU", ordered_var),
+            ("WYKONANO", done_total_var),
+            ("POZOSTAŁO", remaining_var),
+        )):
+            cell = ttk.Frame(summary, padding=(12, 8))
+            cell.grid(row=0, column=index, sticky="ew", padx=(0, 8))
+            ttk.Label(cell, text=caption, font=("Arial", 9, "bold")).pack(anchor="w")
+            ttk.Label(cell, textvariable=variable, font=("Arial", 18, "bold")).pack(anchor="w")
+            summary.columnconfigure(index, weight=1)
+
         basic_tab.columnconfigure(1, weight=1)
         ttk.Label(basic_tab, text="Zlecenie warsztatowe").grid(row=0, column=0, sticky="w", pady=4)
         order_id_label = ttk.Label(basic_tab)
@@ -363,7 +376,17 @@ def _install_order_editor() -> None:
         ).grid(row=4, column=3, sticky="w", padx=(10, 0))
 
         semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
-        semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=12)
+        ttk.Label(
+            semis_tab, text="1. Wybierz półprodukt",
+            font=("Arial", 12, "bold"),
+        ).pack(anchor="w", pady=(0, 4))
+        ttk.Label(
+            semis_tab,
+            text="Wybierz wiersz, aby zobaczyć operację do wykonania. "
+                 "Plan półproduktu możesz zmienić osobno poniżej.",
+            wraplength=880, justify="left",
+        ).pack(anchor="w", pady=(0, 9))
+        semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=6)
         semi_labels = {
             "nazwa": "Półprodukt",
             "potrzeba": "Do zlecenia",
@@ -385,22 +408,36 @@ def _install_order_editor() -> None:
         for col in semi_cols:
             semi_tree.heading(col, text=semi_labels[col])
             semi_tree.column(col, width=semi_widths[col], anchor="w")
-        semi_tree.pack(fill="both", expand=True)
+        semi_tree.pack(fill="x", expand=False)
+        ttk.Separator(semis_tab).pack(fill="x", pady=(14, 10))
+        ttk.Label(
+            semis_tab, text="2. Zgłoś wykonanie",
+            font=("Arial", 12, "bold"),
+        ).pack(anchor="w", pady=(0, 6))
+        selected_semi_var = tk.StringVar(value="Wybierz półprodukt z listy powyżej.")
+        ttk.Label(
+            semis_tab, textvariable=selected_semi_var,
+            font=("Arial", 11, "bold"),
+        ).pack(anchor="w", pady=(0, 6))
+        step_var = tk.StringVar(value="")
+        ttk.Label(
+            semis_tab, textvariable=step_var,
+            wraplength=880, justify="left",
+        ).pack(anchor="w", pady=(0, 6))
 
         semi_edit = ttk.Frame(semis_tab)
-        semi_edit.pack(fill="x", pady=(10, 0))
         semi_target = tk.StringVar()
         semi_done = tk.StringVar()
         operation_name = tk.StringVar()
         operation_qty = tk.StringVar()
-        ttk.Label(semi_edit, text="Do zlecenia:").pack(side="left")
+        ttk.Label(semi_edit, text="Plan półproduktu:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_target, width=10).pack(side="left", padx=(6, 14))
-        ttk.Label(semi_edit, text="Wykonano:").pack(side="left")
+        ttk.Label(semi_edit, text="Ręczne wykonanie:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_done, width=10).pack(side="left", padx=(6, 6))
 
         operation_frame = ttk.Frame(semis_tab)
-        operation_frame.pack(fill="x", pady=(8, 0))
-        ttk.Label(operation_frame, text="Operacja:").pack(side="left")
+        operation_frame.pack(fill="x", pady=(4, 0))
+        ttk.Label(operation_frame, text="Bieżąca operacja:").pack(side="left")
         operation_combo = ttk.Combobox(
             operation_frame, textvariable=operation_name, state="readonly", width=24,
         )
