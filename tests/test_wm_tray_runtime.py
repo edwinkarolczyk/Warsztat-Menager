@@ -156,3 +156,65 @@ def test_start_and_footer_use_separate_hide_and_explicit_exit_paths():
     assert "wm_background.shutdown()" in start
     assert 'getattr(root, "_wm_exit_app", root.quit)()' in panel
     assert "pystray" in requirements
+
+
+def test_real_api_survives_hidden_window_and_stops_on_exit(tmp_path, monkeypatch):
+    """Actual HTTP API on isolated test WM_ROOT, never the user's data."""
+    import json
+    import socket
+    from urllib.request import urlopen
+    from services import wmm_api
+
+    root_dir = tmp_path / "wm-root"
+    (root_dir / "data").mkdir(parents=True)
+    monkeypatch.setenv("WM_ROOT", str(root_dir))
+    monkeypatch.setenv("WM_DATA_ROOT", str(root_dir / "data"))
+    monkeypatch.setattr(wmm_api, "_HOST", "127.0.0.1")
+    monkeypatch.setattr(wmm_api, "_lan_ip", lambda: "127.0.0.1")
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    monkeypatch.setattr(wmm_api, "_PORT", port)
+    root = FakeRoot()
+    icons = []
+    runtime = WmTrayRuntime(
+        root,
+        api_start=wmm_api.start_wmm_api,
+        api_stop=wmm_api.stop_wmm_api,
+        status_provider=wmm_api.mobile_status,
+        icon_factory=lambda show, exit_app: icons.append(FakeIcon(show, exit_app)) or icons[-1],
+    )
+    try:
+        runtime.install()
+        assert runtime.api_started
+        root.protocols["WM_DELETE_WINDOW"]()
+        assert root.withdrawn
+        with urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as response:
+            assert json.load(response)["ok"] is True
+        assert wmm_api.api_running()
+        runtime.exit_app()
+        assert not wmm_api.api_running()
+    finally:
+        runtime.shutdown()
+        wmm_api.stop_wmm_api()
+
+
+def test_real_tk_close_and_restore_under_xvfb(monkeypatch):
+    import tkinter as tk
+
+    root = tk.Tk()
+    runtime, events, icons = make_runtime(root)
+    try:
+        runtime.install()
+        root.update()
+        runtime.on_close()
+        root.update()
+        assert root.state() == "withdrawn"
+        assert events == ["start"]
+        icons[0].on_show()
+        runtime._tick()
+        root.update()
+        assert root.state() != "withdrawn"
+        assert events == ["start"]
+    finally:
+        runtime.exit_app()
