@@ -31,7 +31,7 @@ def test_manual_correction_is_separate_from_primary_operation():
     assert 'command=save_semi_target' in SOURCE
     assert 'text="Zapisz wykonanie półproduktu"' in SOURCE
     assert 'command=save_semi_done' in SOURCE
-    assert 'text="Korekta planu / zapis ręczny' in SOURCE
+    assert 'else "Korekta planu / zapis ręczny' in SOURCE
     assert 'semi_edit.pack_forget()' in SOURCE
     assert 'operation_frame.pack_forget()' in SOURCE
 
