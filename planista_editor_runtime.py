@@ -360,7 +360,7 @@ def _install_order_editor() -> None:
 
         ttk.Button(
             realization_tab, text="Wstaw propozycję z BOM", command=apply_proposal
-        ).grid(row=3, column=3, sticky="w", padx=(10, 0))
+        ).grid(row=4, column=3, sticky="w", padx=(10, 0))
 
         semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
         semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=12)
