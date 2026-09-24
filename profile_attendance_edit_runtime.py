@@ -622,14 +622,43 @@ def _open_case_dialog(owner, case: dict, on_saved: Callable[[], None] | None = N
             messagebox.showinfo("Obecność", "Wpisz powód lub krótką uwagę.", parent=win)
             return
         try:
+            actor = final._actor(owner)
+            reason = ""
+            choice = _normalize_absence_choice(absence_var.get())
+            if choice in {"UR", "UŻ"}:
+                prior = leave_workflow_service.active_absences_for_day(login, day_var.get())
+                same_paid = any(str(row.get("type") or "").casefold() == "urlop" for row in prior)
+                try:
+                    leave_workflow_service.require_paid_leave_balance(
+                        login, [day_var.get()],
+                        replacing_dates=[day_var.get()] if same_paid else (),
+                    )
+                except ValueError as exc:
+                    if "przekracza dostępny urlop" not in str(exc):
+                        raise
+                    if not messagebox.askyesno(
+                        "Przekroczenie salda urlopu",
+                        f"{exc}\n\nCzy jako brygadzista zatwierdzasz wyjątek?",
+                        parent=win,
+                    ):
+                        return
+                    from tkinter import simpledialog
+                    reason = simpledialog.askstring(
+                        "Przyczyna wyjątku",
+                        "Podaj powód przekroczenia salda urlopu:",
+                        parent=win,
+                    ) or ""
+                    if not reason.strip():
+                        raise ValueError("Wyjątek anulowany: brak przyczyny.")
             _replace_absence_for_day(
                 login,
                 day_var.get(),
-                final._actor(owner),
+                actor,
                 absence_var.get(),
                 note,
                 attendance_slot=slot_var.get(),
                 source_slot=original_slot,
+                override_reason=reason,
             )
         except Exception as exc:
             messagebox.showerror(
