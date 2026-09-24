@@ -201,7 +201,7 @@ def semi_shortages_for_completion(order: dict, new_product_done: float) -> list[
     return shortages
 
 
-def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system"):
+def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system", *, transfer_surplus=False):
     """Zapisz łączny postęp wykonania jednego półproduktu w zleceniu."""
     import zlecenia_logika as ZL
 
@@ -232,7 +232,7 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system")
             f"maksymalnie {_fmt(max_to_make)} szt. Włącz w danych zlecenia opcję "
             "nadprodukcji, aby nadwyżka trafiła do Magazynu."
         )
-    if abs(new - old) <= _EPS:
+    if abs(new - old) <= _EPS and not transfer_surplus:
         return order
 
     credited_map = dict(order.get("nadprodukcja_polproduktow_zaksiegowana") or {})
@@ -242,7 +242,7 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system")
 
     warehouse_snapshot = None
     order_snapshot = None
-    if surplus_delta > _EPS:
+    if surplus_delta > _EPS and transfer_surplus:
         import logika_magazyn as LM
         import planista_audit_runtime as PAR
         import zlecenia_progress as ZP
@@ -296,15 +296,16 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system")
         order["wykonano_polprodukty"] = progress
         if new > 0 and _f(order.get("wykonano")) <= _EPS and str(order.get("status") or "") == "nowe":
             order["status"] = "w przygotowaniu"
-        order.setdefault("historia", []).append(
-            {
-                "kiedy": datetime.now().isoformat(timespec="seconds"),
-                "kto": kto,
-                "co": f"półprodukt {code}: wykonano -> {_fmt(new)}",
-            }
-        )
-        if surplus_delta > _EPS:
-            order["historia"].append(
+        if new > old + _EPS:
+            order.setdefault("historia", []).append(
+                {
+                    "kiedy": datetime.now().isoformat(timespec="seconds"),
+                    "kto": kto,
+                    "co": f"półprodukt {code}: wykonano -> {_fmt(new)}",
+                }
+            )
+        if surplus_delta > _EPS and transfer_surplus:
+            order.setdefault("historia", []).append(
                 {
                     "kiedy": datetime.now().isoformat(timespec="seconds"),
                     "kto": kto,
@@ -320,6 +321,33 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system")
             PAR._restore_file(path, order_snapshot)
         raise
     return order
+
+
+def pending_semi_surplus(order: dict, code: str) -> float:
+    """Reported surplus not yet posted to warehouse; safe to inspect repeatedly."""
+    targets = _full_semi_targets(order)
+    record = targets.get(str(code))
+    if not record:
+        return 0.0
+    baseline = _preview_stock_baseline(order, targets)
+    expected = max(0.0, _f(record.get("potrzeba")) - _f(baseline.get(str(code))))
+    produced = max(0.0, _f((order.get("wykonano_polprodukty") or {}).get(str(code))))
+    booked = max(0.0, _f((order.get("nadprodukcja_polproduktow_zaksiegowana") or {}).get(str(code))))
+    return max(0.0, produced - expected - booked)
+
+
+def transfer_polprodukt_surplus(zlec_id, code, kto="system"):
+    """Explicit user-approved warehouse transfer, using existing one-time ledger."""
+    import zlecenia_logika as ZL
+    order = ZL._read_json(ZL._order_path(zlec_id))
+    if not order.get("zezwol_nadprodukcja"):
+        raise ValueError("To zlecenie nie zezwala na nadprodukcję.")
+    if pending_semi_surplus(order, code) <= _EPS:
+        return order
+    current = _f((order.get("wykonano_polprodukty") or {}).get(str(code)))
+    return report_polprodukt_wykonano(
+        zlec_id, code, current, kto=kto, transfer_surplus=True
+    )
 
 
 def _semi_product_links(model) -> dict[str, list[str]]:
@@ -637,6 +665,8 @@ __all__ = [
     "install_planista_semi_progress_runtime",
     "report_polprodukt_wykonano",
     "semi_progress_rows",
+    "pending_semi_surplus",
+    "transfer_polprodukt_surplus",
     "proposed_product_completion",
     "semi_shortages_for_completion",
     "_full_semi_targets",
