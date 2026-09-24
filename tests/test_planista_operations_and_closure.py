@@ -175,3 +175,45 @@ def test_legacy_material_posting_cannot_be_consumed_twice(monkeypatch):
     monkeypatch.setattr(ZL, "_read_json", lambda _path: dict(order))
     with pytest.raises(ValueError, match="starsze zlecenie"):
         ZP.rozlicz_material("000020", kto="Edwin")
+
+
+def test_concurrent_semi_progress_keeps_highest_cumulative_quantity(monkeypatch, tmp_path):
+    """Two WM/WMM requests for one order cannot overwrite newer progress."""
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    order_path = tmp_path / "000125.json"
+    order_path.write_text(json.dumps({
+        "id": "000125", "produkt": "P", "ilosc": 10, "wykonano": 0,
+        "status": "nowe", "historia": [],
+        "plan_polprodukty": {"A": {"potrzeba": 10, "z_magazynu": 0}},
+    }), encoding="utf-8")
+    monkeypatch.setattr(PS, "_full_semi_targets", lambda _order: {
+        "A": {"potrzeba": 10, "czynnosci": []}
+    })
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: order_path)
+    monkeypatch.setattr(
+        ZL, "_read_json",
+        lambda path: json.loads(Path(path).read_text(encoding="utf-8")),
+    )
+    monkeypatch.setattr(
+        ZL, "_write_json",
+        lambda path, value: Path(path).write_text(
+            json.dumps(value, ensure_ascii=False), encoding="utf-8"
+        ),
+    )
+
+    gate = Barrier(2)
+    def report(value):
+        gate.wait()
+        try:
+            PS.report_polprodukt_wykonano("000125", "A", value)
+        except ValueError as exc:
+            assert "zmniejszyć" in str(exc)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(report, (1, 2)))
+    saved = json.loads(order_path.read_text(encoding="utf-8"))
+    assert saved["wykonano_polprodukty"]["A"] == 2
+    assert saved["wykonano"] == 0
