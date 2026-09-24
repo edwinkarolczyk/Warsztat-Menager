@@ -94,11 +94,57 @@ if not getattr(_impl, "_WM10_TOOL_FILE_GUARD", False):
 
 
 if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
-    _original_create_planista_order = _impl._create_planista_order
-
     def _guarded_create_planista_order(payload, author):
-        with order_create_lock(_impl._data_dir()):
-            return _original_create_planista_order(payload, author)
+        """WMM and desktop must create identical BOM/reservation/disposition data."""
+        from math import isfinite
+        import zlecenia_logika as ZL
+
+        data_root = _impl._data_dir().resolve()
+        if ZL._data_dir().resolve() != data_root:
+            raise RuntimeError(
+                "WM i WMM wskazują różne katalogi danych. Nie utworzono zlecenia."
+            )
+        product_code = str(payload.get("product_code") or "").strip()
+        products = {
+            str(item.get("kod") or ""): item
+            for item in _impl._planista_products()
+        }
+        if product_code not in products:
+            raise RuntimeError(f"Brak produktu WM: {product_code}")
+        try:
+            quantity = float(payload.get("quantity"))
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError("Ilość musi być liczbą.") from exc
+        if not isfinite(quantity) or quantity <= 0:
+            raise RuntimeError("Ilość musi być dodatnią, skończoną liczbą.")
+        external_no = str(payload.get("external_no") or "").strip()
+
+        def create():
+            if external_no:
+                for row in ZL.list_zlecenia():
+                    if (str(row.get("zlec_wew") or "").strip().casefold() == external_no.casefold()
+                        and str(row.get("produkt") or "").strip().casefold() == product_code.casefold()):
+                        raise RuntimeError(
+                            "Istnieje już zlecenie z tym samym Zleceniem wew i Produktem."
+                        )
+            order, _shortages = ZL.create_zlecenie(
+                product_code, quantity,
+                uwagi=str(payload.get("notes") or ""),
+                autor=str(author or "system"),
+                zlec_wew=external_no or None,
+                reserve=True,
+                version=products[product_code].get("version"),
+                termin=str(payload.get("due_date") or "").strip(),
+                auto_dyspozycje=True,
+            )
+            return order
+
+        # The desktop runtime already holds order_create_lock inside the
+        # canonical transaction. Never acquire the same non-reentrant lock twice.
+        if getattr(ZL.create_zlecenie, "_wm_full_transaction", False):
+            return create()
+        with order_create_lock(data_root):
+            return create()
 
     _impl._create_planista_order = _guarded_create_planista_order
     _impl._WM10_ORDER_CREATE_GUARD = True
