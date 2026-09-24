@@ -265,7 +265,6 @@ def require_paid_leave_balance(
     for year, days in by_year.items():
         bal = get_balance(login, year)
         available = float(bal.get("remaining") or 0) - float(bal.get("pending") or 0)
-        available += sum(1 for day in old_paid if day.startswith(f"{year:04d}-"))
         available += sum(1 for day in ignored_pending if day.startswith(f"{year:04d}-"))
         required = sum(1 for day in days if day not in old_paid)
         if required > available + 1e-9:
