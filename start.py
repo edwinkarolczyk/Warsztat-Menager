@@ -1156,6 +1156,7 @@ def main():
         print("[JARVIS] init skipped:", exc)
 
     # === GUI start ===
+    wm_background = None
     try:
         _wm_startup_checkpoint("BEFORE_TK_CREATE")
         root = tk.Tk()
@@ -1264,10 +1265,32 @@ def main():
         except Exception:
             pass
 
-        # Jeśli login screen nie przełącza do main panelu sam (callback nieużyty),
-        # to po prostu zostawiamy pętlę główną jak dotąd:
+        # Start the same WM process as an always-on WMM API host.
+        # Install only after ROOT bootstrap and final root selection.
+        try:
+            from services.wm_tray_runtime import install_wm_background
+            wm_background = install_wm_background(root)
+            _wm_startup_checkpoint(
+                "WMM_API_TRAY_READY", api=wm_background.api_started,
+                tray=wm_background.icon is not None,
+            )
+        except Exception as exc:
+            _error(f"[WMM] Nie udało się zainstalować pracy w tle: {exc}")
+            try:
+                messagebox.showwarning(
+                    "WM — WMM",
+                    "API lub ikona obok zegara nie uruchomiły się. "
+                    "WMM może nie mieć połączenia. Szczegóły są w logu.",
+                    parent=root,
+                )
+            except Exception:
+                pass
+
+        # Normal window close hides WM; explicit Exit ends mainloop and API.
         _wm_startup_checkpoint("BEFORE_MAINLOOP")
         root.mainloop()
+        if wm_background is not None:
+            wm_background.shutdown()
 
         if jarvis_stop_fn:
             try:
@@ -1276,6 +1299,8 @@ def main():
                 pass
 
     except Exception as e:
+        if wm_background is not None:
+            wm_background.shutdown()
         traceback.print_exc()
         _error(f"Błąd startu GUI:\n{traceback.format_exc()}")
         show_startup_error(e)
