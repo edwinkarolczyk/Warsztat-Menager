@@ -932,14 +932,16 @@ def _install_order_editor() -> None:
         ).pack(side="left", padx=(6, 0))
 
         semi_tree.bind("<<TreeviewSelect>>", on_semi_select)
-        ttk.Button(semi_edit, text="Zapisz ilość", command=save_semi_target).pack(side="left", padx=(6, 4))
+        ttk.Button(semi_edit, text="Zapisz plan", command=save_semi_target).pack(side="left", padx=(6, 4))
         add_help_button(
             semi_edit,
             "Zmienia docelową ilość zaznaczonego półproduktu i ponownie przelicza zapotrzebowanie.",
             command_only=False,
         ).pack(side="left", padx=(0, 14))
-        ttk.Button(semi_edit, text="Zapisz postęp", command=save_semi_done).pack(side="left", padx=(6, 4))
-        ttk.Button(semi_edit, text="Przekaż nadwyżkę", command=transfer_pending_semi).pack(side="left", padx=(6, 4))
+        manual_save_button = ttk.Button(semi_edit, text="Zapisz wykonanie półproduktu", command=save_semi_done)
+        manual_save_button.pack(side="left", padx=(6, 4))
+        surplus_button = ttk.Button(semi_edit, text="Przekaż nadwyżkę", command=transfer_pending_semi)
+        surplus_button.pack(side="left", padx=(6, 4))
         add_help_button(
             semi_edit,
             "Zapisuje łączny postęp. Przy nadwyżce pyta osobno o jej przekazanie; odmowa zachowuje ją przy zleceniu.",
