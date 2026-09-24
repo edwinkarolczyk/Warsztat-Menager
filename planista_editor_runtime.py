@@ -826,9 +826,11 @@ def _install_order_editor() -> None:
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
 
-        ttk.Button(
-            operation_frame, text="Zapisz operację", command=save_operation,
-        ).pack(side="left", padx=(6, 0))
+        operation_save_button = ttk.Button(
+            operation_frame, text="Zapisz wykonanie operacji",
+            command=save_operation,
+        )
+        operation_save_button.pack(side="left", padx=(6, 0))
 
         def save_semi_target():
             nonlocal order
