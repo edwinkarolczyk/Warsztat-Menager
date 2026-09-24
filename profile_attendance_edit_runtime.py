@@ -272,7 +272,7 @@ def _sync_attendance_choice(
     return dict(rec)
 
 
-def _replace_absence_for_day(
+def _replace_absence_for_day_unlocked(
     login: str,
     day_text: str,
     actor_login: str,
@@ -409,6 +409,30 @@ def _replace_absence_for_day(
                 pass
         raise
     return code
+
+
+
+def _replace_absence_for_day(
+    login: str,
+    day_text: str,
+    actor_login: str,
+    choice: str,
+    note: str,
+    *,
+    attendance_slot: str,
+    source_slot: str | None = None,
+    override_reason: str = "",
+) -> str:
+    """Serialize paid leave validation and attendance/leave write together."""
+    args = (login, day_text, actor_login, choice, note)
+    kwargs = {
+        "attendance_slot": attendance_slot, "source_slot": source_slot,
+        "override_reason": override_reason,
+    }
+    if _normalize_absence_choice(choice) in {"UR", "UŻ"}:
+        with leave_workflow_service.paid_leave_write_transaction():
+            return _replace_absence_for_day_unlocked(*args, **kwargs)
+    return _replace_absence_for_day_unlocked(*args, **kwargs)
 
 
 def _install_absence_label_bridge() -> None:
