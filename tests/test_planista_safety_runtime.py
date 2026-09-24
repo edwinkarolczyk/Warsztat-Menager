@@ -36,6 +36,43 @@ def test_reservation_state_no_need_is_not_a_shortage():
     assert PSR._reservation_state({}) == (True, "nie dotyczy")
 
 
+def test_safe_replan_forwards_pending_snapshot(monkeypatch):
+    import zlecenia_progress as ZP
+
+    seen = {}
+    marker = {"ilosc": 3.0, "polprodukty": {}, "surowce": {}}
+
+    def base_replan(order, kto="system", pending_snapshot=None):
+        seen["kto"] = kto
+        seen["pending_snapshot"] = pending_snapshot
+        return order
+
+    monkeypatch.setattr(PSR, "_sync_bom_root", lambda: None)
+    monkeypatch.setattr(ZL, "build_production_plan", lambda *_a, **_k: ({}, {}))
+    monkeypatch.setattr(ZL, "_release_reservations", lambda *_a, **_k: None)
+    monkeypatch.setattr(PTR, "_warehouse_snapshot", lambda: {})
+    monkeypatch.setattr(PTR, "_restore_warehouse", lambda *_a, **_k: None)
+    monkeypatch.setattr(ZP, "_replan_remaining", base_replan)
+    # Instalatory przepinają również publiczne wejścia. Zapisanie ich przez
+    # monkeypatch zapewnia pełne odtworzenie modułów po tym teście.
+    for module, name in (
+        (ZP, "report_wykonano"),
+        (ZP, "rozlicz_material"),
+        (ZL, "update_zlecenie"),
+        (ZL, "report_wykonano"),
+        (ZL, "rozlicz_material"),
+        (ZL, "create_zlecenie"),
+    ):
+        monkeypatch.setattr(module, name, getattr(module, name))
+
+    PSR._install_progress_guard()
+    PTR.install_planista_transaction_runtime()
+    order = {"id": "1", "produkt": "P", "ilosc": 0, "wykonano": 0}
+    ZP._replan_remaining(order, "Edwin", pending_snapshot=marker)
+
+    assert seen == {"kto": "Edwin", "pending_snapshot": marker}
+
+
 def test_product_version_archive_name_and_suggestion_are_stable():
     assert _archive_name("1.775/250", "1.0") == "1.775_250__v1.0.json"
     assert _suggest_next_version("1.0") == "1.1"
@@ -140,6 +177,7 @@ def test_planista_editor_exposes_requested_actions():
     assert 'text="Realizacja"' in text
     assert 'text="Półprodukty"' in text
     assert 'text="Zapotrzebowanie"' in text
+    assert "Zezwól na nadprodukcję i przyjmij nadwyżkę do Magazynu" in text
     assert 'text="Usuń zlecenie"' in text
     assert 'text="Drukuj"' in text
     assert 'text="Zapisz zmianę"' in text

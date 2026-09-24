@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_safety_runtime.py
-# version: 1.1
+# version: 1.2
 """Spójność danych i bezpieczne zachowanie modułu Planista.
 
 Warstwa runtime utrzymuje poprawki w jednym miejscu bez dublowania logiki kartotek.
@@ -121,7 +121,7 @@ def _install_progress_guard() -> None:
     if not getattr(ZP._replan_remaining, "_wm_safe_replan", False):
         original_replan = ZP._replan_remaining
 
-        def safe_replan(order, kto="system"):
+        def safe_replan(order, kto="system", pending_snapshot=None):
             # Najpierw sprawdź, czy BOM w ogóle daje się rozwinąć, zanim zwolnimy
             # istniejące rezerwacje tego zlecenia.
             _sync_bom_root()
@@ -138,7 +138,11 @@ def _install_progress_guard() -> None:
             old_raw = dict(order.get("rezerwacje_surowce") or {})
             snapshot = copy.deepcopy(order)
             try:
-                result = original_replan(order, kto)
+                result = original_replan(
+                    order,
+                    kto,
+                    pending_snapshot=pending_snapshot,
+                )
                 return _set_reservation_state(result)
             except Exception:
                 order.clear()

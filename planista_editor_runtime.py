@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_editor_runtime.py
-# version: 1.1
+# version: 1.2
+# 1.2: opcja kontrolowanej nadprodukcji przy dodawaniu i edycji zlecenia.
 # 1.1: jeden edytor zlecenia po dwukliku: dane, realizacja, półprodukty, zapotrzebowanie, druk i usuwanie.
 """Dodawanie/edycja zleceń oraz edycja słowników Planisty."""
 from __future__ import annotations
@@ -61,6 +62,7 @@ def _install_order_editor() -> None:
         internal = tk.StringVar()
         notes = tk.StringVar()
         reserve = tk.BooleanVar(value=True)
+        allow_overproduction = tk.BooleanVar(value=False)
 
         labels = (
             ("Produkt", 0),
@@ -87,6 +89,18 @@ def _install_order_editor() -> None:
         ttk.Entry(frm, textvariable=notes).grid(row=5, column=1, sticky="ew", pady=3)
         ttk.Checkbutton(frm, text="Rezerwuj dostępny materiał", variable=reserve).grid(row=6, column=0, columnspan=2, sticky="w", pady=(6, 3))
         add_help_button(frm, "Po zapisaniu WM zarezerwuje dostępne półprodukty i surowce dla tego zlecenia. Braki pozostaną widoczne jako zapotrzebowanie.", row=6, column=2, padx=(4, 0))
+        ttk.Checkbutton(
+            frm,
+            text="Zezwól na nadprodukcję i przyjmij nadwyżkę do Magazynu",
+            variable=allow_overproduction,
+        ).grid(row=7, column=0, columnspan=2, sticky="w", pady=3)
+        add_help_button(
+            frm,
+            "Pozwala zgłosić więcej niż ilość zlecenia. Nadwyżka półproduktu lub gotowego produktu zostanie rozliczona i dopisana do odpowiedniej karty Magazynu.",
+            row=7,
+            column=2,
+            padx=(4, 0),
+        )
 
         def save():
             rec = by_display.get(product.get().strip())
@@ -110,6 +124,7 @@ def _install_order_editor() -> None:
                     version=rec.get("version"),
                     termin=GPP._iso_date(term.get()),
                     rzaz_mm=cut_value,
+                    allow_overproduction=bool(allow_overproduction.get()),
                 )
             except Exception as exc:
                 messagebox.showerror("Dodaj zlecenie", str(exc), parent=dlg)
@@ -118,7 +133,7 @@ def _install_order_editor() -> None:
             self.refresh()
 
         buttons = ttk.Frame(frm)
-        buttons.grid(row=7, column=0, columnspan=3, sticky="e", pady=(10, 0))
+        buttons.grid(row=8, column=0, columnspan=3, sticky="e", pady=(10, 0))
         ttk.Button(buttons, text="Anuluj", command=dlg.destroy).pack(side="right")
         ttk.Button(buttons, text="Dodaj zlecenie", command=save).pack(side="right", padx=(0, 6))
         frm.columnconfigure(1, weight=1)
@@ -207,6 +222,7 @@ def _install_order_editor() -> None:
         done_total_var = tk.StringVar()
         remaining_var = tk.StringVar()
         done_input = tk.StringVar()
+        allow_overproduction = tk.BooleanVar(value=False)
 
         basic_tab.columnconfigure(1, weight=1)
         ttk.Label(basic_tab, text="Zlecenie warsztatowe").grid(row=0, column=0, sticky="w", pady=4)
@@ -272,6 +288,19 @@ def _install_order_editor() -> None:
 
         ttk.Label(basic_tab, text="Status").grid(row=8, column=0, sticky="w", pady=4)
         ttk.Label(basic_tab, textvariable=status_var).grid(row=8, column=1, sticky="w", pady=4)
+
+        ttk.Checkbutton(
+            basic_tab,
+            text="Zezwól na nadprodukcję i przyjmij nadwyżkę do Magazynu",
+            variable=allow_overproduction,
+        ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(8, 4))
+        add_help_button(
+            basic_tab,
+            "Po włączeniu WM pozwoli zgłosić nadwyżkę. Rozliczona nadwyżka trafi do karty półproduktu albo gotowego produktu w Magazynie.",
+            row=9,
+            column=2,
+            padx=(6, 0),
+        )
 
         ttk.Label(realization_tab, text="Zamówiono", font=("Arial", 10, "bold")).grid(
             row=0, column=0, sticky="w", padx=(0, 40)
@@ -445,6 +474,7 @@ def _install_order_editor() -> None:
                 cut.set(_fmt(order.get("rzaz_mm", ZL.DEFAULT_CUT_MM)))
                 internal.set(str(order.get("zlec_wew") or ""))
                 notes.set(str(order.get("uwagi") or ""))
+                allow_overproduction.set(bool(order.get("zezwol_nadprodukcja")))
 
             ordered_var.set(_fmt(qty_value))
             done_total_var.set(_fmt(done_value))
@@ -489,6 +519,7 @@ def _install_order_editor() -> None:
                     rzaz_mm=cut_value,
                     zlec_wew=internal.get().strip(),
                     uwagi=notes.get().strip(),
+                    allow_overproduction=bool(allow_overproduction.get()),
                     kto=self.login or "system",
                 )
             except Exception as exc:
@@ -661,7 +692,7 @@ def _install_order_editor() -> None:
         ttk.Button(semi_edit, text="Zapisz postęp", command=save_semi_done).pack(side="left", padx=(6, 4))
         add_help_button(
             semi_edit,
-            "Zapisuje łączną wykonaną ilość zaznaczonego półproduktu. Nie można zmniejszyć już zgłoszonego postępu.",
+            "Zapisuje łączną wykonaną ilość zaznaczonego półproduktu. Nie można zmniejszyć już zgłoszonego postępu. Jeżeli zlecenie zezwala na nadprodukcję, nadwyżka zużyje wolny surowiec i od razu trafi do Magazynu.",
             command_only=False,
         ).pack(side="left")
 

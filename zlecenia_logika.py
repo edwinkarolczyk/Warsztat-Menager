@@ -1,6 +1,8 @@
 # =============================
 # FILE: zlecenia_logika.py
-# version: 2.0.2
+# version: 2.0.3
+# Zmiany 2.0.3:
+# - zlecenie może jawnie zezwolić na nadprodukcję rozliczaną do Magazynu.
 # Zmiany 2.0.2:
 # - usunięcie zlecenia zwalnia jego rezerwacje i usuwa powiązane Dyspozycje.
 # Zmiany 2.0.1:
@@ -266,7 +268,20 @@ def _sync_material_dispositions(order, autor="system"):
     return [x for x in created if x]
 
 
-def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system", zlec_wew=None, reserve: bool = True, version=None, termin: str = "", rzaz_mm: float = DEFAULT_CUT_MM, overrides=None, auto_dyspozycje: bool = True):
+def create_zlecenie(
+    kod_produktu,
+    ilosc,
+    uwagi: str = "",
+    autor: str = "system",
+    zlec_wew=None,
+    reserve: bool = True,
+    version=None,
+    termin: str = "",
+    rzaz_mm: float = DEFAULT_CUT_MM,
+    overrides=None,
+    auto_dyspozycje: bool = True,
+    allow_overproduction: bool = False,
+):
     _ensure_dirs()
     ilosc, rzaz_mm = float(ilosc), max(0.0, float(rzaz_mm))
     plan_pp, bom_sr = build_production_plan(kod_produktu, ilosc, cut_mm=rzaz_mm, version=version, overrides=overrides)
@@ -275,7 +290,7 @@ def create_zlecenie(kod_produktu, ilosc, uwagi: str = "", autor: str = "system",
     if reserve:
         reserved_pp = _reserve_semis(plan_pp, autor, f"zlecenie:{zlec_id}")
         _updated, reserved_raw = reserve_materials(bom_sr, 1, user=autor, context=f"zlecenie:{zlec_id}", with_reserved=True)
-    zlec = {"id": zlec_id, "produkt": kod_produktu, "ilosc": ilosc, "wykonano": 0.0, "status": "nowe", "termin": str(termin or ""), "rzaz_mm": rzaz_mm, "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "uwagi": uwagi, "plan_polprodukty": plan_pp, "zapotrzebowanie_surowce": bom_sr, "rezerwacje_polprodukty": reserved_pp, "rezerwacje_surowce": reserved_raw, "materialy_zarezerwowane": bool(reserve), "historia": [{"kiedy": datetime.now().isoformat(timespec="seconds"), "kto": autor, "co": "utworzenie"}]}
+    zlec = {"id": zlec_id, "produkt": kod_produktu, "ilosc": ilosc, "wykonano": 0.0, "status": "nowe", "termin": str(termin or ""), "rzaz_mm": rzaz_mm, "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "uwagi": uwagi, "plan_polprodukty": plan_pp, "zapotrzebowanie_surowce": bom_sr, "rezerwacje_polprodukty": reserved_pp, "rezerwacje_surowce": reserved_raw, "materialy_zarezerwowane": bool(reserve), "zezwol_nadprodukcja": bool(allow_overproduction), "historia": [{"kiedy": datetime.now().isoformat(timespec="seconds"), "kto": autor, "co": "utworzenie"}]}
     if version is not None:
         zlec["version"] = version
     if zlec_wew not in (None, ""):

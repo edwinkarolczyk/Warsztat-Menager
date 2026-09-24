@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 
 import bom
+import logika_magazyn as LM
+import planista_audit_runtime as PAR
+import zlecenia_progress as ZP
 import zlecenia_logika as ZL
 from planista_semi_progress_runtime import (
     _guard_quantity_change,
@@ -84,6 +87,67 @@ def test_reporting_semi_progress_is_cumulative_and_saved(monkeypatch):
     assert result["sledzenie_polproduktow"] is True
     assert result["status"] == "w przygotowaniu"
     assert written["wykonano_polprodukty"]["POL-001"] == 3
+
+
+def test_allowed_semi_overproduction_consumes_raw_and_credits_surplus_once(monkeypatch):
+    monkeypatch.setattr(bom, "compute_bom_for_prd", _fake_bom)
+    order = {
+        "id": "000001",
+        "produkt": "PRD-1",
+        "ilosc": 10,
+        "wykonano": 0,
+        "status": "nowe",
+        "rzaz_mm": 0,
+        "zezwol_nadprodukcja": True,
+        "plan_polprodukty": {
+            "POL-001": {"nazwa": "Zbijak 90 mm", "potrzeba": 10, "z_magazynu": 2}
+        },
+        "historia": [],
+    }
+    state = {
+        "SUR-1": {"stan": 10.0, "rezerwacje": 0.0},
+        "POL-001": {"stan": 0.0, "rezerwacje": 0.0, "typ": "półprodukt"},
+    }
+    written = {}
+    returns = []
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: Path("000001.json"))
+    monkeypatch.setattr(ZL, "_read_json", lambda _path: order)
+    monkeypatch.setattr(ZL, "_write_json", lambda _path, data: written.update(data))
+    monkeypatch.setattr(
+        ZL,
+        "_raw_need_for_pp",
+        lambda _code, qty, _cut: {"SUR-1": {"ilosc": float(qty) * 5.0}},
+    )
+    monkeypatch.setattr(LM, "get_item", lambda code: state.get(code))
+    monkeypatch.setattr(
+        LM,
+        "zuzyj",
+        lambda code, amount, *_a, **_k: state[code].__setitem__(
+            "stan", state[code]["stan"] - amount
+        ),
+    )
+
+    def give_back(code, amount, *_a, **_k):
+        returns.append((code, amount))
+        state[code]["stan"] += amount
+
+    monkeypatch.setattr(LM, "zwrot", give_back)
+    monkeypatch.setattr(ZP, "_ensure_semi_item", lambda _code: state["POL-001"])
+    monkeypatch.setattr(PAR, "_canonical_warehouse_snapshot", lambda: {})
+    monkeypatch.setattr(PAR, "_file_snapshot", lambda _path: (False, b""))
+    monkeypatch.setattr(PAR, "_restore_canonical_warehouse", lambda _data: None)
+    monkeypatch.setattr(PAR, "_restore_file", lambda *_a: None)
+
+    result = report_polprodukt_wykonano("000001", "POL-001", 10, kto="Edwin")
+
+    # Plan przewidywał wykonanie 8 (2 szt. były z magazynu), więc 2 są nadwyżką.
+    assert state["SUR-1"]["stan"] == pytest.approx(0.0)
+    assert state["POL-001"]["stan"] == pytest.approx(2.0)
+    assert result["nadprodukcja_polproduktow_zaksiegowana"]["POL-001"] == pytest.approx(2.0)
+    assert returns == [("POL-001", pytest.approx(2.0))]
+
+    report_polprodukt_wykonano("000001", "POL-001", 10, kto="Edwin")
+    assert returns == [("POL-001", pytest.approx(2.0))]
 
 
 def test_quantity_cannot_drop_below_reported_semi_progress(monkeypatch):

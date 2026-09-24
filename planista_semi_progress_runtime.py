@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_semi_progress_runtime.py
-# version: 1.1
+# version: 1.2
+# 1.2: kontrolowana nadprodukcja półproduktu trafia do Magazynu z rozliczeniem surowca.
 # 1.1: postęp półproduktów pozostaje w backendzie, a przycisk przeniesiono do wspólnego edytora zlecenia.
 """Postęp półproduktów w zleceniu oraz powiązania Półprodukt -> Produkt."""
 from __future__ import annotations
@@ -174,26 +175,100 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system")
         raise ValueError("Nie można zmniejszyć już zgłoszonej ilości półproduktu.")
     if new < 0:
         raise ValueError("Wykonana ilość półproduktu nie może być ujemna.")
-    if new > max_to_make + _EPS:
+    allow_overproduction = bool(order.get("zezwol_nadprodukcja"))
+    if new > max_to_make + _EPS and not allow_overproduction:
         raise ValueError(
             f"Dla półproduktu {targets[code].get('nazwa') or code} plan przewiduje do wykonania "
-            f"maksymalnie {_fmt(max_to_make)} szt. Pozostała część jest pokryta z magazynu."
+            f"maksymalnie {_fmt(max_to_make)} szt. Włącz w danych zlecenia opcję "
+            "nadprodukcji, aby nadwyżka trafiła do Magazynu."
         )
     if abs(new - old) <= _EPS:
         return order
 
-    progress[code] = new
-    order["wykonano_polprodukty"] = progress
-    if new > 0 and _f(order.get("wykonano")) <= _EPS and str(order.get("status") or "") == "nowe":
-        order["status"] = "w przygotowaniu"
-    order.setdefault("historia", []).append(
-        {
-            "kiedy": datetime.now().isoformat(timespec="seconds"),
-            "kto": kto,
-            "co": f"półprodukt {code}: wykonano -> {_fmt(new)}",
-        }
-    )
-    ZL._write_json(path, order)
+    credited_map = dict(order.get("nadprodukcja_polproduktow_zaksiegowana") or {})
+    credited = max(0.0, _f(credited_map.get(code)))
+    surplus_target = max(0.0, new - max_to_make)
+    surplus_delta = max(0.0, surplus_target - credited)
+
+    warehouse_snapshot = None
+    order_snapshot = None
+    if surplus_delta > _EPS:
+        import logika_magazyn as LM
+        import planista_audit_runtime as PAR
+        import zlecenia_progress as ZP
+
+        raw = ZL._raw_need_for_pp(
+            code,
+            surplus_delta,
+            float(order.get("rzaz_mm", ZL.DEFAULT_CUT_MM) or 0),
+        )
+        shortages = []
+        for raw_code, rec in raw.items():
+            amount = _f(rec.get("ilosc"))
+            item = LM.get_item(raw_code) or {}
+            free = max(0.0, _f(item.get("stan")) - _f(item.get("rezerwacje")))
+            if free + _EPS < amount:
+                shortages.append(f"{raw_code}: potrzeba {_fmt(amount)}, wolne {_fmt(free)}")
+        if shortages:
+            raise ValueError(
+                "Nie można przyjąć nadwyżki półproduktu — brakuje wolnego surowca:\n"
+                + "\n".join(shortages)
+            )
+
+        warehouse_snapshot = PAR._canonical_warehouse_snapshot()
+        order_snapshot = PAR._file_snapshot(path)
+        try:
+            for raw_code, rec in raw.items():
+                amount = _f(rec.get("ilosc"))
+                if amount > _EPS:
+                    LM.zuzyj(
+                        raw_code,
+                        amount,
+                        kto,
+                        kontekst=f"nadprodukcja-polproduktu:{zlec_id}:{code}",
+                    )
+            ZP._ensure_semi_item(code)
+            LM.zwrot(
+                code,
+                surplus_delta,
+                kto,
+                kontekst=f"nadprodukcja-polproduktu:{zlec_id}",
+            )
+            credited_map[code] = credited + surplus_delta
+            order["nadprodukcja_polproduktow_zaksiegowana"] = credited_map
+        except Exception:
+            PAR._restore_canonical_warehouse(warehouse_snapshot)
+            PAR._restore_file(path, order_snapshot)
+            raise
+
+    try:
+        progress[code] = new
+        order["wykonano_polprodukty"] = progress
+        if new > 0 and _f(order.get("wykonano")) <= _EPS and str(order.get("status") or "") == "nowe":
+            order["status"] = "w przygotowaniu"
+        order.setdefault("historia", []).append(
+            {
+                "kiedy": datetime.now().isoformat(timespec="seconds"),
+                "kto": kto,
+                "co": f"półprodukt {code}: wykonano -> {_fmt(new)}",
+            }
+        )
+        if surplus_delta > _EPS:
+            order["historia"].append(
+                {
+                    "kiedy": datetime.now().isoformat(timespec="seconds"),
+                    "kto": kto,
+                    "co": f"nadprodukcja półproduktu {code} -> Magazyn ({_fmt(surplus_delta)} szt.)",
+                }
+            )
+        ZL._write_json(path, order)
+    except Exception:
+        if warehouse_snapshot is not None:
+            import planista_audit_runtime as PAR
+
+            PAR._restore_canonical_warehouse(warehouse_snapshot)
+            PAR._restore_file(path, order_snapshot)
+        raise
     return order
 
 

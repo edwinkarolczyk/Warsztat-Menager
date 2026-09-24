@@ -3,6 +3,7 @@
 # version: 1.0
 
 import types
+from pathlib import Path
 
 import pytest
 
@@ -92,8 +93,97 @@ def test_report_done_rejects_value_above_order_quantity(monkeypatch):
     monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
     monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
 
-    with pytest.raises(ValueError, match="Najpierw zwiększ ilość"):
+    with pytest.raises(ValueError, match="opcję nadprodukcji"):
         zp.report_wykonano("000001", 31, kto="Edwin")
+
+
+def test_created_order_persists_overproduction_decision(monkeypatch):
+    saved = {}
+    monkeypatch.setattr(zp.ZL, "_ensure_dirs", lambda: None)
+    monkeypatch.setattr(zp.ZL, "_next_id", lambda: "000001")
+    monkeypatch.setattr(zp.ZL, "build_production_plan", lambda *_a, **_k: ({}, {}))
+    monkeypatch.setattr(zp.ZL, "check_materials", lambda *_a, **_k: [])
+    monkeypatch.setattr(zp.ZL, "_write_json", lambda _path, data: saved.update(data))
+    monkeypatch.setattr(zp.ZL, "_orders_dir", lambda: Path("."))
+
+    create_order = zp.ZL.create_zlecenie
+    while hasattr(create_order, "_wm_original"):
+        create_order = create_order._wm_original
+    order, _ = create_order(
+        "PRD-1",
+        10,
+        reserve=False,
+        auto_dyspozycje=False,
+        allow_overproduction=True,
+    )
+
+    assert order["zezwol_nadprodukcja"] is True
+    assert saved["zezwol_nadprodukcja"] is True
+
+
+def test_allowed_overproduction_consumes_extra_material_and_credits_product_once(monkeypatch):
+    order = _base_order(
+        produkt="PRD-1",
+        ilosc=10.0,
+        wykonano=0.0,
+        pozostalo=10.0,
+        materialy_rozliczono_do=0.0,
+        zezwol_nadprodukcja=True,
+        rezerwacje_surowce={"SUR-1": 100.0},
+        zapotrzebowanie_surowce={"SUR-1": {"ilosc": 100.0, "jednostka": "mm"}},
+    )
+    state = {"SUR-1": {"stan": 120.0, "rezerwacje": 100.0, "typ": "surowiec"}}
+    returns = []
+
+    monkeypatch.setattr(zp.ZL, "_order_path", lambda _id: "dummy")
+    monkeypatch.setattr(zp.ZL, "_read_json", lambda _p: order)
+    monkeypatch.setattr(zp.ZL, "_write_json", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp.ZL, "_sync_execution_disposition", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp, "_sync_material_dispositions", lambda *_a, **_k: None)
+    monkeypatch.setattr(zp, "_replan_remaining", lambda obj, *_a, **_k: obj)
+    monkeypatch.setattr(
+        zp.ZL,
+        "build_production_plan",
+        lambda _product, amount, **_k: (
+            {},
+            {"SUR-1": {"ilosc": float(amount) * 10.0, "jednostka": "mm"}},
+        ),
+    )
+    monkeypatch.setattr(zp.ZL, "read_bom", lambda _code: {"nazwa": "Produkt testowy"})
+    monkeypatch.setattr(zp.LM, "get_item", lambda code: state.get(code))
+
+    def release(code, amount, *_a, **_k):
+        state[code]["rezerwacje"] -= amount
+
+    def consume(code, amount, *_a, **_k):
+        state[code]["stan"] -= amount
+
+    def upsert(item):
+        state[item["id"]] = dict(item)
+        return state[item["id"]]
+
+    def give_back(code, amount, *_a, **_k):
+        returns.append((code, amount))
+        state[code]["stan"] += amount
+
+    monkeypatch.setattr(zp.LM, "zwolnij_rezerwacje", release)
+    monkeypatch.setattr(zp.LM, "zuzyj", consume)
+    monkeypatch.setattr(zp.LM, "upsert_item", upsert)
+    monkeypatch.setattr(zp.LM, "zwrot", give_back)
+
+    reported = zp.report_wykonano("000001", 12, kto="Edwin")
+    assert reported["wykonano"] == 12
+    settled = zp.rozlicz_material("000001", kto="Edwin")
+
+    assert state["SUR-1"]["stan"] == pytest.approx(0.0)
+    assert state["SUR-1"]["rezerwacje"] == pytest.approx(0.0)
+    assert state["PRD-1"]["stan"] == pytest.approx(2.0)
+    assert state["PRD-1"]["typ"] == "produkt"
+    assert settled["nadprodukcja_wyrobu_zaksiegowana"] == pytest.approx(2.0)
+    assert returns == [("PRD-1", pytest.approx(2.0))]
+
+    zp.rozlicz_material("000001", kto="Edwin")
+    assert returns == [("PRD-1", pytest.approx(2.0))]
 
 
 def test_report_done_validates_all_stock_before_any_mutation(monkeypatch):

@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_transaction_runtime.py
-# version: 1.0
+# version: 1.1
 """Rollback magazynu dla wieloetapowych operacji Planisty."""
 from __future__ import annotations
 
@@ -27,11 +27,15 @@ def install_planista_transaction_runtime() -> None:
 
     current_replan = ZP._replan_remaining
     if not getattr(current_replan, "_wm_warehouse_transaction", False):
-        def transactional_replan(order, kto="system"):
+        def transactional_replan(order, kto="system", pending_snapshot=None):
             snapshot = _warehouse_snapshot()
             order_snapshot = copy.deepcopy(order)
             try:
-                return current_replan(order, kto)
+                return current_replan(
+                    order,
+                    kto,
+                    pending_snapshot=pending_snapshot,
+                )
             except Exception:
                 try:
                     _restore_warehouse(snapshot)

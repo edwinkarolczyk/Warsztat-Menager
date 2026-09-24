@@ -1,13 +1,13 @@
 # WM-VERSION: 0.1
 # Plik: zlecenia_progress.py
-# version: 1.1
+# version: 1.2
 # Bezpieczne rozliczanie postepu zlecen produkcyjnych.
 # 1.1:
 # - planowanie tylko pozostalej ilosci,
 # - nadprodukcja trafia do magazynu polproduktow tylko raz,
 # - rozliczenie wykonania nie zwalnia cudzych rezerwacji,
 # - walidacja stanow przed zuzyciem zapobiega czesciowemu rozliczeniu,
-# - wykonano nie moze przekroczyc ilosci zlecenia,
+# - kontrolowana nadprodukcja rozlicza dodatkowy materiał i gotowy produkt,
 # - nieaktualne dyspozycje brakow surowca sa wstrzymywane.
 
 from __future__ import annotations
@@ -48,7 +48,13 @@ def _pending_materials(order):
     done = _f(order.get("wykonano"))
     settled = _f(order.get("materialy_rozliczono_do"))
     already = _f((order.get("materialy_oczekujace") or {}).get("ilosc"))
-    pending = max(0.0, done - settled - already)
+    ordered = _f(order.get("ilosc"))
+    # Nadprodukcja nie należy do starego planu. Jej materiał jest liczony
+    # osobno podczas rozliczenia, więc migawka zachowuje tylko część zamówioną.
+    pending = max(
+        0.0,
+        min(done, ordered) - min(settled, ordered) - already,
+    )
     if pending <= 1e-9:
         return None
     plan_qty = _f(order.get("pozostalo", order.get("ilosc")))
@@ -133,6 +139,115 @@ def _ensure_semi_item(code):
     )
 
 
+def _ensure_product_item(order):
+    code = str(order.get("produkt") or "").strip()
+    if not code:
+        raise ValueError("Zlecenie nie ma przypisanego produktu.")
+    rec = LM.get_item(code)
+    if rec:
+        item_type = str(rec.get("typ") or "").strip().casefold()
+        if item_type and item_type not in {
+            "produkt", "produkty", "produkt gotowy", "wyrób", "wyrob",
+            "wyrób gotowy", "wyrob gotowy", "gotowy", "finished product",
+        }:
+            raise ValueError(
+                f"Pozycja {code} istnieje w Magazynie jako typ „{rec.get('typ')}”, "
+                "a nie jako produkt. Popraw kartę przed rozliczeniem nadprodukcji."
+            )
+        if not item_type:
+            payload = dict(rec)
+            payload.update(
+                {
+                    "id": code,
+                    "nazwa": rec.get("nazwa") or code,
+                    "typ": "produkt",
+                    "jednostka": rec.get("jednostka") or "szt",
+                }
+            )
+            return LM.upsert_item(payload)
+        return rec
+    try:
+        card = ZL.read_bom(code)
+    except Exception:
+        card = {}
+    return LM.upsert_item(
+        {
+            "id": code,
+            "nazwa": card.get("nazwa") or code,
+            "typ": "produkt",
+            "jednostka": "szt",
+            "stan": 0,
+            "min_poziom": 0,
+            "rezerwacje": 0,
+        }
+    )
+
+
+def _unreserved_consumption(order, quantity):
+    """Zapotrzebowanie dla nadwyżki, której pierwotny plan nie obejmował."""
+    if quantity <= 1e-9:
+        return {}, {}
+    plan, raw = ZL.build_production_plan(
+        order["produkt"],
+        quantity,
+        cut_mm=(
+            _f(order.get("rzaz_mm"))
+            if order.get("rzaz_mm") is not None
+            else ZL.DEFAULT_CUT_MM
+        ),
+        version=order.get("version"),
+    )
+    semis = {
+        str(code): _f(rec.get("z_magazynu"))
+        for code, rec in plan.items()
+        if isinstance(rec, dict) and _f(rec.get("z_magazynu")) > 1e-9
+    }
+    raw_amounts = {
+        str(code): _f(rec.get("ilosc"))
+        for code, rec in raw.items()
+        if isinstance(rec, dict) and _f(rec.get("ilosc")) > 1e-9
+    }
+    return semis, raw_amounts
+
+
+def _validate_unreserved_stock(semis, raw):
+    shortages = []
+    for code, amount in {**semis, **raw}.items():
+        rec = LM.get_item(code) or {}
+        free = max(0.0, _f(rec.get("stan")) - _f(rec.get("rezerwacje")))
+        if free + 1e-9 < amount:
+            shortages.append(f"{code}: potrzeba {amount:g}, wolne {free:g}")
+    if shortages:
+        raise ValueError(
+            "Nie można rozliczyć nadprodukcji — brakuje wolnego materiału:\n"
+            + "\n".join(shortages)
+        )
+
+
+def _credit_finished_surplus(order, kto):
+    target = max(0.0, _f(order.get("wykonano")) - _f(order.get("ilosc")))
+    credited = _f(order.get("nadprodukcja_wyrobu_zaksiegowana"))
+    delta = max(0.0, target - credited)
+    if delta <= 1e-9:
+        return 0.0
+    _ensure_product_item(order)
+    LM.zwrot(
+        str(order.get("produkt")),
+        delta,
+        kto,
+        kontekst=f"nadprodukcja-wyrobu:{order.get('id')}",
+    )
+    order["nadprodukcja_wyrobu_zaksiegowana"] = credited + delta
+    order.setdefault("historia", []).append(
+        {
+            "kiedy": datetime.now().isoformat(timespec="seconds"),
+            "kto": kto,
+            "co": f"nadprodukcja wyrobu -> Magazyn ({delta:g} szt.)",
+        }
+    )
+    return delta
+
+
 def _credit_new_surplus(order, old_qty, new_qty, kto):
     """Ksiegowanie nowej nadprodukcji do magazynu polproduktow, bez duplikatow."""
     done = _f(order.get("wykonano"))
@@ -203,6 +318,7 @@ def update_zlecenie(
     termin=None,
     rzaz_mm=None,
     korekty_polproduktow=None,
+    allow_overproduction=None,
     kto="system",
 ):
     p = ZL._order_path(zlec_id)
@@ -252,6 +368,26 @@ def update_zlecenie(
         else:
             order["zlec_wew"] = zlec_wew
         changed.append(f"zlec_wew -> {zlec_wew}")
+
+    if allow_overproduction is not None:
+        enabled = bool(allow_overproduction)
+        if not enabled and (
+            _f(order.get("wykonano")) > _f(order.get("ilosc")) + 1e-9
+            or _f(order.get("nadprodukcja_wyrobu_zaksiegowana")) > 1e-9
+            or any(
+                _f(value) > 1e-9
+                for value in (order.get("nadprodukcja_polproduktow_zaksiegowana") or {}).values()
+            )
+        ):
+            raise ValueError(
+                "Nie można wyłączyć nadprodukcji, ponieważ zlecenie ma już "
+                "zgłoszoną lub zaksięgowaną nadwyżkę."
+            )
+        if enabled != bool(order.get("zezwol_nadprodukcja")):
+            order["zezwol_nadprodukcja"] = enabled
+            changed.append(
+                "nadprodukcja -> dozwolona" if enabled else "nadprodukcja -> zablokowana"
+            )
 
     if replan:
         _replan_remaining(order, kto, pending_snapshot=pending_snapshot)
@@ -321,10 +457,10 @@ def report_wykonano(zlec_id, wykonano, kto="system"):
         raise ValueError("Nie można zmniejszyć ilości już wykonanej.")
     if new < 0:
         raise ValueError("Wykonana ilość nie może być ujemna.")
-    if new > qty + 1e-9:
+    if new > qty + 1e-9 and not order.get("zezwol_nadprodukcja"):
         raise ValueError(
             "Wykonano nie może przekraczać ilości zlecenia. "
-            "Najpierw zwiększ ilość produktu w zleceniu."
+            "Włącz w danych zlecenia opcję nadprodukcji albo zwiększ ilość produktu."
         )
     if new <= old:
         return order
@@ -357,7 +493,9 @@ def rozlicz_material(zlec_id, kto="system"):
 
     if done <= settled + 1e-9:
         return order
-    if done < 0 or done > qty + 1e-9:
+    if done < 0 or (
+        done > qty + 1e-9 and not order.get("zezwol_nadprodukcja")
+    ):
         raise ValueError("Nieprawidłowa ilość wykonana do rozliczenia materiału.")
 
     delta = done - settled
@@ -367,15 +505,27 @@ def rozlicz_material(zlec_id, kto="system"):
         raise ValueError("Zapisane oczekujące zużycie przekracza nierozliczone wykonanie.")
     current_qty = max(0.0, delta - pending_qty)
     planned_qty = _f(order.get("pozostalo", qty))
-    if current_qty > planned_qty + 1e-9 or (current_qty > 1e-9 and planned_qty <= 0):
+    surplus_qty = max(0.0, done - qty) - max(0.0, settled - qty)
+    planned_current_qty = max(0.0, current_qty - surplus_qty)
+    if planned_current_qty > planned_qty + 1e-9 or (
+        planned_current_qty > 1e-9 and planned_qty <= 0
+    ):
         raise ValueError(
             "Plan materiałowy nie obejmuje całego nierozliczonego wykonania. "
             "Sprawdź i przelicz plan przed rozliczeniem."
         )
-    factor = min(1.0, current_qty / planned_qty) if planned_qty > 0 else 0.0
+    if surplus_qty > 1e-9 and not order.get("zezwol_nadprodukcja"):
+        raise ValueError("Zlecenie nie zezwala na rozliczenie nadprodukcji.")
+    factor = min(1.0, planned_current_qty / planned_qty) if planned_qty > 0 else 0.0
     context = f"rozliczenie-materialu:{zlec_id}"
 
     semis, raw = _planned_consumption(order, factor)
+    extra_semis, extra_raw = _unreserved_consumption(order, surplus_qty)
+    _validate_unreserved_stock(extra_semis, extra_raw)
+    for code, amount in extra_semis.items():
+        semis[code] = _f(semis.get(code)) + amount
+    for code, amount in extra_raw.items():
+        raw[code] = _f(raw.get(code)) + amount
     for code, amount in (pending.get("polprodukty") or {}).items():
         semis[code] = _f(semis.get(code)) + _f(amount)
     for code, amount in (pending.get("surowce") or {}).items():
@@ -406,6 +556,9 @@ def rozlicz_material(zlec_id, kto="system"):
             "co": f"rozliczono materiał do -> {done:g}",
         }
     )
+
+    if done > qty + 1e-9:
+        _credit_finished_surplus(order, kto)
 
     _replan_remaining(order, kto)
     ZL._write_json(p, order)
