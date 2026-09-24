@@ -1,4 +1,5 @@
-# version: 3.3
+# version: 3.4
+# 3.4: WM 1.0.19 - API WMM uruchamiane z WM; ikona obok zegara i powiadomienia o połączeniu.
 # 3.3: WM 1.0.18 - wymagaj rewizji przy zmianie statusu i uwag WMM.
 # 3.2: WM 1.0.17 - migawka materiału przed zmianą ilości zlecenia.
 # 3.1: WM 1.0.16 - zachowanie nierozliczonego materiału przy zmianie ilości zlecenia.
@@ -18,7 +19,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.18"
+__version__ = "1.0.19"
 
 
 def get_version() -> str:
