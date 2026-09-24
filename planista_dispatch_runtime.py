@@ -222,6 +222,52 @@ def ensure_planista_dispatch(
     return record, True
 
 
+
+def closure_readiness(order: dict[str, Any]) -> dict[str, Any]:
+    """Read-only Planista closure gate: never consumes warehouse material."""
+    qty = float(order.get("ilosc") or 0)
+    done = float(order.get("wykonano") or 0)
+    settled = float(order.get("materialy_rozliczono_do") or 0)
+    result = {"ready": False, "reason": "", "dispatch": None}
+    if qty <= 0 or done + 1e-9 < qty:
+        result["reason"] = "Zlecenie nie jest wykonane w 100%."
+        return result
+    if settled + 1e-9 < done:
+        result["reason"] = "Najpierw rozlicz materiał do wykonanej ilości."
+        return result
+    dispatch = find_active_planista_dispatch(_order_id(order))
+    if not dispatch:
+        result["reason"] = "Brak aktywnej dyspozycji wykonania."
+        return result
+    result["dispatch"] = dispatch
+    if str(dispatch.get("status") or "") not in {"w_toku", "wstrzymana"}:
+        result["reason"] = "Najpierw rozpocznij dyspozycję w module Dyspozycje."
+        return result
+    result["ready"] = True
+    return result
+
+
+def close_completed_planista_dispatch(order_id: str, *, who: str, role: str) -> dict[str, Any]:
+    """Close by explicit consent, without running production warehouse actions twice."""
+    import zlecenia_logika as ZL
+    import dyspozycje_store as DS
+    from dyspozycje_access import ACTION_EDIT, is_role_action_allowed
+
+    if not is_role_action_allowed(role, ACTION_EDIT):
+        raise PermissionError("Ta ranga nie ma uprawnienia do edycji Dyspozycji.")
+    order = ZL._read_json(ZL._order_path(str(order_id)))
+    state = closure_readiness(order)
+    if not state["ready"]:
+        raise ValueError(state["reason"])
+    dispatch = state["dispatch"]
+    changed = DS.set_dyspozycja_status(
+        str(dispatch["id"]), "zamknieta", changed_by=who,
+    )
+    if not changed:
+        raise RuntimeError("Dyspozycja zmieniła status; odśwież i sprawdź ponownie.")
+    return changed
+
+
 def enhance_work_order_html(order: dict[str, Any], source_html: str) -> str:
     """Zamień parę Ilość/Wykonano na warsztatowe Potrzeba / wykonane."""
     qty = _html.escape(_fmt_qty(order.get("ilosc", order.get("qty", 0))))
@@ -564,6 +610,8 @@ __all__ = [
     "creator_type_values",
     "enhance_work_order_html",
     "ensure_planista_dispatch",
+    "closure_readiness",
+    "close_completed_planista_dispatch",
     "find_active_planista_dispatch",
     "install_planista_dispatch_runtime",
     "planista_order_choices",
