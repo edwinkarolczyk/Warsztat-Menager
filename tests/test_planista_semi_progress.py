@@ -138,15 +138,26 @@ def test_allowed_semi_overproduction_consumes_raw_and_credits_surplus_once(monke
     monkeypatch.setattr(PAR, "_restore_canonical_warehouse", lambda _data: None)
     monkeypatch.setattr(PAR, "_restore_file", lambda *_a: None)
 
+    from planista_semi_progress_runtime import (
+        pending_semi_surplus, transfer_polprodukt_surplus,
+    )
+
     result = report_polprodukt_wykonano("000001", "POL-001", 10, kto="Edwin")
 
-    # Plan przewidywał wykonanie 8 (2 szt. były z magazynu), więc 2 są nadwyżką.
+    # 8 szt. planu + 2 szt. nadwyżki: samo zgłoszenie nie zmienia Magazynu.
+    assert pending_semi_surplus(result, "POL-001") == pytest.approx(2.0)
+    assert state["SUR-1"]["stan"] == pytest.approx(10.0)
+    assert state["POL-001"]["stan"] == pytest.approx(0.0)
+    assert returns == []
+
+    result = transfer_polprodukt_surplus("000001", "POL-001", kto="Edwin")
     assert state["SUR-1"]["stan"] == pytest.approx(0.0)
     assert state["POL-001"]["stan"] == pytest.approx(2.0)
     assert result["nadprodukcja_polproduktow_zaksiegowana"]["POL-001"] == pytest.approx(2.0)
+    assert pending_semi_surplus(result, "POL-001") == pytest.approx(0.0)
     assert returns == [("POL-001", pytest.approx(2.0))]
 
-    report_polprodukt_wykonano("000001", "POL-001", 10, kto="Edwin")
+    transfer_polprodukt_surplus("000001", "POL-001", kto="Edwin")
     assert returns == [("POL-001", pytest.approx(2.0))]
 
 
