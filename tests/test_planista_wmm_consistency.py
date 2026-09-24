@@ -21,8 +21,7 @@ def test_wmm_creates_canonical_bom_order(monkeypatch, tmp_path):
 
     def create(product, qty, **kwargs):
         captured.update({"product": product, "qty": qty, **kwargs})
-        return {"id": "000125", "plan_polprodukty": {"A": {"potrzeba": 18}}},
-               []
+        return ({"id": "000125", "plan_polprodukty": {"A": {"potrzeba": 18}}}, [])
 
     create._wm_full_transaction = True
     monkeypatch.setattr(ZL, "create_zlecenie", create)
