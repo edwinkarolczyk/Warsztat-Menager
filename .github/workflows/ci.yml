@@ -20,6 +20,8 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run paid leave balance and foreman exception regressions
+        run: pytest -q tests/test_leave_balance_exception_b.py
       - name: Run WM tray and WMM API lifecycle tests
         run: xvfb-run -a pytest -q tests/test_wm_tray_runtime.py
       - name: Run guided Planista editor Tk smoke under Xvfb
