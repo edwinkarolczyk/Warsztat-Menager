@@ -436,7 +436,9 @@ def transfer_polprodukt_surplus(zlec_id, code, kto="system"):
     import zlecenia_logika as ZL
 
     with file_write_lock(ZL._order_path(zlec_id), label="nadwyżki półproduktu"):
-        return _transfer_polprodukt_surplus_unlocked(zlec_id, code, kto=kto)
+        from planista_audit_runtime import warehouse_full_operation
+        with warehouse_full_operation():
+            return _transfer_polprodukt_surplus_unlocked(zlec_id, code, kto=kto)
 
 
 
@@ -446,9 +448,16 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system",
     import zlecenia_logika as ZL
 
     with file_write_lock(ZL._order_path(zlec_id), label="postępu półproduktu"):
+        if transfer_surplus:
+            from planista_audit_runtime import warehouse_full_operation
+            with warehouse_full_operation():
+                return _report_polprodukt_wykonano_unlocked(
+                    zlec_id, kod_polproduktu, wykonano, kto=kto,
+                    transfer_surplus=True,
+                )
         return _report_polprodukt_wykonano_unlocked(
             zlec_id, kod_polproduktu, wykonano, kto=kto,
-            transfer_surplus=transfer_surplus,
+            transfer_surplus=False,
         )
 
 
