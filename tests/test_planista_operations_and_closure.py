@@ -10,6 +10,7 @@ import planista_audit_runtime as PAR
 import zlecenia_logika as ZL
 import dyspozycje_store as DS
 import dyspozycje_access as DA
+import planowanie_magazyn as PM
 
 
 def test_only_last_operation_makes_semi(monkeypatch):
@@ -72,6 +73,7 @@ def test_dispatch_close_never_reconsumes_material(monkeypatch):
     })
     monkeypatch.setattr(DA, "is_role_action_allowed", lambda *_args: True)
     calls = []
+    monkeypatch.setattr(PM, "release_execution_reservations", lambda *args, **kwargs: calls.append(("release", args[0])))
 
     def set_status(dysp_id, target, **kwargs):
         calls.append((dysp_id, target))
@@ -82,4 +84,4 @@ def test_dispatch_close_never_reconsumes_material(monkeypatch):
         "000125", who="Edwin", role="brygadzista",
     )
     assert result["status"] == "zamknieta"
-    assert calls == [("D1", "zamknieta")]
+    assert calls == [("release", "D1"), ("D1", "zamknieta")]
