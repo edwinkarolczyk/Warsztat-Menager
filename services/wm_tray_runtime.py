@@ -96,11 +96,30 @@ class WmTrayRuntime:
                 )
                 icon.run_detached()
                 self.icon = icon
-            except Exception:
+            except Exception as exc:
                 logger.exception("[WM-TRAY] Ikona systemowa nie wystartowała")
+                # A source checkout needs dependencies reinstalled after git pull;
+                # an already-built EXE must be rebuilt with the pystray backend.
+                if isinstance(exc, ModuleNotFoundError) and (
+                    exc.name == "pystray" or "pystray" in str(exc).lower()
+                ):
+                    reason = (
+                        "Brak biblioteki pystray w Pythonie uruchamiającym WM.\n"
+                        "Dla wersji .py zainstaluj ją w tym samym interpreterze:\n"
+                        "py -3.13 -m pip install pystray\n"
+                        "Następnie uruchom WM ponownie.\n"
+                        "Dla wersji EXE trzeba zbudować nowy pakiet z aktualnego wm.spec."
+                    )
+                else:
+                    reason = (
+                        "Przyczyna: "
+                        f"{type(exc).__name__}: {str(exc)[:250]}\n"
+                        "Sprawdź szczegóły [WM-TRAY] w logu WM."
+                    )
                 self._warn(
-                    "Nie można uruchomić ikony obok zegara. "
-                    "Zamknięcie okna zakończy WM; sprawdź instalację pystray."
+                    "Nie można uruchomić ikony obok zegara.\n"
+                    + reason
+                    + "\nZamknięcie okna zakończy WM i zatrzyma lokalne API WMM."
                 )
         self._schedule()
         return self
