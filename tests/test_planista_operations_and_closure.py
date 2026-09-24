@@ -141,3 +141,27 @@ def test_nonfinite_operation_progress_is_rejected(monkeypatch):
     })
     with pytest.raises(ValueError, match="skończoną"):
         PS.report_polprodukt_operation("000125", "A", "Cięcie", float("nan"))
+
+
+def test_order_sync_preserves_dispatch_status_history(monkeypatch):
+    previous = {
+        "id": "D1", "status": "zamknieta", "typ_dyspozycji": "zlecenie_wykonania",
+        "obiekt_id": "zlecenie:000125",
+        "meta": {"historia_statusow": [{"z": "w_toku", "na": "zamknieta"}],
+                 "zamkniecie_potwierdzone": True},
+    }
+    recorded = {}
+    monkeypatch.setattr(DS, "load_dyspozycje", lambda: [previous])
+    monkeypatch.setattr(
+        DS, "update_dyspozycja",
+        lambda _id, data: recorded.update(data) or {**previous, **data},
+    )
+    ZL._sync_execution_disposition({
+        "id": "000125", "produkt": "P", "ilosc": 6,
+        "wykonano": 6, "plan_polprodukty": {},
+    })
+    assert recorded["meta"]["historia_statusow"] == [
+        {"z": "w_toku", "na": "zamknieta"}
+    ]
+    assert recorded["meta"]["zamkniecie_potwierdzone"] is True
+    assert "status" not in recorded
