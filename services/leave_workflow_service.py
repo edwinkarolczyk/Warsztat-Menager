@@ -229,6 +229,62 @@ def active_absences_for_day(login: str, day: str | date) -> list[dict]:
     return [dict(row) for row in read_leaves() if _same_day(row, login, day_text)]
 
 
+def require_paid_leave_balance(
+    login: str, dates: Iterable[str | date], *,
+    replacing_dates: Iterable[str | date] = (),
+    exclude_request_id: str = "",
+    override_actor: str = "",
+    override_reason: str = "",
+) -> dict[str, Any]:
+    """Validate available days per year at the write boundary, not only the UI.
+
+    Existing paid leave on a replaced day is not charged twice. An approved
+    request is excluded from pending before comparing its own dates.
+    """
+    from services.leave_balance_service import get_balance
+
+    requested = _normalize_dates(dates)
+    replacements = set(_normalize_dates(replacing_dates))
+    old_paid = {
+        str(row.get("date") or "")
+        for row in read_leaves()
+        if str(row.get("type") or "").casefold() == "urlop"
+        and _matches_user(row, login)
+        and str(row.get("date") or "") in replacements
+    }
+    ignored_pending = set()
+    if exclude_request_id:
+        for row in read_requests(login=login, status=_PENDING):
+            if str(row.get("id") or "") == str(exclude_request_id):
+                ignored_pending.update(_normalize_dates(row.get("dates") or []))
+    by_year: dict[int, set[str]] = {}
+    for day in requested:
+        by_year.setdefault(int(day[:4]), set()).add(day)
+    shortage = 0.0
+    snapshot = {}
+    for year, days in by_year.items():
+        bal = get_balance(login, year)
+        available = float(bal.get("remaining") or 0) - float(bal.get("pending") or 0)
+        available += sum(1 for day in old_paid if day.startswith(f"{year:04d}-"))
+        available += sum(1 for day in ignored_pending if day.startswith(f"{year:04d}-"))
+        required = sum(1 for day in days if day not in old_paid)
+        if required > available + 1e-9:
+            shortage += required - max(0.0, available)
+        snapshot[str(year)] = {
+            "available_after_pending": available, "new_days": required,
+        }
+    if shortage > 1e-9:
+        if not override_actor:
+            raise ValueError(
+                f"Wniosek lub wpis przekracza dostępny urlop o {_fmt_days(shortage)} dni. "
+                "Wymagane osobne potwierdzenie brygadzisty i przyczyna."
+            )
+        _require_foreman(override_actor)
+        if not str(override_reason or "").strip():
+            raise ValueError("Przekroczenie urlopu wymaga podania przyczyny.")
+    return {"shortage": shortage, "balance": snapshot}
+
+
 def request_vacation(login: str, dates: Iterable[str | date], note: str = "") -> str:
     login = str(login or "").strip()
     if not login:
@@ -250,21 +306,8 @@ def request_vacation(login: str, dates: Iterable[str | date], note: str = "") ->
     if overlap:
         raise ValueError(f"Wniosek na {overlap[0]} już oczekuje na decyzję.")
 
-    balance_warning = False
-    over_by = 0.0
-    try:
-        from services.leave_balance_service import get_balance
-        by_year: dict[int, int] = {}
-        for day in selected:
-            by_year[int(day[:4])] = by_year.get(int(day[:4]), 0) + 1
-        for year, count in by_year.items():
-            bal = get_balance(login, year)
-            after_pending = float(bal.get("remaining") or 0.0) - float(bal.get("pending") or 0.0)
-            if float(count) > after_pending:
-                balance_warning = True
-                over_by += float(count) - max(0.0, after_pending)
-    except Exception:
-        pass
+    # A normal employee cannot submit a request that exceeds actual balance.
+    require_paid_leave_balance(login, selected)
 
     request_id = f"req_{uuid.uuid4().hex}"
     row = {
@@ -283,8 +326,8 @@ def request_vacation(login: str, dates: Iterable[str | date], note: str = "") ->
         "note": str(note or "").strip(),
         "approved_by": None,
         "decision_at": None,
-        "over_balance": bool(balance_warning),
-        "over_by_days": float(over_by),
+        "over_balance": False,
+        "over_by_days": 0.0,
     }
     rows = _as_list(_read_json(requests_path(), []))
     rows.append(row)
@@ -389,23 +432,22 @@ def _sync_attendance_reason(login: str, dates: Iterable[str], actor: str, reason
             continue
 
 
-def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bool = False) -> dict:
+def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bool = False, override_reason: str = "") -> dict:
     actor = _require_foreman(actor_login)
     request_rows = _as_list(_read_json(requests_path(), []))
     idx, request = _find_request(request_rows, request_id)
     if str(request.get("status") or "").casefold() != _PENDING:
         raise ValueError("Ten wniosek został już rozpatrzony.")
-    if request.get("over_balance") and not allow_over_balance:
-        over = float(request.get("over_by_days") or 0.0)
-        raise ValueError(
-            f"Wniosek przekracza dostępny urlop o {_fmt_days(over)} dni. "
-            "Brygadzista musi jawnie potwierdzić przekroczenie."
-        )
 
     identity_key = str(request.get("user_id") or request.get("login") or "").strip()
     uid, current_login = _identity(identity_key)
     login = current_login or str(request.get("login") or "").strip()
     dates = _normalize_dates(request.get("dates") or [])
+    check = require_paid_leave_balance(
+        login, dates, exclude_request_id=request_id,
+        override_actor=actor if allow_over_balance else "",
+        override_reason=override_reason,
+    )
     leave_rows_before = _read_all_leaves()
     for day in dates:
         if any(_same_day(row, login, day) for row in leave_rows_before):
@@ -440,7 +482,14 @@ def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bo
     updated["status"] = _APPROVED
     updated["approved_by"] = actor
     updated["decision_at"] = created
-    updated["over_balance_override"] = bool(request.get("over_balance") and allow_over_balance)
+    updated["over_balance"] = bool(check["shortage"] > 1e-9)
+    updated["over_by_days"] = float(check["shortage"])
+    updated["over_balance_override"] = bool(check["shortage"] > 1e-9 and allow_over_balance)
+    if updated["over_balance_override"]:
+        updated["override_reason"] = str(override_reason).strip()
+        updated["override_actor"] = actor
+        updated["override_at"] = created
+        updated["override_balance"] = check["balance"]
     request_rows[idx] = updated
 
     _write_json(leaves_path(), leave_rows)
