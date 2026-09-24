@@ -568,6 +568,60 @@ def _install_order_editor() -> None:
             refresh_editor(reset_inputs=True)
             return True
 
+        def offer_closure_after_settlement():
+            from planista_dispatch_runtime import (
+                closure_readiness, close_completed_planista_dispatch,
+            )
+
+            fresh = load_order()
+            state = closure_readiness(fresh)
+            if not state["ready"]:
+                if state["dispatch"] is not None and state["reason"]:
+                    messagebox.showinfo("Dyspozycja", state["reason"], parent=dlg)
+                return
+            if not messagebox.askyesno(
+                "Zamknięcie dyspozycji",
+                f"Zlecenie {fresh['id']} jest wykonane i ma rozliczony materiał.\\n"
+                "Czy zamknąć powiązaną dyspozycję produkcyjną?\\n"
+                "Materiał NIE zostanie pobrany ponownie.",
+                parent=dlg,
+            ):
+                return
+            try:
+                close_completed_planista_dispatch(
+                    fresh["id"], who=self.login or "system", role=self.rola
+                )
+            except Exception as exc:
+                messagebox.showerror("Dyspozycja", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        def offer_settlement_and_closure():
+            nonlocal order
+            fresh = load_order()
+            qty = float(fresh.get("ilosc", 0) or 0)
+            done = float(fresh.get("wykonano", 0) or 0)
+            settled = float(fresh.get("materialy_rozliczono_do", 0) or 0)
+            if qty <= 0 or done + 1e-9 < qty:
+                return
+            if settled + 1e-9 < done:
+                if not messagebox.askyesno(
+                    "Rozliczenie materiału",
+                    f"Wykonano {_fmt(done)} / {_fmt(qty)} produktów.\\n"
+                    f"Najpierw rozliczyć materiał od {_fmt(settled)} do {_fmt(done)} szt.?",
+                    parent=dlg,
+                ):
+                    return
+                try:
+                    order = ZP.rozlicz_material(fresh["id"], kto=self.login or "system")
+                except Exception as exc:
+                    messagebox.showerror("Rozliczenie materiału", str(exc), parent=dlg)
+                    return
+                refresh_main_selection()
+                refresh_editor(reset_inputs=True)
+            offer_closure_after_settlement()
+
         def save_done():
             nonlocal order
             try:
@@ -611,6 +665,7 @@ def _install_order_editor() -> None:
                 return
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
+            offer_settlement_and_closure()
 
         ttk.Button(realization_tab, text="Zapisz wykonanie", command=save_done).grid(
             row=3, column=3, sticky="w", padx=(10, 0)
@@ -651,6 +706,7 @@ def _install_order_editor() -> None:
                 return
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
+            offer_closure_after_settlement()
 
         ttk.Button(realization_tab, text="Rozlicz materiał", command=settle_material).grid(
             row=5, column=3, sticky="w", padx=(10, 0), pady=(8, 0)
