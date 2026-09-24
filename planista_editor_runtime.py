@@ -682,14 +682,6 @@ def _install_order_editor() -> None:
         ttk.Button(realization_tab, text="Zapisz wykonanie", command=save_done).grid(
             row=3, column=3, sticky="w", padx=(10, 0)
         )
-        add_help_button(
-            realization_tab,
-            "Zapisuje postęp produkcji bez zmiany magazynu.",
-            row=4,
-            column=3,
-            padx=(10, 0),
-        )
-
         def settle_material():
             nonlocal order
             # Ponownie odczytaj dane: inne okno mogło zapisać wykonanie.
