@@ -46,9 +46,11 @@ def _full_semi_targets(order: dict) -> dict[str, dict]:
                 continue
             code = str(code)
             target = _f(overrides.get(code, rec.get("ilosc", 0)))
+            plan_rec = (order.get("plan_polprodukty") or {}).get(code) or {}
             targets[code] = {
                 "nazwa": str(rec.get("nazwa") or code),
                 "potrzeba": max(0.0, target),
+                "czynnosci": list(plan_rec.get("czynnosci") or rec.get("czynnosci") or []),
             }
 
     for code, value in overrides.items():
@@ -58,6 +60,7 @@ def _full_semi_targets(order: dict) -> dict[str, dict]:
             targets[code] = {
                 "nazwa": str(plan_rec.get("nazwa") or code),
                 "potrzeba": max(0.0, _f(value)),
+                "czynnosci": list(plan_rec.get("czynnosci") or []),
             }
 
     if not targets:
@@ -67,6 +70,7 @@ def _full_semi_targets(order: dict) -> dict[str, dict]:
             targets[str(code)] = {
                 "nazwa": str(rec.get("nazwa") or code),
                 "potrzeba": max(0.0, _f(rec.get("potrzeba", rec.get("wyliczone", 0)))),
+                "czynnosci": list(rec.get("czynnosci") or []),
             }
     return targets
 
@@ -218,6 +222,16 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system",
     from_stock = min(target_total, max(0.0, _f(baseline.get(code))))
     max_to_make = max(0.0, target_total - from_stock)
     progress = dict(order.get("wykonano_polprodukty") or {})
+    if order.get("sledzenie_operacji_polproduktow"):
+        operations = [str(x) for x in targets[code].get("czynnosci") or []]
+        if operations:
+            operation_rows = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
+            final_qty = max(0.0, _f(operation_rows.get(operations[-1])))
+            if float(wykonano) > max(final_qty, _f(progress.get(code))) + _EPS:
+                raise ValueError(
+                    "Wykonanie półproduktu wymaga zakończenia ostatniej "
+                    f"operacji: {operations[-1]}."
+                )
     old = max(0.0, _f(progress.get(code)))
     new = float(wykonano)
 
@@ -319,6 +333,68 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system",
 
             PAR._restore_canonical_warehouse(warehouse_snapshot)
             PAR._restore_file(path, order_snapshot)
+        raise
+    return order
+
+
+
+def report_polprodukt_operation(zlec_id, code, operation, wykonano, kto="system"):
+    """Cumulative technological progress; only the last operation creates semi output."""
+    import zlecenia_logika as ZL
+
+    path = ZL._order_path(zlec_id)
+    order = ZL._read_json(path)
+    targets = _full_semi_targets(order)
+    code = str(code)
+    operations = [str(item) for item in (targets.get(code) or {}).get("czynnosci") or []]
+    if not operations or str(operation) not in operations:
+        raise ValueError("Wybierz operację z technologii tego półproduktu.")
+    operation = str(operation)
+    qty = float(wykonano)
+    if qty < 0:
+        raise ValueError("Wykonana ilość operacji nie może być ujemna.")
+    tracking = dict(order.get("postep_operacji_polproduktow") or {})
+    rows = dict(tracking.get(code) or {})
+    old = max(0.0, _f(rows.get(operation)))
+    if qty < old - _EPS:
+        raise ValueError("Nie można cofnąć już zgłoszonej operacji.")
+    target = max(0.0, _f(targets[code].get("potrzeba")))
+    baseline = _preview_stock_baseline(order, targets)
+    max_to_make = max(0.0, target - max(0.0, _f(baseline.get(code))))
+    if qty > max_to_make + _EPS and not order.get("zezwol_nadprodukcja"):
+        raise ValueError("Ilość operacji przekracza plan; nadprodukcja nie jest dozwolona.")
+    idx = operations.index(operation)
+    legacy_made = max(0.0, _f((order.get("wykonano_polprodukty") or {}).get(code)))
+    if idx > 0:
+        preceding = max(legacy_made, _f(rows.get(operations[idx - 1])))
+        if qty > preceding + _EPS:
+            raise ValueError("Najpierw zgłoś wykonanie poprzedniej operacji.")
+    if idx < len(operations) - 1:
+        following = max(legacy_made, _f(rows.get(operations[idx + 1])))
+        if qty + _EPS < following:
+            raise ValueError("Postęp nie może być mniejszy od następnej operacji.")
+    if abs(qty - old) <= _EPS and (idx != len(operations) - 1 or qty <= legacy_made + _EPS):
+        return order
+
+    # The last operation is the only route to increasing completed semi output.
+    # First save the operation so the guard can verify its completion.
+    import planista_audit_runtime as PAR
+    snapshot = PAR._file_snapshot(path)
+    try:
+        rows[operation] = qty
+        tracking[code] = rows
+        order["postep_operacji_polproduktow"] = tracking
+        order["sledzenie_operacji_polproduktow"] = True
+        order.setdefault("historia", []).append({
+            "kiedy": datetime.now().isoformat(timespec="seconds"),
+            "kto": kto,
+            "co": f"operacja {operation} półproduktu {code}: wykonano -> {_fmt(qty)}",
+        })
+        ZL._write_json(path, order)
+        if idx == len(operations) - 1 and qty > legacy_made + _EPS:
+            return report_polprodukt_wykonano(zlec_id, code, qty, kto=kto)
+    except Exception:
+        PAR._restore_file(path, snapshot)
         raise
     return order
 
@@ -666,6 +742,7 @@ __all__ = [
     "report_polprodukt_wykonano",
     "semi_progress_rows",
     "pending_semi_surplus",
+    "report_polprodukt_operation",
     "transfer_polprodukt_surplus",
     "proposed_product_completion",
     "semi_shortages_for_completion",
