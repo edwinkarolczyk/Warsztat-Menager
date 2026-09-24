@@ -205,7 +205,7 @@ def semi_shortages_for_completion(order: dict, new_product_done: float) -> list[
     return shortages
 
 
-def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system", *, transfer_surplus=False):
+def _report_polprodukt_wykonano_unlocked(zlec_id, kod_polproduktu, wykonano, kto="system", *, transfer_surplus=False):
     """Zapisz łączny postęp wykonania jednego półproduktu w zleceniu."""
     import zlecenia_logika as ZL
 
@@ -341,7 +341,7 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system",
 
 
 
-def report_polprodukt_operation(zlec_id, code, operation, wykonano, kto="system"):
+def _report_polprodukt_operation_unlocked(zlec_id, code, operation, wykonano, kto="system"):
     """Cumulative technological progress; only the last operation creates semi output."""
     import zlecenia_logika as ZL
 
@@ -396,7 +396,7 @@ def report_polprodukt_operation(zlec_id, code, operation, wykonano, kto="system"
         })
         ZL._write_json(path, order)
         if idx == len(operations) - 1 and qty > legacy_made + _EPS:
-            return report_polprodukt_wykonano(zlec_id, code, qty, kto=kto)
+            return _report_polprodukt_wykonano_unlocked(zlec_id, code, qty, kto=kto)
     except Exception:
         PAR._restore_file(path, snapshot)
         raise
@@ -416,7 +416,7 @@ def pending_semi_surplus(order: dict, code: str) -> float:
     return max(0.0, produced - expected - booked)
 
 
-def transfer_polprodukt_surplus(zlec_id, code, kto="system"):
+def _transfer_polprodukt_surplus_unlocked(zlec_id, code, kto="system"):
     """Explicit user-approved warehouse transfer, using existing one-time ledger."""
     import zlecenia_logika as ZL
     order = ZL._read_json(ZL._order_path(zlec_id))
@@ -425,9 +425,43 @@ def transfer_polprodukt_surplus(zlec_id, code, kto="system"):
     if pending_semi_surplus(order, code) <= _EPS:
         return order
     current = _f((order.get("wykonano_polprodukty") or {}).get(str(code)))
-    return report_polprodukt_wykonano(
+    return _report_polprodukt_wykonano_unlocked(
         zlec_id, code, current, kto=kto, transfer_surplus=True
     )
+
+
+def transfer_polprodukt_surplus(zlec_id, code, kto="system"):
+    """Lock read and warehouse posting; a repeated request sees the credited ledger."""
+    from machine_file_guard import file_write_lock
+    import zlecenia_logika as ZL
+
+    with file_write_lock(ZL._order_path(zlec_id), label="nadwyżki półproduktu"):
+        return _transfer_polprodukt_surplus_unlocked(zlec_id, code, kto=kto)
+
+
+
+def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system", *, transfer_surplus=False):
+    """Serialize the full semi read/validate/write across WM and WMM."""
+    from machine_file_guard import file_write_lock
+    import zlecenia_logika as ZL
+
+    with file_write_lock(ZL._order_path(zlec_id), label="postępu półproduktu"):
+        return _report_polprodukt_wykonano_unlocked(
+            zlec_id, kod_polproduktu, wykonano, kto=kto,
+            transfer_surplus=transfer_surplus,
+        )
+
+
+def report_polprodukt_operation(zlec_id, code, operation, wykonano, kto="system"):
+    """One lock spans both the final operation and its semi completion."""
+    from machine_file_guard import file_write_lock
+    import zlecenia_logika as ZL
+
+    with file_write_lock(ZL._order_path(zlec_id), label="operacji półproduktu"):
+        return _report_polprodukt_operation_unlocked(
+            zlec_id, code, operation, wykonano, kto=kto,
+        )
+
 
 
 def _semi_product_links(model) -> dict[str, list[str]]:
