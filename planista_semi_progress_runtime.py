@@ -233,7 +233,10 @@ def report_polprodukt_wykonano(zlec_id, kod_polproduktu, wykonano, kto="system",
                     f"operacji: {operations[-1]}."
                 )
     old = max(0.0, _f(progress.get(code)))
+    from math import isfinite
     new = float(wykonano)
+    if not isfinite(new):
+        raise ValueError("Wykonana ilość półproduktu musi być skończoną liczbą.")
 
     if new < old - _EPS:
         raise ValueError("Nie można zmniejszyć już zgłoszonej ilości półproduktu.")
@@ -350,9 +353,10 @@ def report_polprodukt_operation(zlec_id, code, operation, wykonano, kto="system"
     if not operations or str(operation) not in operations:
         raise ValueError("Wybierz operację z technologii tego półproduktu.")
     operation = str(operation)
+    from math import isfinite
     qty = float(wykonano)
-    if qty < 0:
-        raise ValueError("Wykonana ilość operacji nie może być ujemna.")
+    if not isfinite(qty) or qty < 0:
+        raise ValueError("Wykonana ilość operacji musi być skończoną liczbą nieujemną.")
     tracking = dict(order.get("postep_operacji_polproduktow") or {})
     rows = dict(tracking.get(code) or {})
     old = max(0.0, _f(rows.get(operation)))
@@ -450,7 +454,7 @@ def _semi_product_links(model) -> dict[str, list[str]]:
 
 
 def _guard_quantity_change(order: dict, new_qty: float) -> None:
-    if not order.get("sledzenie_polproduktow"):
+    if not order.get("sledzenie_polproduktow") and not order.get("sledzenie_operacji_polproduktow"):
         return
     candidate = copy.deepcopy(order)
     candidate["ilosc"] = float(new_qty)
@@ -467,6 +471,17 @@ def _guard_quantity_change(order: dict, new_qty: float) -> None:
         max_to_make = max(0.0, target - from_stock)
         if reported > max_to_make + _EPS:
             errors.append(f"{code}: zgłoszono {_fmt(reported)}, nowy plan {_fmt(max_to_make)}")
+    for code, steps in (order.get("postep_operacji_polproduktow") or {}).items():
+        if not isinstance(steps, dict):
+            continue
+        reported = max((max(0.0, _f(value)) for value in steps.values()), default=0.0)
+        target = max(0.0, _f((targets.get(str(code)) or {}).get("potrzeba")))
+        from_stock = min(target, max(0.0, _f(baseline.get(str(code)))))
+        max_to_make = max(0.0, target - from_stock)
+        if reported > max_to_make + _EPS and not order.get("zezwol_nadprodukcja"):
+            errors.append(
+                f"{code}: operacje zgłoszono {_fmt(reported)}, nowy plan {_fmt(max_to_make)}"
+            )
     if errors:
         raise ValueError(
             "Nie można zmniejszyć ilości zlecenia poniżej już zgłoszonego postępu półproduktów:\n"
