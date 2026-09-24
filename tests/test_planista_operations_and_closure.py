@@ -217,3 +217,65 @@ def test_concurrent_semi_progress_keeps_highest_cumulative_quantity(monkeypatch,
     saved = json.loads(order_path.read_text(encoding="utf-8"))
     assert saved["wykonano_polprodukty"]["A"] == 2
     assert saved["wykonano"] == 0
+
+
+def test_two_surplus_transfers_post_stock_once(monkeypatch, tmp_path):
+    """A duplicate mobile/Desktop confirmation cannot add stock twice."""
+    import json
+    import logika_magazyn as LM
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    order_path = tmp_path / "000125.json"
+    order_path.write_text(json.dumps({
+        "id": "000125", "produkt": "P", "ilosc": 10,
+        "zezwol_nadprodukcja": True, "rzaz_mm": 0, "historia": [],
+        "polprodukty_z_magazynu_baza": {"A": 0},
+        "wykonano_polprodukty": {"A": 12},
+    }), encoding="utf-8")
+    warehouse = {
+        "RAW": {"stan": 100.0, "rezerwacje": 0.0},
+        "A": {"stan": 0.0, "rezerwacje": 0.0},
+    }
+    transfers = []
+    monkeypatch.setattr(PS, "_full_semi_targets", lambda _o: {
+        "A": {"potrzeba": 10}
+    })
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: order_path)
+    monkeypatch.setattr(
+        ZL, "_read_json", lambda p: json.loads(Path(p).read_text(encoding="utf-8"))
+    )
+    monkeypatch.setattr(
+        ZL, "_write_json", lambda p, v: Path(p).write_text(
+            json.dumps(v, ensure_ascii=False), encoding="utf-8"
+        )
+    )
+    monkeypatch.setattr(ZL, "_raw_need_for_pp", lambda _code, qty, _cut: {
+        "RAW": {"ilosc": float(qty) * 3}
+    })
+    monkeypatch.setattr(LM, "_warehouse_path", lambda: tmp_path / "magazyn.json")
+    monkeypatch.setattr(LM, "get_item", lambda code: warehouse.get(code))
+    monkeypatch.setattr(
+        LM, "zuzyj", lambda code, qty, *_a, **_k:
+        warehouse[code].__setitem__("stan", warehouse[code]["stan"] - qty)
+    )
+    def credit(code, qty, *_a, **_k):
+        transfers.append((code, qty))
+        warehouse[code]["stan"] += qty
+    monkeypatch.setattr(LM, "zwrot", credit)
+    monkeypatch.setattr(ZP, "_ensure_semi_item", lambda _code: warehouse["A"])
+    monkeypatch.setattr(PAR, "_canonical_warehouse_snapshot", lambda: deepcopy(warehouse))
+    monkeypatch.setattr(PAR, "_restore_canonical_warehouse", lambda saved: warehouse.update(saved))
+
+    gate = Barrier(2)
+    def transfer(_):
+        gate.wait()
+        PS.transfer_polprodukt_surplus("000125", "A", kto="Edwin")
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(transfer, (1, 2)))
+    saved = json.loads(order_path.read_text(encoding="utf-8"))
+    assert saved["nadprodukcja_polproduktow_zaksiegowana"]["A"] == 2
+    assert warehouse["RAW"]["stan"] == 94
+    assert warehouse["A"]["stan"] == 2
+    assert transfers == [("A", 2)]
