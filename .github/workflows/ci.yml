@@ -27,7 +27,9 @@ jobs:
             tests/test_planista_operations_and_closure.py \
             tests/test_planista_semi_progress.py \
             tests/test_planista_dispatch_runtime.py \
-            tests/test_production_progress_v3.py
+            tests/test_production_progress_v3.py \
+            tests/test_planista_wmm_consistency.py \
+            tests/test_order_create_guard.py
       - name: Run profile workforce regressions
         run: |
           pytest -q \
