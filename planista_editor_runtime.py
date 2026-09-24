@@ -948,6 +948,90 @@ def _install_order_editor() -> None:
             command_only=False,
         ).pack(side="left")
 
+        # UI only: plan correction and manual fallback are secondary actions.
+        advanced_open = tk.BooleanVar(value=False)
+        advanced_toggle = ttk.Button(semis_tab)
+        advanced_toggle.pack(anchor="w", pady=(12, 0))
+
+        def update_semi_controls():
+            selection = semi_tree.selection()
+            code = selection[0] if selection else ""
+            import planista_semi_progress_runtime as PS
+
+            targets = PS._full_semi_targets(order) if code else {}
+            operations = [
+                str(value) for value in (targets.get(code) or {}).get("czynnosci") or []
+            ]
+            pending = PS.pending_semi_surplus(order, code) if code else 0
+            if code:
+                row = next((item for item in semi_rows(order) if item["kod"] == code), None)
+                if row:
+                    selected_semi_var.set(
+                        f"{row['nazwa']} [{code}]  •  "
+                        f"{_fmt(row['wykonano'])} / {_fmt(row['do_wykonania'])} szt."
+                    )
+                if operations:
+                    current_op = operation_name.get()
+                    current_idx = operations.index(current_op) if current_op in operations else 0
+                    step_var.set(
+                        f"Operacja {current_idx + 1} z {len(operations)}. "
+                        "Po ostatniej operacji WM zaliczy gotowy półprodukt."
+                    )
+                else:
+                    step_var.set(
+                        "Brak operacji technologicznych. Zgłoś ręcznie wykonaną "
+                        "ilość półproduktu poniżej."
+                    )
+            else:
+                selected_semi_var.set("Wybierz półprodukt z listy powyżej.")
+                step_var.set("")
+
+            if operations:
+                operation_frame.pack(fill="x", pady=(4, 0), before=advanced_toggle)
+            else:
+                operation_frame.pack_forget()
+            if pending > 1e-9:
+                surplus_button.pack(side="left", padx=(6, 4))
+            else:
+                surplus_button.pack_forget()
+            if advanced_open.get() or (bool(code) and not operations):
+                semi_edit.pack(fill="x", pady=(8, 0), before=advanced_toggle)
+            else:
+                semi_edit.pack_forget()
+            advanced_toggle.configure(
+                text=(
+                    "Ukryj korektę planu i zapis ręczny ▴"
+                    if advanced_open.get()
+                    else "Korekta planu / zapis ręczny ▾"
+                )
+            )
+
+        def toggle_advanced():
+            advanced_open.set(not advanced_open.get())
+            update_semi_controls()
+
+        advanced_toggle.configure(command=toggle_advanced)
+
+        ttk.Separator(semis_tab).pack(fill="x", pady=(12, 7))
+        ttk.Label(
+            semis_tab, text="3. Gotowy produkt",
+            font=("Arial", 12, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            semis_tab, textvariable=proposal_var,
+            wraplength=880, justify="left",
+        ).pack(anchor="w", pady=(4, 6))
+        ttk.Button(
+            semis_tab, text="Przejdź do potwierdzenia produktu →",
+            command=lambda: notebook.select(realization_tab),
+        ).pack(anchor="w")
+        ttk.Label(
+            semis_tab,
+            text="WM wylicza kompletne zestawy, ale wykonanie produktu "
+                 "potwierdzasz osobno w zakładce Realizacja.",
+            wraplength=880, justify="left",
+        ).pack(anchor="w", pady=(5, 0))
+
         footer = ttk.Frame(card)
         footer.grid(row=2, column=0, sticky="ew", padx=10, pady=(12, 8))
 
