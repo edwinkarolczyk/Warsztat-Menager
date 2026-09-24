@@ -244,7 +244,8 @@ def require_paid_leave_balance(
     from services.leave_balance_service import get_balance
 
     requested = _normalize_dates(dates)
-    replacements = set(_normalize_dates(replacing_dates))
+    replacement_values = list(replacing_dates)
+    replacements = set(_normalize_dates(replacement_values)) if replacement_values else set()
     old_paid = {
         str(row.get("date") or "")
         for row in read_leaves()
