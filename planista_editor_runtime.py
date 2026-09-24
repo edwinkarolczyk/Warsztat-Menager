@@ -91,12 +91,12 @@ def _install_order_editor() -> None:
         add_help_button(frm, "Po zapisaniu WM zarezerwuje dostępne półprodukty i surowce dla tego zlecenia. Braki pozostaną widoczne jako zapotrzebowanie.", row=6, column=2, padx=(4, 0))
         ttk.Checkbutton(
             frm,
-            text="Zezwól na nadprodukcję i przyjmij nadwyżkę do Magazynu",
+            text="Zezwól na nadprodukcję (Magazyn po potwierdzeniu)",
             variable=allow_overproduction,
         ).grid(row=7, column=0, columnspan=2, sticky="w", pady=3)
         add_help_button(
             frm,
-            "Pozwala zgłosić więcej niż ilość zlecenia. Nadwyżka półproduktu lub gotowego produktu zostanie rozliczona i dopisana do odpowiedniej karty Magazynu.",
+            "Pozwala zgłosić dodatkowe sztuki. Nadwyżka półproduktu czeka na osobne potwierdzenie przekazania do Magazynu.",
             row=7,
             column=2,
             padx=(4, 0),
@@ -291,12 +291,12 @@ def _install_order_editor() -> None:
 
         ttk.Checkbutton(
             basic_tab,
-            text="Zezwól na nadprodukcję i przyjmij nadwyżkę do Magazynu",
+            text="Zezwól na nadprodukcję (Magazyn po potwierdzeniu)",
             variable=allow_overproduction,
         ).grid(row=9, column=0, columnspan=2, sticky="w", pady=(8, 4))
         add_help_button(
             basic_tab,
-            "Po włączeniu WM pozwoli zgłosić nadwyżkę. Rozliczona nadwyżka trafi do karty półproduktu albo gotowego produktu w Magazynie.",
+            "Pozwala zgłosić dodatkowe półprodukty. O ich przekazaniu do Magazynu decydujesz osobno.",
             row=9,
             column=2,
             padx=(6, 0),
@@ -715,8 +715,47 @@ def _install_order_editor() -> None:
                     float(semi_done.get().replace(",", ".")),
                     kto=self.login or "system",
                 )
+                pending = PS.pending_semi_surplus(order, selection[0])
+                if pending > 1e-9 and messagebox.askyesno(
+                    "Nadwyżka półproduktu",
+                    f"Zgłoszono {_fmt(pending)} szt. nadwyżki. "
+                    "Przekazać ją teraz do Magazynu?\\n"
+                    "Wybranie Nie pozostawi nadwyżkę przy zleceniu.",
+                    parent=dlg,
+                ):
+                    order = PS.transfer_polprodukt_surplus(
+                        order["id"], selection[0], kto=self.login or "system"
+                    )
             except Exception as exc:
                 messagebox.showerror("Postęp półproduktów", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        def transfer_pending_semi():
+            nonlocal order
+            selection = semi_tree.selection()
+            if not selection:
+                messagebox.showinfo("Nadwyżka", "Wybierz półprodukt.", parent=dlg)
+                return
+            import planista_semi_progress_runtime as PS
+            current = load_order()
+            pending = PS.pending_semi_surplus(current, selection[0])
+            if pending <= 1e-9:
+                messagebox.showinfo("Nadwyżka", "Brak nadwyżki oczekującej na przekazanie.", parent=dlg)
+                return
+            if not messagebox.askyesno(
+                "Przekaż nadwyżkę",
+                f"Przekazać {_fmt(pending)} szt. półproduktu do Magazynu?",
+                parent=dlg,
+            ):
+                return
+            try:
+                order = PS.transfer_polprodukt_surplus(
+                    current["id"], selection[0], kto=self.login or "system"
+                )
+            except Exception as exc:
+                messagebox.showerror("Przekazanie nadwyżki", str(exc), parent=dlg)
                 return
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
@@ -729,9 +768,10 @@ def _install_order_editor() -> None:
             command_only=False,
         ).pack(side="left", padx=(0, 14))
         ttk.Button(semi_edit, text="Zapisz postęp", command=save_semi_done).pack(side="left", padx=(6, 4))
+        ttk.Button(semi_edit, text="Przekaż nadwyżkę", command=transfer_pending_semi).pack(side="left", padx=(6, 4))
         add_help_button(
             semi_edit,
-            "Zapisuje łączną wykonaną ilość zaznaczonego półproduktu. Nie można zmniejszyć już zgłoszonego postępu. Jeżeli zlecenie zezwala na nadprodukcję, nadwyżka zużyje wolny surowiec i od razu trafi do Magazynu.",
+            "Zapisuje łączny postęp. Przy nadwyżce pyta osobno o jej przekazanie; odmowa zachowuje ją przy zleceniu.",
             command_only=False,
         ).pack(side="left")
 
