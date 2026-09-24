@@ -581,8 +581,8 @@ def _install_order_editor() -> None:
                 return
             if not messagebox.askyesno(
                 "Zamknięcie dyspozycji",
-                f"Zlecenie {fresh['id']} jest wykonane i ma rozliczony materiał.\\n"
-                "Czy zamknąć powiązaną dyspozycję produkcyjną?\\n"
+                f"Zlecenie {fresh['id']} jest wykonane i ma rozliczony materiał.\n"
+                "Czy zamknąć powiązaną dyspozycję produkcyjną?\n"
                 "Materiał NIE zostanie pobrany ponownie.",
                 parent=dlg,
             ):
@@ -608,7 +608,7 @@ def _install_order_editor() -> None:
             if settled + 1e-9 < done:
                 if not messagebox.askyesno(
                     "Rozliczenie materiału",
-                    f"Wykonano {_fmt(done)} / {_fmt(qty)} produktów.\\n"
+                    f"Wykonano {_fmt(done)} / {_fmt(qty)} produktów.\n"
                     f"Najpierw rozliczyć materiał od {_fmt(settled)} do {_fmt(done)} szt.?",
                     parent=dlg,
                 ):
@@ -775,7 +775,7 @@ def _install_order_editor() -> None:
                 if pending > 1e-9 and messagebox.askyesno(
                     "Nadwyżka półproduktu",
                     f"Zgłoszono {_fmt(pending)} szt. nadwyżki. "
-                    "Przekazać ją teraz do Magazynu?\\n"
+                    "Przekazać ją teraz do Magazynu?\n"
                     "Wybranie Nie pozostawi nadwyżkę przy zleceniu.",
                     parent=dlg,
                 ):
