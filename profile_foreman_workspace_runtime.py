@@ -284,7 +284,7 @@ def _clear_overtime(login: str, day_text: str, slot: str, actor: str, note: str)
     )
 
 
-def _save_attendance_edit(
+def _save_attendance_edit_unlocked(
     login: str,
     payload: dict[str, Any],
     *,
@@ -384,6 +384,31 @@ def _save_attendance_edit(
             attendance_service._write(attendance_service.data_path(), attendance_before)
             attendance_service._write(attendance_service.audit_path(), audit_before)
         raise
+
+
+
+def _save_attendance_edit(
+    login: str,
+    payload: dict[str, Any],
+    *,
+    source_slot: str,
+    original_first_login: str,
+    actor: str,
+    note: str,
+    override_reason: str = "",
+) -> None:
+    """Protect paid leave read/check/write plus outer attendance rollback."""
+    kwargs = {
+        "source_slot": source_slot,
+        "original_first_login": original_first_login,
+        "actor": actor,
+        "note": note,
+        "override_reason": override_reason,
+    }
+    if payload.get("absence") in {"UR", "UŻ"}:
+        with leave_workflow_service.paid_leave_write_transaction():
+            return _save_attendance_edit_unlocked(login, payload, **kwargs)
+    return _save_attendance_edit_unlocked(login, payload, **kwargs)
 
 
 def _tree_with_scroll(parent, columns, *, height: int = 12) -> ttk.Treeview:
