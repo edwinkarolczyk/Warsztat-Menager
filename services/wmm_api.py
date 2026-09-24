@@ -150,6 +150,49 @@ if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
     _impl._WM10_ORDER_CREATE_GUARD = True
 
 
+
+if not getattr(_impl, "_WM10_PLANISTA_DISPOSITION_GUARD", False):
+    _original_set_disposition_status = _impl._set_disposition_status
+
+    def _guarded_set_disposition_status(item_id, status, author):
+        from dyspozycje_store import get_dyspozycja
+
+        row = get_dyspozycja(str(item_id))
+        if not row:
+            raise RuntimeError("Nie znaleziono Dyspozycji.")
+        typ = str(row.get("typ_dyspozycji") or "").strip().lower()
+        if typ != "zlecenie_wykonania" or str(status) != "zamknieta":
+            return _original_set_disposition_status(item_id, status, author)
+
+        if str(row.get("status") or "") == "zamknieta":
+            return row
+        meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+        order_id = str(
+            meta.get("order_id") or meta.get("nr_zlecenia")
+            or meta.get("zlecenie_id") or ""
+        ).strip()
+        object_id = str(row.get("obiekt_id") or "").strip()
+        if object_id.startswith("zlecenie:") and ":" not in object_id[len("zlecenie:"):]:
+            order_id = object_id[len("zlecenie:"):]
+        if not order_id:
+            raise RuntimeError(
+                "Dyspozycja produkcyjna bez powiązanego zlecenia wymaga rozliczenia w WM."
+            )
+        from dyspozycje_access import resolve_role_for_login
+        from planista_dispatch_runtime import close_completed_planista_dispatch
+
+        role = resolve_role_for_login(str(author))
+        try:
+            return close_completed_planista_dispatch(
+                order_id, who=str(author), role=role,
+            )
+        except (PermissionError, ValueError) as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    _impl._set_disposition_status = _guarded_set_disposition_status
+    _impl._WM10_PLANISTA_DISPOSITION_GUARD = True
+
+
 def _machine_id_from_qr(value: object) -> str:
     raw = str(value or "").strip()
     if raw[: len(_MACHINE_QR_PREFIX)].upper() == _MACHINE_QR_PREFIX:
