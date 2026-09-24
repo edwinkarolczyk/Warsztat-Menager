@@ -20,6 +20,8 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run WM tray and WMM API lifecycle tests
+        run: pytest -q tests/test_wm_tray_runtime.py
       - name: Run guided Planista editor Tk smoke under Xvfb
         run: xvfb-run -a pytest -q tests/test_planista_editor_guided_tk.py
       - name: Run guided Planista editor UI regressions
