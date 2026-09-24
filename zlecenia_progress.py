@@ -491,6 +491,21 @@ def rozlicz_material(zlec_id, kto="system"):
     done = _f(order.get("wykonano"))
     settled = _f(order.get("materialy_rozliczono_do"))
 
+    # Legacy ZL.report_wykonano consumed material during completion and did not
+    # store materialy_rozliczono_do. Never charge its history a second time.
+    legacy_postings = [
+        str(item.get("co") or "")
+        for item in (order.get("historia") or [])
+        if isinstance(item, dict)
+        and str(item.get("co") or "").startswith("wykonano ->")
+        and "(bez rozliczenia materiału)" not in str(item.get("co") or "")
+    ]
+    if "materialy_rozliczono_do" not in order and done > 1e-9 and legacy_postings:
+        raise ValueError(
+            "To starsze zlecenie ma historię wykonania z możliwym rozchodem materiału. "
+            "Nie rozliczaj go ponownie bez ręcznej weryfikacji magazynu i historii."
+        )
+
     if done <= settled + 1e-9:
         return order
     if done < 0 or (
