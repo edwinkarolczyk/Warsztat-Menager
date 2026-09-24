@@ -666,7 +666,11 @@ def _install_order_editor() -> None:
                         kto=self.login or "system",
                         allow_incomplete_semis=allow,
                     )
-                except TypeError:
+                except TypeError as exc:
+                    # Retry only legacy signature mismatch, never an internal
+                    # TypeError after a partial write or warehouse side effect.
+                    if "allow_incomplete_semis" not in str(exc):
+                        raise
                     order = ZP.report_wykonano(
                         order["id"],
                         new_value,
