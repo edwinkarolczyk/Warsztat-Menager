@@ -302,17 +302,22 @@ def _install_full_transactions() -> None:
             return fn
 
         def wrapped(zlec_id, *args, **kwargs):
-            warehouse = _canonical_warehouse_snapshot()
+            from machine_file_guard import file_write_lock
+
             order_path = Path(ZL._order_path(zlec_id))
-            order_snapshot = _file_snapshot(order_path)
-            disp_path, disp_snapshot = _disposition_snapshot()
-            try:
-                return fn(zlec_id, *args, **kwargs)
-            except Exception:
-                _restore_canonical_warehouse(warehouse)
-                _restore_file(order_path, order_snapshot)
-                _restore_disposition_snapshot(disp_path, disp_snapshot)
-                raise
+            # Lock covers read/modify/write, not just the last JSON write.
+            # An API retry sees the preceding completed request.
+            with file_write_lock(order_path, label="zlecenia Planisty"):
+                warehouse = _canonical_warehouse_snapshot()
+                order_snapshot = _file_snapshot(order_path)
+                disp_path, disp_snapshot = _disposition_snapshot()
+                try:
+                    return fn(zlec_id, *args, **kwargs)
+                except Exception:
+                    _restore_canonical_warehouse(warehouse)
+                    _restore_file(order_path, order_snapshot)
+                    _restore_disposition_snapshot(disp_path, disp_snapshot)
+                    raise
 
         wrapped._wm_full_transaction = True
         wrapped._wm_original = fn
