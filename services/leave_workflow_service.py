@@ -11,6 +11,9 @@ import json
 import os
 import shutil
 import uuid
+import threading
+from contextlib import contextmanager
+from functools import wraps
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -22,6 +25,43 @@ _PENDING = "pending"
 _APPROVED = "approved"
 _REJECTED = "rejected"
 _CANCELLED = "cancelled"
+
+
+
+_PAID_LEAVE_THREAD_STATE = threading.local()
+
+
+@contextmanager
+def paid_leave_write_transaction():
+    """One inter-process lock around balance check AND paid-leave write.
+
+    The thread-local depth permits nested calls from the foreman form without
+    reacquiring the same non-reentrant OS lock. No lock is held between clicks.
+    """
+    depth = getattr(_PAID_LEAVE_THREAD_STATE, "depth", 0)
+    if depth:
+        _PAID_LEAVE_THREAD_STATE.depth = depth + 1
+        try:
+            yield
+        finally:
+            _PAID_LEAVE_THREAD_STATE.depth -= 1
+        return
+    from machine_file_guard import file_write_lock
+
+    with file_write_lock(leaves_path(), label="Urlopów"):
+        _PAID_LEAVE_THREAD_STATE.depth = 1
+        try:
+            yield
+        finally:
+            _PAID_LEAVE_THREAD_STATE.depth = 0
+
+
+def _paid_leave_serialized(fn):
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        with paid_leave_write_transaction():
+            return fn(*args, **kwargs)
+    return wrapped
 
 
 def _utc_now() -> str:
@@ -285,6 +325,7 @@ def require_paid_leave_balance(
     return {"shortage": shortage, "balance": snapshot}
 
 
+@_paid_leave_serialized
 def request_vacation(login: str, dates: Iterable[str | date], note: str = "") -> str:
     login = str(login or "").strip()
     if not login:
@@ -432,6 +473,7 @@ def _sync_attendance_reason(login: str, dates: Iterable[str], actor: str, reason
             continue
 
 
+@_paid_leave_serialized
 def approve_request(request_id: str, actor_login: str, *, allow_over_balance: bool = False, override_reason: str = "") -> dict:
     actor = _require_foreman(actor_login)
     request_rows = _as_list(_read_json(requests_path(), []))
