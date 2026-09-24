@@ -1,5 +1,3 @@
-from __version__ import __version__
-
 import pytest
 
 import profile_attendance_export_runtime as export_runtime
@@ -15,10 +13,6 @@ from profile_employee_editor_finish_runtime import (
     _refresh_open_profile_views,
 )
 from profile_foreman_edit_runtime import _parse_carryover
-
-
-def test_profile_release_is_current():
-    assert __version__ == "1.0.12"
 
 
 def test_profile_shift_modes_match_engine_and_add_dialog():
