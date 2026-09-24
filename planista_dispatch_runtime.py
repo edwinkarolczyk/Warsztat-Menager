@@ -177,6 +177,35 @@ def find_active_planista_dispatch(
     return None
 
 
+def find_closed_planista_dispatch(
+    order_id: str, *, rows: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """Historical match without reopening or creating another disposition."""
+    wanted = str(order_id or "").strip()
+    if wanted.lower().startswith("zlecenie:"):
+        wanted = wanted.split(":", 1)[1].strip()
+    if not wanted:
+        return None
+    if rows is None:
+        from dyspozycje_store import load_dyspozycje
+        rows = load_dyspozycje()
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("typ_dyspozycji") or "") not in {"zlecenie_wykonania", "zamowienie"}:
+            continue
+        if str(row.get("status") or "") != "zamknieta":
+            continue
+        meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+        source_id = str(row.get("obiekt_id") or "").strip().casefold()
+        attached_id = str(
+            meta.get("order_id") or meta.get("nr_zlecenia") or meta.get("zlecenie_id") or ""
+        ).strip().casefold()
+        if source_id == f"zlecenie:{wanted}".casefold() or attached_id == wanted.casefold():
+            return dict(row)
+    return None
+
+
 def ensure_planista_dispatch(
     order: dict[str, Any],
     *,
@@ -189,7 +218,7 @@ def ensure_planista_dispatch(
     if not order_id:
         raise ValueError("Zlecenie Planisty nie ma ID.")
 
-    existing = find_active_planista_dispatch(order_id)
+    existing = find_active_planista_dispatch(order_id) or find_closed_planista_dispatch(order_id)
     if existing is not None:
         return existing, False
 
@@ -256,6 +285,13 @@ def close_completed_planista_dispatch(order_id: str, *, who: str, role: str) -> 
     if not is_role_action_allowed(role, ACTION_EDIT):
         raise PermissionError("Ta ranga nie ma uprawnienia do edycji Dyspozycji.")
     order = ZL._read_json(ZL._order_path(str(order_id)))
+    qty = float(order.get("ilosc") or 0)
+    done = float(order.get("wykonano") or 0)
+    settled = float(order.get("materialy_rozliczono_do") or 0)
+    if qty > 0 and done + 1e-9 >= qty and settled + 1e-9 >= done:
+        closed = find_closed_planista_dispatch(str(order_id))
+        if closed is not None:
+            return closed
     state = closure_readiness(order)
     if not state["ready"]:
         raise ValueError(state["reason"])
@@ -620,6 +656,7 @@ __all__ = [
     "closure_readiness",
     "close_completed_planista_dispatch",
     "find_active_planista_dispatch",
+    "find_closed_planista_dispatch",
     "install_planista_dispatch_runtime",
     "planista_order_choices",
     "planista_order_context",
