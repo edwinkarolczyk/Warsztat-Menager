@@ -8,6 +8,7 @@ import planista_semi_progress_runtime as PS
 import planista_dispatch_runtime as PD
 import planista_audit_runtime as PAR
 import zlecenia_logika as ZL
+import zlecenia_progress as ZP
 import dyspozycje_store as DS
 import dyspozycje_access as DA
 import planowanie_magazyn as PM
@@ -165,3 +166,12 @@ def test_order_sync_preserves_dispatch_status_history(monkeypatch):
     ]
     assert recorded["meta"]["zamkniecie_potwierdzone"] is True
     assert "status" not in recorded
+
+
+def test_legacy_material_posting_cannot_be_consumed_twice(monkeypatch):
+    order = {"id": "000020", "ilosc": 10, "wykonano": 10,
+             "historia": [{"co": "wykonano -> 10"}]}
+    monkeypatch.setattr(ZL, "_order_path", lambda _id: Path("000020.json"))
+    monkeypatch.setattr(ZL, "_read_json", lambda _path: dict(order))
+    with pytest.raises(ValueError, match="starsze zlecenie"):
+        ZP.rozlicz_material("000020", kto="Edwin")
