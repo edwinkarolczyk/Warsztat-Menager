@@ -2,7 +2,7 @@
 """Drobne poprawki UI urlopów bez przebudowy istniejących okien."""
 from __future__ import annotations
 
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 
 _INSTALLED = False
 
@@ -30,10 +30,19 @@ def install() -> None:
                 raise
             if not messagebox.askyesno(
                 "Przekroczenie salda urlopu",
-                f"{text}\n\nCzy mimo to zaakceptować wniosek?",
+                f"{text}\n\nCzy jako brygadzista zatwierdzasz wyjątek?",
             ):
                 raise ValueError("Akceptacja anulowana przez brygadzistę.")
-            return real_approve(request_id, actor_login, allow_over_balance=True)
+            reason = simpledialog.askstring(
+                "Przyczyna wyjątku",
+                "Podaj powód przekroczenia salda urlopu:",
+            )
+            if not str(reason or "").strip():
+                raise ValueError("Akceptacja anulowana: brak przyczyny.")
+            return real_approve(
+                request_id, actor_login,
+                allow_over_balance=True, override_reason=str(reason).strip(),
+            )
 
     # _open_requests_dialog odczytuje tę nazwę globalną dopiero przy kliknięciu.
     calendar_ui.approve_request = approve_with_explicit_override
