@@ -5,7 +5,38 @@
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 from pathlib import Path
+from threading import local
+
+
+_warehouse_transaction_state = local()
+
+
+@contextmanager
+def warehouse_full_operation():
+    """Keep one cross-process warehouse lock for the whole multi-file operation.
+
+    LM mutators already use the same file lock individually. Their wrappers
+    skip reacquiring it only in this thread while the outer lock is held.
+    """
+    from machine_file_guard import warehouse_transaction_lock
+    import logika_magazyn as LM
+
+    if getattr(_warehouse_transaction_state, "depth", 0):
+        _warehouse_transaction_state.depth += 1
+        try:
+            yield
+        finally:
+            _warehouse_transaction_state.depth -= 1
+        return
+
+    with warehouse_transaction_lock(LM._warehouse_path()):
+        _warehouse_transaction_state.depth = 1
+        try:
+            yield
+        finally:
+            _warehouse_transaction_state.depth = 0
 
 
 def _canonical_warehouse_snapshot():
@@ -209,6 +240,8 @@ def _install_warehouse_write_transactions() -> None:
 
     def make_wrapper(fn):
         def wrapped(*args, **kwargs):
+            if getattr(_warehouse_transaction_state, "depth", 0):
+                return fn(*args, **kwargs)
             with warehouse_transaction_lock(LM._warehouse_path()):
                 return fn(*args, **kwargs)
 
@@ -308,16 +341,17 @@ def _install_full_transactions() -> None:
             # Lock covers read/modify/write, not just the last JSON write.
             # An API retry sees the preceding completed request.
             with file_write_lock(order_path, label="zlecenia Planisty"):
-                warehouse = _canonical_warehouse_snapshot()
-                order_snapshot = _file_snapshot(order_path)
-                disp_path, disp_snapshot = _disposition_snapshot()
-                try:
-                    return fn(zlec_id, *args, **kwargs)
-                except Exception:
-                    _restore_canonical_warehouse(warehouse)
-                    _restore_file(order_path, order_snapshot)
-                    _restore_disposition_snapshot(disp_path, disp_snapshot)
-                    raise
+                with warehouse_full_operation():
+                    warehouse = _canonical_warehouse_snapshot()
+                    order_snapshot = _file_snapshot(order_path)
+                    disp_path, disp_snapshot = _disposition_snapshot()
+                    try:
+                        return fn(zlec_id, *args, **kwargs)
+                    except Exception:
+                        _restore_canonical_warehouse(warehouse)
+                        _restore_file(order_path, order_snapshot)
+                        _restore_disposition_snapshot(disp_path, disp_snapshot)
+                        raise
 
         wrapped._wm_full_transaction = True
         wrapped._wm_original = fn
@@ -334,21 +368,22 @@ def _install_full_transactions() -> None:
     if not getattr(current_create, "_wm_full_transaction", False):
         def create_transaction(*args, **kwargs):
             with order_create_lock(ZL._data_dir()):
-                warehouse = _canonical_warehouse_snapshot()
-                disp_path, disp_snapshot = _disposition_snapshot()
-                before = {p.name for p in ZL._orders_dir().glob("*.json")}
-                try:
-                    return current_create(*args, **kwargs)
-                except Exception:
-                    _restore_canonical_warehouse(warehouse)
-                    _restore_disposition_snapshot(disp_path, disp_snapshot)
-                    for path in ZL._orders_dir().glob("*.json"):
-                        if path.name not in before:
-                            try:
-                                path.unlink()
-                            except Exception:
-                                pass
-                    raise
+                with warehouse_full_operation():
+                    warehouse = _canonical_warehouse_snapshot()
+                    disp_path, disp_snapshot = _disposition_snapshot()
+                    before = {p.name for p in ZL._orders_dir().glob("*.json")}
+                    try:
+                        return current_create(*args, **kwargs)
+                    except Exception:
+                        _restore_canonical_warehouse(warehouse)
+                        _restore_disposition_snapshot(disp_path, disp_snapshot)
+                        for path in ZL._orders_dir().glob("*.json"):
+                            if path.name not in before:
+                                try:
+                                    path.unlink()
+                                except Exception:
+                                    pass
+                        raise
         create_transaction._wm_full_transaction = True
         create_transaction._wm_original = current_create
         ZL.create_zlecenie = create_transaction
@@ -369,5 +404,6 @@ __all__ = [
     "_restore_canonical_warehouse",
     "_file_snapshot",
     "_restore_file",
+    "warehouse_full_operation",
     "_is_reserved_product_json",
 ]
