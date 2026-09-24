@@ -333,6 +333,35 @@ def _install_order_editor() -> None:
             padx=(4, 0),
         )
 
+        # WM 1.0: proposal only; never accept a BOM set without a user action.
+        from planista_semi_progress_runtime import proposed_product_completion
+
+        proposal_var = tk.StringVar(value="")
+        ttk.Label(realization_tab, textvariable=proposal_var).grid(
+            row=4, column=0, columnspan=3, sticky="w", pady=(4, 0)
+        )
+
+        def apply_proposal():
+            proposal = proposed_product_completion(load_order())
+            if not proposal["available"] or proposal["additional"] <= 0:
+                messagebox.showinfo(
+                    "Komplety półproduktów",
+                    proposal["reason"] or "Brak nowych kompletnych zestawów.",
+                    parent=dlg,
+                )
+                return
+            done_input.set(_fmt(proposal["complete_sets"]))
+            messagebox.showinfo(
+                "Potwierdź produkt",
+                "Uzupełniono proponowaną ilość. Użyj «Zapisz wykonanie», "
+                "aby potwierdzić faktycznie gotowe produkty.",
+                parent=dlg,
+            )
+
+        ttk.Button(
+            realization_tab, text="Wstaw propozycję z BOM", command=apply_proposal
+        ).grid(row=3, column=3, sticky="w", padx=(10, 0))
+
         semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
         semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=12)
         semi_labels = {
@@ -480,6 +509,16 @@ def _install_order_editor() -> None:
             done_total_var.set(_fmt(done_value))
             remaining_var.set(_fmt(max(0.0, qty_value - done_value)))
             done_input.set(_fmt(done_value))
+
+            proposal = proposed_product_completion(order)
+            if proposal["available"]:
+                proposal_var.set(
+                    f"Kompletne zestawy: {_fmt(proposal['complete_sets'])} / "
+                    f"{_fmt(proposal['planned'])} | nowe do potwierdzenia: "
+                    f"{_fmt(proposal['additional'])}"
+                )
+            else:
+                proposal_var.set(proposal["reason"])
 
             semi_tree.delete(*semi_tree.get_children())
             for row in semi_rows(order):
