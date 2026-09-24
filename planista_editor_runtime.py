@@ -569,6 +569,8 @@ def _install_order_editor() -> None:
             else:
                 proposal_var.set(proposal["reason"])
 
+            old_selection = semi_tree.selection()
+            preferred_code = old_selection[0] if old_selection else ""
             semi_tree.delete(*semi_tree.get_children())
             for row in semi_rows(order):
                 semi_tree.insert(
@@ -585,8 +587,13 @@ def _install_order_editor() -> None:
                         row["kod"],
                     ),
                 )
-            semi_target.set("")
-            semi_done.set("")
+            available_codes = semi_tree.get_children()
+            if available_codes:
+                picked = preferred_code if preferred_code in available_codes else available_codes[0]
+                semi_tree.selection_set(picked)
+                semi_tree.focus(picked)
+                semi_tree.see(picked)
+            on_semi_select()
 
             req_text.configure(state="normal")
             req_text.delete("1.0", "end")
@@ -769,6 +776,7 @@ def _install_order_editor() -> None:
             if not selection:
                 semi_target.set("")
                 semi_done.set("")
+                update_semi_controls()
                 return
             code = selection[0]
             row = next((item for item in semi_rows(order) if item["kod"] == code), None)
@@ -783,12 +791,14 @@ def _install_order_editor() -> None:
             operation_combo.configure(values=operations)
             operation_name.set(operations[0] if operations else "")
             on_operation_select()
+            update_semi_controls()
 
         def on_operation_select(_event=None):
             selection = semi_tree.selection()
             code = selection[0] if selection else ""
             progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
             operation_qty.set(_fmt(progress.get(operation_name.get(), 0)))
+            update_semi_controls()
 
         operation_combo.bind("<<ComboboxSelected>>", on_operation_select)
 
