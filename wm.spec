@@ -5,7 +5,8 @@ import pathlib
 
 block_cipher = None
 
-project_root = pathlib.Path(__file__).resolve().parent
+# PyInstaller executes .spec without defining __file__; SPECPATH is its directory.
+project_root = pathlib.Path(SPECPATH).resolve()
 
 
 _def_datas = [
