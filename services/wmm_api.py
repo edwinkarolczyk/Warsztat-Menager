@@ -143,8 +143,25 @@ if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
         # canonical transaction. Never acquire the same non-reentrant lock twice.
         if getattr(ZL.create_zlecenie, "_wm_full_transaction", False):
             return create()
+        # Headless WMM can run without the desktop Planista runtime.
+        # Keep the same warehouse/disposition rollback in that case.
+        import planista_audit_runtime as PAR
+
         with order_create_lock(data_root):
-            return create()
+            with PAR.warehouse_full_operation():
+                warehouse = PAR._canonical_warehouse_snapshot()
+                disp_path, disp_snapshot = PAR._disposition_snapshot()
+                orders_dir = data_root / "zlecenia"
+                before = {path.name for path in orders_dir.glob("*.json")}
+                try:
+                    return create()
+                except Exception:
+                    PAR._restore_canonical_warehouse(warehouse)
+                    PAR._restore_disposition_snapshot(disp_path, disp_snapshot)
+                    for path in orders_dir.glob("*.json"):
+                        if path.name not in before:
+                            path.unlink()
+                    raise
 
     _impl._create_planista_order = _guarded_create_planista_order
     _impl._WM10_ORDER_CREATE_GUARD = True
