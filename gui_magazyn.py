@@ -919,7 +919,12 @@ class MagazynFrame(ttk.Frame):
             node = self.tree.insert("", "end", values=_format_row(item_id, item))
             _tag_low_stock(self, node, item)
 
-    def _on_double_click(self, _e):
+    def _on_double_click(self, event):
+        row = self.tree.identify_row(event.y)
+        if not row:
+            return
+        self.tree.selection_set(row)
+        self.tree.focus(row)
         self._edit_selected_item()
 
     def _add_item(self):
