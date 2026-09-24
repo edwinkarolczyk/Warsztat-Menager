@@ -391,10 +391,22 @@ def _install_order_editor() -> None:
         semi_edit.pack(fill="x", pady=(10, 0))
         semi_target = tk.StringVar()
         semi_done = tk.StringVar()
+        operation_name = tk.StringVar()
+        operation_qty = tk.StringVar()
         ttk.Label(semi_edit, text="Do zlecenia:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_target, width=10).pack(side="left", padx=(6, 14))
         ttk.Label(semi_edit, text="Wykonano:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_done, width=10).pack(side="left", padx=(6, 6))
+
+        operation_frame = ttk.Frame(semis_tab)
+        operation_frame.pack(fill="x", pady=(8, 0))
+        ttk.Label(operation_frame, text="Operacja:").pack(side="left")
+        operation_combo = ttk.Combobox(
+            operation_frame, textvariable=operation_name, state="readonly", width=24,
+        )
+        operation_combo.pack(side="left", padx=(6, 10))
+        ttk.Label(operation_frame, text="Łącznie wykonano:").pack(side="left")
+        ttk.Entry(operation_frame, textvariable=operation_qty, width=10).pack(side="left", padx=(6, 8))
 
         req_text = tk.Text(
             requirements_tab,
@@ -730,6 +742,60 @@ def _install_order_editor() -> None:
             if row:
                 semi_target.set(_fmt(row["potrzeba"]))
                 semi_done.set(_fmt(row["wykonano"]))
+            import planista_semi_progress_runtime as PS
+            targets = PS._full_semi_targets(order)
+            operations = [
+                str(x) for x in (targets.get(code) or {}).get("czynnosci") or []
+            ]
+            operation_combo.configure(values=operations)
+            operation_name.set(operations[0] if operations else "")
+            on_operation_select()
+
+        def on_operation_select(_event=None):
+            selection = semi_tree.selection()
+            code = selection[0] if selection else ""
+            progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
+            operation_qty.set(_fmt(progress.get(operation_name.get(), 0)))
+
+        operation_combo.bind("<<ComboboxSelected>>", on_operation_select)
+
+        def save_operation():
+            nonlocal order
+            selection = semi_tree.selection()
+            if not selection:
+                messagebox.showinfo("Operacje", "Wybierz półprodukt.", parent=dlg)
+                return
+            if not operation_name.get():
+                messagebox.showinfo(
+                    "Operacje", "Ten półprodukt nie ma zdefiniowanych operacji.", parent=dlg
+                )
+                return
+            import planista_semi_progress_runtime as PS
+            try:
+                order = PS.report_polprodukt_operation(
+                    order["id"], selection[0], operation_name.get(),
+                    float(operation_qty.get().replace(",", ".")),
+                    kto=self.login or "system",
+                )
+                pending = PS.pending_semi_surplus(order, selection[0])
+                if pending > 1e-9 and messagebox.askyesno(
+                    "Nadwyżka półproduktu",
+                    f"Zgłoszono {_fmt(pending)} szt. nadwyżki po ostatniej operacji.\\n"
+                    "Przekazać ją teraz do Magazynu?",
+                    parent=dlg,
+                ):
+                    order = PS.transfer_polprodukt_surplus(
+                        order["id"], selection[0], kto=self.login or "system",
+                    )
+            except Exception as exc:
+                messagebox.showerror("Postęp operacji", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
+        ttk.Button(
+            operation_frame, text="Zapisz operację", command=save_operation,
+        ).pack(side="left", padx=(6, 0))
 
         def save_semi_target():
             nonlocal order
@@ -764,7 +830,14 @@ def _install_order_editor() -> None:
                 return
             try:
                 import planista_semi_progress_runtime as PS
-
+                operations = (PS._full_semi_targets(order).get(selection[0]) or {}).get("czynnosci") or []
+                requested = float(semi_done.get().replace(",", "."))
+                current = float((order.get("wykonano_polprodukty") or {}).get(selection[0], 0) or 0)
+                if operations and requested > current + 1e-9:
+                    raise ValueError(
+                        "Ten półprodukt wymaga zakończenia ostatniej operacji. "
+                        "Zgłoś postęp przez «Zapisz operację»."
+                    )
                 order = PS.report_polprodukt_wykonano(
                     order["id"],
                     selection[0],
@@ -815,6 +888,13 @@ def _install_order_editor() -> None:
                 return
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
+
+        add_help_button(
+            operation_frame,
+            "Zgłaszaj wykonanie operacji po kolei. Dopiero ostatnia operacja "
+            "zaliczy gotowy półprodukt. Liczba jest łączna dla tego zlecenia.",
+            command_only=False,
+        ).pack(side="left", padx=(6, 0))
 
         semi_tree.bind("<<TreeviewSelect>>", on_semi_select)
         ttk.Button(semi_edit, text="Zapisz ilość", command=save_semi_target).pack(side="left", padx=(6, 4))
