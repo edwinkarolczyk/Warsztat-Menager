@@ -30,6 +30,22 @@ jobs:
             tests/test_production_progress_v3.py \
             tests/test_planista_wmm_consistency.py \
             tests/test_order_create_guard.py
+      - name: Run production planning regressions
+        run: |
+          pytest -q \
+            tests/test_production_bom_reservation.py \
+            tests/test_production_workflow_v2.py \
+            tests/test_production_progress_v3.py \
+            tests/test_planista_semi_progress.py \
+            tests/test_planista_stock_runtime.py \
+            tests/test_planista_dispatch_runtime.py \
+            tests/test_order_create_guard.py \
+            tests/test_ui_regressions_magazyn_planista.py \
+            tests/test_planista_excel_import.py \
+            tests/test_planista_excel_changes.py \
+            tests/test_planista_excel_orders.py \
+            tests/test_planista_excel_sync_runtime.py \
+            tests/test_planista_excel_sync_e2e.py
       - name: Run profile workforce regressions
         run: |
           pytest -q \
@@ -61,22 +77,6 @@ jobs:
           pytest -q \
             tests/test_magazyn_pz_ui.py \
             tests/test_gui_magazyn_rezerwacje.py
-      - name: Run production planning regressions
-        run: |
-          pytest -q \
-            tests/test_production_bom_reservation.py \
-            tests/test_production_workflow_v2.py \
-            tests/test_production_progress_v3.py \
-            tests/test_planista_semi_progress.py \
-            tests/test_planista_stock_runtime.py \
-            tests/test_planista_dispatch_runtime.py \
-            tests/test_order_create_guard.py \
-            tests/test_ui_regressions_magazyn_planista.py \
-            tests/test_planista_excel_import.py \
-            tests/test_planista_excel_changes.py \
-            tests/test_planista_excel_orders.py \
-            tests/test_planista_excel_sync_runtime.py \
-            tests/test_planista_excel_sync_e2e.py
       - name: Run UI and ROOT regressions
         run: |
           pytest -q tests/test_ui_root_regressions.py
