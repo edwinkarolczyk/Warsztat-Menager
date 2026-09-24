@@ -1045,7 +1045,9 @@ def uruchom_panel(root, login, rola):
             messagebox.showerror("Błąd", f"Nie można otworzyć changeloga: {e}")
 
     ttk.Button(
-        footer_btns, text="Zamknij program", command=root.quit, style="WM.Side.TButton"
+        footer_btns, text="Zakończ WM i API",
+        command=lambda: getattr(root, "_wm_exit_app", root.quit)(),
+        style="WM.Side.TButton"
     ).pack(side="right")
     # „Pokaż zmiany” tymczasowo ukryte w GUI (1.6.18).
     # Nie tworzymy przycisku i nie uruchamiamy automatycznie okna changeloga.
