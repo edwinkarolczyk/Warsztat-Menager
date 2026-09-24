@@ -116,3 +116,28 @@ def test_ensure_dispatch_does_not_duplicate_closed_one(monkeypatch):
     record, created = PD.ensure_planista_dispatch({"id": "000125"})
     assert record["id"] == "D1"
     assert created is False
+
+
+def test_reduce_order_rejects_in_progress_operations(monkeypatch):
+    monkeypatch.setattr(PS, "_full_semi_targets", lambda order: {
+        "A": {"potrzeba": float(order["ilosc"]) * 3, "czynnosci": ["Cięcie", "Spawanie"]}
+    })
+    order = {
+        "ilosc": 6, "produkt": "P",
+        "sledzenie_operacji_polproduktow": True,
+        "postep_operacji_polproduktow": {"A": {"Cięcie": 12}},
+    }
+    with pytest.raises(ValueError, match="operacje zgłoszono"):
+        PS._guard_quantity_change(order, 3)
+
+
+def test_nonfinite_operation_progress_is_rejected(monkeypatch):
+    monkeypatch.setattr(PS, "_full_semi_targets", lambda order: {
+        "A": {"potrzeba": 18, "czynnosci": ["Cięcie"]}
+    })
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: Path("000125.json"))
+    monkeypatch.setattr(ZL, "_read_json", lambda _path: {
+        "id": "000125", "ilosc": 6, "historia": [],
+    })
+    with pytest.raises(ValueError, match="skończoną"):
+        PS.report_polprodukt_operation("000125", "A", "Cięcie", float("nan"))
