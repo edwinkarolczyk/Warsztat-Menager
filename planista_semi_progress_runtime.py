@@ -117,6 +117,56 @@ def semi_progress_rows(order: dict) -> list[dict]:
     return rows
 
 
+
+def proposed_product_completion(order: dict) -> dict:
+    """Read-only count of complete BOM sets; never posts products or stock.
+
+    Older orders without semi tracking keep their existing product progress.
+    The product's pinned BOM/version and the order's approved quantity overrides
+    are used by _full_semi_targets. Only stock allocated to this order counts.
+    """
+    from math import floor, isfinite
+
+    planned = max(0.0, _f(order.get("ilosc")))
+    confirmed = max(0.0, _f(order.get("wykonano")))
+    result = {
+        "planned": planned,
+        "confirmed": confirmed,
+        "complete_sets": confirmed,
+        "additional": 0,
+        "available": False,
+        "reason": "",
+    }
+    if not order.get("sledzenie_polproduktow"):
+        result["reason"] = "Brak śledzenia półproduktów w tym zleceniu."
+        return result
+    if planned <= _EPS:
+        result["reason"] = "Brak dodatniej ilości zlecenia."
+        return result
+    targets = _full_semi_targets(order)
+    if not targets:
+        result["reason"] = "Brak kompletnej struktury BOM."
+        return result
+    baseline = _preview_stock_baseline(order, targets)
+    made = order.get("wykonano_polprodukty") or {}
+    caps = []
+    for code, record in targets.items():
+        required = _f(record.get("potrzeba"))
+        if required <= _EPS or not isfinite(required):
+            result["reason"] = f"Nieprawidłowa ilość BOM dla {code}."
+            return result
+        stock = min(required, max(0.0, _f(baseline.get(code))))
+        finished = max(0.0, _f(made.get(code)))
+        caps.append(floor((stock + finished) * planned / required + _EPS))
+    if not caps:
+        return result
+    complete = max(0, min(int(planned), min(caps)))
+    result["complete_sets"] = max(confirmed, complete)
+    result["additional"] = max(0, complete - confirmed)
+    result["available"] = True
+    return result
+
+
 def semi_shortages_for_completion(order: dict, new_product_done: float) -> list[dict]:
     """Sprawdź, czy zgłoszony postęp półproduktów wystarcza do montażu produktu."""
     if not order.get("sledzenie_polproduktow"):
@@ -587,6 +637,7 @@ __all__ = [
     "install_planista_semi_progress_runtime",
     "report_polprodukt_wykonano",
     "semi_progress_rows",
+    "proposed_product_completion",
     "semi_shortages_for_completion",
     "_full_semi_targets",
     "_semi_product_links",
