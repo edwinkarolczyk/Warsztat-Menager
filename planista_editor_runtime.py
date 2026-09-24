@@ -372,7 +372,7 @@ def _install_order_editor() -> None:
             )
 
         ttk.Button(
-            realization_tab, text="Wstaw propozycję z BOM", command=apply_proposal
+            realization_tab, text="Wstaw liczbę kompletów z BOM", command=apply_proposal
         ).grid(row=4, column=3, sticky="w", padx=(10, 0))
 
         semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
@@ -727,7 +727,7 @@ def _install_order_editor() -> None:
             refresh_editor(reset_inputs=True)
             offer_settlement_and_closure()
 
-        ttk.Button(realization_tab, text="Zapisz wykonanie", command=save_done).grid(
+        ttk.Button(realization_tab, text="Potwierdź wykonanie produktu", command=save_done).grid(
             row=3, column=3, sticky="w", padx=(10, 0)
         )
         def settle_material():
@@ -1079,7 +1079,7 @@ def _install_order_editor() -> None:
         ).pack(side="left", padx=(4, 0))
         ttk.Button(footer, text="Zamknij", command=dlg.destroy).pack(side="right")
         ttk.Button(footer, text="Drukuj", command=print_current).pack(side="right", padx=(0, 6))
-        ttk.Button(footer, text="Zapisz", command=save_basic).pack(side="right", padx=(0, 6))
+        ttk.Button(footer, text="Zapisz dane zlecenia", command=save_basic).pack(side="right", padx=(0, 6))
 
         refresh_editor(reset_inputs=True)
 
