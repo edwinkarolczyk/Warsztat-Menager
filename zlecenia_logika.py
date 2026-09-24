@@ -241,6 +241,9 @@ def _sync_execution_disposition(order, autor="system"):
     existing = _find_disposition_for_order(oid)
     payload = {"tytul": title, "opis": "\n".join(rows), "termin": str(order.get("termin") or ""), "meta": meta}
     if existing:
+        # Preserve status history/closure metadata when Planista refreshes the order.
+        # Only the order-derived keys are updated, never replace the whole meta.
+        payload["meta"] = {**dict(existing.get("meta") or {}), **meta}
         return DS.update_dyspozycja(existing["id"], payload)
     return DS.add_dyspozycja(DS.make_dyspozycja(typ_dyspozycji="zlecenie_wykonania", tytul=title, opis=payload["opis"], autor=autor, termin=payload["termin"], modul_zrodlowy="zlecenia", obiekt_id=f"zlecenie:{oid}", meta=meta))
 
