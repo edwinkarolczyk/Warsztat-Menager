@@ -92,3 +92,41 @@ def test_approval_rechecks_actual_balance_and_records_exception(setup_leave, mon
     assert row["override_actor"] == "Edwin"
     assert row["override_reason"] == "Pilna sytuacja rodzinna"
     assert __import__("json").loads((setup_leave / "leaves.json").read_text())[0]["date"] == "2026-09-25"
+
+
+@pytest.mark.parametrize("code", ["UR", "UŻ"])
+def test_direct_paid_absence_blocks_before_attendance_read_or_write(setup_leave, monkeypatch, code):
+    monkeypatch.setattr(LW, "_read_all_leaves", lambda: [])
+    monkeypatch.setattr(EDIT.attendance_service, "_read", lambda *_a: (_ for _ in ()).throw(
+        AssertionError("Nie wolno dotykać Obecności przy braku salda")
+    ))
+    with pytest.raises(ValueError, match="przekracza dostępny urlop"):
+        EDIT._replace_absence_for_day(
+            "Marek", "2026-09-25", "Edwin", code,
+            "Korekta", attendance_slot="RANO",
+        )
+    assert not (setup_leave / "leaves.json").exists()
+
+
+@pytest.mark.parametrize("code", ["UR", "UŻ"])
+def test_direct_override_records_actor_reason_and_original_balance(
+    setup_leave, monkeypatch, code,
+):
+    monkeypatch.setattr(LW, "_read_all_leaves", lambda: [])
+    monkeypatch.setattr(EDIT.attendance_service, "_read", lambda *_a: {})
+    monkeypatch.setattr(EDIT.attendance_service, "data_path", lambda: setup_leave / "attendance.json")
+    monkeypatch.setattr(EDIT, "_clear_other_absence_slots", lambda *_a: None)
+    monkeypatch.setattr(EDIT, "_sync_attendance_choice", lambda *_a: None)
+    monkeypatch.setattr(LW, "_source_years_for_dates", lambda *_a: {"2026-09-25": 2026})
+    result = EDIT._replace_absence_for_day(
+        "Marek", "2026-09-25", "Edwin", code,
+        "Zatwierdzona korekta", attendance_slot="RANO",
+        override_reason="Wyjątkowe zdarzenie",
+    )
+    import json
+    row = json.loads((setup_leave / "leaves.json").read_text(encoding="utf-8"))[0]
+    assert result == code
+    assert row["over_balance_override"] is True
+    assert row["override_actor"] == "Edwin"
+    assert row["override_reason"] == "Wyjątkowe zdarzenie"
+    assert row["override_balance"]["2026"]["new_days"] == 1
