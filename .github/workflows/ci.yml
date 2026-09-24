@@ -20,6 +20,8 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run guided Planista editor UI regressions
+        run: pytest -q tests/test_planista_editor_guided_ui.py
       - name: Run WM 1.0 production settlement regressions
         run: |
           pytest -q \
