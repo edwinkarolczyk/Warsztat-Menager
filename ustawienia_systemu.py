@@ -223,6 +223,11 @@ def panel_ustawien(
             parent=panel.master,
         ):
             return
+        window = panel.master.winfo_toplevel()
+        background = getattr(window, "_wm_background_runtime", None)
+        if background is not None and not background.stopping:
+            background.on_close()
+            return
         orig_close()
 
     panel.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", _on_close)
