@@ -179,6 +179,7 @@ def _replace_absence(
     *,
     target_slot: str,
     source_slot: str,
+    override_reason: str = "",
 ) -> str:
     """Użyj kanonicznego mechanizmu zmiany nieobecności; dołóż brakujące UB."""
     import profile_attendance_edit_runtime as edit
@@ -196,6 +197,7 @@ def _replace_absence(
             note,
             attendance_slot=target_slot,
             source_slot=source_slot,
+            override_reason=override_reason,
         )
 
     # Starszy runtime nie miał UB w mapie typów. Najpierw anulujemy dotychczasową
@@ -290,6 +292,7 @@ def _save_attendance_edit(
     original_first_login: str,
     actor: str,
     note: str,
+    override_reason: str = "",
 ) -> None:
     """Zapisz cały formularz atomowo z punktu widzenia danych Obecności/Urlopów."""
     day_text = payload["date"]
@@ -301,6 +304,18 @@ def _save_attendance_edit(
     value = float(payload["day_value"])
     hours = float(payload["overtime_hours"])
     note = str(note or "").strip() or "Korekta Brygadzisty w Profilu"
+    if absence in {"UR", "UŻ"}:
+        existing = leave_workflow_service.active_absences_for_day(login, day_text)
+        same_paid = any(
+            str(row.get("type") or "").casefold() == "urlop"
+            for row in existing
+        )
+        leave_workflow_service.require_paid_leave_balance(
+            login, [day_text],
+            replacing_dates=[day_text] if same_paid else (),
+            override_actor=actor if override_reason else "",
+            override_reason=override_reason,
+        )
 
     attendance_before = attendance_service._read(attendance_service.data_path(), {})
     audit_before = attendance_service._read(attendance_service.audit_path(), [])
@@ -313,6 +328,7 @@ def _save_attendance_edit(
             _replace_absence(
                 login, day_text, actor, absence, note,
                 target_slot=target_slot, source_slot=source_slot,
+                override_reason=override_reason,
             )
         else:
             # Dniówka i ŚW mogą współistnieć. Najpierw zdejmujemy blokującą
@@ -561,6 +577,34 @@ def _build_employee_attendance(frame, login: str, *, on_saved: Callable[[], None
             if (parsed.year, parsed.month) != (year, month):
                 raise ValueError("Data musi należeć do aktualnie wybranego miesiąca.")
             payload["overtime_type"] = overtime_type_var.get()
+            reason = ""
+            if payload["absence"] in {"UR", "UŻ"}:
+                try:
+                    existing = leave_workflow_service.active_absences_for_day(login, payload["date"])
+                    same_paid = any(
+                        str(row.get("type") or "").casefold() == "urlop"
+                        for row in existing
+                    )
+                    leave_workflow_service.require_paid_leave_balance(
+                        login, [payload["date"]],
+                        replacing_dates=[payload["date"]] if same_paid else (),
+                    )
+                except ValueError as exc:
+                    if "przekracza dostępny urlop" not in str(exc):
+                        raise
+                    if not messagebox.askyesno(
+                        "Przekroczenie salda urlopu",
+                        f"{exc}\n\nCzy jako brygadzista zatwierdzasz wyjątek?",
+                        parent=frame.winfo_toplevel(),
+                    ):
+                        return
+                    from tkinter import simpledialog
+                    reason = simpledialog.askstring(
+                        "Przyczyna wyjątku", "Podaj powód przekroczenia salda urlopu:",
+                        parent=frame.winfo_toplevel(),
+                    ) or ""
+                    if not reason.strip():
+                        raise ValueError("Wyjątek anulowany: brak przyczyny.")
             _save_attendance_edit(
                 login,
                 payload,
@@ -568,6 +612,7 @@ def _build_employee_attendance(frame, login: str, *, on_saved: Callable[[], None
                 original_first_login=str(selected_state.get("first") or ""),
                 actor=_actor(frame),
                 note=note_var.get(),
+                override_reason=reason,
             )
         except Exception as exc:
             messagebox.showerror("Obecność", f"Nie udało się zapisać zmian:\n{exc}", parent=frame.winfo_toplevel())
