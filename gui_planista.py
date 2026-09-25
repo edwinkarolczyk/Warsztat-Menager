@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.4
+# version: 1.5
+# Zmiany 1.5:
+# - operacje na karcie do druku mają osobne pola do ręcznego odhaczania;
+# - karta używa określenia „Grubość piły/taśmy” zamiast technicznego „rzaz”.
 # Zmiany 1.4:
 # - karta pokazuje standardową długość sztangi i liczbę sztang potrzebnych do cięcia;
 # - wartości liniowe w mm pokazują też metry, a opis rzazu wyjaśnia jego znaczenie.
@@ -179,7 +182,18 @@ def _work_order_html(order):
     for code, rec in (order.get("plan_polprodukty") or {}).items():
         if not isinstance(rec, dict):
             continue
-        operations = " → ".join(str(x) for x in (rec.get("czynnosci") or []) if str(x).strip()) or "—"
+        operation_names = [
+            str(x).strip()
+            for x in (rec.get("czynnosci") or [])
+            if str(x).strip()
+        ]
+        operations = (
+            "".join(
+                f"<div class='operation'><span class='check-box'></span>{html.escape(name)}</div>"
+                for name in operation_names
+            )
+            or "—"
+        )
         raw = rec.get("surowiec") or {}
         raw_code = str(raw.get("kod") or raw.get("id") or "—")
         raw_info = raw_summary.get(raw_code, {}) if isinstance(raw_summary, dict) else {}
@@ -195,7 +209,8 @@ def _work_order_html(order):
                     with_cut = float(per_piece_value or 0) + max(0.0, float(order.get("rzaz_mm", 2) or 0))
                     per_piece_text += (
                         f"<br>Do odcięcia: <b>{_fmt_linear(per_piece_value, raw_unit)} + "
-                        f"rzaz {_fmt_qty(order.get('rzaz_mm', 2))} mm = {_fmt_linear(with_cut, raw_unit)} / szt.</b>"
+                        f"grubość piły/taśmy {_fmt_qty(order.get('rzaz_mm', 2))} mm = "
+                        f"{_fmt_linear(with_cut, raw_unit)} / szt.</b>"
                     )
                 except Exception:
                     pass
@@ -210,7 +225,7 @@ def _work_order_html(order):
             f"<td>{qty_text}</td>"
             f"<td><b>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
             f"{per_piece_text}</td>"
-            f"<td>{html.escape(operations)}</td>"
+            f"<td>{operations}</td>"
             "</tr>"
         )
 
@@ -278,6 +293,9 @@ th {{ background:#eee; }}
 .warn {{ margin-top:4mm; border:2px solid #b33; padding:2mm; }}
 .notes {{ margin-top:4mm; min-height:14mm; border:1px solid #777; padding:2mm; }}
 .small {{ font-size:7.5pt; color:#555; }}
+.operation {{ display:flex; align-items:center; gap:1.5mm; margin:0.7mm 0; }}
+.check-box {{ display:inline-block; width:3.2mm; height:3.2mm; border:1.2px solid #111; flex:0 0 3.2mm; }}
+.operations-note {{ margin-top:2mm; padding:1.8mm 2mm; border:1px solid #777; font-weight:bold; }}
 </style></head><body>
 <h1>ZLECENIE DO WYKONANIA</h1>
 <div class='meta'>
@@ -289,11 +307,12 @@ th {{ background:#eee; }}
 <div><b>Wykonano:</b> {html.escape(_fmt_qty(order.get('wykonano', 0)))}</div>
 <div><b>Pozostało:</b> {html.escape(_fmt_qty(remaining))}</div>
 <div><b>Wersja BOM:</b> {html.escape(str(order.get('version') or '—'))}</div>
-<div class='wide'><b>Rzaz piły/tarczy:</b> {html.escape(_fmt_qty(order.get('rzaz_mm', 2)))} mm doliczane do każdej wykonywanej sztuki. Rzaz to szerokość materiału zabierana przez narzędzie podczas cięcia.</div>
+<div class='wide'><b>Grubość piły/taśmy:</b> {html.escape(_fmt_qty(order.get('rzaz_mm', 2)))} mm</div>
 <div><b>Nadprodukcja:</b> {'TAK' if order.get('zezwol_nadprodukcja') else 'NIE'}</div>
 </div>
 <table><thead><tr><th>Półprodukt</th><th>Ilości</th><th>Surowiec / długość cięcia</th><th>Operacje</th></tr></thead>
 <tbody>{''.join(rows) or '<tr><td colspan="4">Brak półproduktów</td></tr>'}</tbody></table>
+<div class='operations-note'>Po wykonaniu wszystkich operacji oznacz zlecenie jako wykonane w WM.</div>
 {raw_total_block}
 {shortage_block}
 <div class='notes'><b>Uwagi:</b><br>{html.escape(str(order.get('uwagi') or ''))}</div>
