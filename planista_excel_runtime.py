@@ -944,7 +944,6 @@ def install_planista_excel_runtime() -> None:
             bg="#374151",
             fg="white",
             disabledforeground="#9ca3af",
-            disabledbackground="#374151",
             activeforeground="white",
             relief="flat",
             padx=10,
