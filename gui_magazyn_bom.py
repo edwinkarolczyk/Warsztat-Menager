@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.9
+# Wersja pliku: 2.0
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -206,21 +206,50 @@ def _product_matches_filter(
     return needle in " ".join(haystack).casefold()
 
 
+def _assigned_semiproduct_codes(
+    products: dict[str, dict] | None,
+    *,
+    current_symbol: str = "",
+    current_rows: list[dict] | None = None,
+) -> set[str]:
+    """Zwraca półprodukty użyte w dowolnym produkcie.
+
+    Dla aktualnie edytowanego produktu używa bieżących wierszy formularza,
+    a nie ostatniego zapisu, dzięki czemu filtr reaguje przed zapisaniem.
+    """
+    current = str(current_symbol or "").strip()
+    assigned: set[str] = set()
+
+    for symbol, record in (products or {}).items():
+        if current and str(symbol).strip() == current:
+            continue
+        if not isinstance(record, dict):
+            continue
+        for row in _product_bom(record):
+            code = str(row.get("kod") or row.get("id") or "").strip()
+            if code:
+                assigned.add(code)
+
+    for row in (current_rows or []):
+        if not isinstance(row, dict):
+            continue
+        code = str(row.get("kod") or row.get("id") or "").strip()
+        if code:
+            assigned.add(code)
+
+    return assigned
+
+
 def _semi_available_for_product(
     code: str,
-    product_rows: list[dict] | None,
     *,
     unassigned_only: bool = False,
+    assigned_codes: set[str] | None = None,
 ) -> bool:
-    """Czy półprodukt ma być widoczny w selektorze składu bieżącego produktu."""
+    """Czy półprodukt ma być widoczny w selektorze składu produktu."""
     if not unassigned_only:
         return True
-    assigned = {
-        str(row.get("kod") or row.get("id") or "").strip()
-        for row in (product_rows or [])
-        if isinstance(row, dict)
-    }
-    return str(code or "").strip() not in assigned
+    return str(code or "").strip() not in (assigned_codes or set())
 
 
 class WarehouseModel:
@@ -780,14 +809,24 @@ class MagazynBOM(ttk.Frame):
             if hasattr(self, "pr_semi_unassigned_only")
             else False
         )
+        current_symbol = (
+            self.pr_vars["symbol"].get().strip()
+            if hasattr(self, "pr_vars") and "symbol" in self.pr_vars
+            else ""
+        )
+        assigned_codes = _assigned_semiproduct_codes(
+            self.model.produkty,
+            current_symbol=current_symbol,
+            current_rows=self._product_bom_rows,
+        )
         for code, rec in sorted(
             self.model.polprodukty.items(),
             key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), self._semi_measure(pair[1]), pair[0]),
         ):
             if not _semi_available_for_product(
                 code,
-                self._product_bom_rows,
                 unassigned_only=unassigned_only,
+                assigned_codes=assigned_codes,
             ):
                 continue
             display = self._semi_display(code, rec)
@@ -861,7 +900,7 @@ class MagazynBOM(ttk.Frame):
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
         ttk.Label(
             bom_box,
-            text="(nie dodane jeszcze do tego produktu)",
+            text="(nieużyte jeszcze w żadnym produkcie)",
         ).grid(row=1, column=2, columnspan=2, sticky="w", pady=(4, 0))
         self.pr_bom_tree = ttk.Treeview(bom_box, columns=("nazwa", "wymiar", "ilosc", "id"), show="headings", height=5)
         self.pr_bom_tree.heading("nazwa", text="Półprodukt")
