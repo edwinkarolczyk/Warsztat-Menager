@@ -12,10 +12,14 @@ Nie zmienia modelu danych ani istniejących reguł walidacji Obecności.
 """
 from __future__ import annotations
 
+import io
 import tkinter as tk
 from datetime import date
 from tkinter import messagebox, ttk
 from typing import Any, Callable
+
+from PIL import Image, ImageTk
+import qrcode
 
 from ui_context_help import add_help_button
 
@@ -609,6 +613,50 @@ def _find_feedback_button(root):
     return None
 
 
+def _add_wmm_download_qr(body, parent_window) -> None:
+    """Pokazuje QR do pobrania aktualnego WMM w komunikacie startowym."""
+    url = "https://github.com/edwinkarolczyk/Cidex-Mobile/releases/download/v0.5.34/WMM.apk"
+    box = ttk.LabelFrame(body, text="WMM — aktualizacja telefonu", padding=10)
+    box.pack(fill="x", pady=(14, 0))
+
+    left = ttk.Frame(box)
+    left.pack(side="left", fill="x", expand=True)
+    ttk.Label(
+        left,
+        text="Zeskanuj kod QR telefonem, aby pobrać aktualny WMM.",
+        justify="left",
+        wraplength=360,
+    ).pack(anchor="w")
+    ttk.Button(
+        left,
+        text="Otwórz pobieranie WMM",
+        command=lambda: __import__("webbrowser").open(url),
+    ).pack(anchor="w", pady=(8, 0))
+
+    try:
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=5,
+            border=3,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        image = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+        image.thumbnail((150, 150), Image.Resampling.LANCZOS)
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        photo = ImageTk.PhotoImage(data=buffer.getvalue())
+        label = ttk.Label(box, image=photo)
+        label.image = photo
+        label.pack(side="right", padx=(16, 0))
+        parent_window._wm_wmm_qr_photo = photo
+    except Exception as exc:
+        ttk.Label(
+            box,
+            text=f"Nie udało się wygenerować QR:\\n{exc}",
+        ).pack(side="right", padx=(16, 0))
+
 def _show_notice(root) -> None:
     if getattr(root, "_wm_renovation_notice_shown", False):
         return
@@ -647,6 +695,8 @@ def _show_notice(root) -> None:
         body,
         text="Ten komunikat możesz wyłączyć w Ustawienia → Ogólne.",
     ).pack(anchor="w", pady=(12, 0))
+
+    _add_wmm_download_qr(body, win)
 
     actions = ttk.Frame(body)
     actions.pack(fill="x", pady=(16, 0))
