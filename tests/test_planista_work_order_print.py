@@ -81,7 +81,7 @@ def test_work_order_contains_raw_material_per_piece_and_total():
     assert "Wiercenie" in html
     assert "Po wykonaniu wszystkich operacji oznacz zlecenie jako wykonane w WM." in html
     assert "Pozostało:" in html
-    assert ">8<" in html
+    assert "<b>Pozostało:</b> 8" in html
     assert "Nadprodukcja:</b> TAK" in html
 
 
