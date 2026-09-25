@@ -79,3 +79,47 @@ def test_machine_cards_path_patch_targets_cards_only(monkeypatch):
         assert current(fake, "wydruki", "karty") == r"C:\folder wm\wydruki\karty"
     finally:
         ConfigManager.path_root = before
+
+
+
+def test_guest_dashboard_orders_show_only_active(monkeypatch):
+    import panel_guest_login_runtime as PGLR
+    import zlecenia_logika as ZL
+
+    monkeypatch.setattr(
+        ZL,
+        "list_zlecenia",
+        lambda: [
+            {
+                "id": "000010",
+                "zlec_wew": "727",
+                "produkt": "1.470.90",
+                "ilosc": 100,
+                "wykonano": 20,
+                "termin": "2026-09-23",
+                "status": "w trakcie",
+            },
+            {
+                "id": "000011",
+                "zlec_wew": "721",
+                "produkt": "HP14",
+                "ilosc": 70,
+                "wykonano": 70,
+                "termin": "2026-09-23",
+                "status": "zakończone",
+            },
+        ],
+    )
+
+    rows = PGLR._load_active_orders()
+    assert [row["id"] for row in rows] == ["000010"]
+    assert PGLR._order_values(rows[0]) == (
+        "727",
+        "000010",
+        "1.470.90",
+        "100",
+        "20",
+        "80",
+        "2026-09-23",
+        "w trakcie",
+    )
