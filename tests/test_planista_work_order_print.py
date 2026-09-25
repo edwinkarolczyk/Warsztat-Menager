@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from gui_planista import _work_order_html, _work_order_output_path
+from zlecenia_logika import _bars_for_cuts
 
 
 def _sample_order():
@@ -33,7 +34,13 @@ def _sample_order():
             }
         },
         "zapotrzebowanie_surowce": {
-            "R40x40": {"ilosc": 10016, "jednostka": "mm"}
+            "R40x40": {
+                "ilosc": 10016,
+                "jednostka": "mm",
+                "nazwa": "Profil 40x40",
+                "dlugosc_sztangi_mm": 6000,
+                "sztangi_potrzebne": 2,
+            }
         },
         "rezerwacje_surowce": {"R40x40": 9000},
         "braki": [
@@ -53,10 +60,16 @@ def test_work_order_contains_raw_material_per_piece_and_total():
     assert "Zlecenie warsztatowe:" in html
     assert "ZW-77" in html
     assert "Profil 40x40" in html
-    assert "1250 mm / szt." in html
-    assert "Łączne zapotrzebowanie surowca" in html
-    assert "10016" in html
-    assert "9000" in html
+    assert "Długość detalu: 1250 mm (1.25 m)" in html
+    assert "Do odcięcia z rzazem: <b>1252 mm (1.252 m) / szt.</b>" in html
+    assert "Surowiec do pobrania i cięcia" in html
+    assert "10016 mm (10.016 m)" in html
+    assert "6000 mm (6 m)" in html
+    assert "Potrzeba sztang" in html
+    assert ">2</b>" in html
+    assert "9000 mm (9 m)" in html
+    assert "Rzaz piły/tarczy:" in html
+    assert "szerokość materiału zabierana przez narzędzie podczas cięcia" in html
     assert "Cięcie → Wiercenie" in html
     assert "Pozostało:" in html
     assert ">8<" in html
@@ -81,3 +94,19 @@ def test_both_planista_views_use_persistent_work_order_path():
     assert "tempfile.gettempdir()" not in panel
     assert "path = _work_order_output_path(order)" in standalone
     assert "path = _work_order_output_path(order)" in panel
+
+
+def test_bar_count_respects_real_cut_layout_not_only_total_length():
+    # 3 x 3502 mm nie da się rozłożyć na dwóch sztangach 6000 mm,
+    # mimo że suma długości jest mniejsza niż 2 x 6000 mm.
+    plan = _bars_for_cuts([3502, 3502, 3502], 6000, 10506)
+
+    assert plan["sztangi_potrzebne"] == 3
+    assert plan["blad_ciecia"] == ""
+
+
+def test_bar_count_rejects_piece_longer_than_standard_bar():
+    plan = _bars_for_cuts([6102], 6000, 6102)
+
+    assert plan["sztangi_potrzebne"] is None
+    assert "dłuższy niż sztanga" in plan["blad_ciecia"]
