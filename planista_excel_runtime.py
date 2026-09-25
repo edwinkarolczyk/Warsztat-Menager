@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.6
+# version: 1.7
+# 1.7: dodano ustawiany interwał, automatyczną akceptację bezpiecznych pozycji i wydruk nowych zleceń.
 # 1.6: dodano automatyczną pracę na wybranym Excelu z analizą wyłącznie odłączonej kopii i kolejką Do akceptacji.
 # 1.5: dodano wyszukiwarkę w podglądzie analizy Excel → Produkty WM.
 # 1.4: dodano wejście do kontrolowanego podglądu i zatwierdzania synchronizacji zleceń WM.
@@ -32,7 +33,9 @@ from planista_excel_changes import (
 from planista_excel_import import PlanExcelError, load_production_plan
 from planista_excel_auto_runtime import (
     DEFAULT_INTERVAL_MS,
+    interval_ms,
     load_auto_state,
+    normalize_interval_minutes,
     parse_from_detached_copy,
     save_auto_state,
 )
@@ -42,7 +45,14 @@ from planista_excel_match import (
     STATUS_MISSING,
     match_production_plan,
 )
-from planista_excel_orders import ACTION_CREATE, ACTION_UPDATE, build_order_sync_plan
+from planista_excel_orders import (
+    ACTION_CREATE,
+    ACTION_UPDATE,
+    ExcelOrderSyncError,
+    apply_order_sync,
+    build_order_sync_plan,
+)
+from planista_auto_print_runtime import AutoPrintError, dispatch_work_order_print
 from planista_excel_sync_runtime import show_excel_sync_preview
 from ui_context_help import add_help_button
 from ui_theme import get_theme_color
@@ -367,6 +377,175 @@ def _pending_sync_count(payload: dict) -> int:
     )
 
 
+def _auto_interval_minutes(owner) -> int:
+    var = getattr(owner, "_excel_auto_interval_var", None)
+    if var is not None:
+        try:
+            return normalize_interval_minutes(var.get())
+        except Exception:
+            pass
+    try:
+        return normalize_interval_minutes(load_auto_state().get("interval_minutes"))
+    except Exception:
+        return 1
+
+
+def _auto_interval_ms(owner) -> int:
+    return interval_ms(_auto_interval_minutes(owner))
+
+
+def _auto_accept_enabled(owner) -> bool:
+    var = getattr(owner, "_excel_auto_accept_var", None)
+    try:
+        return bool(var.get()) if var is not None else False
+    except Exception:
+        return False
+
+
+def _auto_print_enabled(owner) -> bool:
+    var = getattr(owner, "_excel_auto_print_var", None)
+    try:
+        return bool(var.get()) if var is not None else False
+    except Exception:
+        return False
+
+
+def _persist_auto_options(owner, *, pending_print_order_ids=None) -> dict:
+    auto_var = getattr(owner, "_excel_auto_var", None)
+    enabled = bool(auto_var.get()) if auto_var is not None else False
+    return save_auto_state(
+        enabled=enabled,
+        source_path=_auto_source_from_owner(owner),
+        interval_minutes=_auto_interval_minutes(owner),
+        auto_accept=_auto_accept_enabled(owner),
+        auto_print=_auto_print_enabled(owner),
+        pending_print_order_ids=pending_print_order_ids,
+    )
+
+
+def _auto_options_changed(owner, *_args) -> None:
+    var = getattr(owner, "_excel_auto_interval_var", None)
+    if var is not None:
+        try:
+            var.set(str(_auto_interval_minutes(owner)))
+        except Exception:
+            pass
+    _persist_auto_options(owner)
+    auto_var = getattr(owner, "_excel_auto_var", None)
+    if auto_var is not None and bool(auto_var.get()):
+        _set_auto_status(
+            owner,
+            f"Automat: interwał {_auto_interval_minutes(owner)} min",
+        )
+        _schedule_auto_tick(owner)
+
+
+def _find_order(order_id: str) -> dict | None:
+    import zlecenia_logika as ZL
+
+    wanted = str(order_id or "").strip()
+    if not wanted:
+        return None
+    for order in ZL.list_zlecenia():
+        if isinstance(order, dict) and str(order.get("id") or "").strip() == wanted:
+            return dict(order)
+    return None
+
+
+def _dispatch_pending_prints(owner) -> tuple[int, list[str]]:
+    state = load_auto_state()
+    pending = [
+        str(value).strip()
+        for value in list(state.get("pending_print_order_ids") or [])
+        if str(value).strip()
+    ]
+    if not pending or not _auto_print_enabled(owner):
+        return 0, []
+
+    printed = 0
+    errors: list[str] = []
+    remaining: list[str] = []
+    for order_id in pending:
+        order = _find_order(order_id)
+        if not isinstance(order, dict):
+            remaining.append(order_id)
+            errors.append(f"{order_id}: nie znaleziono zlecenia")
+            continue
+        try:
+            dispatch_work_order_print(order)
+            printed += 1
+        except AutoPrintError as exc:
+            remaining.append(order_id)
+            errors.append(str(exc))
+        except Exception as exc:
+            remaining.append(order_id)
+            errors.append(f"{order_id}: {exc}")
+
+    _persist_auto_options(owner, pending_print_order_ids=remaining)
+    return printed, errors
+
+
+def _queue_created_prints(owner, results: list[dict]) -> tuple[int, list[str]]:
+    if not _auto_print_enabled(owner):
+        return 0, []
+    state = load_auto_state()
+    pending = [
+        str(value).strip()
+        for value in list(state.get("pending_print_order_ids") or [])
+        if str(value).strip()
+    ]
+    for result in results:
+        if not isinstance(result, dict):
+            continue
+        if result.get("status") != "ok" or result.get("action") != ACTION_CREATE:
+            continue
+        order_id = str(result.get("order_id") or "").strip()
+        if order_id and order_id not in pending:
+            pending.append(order_id)
+    _persist_auto_options(owner, pending_print_order_ids=pending)
+    return _dispatch_pending_prints(owner)
+
+
+def _auto_apply_safe(owner, payload: dict) -> dict:
+    """Automatycznie wykonaj tylko pozycje, które silnik oznaczył Utwórz/Aktualizuj."""
+    try:
+        plan = build_order_sync_plan(payload)
+    except Exception as exc:
+        return {"results": [], "errors": [str(exc)]}
+
+    items = [
+        item
+        for item in list(plan.get("items") or [])
+        if isinstance(item, dict)
+        and item.get("action") in {ACTION_CREATE, ACTION_UPDATE}
+        and str(item.get("identity") or "").strip()
+    ]
+    autor = str(getattr(owner, "login", "") or "").strip() or "Planista Excel Auto"
+    results: list[dict] = []
+    errors: list[str] = []
+
+    for item in items:
+        identity = str(item.get("identity") or "").strip()
+        try:
+            outcome = apply_order_sync(
+                payload,
+                {"items": [item]},
+                approved_identities={identity},
+                autor=autor,
+            )
+            written = list(outcome.get("results") or [])
+            if outcome.get("written") == 1 and written:
+                results.extend(written)
+            else:
+                errors.append(f"{identity}: silnik nie potwierdził zapisu")
+        except ExcelOrderSyncError as exc:
+            errors.append(f"{identity}: {exc}")
+        except Exception as exc:
+            errors.append(f"{identity}: {exc}")
+
+    return {"results": results, "errors": errors}
+
+
 def _cancel_blink(owner) -> None:
     job = getattr(owner, "_excel_auto_blink_job", None)
     if job:
@@ -452,11 +631,13 @@ def _cancel_auto_job(owner) -> None:
     owner._excel_auto_job = None
 
 
-def _schedule_auto_tick(owner, delay_ms: int = DEFAULT_INTERVAL_MS) -> None:
+def _schedule_auto_tick(owner, delay_ms: int | None = None) -> None:
     _cancel_auto_job(owner)
+    if delay_ms is None:
+        delay_ms = _auto_interval_ms(owner)
     try:
         owner._excel_auto_job = owner.after(
-            max(250, int(delay_ms)),
+            max(250, int(delay_ms or DEFAULT_INTERVAL_MS)),
             lambda: _auto_tick(owner),
         )
     except Exception:
@@ -477,13 +658,51 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     owner._excel_plan_import = payload
     _remember_auto_source(owner, source, persist=True)
+
+    results: list[dict] = []
+    sync_errors: list[str] = []
+    if _auto_accept_enabled(owner):
+        outcome = _auto_apply_safe(owner, payload)
+        results = list(outcome.get("results") or [])
+        sync_errors = list(outcome.get("errors") or [])
+        try:
+            owner.refresh()
+        except Exception:
+            pass
+
+    printed = 0
+    print_errors: list[str] = []
+    if _auto_accept_enabled(owner) and _auto_print_enabled(owner):
+        printed, print_errors = _queue_created_prints(owner, results)
+    elif _auto_print_enabled(owner):
+        printed, print_errors = _dispatch_pending_prints(owner)
+
     count = _pending_sync_count(payload)
     _set_pending_count(owner, count)
+
     stamp = datetime.now().strftime("%H:%M:%S")
-    _set_auto_status(
-        owner,
-        f"Automat: sprawdzono {stamp} • do akceptacji: {count}",
+    created = sum(
+        1 for item in results
+        if isinstance(item, dict) and item.get("action") == ACTION_CREATE and item.get("status") == "ok"
     )
+    updated = sum(
+        1 for item in results
+        if isinstance(item, dict) and item.get("action") == ACTION_UPDATE and item.get("status") == "ok"
+    )
+
+    if _auto_accept_enabled(owner):
+        status = (
+            f"Automat: {stamp} • utworzono {created} • zaktualizowano {updated} "
+            f"• do akceptacji {count}"
+        )
+        if _auto_print_enabled(owner):
+            status += f" • wydruk {printed}"
+        if sync_errors or print_errors:
+            status += f" • błędy {len(sync_errors) + len(print_errors)}"
+    else:
+        status = f"Automat: sprawdzono {stamp} • do akceptacji: {count}"
+
+    _set_auto_status(owner, status)
 
 
 def _auto_scan_worker(owner, source: str) -> None:
@@ -563,7 +782,7 @@ def _toggle_auto_mode(owner) -> None:
         return
 
     _remember_auto_source(owner, source, persist=False)
-    save_auto_state(enabled=enabled, source_path=source)
+    _persist_auto_options(owner)
     _set_manual_excel_controls(owner, enabled=not enabled)
 
     if enabled:
@@ -651,6 +870,11 @@ def install_planista_excel_runtime() -> None:
 
         state = load_auto_state()
         self._excel_auto_var = tk.BooleanVar(value=bool(state.get("enabled")))
+        self._excel_auto_interval_var = tk.StringVar(
+            value=str(normalize_interval_minutes(state.get("interval_minutes")))
+        )
+        self._excel_auto_accept_var = tk.BooleanVar(value=bool(state.get("auto_accept")))
+        self._excel_auto_print_var = tk.BooleanVar(value=bool(state.get("auto_print")))
         self._excel_auto_source_path = str(state.get("source_path") or "").strip()
         self._excel_auto_running = False
         self._excel_auto_pending_count = 0
@@ -734,13 +958,52 @@ def install_planista_excel_runtime() -> None:
         )
         ttk.Label(auto_bar, textvariable=self._excel_auto_status_var).pack(side="left")
 
+        auto_options = ttk.Frame(parent)
+        auto_options.pack(fill="x", pady=(4, 0))
+        ttk.Label(auto_options, text="Sprawdzaj co:").pack(side="left")
+        interval_spin = ttk.Spinbox(
+            auto_options,
+            from_=1,
+            to=60,
+            width=4,
+            textvariable=self._excel_auto_interval_var,
+            command=lambda: _auto_options_changed(self),
+        )
+        interval_spin.pack(side="left", padx=(5, 3))
+        ttk.Label(auto_options, text="min").pack(side="left", padx=(0, 14))
+        interval_spin.bind("<Return>", lambda _e: _auto_options_changed(self), add="+")
+        interval_spin.bind("<FocusOut>", lambda _e: _auto_options_changed(self), add="+")
+
+        ttk.Checkbutton(
+            auto_options,
+            text="Automatycznie akceptuj bezpieczne pozycje",
+            variable=self._excel_auto_accept_var,
+            command=lambda: _auto_options_changed(self),
+        ).pack(side="left", padx=(0, 14))
+        ttk.Checkbutton(
+            auto_options,
+            text="Drukuj nowe zlecenia",
+            variable=self._excel_auto_print_var,
+            command=lambda: _auto_options_changed(self),
+        ).pack(side="left")
+        ttk.Label(
+            auto_options,
+            text="(domyślna drukarka Windows)",
+        ).pack(side="left", padx=(5, 0))
+
         self._excel_auto_recount = lambda: _refresh_auto_pending(self)
         _set_manual_excel_controls(self, enabled=not bool(self._excel_auto_var.get()))
 
         if self._excel_auto_var.get():
             if not self._excel_auto_source_path or not Path(self._excel_auto_source_path).is_file():
                 self._excel_auto_var.set(False)
-                save_auto_state(enabled=False, source_path=self._excel_auto_source_path)
+                save_auto_state(
+                    enabled=False,
+                    source_path=self._excel_auto_source_path,
+                    interval_minutes=_auto_interval_minutes(self),
+                    auto_accept=_auto_accept_enabled(self),
+                    auto_print=_auto_print_enabled(self),
+                )
                 _set_manual_excel_controls(self, enabled=True)
                 _set_auto_status(self, "Automat wyłączony — brak pliku")
             else:
