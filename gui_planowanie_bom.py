@@ -1,9 +1,11 @@
-# version: 1.2
+# version: 1.3
 # Moduł: gui_planowanie_bom
 # U2A-2: Półprodukty i edytor BOM w Planowaniu.
 # Zmiany 1.1:
 # - W interfejsie BOM nazwano Składem produktu, a materiał Surowcem.
 # - Nazwy wewnętrzne pozostają bez zmian dla zgodności danych.
+# Zmiany 1.3:
+# - Doprecyzowano pole ilości surowca jako długość jednej sztuki półproduktu.
 # Zmiany 1.2:
 # - Dodano edytor wielopoziomowego Składu półproduktu.
 # - Usuwanie półproduktu uwzględnia użycie w produktach i innych półproduktach.
@@ -125,7 +127,7 @@ class SemiProductsPanel(ttk.Frame):
         }
         labels = (
             ('Kod półproduktu:', 'kod'), ('Nazwa:', 'nazwa'), ('Kod surowca:', 'material_kod'),
-            ('Ilość surowca na szt.:', 'material_ilosc'), ('Jednostka:', 'material_jednostka'),
+            ('Ilość surowca na szt. (długość 1 sztuki):', 'material_ilosc'), ('Jednostka:', 'material_jednostka'),
             ('Norma strat [%]:', 'norma_strat_proc'), ('Czynności (po przecinku):', 'czynnosci'),
         )
         for row, (label, key) in enumerate(labels):
