@@ -393,7 +393,7 @@ class ProfileView(_BaseProfileView):
 
     def _render_wmm_download_card(self, parent) -> None:
         """QR do zawsze aktualnego wydania WMM z GitHub Releases."""
-        url = "https://github.com/edwinkarolczyk/Cidex-Mobile/releases/latest/download/WMM.apk"
+        url = "https://github.com/edwinkarolczyk/Cidex-Mobile/releases/download/v0.5.33/WMM.apk"
         box = ttk.LabelFrame(
             parent,
             text="WMM — pobierz aktualną wersję",
