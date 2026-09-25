@@ -396,6 +396,16 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
             messagebox.showerror("Błąd", f"Nie udało się utworzyć zlecenia: {exc}", parent=window)
             return
 
+        # Nowe zlecenie ręczne zawsze wymaga zatwierdzenia przed wejściem do aktywnego WM.
+        # Wydruk wykonujemy niezależnie od tego statusu.
+        data["status"] = "do akceptacji"
+        data["akceptacja"] = {
+            "wymagana": True,
+            "status": "oczekuje",
+            "utworzono": datetime.now().isoformat(timespec="seconds"),
+            "przez": autor,
+        }
+
         try:
             save_order(data)
         except Exception as exc:  # pragma: no cover - zapis może się nie udać
