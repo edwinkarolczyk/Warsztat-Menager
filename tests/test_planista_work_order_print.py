@@ -71,6 +71,8 @@ def test_work_order_contains_raw_material_per_piece_and_total():
     assert "Potrzeba sztang" in html
     assert ">2</b>" in html
     assert "9000 mm (9 m)" in html
+    assert "Zarezerwowano z magazynu" in html
+    assert "ilość surowca już zablokowana w Magazynie dla tego zlecenia" in html
     assert "Grubość piły/taśmy:</b> 2 mm" in html
     assert "Rzaz piły/tarczy:" not in html
     assert "szerokość materiału zabierana przez narzędzie podczas cięcia" not in html
