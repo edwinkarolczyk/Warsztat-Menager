@@ -1,6 +1,9 @@
 # =============================
 # FILE: zlecenia_logika.py
-# version: 2.0.3
+# version: 2.0.4
+# Zmiany 2.0.4:
+# - zapotrzebowanie liniowe zna standardową długość sztangi i liczy liczbę sztang do cięcia;
+# - liczba sztang uwzględnia długości odcinków, rzaz na każdą sztukę i normę strat.
 # Zmiany 2.0.3:
 # - zlecenie może jawnie zezwolić na nadprodukcję rozliczaną do Magazynu.
 # Zmiany 2.0.2:
@@ -25,6 +28,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import json
+import math
 
 import bom
 import logika_magazyn as LM
@@ -119,6 +124,132 @@ def _semi_stock(code: str):
     return {"stan": float(rec.get("stan", 0) or 0), "rezerwacje": float(rec.get("rezerwacje", 0) or 0), "dostepne": float(rec.get("dostepne", 0) or 0)}
 
 
+def _raw_definitions() -> dict[str, dict]:
+    """Czyta definicje surowców Planisty z aktywnego WM_DATA_ROOT."""
+    path = _paths()[2] / "surowce.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[str, dict] = {}
+    if isinstance(payload, dict):
+        iterable = []
+        for key, value in payload.items():
+            if isinstance(value, dict):
+                rec = dict(value)
+                rec.setdefault("kod", key)
+                iterable.append(rec)
+    elif isinstance(payload, list):
+        iterable = payload
+    else:
+        iterable = []
+    for rec in iterable:
+        if not isinstance(rec, dict):
+            continue
+        code = str(rec.get("kod") or rec.get("id") or "").strip()
+        if code:
+            out[code] = dict(rec)
+    return out
+
+
+def _bars_for_cuts(cut_lengths_mm, bar_length_mm: float, total_need_mm: float):
+    """Best-fit decreasing dla odcinków; wynik nie może być niższy niż potrzeba łączna."""
+    bar_length = max(0.0, float(bar_length_mm or 0))
+    total_need = max(0.0, float(total_need_mm or 0))
+    cuts = [max(0.0, float(x or 0)) for x in cut_lengths_mm if float(x or 0) > 0]
+    if bar_length <= 0:
+        return {"sztangi_potrzebne": None, "odpad_mm": None, "blad_ciecia": "Brak standardowej długości sztangi."}
+    too_long = [x for x in cuts if x > bar_length + 1e-9]
+    if too_long:
+        longest = max(too_long)
+        return {
+            "sztangi_potrzebne": None,
+            "odpad_mm": None,
+            "blad_ciecia": f"Odcinek {longest:g} mm jest dłuższy niż sztanga {bar_length:g} mm.",
+        }
+
+    remaining: list[float] = []
+    for cut in sorted(cuts, reverse=True):
+        best_idx = None
+        best_after = None
+        for idx, free in enumerate(remaining):
+            if free + 1e-9 < cut:
+                continue
+            after = free - cut
+            if best_after is None or after < best_after:
+                best_idx, best_after = idx, after
+        if best_idx is None:
+            remaining.append(bar_length - cut)
+        else:
+            remaining[best_idx] -= cut
+
+    bars_for_pieces = len(remaining)
+    bars_for_total = int(math.ceil(total_need / bar_length - 1e-12)) if total_need > 0 else 0
+    bars = max(bars_for_pieces, bars_for_total)
+    return {
+        "sztangi_potrzebne": bars,
+        "odpad_mm": max(0.0, bars * bar_length - total_need),
+        "blad_ciecia": "",
+    }
+
+
+def _attach_bar_plan(plan_pp: dict, raw_total: dict, cut_mm: float) -> dict:
+    """Uzupełnia surowce liniowe o długość sztangi i realną liczbę sztang do pobrania."""
+    definitions = _raw_definitions()
+    cuts_by_raw: dict[str, list[float]] = {}
+
+    for pp_code, rec in (plan_pp or {}).items():
+        if not isinstance(rec, dict):
+            continue
+        sr = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
+        raw_code = str(sr.get("kod") or sr.get("id") or "").strip()
+        unit = str(sr.get("jednostka") or "").strip().lower()
+        if not raw_code or unit not in {"mm", "milimetr", "milimetry", "milimetrów"}:
+            continue
+        try:
+            piece = max(0.0, float(sr.get("ilosc_na_szt", 0) or 0)) + max(0.0, float(cut_mm or 0))
+            qty = max(0.0, float(rec.get("do_wykonania", rec.get("ilosc", 0)) or 0))
+        except Exception:
+            continue
+        if piece <= 0 or qty <= 0:
+            continue
+        count = int(math.ceil(qty - 1e-9))
+        cuts_by_raw.setdefault(raw_code, []).extend([piece] * count)
+
+    enriched: dict[str, dict] = {}
+    for raw_code, raw_info in (raw_total or {}).items():
+        if not isinstance(raw_info, dict):
+            continue
+        rec = dict(raw_info)
+        definition = definitions.get(str(raw_code), {})
+        try:
+            bar_length = max(0.0, float(definition.get("dlugosc_sztangi_mm", definition.get("dlugosc", 0)) or 0))
+        except Exception:
+            bar_length = 0.0
+        rec["nazwa"] = definition.get("nazwa") or rec.get("nazwa") or raw_code
+        rec["dlugosc_sztangi_mm"] = bar_length
+        if str(rec.get("jednostka") or "").strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
+            plan = _bars_for_cuts(cuts_by_raw.get(str(raw_code), []), bar_length, rec.get("ilosc", 0))
+            rec.update(plan)
+            rec["rzaz_mm"] = max(0.0, float(cut_mm or 0))
+        enriched[str(raw_code)] = rec
+    return enriched
+
+
+def material_bar_summary(order: dict) -> dict:
+    """Zwraca aktualny plan sztang także dla starszych zleceń zapisanych bez tych pól."""
+    raw = {
+        str(code): dict(rec)
+        for code, rec in (order.get("zapotrzebowanie_surowce") or {}).items()
+        if isinstance(rec, dict)
+    }
+    return _attach_bar_plan(
+        order.get("plan_polprodukty") or {},
+        raw,
+        float(order.get("rzaz_mm", DEFAULT_CUT_MM) or 0),
+    )
+
+
 def _raw_need_for_pp(kod_pp: str, qty: float, cut_mm: float):
     if qty <= 0:
         return {}
@@ -151,11 +282,11 @@ def build_production_plan(kod_produktu, ilosc, *, cut_mm=DEFAULT_CUT_MM, version
         stock = _semi_stock(code)
         from_stock = min(target, stock["dostepne"])
         to_make = max(0.0, target - from_stock)
-        plan_pp[code] = {"nazwa": rec.get("nazwa") or code, "potrzeba": target, "wyliczone": calculated, "z_magazynu": from_stock, "do_wykonania": to_make, "stan": stock["stan"], "zarezerwowane": stock["rezerwacje"], "czynnosci": list(rec.get("czynnosci") or []), "surowiec": dict(rec.get("surowiec") or {})}
+        plan_pp[code] = {"nazwa": rec.get("nazwa") or code, "potrzeba": target, "wyliczone": calculated, "z_magazynu": from_stock, "do_wykonania": to_make, "stan": stock["stan"], "zarezerwowane": stock["rezerwacje"], "czynnosci": list(rec.get("czynnosci") or []), "surowiec": dict(rec.get("surowiec") or {}), "norma_strat_procent": float(rec.get("norma_strat_procent", 0) or 0)}
         for raw_code, raw_info in _raw_need_for_pp(code, to_make, cut_mm).items():
             ent = raw_total.setdefault(raw_code, {"ilosc": 0.0, "jednostka": raw_info.get("jednostka", "")})
             ent["ilosc"] += float(raw_info.get("ilosc", 0) or 0)
-    return plan_pp, raw_total
+    return plan_pp, _attach_bar_plan(plan_pp, raw_total, cut_mm)
 
 
 def compute_material_needs(kod_produktu, ilosc=1, version=None, cut_mm=DEFAULT_CUT_MM, overrides=None):
