@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_stock_runtime.py
-# version: 1.1
+# version: 1.2
+# 1.2: nowy surowiec startuje ze standardową długością sztangi 6000 mm.
 # 1.1: bezpieczne, transakcyjne usuwanie definicji i pustej karty Magazynu.
 """Jedno źródło stanu surowców: Magazyn; Planista przechowuje definicję."""
 
@@ -500,6 +501,9 @@ def _install_planista_raw_ui() -> None:
         kinds = tuple(self._kind_dimension_modes)
         self.s_vars["rodzaj"].set(kinds[0] if kinds else "")
         self.s_vars["prog_alertu"].set("0")
+        self.s_vars["dlugosc_sztangi_mm"].set(
+            _fmt_num(getattr(GMB, "DEFAULT_BAR_LENGTH_MM", 6000))
+        )
         if hasattr(self, "tree_sr"):
             self.tree_sr.selection_remove(self.tree_sr.selection())
         self._refresh_raw_stock_fields()
