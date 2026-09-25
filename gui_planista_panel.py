@@ -247,8 +247,7 @@ class PlanistaPanel(ttk.Frame):
             qty = float(order.get("ilosc", 0) or 0)
             done = float(order.get("wykonano", 0) or 0)
             self._orders[oid] = order
-            self._refresh_approval_button()
-        self.tree.insert(
+            self.tree.insert(
                 "",
                 "end",
                 iid=oid,
@@ -265,6 +264,7 @@ class PlanistaPanel(ttk.Frame):
                     order.get("status", ""),
                 ),
             )
+        self._refresh_approval_button()
 
     def edit_term(self):
         order = self._selected()
