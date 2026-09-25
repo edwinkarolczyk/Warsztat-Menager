@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.8
+# Wersja pliku: 1.9
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ HELP = {
     "semi_code": "ID półproduktu jest nadawane automatycznie. W normalnej pracy rozpoznajesz półprodukt po nazwie oraz ilości surowca na jedną sztukę.",
     "semi_name": "Podaj nazwę półproduktu, np. Hak prosty. Gdy nazwa się powtarza, WM pokazuje obok długość lub ilość surowca na jedną sztukę.",
     "raw_select": "Wybierz surowiec z kartoteki. Lista pokazuje nazwę, rozmiar i ID techniczne.",
-    "raw_qty": "Podaj ilość surowca na jedną sztukę półproduktu. Dla długości używaj mm.",
+    "raw_qty": "Podaj ilość surowca potrzebną na jedną sztukę półproduktu — dla surowca liniowego jest to długość jednej sztuki. Dla długości używaj mm.",
     "ops": "Zaznacz operacje technologiczne potrzebne do wykonania półproduktu.",
     "loss": "Opcjonalny procent dodatkowej straty materiału. Rzaz zlecenia jest liczony osobno przez Planistę.",
     "product_code": "Oznaczenie produktu, np. 1.775.250. Jest stałym symbolem produktu.",
@@ -652,7 +652,7 @@ class MagazynBOM(ttk.Frame):
         rows = [
             ("nazwa", "Nazwa", HELP["semi_name"]),
             ("sr_kod", "Surowiec", HELP["raw_select"]),
-            ("sr_ilosc", "Ilość surowca na szt.", HELP["raw_qty"]),
+            ("sr_ilosc", "Ilość surowca na szt. (długość 1 sztuki)", HELP["raw_qty"]),
             ("sr_jednostka", "Jednostka", HELP["raw_qty"]),
         ]
         for row, (key, label, help_text) in enumerate(rows):
