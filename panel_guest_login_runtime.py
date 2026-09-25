@@ -1,8 +1,8 @@
-# version: 2.0
+# version: 2.1
 """Pulpit informacyjny Warsztat Menager dla niezalogowanego użytkownika.
 
-Zastępuje centralną kartę logowania trzema widokami tylko do odczytu:
-Narzędzia w toku, Maszyny wymagające uwagi i aktywne Dyspozycje.
+Zastępuje centralną kartę logowania widokami tylko do odczytu:
+Narzędzia w toku, aktywne Zlecenia Planisty, Maszyny wymagające uwagi i aktywne Dyspozycje.
 Logowanie pozostaje w prawym górnym rogu panelu.
 """
 
@@ -162,6 +162,54 @@ def _tool_in_progress(tool: Mapping[str, Any]) -> bool:
         "zakonczony",
     }
     return status not in finished
+
+
+def _load_active_orders() -> list[dict[str, Any]]:
+    """Aktywne zlecenia Planisty do podglądu na pulpicie."""
+    try:
+        import zlecenia_logika as ZL
+
+        rows = ZL.list_zlecenia()
+    except Exception:
+        logger.exception("[GUEST_DASHBOARD] Nie udało się wczytać Zleceń Planisty.")
+        return []
+
+    finished = {"zakończone", "zakonczone", "anulowane", "archiwum"}
+    out = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status") or "").strip().casefold()
+        if status in finished:
+            continue
+        out.append(dict(row))
+
+    def _sort_key(row: Mapping[str, Any]):
+        due = str(row.get("termin") or "9999-12-31")
+        oid = str(row.get("id") or "")
+        return (due, oid)
+
+    return sorted(out, key=_sort_key)
+
+
+def _order_values(row: Mapping[str, Any]) -> tuple[Any, ...]:
+    qty = float(row.get("ilosc") or 0)
+    done = float(row.get("wykonano") or 0)
+    remaining = max(0.0, qty - done)
+
+    def _fmt(value: float) -> str:
+        return str(int(value)) if float(value).is_integer() else f"{value:g}"
+
+    return (
+        str(row.get("zlec_wew") or "—"),
+        str(row.get("id") or ""),
+        str(row.get("produkt") or ""),
+        _fmt(qty),
+        _fmt(done),
+        _fmt(remaining),
+        str(row.get("termin") or "—"),
+        str(row.get("status") or "nowe"),
+    )
 
 
 def _load_machines() -> list[dict[str, Any]]:
@@ -456,8 +504,9 @@ def install_guest_login_card(root) -> bool:
     host.pack(fill="both", expand=True)
     host.columnconfigure(0, weight=1)
     host.rowconfigure(1, weight=5)
-    host.rowconfigure(3, weight=3)
-    host.rowconfigure(5, weight=4)
+    host.rowconfigure(3, weight=4)
+    host.rowconfigure(5, weight=3)
+    host.rowconfigure(7, weight=4)
 
     title_row = ttk.Frame(host, style="WM.Card.TFrame")
     title_row.grid(row=0, column=0, sticky="ew", pady=(0, 4))
@@ -476,8 +525,36 @@ def install_guest_login_card(root) -> bool:
     for tag, color in _TOOL_PROGRESS_COLORS.items():
         tools_tree.tag_configure(tag, foreground=color)
 
+    orders_title = ttk.Frame(host, style="WM.Card.TFrame")
+    orders_title.grid(row=2, column=0, sticky="ew", pady=(0, 4))
+    ttk.Label(
+        orders_title,
+        text="📦 Zlecenia — Planista / aktywne",
+        style="WM.H2.TLabel",
+    ).pack(side="left")
+    orders_count = ttk.Label(orders_title, text="", style="WM.Muted.TLabel")
+    orders_count.pack(side="right")
+
+    orders_frame, orders_tree = _tree(
+        host,
+        ("wew", "warsztat", "produkt", "zamowienie", "wykonano", "pozostalo", "termin", "status"),
+        ("Zlecenie wew", "Zlecenie warsztat", "Produkt", "Zamówienie", "Wykonano", "Pozostało", "Termin", "Status"),
+        {
+            "wew": 120,
+            "warsztat": 135,
+            "produkt": 230,
+            "zamowienie": 100,
+            "wykonano": 95,
+            "pozostalo": 95,
+            "termin": 115,
+            "status": 130,
+        },
+        height=5,
+    )
+    orders_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 8))
+
     machines_title = ttk.Frame(host, style="WM.Card.TFrame")
-    machines_title.grid(row=2, column=0, sticky="ew", pady=(0, 4))
+    machines_title.grid(row=4, column=0, sticky="ew", pady=(0, 4))
     ttk.Label(machines_title, text="⚙ Maszyny — wymagające uwagi", style="WM.H2.TLabel").pack(side="left")
     machines_count = ttk.Label(machines_title, text="", style="WM.Muted.TLabel")
     machines_count.pack(side="right")
@@ -489,7 +566,7 @@ def install_guest_login_card(root) -> bool:
         {"nr": 80, "nazwa": 360, "status": 190, "przeglad": 220, "za_ile": 160},
         height=4,
     )
-    machines_frame.grid(row=3, column=0, sticky="nsew", pady=(0, 8))
+    machines_frame.grid(row=5, column=0, sticky="nsew", pady=(0, 8))
     try:
         from gui_maszyny import MACHINE_STATUS_ROW_COLORS
         machine_colors = MACHINE_STATUS_ROW_COLORS
@@ -507,7 +584,7 @@ def install_guest_login_card(root) -> bool:
     machines_tree.tag_configure("machine_warn_blink", foreground="#ef4444")
 
     dysp_title = ttk.Frame(host, style="WM.Card.TFrame")
-    dysp_title.grid(row=4, column=0, sticky="ew", pady=(0, 4))
+    dysp_title.grid(row=6, column=0, sticky="ew", pady=(0, 4))
     ttk.Label(dysp_title, text="📋 Dyspozycje — do zrobienia / rozpoczęte", style="WM.H2.TLabel").pack(side="left")
     dysp_count = ttk.Label(dysp_title, text="", style="WM.Muted.TLabel")
     dysp_count.pack(side="right")
@@ -519,7 +596,7 @@ def install_guest_login_card(root) -> bool:
         {"dysp": 340, "status": 100, "typ": 130, "przypisane": 130, "wykonuje": 120, "termin": 135, "priorytet": 95},
         height=5,
     )
-    dysp_frame.grid(row=5, column=0, sticky="nsew")
+    dysp_frame.grid(row=7, column=0, sticky="nsew")
     for status_key, color in _DYSP_COLORS.items():
         dysp_tree.tag_configure(f"dysp_{status_key}", foreground=color)
     dysp_tree.tag_configure("dysp_overdue", foreground="#ef4444")
@@ -554,6 +631,12 @@ def install_guest_login_card(root) -> bool:
             tools_tree.insert("", "end", values=values, tags=(tag,))
             shown_tools += 1
         tools_count.configure(text=f"{shown_tools} pozycji • odświeżanie co 30 s")
+
+        _clear(orders_tree)
+        active_orders = _load_active_orders()
+        for row in active_orders:
+            orders_tree.insert("", "end", values=_order_values(row))
+        orders_count.configure(text=f"{len(active_orders)} aktywnych")
 
         _clear(machines_tree)
         state["machine_warn"].clear()
