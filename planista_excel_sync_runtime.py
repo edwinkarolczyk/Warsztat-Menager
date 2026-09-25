@@ -434,6 +434,12 @@ def show_excel_sync_preview(owner, payload: dict) -> None:
             owner.refresh()
         except Exception:
             pass
+        try:
+            recount = getattr(owner, "_excel_auto_recount", None)
+            if callable(recount):
+                recount()
+        except Exception:
+            pass
 
         created = sum(1 for item in succeeded if item.get("action") == ACTION_CREATE)
         updated = sum(1 for item in succeeded if item.get("action") == ACTION_UPDATE)
