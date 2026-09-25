@@ -223,7 +223,19 @@ def _attach_bar_plan(plan_pp: dict, raw_total: dict, cut_mm: float) -> dict:
         rec = dict(raw_info)
         definition = definitions.get(str(raw_code), {})
         try:
-            bar_length = max(0.0, float(definition.get("dlugosc_sztangi_mm", definition.get("dlugosc", 0)) or 0))
+            bar_length = max(
+                0.0,
+                float(
+                    definition.get(
+                        "dlugosc_sztangi_mm",
+                        definition.get(
+                            "dlugosc",
+                            rec.get("dlugosc_sztangi_mm", rec.get("dlugosc", 0)),
+                        ),
+                    )
+                    or 0
+                ),
+            )
         except Exception:
             bar_length = 0.0
         rec["nazwa"] = definition.get("nazwa") or rec.get("nazwa") or raw_code
