@@ -318,6 +318,9 @@
   },
   "orders": {
     "id_width": 4,
+    "printing": {
+      "auto_new_orders": true
+    },
     "types": {
       "ZW": {
         "enabled": true,
