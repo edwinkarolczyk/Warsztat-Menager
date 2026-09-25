@@ -61,16 +61,23 @@ def test_work_order_contains_raw_material_per_piece_and_total():
     assert "ZW-77" in html
     assert "Profil 40x40" in html
     assert "Długość detalu: 1250 mm (1.25 m)" in html
-    assert "Do odcięcia: <b>1250 mm (1.25 m) + rzaz 2 mm = 1252 mm (1.252 m) / szt.</b>" in html
+    assert (
+        "Do odcięcia: <b>1250 mm (1.25 m) + grubość piły/taśmy 2 mm = "
+        "1252 mm (1.252 m) / szt.</b>"
+    ) in html
     assert "Surowiec do pobrania i cięcia" in html
     assert "10016 mm (10.016 m)" in html
     assert "6000 mm (6 m)" in html
     assert "Potrzeba sztang" in html
     assert ">2</b>" in html
     assert "9000 mm (9 m)" in html
-    assert "Rzaz piły/tarczy:" in html
-    assert "szerokość materiału zabierana przez narzędzie podczas cięcia" in html
-    assert "Cięcie → Wiercenie" in html
+    assert "Grubość piły/taśmy:</b> 2 mm" in html
+    assert "Rzaz piły/tarczy:" not in html
+    assert "szerokość materiału zabierana przez narzędzie podczas cięcia" not in html
+    assert html.count("class='check-box'") == 2
+    assert "Cięcie" in html
+    assert "Wiercenie" in html
+    assert "Po wykonaniu wszystkich operacji oznacz zlecenie jako wykonane w WM." in html
     assert "Pozostało:" in html
     assert ">8<" in html
     assert "Nadprodukcja:</b> TAK" in html
