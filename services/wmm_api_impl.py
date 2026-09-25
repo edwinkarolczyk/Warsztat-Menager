@@ -25,7 +25,7 @@ _THREAD: threading.Thread | None = None
 _LOCK = threading.Lock()
 _KEY_LOCK = threading.Lock()
 _KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-WMM_COMPAT_VERSION = "0.5.31"
+WMM_COMPAT_VERSION = "0.5.32"
 _SESSION_TTL_SECONDS = 90
 _SESSIONS: dict[str, dict[str, Any]] = {}
 _SESSIONS_LOCK = threading.Lock()
@@ -830,6 +830,10 @@ def _wmm_revision(row: dict[str, Any]) -> str:
     fields = (
         "status", "status_label", "status_current", "historia", "uwagi",
         "photos", "przeglady", "next_review",
+        "ilosc", "wykonano", "plan_polprodukty",
+        "polprodukty_z_magazynu_baza", "wykonano_polprodukty",
+        "postep_operacji_polproduktow", "sledzenie_polproduktow",
+        "sledzenie_operacji_polproduktow",
     )
     value = {key: row[key] for key in fields if key in row}
     value.setdefault("photos", [])
@@ -1041,7 +1045,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/v1/info":
             self._has_pairing_key()
-            self._send(200, {"ok": True, "service": "Warsztat Menager", "api_version": "1", "wmm": True, "wmm_version": WMM_COMPAT_VERSION, "channel": "beta", "features": {"planista_read": True, "planista_create": True, "machines_read": True, "machines_write": True, "machine_photos": True, "tools_read": True, "tools_write": True, "tool_photos": True, "dispositions_read": True, "dispositions_write": True, "warehouse_read": True, "qr_resolve": True, "idempotency": True}})
+            self._send(200, {"ok": True, "service": "Warsztat Menager", "api_version": "1", "wmm": True, "wmm_version": WMM_COMPAT_VERSION, "channel": "beta", "features": {"planista_read": True, "planista_create": True, "planista_detail": True, "planista_operations": True, "machines_read": True, "machines_write": True, "machine_photos": True, "tools_read": True, "tools_write": True, "tool_photos": True, "dispositions_read": True, "dispositions_write": True, "warehouse_read": True, "qr_resolve": True, "idempotency": True}})
             return
         if path == "/api/v1/pairing":
             self._send(200, {"ok": True, **pairing_info()})
