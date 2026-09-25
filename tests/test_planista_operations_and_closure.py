@@ -279,3 +279,70 @@ def test_two_surplus_transfers_post_stock_once(monkeypatch, tmp_path):
     assert warehouse["RAW"]["stan"] == 94
     assert warehouse["A"]["stan"] == 2
     assert transfers == [("A", 2)]
+
+
+
+def test_wmm_checkbox_completes_operations_in_order_and_is_idempotent(monkeypatch):
+    state = {
+        "id": "000125",
+        "produkt": "P",
+        "ilosc": 6,
+        "wykonano": 0,
+        "status": "nowe",
+        "historia": [],
+        "plan_polprodukty": {
+            "A": {
+                "nazwa": "Rama",
+                "potrzeba": 6,
+                "z_magazynu": 0,
+                "czynnosci": ["Cięcie", "Spawanie"],
+            }
+        },
+    }
+    monkeypatch.setattr(
+        PS,
+        "_full_semi_targets",
+        lambda _order: {
+            "A": {
+                "nazwa": "Rama",
+                "potrzeba": 6,
+                "czynnosci": ["Cięcie", "Spawanie"],
+            }
+        },
+    )
+    monkeypatch.setattr(ZL, "_order_path", lambda _oid: Path("000125.json"))
+    monkeypatch.setattr(ZL, "_read_json", lambda _path: deepcopy(state))
+
+    def write(_path, data):
+        state.clear()
+        state.update(deepcopy(data))
+
+    monkeypatch.setattr(ZL, "_write_json", write)
+    monkeypatch.setattr(PAR, "_file_snapshot", lambda _path: (True, b"before"))
+    monkeypatch.setattr(PAR, "_restore_file", lambda *_args: None)
+
+    with pytest.raises(ValueError, match="Najpierw zakończ poprzednią operację"):
+        PS._complete_polprodukt_operation_unlocked(
+            "000125", "A", "Spawanie", kto="Edwin"
+        )
+
+    marker = "/api/v1/planista/orders/000125/semiproducts/A/operations/Cięcie|wmm-test-1234"
+    PS._complete_polprodukt_operation_unlocked(
+        "000125", "A", "Cięcie", kto="Edwin", request_marker=marker
+    )
+    assert state["postep_operacji_polproduktow"]["A"]["Cięcie"] == 6
+    assert state.get("wykonano_polprodukty", {}).get("A", 0) == 0
+    first_history_size = len(state["historia"])
+
+    PS._complete_polprodukt_operation_unlocked(
+        "000125", "A", "Cięcie", kto="Edwin", request_marker=marker
+    )
+    assert len(state["historia"]) == first_history_size
+    assert state["wmm_applied_requests"].count(marker) == 1
+
+    PS._complete_polprodukt_operation_unlocked(
+        "000125", "A", "Spawanie", kto="Edwin"
+    )
+    assert state["postep_operacji_polproduktow"]["A"]["Spawanie"] == 6
+    assert state["wykonano_polprodukty"]["A"] == 6
+    assert state["status"] == "w przygotowaniu"
