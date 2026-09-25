@@ -452,6 +452,48 @@ def _find_order(order_id: str) -> dict | None:
     return None
 
 
+def _printable_excel_order(row: dict) -> dict:
+    """Zbuduj kartę wydruku z wiersza Excela, zanim powstanie zlecenie WM."""
+    order_id = str(row.get("nr_zlec") or row.get("zlec_wew") or row.get("source_row") or "").strip()
+    if not order_id:
+        order_id = f"EXCEL-{row.get('source_row', 'NOWE')}"
+    return {
+        "id": order_id,
+        "rodzaj": "Excel",
+        "status": "do akceptacji",
+        "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "termin": str(row.get("data_wysylki") or row.get("termin") or "").strip(),
+        "produkt": str(row.get("produkt") or row.get("wm_symbol") or "").strip(),
+        "ilosc": row.get("ilosc", 0),
+        "opis": f"Nowe zlecenie z planu Excel | Proces: {row.get('proces') or '—'}",
+        "uwagi": str(row.get("excel_change_note") or row.get("match_note") or "").strip(),
+    }
+
+
+def _queue_unaccepted_new_prints(owner, payload: dict) -> tuple[int, list[str]]:
+    """Drukuj nowe pozycje Excela od razu, bez wymagania akceptacji WM."""
+    if not _auto_print_enabled(owner):
+        return 0, []
+
+    rows = [
+        row for row in list(payload.get("rows") or [])
+        if isinstance(row, dict)
+        and str(row.get("excel_change_status") or "").strip() == CHANGE_NEW_ORDER
+    ]
+    printed = 0
+    errors: list[str] = []
+    for row in rows:
+        order = _printable_excel_order(row)
+        try:
+            dispatch_work_order_print(order)
+            printed += 1
+        except AutoPrintError as exc:
+            errors.append(f"{order['id']}: {exc}")
+        except Exception as exc:
+            errors.append(f"{order['id']}: {exc}")
+    return printed, errors
+
+
 def _dispatch_pending_prints(owner) -> tuple[int, list[str]]:
     state = load_auto_state()
     pending = [
@@ -672,10 +714,17 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     printed = 0
     print_errors: list[str] = []
-    if _auto_accept_enabled(owner) and _auto_print_enabled(owner):
-        printed, print_errors = _queue_created_prints(owner, results)
-    elif _auto_print_enabled(owner):
-        printed, print_errors = _dispatch_pending_prints(owner)
+    if _auto_print_enabled(owner):
+        if _auto_accept_enabled(owner):
+            # Po automatycznej akceptacji drukujemy faktyczne zlecenie WM.
+            printed, print_errors = _queue_created_prints(owner, results)
+        else:
+            # Bez akceptacji drukujemy bezpośrednio z nowego wiersza Excela.
+            # Zlecenie nadal pozostaje w kolejce „Do akceptacji”.
+            printed, print_errors = _queue_unaccepted_new_prints(owner, payload)
+            pending_printed, pending_errors = _dispatch_pending_prints(owner)
+            printed += pending_printed
+            print_errors.extend(pending_errors)
 
     count = _pending_sync_count(payload)
     _set_pending_count(owner, count)
