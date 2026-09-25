@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_auto_runtime.py
-# version: 1.0
+# version: 1.1
 """Bezpieczny automat zewnętrznego planu Excel.
 
 Oryginalny plik jest otwierany wyłącznie na czas binarnego skopiowania.
@@ -23,6 +23,21 @@ from config_manager import ConfigManager
 
 AUTO_STATE_FILE = "excel_auto_state.json"
 DEFAULT_INTERVAL_MS = 60_000
+DEFAULT_INTERVAL_MINUTES = 1
+MIN_INTERVAL_MINUTES = 1
+MAX_INTERVAL_MINUTES = 60
+
+
+def normalize_interval_minutes(value: Any) -> int:
+    try:
+        minutes = int(str(value).strip())
+    except (TypeError, ValueError):
+        minutes = DEFAULT_INTERVAL_MINUTES
+    return max(MIN_INTERVAL_MINUTES, min(MAX_INTERVAL_MINUTES, minutes))
+
+
+def interval_ms(value: Any) -> int:
+    return normalize_interval_minutes(value) * 60_000
 
 
 def _planista_dir() -> Path:
@@ -35,27 +50,72 @@ def auto_state_path() -> Path:
     return _planista_dir() / AUTO_STATE_FILE
 
 
+def _default_state() -> dict[str, Any]:
+    return {
+        "enabled": False,
+        "source_path": "",
+        "interval_minutes": DEFAULT_INTERVAL_MINUTES,
+        "auto_accept": False,
+        "auto_print": False,
+        "pending_print_order_ids": [],
+    }
+
+
 def load_auto_state() -> dict[str, Any]:
     path = auto_state_path()
     if not path.is_file():
-        return {"enabled": False, "source_path": ""}
+        return _default_state()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"enabled": False, "source_path": ""}
+        return _default_state()
     if not isinstance(raw, dict):
-        return {"enabled": False, "source_path": ""}
+        return _default_state()
+
+    pending = raw.get("pending_print_order_ids")
+    pending = pending if isinstance(pending, list) else []
+    pending = list(dict.fromkeys(str(value).strip() for value in pending if str(value).strip()))
+
     return {
         "enabled": bool(raw.get("enabled")),
         "source_path": str(raw.get("source_path") or "").strip(),
+        "interval_minutes": normalize_interval_minutes(raw.get("interval_minutes")),
+        "auto_accept": bool(raw.get("auto_accept")),
+        "auto_print": bool(raw.get("auto_print")),
+        "pending_print_order_ids": pending,
     }
 
 
-def save_auto_state(*, enabled: bool, source_path: str) -> dict[str, Any]:
-    state = {
-        "enabled": bool(enabled),
-        "source_path": str(source_path or "").strip(),
-    }
+def save_auto_state(
+    *,
+    enabled: bool | None = None,
+    source_path: str | None = None,
+    interval_minutes: Any | None = None,
+    auto_accept: bool | None = None,
+    auto_print: bool | None = None,
+    pending_print_order_ids: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Zapisz podane ustawienia, zachowując pozostałe pola istniejącego stanu."""
+    state = load_auto_state()
+    if enabled is not None:
+        state["enabled"] = bool(enabled)
+    if source_path is not None:
+        state["source_path"] = str(source_path or "").strip()
+    if interval_minutes is not None:
+        state["interval_minutes"] = normalize_interval_minutes(interval_minutes)
+    if auto_accept is not None:
+        state["auto_accept"] = bool(auto_accept)
+    if auto_print is not None:
+        state["auto_print"] = bool(auto_print)
+    if pending_print_order_ids is not None:
+        state["pending_print_order_ids"] = list(
+            dict.fromkeys(
+                str(value).strip()
+                for value in pending_print_order_ids
+                if str(value).strip()
+            )
+        )
+
     path = auto_state_path()
     temp = path.with_name(path.name + ".tmp")
     temp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
