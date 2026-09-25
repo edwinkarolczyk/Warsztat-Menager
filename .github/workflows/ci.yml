@@ -110,7 +110,9 @@ jobs:
             tests/test_gui_magazyn_rezerwacje.py
       - name: Run UI and ROOT regressions
         run: |
-          pytest -q tests/test_ui_root_regressions.py
+          pytest -q \
+            tests/test_ui_root_regressions.py \
+            tests/test_planista_work_order_print.py
       - name: Run DATA_ROOT integrity regressions
         run: |
           pytest -q tests/test_data_root_integrity.py
