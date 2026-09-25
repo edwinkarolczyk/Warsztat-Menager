@@ -475,6 +475,21 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
 
         on_save_order(window, kind, payload)
 
+        # Ostatni zapis jest celowy: integracja starego Panelu/Dyspozycji
+        # może zapisać rekord ponownie. Ręcznie utworzone zlecenie ma pozostać
+        # oczekujące na akceptację aż brygadzista jawnie je zatwierdzi.
+        data["status"] = "do akceptacji"
+        approval = data.get("akceptacja")
+        if not isinstance(approval, dict):
+            approval = {}
+        approval["wymagana"] = True
+        approval["status"] = "oczekuje"
+        data["akceptacja"] = approval
+        try:
+            save_order(data)
+        except Exception as exc:
+            print(f"[WM-DBG][AKCEPTACJA] Nie udało się utrzymać statusu 'do akceptacji': {exc}")
+
     def _go_back() -> None:
         if state["step"] > 0:
             state["step"] = int(state["step"]) - 1
