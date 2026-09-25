@@ -1,6 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.5
+# version: 1.6
+# Zmiany 1.6:
+# - doprecyzowano, że kolumna rezerwacji surowca pochodzi z Magazynu i dotyczy bieżącego zlecenia.
 # Zmiany 1.5:
 # - operacje na karcie do druku mają osobne pola do ręcznego odhaczania;
 # - karta używa określenia „Grubość piły/taśmy” zamiast technicznego „rzaz”.
@@ -255,8 +257,9 @@ def _work_order_html(order):
     if raw_total_rows:
         raw_total_block = (
             "<h2>Surowiec do pobrania i cięcia</h2>"
-            "<table><thead><tr><th>Surowiec</th><th>Razem</th><th>Standardowa sztanga</th><th>Potrzeba sztang</th><th>Zarezerwowano</th></tr></thead>"
+            "<table><thead><tr><th>Surowiec</th><th>Razem</th><th>Standardowa sztanga</th><th>Potrzeba sztang</th><th>Zarezerwowano z magazynu</th></tr></thead>"
             f"<tbody>{''.join(raw_total_rows)}</tbody></table>"
+            "<p class='small stock-note'><b>Zarezerwowano z magazynu</b> = ilość surowca już zablokowana w Magazynie dla tego zlecenia.</p>"
         )
 
     shortage_rows = []
@@ -296,6 +299,7 @@ th {{ background:#eee; }}
 .operation {{ display:flex; align-items:center; gap:1.5mm; margin:0.7mm 0; }}
 .check-box {{ display:inline-block; width:3.2mm; height:3.2mm; border:1.2px solid #111; flex:0 0 3.2mm; }}
 .operations-note {{ margin-top:2mm; padding:1.8mm 2mm; border:1px solid #777; font-weight:bold; }}
+.stock-note {{ margin:1.5mm 0 0; }}
 </style></head><body>
 <h1>ZLECENIE DO WYKONANIA</h1>
 <div class='meta'>
