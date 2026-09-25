@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_semi_progress_runtime.py
-# version: 1.2
+# version: 1.3
+# 1.3: atomowe odhaczenie pełnej operacji półproduktu dla WM/WMM.
 # 1.2: kontrolowana nadprodukcja półproduktu trafia do Magazynu z rozliczeniem surowca.
 # 1.1: postęp półproduktów pozostaje w backendzie, a przycisk przeniesiono do wspólnego edytora zlecenia.
 """Postęp półproduktów w zleceniu oraz powiązania Półprodukt -> Produkt."""
@@ -402,6 +403,119 @@ def _report_polprodukt_operation_unlocked(zlec_id, code, operation, wykonano, kt
         raise
     return order
 
+
+def _complete_polprodukt_operation_unlocked(
+    zlec_id,
+    code,
+    operation,
+    kto="system",
+    *,
+    request_marker="",
+):
+    """Odhacz pełne wykonanie operacji jednym zapisem pliku zlecenia."""
+    import planista_audit_runtime as PAR
+    import zlecenia_logika as ZL
+
+    path = ZL._order_path(zlec_id)
+    order = ZL._read_json(path)
+    targets = _full_semi_targets(order)
+    code = str(code or "").strip()
+    target_rec = targets.get(code)
+    if not isinstance(target_rec, dict):
+        raise KeyError(f"Półprodukt {code} nie należy do tego zlecenia.")
+
+    operations = [str(item) for item in target_rec.get("czynnosci") or []]
+    operation = str(operation or "").strip()
+    if not operations or operation not in operations:
+        raise ValueError("Wybierz operację z technologii tego półproduktu.")
+
+    _ensure_tracking_baseline(order)
+    baseline = _preview_stock_baseline(order, targets)
+    target_total = max(0.0, _f(target_rec.get("potrzeba")))
+    from_stock = min(target_total, max(0.0, _f(baseline.get(code))))
+    max_to_make = max(0.0, target_total - from_stock)
+    if max_to_make <= _EPS:
+        raise ValueError(
+            "Ten półprodukt jest w całości pobierany z Magazynu — "
+            "nie ma operacji do odhaczania."
+        )
+
+    tracking = dict(order.get("postep_operacji_polproduktow") or {})
+    rows = dict(tracking.get(code) or {})
+    legacy_made = max(
+        0.0, _f((order.get("wykonano_polprodukty") or {}).get(code))
+    )
+    idx = operations.index(operation)
+    current = max(legacy_made, _f(rows.get(operation)))
+
+    marker = str(request_marker or "").strip()
+    markers = order.get("wmm_applied_requests")
+    if not isinstance(markers, list):
+        markers = []
+
+    if current + _EPS >= max_to_make:
+        if marker and marker not in markers:
+            markers.append(marker)
+            order["wmm_applied_requests"] = markers[-2048:]
+            ZL._write_json(path, order)
+        return order
+
+    if idx > 0:
+        preceding = max(legacy_made, _f(rows.get(operations[idx - 1])))
+        if preceding + _EPS < max_to_make:
+            raise ValueError(
+                f"Najpierw zakończ poprzednią operację: {operations[idx - 1]}."
+            )
+
+    snapshot = PAR._file_snapshot(path)
+    try:
+        rows[operation] = max_to_make
+        tracking[code] = rows
+        order["postep_operacji_polproduktow"] = tracking
+        order["sledzenie_operacji_polproduktow"] = True
+        order["sledzenie_polproduktow"] = True
+        order.setdefault("historia", []).append({
+            "kiedy": datetime.now().isoformat(timespec="seconds"),
+            "kto": kto,
+            "co": f"operacja {operation} półproduktu {code}: wykonano -> {_fmt(max_to_make)}",
+        })
+
+        if idx == len(operations) - 1 and legacy_made + _EPS < max_to_make:
+            progress = dict(order.get("wykonano_polprodukty") or {})
+            progress[code] = max_to_make
+            order["wykonano_polprodukty"] = progress
+            if (
+                max_to_make > _EPS
+                and _f(order.get("wykonano")) <= _EPS
+                and str(order.get("status") or "") == "nowe"
+            ):
+                order["status"] = "w przygotowaniu"
+            order.setdefault("historia", []).append({
+                "kiedy": datetime.now().isoformat(timespec="seconds"),
+                "kto": kto,
+                "co": f"półprodukt {code}: wykonano -> {_fmt(max_to_make)}",
+            })
+
+        if marker and marker not in markers:
+            markers.append(marker)
+            order["wmm_applied_requests"] = markers[-2048:]
+
+        ZL._write_json(path, order)
+    except Exception:
+        PAR._restore_file(path, snapshot)
+        raise
+    return order
+
+
+def complete_polprodukt_operation(zlec_id, code, operation, kto="system"):
+    """Publiczne, blokowane odhaczenie całej operacji."""
+    from machine_file_guard import file_write_lock
+    import zlecenia_logika as ZL
+
+    with file_write_lock(ZL._order_path(zlec_id), label="odhaczenia operacji półproduktu"):
+        return _complete_polprodukt_operation_unlocked(
+            zlec_id, code, operation, kto=kto
+        )
 
 def pending_semi_surplus(order: dict, code: str) -> float:
     """Reported surplus not yet posted to warehouse; safe to inspect repeatedly."""
