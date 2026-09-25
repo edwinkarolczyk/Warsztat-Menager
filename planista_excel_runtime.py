@@ -56,6 +56,7 @@ from planista_auto_print_runtime import AutoPrintError, dispatch_work_order_prin
 from planista_excel_sync_runtime import show_excel_sync_preview
 from ui_context_help import add_help_button
 from ui_theme import get_theme_color
+from config_manager import ConfigManager
 
 
 _IMPORT_HELP = (
@@ -70,6 +71,19 @@ _SYNC_HELP = (
     "Pokazuje, które pozycje mogą utworzyć lub zaktualizować zlecenia WM, a które wymagają wyjaśnienia. "
     "Samo otwarcie podglądu niczego nie zapisuje; zapis wymaga jawnego zaznaczenia i potwierdzenia."
 )
+
+
+def _auto_print_log(message: str) -> None:
+    """Zapisz diagnostykę automatu w stałym katalogu WM, także gdy EXE nie ma konsoli."""
+    try:
+        path = Path(ConfigManager().path_data()) / "planista" / "auto_print.log"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                f"[{datetime.now().isoformat(timespec='seconds')}] {message}\\n"
+            )
+    except Exception:
+        pass
 
 
 def _match_with_current_catalog(payload: dict) -> dict:
@@ -714,17 +728,23 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     printed = 0
     print_errors: list[str] = []
+    _auto_print_log(
+        f"START auto_print={_auto_print_enabled(owner)} auto_accept={_auto_accept_enabled(owner)} source={source!r}"
+    )
     if _auto_print_enabled(owner):
         if _auto_accept_enabled(owner):
             # Po automatycznej akceptacji drukujemy faktyczne zlecenie WM.
             printed, print_errors = _queue_created_prints(owner, results)
+            _auto_print_log(f"accepted_print printed={printed} errors={print_errors!r}")
         else:
             # Bez akceptacji drukujemy bezpośrednio z nowego wiersza Excela.
             # Zlecenie nadal pozostaje w kolejce „Do akceptacji”.
             printed, print_errors = _queue_unaccepted_new_prints(owner, payload)
+            _auto_print_log(f"new_order_print printed={printed} errors={print_errors!r}")
             pending_printed, pending_errors = _dispatch_pending_prints(owner)
             printed += pending_printed
             print_errors.extend(pending_errors)
+            _auto_print_log(f"pending_print printed={pending_printed} errors={pending_errors!r}")
 
     count = _pending_sync_count(payload)
     _set_pending_count(owner, count)
@@ -751,6 +771,7 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
     else:
         status = f"Automat: sprawdzono {stamp} • do akceptacji: {count}"
 
+    _auto_print_log(f"RESULT printed={printed} errors={print_errors!r} sync_errors={sync_errors!r} status={status!r}")
     _set_auto_status(owner, status)
 
 
