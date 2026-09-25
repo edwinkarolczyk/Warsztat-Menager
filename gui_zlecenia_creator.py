@@ -38,6 +38,7 @@ from utils.path_utils import cfg_path
 
 from gui_zlecenia import on_save_order
 from zlecenia_utils import create_order_skeleton, save_order
+from drukowanie_zlecen import drukuj_nowe_zlecenie
 
 try:  # pragma: no cover - podczas testów motyw nie jest istotny
     from ui_theme import apply_theme_safe as apply_theme  # type: ignore
@@ -404,6 +405,38 @@ def open_order_creator(master: tk.Widget | None = None, autor: str = "system") -
                 parent=window,
             )
             return
+
+        # Automatyczny wydruk jest niezależny od akceptacji/synchronizacji WM.
+        # Najpierw zapisujemy zlecenie, potem wysyłamy kartę do domyślnej drukarki.
+        # Błąd drukarki nie może cofnąć ani zablokować utworzenia zlecenia.
+        try:
+            print_info = drukuj_nowe_zlecenie(data, autor=autor)
+            data["wydruk"] = print_info
+            save_order(data)
+            if print_info.get("status") == "blad":
+                messagebox.showwarning(
+                    "Wydruk",
+                    "Zlecenie zostało zapisane, ale nie udało się wysłać karty do drukarki. "
+                    "Sprawdź drukarkę domyślną i ustawienia Windows.",
+                    parent=window,
+                )
+        except Exception as exc:
+            print(f"[WM-DBG][DRUK] Nieobsłużony błąd automatycznego wydruku: {exc}")
+            data["wydruk"] = {
+                "status": "blad",
+                "kiedy": datetime.now().isoformat(timespec="seconds"),
+                "kto": autor,
+                "blad": str(exc),
+            }
+            try:
+                save_order(data)
+            except Exception:
+                pass
+            messagebox.showwarning(
+                "Wydruk",
+                f"Zlecenie zapisane. Automatyczny wydruk nie powiódł się: {exc}",
+                parent=window,
+            )
 
         termin_value = str(data.get("termin") or data.get("utworzono") or "").strip()
         if not termin_value:
