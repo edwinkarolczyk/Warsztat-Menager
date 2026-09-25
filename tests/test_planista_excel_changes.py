@@ -17,7 +17,7 @@ from planista_excel_changes import (
     compare_plan_rows,
     last_plan_source_path,
 )
-from planista_excel_runtime import _preview_row_sort_key
+from planista_excel_runtime import _preview_row_matches_search, _preview_row_sort_key
 
 
 def _row(order, code, qty, date="2026-09-14", *, source_row=4, name="NW"):
@@ -181,3 +181,45 @@ def test_runtime_exposes_manual_check_button_and_keeps_analysis_read_only():
     assert "bez tworzenia zleceń" in source
     assert 'tree.tag_configure(\n        "wm_found"' in source
     assert 'tags=("wm_found",) if found_in_wm else ()' in source
+
+
+
+def test_excel_preview_search_matches_main_columns_and_is_case_insensitive():
+    row = {
+        "source_row": 110,
+        "nr_zlec": "746",
+        "excel_oznaczenie": "5.340.730",
+        "produkt": "Szafka z hakiem",
+        "ilosc": 500,
+        "data_wysylki": "2026-09-24",
+        "proces": "malowanie",
+        "excel_change_status": "Bez zmian",
+        "match_status": "Znaleziony w WM",
+        "wm_symbol": "5.340.730",
+        "wm_nazwa": "Szafka Amanda",
+        "match_note": "Dopasowanie po oznaczeniu",
+    }
+
+    for query in (
+        "746",
+        "5.340.730",
+        "szafka z hakiem",
+        "500",
+        "2026-09-24",
+        "MALOWANIE",
+        "znaleziony w wm",
+        "szafka amanda",
+        "dopasowanie po oznaczeniu",
+    ):
+        assert _preview_row_matches_search(row, query)
+
+    assert not _preview_row_matches_search(row, "1.999.999")
+
+
+def test_excel_preview_runtime_has_live_search_and_visible_counter():
+    source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
+
+    assert 'text="Szukaj:"' in source
+    assert "search_var.trace_add" in source
+    assert 'text="Wyczyść"' in source
+    assert 'Widoczne: {len(filtered)} / {len(display_rows)}' in source
