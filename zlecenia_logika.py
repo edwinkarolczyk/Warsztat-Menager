@@ -36,7 +36,7 @@ import logika_magazyn as LM
 from config_manager import ConfigManager
 from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_json
 
-STATUSY = ["nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
+STATUSY = ["do akceptacji", "nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
 DEFAULT_CUT_MM = 2.0
 
 
@@ -496,6 +496,43 @@ def update_status(zlec_id, new_status, kto="system"):
             pass
     j["status"] = new_status
     j.setdefault("historia", []).append({"kiedy": datetime.now().isoformat(timespec="seconds"), "kto": kto, "co": f"status -> {new_status}"})
+    _write_json(p, j)
+    _sync_execution_disposition(j, autor=kto)
+    return j
+
+
+def approve_zlecenie(zlec_id, kto="system"):
+    """Zatwierdź ręcznie utworzone zlecenie oczekujące na akceptację."""
+    p = _order_path(zlec_id)
+    j = _read_json(p)
+    if str(j.get("status") or "").strip().lower() != "do akceptacji":
+        raise ValueError(f"Zlecenie {zlec_id} nie oczekuje na akceptację.")
+
+    transitions = {
+        "ZW": "nowe",
+        "ZN": "projekt",
+        "ZM": "awaria zgłoszona",
+        "ZZ": "nowe",
+    }
+    rodzaj = str(j.get("rodzaj") or j.get("typ") or "").strip().upper()
+    new_status = transitions.get(rodzaj, "nowe")
+
+    j["status"] = new_status
+    approval = j.get("akceptacja")
+    if not isinstance(approval, dict):
+        approval = {}
+    approval.update({
+        "wymagana": True,
+        "status": "zaakceptowane",
+        "zaakceptowano": datetime.now().isoformat(timespec="seconds"),
+        "zaakceptowal": kto,
+    })
+    j["akceptacja"] = approval
+    j.setdefault("historia", []).append({
+        "kiedy": datetime.now().isoformat(timespec="seconds"),
+        "kto": kto,
+        "co": f"akceptacja -> {new_status}",
+    })
     _write_json(p, j)
     _sync_execution_disposition(j, autor=kto)
     return j

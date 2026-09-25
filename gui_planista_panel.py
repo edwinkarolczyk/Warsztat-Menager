@@ -145,7 +145,14 @@ class PlanistaPanel(ttk.Frame):
         ttk.Button(buttons, text="Wykonano…", command=self.report_done).pack(side="left")
         ttk.Button(buttons, text="Rozlicz materiał", command=self.settle_material).pack(side="left", padx=(6, 0))
         ttk.Button(buttons, text="Pokaż zapotrzebowanie", command=self.show_requirements).pack(side="left", padx=6)
-        ttk.Button(buttons, text="Drukuj małe zlecenie", command=self.print_work_order).pack(side="left")
+        self.approve_button = ttk.Button(
+            buttons,
+            text="Akceptuj zlecenie",
+            command=self.approve_selected,
+        )
+        self.approve_button.pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Drukuj małe zlecenie", command=self.print_work_order).pack(side="left", padx=(8, 0))
+        self.tree.bind("<<TreeviewSelect>>", lambda _e: self._refresh_approval_button())
 
     def _on_tab_changed(self, _event=None):
         try:
@@ -196,6 +203,38 @@ class PlanistaPanel(ttk.Frame):
         selection = self.tree.selection()
         return self._orders.get(selection[0]) if selection else None
 
+    def _refresh_approval_button(self):
+        order = self._selected()
+        pending = isinstance(order, dict) and str(order.get("status") or "").strip().lower() == "do akceptacji"
+        try:
+            self.approve_button.configure(
+                state=("normal" if pending else "disabled"),
+                text=("✓ Akceptuj zlecenie" if pending else "Akceptuj zlecenie"),
+            )
+        except Exception:
+            pass
+
+    def approve_selected(self):
+        order = self._selected()
+        if not order:
+            messagebox.showinfo("Akceptacja", "Wybierz zlecenie oczekujące na akceptację.", parent=self)
+            return
+        if str(order.get("status") or "").strip().lower() != "do akceptacji":
+            messagebox.showinfo("Akceptacja", "Wybrane zlecenie nie oczekuje na akceptację.", parent=self)
+            return
+        if not messagebox.askyesno(
+            "Akceptacja zlecenia",
+            f"Zaakceptować zlecenie {order.get('id')}?",
+            parent=self,
+        ):
+            return
+        try:
+            ZL.approve_zlecenie(order["id"], kto=self.login or "system")
+        except Exception as exc:
+            messagebox.showerror("Akceptacja", f"Nie udało się zaakceptować zlecenia:\n{exc}", parent=self)
+            return
+        self.refresh()
+
     def refresh(self):
         if not hasattr(self, "tree"):
             return
@@ -208,7 +247,8 @@ class PlanistaPanel(ttk.Frame):
             qty = float(order.get("ilosc", 0) or 0)
             done = float(order.get("wykonano", 0) or 0)
             self._orders[oid] = order
-            self.tree.insert(
+            self._refresh_approval_button()
+        self.tree.insert(
                 "",
                 "end",
                 iid=oid,
