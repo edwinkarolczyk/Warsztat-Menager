@@ -48,3 +48,32 @@ def test_products_ui_has_search_and_unassigned_controls():
     assert 'text="Szukaj:"' in source
     assert 'text="Tylko nieprzypisane"' in source
     assert "self.pr_search_var.trace_add" in source
+
+
+def test_semiproduct_filter_hides_items_already_in_current_product():
+    rows = [
+        {"typ": "polprodukt", "kod": "POL-012", "ilosc_na_sztuke": 1},
+        {"typ": "polprodukt", "kod": "POL-005", "ilosc_na_sztuke": 2},
+    ]
+
+    assert not GMB._semi_available_for_product(
+        "POL-012", rows, unassigned_only=True
+    )
+    assert not GMB._semi_available_for_product(
+        "POL-005", rows, unassigned_only=True
+    )
+    assert GMB._semi_available_for_product(
+        "POL-016", rows, unassigned_only=True
+    )
+    assert GMB._semi_available_for_product(
+        "POL-012", rows, unassigned_only=False
+    )
+
+
+def test_semiproduct_filter_is_wired_to_product_bom_selector():
+    source = Path("gui_magazyn_bom.py").read_text(encoding="utf-8")
+
+    assert "self.pr_semi_unassigned_only" in source
+    assert 'text="(nie dodane jeszcze do tego produktu)"' in source
+    assert "command=self._refresh_semi_selector" in source
+    assert "self._refresh_semi_selector()" in source
