@@ -147,3 +147,89 @@ def test_wmm_planista_detail_exposes_semiproducts_and_operations(monkeypatch):
     assert semi["operacje"][0]["wykonana"] is True
     assert semi["operacje"][1]["wykonana"] is False
     assert semi["operacje"][1]["dostepna"] is True
+
+
+
+def test_wmm_planista_detail_exposes_cutting_data(monkeypatch):
+    import planista_semi_progress_runtime as PS
+
+    order = {
+        "id": "000126",
+        "produkt": "P2",
+        "ilosc": 10,
+        "wykonano": 0,
+        "status": "nowe",
+        "rzaz_mm": 2,
+        "historia": [
+            {
+                "kiedy": "2026-09-25T09:10:00",
+                "kto": "Edwin",
+                "co": "operacja Cięcie półproduktu POL-019: wykonano -> 10",
+            }
+        ],
+        "plan_polprodukty": {
+            "POL-019": {
+                "nazwa": "Ośka blatu",
+                "potrzeba": 10,
+                "z_magazynu": 0,
+                "do_wykonania": 10,
+                "czynnosci": ["Cięcie"],
+                "surowiec": {
+                    "kod": "SR-M8",
+                    "nazwa": "Pręt gwintowany M8",
+                    "jednostka": "mm",
+                    "ilosc_na_szt": 245,
+                },
+            }
+        },
+    }
+    monkeypatch.setattr(
+        PS,
+        "_full_semi_targets",
+        lambda _order: {
+            "POL-019": {
+                "nazwa": "Ośka blatu",
+                "potrzeba": 10,
+                "czynnosci": ["Cięcie"],
+            }
+        },
+    )
+    monkeypatch.setattr(
+        PS,
+        "semi_progress_rows",
+        lambda _order: [
+            {
+                "kod": "POL-019",
+                "nazwa": "Ośka blatu",
+                "potrzeba": 10,
+                "z_magazynu": 0,
+                "do_wykonania": 10,
+                "wykonano": 0,
+                "pozostalo": 10,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        ZL,
+        "material_bar_summary",
+        lambda _order: {
+            "SR-M8": {
+                "nazwa": "Pręt gwintowany M8",
+                "jednostka": "mm",
+                "dlugosc_sztangi_mm": 6000,
+                "sztangi_potrzebne": 1,
+            }
+        },
+    )
+
+    detail = API._planista_mobile_order(order)
+    semi = detail["wmm_polprodukty"][0]
+    raw = semi["surowiec"]
+
+    assert raw["kod"] == "SR-M8"
+    assert raw["ilosc_na_szt"] == 245
+    assert raw["grubosc_pily_tasmy_mm"] == 2
+    assert raw["do_odciecia_na_szt_mm"] == 247
+    assert raw["dlugosc_sztangi_mm"] == 6000
+    assert raw["sztangi_potrzebne"] == 1
+    assert detail["historia"][0]["kto"] == "Edwin"
