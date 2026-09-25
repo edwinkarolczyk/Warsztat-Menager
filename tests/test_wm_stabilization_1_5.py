@@ -8,10 +8,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 
-def test_wmm_0531_is_advertised_consistently():
+def test_wmm_0532_is_advertised_consistently():
     from services import wmm_api as api
 
-    assert api.WMM_COMPAT_VERSION == "0.5.31"
+    assert api.WMM_COMPAT_VERSION == "0.5.32"
     assert api.mobile_status()["wmm_version"] == api.WMM_COMPAT_VERSION
 
 
