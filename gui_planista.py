@@ -193,7 +193,10 @@ def _work_order_html(order):
             if raw_unit.strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
                 try:
                     with_cut = float(per_piece_value or 0) + max(0.0, float(order.get("rzaz_mm", 2) or 0))
-                    per_piece_text += f"<br>Do odcięcia z rzazem: <b>{_fmt_linear(with_cut, raw_unit)} / szt.</b>"
+                    per_piece_text += (
+                        f"<br>Do odcięcia: <b>{_fmt_linear(per_piece_value, raw_unit)} + "
+                        f"rzaz {_fmt_qty(order.get('rzaz_mm', 2))} mm = {_fmt_linear(with_cut, raw_unit)} / szt.</b>"
+                    )
                 except Exception:
                     pass
         qty_text = (
