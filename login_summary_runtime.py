@@ -1,9 +1,11 @@
-# version: 1.0
+# version: 1.1
 """Krótkie, spersonalizowane podsumowanie po zalogowaniu do WM.
 
 Warstwa jest tylko do odczytu. W szczególności samo wyświetlenie podsumowania
 NIE oznacza prywatnych wiadomości jako przeczytanych i nie zmienia statusów
 Dyspozycji ani zadań.
+
+v1.1: nie pokazuj ponownie tego samego podsumowania przy kolejnym logowaniu.
 """
 
 from __future__ import annotations
@@ -95,14 +97,63 @@ def _last_login(login: str) -> datetime | None:
     return _parse_dt(item.get("last_login"))
 
 
-def _save_login_marker(login: str, when: datetime) -> None:
+def _tool_task_keys(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+    keys = {
+        "|".join(
+            (
+                str(row.get("tool") or "").strip(),
+                str(row.get("tool_name") or "").strip(),
+                str(row.get("task") or "").strip(),
+            )
+        )
+        for row in rows
+        if isinstance(row, Mapping)
+    }
+    return sorted(key for key in keys if key.strip("|"))
+
+
+def _save_login_marker(
+    login: str,
+    when: datetime,
+    *,
+    tool_tasks: Iterable[Mapping[str, Any]] = (),
+) -> None:
     state = _read_state()
     key = _login_key(login)
-    state[key] = {
-        "login": str(login or "").strip(),
-        "last_login": _to_iso(when),
-    }
+    previous = state.get(key)
+    item = dict(previous) if isinstance(previous, dict) else {}
+    item.update(
+        {
+            "login": str(login or "").strip(),
+            "last_login": _to_iso(when),
+            "tool_tasks": _tool_task_keys(tool_tasks),
+        }
+    )
+    state[key] = item
     _write_state(state)
+
+
+def _previous_tool_task_keys(login: str) -> list[str]:
+    state = _read_state()
+    item = state.get(_login_key(login))
+    if not isinstance(item, dict):
+        return []
+    rows = item.get("tool_tasks")
+    if not isinstance(rows, list):
+        return []
+    return sorted(str(value) for value in rows if str(value).strip())
+
+
+def _should_show_summary(snapshot: Mapping[str, Any]) -> bool:
+    """Pierwszy snapshot pokaż; kolejne tylko gdy faktycznie zaszła nowa zmiana."""
+    if snapshot.get("previous") is None:
+        return True
+    return bool(
+        snapshot.get("new_pm")
+        or snapshot.get("changed_dysp")
+        or snapshot.get("activity")
+        or snapshot.get("tool_tasks_changed")
+    )
 
 
 def _after(value: object, threshold: datetime | None) -> bool:
@@ -255,6 +306,11 @@ def build_login_summary(login: str) -> dict[str, Any]:
     unread = _unread_pm(login)
     dysp_active, _all_dysp = _active_user_dysp(login)
     tool_tasks = _active_tool_tasks(login)
+    previous_tool_tasks = _previous_tool_task_keys(login)
+    current_tool_tasks = _tool_task_keys(tool_tasks)
+    tool_tasks_changed = (
+        previous is not None and current_tool_tasks != previous_tool_tasks
+    )
     activity = _activity_since(login, previous)
 
     new_pm = [row for row in unread if _after(row.get("ts"), previous)]
@@ -274,9 +330,10 @@ def build_login_summary(login: str) -> dict[str, Any]:
         "active_dysp": dysp_active,
         "changed_dysp": changed_dysp,
         "tool_tasks": tool_tasks,
+        "tool_tasks_changed": tool_tasks_changed,
         "activity": activity,
     }
-    _save_login_marker(login, now)
+    _save_login_marker(login, now, tool_tasks=tool_tasks)
     return result
 
 
@@ -311,6 +368,9 @@ def show_login_summary(root, login: str) -> bool:
     try:
         snapshot = build_login_summary(login)
     except Exception:
+        return False
+
+    if not _should_show_summary(snapshot):
         return False
 
     try:
