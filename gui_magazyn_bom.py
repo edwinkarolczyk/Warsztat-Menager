@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.6
+# Wersja pliku: 1.7
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -148,6 +148,9 @@ def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dic
     return fields
 
 
+DEFAULT_BAR_LENGTH_MM = 6000.0
+
+
 DEFAULT_RAW_KINDS = [
     {"nazwa": "Rura", "pole": "fi"},
     {"nazwa": "Pręt", "pole": "fi"},
@@ -173,6 +176,34 @@ def _product_bom(record: dict) -> list[dict]:
         qty = item.get("ilosc_na_sztuke") or item.get("ilosc_na_szt") or item.get("ilosc") or item.get("qty") or 1
         out.append({"typ": "polprodukt", "kod": str(code), "ilosc_na_sztuke": _num(qty, 1)})
     return out
+
+
+def _product_matches_filter(
+    symbol: str,
+    record: dict,
+    *,
+    query: str = "",
+    unassigned_only: bool = False,
+    polprodukty: dict[str, dict] | None = None,
+) -> bool:
+    """Filtr listy produktów: wyszukiwanie + produkty bez przypisanego BOM-u."""
+    bom_rows = _product_bom(record)
+    if unassigned_only and bom_rows:
+        return False
+
+    needle = str(query or "").strip().casefold()
+    if not needle:
+        return True
+
+    haystack = [str(symbol), str(record.get("nazwa") or "")]
+    semi_map = polprodukty or {}
+    for item in bom_rows:
+        code = str(item.get("kod") or "")
+        haystack.append(code)
+        semi = semi_map.get(code, {}) if isinstance(semi_map, dict) else {}
+        if isinstance(semi, dict):
+            haystack.append(str(semi.get("nazwa") or ""))
+    return needle in " ".join(haystack).casefold()
 
 
 class WarehouseModel:
@@ -410,6 +441,7 @@ class MagazynBOM(ttk.Frame):
         kinds = tuple(self._kind_dimension_modes)
         self.s_vars["rodzaj"].set(kinds[0] if kinds else "")
         self.s_vars["prog_alertu"].set("0")
+        self.s_vars["dlugosc_sztangi_mm"].set(_fmt_num(DEFAULT_BAR_LENGTH_MM))
         self.s_vars["stan"].set("0 mm (0 m)")
         if hasattr(self, "tree_sr"):
             self.tree_sr.selection_remove(self.tree_sr.selection())
@@ -744,6 +776,25 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Zapisz produkt", command=self._save_produkt).pack(side="right", padx=4)
         ttk.Button(bar, text="Usuń", command=self._delete_produkt).pack(side="right", padx=4)
 
+        filters = ttk.Frame(parent)
+        filters.pack(fill="x", padx=6, pady=(0, 4))
+        self.pr_search_var = tk.StringVar()
+        self.pr_unassigned_only = tk.BooleanVar(value=False)
+        ttk.Label(filters, text="Szukaj:").pack(side="left")
+        search_entry = ttk.Entry(filters, textvariable=self.pr_search_var, width=34)
+        search_entry.pack(side="left", padx=(6, 12))
+        ttk.Checkbutton(
+            filters,
+            text="Tylko nieprzypisane",
+            variable=self.pr_unassigned_only,
+            command=self._load_produkty,
+        ).pack(side="left")
+        ttk.Label(
+            filters,
+            text="(bez przypisanych półproduktów)",
+        ).pack(side="left", padx=(4, 0))
+        self.pr_search_var.trace_add("write", lambda *_: self._load_produkty())
+
         self.tree_pr = ttk.Treeview(parent, columns=("symbol", "nazwa", "sklad"), show="headings", height=9)
         for key, label, width in (("symbol", "Oznaczenie", 150), ("nazwa", "Nazwa produktu", 240), ("sklad", "Skład", 420)):
             self.tree_pr.heading(key, text=label)
@@ -900,8 +951,27 @@ class MagazynBOM(ttk.Frame):
             self.tree_pp.insert("", "end", values=(rec.get("nazwa", ""), raw_name, _fmt_num(raw.get("ilosc_na_szt", 0)), raw.get("jednostka", ""), ", ".join(rec.get("czynnosci", []) or []), code))
 
     def _load_produkty(self) -> None:
+        if not hasattr(self, "tree_pr"):
+            return
         self.tree_pr.delete(*self.tree_pr.get_children())
-        for symbol, rec in sorted(self.model.produkty.items(), key=lambda pair: str(pair[1].get("nazwa", "")).casefold()):
+        query = self.pr_search_var.get() if hasattr(self, "pr_search_var") else ""
+        unassigned_only = (
+            bool(self.pr_unassigned_only.get())
+            if hasattr(self, "pr_unassigned_only")
+            else False
+        )
+        for symbol, rec in sorted(
+            self.model.produkty.items(),
+            key=lambda pair: str(pair[1].get("nazwa", "")).casefold(),
+        ):
+            if not _product_matches_filter(
+                symbol,
+                rec,
+                query=query,
+                unassigned_only=unassigned_only,
+                polprodukty=self.model.polprodukty,
+            ):
+                continue
             parts = []
             for item in _product_bom(rec):
                 code = item["kod"]
