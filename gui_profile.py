@@ -11,14 +11,6 @@ pierwsze kliknięcie zakładki nie uruchamia dopiero kosztownego budowania panel
 from __future__ import annotations
 
 from contextlib import contextmanager
-import io
-import tkinter as tk
-from tkinter import ttk
-import webbrowser
-
-from PIL import Image, ImageTk
-import qrcode
-
 from wm_perf import PerfFlow, perf, perf_span
 
 
@@ -391,62 +383,6 @@ class ProfileView(_BaseProfileView):
             except Exception:
                 pass
 
-    def _render_wmm_download_card(self, parent) -> None:
-        """QR do zawsze aktualnego wydania WMM z GitHub Releases."""
-        url = "https://github.com/edwinkarolczyk/Cidex-Mobile/releases/download/v0.5.33/WMM.apk"
-        box = ttk.LabelFrame(
-            parent,
-            text="WMM — pobierz aktualną wersję",
-            style="WM.Section.TLabelframe",
-            padding=12,
-        )
-        box.pack(fill="x", pady=(0, 10))
-
-        left = ttk.Frame(box, style="WM.Container.TFrame")
-        left.pack(side="left", fill="x", expand=True)
-
-        ttk.Label(
-            left,
-            text="Zeskanuj kod QR telefonem, aby pobrać najnowszy WMM.",
-            style="WM.Muted.TLabel",
-        ).pack(anchor="w")
-        ttk.Label(
-            left,
-            text="Link zawsze prowadzi do aktualnego wydania WMM.apk.",
-            style="WM.Muted.TLabel",
-        ).pack(anchor="w", pady=(3, 8))
-        ttk.Button(
-            left,
-            text="Otwórz link pobierania WMM",
-            command=lambda: webbrowser.open(url),
-            style="WM.Button.TButton",
-        ).pack(anchor="w")
-
-        try:
-            qr = qrcode.QRCode(
-                version=None,
-                error_correction=qrcode.constants.ERROR_CORRECT_M,
-                box_size=5,
-                border=3,
-            )
-            qr.add_data(url)
-            qr.make(fit=True)
-            image = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-            image.thumbnail((180, 180), Image.Resampling.LANCZOS)
-            buffer = io.BytesIO()
-            image.save(buffer, format="PNG")
-            photo = ImageTk.PhotoImage(data=buffer.getvalue())
-            qr_label = ttk.Label(box, image=photo)
-            qr_label.image = photo
-            qr_label.pack(side="right", padx=(18, 4))
-            self._wmm_download_qr_photo = photo
-        except Exception as exc:
-            ttk.Label(
-                box,
-                text=f"Nie udało się wygenerować QR:\n{exc}",
-                style="WM.Muted.TLabel",
-            ).pack(side="right", padx=(18, 4))
-
     def _render_simple_profile(self, parent) -> None:
         """Zwykły Profil zawsze daje dostęp do edycji własnych danych."""
         flow = PerfFlow("PROFILE_RENDER_SIMPLE")
@@ -470,8 +406,6 @@ class ProfileView(_BaseProfileView):
                     command=self._open_edit_profile,
                     style="WM.Button.TButton",
                 ).pack(side="right")
-            with perf_span("PROFILE_RENDER_SIMPLE:wmm_download"):
-                self._render_wmm_download_card(parent)
             with perf_span("PROFILE_RENDER_SIMPLE:base_profile"):
                 super()._render_simple_profile(parent)
             try:
