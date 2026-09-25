@@ -621,7 +621,7 @@ def _check_excel_changes(owner) -> None:
     _handle_analysis(owner, path)
 
 
-def _open_excel_sync(owner) -> None:
+def _open_excel_sync(owner, *, preselect_safe: bool = False) -> None:
     payload = getattr(owner, "_excel_plan_import", None)
     if not isinstance(payload, dict) or not (
         list(payload.get("rows") or []) or list(payload.get("removed_rows") or [])
@@ -632,7 +632,7 @@ def _open_excel_sync(owner) -> None:
             parent=owner,
         )
         return
-    show_excel_sync_preview(owner, payload)
+    show_excel_sync_preview(owner, payload, preselect_safe=preselect_safe)
 
 
 def install_planista_excel_runtime() -> None:
@@ -715,7 +715,7 @@ def install_planista_excel_runtime() -> None:
         self._excel_auto_accept_button = tk.Button(
             auto_bar,
             text="Do akceptacji (0)",
-            command=lambda: _open_excel_sync(self),
+            command=lambda: _open_excel_sync(self, preselect_safe=True),
             state="disabled",
             bg="#374151",
             fg="white",
