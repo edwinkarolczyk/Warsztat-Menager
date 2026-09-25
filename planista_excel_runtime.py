@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.4
+# version: 1.5
+# 1.5: dodano wyszukiwarkę w podglądzie analizy Excel → Produkty WM.
 # 1.4: dodano wejście do kontrolowanego podglądu i zatwierdzania synchronizacji zleceń WM.
 # 1.3: znalezione Produkty WM są wyróżniane na zielono i pokazywane na górze podglądu.
 # 1.2: zapisuje snapshot pod WM_ROOT i wykrywa zmiany między kolejnymi analizami planu.
@@ -84,6 +85,40 @@ def _preview_row_sort_key(row: dict) -> int:
     return 0 if str(row.get("match_status") or "").strip() == STATUS_FOUND else 1
 
 
+def _preview_row_search_text(row: dict) -> str:
+    """Tekst przeszukiwany w oknie analizy planu Excel."""
+    wm_symbol = str(row.get("wm_symbol") or "").strip()
+    wm_name = str(row.get("wm_nazwa") or "").strip()
+    notes = " ".join(
+        part
+        for part in (
+            str(row.get("excel_change_note") or "").strip(),
+            str(row.get("match_note") or "").strip(),
+        )
+        if part
+    )
+    parts = (
+        row.get("source_row", ""),
+        row.get("nr_zlec", ""),
+        row.get("excel_oznaczenie", ""),
+        row.get("produkt", ""),
+        row.get("ilosc", ""),
+        row.get("data_wysylki", ""),
+        row.get("proces", ""),
+        row.get("excel_change_status", ""),
+        row.get("match_status", ""),
+        wm_symbol,
+        wm_name,
+        notes,
+    )
+    return " ".join(str(value or "") for value in parts).casefold()
+
+
+def _preview_row_matches_search(row: dict, query: str) -> bool:
+    needle = str(query or "").strip().casefold()
+    return not needle or needle in _preview_row_search_text(row)
+
+
 def _show_excel_import_preview(owner, payload: dict) -> None:
     rows = list(payload.get("rows") or [])
     removed_rows = list(payload.get("removed_rows") or [])
@@ -119,6 +154,24 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             f"Snapshot: {payload.get('snapshot_path', '')}"
         ),
     ).pack(anchor="w", pady=(3, 0))
+
+    search_bar = ttk.Frame(dlg, padding=(10, 0, 10, 6))
+    search_bar.pack(fill="x")
+    search_var = tk.StringVar()
+    visible_var = tk.StringVar()
+    ttk.Label(search_bar, text="Szukaj:").pack(side="left")
+    search_entry = ttk.Entry(search_bar, textvariable=search_var, width=44)
+    search_entry.pack(side="left", padx=(6, 8))
+    ttk.Button(
+        search_bar,
+        text="Wyczyść",
+        command=lambda: search_var.set(""),
+    ).pack(side="left")
+    ttk.Label(
+        search_bar,
+        text="Nr zlecenia, oznaczenie, produkt, status, Produkt WM…",
+    ).pack(side="left", padx=(10, 0))
+    ttk.Label(search_bar, textvariable=visible_var).pack(side="right")
 
     body = ttk.Frame(dlg, padding=(10, 0, 10, 10))
     body.pack(fill="both", expand=True)
@@ -182,44 +235,58 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     body.columnconfigure(0, weight=1)
 
     display_rows = sorted(rows, key=_preview_row_sort_key) + removed_rows
-    for idx, row in enumerate(display_rows):
-        qty = row.get("ilosc")
-        if isinstance(qty, float) and qty.is_integer():
-            qty = int(qty)
-        wm_symbol = str(row.get("wm_symbol") or "").strip()
-        wm_name = str(row.get("wm_nazwa") or "").strip()
-        wm_product = " | ".join(part for part in (wm_symbol, wm_name) if part)
-        notes = "; ".join(
-            part
-            for part in (
-                str(row.get("excel_change_note") or "").strip(),
-                str(row.get("match_note") or "").strip(),
+
+    def render_rows(*_args) -> None:
+        tree.delete(*tree.get_children())
+        query = search_var.get()
+        filtered = [
+            row
+            for row in display_rows
+            if _preview_row_matches_search(row, query)
+        ]
+        for idx, row in enumerate(filtered):
+            qty = row.get("ilosc")
+            if isinstance(qty, float) and qty.is_integer():
+                qty = int(qty)
+            wm_symbol = str(row.get("wm_symbol") or "").strip()
+            wm_name = str(row.get("wm_nazwa") or "").strip()
+            wm_product = " | ".join(part for part in (wm_symbol, wm_name) if part)
+            notes = "; ".join(
+                part
+                for part in (
+                    str(row.get("excel_change_note") or "").strip(),
+                    str(row.get("match_note") or "").strip(),
+                )
+                if part
             )
-            if part
-        )
-        found_in_wm = (
-            str(row.get("match_status") or "").strip() == STATUS_FOUND
-            and str(row.get("excel_change_status") or "").strip() != CHANGE_REMOVED
-        )
-        tree.insert(
-            "",
-            "end",
-            iid=str(idx),
-            values=(
-                row.get("source_row", ""),
-                row.get("nr_zlec", ""),
-                row.get("excel_oznaczenie", ""),
-                row.get("produkt", ""),
-                "" if qty is None else qty,
-                row.get("data_wysylki", ""),
-                row.get("proces", ""),
-                row.get("excel_change_status", ""),
-                row.get("match_status", ""),
-                wm_product,
-                notes,
-            ),
-            tags=("wm_found",) if found_in_wm else (),
-        )
+            found_in_wm = (
+                str(row.get("match_status") or "").strip() == STATUS_FOUND
+                and str(row.get("excel_change_status") or "").strip() != CHANGE_REMOVED
+            )
+            tree.insert(
+                "",
+                "end",
+                iid=str(idx),
+                values=(
+                    row.get("source_row", ""),
+                    row.get("nr_zlec", ""),
+                    row.get("excel_oznaczenie", ""),
+                    row.get("produkt", ""),
+                    "" if qty is None else qty,
+                    row.get("data_wysylki", ""),
+                    row.get("proces", ""),
+                    row.get("excel_change_status", ""),
+                    row.get("match_status", ""),
+                    wm_product,
+                    notes,
+                ),
+                tags=("wm_found",) if found_in_wm else (),
+            )
+        visible_var.set(f"Widoczne: {len(filtered)} / {len(display_rows)}")
+
+    search_var.trace_add("write", render_rows)
+    render_rows()
+    search_entry.focus_set()
 
     ttk.Button(dlg, text="Zamknij", command=dlg.destroy).pack(anchor="e", padx=10, pady=(0, 10))
 
