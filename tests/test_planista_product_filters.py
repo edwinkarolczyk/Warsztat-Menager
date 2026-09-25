@@ -50,31 +50,62 @@ def test_products_ui_has_search_and_unassigned_controls():
     assert "self.pr_search_var.trace_add" in source
 
 
-def test_semiproduct_filter_hides_items_already_in_current_product():
-    rows = [
-        {"typ": "polprodukt", "kod": "POL-012", "ilosc_na_sztuke": 1},
-        {"typ": "polprodukt", "kod": "POL-005", "ilosc_na_sztuke": 2},
-    ]
+def test_semiproduct_filter_hides_items_assigned_to_any_product():
+    products = {
+        "P-001": {
+            "symbol": "P-001",
+            "BOM": [{"typ": "polprodukt", "kod": "POL-012", "ilosc_na_sztuke": 1}],
+        },
+        "P-002": {
+            "symbol": "P-002",
+            "BOM": [{"typ": "polprodukt", "kod": "POL-005", "ilosc_na_sztuke": 2}],
+        },
+    }
+    assigned = GMB._assigned_semiproduct_codes(products)
 
     assert not GMB._semi_available_for_product(
-        "POL-012", rows, unassigned_only=True
+        "POL-012", unassigned_only=True, assigned_codes=assigned
     )
     assert not GMB._semi_available_for_product(
-        "POL-005", rows, unassigned_only=True
+        "POL-005", unassigned_only=True, assigned_codes=assigned
     )
     assert GMB._semi_available_for_product(
-        "POL-016", rows, unassigned_only=True
+        "POL-016", unassigned_only=True, assigned_codes=assigned
     )
     assert GMB._semi_available_for_product(
-        "POL-012", rows, unassigned_only=False
+        "POL-012", unassigned_only=False, assigned_codes=assigned
     )
+
+
+def test_semiproduct_filter_uses_live_rows_for_current_product():
+    products = {
+        "P-001": {
+            "symbol": "P-001",
+            "BOM": [{"typ": "polprodukt", "kod": "POL-OLD", "ilosc_na_sztuke": 1}],
+        },
+        "P-002": {
+            "symbol": "P-002",
+            "BOM": [{"typ": "polprodukt", "kod": "POL-OTHER", "ilosc_na_sztuke": 1}],
+        },
+    }
+    live_rows = [{"typ": "polprodukt", "kod": "POL-NEW", "ilosc_na_sztuke": 1}]
+
+    assigned = GMB._assigned_semiproduct_codes(
+        products,
+        current_symbol="P-001",
+        current_rows=live_rows,
+    )
+
+    assert "POL-OLD" not in assigned
+    assert "POL-NEW" in assigned
+    assert "POL-OTHER" in assigned
 
 
 def test_semiproduct_filter_is_wired_to_product_bom_selector():
     source = Path("gui_magazyn_bom.py").read_text(encoding="utf-8")
 
     assert "self.pr_semi_unassigned_only" in source
-    assert 'text="(nie dodane jeszcze do tego produktu)"' in source
+    assert 'text="(nieużyte jeszcze w żadnym produkcie)"' in source
     assert "command=self._refresh_semi_selector" in source
     assert "self._refresh_semi_selector()" in source
 
