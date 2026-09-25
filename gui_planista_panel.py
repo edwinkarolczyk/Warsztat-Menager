@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.7
+# version: 1.8
 # Planista osadzony w glownym obszarze WM.
+# 1.8: wydruk karty korzysta ze wspólnego generatora i zapisuje kopię w aktywnym ROOT WM.
 # 1.7: uporządkowano finalny układ tabeli Zleceń; Zamówienie = ilość, przywrócono Wersję BOM.
 # 1.6: doprecyzowano Zlecenie warsztatowe, zachowano źródło ID i zwężono kolumnę.
 # 1.5: dodano kolumnę Zlecenie wew z istniejącego pola zlec_wew przed numerem zlecenia.
@@ -10,7 +11,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
 import tkinter as tk
 import webbrowser
 from datetime import date
@@ -20,7 +20,13 @@ from tkinter import messagebox, ttk
 import zlecenia_logika as ZL
 import zlecenia_progress as ZP
 from config_manager import ConfigManager
-from gui_planista import _display_date, _iso_date, _open_date_calendar, _work_order_html
+from gui_planista import (
+    _display_date,
+    _iso_date,
+    _open_date_calendar,
+    _work_order_html,
+    _work_order_output_path,
+)
 
 
 def _fmt_qty(value):
@@ -416,9 +422,7 @@ class PlanistaPanel(ttk.Frame):
             messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self)
             return
         try:
-            folder = Path(tempfile.gettempdir()) / "WarsztatMenager" / "wydruki"
-            folder.mkdir(parents=True, exist_ok=True)
-            path = folder / f"zlecenie_{order.get('id', '')}.html"
+            path = _work_order_output_path(order)
             path.write_text(_work_order_html(order), encoding="utf-8")
             if os.name == "nt":
                 os.startfile(str(path))
