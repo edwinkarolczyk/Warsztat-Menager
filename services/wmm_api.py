@@ -1,4 +1,4 @@
-# version: 1.10
+# version: 1.11
 """Bezpieczny punkt wejścia WMM z blokadami zapisu i kontrolą ROOT."""
 
 from __future__ import annotations
@@ -302,6 +302,15 @@ if not getattr(_impl, "_WMM_MACHINE_MOBILE_V5", False):
         _install_wmm_machine_mobile_v5(_impl)
     except Exception:
         _impl.logger.exception("[WMM API] nie udało się uruchomić pełnej listy przeglądów WMM")
+
+
+if not getattr(_impl, "_WMM_PLANISTA_MOBILE_V1", False):
+    try:
+        from services.wmm_planista_mobile import install as _install_wmm_planista_mobile
+
+        _install_wmm_planista_mobile(_impl)
+    except Exception:
+        _impl.logger.exception("[WMM API] nie udało się uruchomić mobilnego postępu Planisty")
 
 
 # Zachowaj dotychczasowy publiczny moduł i wszystkie jego symbole.
