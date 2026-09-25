@@ -52,6 +52,15 @@ def _mobile_order(impl: Any, order: dict[str, Any]) -> dict[str, Any]:
     tracking = tracking if isinstance(tracking, dict) else {}
     made_map = order.get("wykonano_polprodukty")
     made_map = made_map if isinstance(made_map, dict) else {}
+    plan_rows = order.get("plan_polprodukty")
+    plan_rows = plan_rows if isinstance(plan_rows, dict) else {}
+
+    try:
+        import zlecenia_logika as ZL
+        raw_summary = ZL.material_bar_summary(order)
+    except Exception:
+        raw_summary = order.get("zapotrzebowanie_surowce")
+        raw_summary = raw_summary if isinstance(raw_summary, dict) else {}
 
     mobile_semis: list[dict[str, Any]] = []
     ordered_codes = list(targets)
@@ -64,6 +73,16 @@ def _mobile_order(impl: Any, order: dict[str, Any]) -> dict[str, Any]:
             continue
         target = targets.get(code) if isinstance(targets.get(code), dict) else {}
         progress = semi_rows.get(code, {})
+        plan_rec = plan_rows.get(code) if isinstance(plan_rows.get(code), dict) else {}
+        raw = plan_rec.get("surowiec")
+        raw = raw if isinstance(raw, dict) else {}
+        raw_code = str(raw.get("kod") or raw.get("id") or "").strip()
+        raw_info = raw_summary.get(raw_code) if isinstance(raw_summary.get(raw_code), dict) else {}
+        raw_unit = str(raw.get("jednostka") or raw_info.get("jednostka") or "").strip()
+        raw_per_piece = _f(raw.get("ilosc_na_szt"))
+        blade_mm = max(0.0, _f(order.get("rzaz_mm", 2)))
+        is_linear_mm = raw_unit.casefold() in {"mm", "milimetr", "milimetry", "milimetrów"}
+        cut_per_piece_mm = raw_per_piece + blade_mm if is_linear_mm and raw_per_piece > 0 else 0.0
         to_make = max(0.0, _f(progress.get("do_wykonania")))
         semi_made = max(0.0, _f(made_map.get(code)))
         op_state = tracking.get(code)
@@ -96,6 +115,16 @@ def _mobile_order(impl: Any, order: dict[str, Any]) -> dict[str, Any]:
                 "do_wykonania": to_make,
                 "wykonano": _f(progress.get("wykonano")),
                 "pozostalo": _f(progress.get("pozostalo")),
+                "surowiec": {
+                    "kod": raw_code,
+                    "nazwa": str(raw.get("nazwa") or raw_info.get("nazwa") or raw_code),
+                    "jednostka": raw_unit,
+                    "ilosc_na_szt": raw_per_piece,
+                    "grubosc_pily_tasmy_mm": blade_mm,
+                    "do_odciecia_na_szt_mm": cut_per_piece_mm,
+                    "dlugosc_sztangi_mm": _f(raw_info.get("dlugosc_sztangi_mm")),
+                    "sztangi_potrzebne": raw_info.get("sztangi_potrzebne"),
+                },
                 "operacje": operations,
             }
         )
