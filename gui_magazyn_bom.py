@@ -1,5 +1,5 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 1.7
+# Wersja pliku: 1.8
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -204,6 +204,23 @@ def _product_matches_filter(
         if isinstance(semi, dict):
             haystack.append(str(semi.get("nazwa") or ""))
     return needle in " ".join(haystack).casefold()
+
+
+def _semi_available_for_product(
+    code: str,
+    product_rows: list[dict] | None,
+    *,
+    unassigned_only: bool = False,
+) -> bool:
+    """Czy półprodukt ma być widoczny w selektorze składu bieżącego produktu."""
+    if not unassigned_only:
+        return True
+    assigned = {
+        str(row.get("kod") or row.get("id") or "").strip()
+        for row in (product_rows or [])
+        if isinstance(row, dict)
+    }
+    return str(code or "").strip() not in assigned
 
 
 class WarehouseModel:
@@ -758,16 +775,30 @@ class MagazynBOM(ttk.Frame):
         self._semi_display_to_id.clear()
         self._semi_id_to_display.clear()
         values = []
+        unassigned_only = (
+            bool(self.pr_semi_unassigned_only.get())
+            if hasattr(self, "pr_semi_unassigned_only")
+            else False
+        )
         for code, rec in sorted(
             self.model.polprodukty.items(),
             key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), self._semi_measure(pair[1]), pair[0]),
         ):
+            if not _semi_available_for_product(
+                code,
+                self._product_bom_rows,
+                unassigned_only=unassigned_only,
+            ):
+                continue
             display = self._semi_display(code, rec)
             values.append(display)
             self._semi_display_to_id[display] = code
             self._semi_id_to_display[code] = display
         if hasattr(self, "pr_semi_combo"):
+            current = self.pr_semi_choice.get().strip() if hasattr(self, "pr_semi_choice") else ""
             self.pr_semi_combo.set_values(values)
+            if unassigned_only and current and current not in self._semi_display_to_id:
+                self.pr_semi_choice.set("")
 
     def _build_produkty(self, parent) -> None:
         bar = ttk.Frame(parent)
@@ -816,11 +847,22 @@ class MagazynBOM(ttk.Frame):
         bom_box.grid(row=2, column=0, columnspan=3, sticky="ew", padx=4, pady=(8, 2))
         self.pr_semi_choice = tk.StringVar()
         self.pr_semi_qty = tk.StringVar(value="1")
+        self.pr_semi_unassigned_only = tk.BooleanVar(value=False)
         self.pr_semi_combo = SearchableCombobox(bom_box, textvariable=self.pr_semi_choice, state="normal")
         self.pr_semi_combo.grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ttk.Entry(bom_box, textvariable=self.pr_semi_qty, width=8).grid(row=0, column=1, padx=(0, 6))
         ttk.Button(bom_box, text="Dodaj / zmień", command=self._add_bom_row).grid(row=0, column=2, padx=(0, 6))
         ttk.Button(bom_box, text="Usuń ze składu", command=self._remove_bom_row).grid(row=0, column=3)
+        ttk.Checkbutton(
+            bom_box,
+            text="Tylko nieprzypisane",
+            variable=self.pr_semi_unassigned_only,
+            command=self._refresh_semi_selector,
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ttk.Label(
+            bom_box,
+            text="(nie dodane jeszcze do tego produktu)",
+        ).grid(row=1, column=2, columnspan=2, sticky="w", pady=(4, 0))
         self.pr_bom_tree = ttk.Treeview(bom_box, columns=("nazwa", "wymiar", "ilosc", "id"), show="headings", height=5)
         self.pr_bom_tree.heading("nazwa", text="Półprodukt")
         self.pr_bom_tree.heading("wymiar", text="Długość / surowiec na 1 szt.")
@@ -830,7 +872,7 @@ class MagazynBOM(ttk.Frame):
         self.pr_bom_tree.column("wymiar", width=220)
         self.pr_bom_tree.column("ilosc", width=120)
         self.pr_bom_tree.column("id", width=100)
-        self.pr_bom_tree.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(6, 0))
+        self.pr_bom_tree.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(6, 0))
         bom_box.columnconfigure(0, weight=1)
         form.columnconfigure(1, weight=1)
         self._refresh_semi_selector()
@@ -844,6 +886,7 @@ class MagazynBOM(ttk.Frame):
         self._render_bom_rows()
         self.pr_semi_choice.set("")
         self.pr_semi_qty.set("1")
+        self._refresh_semi_selector()
 
     def _add_bom_row(self) -> None:
         code = self._semi_display_to_id.get(self.pr_semi_choice.get().strip())
@@ -860,6 +903,8 @@ class MagazynBOM(ttk.Frame):
         if not updated:
             self._product_bom_rows.append({"typ": "polprodukt", "kod": code, "ilosc_na_sztuke": qty})
         self._render_bom_rows()
+        self.pr_semi_choice.set("")
+        self._refresh_semi_selector()
 
     def _remove_bom_row(self) -> None:
         sel = self.pr_bom_tree.selection()
@@ -868,6 +913,7 @@ class MagazynBOM(ttk.Frame):
         code = str(self.pr_bom_tree.item(sel[0], "values")[-1])
         self._product_bom_rows = [row for row in self._product_bom_rows if row.get("kod") != code]
         self._render_bom_rows()
+        self._refresh_semi_selector()
 
     def _render_bom_rows(self) -> None:
         if not hasattr(self, "pr_bom_tree"):
@@ -890,6 +936,8 @@ class MagazynBOM(ttk.Frame):
         self.pr_vars["nazwa"].set(rec.get("nazwa", ""))
         self._product_bom_rows = _product_bom(rec)
         self._render_bom_rows()
+        self.pr_semi_choice.set("")
+        self._refresh_semi_selector()
 
     def _save_produkt(self) -> None:
         symbol = self.pr_vars["symbol"].get().strip()
