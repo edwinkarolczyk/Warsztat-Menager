@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.3
+# version: 1.4
+# Zmiany 1.4:
+# - karta pokazuje standardową długość sztangi i liczbę sztang potrzebnych do cięcia;
+# - wartości liniowe w mm pokazują też metry, a opis rzazu wyjaśnia jego znaczenie.
 # Zmiany 1.3:
 # - karta zlecenia pokazuje surowiec i normę zużycia na sztukę oraz łączne zapotrzebowanie;
 # - wydruk jest archiwizowany w aktywnym WM_ROOT/data/zlecenia/karty zamiast w TEMP.
@@ -33,6 +36,18 @@ def _fmt_qty(value):
     except Exception:
         return str(value or "")
     return str(int(number)) if number.is_integer() else f"{number:.3f}".rstrip("0").rstrip(".")
+
+
+def _fmt_linear(value, unit=""):
+    txt = _fmt_qty(value)
+    u = str(unit or "").strip()
+    if u.lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
+        try:
+            meters = float(value or 0) / 1000.0
+            return f"{txt} mm ({_fmt_qty(meters)} m)"
+        except Exception:
+            pass
+    return f"{txt} {u}".strip()
 
 
 def _display_date(value):
@@ -151,6 +166,15 @@ def _work_order_output_path(order):
 
 
 def _work_order_html(order):
+    try:
+        raw_summary = ZL.material_bar_summary(order)
+    except Exception:
+        raw_summary = {
+            str(code): dict(rec)
+            for code, rec in (order.get("zapotrzebowanie_surowce") or {}).items()
+            if isinstance(rec, dict)
+        }
+
     rows = []
     for code, rec in (order.get("plan_polprodukty") or {}).items():
         if not isinstance(rec, dict):
@@ -158,11 +182,20 @@ def _work_order_html(order):
         operations = " → ".join(str(x) for x in (rec.get("czynnosci") or []) if str(x).strip()) or "—"
         raw = rec.get("surowiec") or {}
         raw_code = str(raw.get("kod") or raw.get("id") or "—")
-        raw_name = str(raw.get("nazwa") or raw_code)
-        raw_unit = str(raw.get("jednostka") or "")
+        raw_info = raw_summary.get(raw_code, {}) if isinstance(raw_summary, dict) else {}
+        raw_name = str(raw.get("nazwa") or raw_info.get("nazwa") or raw_code)
+        raw_unit = str(raw.get("jednostka") or raw_info.get("jednostka") or "")
         per_piece_value = raw.get("ilosc_na_szt")
-        per_piece = "—" if per_piece_value in (None, "") else _fmt_qty(per_piece_value)
-        per_piece_text = f"{per_piece} {raw_unit} / szt.".strip() if per_piece != "—" else "—"
+        if per_piece_value in (None, ""):
+            per_piece_text = "—"
+        else:
+            per_piece_text = f"Długość detalu: {_fmt_linear(per_piece_value, raw_unit)}"
+            if raw_unit.strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
+                try:
+                    with_cut = float(per_piece_value or 0) + max(0.0, float(order.get("rzaz_mm", 2) or 0))
+                    per_piece_text += f"<br>Do odcięcia z rzazem: <b>{_fmt_linear(with_cut, raw_unit)} / szt.</b>"
+                except Exception:
+                    pass
         qty_text = (
             f"Potrzeba: {_fmt_qty(rec.get('potrzeba', rec.get('ilosc', 0)))}<br>"
             f"Z magazynu: {_fmt_qty(rec.get('z_magazynu', 0))}<br>"
@@ -173,31 +206,38 @@ def _work_order_html(order):
             f"<td><b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
             f"<td>{qty_text}</td>"
             f"<td><b>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
-            f"Norma: <b>{html.escape(per_piece_text)}</b></td>"
+            f"{per_piece_text}</td>"
             f"<td>{html.escape(operations)}</td>"
             "</tr>"
         )
 
     raw_total_rows = []
     reservations = order.get("rezerwacje_surowce") or {}
-    for code, rec in (order.get("zapotrzebowanie_surowce") or {}).items():
+    for code, rec in (raw_summary or {}).items():
         if not isinstance(rec, dict):
             continue
         unit = str(rec.get("jednostka") or "")
         reserved = reservations.get(code, 0) if isinstance(reservations, dict) else 0
+        bar_length = float(rec.get("dlugosc_sztangi_mm", 0) or 0)
+        bars = rec.get("sztangi_potrzebne")
+        bars_text = "—" if bars is None else _fmt_qty(bars)
+        error = str(rec.get("blad_ciecia") or "").strip()
+        if error:
+            bars_text = f"{bars_text}<br><span class='warn-inline'>{html.escape(error)}</span>"
         raw_total_rows.append(
             "<tr>"
-            f"<td>{html.escape(str(code))}</td>"
-            f"<td><b>{html.escape(_fmt_qty(rec.get('ilosc', 0)))}</b></td>"
-            f"<td>{html.escape(unit)}</td>"
-            f"<td>{html.escape(_fmt_qty(reserved))}</td>"
+            f"<td><b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
+            f"<td><b>{html.escape(_fmt_linear(rec.get('ilosc', 0), unit))}</b></td>"
+            f"<td>{html.escape(_fmt_linear(bar_length, 'mm')) if bar_length > 0 else '—'}</td>"
+            f"<td><b>{bars_text}</b></td>"
+            f"<td>{html.escape(_fmt_linear(reserved, unit))}</td>"
             "</tr>"
         )
     raw_total_block = ""
     if raw_total_rows:
         raw_total_block = (
-            "<h2>Łączne zapotrzebowanie surowca</h2>"
-            "<table><thead><tr><th>Surowiec</th><th>Razem</th><th>Jednostka</th><th>Zarezerwowano</th></tr></thead>"
+            "<h2>Surowiec do pobrania i cięcia</h2>"
+            "<table><thead><tr><th>Surowiec</th><th>Razem</th><th>Standardowa sztanga</th><th>Potrzeba sztang</th><th>Zarezerwowano</th></tr></thead>"
             f"<tbody>{''.join(raw_total_rows)}</tbody></table>"
         )
 
@@ -226,6 +266,8 @@ body {{ font-family: Arial, sans-serif; font-size: 9.5pt; color:#111; margin:0; 
 h1 {{ font-size:15pt; margin:0 0 4mm; }}
 h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
 .meta {{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm 7mm; margin-bottom:4mm; }}
+.wide {{ grid-column:1 / -1; }}
+.warn-inline {{ color:#922; font-size:7.5pt; }}
 table {{ width:100%; border-collapse:collapse; font-size:8.5pt; page-break-inside:auto; }}
 tr {{ page-break-inside:avoid; }}
 th,td {{ border:1px solid #555; padding:1.6mm; vertical-align:top; }}
@@ -244,10 +286,10 @@ th {{ background:#eee; }}
 <div><b>Wykonano:</b> {html.escape(_fmt_qty(order.get('wykonano', 0)))}</div>
 <div><b>Pozostało:</b> {html.escape(_fmt_qty(remaining))}</div>
 <div><b>Wersja BOM:</b> {html.escape(str(order.get('version') or '—'))}</div>
-<div><b>Rzaz:</b> {html.escape(_fmt_qty(order.get('rzaz_mm', 2)))} mm / cięcie</div>
+<div class='wide'><b>Rzaz piły/tarczy:</b> {html.escape(_fmt_qty(order.get('rzaz_mm', 2)))} mm doliczane do każdej wykonywanej sztuki. Rzaz to szerokość materiału zabierana przez narzędzie podczas cięcia.</div>
 <div><b>Nadprodukcja:</b> {'TAK' if order.get('zezwol_nadprodukcja') else 'NIE'}</div>
 </div>
-<table><thead><tr><th>Półprodukt</th><th>Ilości</th><th>Surowiec / norma na szt.</th><th>Operacje</th></tr></thead>
+<table><thead><tr><th>Półprodukt</th><th>Ilości</th><th>Surowiec / długość cięcia</th><th>Operacje</th></tr></thead>
 <tbody>{''.join(rows) or '<tr><td colspan="4">Brak półproduktów</td></tr>'}</tbody></table>
 {raw_total_block}
 {shortage_block}
