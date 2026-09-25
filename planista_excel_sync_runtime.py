@@ -124,7 +124,7 @@ def _summary_text(plan: dict) -> str:
     )
 
 
-def show_excel_sync_preview(owner, payload: dict) -> None:
+def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = False) -> None:
     """Pokaż akcje i pozwól jawnie zatwierdzić tylko bezpieczne operacje zapisu."""
     try:
         plan = build_order_sync_plan(payload)
@@ -142,7 +142,7 @@ def show_excel_sync_preview(owner, payload: dict) -> None:
     dlg.transient(root)
     dlg.geometry("1560x760")
 
-    selected: set[str] = set()
+    selected: set[str] = _writable_identities(plan) if preselect_safe else set()
     item_by_iid: dict[str, dict] = {}
 
     top = ttk.Frame(dlg, padding=10)
