@@ -327,7 +327,7 @@
         "label": "Zlecenie wewnętrzne",
         "prefix": "ZW-",
         "reserve_by_default": false,
-        "requires_approval": false,
+        "requires_approval": true,
         "wizard": false,
         "statuses": [
           "nowe",
@@ -341,7 +341,7 @@
         "label": "Zlecenie na narzędzie",
         "prefix": "ZN-",
         "reserve_by_default": true,
-        "requires_approval": false,
+        "requires_approval": true,
         "wizard": true,
         "statuses": [
           "projekt",
@@ -358,7 +358,7 @@
         "label": "Naprawa/awaria maszyny",
         "prefix": "ZM-",
         "reserve_by_default": true,
-        "requires_approval": false,
+        "requires_approval": true,
         "wizard": true,
         "statuses": [
           "awaria zgłoszona",
