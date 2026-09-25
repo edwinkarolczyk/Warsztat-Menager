@@ -96,6 +96,7 @@ jobs:
             tests/test_profile_ui_refresh_1011.py \
             tests/test_shifts_schedule_anchor.py \
             tests/test_wm_access_profile_alias.py \
+            tests/test_login_summary_runtime.py \
             test_shifts_schedule_weekend.py
       - name: Run smoke tests (settings)
         run: |
