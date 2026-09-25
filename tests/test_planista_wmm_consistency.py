@@ -92,3 +92,58 @@ def test_headless_wmm_creation_rolls_back_partial_order(monkeypatch, tmp_path):
         API._create_planista_order({"product_code": "P1", "quantity": 6}, "Edwin")
     assert stock["RAW"] == 20
     assert not (orders / "000125.json").exists()
+
+
+
+def test_wmm_planista_detail_exposes_semiproducts_and_operations(monkeypatch):
+    import planista_semi_progress_runtime as PS
+
+    order = {
+        "id": "000125",
+        "produkt": "P1",
+        "ilosc": 6,
+        "wykonano": 0,
+        "status": "nowe",
+        "historia": [],
+        "wykonano_polprodukty": {"A": 0},
+        "postep_operacji_polproduktow": {"A": {"Cięcie": 6}},
+    }
+    monkeypatch.setattr(
+        PS,
+        "_full_semi_targets",
+        lambda _order: {
+            "A": {
+                "nazwa": "Rama",
+                "potrzeba": 6,
+                "czynnosci": ["Cięcie", "Spawanie"],
+            }
+        },
+    )
+    monkeypatch.setattr(
+        PS,
+        "semi_progress_rows",
+        lambda _order: [
+            {
+                "kod": "A",
+                "nazwa": "Rama",
+                "potrzeba": 6,
+                "z_magazynu": 0,
+                "do_wykonania": 6,
+                "wykonano": 0,
+                "pozostalo": 6,
+            }
+        ],
+    )
+
+    detail = API._planista_mobile_order(order)
+
+    assert detail["id"] == "000125"
+    assert detail["wmm_revision"]
+    semi = detail["wmm_polprodukty"][0]
+    assert semi["kod"] == "A"
+    assert semi["nazwa"] == "Rama"
+    assert semi["do_wykonania"] == 6
+    assert [op["nazwa"] for op in semi["operacje"]] == ["Cięcie", "Spawanie"]
+    assert semi["operacje"][0]["wykonana"] is True
+    assert semi["operacje"][1]["wykonana"] is False
+    assert semi["operacje"][1]["dostepna"] is True
