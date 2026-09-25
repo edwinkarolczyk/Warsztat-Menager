@@ -61,7 +61,7 @@ def test_work_order_contains_raw_material_per_piece_and_total():
     assert "ZW-77" in html
     assert "Profil 40x40" in html
     assert "Długość detalu: 1250 mm (1.25 m)" in html
-    assert "Do odcięcia z rzazem: <b>1252 mm (1.252 m) / szt.</b>" in html
+    assert "Do odcięcia: <b>1250 mm (1.25 m) + rzaz 2 mm = 1252 mm (1.252 m) / szt.</b>" in html
     assert "Surowiec do pobrania i cięcia" in html
     assert "10016 mm (10.016 m)" in html
     assert "6000 mm (6 m)" in html
