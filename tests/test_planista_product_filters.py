@@ -77,3 +77,12 @@ def test_semiproduct_filter_is_wired_to_product_bom_selector():
     assert 'text="(nie dodane jeszcze do tego produktu)"' in source
     assert "command=self._refresh_semi_selector" in source
     assert "self._refresh_semi_selector()" in source
+
+
+def test_semiproduct_raw_quantity_label_explains_single_piece_length():
+    modern = Path("gui_magazyn_bom.py").read_text(encoding="utf-8")
+    legacy = Path("gui_planowanie_bom.py").read_text(encoding="utf-8")
+
+    expected = "Ilość surowca na szt. (długość 1 sztuki)"
+    assert expected in modern
+    assert expected in legacy
