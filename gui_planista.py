@@ -1,6 +1,9 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.2
+# version: 1.3
+# Zmiany 1.3:
+# - karta zlecenia pokazuje surowiec i normę zużycia na sztukę oraz łączne zapotrzebowanie;
+# - wydruk jest archiwizowany w aktywnym WM_ROOT/data/zlecenia/karty zamiast w TEMP.
 # Zmiany 1.2:
 # - termin zlecenia wybierany z kalendarza zamiast ręcznego wpisywania;
 # - pole terminu jest tylko do odczytu i ma zielone oznaczenie;
@@ -14,7 +17,6 @@ from __future__ import annotations
 import calendar
 import html
 import os
-import tempfile
 import tkinter as tk
 import webbrowser
 from datetime import date
@@ -22,6 +24,7 @@ from pathlib import Path
 from tkinter import messagebox, ttk
 
 import zlecenia_logika as ZL
+from core.root_paths import get_data_root
 
 
 def _fmt_qty(value):
@@ -138,21 +141,66 @@ def _open_date_calendar(parent, variable):
     render_month()
 
 
+def _work_order_output_path(order):
+    """Zwraca trwałą ścieżkę karty w aktywnym ROOT danych WM."""
+    raw_id = str(order.get("id") or "bez_id")
+    safe_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in ("-", "_")) or "bez_id"
+    folder = get_data_root() / "zlecenia" / "karty"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / f"zlecenie_{safe_id}.html"
+
+
 def _work_order_html(order):
     rows = []
     for code, rec in (order.get("plan_polprodukty") or {}).items():
         if not isinstance(rec, dict):
             continue
         operations = " → ".join(str(x) for x in (rec.get("czynnosci") or []) if str(x).strip()) or "—"
+        raw = rec.get("surowiec") or {}
+        raw_code = str(raw.get("kod") or raw.get("id") or "—")
+        raw_name = str(raw.get("nazwa") or raw_code)
+        raw_unit = str(raw.get("jednostka") or "")
+        per_piece_value = raw.get("ilosc_na_szt")
+        per_piece = "—" if per_piece_value in (None, "") else _fmt_qty(per_piece_value)
+        per_piece_text = f"{per_piece} {raw_unit} / szt.".strip() if per_piece != "—" else "—"
+        qty_text = (
+            f"Potrzeba: {_fmt_qty(rec.get('potrzeba', rec.get('ilosc', 0)))}<br>"
+            f"Z magazynu: {_fmt_qty(rec.get('z_magazynu', 0))}<br>"
+            f"<b>Do wykonania: {_fmt_qty(rec.get('do_wykonania', rec.get('ilosc', 0)))}</b>"
+        )
         rows.append(
             "<tr>"
-            f"<td>{html.escape(str(rec.get('nazwa') or code))}</td>"
-            f"<td>{html.escape(_fmt_qty(rec.get('potrzeba', rec.get('ilosc', 0))))}</td>"
-            f"<td>{html.escape(_fmt_qty(rec.get('z_magazynu', 0)))}</td>"
-            f"<td><b>{html.escape(_fmt_qty(rec.get('do_wykonania', rec.get('ilosc', 0))))}</b></td>"
+            f"<td><b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
+            f"<td>{qty_text}</td>"
+            f"<td><b>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
+            f"Norma: <b>{html.escape(per_piece_text)}</b></td>"
             f"<td>{html.escape(operations)}</td>"
             "</tr>"
         )
+
+    raw_total_rows = []
+    reservations = order.get("rezerwacje_surowce") or {}
+    for code, rec in (order.get("zapotrzebowanie_surowce") or {}).items():
+        if not isinstance(rec, dict):
+            continue
+        unit = str(rec.get("jednostka") or "")
+        reserved = reservations.get(code, 0) if isinstance(reservations, dict) else 0
+        raw_total_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(code))}</td>"
+            f"<td><b>{html.escape(_fmt_qty(rec.get('ilosc', 0)))}</b></td>"
+            f"<td>{html.escape(unit)}</td>"
+            f"<td>{html.escape(_fmt_qty(reserved))}</td>"
+            "</tr>"
+        )
+    raw_total_block = ""
+    if raw_total_rows:
+        raw_total_block = (
+            "<h2>Łączne zapotrzebowanie surowca</h2>"
+            "<table><thead><tr><th>Surowiec</th><th>Razem</th><th>Jednostka</th><th>Zarezerwowano</th></tr></thead>"
+            f"<tbody>{''.join(raw_total_rows)}</tbody></table>"
+        )
+
     shortage_rows = []
     for rec in order.get("braki") or []:
         shortage_rows.append(
@@ -162,37 +210,51 @@ def _work_order_html(order):
     shortage_block = ""
     if shortage_rows:
         shortage_block = "<div class='warn'><b>Braki surowca / do zamówienia</b><ul>" + "".join(shortage_rows) + "</ul></div>"
+
+    try:
+        ordered = float(order.get("ilosc", 0) or 0)
+        done = float(order.get("wykonano", 0) or 0)
+        remaining = max(0.0, ordered - done)
+    except Exception:
+        remaining = 0.0
+
     return f"""<!doctype html>
 <html lang='pl'><head><meta charset='utf-8'><title>Zlecenie {html.escape(str(order.get('id') or ''))}</title>
 <style>
-@page {{ size: A5 portrait; margin: 8mm; }}
-body {{ font-family: Arial, sans-serif; font-size: 10pt; color:#111; margin:0; }}
-h1 {{ font-size:16pt; margin:0 0 5mm; }}
-.meta {{ display:grid; grid-template-columns:1fr 1fr; gap:2mm 8mm; margin-bottom:5mm; }}
-table {{ width:100%; border-collapse:collapse; font-size:9pt; }}
-th,td {{ border:1px solid #555; padding:2.2mm; vertical-align:top; }}
+@page {{ size: A5 portrait; margin: 7mm; }}
+body {{ font-family: Arial, sans-serif; font-size: 9.5pt; color:#111; margin:0; }}
+h1 {{ font-size:15pt; margin:0 0 4mm; }}
+h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
+.meta {{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm 7mm; margin-bottom:4mm; }}
+table {{ width:100%; border-collapse:collapse; font-size:8.5pt; page-break-inside:auto; }}
+tr {{ page-break-inside:avoid; }}
+th,td {{ border:1px solid #555; padding:1.6mm; vertical-align:top; }}
 th {{ background:#eee; }}
 .warn {{ margin-top:4mm; border:2px solid #b33; padding:2mm; }}
-.notes {{ margin-top:5mm; min-height:18mm; border:1px solid #777; padding:2mm; }}
-.small {{ font-size:8pt; color:#555; }}
+.notes {{ margin-top:4mm; min-height:14mm; border:1px solid #777; padding:2mm; }}
+.small {{ font-size:7.5pt; color:#555; }}
 </style></head><body>
 <h1>ZLECENIE DO WYKONANIA</h1>
 <div class='meta'>
-<div><b>Zlecenie:</b> {html.escape(str(order.get('id') or ''))}</div>
-<div><b>Termin:</b> {html.escape(str(order.get('termin') or '—'))}</div>
+<div><b>Zlecenie warsztatowe:</b> {html.escape(str(order.get('id') or ''))}</div>
+<div><b>Zlecenie wew:</b> {html.escape(str(order.get('zlec_wew') or '—'))}</div>
+<div><b>Termin:</b> {html.escape(_display_date(order.get('termin')) or '—')}</div>
 <div><b>Produkt:</b> {html.escape(str(order.get('produkt') or ''))}</div>
-<div><b>Ilość:</b> {html.escape(_fmt_qty(order.get('ilosc', 0)))}</div>
+<div><b>Zamówienie:</b> {html.escape(_fmt_qty(order.get('ilosc', 0)))}</div>
 <div><b>Wykonano:</b> {html.escape(_fmt_qty(order.get('wykonano', 0)))}</div>
+<div><b>Pozostało:</b> {html.escape(_fmt_qty(remaining))}</div>
+<div><b>Wersja BOM:</b> {html.escape(str(order.get('version') or '—'))}</div>
 <div><b>Rzaz:</b> {html.escape(_fmt_qty(order.get('rzaz_mm', 2)))} mm / cięcie</div>
+<div><b>Nadprodukcja:</b> {'TAK' if order.get('zezwol_nadprodukcja') else 'NIE'}</div>
 </div>
-<table><thead><tr><th>Półprodukt</th><th>Potrzeba</th><th>Z magazynu</th><th>Do wykonania</th><th>Operacje</th></tr></thead>
-<tbody>{''.join(rows) or '<tr><td colspan="5">Brak półproduktów</td></tr>'}</tbody></table>
+<table><thead><tr><th>Półprodukt</th><th>Ilości</th><th>Surowiec / norma na szt.</th><th>Operacje</th></tr></thead>
+<tbody>{''.join(rows) or '<tr><td colspan="4">Brak półproduktów</td></tr>'}</tbody></table>
+{raw_total_block}
 {shortage_block}
 <div class='notes'><b>Uwagi:</b><br>{html.escape(str(order.get('uwagi') or ''))}</div>
-<p class='small'>Warsztat Menager — karta robocza. Wydrukuj z przeglądarki w formacie A5.</p>
+<p class='small'>Warsztat Menager — karta robocza A5. Kopia została zapisana w aktywnym ROOT WM.</p>
 <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script>
 </body></html>"""
-
 
 class PlanistaWindow:
     def __init__(self, root, login=None, rola=None):
@@ -328,9 +390,7 @@ class PlanistaWindow:
         if not order:
             messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self.win); return
         try:
-            out_dir = Path(tempfile.gettempdir()) / "WarsztatMenager" / "wydruki"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            path = out_dir / f"zlecenie_{order.get('id','')}.html"
+            path = _work_order_output_path(order)
             path.write_text(_work_order_html(order), encoding="utf-8")
             if os.name == "nt":
                 os.startfile(str(path))
