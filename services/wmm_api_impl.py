@@ -681,7 +681,11 @@ def _wmm_applied(row: dict[str, Any] | None, request_id: str, path: str) -> bool
 def _wmm_reconcile_result(path: str, request_id: str) -> dict[str, Any] | None:
     """Odczytaj wynik zapisany w WM nawet po awarii między zapisem a done."""
     if path == "/api/v1/planista/orders":
-        for row in _planista_orders():
+        try:
+            rows = _planista_orders()
+        except RuntimeError:
+            return None
+        for row in rows:
             if str(row.get("wmm_request_id") or "").strip() == request_id:
                 return row
         return None
