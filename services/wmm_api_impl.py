@@ -208,7 +208,9 @@ def _next_order_id() -> str:
     return f"{(max(numbers) + 1 if numbers else 1):06d}"
 
 
-def _create_planista_order(payload: dict[str, Any], author: str) -> dict[str, Any]:
+def _create_planista_order(
+    payload: dict[str, Any], author: str, request_id: str = ""
+) -> dict[str, Any]:
     product_code = str(payload.get("product_code") or "").strip()
     if not product_code:
         raise RuntimeError("Wybierz produkt.")
@@ -252,6 +254,8 @@ def _create_planista_order(payload: dict[str, Any], author: str) -> dict[str, An
         order["version"] = version
     if external_no:
         order["zlec_wew"] = external_no
+    if str(request_id or "").strip():
+        order["wmm_request_id"] = str(request_id).strip()
     target = _data_dir() / "zlecenia" / f"{order_id}.json"
     _write_json_atomic(target, order)
     return order
@@ -676,6 +680,11 @@ def _wmm_applied(row: dict[str, Any] | None, request_id: str, path: str) -> bool
 
 def _wmm_reconcile_result(path: str, request_id: str) -> dict[str, Any] | None:
     """Odczytaj wynik zapisany w WM nawet po awarii między zapisem a done."""
+    if path == "/api/v1/planista/orders":
+        for row in _planista_orders():
+            if str(row.get("wmm_request_id") or "").strip() == request_id:
+                return row
+        return None
     machine_match = re.fullmatch(r"/api/v1/machines/([^/]+)/(status|note|photos)", path)
     if machine_match:
         row = _find_machine(unquote(machine_match.group(1)))
@@ -769,6 +778,22 @@ def _run_idempotent(request_id: str, path: str, operation, fingerprint: str = ""
                 )
             if cached.get("state") == "done":
                 return True, _clone_idempotent_result(cached["result"])
+            if path == "/api/v1/planista/orders":
+                restored = _wmm_reconcile_result(path, request_key)
+                if restored is not None:
+                    _IDEMPOTENCY_CACHE[cache_key] = {
+                        "created_at": cached.get("created_at", time.time()),
+                        "state": "done", "fingerprint": fingerprint,
+                        "result": _clone_idempotent_result(restored),
+                    }
+                    _persist_idempotency()
+                    return True, restored
+                # Tworzenie zlecenia może zarezerwować magazyn przed zapisem
+                # pliku zlecenia. Bez trwałego znacznika nie wolno ponawiać
+                # operacji w ciemno, bo mogłaby podwoić rezerwacje.
+                raise WmmIdempotencyPending(
+                    "Niepewny wynik tworzenia zlecenia WMM. Sprawdź stan w WM."
+                )
             if cached.get("reconcile_safe") is True:
                 restored = _wmm_reconcile_result(path, request_key)
                 if restored is not None:
@@ -1187,9 +1212,11 @@ class _WmmHandler(BaseHTTPRequestHandler):
         if path == "/api/v1/planista/orders":
             try:
                 replayed, order = _run_idempotent(
-                    self._request_id(),
+                    request_id,
                     path,
-                    lambda: _create_planista_order(payload, author),
+                    lambda: _create_planista_order(
+                        payload, author, request_id=request_id
+                    ),
                     payload_fingerprint,
                 )
             except RuntimeError as exc:

@@ -254,6 +254,60 @@ def test_wmm_idempotency_survives_api_restart(tmp_path, monkeypatch):
     assert calls == [1]
 
 
+
+def test_wmm_pending_planista_order_after_restart_reconciles_without_duplicate(
+    tmp_path, monkeypatch
+):
+    root = _prepare_root(tmp_path, monkeypatch)
+    products = root / "data" / "produkty"
+    orders = root / "data" / "zlecenia"
+    products.mkdir(parents=True)
+    orders.mkdir(parents=True)
+    (products / "P1.json").write_text(
+        json.dumps({"kod": "P1", "nazwa": "Produkt testowy"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    from services import wmm_api as api
+
+    monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    api._IDEMPOTENCY_CACHE.clear()
+    request_id = "wmm-planista-restart-001"
+    path = "/api/v1/planista/orders"
+    calls = []
+
+    def operation():
+        calls.append(1)
+        order = api._create_planista_order(
+            {"product_code": "P1", "quantity": 1},
+            "Edwin",
+            request_id=request_id,
+        )
+        if len(calls) == 1:
+            raise RuntimeError("Awaria po zapisie zlecenia, przed done")
+        return order
+
+    with pytest.raises(RuntimeError, match="Awaria"):
+        api._run_idempotent(
+            request_id, path, operation, "planista-fingerprint"
+        )
+
+    api._IDEMPOTENCY_CACHE.clear()
+    monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
+    replayed, restored = api._run_idempotent(
+        request_id, path, operation, "planista-fingerprint"
+    )
+
+    assert replayed is True
+    assert calls == [1]
+    assert restored["wmm_request_id"] == request_id
+    order_files = sorted(orders.glob("[0-9]*.json"))
+    assert len(order_files) == 1
+    persisted = json.loads(order_files[0].read_text(encoding="utf-8"))
+    assert persisted["wmm_request_id"] == request_id
+
+
 def test_wmm_legacy_pending_stays_blocked_without_reconciliation_proof(tmp_path, monkeypatch):
     from services import wmm_api as api
 

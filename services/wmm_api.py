@@ -94,7 +94,7 @@ if not getattr(_impl, "_WM10_TOOL_FILE_GUARD", False):
 
 
 if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
-    def _guarded_create_planista_order(payload, author):
+    def _guarded_create_planista_order(payload, author, request_id=""):
         """WMM and desktop must create identical BOM/reservation/disposition data."""
         from math import isfinite
         import zlecenia_logika as ZL
@@ -136,6 +136,7 @@ if not getattr(_impl, "_WM10_ORDER_CREATE_GUARD", False):
                 version=products[product_code].get("version"),
                 termin=str(payload.get("due_date") or "").strip(),
                 auto_dyspozycje=True,
+                wmm_request_id=str(request_id or "").strip(),
             )
             return order
 

@@ -427,6 +427,7 @@ def create_zlecenie(
     overrides=None,
     auto_dyspozycje: bool = True,
     allow_overproduction: bool = False,
+    wmm_request_id: str = "",
 ):
     _ensure_dirs()
     ilosc, rzaz_mm = float(ilosc), max(0.0, float(rzaz_mm))
@@ -437,6 +438,8 @@ def create_zlecenie(
         reserved_pp = _reserve_semis(plan_pp, autor, f"zlecenie:{zlec_id}")
         _updated, reserved_raw = reserve_materials(bom_sr, 1, user=autor, context=f"zlecenie:{zlec_id}", with_reserved=True)
     zlec = {"id": zlec_id, "produkt": kod_produktu, "ilosc": ilosc, "wykonano": 0.0, "status": "nowe", "termin": str(termin or ""), "rzaz_mm": rzaz_mm, "utworzono": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "uwagi": uwagi, "plan_polprodukty": plan_pp, "zapotrzebowanie_surowce": bom_sr, "rezerwacje_polprodukty": reserved_pp, "rezerwacje_surowce": reserved_raw, "materialy_zarezerwowane": bool(reserve), "zezwol_nadprodukcja": bool(allow_overproduction), "historia": [{"kiedy": datetime.now().isoformat(timespec="seconds"), "kto": autor, "co": "utworzenie"}]}
+    if str(wmm_request_id or "").strip():
+        zlec["wmm_request_id"] = str(wmm_request_id).strip()
     if version is not None:
         zlec["version"] = version
     if zlec_wew not in (None, ""):
