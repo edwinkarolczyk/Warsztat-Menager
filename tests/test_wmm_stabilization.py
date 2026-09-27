@@ -269,7 +269,9 @@ def test_wmm_pending_planista_order_after_restart_reconciles_without_duplicate(
     )
 
     from services import wmm_api as api
+    import bom
 
+    monkeypatch.setattr(bom, "DATA_DIR", root / "data")
     monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
     monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
     api._IDEMPOTENCY_CACHE.clear()
