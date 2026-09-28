@@ -70,6 +70,44 @@ def test_existing_machine_and_tool_rows_show_live_name_and_state(monkeypatch):
     assert GZ._live_object_state_label(tool) == "W ostrzeniu"
 
 
+def test_existing_and_planista_shortage_magazyn_rows_use_live_stock_without_locking_actions(monkeypatch):
+    monkeypatch.setattr(
+        GZ,
+        "_DYSP_WAREHOUSE_INFO_CACHE",
+        {
+            "sr-01": {
+                "id": "SR-01",
+                "name": "Rura 30x3",
+                "stan": 12.0,
+                "rezerwacje": 4.0,
+                "dostepne": 8.0,
+                "jednostka": "m",
+                "typ": "surowiec",
+            }
+        },
+    )
+    manual = {
+        "typ_dyspozycji": "magazyn",
+        "obiekt_id": "SR-01",
+        "tytul": "Sprawdź stan",
+        "status": "nowa",
+    }
+    shortage = {
+        "typ_dyspozycji": "magazyn",
+        "obiekt_id": "zlecenie:000012:surowiec:SR-01",
+        "tytul": "Zamówić surowiec Rura 30x3",
+        "status": "nowa",
+        "meta": {"zlecenie_id": "000012", "surowiec": "SR-01"},
+    }
+
+    for row in (manual, shortage):
+        assert GZ._source_object_id(row) == "SR-01"
+        assert GZ._has_source_navigation(row) is True
+        assert GZ._is_linked_source_disposition(row) is False
+        assert GZ._source_object_label(row) == "Magazyn • SR-01 Rura 30x3"
+        assert GZ._live_object_state_label(row) == "Stan 12 m • dostępne 8 m"
+
+
 def test_legacy_unlinked_disposition_keeps_normal_mode(monkeypatch):
     monkeypatch.setattr(GZ, "_DYSP_TOOL_INFO_CACHE", {})
     row = {
@@ -122,6 +160,39 @@ def test_linked_source_disables_duplicate_dyspozycja_actions(monkeypatch):
     assert view.btn_edit.disabled is True
     assert view.btn_open_source.disabled is False
     assert view.btn_open_source.text == "Otwórz w Planista"
+
+
+def test_magazyn_source_keeps_manual_status_actions_and_adds_open_button(monkeypatch):
+    monkeypatch.setattr(
+        GZ,
+        "_DYSP_WAREHOUSE_INFO_CACHE",
+        {"sr-01": {"id": "SR-01", "name": "Rura", "stan": 1, "rezerwacje": 0, "dostepne": 1, "jednostka": "m"}},
+    )
+    view = object.__new__(GZ.ZleceniaView)
+    row = {
+        "typ_dyspozycji": "magazyn",
+        "obiekt_id": "SR-01",
+        "status": "nowa",
+        "tytul": "Sprawdź stan",
+    }
+    view._selected_row = lambda: row
+    view._login_role = "brygadzista"
+    view.btn_start = _FakeButton()
+    view.btn_pause = _FakeButton()
+    view.btn_resume = _FakeButton()
+    view.btn_close = _FakeButton()
+    view.btn_edit = _FakeButton()
+    view.btn_open_source = _FakeButton()
+
+    view._update_status_actions()
+
+    assert view.btn_start.disabled is False
+    assert view.btn_pause.disabled is True
+    assert view.btn_resume.disabled is True
+    assert view.btn_close.disabled is True
+    assert view.btn_edit.disabled is False
+    assert view.btn_open_source.disabled is False
+    assert view.btn_open_source.text == "Otwórz w Magazynie"
 
 
 def test_planista_status_mapping_waits_for_material_before_close():
