@@ -1097,6 +1097,9 @@ class ZleceniaView(ttk.Frame):
         mapped = dict(self._order_rows.get(iid, {}) or {})
         if not mapped:
             return
+        if _is_linked_source_disposition(mapped):
+            self._on_open_source()
+            return
         if (
             str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania"
             and _dysp_status(mapped) != "nowa"
@@ -1130,14 +1133,72 @@ class ZleceniaView(ttk.Frame):
         mapped = dict(self._order_rows.get(iid, {}) or {})
         return mapped or None
 
+    def _on_open_source(self) -> None:
+        mapped = self._selected_row()
+        if not mapped:
+            messagebox.showinfo(
+                "Dyspozycje",
+                "Najpierw wybierz Dyspozycję.",
+                parent=self,
+            )
+            return
+        kind = _source_type(mapped)
+        object_id = _source_object_id(mapped)
+        live = _source_live_info(mapped)
+        if not kind or not object_id or not live:
+            messagebox.showinfo(
+                "Dyspozycje",
+                "Ta Dyspozycja nie ma dostępnego powiązanego obiektu. "
+                "Pozostaje obsługiwana jak zwykła Dyspozycja.",
+                parent=self,
+            )
+            return
+
+        try:
+            if kind == "planista":
+                from gui_planista_panel import open_planista_order
+
+                open_planista_order(
+                    self.winfo_toplevel(),
+                    object_id,
+                    login=self._login_user,
+                    rola=self._login_role,
+                )
+            elif kind == "maszyna":
+                from gui_maszyny import open_machine_usage
+
+                label = str(live.get("name") or "").strip()
+                open_machine_usage(
+                    self.winfo_toplevel(),
+                    object_id,
+                    label=label,
+                )
+            elif kind == "narzedzie":
+                from gui_narzedzia import open_tool_from_external_context
+
+                opened = open_tool_from_external_context(
+                    self.winfo_toplevel(),
+                    object_id,
+                )
+                if not opened:
+                    raise RuntimeError(f"Nie znaleziono narzędzia {object_id}.")
+        except Exception as exc:
+            logger.exception("[DYSP][SOURCE] Nie udało się otworzyć źródła: %s", exc)
+            messagebox.showerror(
+                "Dyspozycje",
+                f"Nie udało się otworzyć powiązanego obiektu:\n{exc}",
+                parent=self,
+            )
+
     def _update_status_actions(self) -> None:
         mapped = self._selected_row()
         status = _dysp_status(mapped or {})
+        linked = bool(mapped and _is_linked_source_disposition(mapped))
         enabled = {
-            "start": status == "nowa",
-            "pause": status == "w_toku",
-            "resume": status == "wstrzymana",
-            "close": status in {"w_toku", "wstrzymana"},
+            "start": (not linked) and status == "nowa",
+            "pause": (not linked) and status == "w_toku",
+            "resume": (not linked) and status == "wstrzymana",
+            "close": (not linked) and status in {"w_toku", "wstrzymana"},
         }
         for button, key in (
             (getattr(self, "btn_start", None), "start"),
@@ -1149,6 +1210,27 @@ class ZleceniaView(ttk.Frame):
                 continue
             try:
                 button.state(["!disabled"] if enabled[key] else ["disabled"])
+            except Exception:
+                pass
+
+        edit_button = getattr(self, "btn_edit", None)
+        if edit_button is not None:
+            try:
+                edit_button.state(["disabled"] if linked else ["!disabled"])
+            except Exception:
+                pass
+
+        open_button = getattr(self, "btn_open_source", None)
+        if open_button is not None:
+            kind = _source_type(mapped or {}) if linked else ""
+            labels = {
+                "planista": "Otwórz w Planista",
+                "maszyna": "Otwórz maszynę",
+                "narzedzie": "Otwórz narzędzie",
+            }
+            try:
+                open_button.configure(text=labels.get(kind, "Otwórz obiekt"))
+                open_button.state(["!disabled"] if linked else ["disabled"])
             except Exception:
                 pass
 
