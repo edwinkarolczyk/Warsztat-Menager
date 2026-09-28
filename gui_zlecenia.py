@@ -193,6 +193,9 @@ def _dysp_object_label(item: dict[str, Any]) -> str:
 
 _DYSP_TOOL_STATUS_CACHE: dict[str, str] | None = None
 _DYSP_MACHINE_STATUS_CACHE: dict[str, str] | None = None
+_DYSP_TOOL_INFO_CACHE: dict[str, dict[str, Any]] | None = None
+_DYSP_MACHINE_INFO_CACHE: dict[str, dict[str, Any]] | None = None
+_DYSP_ORDER_INFO_CACHE: dict[str, dict[str, Any]] | None = None
 
 
 def _normalize_object_id(value: Any) -> set[str]:
@@ -296,6 +299,180 @@ def _resolve_related_status(item: dict[str, Any]) -> str:
         if value:
             return value
     return "—"
+
+
+def _source_type(item: dict[str, Any]) -> str:
+    typ = str(item.get("typ_dyspozycji") or item.get("typ") or "").strip().lower()
+    if typ in {"zlecenie_wykonania", "zamowienie"}:
+        return "planista"
+    if typ == "maszyna":
+        return "maszyna"
+    if typ == "narzedzie":
+        return "narzedzie"
+    return ""
+
+
+def _source_object_id(item: dict[str, Any]) -> str:
+    raw = str(
+        item.get("obiekt_id")
+        or item.get("object_id")
+        or item.get("narzedzie_id")
+        or item.get("maszyna_id")
+        or ""
+    ).strip()
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    kind = _source_type(item)
+    if kind == "planista":
+        if raw.lower().startswith("zlecenie:"):
+            raw = raw.split(":", 1)[1].strip()
+        return raw or str(
+            meta.get("order_id")
+            or meta.get("nr_zlecenia")
+            or meta.get("zlecenie_id")
+            or ""
+        ).strip()
+    return raw
+
+
+def _load_tool_info_cache() -> dict[str, dict[str, Any]]:
+    global _DYSP_TOOL_INFO_CACHE
+    if _DYSP_TOOL_INFO_CACHE is not None:
+        return _DYSP_TOOL_INFO_CACHE
+    cache: dict[str, dict[str, Any]] = {}
+    try:
+        from gui_narzedzia import _external_load_tools_rows
+        rows = _external_load_tools_rows()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+        if not rid:
+            continue
+        info = {
+            "id": rid,
+            "name": str(row.get("nazwa") or row.get("name") or "").strip(),
+            "status": str(row.get("status") or "").strip(),
+        }
+        for key in _normalize_object_id(rid):
+            cache[key] = info
+    _DYSP_TOOL_INFO_CACHE = cache
+    return cache
+
+
+def _load_machine_info_cache() -> dict[str, dict[str, Any]]:
+    global _DYSP_MACHINE_INFO_CACHE
+    if _DYSP_MACHINE_INFO_CACHE is not None:
+        return _DYSP_MACHINE_INFO_CACHE
+    cache: dict[str, dict[str, Any]] = {}
+    try:
+        rows, status_label = _load_machine_rows_with_status_label()
+    except Exception:
+        rows, status_label = [], None
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(
+            row.get("id")
+            or row.get("nr_ewid")
+            or row.get("nr")
+            or row.get("numer")
+            or ""
+        ).strip()
+        if not rid:
+            continue
+        raw_status = row.get("status")
+        status = status_label(raw_status) if status_label is not None else str(raw_status or "").strip()
+        info = {
+            "id": rid,
+            "name": str(row.get("nazwa") or row.get("name") or row.get("typ") or "").strip(),
+            "status": status,
+        }
+        for key in _normalize_object_id(rid):
+            cache[key] = info
+    _DYSP_MACHINE_INFO_CACHE = cache
+    return cache
+
+
+def _load_order_info_cache() -> dict[str, dict[str, Any]]:
+    global _DYSP_ORDER_INFO_CACHE
+    if _DYSP_ORDER_INFO_CACHE is not None:
+        return _DYSP_ORDER_INFO_CACHE
+    cache: dict[str, dict[str, Any]] = {}
+    try:
+        import zlecenia_logika as ZL
+        rows = ZL.list_zlecenia()
+    except Exception:
+        rows = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id") or "").strip()
+        if rid:
+            cache[rid.casefold()] = dict(row)
+    _DYSP_ORDER_INFO_CACHE = cache
+    return cache
+
+
+def _source_live_info(item: dict[str, Any]) -> dict[str, Any] | None:
+    kind = _source_type(item)
+    object_id = _source_object_id(item)
+    if not kind or not object_id:
+        return None
+    if kind == "planista":
+        return _load_order_info_cache().get(object_id.casefold())
+    cache = _load_machine_info_cache() if kind == "maszyna" else _load_tool_info_cache()
+    for key in _normalize_object_id(object_id):
+        info = cache.get(key)
+        if info:
+            return info
+    return None
+
+
+def _is_linked_source_disposition(item: dict[str, Any]) -> bool:
+    return bool(_source_type(item) and _source_object_id(item) and _source_live_info(item))
+
+
+def _source_object_label(item: dict[str, Any]) -> str:
+    kind = _source_type(item)
+    object_id = _source_object_id(item)
+    live = _source_live_info(item)
+    if not kind or not object_id:
+        return _dysp_object_label(item)
+    if kind == "planista":
+        return f"Planista • {object_id}"
+    label = "Maszyna" if kind == "maszyna" else "Narzędzie"
+    name = str((live or {}).get("name") or "").strip()
+    return f"{label} • {object_id}" + (f" {name}" if name else "")
+
+
+def _live_object_state_label(item: dict[str, Any]) -> str:
+    kind = _source_type(item)
+    live = _source_live_info(item)
+    if not live:
+        return _dysp_related_status_label(item)
+    if kind == "planista":
+        try:
+            qty = float(live.get("ilosc") or 0)
+            done = float(live.get("wykonano") or 0)
+            qty_txt = str(int(qty)) if qty.is_integer() else f"{qty:g}"
+            done_txt = str(int(done)) if done.is_integer() else f"{done:g}"
+        except Exception:
+            qty_txt = str(live.get("ilosc") or "0")
+            done_txt = str(live.get("wykonano") or "0")
+        status = str(live.get("status") or "").strip()
+        return f"{done_txt}/{qty_txt} szt." + (f" • {status}" if status else "")
+    return str(live.get("status") or "—").strip() or "—"
+
+
+def _task_label(item: dict[str, Any]) -> str:
+    kind = _source_type(item)
+    live = _source_live_info(item)
+    if kind == "planista" and live:
+        product = str(live.get("produkt") or live.get("product_code") or "").strip()
+        return f"Wykonanie produktu {product}" if product else _dysp_title_label(item)
+    return _dysp_title_label(item)
 
 
 def _dysp_title_label(item: dict[str, Any]) -> str:
