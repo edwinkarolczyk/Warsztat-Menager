@@ -45,6 +45,8 @@ jobs:
         run: pytest -q tests/test_tool_disposition_sync.py
       - name: Run disposition source-link and Planista source-of-truth regressions
         run: pytest -q tests/test_dyspozycje_source_links.py
+      - name: Run WM single-instance navigation and machine editor regressions
+        run: pytest -q tests/test_wm_navigation_single_instance_machine_editor.py
       - name: Run WM/WMM stabilization compatibility concurrency and retry checks
         run: |
           pytest -q \
