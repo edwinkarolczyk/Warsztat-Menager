@@ -101,8 +101,26 @@ def test_desktop_and_wmm_create_orders_with_distinct_ids(tmp_path, monkeypatch):
     assert not desktop.is_alive()
     assert not mobile.is_alive()
     assert errors == []
-    assert sorted(results.values()) == ["000001", "000002"]
+    assert sorted(results.values()) == ["0001", "0002"]
 
     orders = root / "data" / "zlecenia"
     saved = sorted(path.name for path in orders.glob("*.json"))
-    assert saved == ["000001.json", "000002.json"]
+    assert saved == ["0001.json", "0002.json"]
+
+
+def test_sequence_survives_deleting_highest_order(tmp_path, monkeypatch):
+    _root, data = _prepare_root(tmp_path, monkeypatch)
+
+    import zlecenia_logika as ZL
+
+    monkeypatch.setattr(ZL, "_data_dir", lambda: data)
+    orders = data / "zlecenia"
+    legacy = orders / "000017.json"
+    legacy.write_text('{"id":"000017"}', encoding="utf-8")
+
+    # Usunięcie starego, 6-cyfrowego numeru nie może oddać go z powrotem do puli.
+    ZL._ensure_order_sequence_floor("000017")
+    legacy.unlink()
+
+    assert ZL._next_id() == "0018"
+    assert ZL._next_id() == "0019"
