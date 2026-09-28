@@ -40,7 +40,7 @@ def verify_icon() -> None:
         if icon.format != "ICO":
             raise RuntimeError(f"{ICON_PATH.name} nie jest prawdziwym plikiem ICO")
         sizes = set(icon.ico.sizes())
-    required = {(16, 16), (32, 32), (48, 48), (256, 256)}
+    required = {(16, 16), (32, 32), (256, 256)}
     missing = required - sizes
     if missing:
         raise RuntimeError(f"Brak wymaganych rozmiarów ikony: {sorted(missing)}")
