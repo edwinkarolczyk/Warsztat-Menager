@@ -50,7 +50,7 @@ def _is_service_completion(tool: dict[str, Any], *, previous_status: str, new_st
     return mode in {"stare", "st", "sn"} or previous_key in _SERVICE_STATUSES
 
 
-def _matching_active(tool_id: str) -> list[dict[str, Any]]:
+def _matching(tool_id: str, *, active_only: bool = True) -> list[dict[str, Any]]:
     variants = _id_variants(tool_id)
     if not variants:
         return []
@@ -60,7 +60,7 @@ def _matching_active(tool_id: str) -> list[dict[str, Any]]:
             continue
         if _norm(row.get("typ_dyspozycji")) != "narzedzie":
             continue
-        if _norm(row.get("status")) == "zamknieta":
+        if active_only and _norm(row.get("status")) == "zamknieta":
             continue
         object_id = str(row.get("obiekt_id") or row.get("object_id") or row.get("narzedzie_id") or "").strip()
         if not variants.intersection(_id_variants(object_id)):
@@ -86,7 +86,7 @@ def _choose_target(rows: list[dict[str, Any]], action: str) -> dict[str, Any] | 
     return candidates[0] if len(candidates) == 1 else None
 
 
-def _append_sync_meta(row: dict[str, Any], *, tool_id: str, previous_status: str, new_status: str, actor: str, action: str) -> dict[str, Any]:
+def _append_sync_meta(row: dict[str, Any], *, tool_id: str, previous_status: str, new_status: str, actor: str, action: str, request_id: str = "") -> dict[str, Any]:
     meta = dict(row.get("meta") or {})
     history_raw = meta.get("tool_sync_history")
     history = list(history_raw) if isinstance(history_raw, list) else []
@@ -100,13 +100,14 @@ def _append_sync_meta(row: dict[str, Any], *, tool_id: str, previous_status: str
         "akcja": action,
         "kto": str(actor or "").strip(),
         "kiedy": when,
+        **({"request_id": request_id} if request_id else {}),
     })
     meta["tool_sync_history"] = history[-100:]
     updated = DS.update_dyspozycja(str(row.get("id") or ""), {"meta": meta})
     return updated or row
 
 
-def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: str = "", new_status: str | None = None, tool_id: str = "") -> dict[str, Any]:
+def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: str = "", new_status: str | None = None, tool_id: str = "", request_id: str = "") -> dict[str, Any]:
     """Synchronizuj jedną aktywną Dyspozycję z serwisowym statusem Narzędzia."""
     tool = dict(tool or {})
     actor = str(actor or "").strip()
@@ -115,6 +116,22 @@ def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: 
     identity = _tool_id(tool, tool_id)
     status = str(new_status if new_status is not None else tool.get("status") or "").strip()
     status_key = _norm(status)
+    request_id = str(request_id or "").strip()
+    if request_id:
+        for prior in _matching(identity, active_only=False):
+            meta = prior.get("meta") if isinstance(prior.get("meta"), dict) else {}
+            history = meta.get("tool_sync_history") if isinstance(meta.get("tool_sync_history"), list) else []
+            for event in history:
+                if isinstance(event, dict) and str(event.get("request_id") or "").strip() == request_id:
+                    return {
+                        "changed": False,
+                        "replayed": True,
+                        "action": str(event.get("akcja") or ""),
+                        "dyspozycja_id": str(prior.get("id") or ""),
+                        "status": prior.get("status"),
+                        "zamkniete_przez": prior.get("zamkniete_przez"),
+                        "zamknieto_at": prior.get("zamknieto_at"),
+                    }
     action = ""
     if status_key in _START_STATUSES:
         action = "start"
@@ -123,7 +140,7 @@ def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: 
     else:
         return {"changed": False, "reason": "status_not_service_transition"}
 
-    matches = _matching_active(identity)
+    matches = _matching(identity)
     target = _choose_target(matches, action)
     if target is None:
         return {
@@ -136,14 +153,19 @@ def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: 
     current = _norm(target.get("status"))
     if action == "start":
         if current == "w_toku":
-            changed = target
-        else:
-            changed = DS.set_dyspozycja_status(dysp_id, "w_toku", changed_by=actor)
+            return {
+                "changed": False,
+                "action": "start",
+                "dyspozycja_id": dysp_id,
+                "status": target.get("status"),
+                "wykonuje": target.get("wykonuje"),
+            }
+        changed = DS.set_dyspozycja_status(dysp_id, "w_toku", changed_by=actor)
         if not changed:
             return {"changed": False, "reason": "transition_rejected", "dyspozycja_id": dysp_id}
-        changed = _append_sync_meta(changed, tool_id=identity, previous_status=previous_status, new_status=status, actor=actor, action="start")
+        changed = _append_sync_meta(changed, tool_id=identity, previous_status=previous_status, new_status=status, actor=actor, action="start", request_id=request_id)
         return {
-            "changed": current != "w_toku",
+            "changed": True,
             "action": "start",
             "dyspozycja_id": dysp_id,
             "status": changed.get("status"),
@@ -160,7 +182,7 @@ def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: 
         changed = DS.set_dyspozycja_status(dysp_id, "zamknieta", changed_by=actor)
     if not changed or _norm(changed.get("status")) != "zamknieta":
         return {"changed": False, "reason": "close_rejected", "dyspozycja_id": dysp_id}
-    changed = _append_sync_meta(changed, tool_id=identity, previous_status=previous_status, new_status=status, actor=actor, action="close")
+    changed = _append_sync_meta(changed, tool_id=identity, previous_status=previous_status, new_status=status, actor=actor, action="close", request_id=request_id)
     return {
         "changed": True,
         "action": "close",
