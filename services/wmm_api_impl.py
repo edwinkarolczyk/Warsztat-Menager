@@ -1347,6 +1347,7 @@ class _WmmHandler(BaseHTTPRequestHandler):
                         previous_status="",
                         new_status=str(item.get("status") or "").strip(),
                         tool_id=tool_id,
+                        request_id=request_id,
                     )
                 response = {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed}
                 if dysp_sync is not None:
