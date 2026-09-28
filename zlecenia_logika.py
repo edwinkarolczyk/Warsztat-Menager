@@ -386,6 +386,8 @@ def _execution_dispatch_target_status(order):
         return "wstrzymana"
     if raw_status == "wstrzymane":
         return "wstrzymana"
+    if raw_status == "w przygotowaniu":
+        return "w_toku"
     if qty > 0 and done + 1e-9 >= qty:
         if settled + 1e-9 >= done:
             return "zamknieta"
