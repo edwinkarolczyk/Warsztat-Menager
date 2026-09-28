@@ -109,6 +109,9 @@ def _append_sync_meta(row: dict[str, Any], *, tool_id: str, previous_status: str
 def sync_tool_disposition(tool: dict[str, Any], *, actor: str, previous_status: str = "", new_status: str | None = None, tool_id: str = "") -> dict[str, Any]:
     """Synchronizuj jedną aktywną Dyspozycję z serwisowym statusem Narzędzia."""
     tool = dict(tool or {})
+    actor = str(actor or "").strip()
+    if not actor or actor.casefold() in {"wmm", "unknown", "nieznany"}:
+        return {"changed": False, "reason": "missing_named_actor"}
     identity = _tool_id(tool, tool_id)
     status = str(new_status if new_status is not None else tool.get("status") or "").strip()
     status_key = _norm(status)
