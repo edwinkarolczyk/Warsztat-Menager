@@ -1131,8 +1131,9 @@ def uruchom_panel(root, login, rola):
     def wyczysc_content():
         clear_frame(content)
 
-    def otworz_panel(funkcja, nazwa):
+    def otworz_panel(funkcja, nazwa, *, object_id: str = ""):
         flow = None
+        panel_result = None
         if funkcja is panel_narzedzia:
             flow = PerfFlow("TOOLS_OPEN")
             flow.mark("clicked")
@@ -1141,17 +1142,85 @@ def uruchom_panel(root, login, rola):
         try:
             if flow:
                 with perf_span("TOOLS_OPEN:create_window"):
-                    funkcja(root, content, login, rola)
+                    panel_result = funkcja(root, content, login, rola)
                 flow.mark("window_created")
                 flow.mark("initial_load_called")
             else:
-                funkcja(root, content, login, rola)
+                panel_result = funkcja(root, content, login, rola)
+
+            if object_id and panel_result is not None:
+                def _focus_source() -> None:
+                    focus_fn = getattr(panel_result, "focus_object", None)
+                    if not callable(focus_fn):
+                        return
+                    try:
+                        focus_fn(str(object_id))
+                    except Exception as exc:
+                        log_akcja(
+                            f"[PANEL][SOURCE] Nie udało się zaznaczyć obiektu "
+                            f"{object_id} w {nazwa}: {exc}"
+                        )
+                try:
+                    root.after_idle(_focus_source)
+                except Exception:
+                    _focus_source()
+            return panel_result
         except Exception as e:
             log_akcja(f"Błąd przy otwieraniu panelu {nazwa}: {e}")
             ttk.Label(content, text=f"Błąd otwierania panelu: {e}", foreground="#e53935").pack(pady=20)
+            return None
         finally:
             if flow:
                 flow.end()
+
+    def _wm_open_module(module_key: str, object_id: str = "") -> bool:
+        """Przełącz główny obszar WM na moduł źródłowy bez tworzenia Toplevel."""
+        aliases = {
+            "planista": "planowanie",
+            "planowanie": "planowanie",
+            "maszyna": "maszyny",
+            "maszyny": "maszyny",
+            "narzedzie": "narzedzia",
+            "narzędzie": "narzedzia",
+            "narzedzia": "narzedzia",
+        }
+        key = aliases.get(str(module_key or "").strip().casefold(), "")
+        targets = {
+            "planowanie": (panel_planowanie, "Planista"),
+            "maszyny": (panel_maszyny, "Maszyny"),
+            "narzedzia": (panel_narzedzia, "Narzędzia"),
+        }
+        target = targets.get(key)
+        if target is None:
+            return False
+
+        try:
+            allowed = (
+                key not in disabled_modules
+                and is_module_allowed_for_user(login, normalized_role, key)
+            )
+        except Exception:
+            allowed = True
+        if not allowed:
+            _show_access_denied(target[1])
+            return False
+
+        try:
+            manifest = zaladuj_manifest(CONFIG_MANAGER)
+            if not module_active(key, manifest=manifest, cfg=CONFIG_MANAGER):
+                _show_access_denied(target[1])
+                return False
+        except Exception:
+            pass
+
+        result = otworz_panel(
+            target[0],
+            target[1],
+            object_id=str(object_id or "").strip(),
+        )
+        return result is not None
+
+    setattr(root, "_wm_open_module", _wm_open_module)
 
     # --- role helpers + quick open profile ---
     def _is_admin_role(r):
