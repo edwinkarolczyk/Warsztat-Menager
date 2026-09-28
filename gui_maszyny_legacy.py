@@ -489,13 +489,107 @@ REVIEW_SOURCE_LABELS = {
 }
 
 
-def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Zwraca lokalne przeglądy zapisane bezpośrednio w rekordzie maszyny."""
+def _review_progress_rank(entry: Dict[str, Any]) -> int:
+    raw = str(entry.get("status") or "").strip().casefold().replace("-", "_").replace(" ", "_")
+    if raw in {"done", "wykonany", "wykonane", "completed", "zamkniety", "zamknięty"}:
+        return 3
+    if raw in {"in_progress", "w_trakcie", "w_toku"}:
+        return 2
+    if raw in {"cancelled", "canceled", "anulowany", "anulowane"}:
+        return 2
+    return 1
 
-    reviews = machine.get("reviews")
-    if isinstance(reviews, list):
-        return [item for item in reviews if isinstance(item, dict)]
-    return []
+
+def _merge_review_duplicate(target: Dict[str, Any], incoming: Dict[str, Any]) -> None:
+    """Scal ten sam logiczny przegląd bez cofania jego postępu."""
+
+    target_rank = _review_progress_rank(target)
+    incoming_rank = _review_progress_rank(incoming)
+
+    # Pola listowe łączymy bez duplikatów, żeby nie zgubić osób/zdjęć/audytu.
+    for key in ("suggested_workers", "completed_by", "photos", "edit_history"):
+        left = target.get(key)
+        right = incoming.get(key)
+        if not isinstance(left, list) and not isinstance(right, list):
+            continue
+        merged = []
+        seen = set()
+        for value in (list(left) if isinstance(left, list) else []) + (
+            list(right) if isinstance(right, list) else []
+        ):
+            marker = repr(value)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            merged.append(value)
+        target[key] = merged
+
+    # Wpis bardziej zaawansowany (np. wykonany zamiast planowanego) wygrywa
+    # dla pól stanu i wykonania.
+    progress_fields = (
+        "status",
+        "started_at",
+        "started_by",
+        "completed_at",
+        "completed_by",
+        "result_note",
+        "dyspozycja_id",
+        "auto_key",
+    )
+    if incoming_rank > target_rank:
+        for key in progress_fields:
+            value = incoming.get(key)
+            if value not in (None, "", []):
+                target[key] = value
+
+    # Pozostałe informacje uzupełniamy tylko, gdy kanoniczny wpis ich nie ma.
+    for key, value in incoming.items():
+        if key in progress_fields or key in {"suggested_workers", "completed_by", "photos", "edit_history"}:
+            continue
+        if target.get(key) in (None, "", []):
+            target[key] = value
+
+
+def _normalize_machine_reviews_in_place(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Usuń techniczne duplikaty ID, zachowując najbardziej kompletny wpis."""
+
+    raw = machine.get("reviews")
+    if not isinstance(raw, list):
+        return []
+
+    out: List[Dict[str, Any]] = []
+    by_id: Dict[str, Dict[str, Any]] = {}
+    duplicate_ids: set[str] = set()
+
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        review_id = str(item.get("id") or "").strip()
+        if not review_id:
+            out.append(item)
+            continue
+        current = by_id.get(review_id)
+        if current is None:
+            by_id[review_id] = item
+            out.append(item)
+            continue
+        duplicate_ids.add(review_id)
+        _merge_review_duplicate(current, item)
+
+    if duplicate_ids:
+        machine["reviews"] = out
+        logger.warning(
+            "[Maszyny][REVIEWS] Scalono duplikaty ID dla maszyny %s: %s",
+            machine.get("id") or machine.get("nr_ewid") or machine.get("nr") or "?",
+            ", ".join(sorted(duplicate_ids)),
+        )
+    return out
+
+
+def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Zwraca przeglądy po bezpiecznym scaleniu duplikatów ID."""
+
+    return _normalize_machine_reviews_in_place(machine)
 
 
 def _machine_default_review_type(machine: Dict[str, Any]) -> str:
@@ -822,7 +916,8 @@ def _combined_machine_schedule_summary(machine: Dict[str, Any]) -> Dict[str, Any
 
 
 def _new_review_id() -> str:
-    return "rev_" + dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Sekundy były za mało dokładne: dwa szybkie zapisy mogły dostać ten sam ID.
+    return "rev_" + dt.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
 
 def _split_csv_people(value: object) -> List[str]:
@@ -1871,6 +1966,12 @@ def _build_edit_footer(panel, machine: dict, on_changed):
 
 def _save_machines(primary_path: str, rows: list[dict]) -> bool:
     try:
+        # Każdy zapis utrwala już znormalizowaną listę przeglądów. Dzięki temu
+        # stare duplikaty z identycznym ID znikają po pierwszym bezpiecznym zapisie,
+        # a stan "wykonany" nie może zostać cofnięty przez kopię "planowany".
+        for machine in rows:
+            if isinstance(machine, dict):
+                _normalize_machine_reviews_in_place(machine)
         payload = {"maszyny": rows}
         _safe_write_json(primary_path, payload)
         logger.info("[Maszyny] Zapisano %d rekordów -> %s", len(rows), primary_path)
