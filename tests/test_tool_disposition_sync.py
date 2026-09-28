@@ -100,6 +100,36 @@ def test_other_tool_disposition_is_never_touched(tmp_path, monkeypatch):
     assert _saved_rows(path)[0]["status"] == "w_toku"
 
 
+def test_same_wmm_request_cannot_close_second_disposition_on_retry(tmp_path, monkeypatch):
+    running = _dysp("D1", status="w_toku")
+    waiting = _dysp("D2", status="nowa")
+    path = _setup_store(tmp_path, monkeypatch, [running, waiting])
+    first = SYNC.sync_tool_disposition(
+        {"numer": "507", "tryb": "STARE", "status": "Po ostrzeniu"},
+        actor="Edwin", previous_status="W ostrzeniu", new_status="Po ostrzeniu",
+        request_id="wmm-request-507-close-0001",
+    )
+    assert first["action"] == "close"
+    assert first["dyspozycja_id"] == "D1"
+
+    second = SYNC.sync_tool_disposition(
+        {"numer": "507", "tryb": "STARE", "status": "Po ostrzeniu"},
+        actor="Edwin", previous_status="", new_status="Po ostrzeniu",
+        request_id="wmm-request-507-close-0001",
+    )
+    assert second["replayed"] is True
+    assert second["dyspozycja_id"] == "D1"
+
+    saved = {row["id"]: row for row in _saved_rows(path)}
+    assert saved["D1"]["status"] == "zamknieta"
+    assert saved["D1"]["zamkniete_przez"] == "Edwin"
+    assert saved["D2"]["status"] == "nowa"
+    events = saved["D1"]["meta"]["tool_sync_history"]
+    assert [event["request_id"] for event in events if event.get("request_id")] == [
+        "wmm-request-507-close-0001"
+    ]
+
+
 def test_unnamed_wmm_actor_cannot_auto_close(tmp_path, monkeypatch):
     path = _setup_store(tmp_path, monkeypatch, [_dysp("D1", status="w_toku")])
     result = SYNC.sync_tool_disposition(
