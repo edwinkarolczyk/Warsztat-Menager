@@ -198,14 +198,32 @@ def _planista_products() -> list[dict[str, Any]]:
 
 
 def _next_order_id() -> str:
+    """Wspólna, trwała numeracja Planisty używana również przez WMM."""
     folder = _data_dir() / "zlecenia"
-    numbers: list[int] = []
-    for path in folder.glob("*.json"):
+    folder.mkdir(parents=True, exist_ok=True)
+    sequence_path = folder / "_planista_order_sequence.json"
+
+    from machine_file_guard import file_write_lock
+
+    with file_write_lock(sequence_path, label="numeracji zleceń"):
+        current = 0
         try:
-            numbers.append(int(path.stem))
-        except ValueError:
-            pass
-    return f"{(max(numbers) + 1 if numbers else 1):06d}"
+            payload = _read_json(sequence_path)
+            if isinstance(payload, dict):
+                current = max(0, int(payload.get("last_id", payload.get("last", 0)) or 0))
+        except Exception:
+            current = 0
+
+        for path in folder.glob("*.json"):
+            try:
+                current = max(current, int(path.stem))
+            except (TypeError, ValueError):
+                continue
+
+        next_number = current + 1
+        _write_json_atomic(sequence_path, {"last_id": next_number})
+
+    return f"{next_number:04d}"
 
 
 def _create_planista_order(
