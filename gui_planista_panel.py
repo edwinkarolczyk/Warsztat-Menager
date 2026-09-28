@@ -266,6 +266,26 @@ class PlanistaPanel(ttk.Frame):
             )
         self._refresh_approval_button()
 
+    def focus_object(self, order_id: str) -> bool:
+        """Zaznacz wskazane zlecenie po przejściu z Dyspozycji."""
+        wanted = str(order_id or "").strip()
+        if not wanted:
+            return False
+        if wanted not in self._orders:
+            self.refresh()
+        if wanted not in self._orders:
+            return False
+        try:
+            self.nb.select(self.orders_tab)
+            self.tree.selection_set(wanted)
+            self.tree.focus(wanted)
+            self.tree.see(wanted)
+            self.tree.focus_set()
+            self._refresh_approval_button()
+            return True
+        except Exception:
+            return False
+
     def edit_term(self):
         order = self._selected()
         if not order:
@@ -470,43 +490,6 @@ class PlanistaPanel(ttk.Frame):
                 webbrowser.open(path.as_uri())
         except Exception as exc:
             messagebox.showerror("Wydruk", f"Nie udało się przygotować wydruku:\n{exc}", parent=self)
-
-
-def open_planista_order(master, order_id: str, *, login: str = "", rola: str = ""):
-    """Otwórz Planistę od razu na wskazanym zleceniu."""
-    wanted = str(order_id or "").strip()
-    if not wanted:
-        raise ValueError("Brak numeru zlecenia Planisty.")
-
-    win = tk.Toplevel(master)
-    win.title(f"Planista — zlecenie {wanted}")
-    try:
-        win.state("zoomed")
-    except Exception:
-        win.geometry("1400x850")
-
-    panel = PlanistaPanel(
-        win,
-        root=master.winfo_toplevel() if hasattr(master, "winfo_toplevel") else master,
-        login=login,
-        rola=rola,
-    )
-    panel.pack(fill="both", expand=True)
-
-    if wanted not in panel._orders:
-        win.destroy()
-        raise ValueError(f"Nie znaleziono zlecenia {wanted} w Planista.")
-
-    panel.nb.select(panel.orders_tab)
-    panel.tree.selection_set(wanted)
-    panel.tree.focus(wanted)
-    panel.tree.see(wanted)
-    panel._refresh_approval_button()
-    try:
-        panel.tree.focus_set()
-    except Exception:
-        pass
-    return win
 
 
 def panel_planista(root, frame, login=None, rola=None):
