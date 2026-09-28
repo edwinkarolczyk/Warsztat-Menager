@@ -1129,11 +1129,13 @@ class ZleceniaView(ttk.Frame):
             return
         global _DYSP_TOOL_STATUS_CACHE, _DYSP_MACHINE_STATUS_CACHE
         global _DYSP_TOOL_INFO_CACHE, _DYSP_MACHINE_INFO_CACHE, _DYSP_ORDER_INFO_CACHE
+        global _DYSP_WAREHOUSE_INFO_CACHE
         _DYSP_TOOL_STATUS_CACHE = None
         _DYSP_MACHINE_STATUS_CACHE = None
         _DYSP_TOOL_INFO_CACHE = None
         _DYSP_MACHINE_INFO_CACHE = None
         _DYSP_ORDER_INFO_CACHE = None
+        _DYSP_WAREHOUSE_INFO_CACHE = None
         self._apply_dysp_ui_config()
         self._ensure_blink_started()
         try:
@@ -1237,6 +1239,7 @@ class ZleceniaView(ttk.Frame):
             "planista": "planowanie",
             "maszyna": "maszyny",
             "narzedzie": "narzedzia",
+            "magazyn": "magazyn",
         }.get(kind, "")
         try:
             root = self.winfo_toplevel()
@@ -1293,15 +1296,17 @@ class ZleceniaView(ttk.Frame):
 
         open_button = getattr(self, "btn_open_source", None)
         if open_button is not None:
-            kind = _source_type(mapped or {}) if linked else ""
+            navigable = bool(mapped and _has_source_navigation(mapped))
+            kind = _source_type(mapped or {}) if navigable else ""
             labels = {
                 "planista": "Otwórz w Planista",
                 "maszyna": "Otwórz maszynę",
                 "narzedzie": "Otwórz narzędzie",
+                "magazyn": "Otwórz w Magazynie",
             }
             try:
                 open_button.configure(text=labels.get(kind, "Otwórz obiekt"))
-                open_button.state(["!disabled"] if linked else ["disabled"])
+                open_button.state(["!disabled"] if navigable else ["disabled"])
             except Exception:
                 pass
 
@@ -1676,7 +1681,7 @@ class ZleceniaView(ttk.Frame):
         mapped = self._order_rows.get(iid, {})
         if not mapped:
             return
-        if _is_linked_source_disposition(mapped):
+        if _has_source_navigation(mapped):
             self._on_open_source()
             return
         self._on_edit()
