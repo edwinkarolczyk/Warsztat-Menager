@@ -431,7 +431,9 @@ def _source_live_info(item: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _is_linked_source_disposition(item: dict[str, Any]) -> bool:
-    return bool(_source_type(item) and _source_object_id(item) and _source_live_info(item))
+    # Powiązanie wynika z zapisanego typu + ID, nie z chwilowej dostępności
+    # źródła. Awaria odczytu źródła nie może odblokować drugiego miejsca edycji.
+    return bool(_source_type(item) and _source_object_id(item))
 
 
 def _source_object_label(item: dict[str, Any]) -> str:
@@ -1145,10 +1147,10 @@ class ZleceniaView(ttk.Frame):
         kind = _source_type(mapped)
         object_id = _source_object_id(mapped)
         live = _source_live_info(mapped)
-        if not kind or not object_id or not live:
+        if not kind or not object_id:
             messagebox.showinfo(
                 "Dyspozycje",
-                "Ta Dyspozycja nie ma dostępnego powiązanego obiektu. "
+                "Ta Dyspozycja nie ma identyfikatora powiązanego obiektu. "
                 "Pozostaje obsługiwana jak zwykła Dyspozycja.",
                 parent=self,
             )
@@ -1216,7 +1218,15 @@ class ZleceniaView(ttk.Frame):
         edit_button = getattr(self, "btn_edit", None)
         if edit_button is not None:
             try:
-                edit_button.state(["disabled"] if linked else ["!disabled"])
+                role_can_edit = True
+                try:
+                    from dyspozycje_access import ACTION_EDIT, is_role_action_allowed
+                    role_can_edit = is_role_action_allowed(self._login_role, ACTION_EDIT)
+                except Exception:
+                    pass
+                edit_button.state(
+                    ["disabled"] if linked or not role_can_edit else ["!disabled"]
+                )
             except Exception:
                 pass
 
