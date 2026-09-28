@@ -313,12 +313,21 @@ def _fit_editor(window: Any) -> None:
         screen_h = max(700, int(window.winfo_screenheight()))
         req_w = max(1100, int(window.winfo_reqwidth()))
         req_h = max(720, int(window.winfo_reqheight()))
-        width = min(req_w, max(980, screen_w - 80))
-        height = min(req_h, max(680, screen_h - 100))
+
+        # Edytor ma od razu wykorzystywać sensowną część ekranu. Poprzednio
+        # zatrzymywał się zwykle na 1100x720, przez co sekcje po prawej i dół
+        # formularza wymagały ręcznego rozciągania okna.
+        preferred_w = min(1600, max(1240, int(screen_w * 0.90)))
+        preferred_h = min(900, max(760, int(screen_h * 0.88)))
+        max_w = max(980, screen_w - 50)
+        max_h = max(680, screen_h - 70)
+        width = min(max(req_w, preferred_w), max_w)
+        height = min(max(req_h, preferred_h), max_h)
+
         x = max(0, (screen_w - width) // 2)
         y = max(0, (screen_h - height) // 2)
         window.geometry(f"{width}x{height}+{x}+{y}")
-        window.minsize(min(980, width), min(620, height))
+        window.minsize(min(1100, width), min(700, height))
         window.resizable(True, True)
     except Exception:
         pass
