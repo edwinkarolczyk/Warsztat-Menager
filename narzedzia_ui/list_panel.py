@@ -461,6 +461,49 @@ class ToolsThreeTabsView(ttk.Frame):
         self._bind_context_menu(self.tv_inprog)
         self._bind_context_menu(self.tv_all)
 
+    def focus_object(self, tool_id: str) -> bool:
+        """Przejdź do listy i zaznacz narzędzie bez otwierania nowego okna."""
+        wanted = str(tool_id or "").strip()
+        if not wanted:
+            return False
+
+        def _variants(value: str) -> set[str]:
+            raw = str(value or "").strip()
+            out = {raw}
+            if raw.isdigit():
+                out.add(str(int(raw)))
+                out.add(raw.zfill(3))
+            return {item for item in out if item}
+
+        wanted_variants = _variants(wanted)
+        try:
+            self._refresh_all_tools()
+            self.nb.select(self.tab_all)
+        except Exception:
+            pass
+
+        try:
+            children = self.tv_all.get_children("")
+        except Exception:
+            children = ()
+        for iid in children:
+            try:
+                values = self.tv_all.item(iid, "values") or ()
+            except Exception:
+                continue
+            candidate = str(values[0] if values else "").strip()
+            if not wanted_variants.intersection(_variants(candidate)):
+                continue
+            try:
+                self.tv_all.selection_set(iid)
+                self.tv_all.focus(iid)
+                self.tv_all.see(iid)
+                self.tv_all.focus_set()
+                return True
+            except Exception:
+                return False
+        return False
+
     def _bind_double_click(self, tree: ttk.Treeview) -> None:
         def _on_double_click(_event) -> None:
             if not self._open_detail_callback:
