@@ -5,12 +5,14 @@ on:
   push:
     branches: [ Rozwiniecie ]
     paths:
+      - '__version__.py'
       - '11.ico'
       - 'assets/wm_icon_source.jpg'
       - 'wm.spec'
       - 'build_wm_exe.bat'
       - 'requirements-exe.txt'
       - 'tools/generate_windows_version_info.py'
+      - 'installer/**'
       - '.github/workflows/wm_exe.yml'
 
 jobs:
@@ -49,7 +51,7 @@ jobs:
           Write-Host "WM version: $version"
           Write-Host "Commit: $shortSha"
 
-      - name: Verify EXE and create package
+      - name: Verify EXE and create portable package
         shell: pwsh
         run: |
           $exe = "dist/WarsztatMenager/WarsztatMenager.exe"
@@ -81,12 +83,48 @@ jobs:
           Get-Item $exe, $zip | Select-Object Name, Length
           Get-Content "dist/SHA256SUMS.txt"
 
-      - name: Upload WM EXE artifact
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.meta.outputs.version }}"
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+
+          if (-not $iscc) {
+            throw "Nie znaleziono kompilatora Inno Setup (ISCC.exe)"
+          }
+
+          & $iscc "/DMyAppVersion=$version" "installer\WarsztatMenager.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Kompilacja instalatora Inno Setup nie powiodła się"
+          }
+
+          $setup = "dist/installer/WarsztatMenager_Setup_$version.exe"
+          if (-not (Test-Path $setup)) {
+            throw "Brak gotowego instalatora: $setup"
+          }
+
+          $setupHash = (Get-FileHash $setup -Algorithm SHA256).Hash
+          "$setupHash  $(Split-Path $setup -Leaf)" | Add-Content -Path "dist/SHA256SUMS.txt" -Encoding ascii
+
+          Get-Item $setup | Select-Object Name, Length
+          Get-Content "dist/SHA256SUMS.txt"
+
+      - name: Upload WM Windows package
         uses: actions/upload-artifact@v4
         with:
           name: WarsztatMenager-${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.short_sha }}
           path: |
             dist/WarsztatMenager-${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.short_sha }}-win64.zip
+            dist/installer/WarsztatMenager_Setup_${{ steps.meta.outputs.version }}.exe
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
