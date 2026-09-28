@@ -1338,7 +1338,20 @@ class _WmmHandler(BaseHTTPRequestHandler):
                 replayed, item = _run_idempotent(
                     request_id, path, perform_tool_action, payload_fingerprint
                 )
-                self._send(200, {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed})
+                dysp_sync = None
+                if action == "status":
+                    from tool_dyspozycja_sync_runtime import sync_tool_disposition
+                    dysp_sync = sync_tool_disposition(
+                        item,
+                        actor=author,
+                        previous_status="",
+                        new_status=str(item.get("status") or "").strip(),
+                        tool_id=tool_id,
+                    )
+                response = {"ok": True, "item": _wmm_revision_item(item), "replayed": replayed}
+                if dysp_sync is not None:
+                    response["dyspozycja_sync"] = dysp_sync
+                self._send(200, response)
             except WmmRevisionConflict as exc:
                 self._send(409, {"ok": False, "code": "WMM_REVISION_CONFLICT", "error": str(exc)})
             except WmmIdempotencyPending as exc:
