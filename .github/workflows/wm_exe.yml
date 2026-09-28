@@ -6,6 +6,7 @@ on:
     branches: [ Rozwiniecie ]
     paths:
       - '11.ico'
+      - 'assets/wm_icon_source.jpg'
       - 'wm.spec'
       - 'build_wm_exe.bat'
       - 'requirements-exe.txt'
@@ -29,7 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-exe.txt
 
-      - name: Prepare Windows version metadata
+      - name: Prepare Windows icon and version metadata
         run: python tools/generate_windows_version_info.py
 
       - name: Build complete WM onedir package

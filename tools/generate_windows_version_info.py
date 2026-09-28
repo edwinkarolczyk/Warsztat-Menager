@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Generuje metadane wersji Windows dla builda Warsztat Menager."""
+"""Generuje ikonę oraz metadane wersji Windows dla builda Warsztat Menager."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_SOURCE = ROOT / "__version__.py"
+ICON_SOURCE = ROOT / "assets" / "wm_icon_source.jpg"
 ICON_PATH = ROOT / "11.ico"
 OUTPUT = ROOT / "build" / "windows_version_info.txt"
 
@@ -35,12 +36,39 @@ def version_tuple(version: str) -> tuple[int, int, int, int]:
     return tuple(numbers[:4])
 
 
+def build_icon() -> None:
+    if not ICON_SOURCE.exists():
+        raise RuntimeError(f"Brak źródła ikony: {ICON_SOURCE}")
+
+    with Image.open(ICON_SOURCE) as source:
+        image = source.convert("RGBA")
+        width, height = image.size
+        side = min(width, height)
+        left = (width - side) // 2
+        top = (height - side) // 2
+        image = image.crop((left, top, left + side, top + side))
+        image = image.resize((256, 256), Image.Resampling.LANCZOS)
+        image.save(
+            ICON_PATH,
+            format="ICO",
+            sizes=[
+                (16, 16),
+                (24, 24),
+                (32, 32),
+                (48, 48),
+                (64, 64),
+                (128, 128),
+                (256, 256),
+            ],
+        )
+
+
 def verify_icon() -> None:
     with Image.open(ICON_PATH) as icon:
         if icon.format != "ICO":
             raise RuntimeError(f"{ICON_PATH.name} nie jest prawdziwym plikiem ICO")
         sizes = set(icon.ico.sizes())
-    required = {(16, 16), (32, 32), (256, 256)}
+    required = {(16, 16), (32, 32), (48, 48), (256, 256)}
     missing = required - sizes
     if missing:
         raise RuntimeError(f"Brak wymaganych rozmiarów ikony: {sorted(missing)}")
@@ -82,11 +110,13 @@ VSVersionInfo(
 
 
 def main() -> int:
+    build_icon()
     verify_icon()
     version = read_version()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(render(version), encoding="utf-8")
     print(f"[WM-EXE] wersja: {version}")
+    print(f"[WM-EXE] źródło ikony: {ICON_SOURCE}")
     print(f"[WM-EXE] ikona: {ICON_PATH} (ICO OK)")
     print(f"[WM-EXE] metadane Windows: {OUTPUT}")
     return 0
