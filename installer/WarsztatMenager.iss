@@ -42,4 +42,5 @@ Name: "{autoprograms}\Warsztat Menager"; Filename: "{app}\{#MyAppExeName}"; Work
 Name: "{autodesktop}\Warsztat Menager"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
 
 [Run]
+Filename: "{sys}\icacls.exe"; Parameters: """C:\wm"" /inheritance:e /grant *S-1-5-32-545:(OI)(CI)M /T /C"; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Uruchom Warsztat Menager"; Flags: nowait postinstall skipifsilent
