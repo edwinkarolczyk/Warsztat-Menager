@@ -4435,6 +4435,9 @@ def panel_narzedzia(root, frame, login=None, rola=None):
         def bind_open_detail(self, *_args: object, **_kwargs: object) -> None:
             return None
 
+        def focus_object(self, _tool_id: str) -> bool:
+            return False
+
     tools_actions = ttk.Frame(frame, style="WM.TFrame")
     tools_actions.pack(fill="x", padx=10, pady=(10, 0))
     ttk.Button(
@@ -7335,6 +7338,7 @@ def panel_narzedzia(root, frame, login=None, rola=None):
     if tools_view is not None:
         tools_view.bind_open_detail(_open_tool_by_id)
     refresh_list()
+    return tools_view
 
 __all__ = [
     "panel_narzedzia",
