@@ -5,9 +5,8 @@ import pathlib
 
 block_cipher = None
 
-# PyInstaller executes .spec without defining __file__; SPECPATH is its directory.
 project_root = pathlib.Path(SPECPATH).resolve()
-
+version_file = project_root / "build" / "windows_version_info.txt"
 
 _def_datas = [
     ("11.ico", "."),
@@ -24,7 +23,6 @@ _def_datas = [
     (pathlib.Path("wm") / "data", "wm/data"),
 ]
 
-
 def _collect_datas():
     resolved = []
     for src, dest in _def_datas:
@@ -32,7 +30,6 @@ def _collect_datas():
         if src_path.exists():
             resolved.append((str(src_path), dest))
     return resolved
-
 
 a = Analysis(
     [str(project_root / "start.py")],
@@ -71,6 +68,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=str(project_root / "11.ico"),
+    version=str(version_file) if version_file.exists() else None,
 )
 
 coll = COLLECT(

@@ -1,0 +1,16 @@
+# Zależności potrzebne do zbudowania kompletnego WM.exe na Windows.
+# Tkinter jest częścią oficjalnego CPython dla Windows i nie jest instalowany przez pip.
+pyinstaller>=6.10,<7
+pillow
+pystray>=0.19.5,<1.0
+qrcode
+pandas
+openpyxl
+python-docx
+reportlab
+odfpy
+pypandoc
+python-escpos
+openai
+python-dotenv
+xlrd

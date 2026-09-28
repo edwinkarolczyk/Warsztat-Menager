@@ -1,0 +1,91 @@
+name: WM EXE Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ Rozwiniecie ]
+    paths:
+      - '11.ico'
+      - 'wm.spec'
+      - 'build_wm_exe.bat'
+      - 'requirements-exe.txt'
+      - 'tools/generate_windows_version_info.py'
+      - '.github/workflows/wm_exe.yml'
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install complete WM EXE dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-exe.txt
+
+      - name: Prepare Windows version metadata
+        run: python tools/generate_windows_version_info.py
+
+      - name: Build complete WM onedir package
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist wm.spec
+
+      - name: Read WM version
+        id: meta
+        shell: pwsh
+        run: |
+          $version = python -c "from __version__ import get_version; print(get_version())"
+          $shortSha = $env:GITHUB_SHA.Substring(0, 7)
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "short_sha=$shortSha" >> $env:GITHUB_OUTPUT
+          Write-Host "WM version: $version"
+          Write-Host "Commit: $shortSha"
+
+      - name: Verify EXE and create package
+        shell: pwsh
+        run: |
+          $exe = "dist/WarsztatMenager/WarsztatMenager.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Brak WarsztatMenager.exe po buildzie"
+          }
+
+          $item = Get-Item $exe
+          if ($item.Length -lt 1048576) {
+            throw "WarsztatMenager.exe ma podejrzanie mały rozmiar: $($item.Length) B"
+          }
+
+          $version = "${{ steps.meta.outputs.version }}"
+          $shortSha = "${{ steps.meta.outputs.short_sha }}"
+          $zip = "dist/WarsztatMenager-$version-$shortSha-win64.zip"
+
+          if (Test-Path $zip) {
+            Remove-Item $zip -Force
+          }
+          Compress-Archive -Path "dist/WarsztatMenager/*" -DestinationPath $zip -CompressionLevel Optimal
+
+          $exeHash = (Get-FileHash $exe -Algorithm SHA256).Hash
+          $zipHash = (Get-FileHash $zip -Algorithm SHA256).Hash
+          @(
+            "$exeHash  WarsztatMenager.exe"
+            "$zipHash  $(Split-Path $zip -Leaf)"
+          ) | Set-Content -Path "dist/SHA256SUMS.txt" -Encoding ascii
+
+          Get-Item $exe, $zip | Select-Object Name, Length
+          Get-Content "dist/SHA256SUMS.txt"
+
+      - name: Upload WM EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WarsztatMenager-${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.short_sha }}
+          path: |
+            dist/WarsztatMenager-${{ steps.meta.outputs.version }}-${{ steps.meta.outputs.short_sha }}-win64.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
