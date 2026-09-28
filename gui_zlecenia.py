@@ -701,12 +701,19 @@ class ZleceniaView(ttk.Frame):
             btn_add.state(["disabled"])
         btn_add.pack(side="left")
 
-        btn_edit = ttk.Button(toolbar, text="Edytuj Dyspozycję")
+        self.btn_edit = ttk.Button(toolbar, text="Edytuj Dyspozycję")
         if self._open_order_creator:
-            btn_edit.configure(command=self._on_edit)
+            self.btn_edit.configure(command=self._on_edit)
         else:
-            btn_edit.state(["disabled"])
-        btn_edit.pack(side="left", padx=(8, 0))
+            self.btn_edit.state(["disabled"])
+        self.btn_edit.pack(side="left", padx=(8, 0))
+
+        self.btn_open_source = ttk.Button(
+            toolbar,
+            text="Otwórz obiekt",
+            command=self._on_open_source,
+        )
+        self.btn_open_source.pack(side="left", padx=(8, 0))
 
         self.btn_start = ttk.Button(toolbar, text="Rozpocznij", command=self._on_start)
         self.btn_start.pack(side="left", padx=(8, 0))
@@ -766,12 +773,11 @@ class ZleceniaView(ttk.Frame):
 
     def _build_tree(self) -> None:
         columns = (
-            "obiekt",
-            "dyspozycja",
+            "zrodlo_obiekt",
+            "zadanie",
+            "stan_obiektu",
             "status_dyspozycji",
-            "typ",
             "przypisane",
-            "status_obiektu",
             "termin",
             "za_ile",
             "priorytet",
@@ -779,26 +785,24 @@ class ZleceniaView(ttk.Frame):
         self.tree = ttk.Treeview(self, columns=columns, show="headings")
 
         headings = {
-            "obiekt": "Obiekt",
-            "dyspozycja": "Dyspozycja",
+            "zrodlo_obiekt": "Źródło / obiekt",
+            "zadanie": "Zadanie",
+            "stan_obiektu": "Stan obiektu",
             "status_dyspozycji": "Status dyspozycji",
-            "typ": "Typ",
             "przypisane": "Przypisane",
-            "status_obiektu": "Status narzędzia/maszyny",
             "termin": "Termin",
             "za_ile": "Za ile",
             "priorytet": "Priorytet",
         }
         widths = {
-            "obiekt": 90,
-            "dyspozycja": 420,
-            "status_dyspozycji": 150,
-            "typ": 130,
-            "przypisane": 190,
-            "status_obiektu": 210,
-            "termin": 110,
-            "za_ile": 85,
-            "priorytet": 100,
+            "zrodlo_obiekt": 240,
+            "zadanie": 360,
+            "stan_obiektu": 180,
+            "status_dyspozycji": 135,
+            "przypisane": 165,
+            "termin": 115,
+            "za_ile": 90,
+            "priorytet": 105,
         }
         for column in columns:
             self.tree.heading(column, text=headings[column])
@@ -806,8 +810,8 @@ class ZleceniaView(ttk.Frame):
                 column,
                 width=widths[column],
                 minwidth=widths[column],
-                anchor="w" if column == "dyspozycja" else "center",
-                stretch=column == "dyspozycja",
+                anchor="w" if column in {"zrodlo_obiekt", "zadanie", "stan_obiektu"} else "center",
+                stretch=column == "zadanie",
             )
         self._apply_dysp_ui_config()
         self.tree.pack(fill="both", expand=True)
