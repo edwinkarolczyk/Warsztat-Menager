@@ -7131,6 +7131,47 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     data_obj["__prev_path__"] = str(tool_path or "")
 
                 _save_tool(data_obj)
+                dysp_sync = None
+                if (st_prev_runtime or "").strip().casefold() != (st_new or "").strip().casefold():
+                    try:
+                        from tool_dyspozycja_sync_runtime import sync_tool_disposition
+                        dysp_sync = sync_tool_disposition(
+                            data_obj,
+                            actor=str(login or "").strip(),
+                            previous_status=st_prev_runtime,
+                            new_status=st_new,
+                            tool_id=numer,
+                        )
+                        if dysp_sync.get("reason") == "no_unique_active_disposition":
+                            messagebox.showwarning(
+                                "Dyspozycje — Narzędzie",
+                                (
+                                    f"Narzędzie {numer} zapisano, ale ma kilka aktywnych "
+                                    "Dyspozycji. WM nie zmienił ich automatycznie."
+                                ),
+                                parent=dlg,
+                            )
+                        elif dysp_sync.get("reason") == "missing_named_actor":
+                            messagebox.showwarning(
+                                "Dyspozycje — Narzędzie",
+                                (
+                                    f"Narzędzie {numer} zapisano, ale Dyspozycja nie została "
+                                    "zmieniona automatycznie, bo brak rozpoznanego użytkownika."
+                                ),
+                                parent=dlg,
+                            )
+                    except Exception as exc:
+                        logger.exception(
+                            "[NARZ][DYSP] Synchronizacja statusu Narzędzia z Dyspozycją nieudana"
+                        )
+                        messagebox.showwarning(
+                            "Dyspozycje — Narzędzie",
+                            (
+                                f"Narzędzie {numer} zapisano, ale nie udało się zsynchronizować "
+                                f"Dyspozycji:\n{exc}"
+                            ),
+                            parent=dlg,
+                        )
                 try:
                     dlg.event_generate("<<ToolSaved>>", when="tail")
                 except Exception:
