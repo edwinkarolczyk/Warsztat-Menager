@@ -1,4 +1,5 @@
-# version: 3.6
+# version: 3.7
+# 3.7: WM 1.0.22 - jedna instancja WM, nawigacja Dyspozycji w głównym panelu i większa edycja Maszyn.
 # 3.6: WM 1.0.21 - stabilizacja WM/WMM: API 0.5.31, EXE tray, idempotencja i blokady urlopów.
 # 3.5: WM 1.0.20 - kontrola salda płatnego urlopu; wyjątek brygadzisty z przyczyną i historią.
 # 3.4: WM 1.0.19 - API WMM uruchamiane z WM; ikona obok zegara i powiadomienia o połączeniu.
@@ -21,7 +22,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.21"
+__version__ = "1.0.22"
 
 
 def get_version() -> str:
