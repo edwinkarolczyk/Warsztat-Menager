@@ -5008,7 +5008,46 @@ def panel_maszyny(root, frame, login=None, rola=None):
 
     panel_container = ttk.Frame(module_frame)
     panel_container.pack(fill="both", expand=True)
-    _open_maszyny(root, panel_container, Renderer=None)
+    tree = _open_maszyny(root, panel_container, Renderer=None)
+
+    def _focus_object(machine_id: str) -> bool:
+        wanted = str(machine_id or "").strip()
+        if tree is None or not wanted:
+            return False
+
+        def _variants(value: str) -> set[str]:
+            raw = str(value or "").strip()
+            out = {raw}
+            if raw.isdigit():
+                out.add(str(int(raw)))
+                out.add(raw.zfill(3))
+            return {item for item in out if item}
+
+        wanted_variants = _variants(wanted)
+        try:
+            children = tree.get_children("")
+        except Exception:
+            children = ()
+        for iid in children:
+            if not wanted_variants.intersection(_variants(str(iid))):
+                continue
+            try:
+                tree.selection_set(iid)
+                tree.focus(iid)
+                tree.see(iid)
+                tree.focus_set()
+                tree.event_generate("<<TreeviewSelect>>")
+                return True
+            except Exception:
+                return False
+        return False
+
+    if tree is not None:
+        try:
+            tree.focus_object = _focus_object
+        except Exception:
+            pass
+    return tree
 
 
 def init_maszyny_view(
