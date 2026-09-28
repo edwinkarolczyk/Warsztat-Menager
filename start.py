@@ -1004,6 +1004,12 @@ def _wm_git_update_splash() -> str:
 def _wm_restart_after_update() -> None:
     """Uruchom świeży proces WM po zmianie plików programu przez Git."""
 
+    # Kontrolowany handoff: zwolnij blokadę starego procesu tuż przed restartem.
+    try:
+        from core.wm_single_instance import release_single_instance
+        release_single_instance()
+    except Exception:
+        pass
     os.environ["WM_RESTARTED_AFTER_UPDATE"] = "1"
     argv = [sys.executable, *sys.argv]
     print("[WM-DBG][GIT] Restartuję WM po pobranej aktualizacji.")
@@ -1307,41 +1313,55 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    # --- Integracja manifestu modułów (lekka) ---
-    try:
-        from utils.moduly import (
-            zaladuj_manifest,
-            lista_modulow,
-            sprawdz_reguly,
-            tag_logu,
-        )
+    from core.wm_single_instance import (
+        acquire_single_instance,
+        release_single_instance,
+        show_already_running_notice,
+    )
 
-        _mod_tag = tag_logu("rdzen")
-        print(f"{_mod_tag} Ładuję manifest modułów…")
-        _manifest = zaladuj_manifest(CONFIG_MANAGER)
-        _lista = lista_modulow(_manifest)
-        print(f"{_mod_tag} Moduły zdefiniowane w manifeście: {', '.join(_lista)}")
-        _kom = sprawdz_reguly(_manifest)
-        for k in _kom:
-            print(k)
-    except Exception as e:
-        print(f"[ERROR] Problem z manifestem modułów: {e}")
-    # --- Koniec integracji manifestu ---
-    # Przywrócony automatyczny Git check/pull przy starcie.
-    # Na czas tej jednej operacji wyłączamy blokadę bootstrapową z updates_utils,
-    # po czym włączamy ją z powrotem przed budową GUI/logowania.
-    restarted_after_update = os.environ.pop("WM_RESTARTED_AFTER_UPDATE", "") == "1"
-    update_result = "current"
-    if not restarted_after_update:
-        BOOTSTRAP_ACTIVE = False
+    _restart_handoff = os.environ.get("WM_RESTARTED_AFTER_UPDATE", "") == "1"
+    if not acquire_single_instance(wait_seconds=8.0 if _restart_handoff else 0.0):
+        show_already_running_notice()
+        raise SystemExit(0)
+
+    try:
+        # --- Integracja manifestu modułów (lekka) ---
         try:
-            update_result = _wm_git_update_splash()
-        finally:
-            BOOTSTRAP_ACTIVE = True
-        if update_result == "updated":
-            _wm_restart_after_update()
-    else:
-        print("[WM-DBG][GIT] Świeży proces po aktualizacji — pomijam ponowny check Git.")
-    main()
+            from utils.moduly import (
+                zaladuj_manifest,
+                lista_modulow,
+                sprawdz_reguly,
+                tag_logu,
+            )
+
+            _mod_tag = tag_logu("rdzen")
+            print(f"{_mod_tag} Ładuję manifest modułów…")
+            _manifest = zaladuj_manifest(CONFIG_MANAGER)
+            _lista = lista_modulow(_manifest)
+            print(f"{_mod_tag} Moduły zdefiniowane w manifeście: {', '.join(_lista)}")
+            _kom = sprawdz_reguly(_manifest)
+            for k in _kom:
+                print(k)
+        except Exception as e:
+            print(f"[ERROR] Problem z manifestem modułów: {e}")
+        # --- Koniec integracji manifestu ---
+        # Przywrócony automatyczny Git check/pull przy starcie.
+        # Na czas tej jednej operacji wyłączamy blokadę bootstrapową z updates_utils,
+        # po czym włączamy ją z powrotem przed budową GUI/logowania.
+        restarted_after_update = os.environ.pop("WM_RESTARTED_AFTER_UPDATE", "") == "1"
+        update_result = "current"
+        if not restarted_after_update:
+            BOOTSTRAP_ACTIVE = False
+            try:
+                update_result = _wm_git_update_splash()
+            finally:
+                BOOTSTRAP_ACTIVE = True
+            if update_result == "updated":
+                _wm_restart_after_update()
+        else:
+            print("[WM-DBG][GIT] Świeży proces po aktualizacji — pomijam ponowny check Git.")
+        main()
+    finally:
+        release_single_instance()
 
 # ⏹ KONIEC KODU
