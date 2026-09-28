@@ -38,6 +38,8 @@ from utils.json_io import _ensure_dirs as _ensure_dirs_impl, _read_json, _write_
 
 STATUSY = ["do akceptacji", "nowe", "w przygotowaniu", "w trakcie", "wstrzymane", "zakończone", "anulowane"]
 DEFAULT_CUT_MM = 2.0
+_ORDER_ID_WIDTH = 4
+_ORDER_SEQUENCE_FILE = "_planista_order_sequence.json"
 
 
 def _data_dir() -> Path:
@@ -554,15 +556,77 @@ def create_zlecenie(
     return zlec, braki
 
 
-def _next_id():
-    _ensure_dirs()
-    nums = []
-    for f in _orders_dir().glob("*.json"):
+def _order_sequence_path() -> Path:
+    return _orders_dir() / _ORDER_SEQUENCE_FILE
+
+
+def _existing_numeric_order_max() -> int:
+    maximum = 0
+    for path in _orders_dir().glob("*.json"):
         try:
-            nums.append(int(f.stem))
-        except Exception:
-            pass
-    return f"{(max(nums) + 1 if nums else 1):06d}"
+            maximum = max(maximum, int(path.stem))
+        except (TypeError, ValueError):
+            continue
+    return maximum
+
+
+def _read_order_sequence(path: Path) -> int:
+    try:
+        payload = _read_json(path, {})
+    except Exception:
+        return 0
+    if isinstance(payload, dict):
+        raw = payload.get("last_id", payload.get("last", 0))
+    else:
+        raw = payload
+    try:
+        return max(0, int(raw or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _write_order_sequence(path: Path, value: int) -> None:
+    _write_json(path, {"last_id": int(value)})
+
+
+def _ensure_order_sequence_floor(order_id) -> None:
+    """Zapamiętaj użyty numer także wtedy, gdy zlecenie zostanie usunięte."""
+    try:
+        numeric_id = int(str(order_id).strip())
+    except (TypeError, ValueError):
+        return
+    if numeric_id < 1:
+        return
+
+    from machine_file_guard import file_write_lock
+
+    sequence_path = _order_sequence_path()
+    with file_write_lock(sequence_path, label="numeracji zleceń"):
+        current = max(
+            _read_order_sequence(sequence_path),
+            _existing_numeric_order_max(),
+            numeric_id,
+        )
+        _write_order_sequence(sequence_path, current)
+
+
+def _next_id():
+    """Nadaj niepowtarzalny numer zlecenia; usunięte numery nie wracają do puli."""
+    _ensure_dirs()
+    from machine_file_guard import file_write_lock
+
+    sequence_path = _order_sequence_path()
+    with file_write_lock(sequence_path, label="numeracji zleceń"):
+        current = max(
+            _read_order_sequence(sequence_path),
+            _existing_numeric_order_max(),
+        )
+        next_number = current + 1
+        # Numer rezerwujemy przed zapisem zlecenia. Awaria może zostawić lukę,
+        # ale nigdy nie spowoduje ponownego użycia starego numeru.
+        _write_order_sequence(sequence_path, next_number)
+
+    return f"{next_number:0{_ORDER_ID_WIDTH}d}"
 
 
 def list_zlecenia():
@@ -742,6 +806,9 @@ def delete_zlecenie(zlec_id: str, kto: str = "system") -> bool:
     p = _order_path(zlec_id)
     if not p.exists():
         return False
+
+    # Stary numer pozostaje zajęty nawet po fizycznym usunięciu pliku.
+    _ensure_order_sequence_floor(zlec_id)
 
     # Dyspozycje wykonania i braków surowca są rekordami pochodnymi tego zlecenia.
     # Usuwamy je razem ze zleceniem, aby po kasowaniu nie zostawały osierocone wpisy.
