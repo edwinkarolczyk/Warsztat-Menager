@@ -13,8 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Install Windows tray and PyInstaller dependencies
-        run: python -m pip install pyinstaller pillow qrcode pystray
+      - name: Install Windows tray PyInstaller and test dependencies
+        run: python -m pip install pyinstaller pillow qrcode pystray pytest
+      - name: Verify Windows single-instance guard and navigation regressions
+        run: python -m pytest -q tests/test_wm_navigation_single_instance_machine_editor.py
       - name: Verify Windows tray backend is importable
         run: python -c "import pystray._win32; from PIL import Image; print('Windows tray backend OK')"
       - name: Build WM EXE with tray backend and icon
