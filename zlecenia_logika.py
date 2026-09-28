@@ -372,6 +372,84 @@ def _find_disposition_for_order(order_id):
     return None
 
 
+def _execution_dispatch_target_status(order):
+    """Status Dyspozycji wynikający wyłącznie ze stanu Planisty."""
+    raw_status = str(order.get("status") or "").strip().casefold()
+    try:
+        qty = float(order.get("ilosc") or 0)
+        done = float(order.get("wykonano") or 0)
+        settled = float(order.get("materialy_rozliczono_do") or 0)
+    except Exception:
+        qty = done = settled = 0.0
+
+    if raw_status == "anulowane":
+        return "wstrzymana"
+    if raw_status == "wstrzymane":
+        return "wstrzymana"
+    if qty > 0 and done + 1e-9 >= qty:
+        if settled + 1e-9 >= done:
+            return "zamknieta"
+        return "w_toku"
+    if done > 1e-9 or raw_status in {"w trakcie", "w_trakcie"}:
+        return "w_toku"
+    return "nowa"
+
+
+def _execution_dispatch_actor(order, autor="system"):
+    candidate = str(autor or "").strip()
+    if candidate and candidate.casefold() not in {"system", "unknown", "nieznany"}:
+        return candidate
+    for event in reversed(order.get("historia") or []):
+        if not isinstance(event, dict):
+            continue
+        who = str(event.get("kto") or "").strip()
+        if who and who.casefold() not in {"system", "unknown", "nieznany"}:
+            return who
+    return candidate or "system"
+
+
+def _apply_execution_dispatch_status(DS, dispatch, target, *, actor):
+    current = str(dispatch.get("status") or "nowa").strip().lower()
+    if current == "zamknieta" or target == current:
+        return dispatch
+    dysp_id = str(dispatch.get("id") or "").strip()
+    if not dysp_id:
+        return dispatch
+
+    # Store Dyspozycji celowo blokuje skoki statusów. Automatyzacja Planisty
+    # przechodzi te same legalne kroki, zachowując pełną historię kto/kiedy.
+    changed = dispatch
+    if target == "w_toku":
+        if current in {"nowa", "wstrzymana"}:
+            changed = DS.set_dyspozycja_status(
+                dysp_id, "w_toku", changed_by=actor
+            ) or changed
+    elif target == "wstrzymana":
+        if current == "nowa":
+            changed = DS.set_dyspozycja_status(
+                dysp_id, "w_toku", changed_by=actor
+            ) or changed
+            current = str(changed.get("status") or "").strip().lower()
+        if current == "w_toku":
+            changed = DS.set_dyspozycja_status(
+                dysp_id, "wstrzymana", changed_by=actor
+            ) or changed
+    elif target == "zamknieta":
+        if current == "nowa":
+            changed = DS.set_dyspozycja_status(
+                dysp_id, "w_toku", changed_by=actor
+            ) or changed
+            current = str(changed.get("status") or "").strip().lower()
+        if current in {"w_toku", "wstrzymana"}:
+            changed = DS.set_dyspozycja_status(
+                dysp_id,
+                "zamknieta",
+                changed_by=actor,
+                uwagi="Zamknięto automatycznie ze źródła: Planista.",
+            ) or changed
+    return changed
+
+
 def _sync_execution_disposition(order, autor="system"):
     try:
         import dyspozycje_store as DS
@@ -384,11 +462,30 @@ def _sync_execution_disposition(order, autor="system"):
     existing = _find_disposition_for_order(oid)
     payload = {"tytul": title, "opis": "\n".join(rows), "termin": str(order.get("termin") or ""), "meta": meta}
     if existing:
-        # Preserve status history/closure metadata when Planista refreshes the order.
-        # Only the order-derived keys are updated, never replace the whole meta.
+        # Stare i otwarte Dyspozycje zachowują ID oraz całą historię. Aktualizujemy
+        # tylko dane pochodzące ze źródła, bez migracji pliku.
         payload["meta"] = {**dict(existing.get("meta") or {}), **meta}
-        return DS.update_dyspozycja(existing["id"], payload)
-    return DS.add_dyspozycja(DS.make_dyspozycja(typ_dyspozycji="zlecenie_wykonania", tytul=title, opis=payload["opis"], autor=autor, termin=payload["termin"], modul_zrodlowy="zlecenia", obiekt_id=f"zlecenie:{oid}", meta=meta))
+        updated = DS.update_dyspozycja(existing["id"], payload) or existing
+        target = _execution_dispatch_target_status(order)
+        actor = _execution_dispatch_actor(order, autor)
+        return _apply_execution_dispatch_status(
+            DS, updated, target, actor=actor
+        )
+    created = DS.add_dyspozycja(DS.make_dyspozycja(
+        typ_dyspozycji="zlecenie_wykonania",
+        tytul=title,
+        opis=payload["opis"],
+        autor=autor,
+        termin=payload["termin"],
+        modul_zrodlowy="zlecenia",
+        obiekt_id=f"zlecenie:{oid}",
+        meta=meta,
+    ))
+    target = _execution_dispatch_target_status(order)
+    actor = _execution_dispatch_actor(order, autor)
+    return _apply_execution_dispatch_status(
+        DS, created, target, actor=actor
+    )
 
 
 def _sync_material_dispositions(order, autor="system"):
