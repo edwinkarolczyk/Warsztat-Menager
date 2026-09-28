@@ -472,6 +472,43 @@ class PlanistaPanel(ttk.Frame):
             messagebox.showerror("Wydruk", f"Nie udało się przygotować wydruku:\n{exc}", parent=self)
 
 
+def open_planista_order(master, order_id: str, *, login: str = "", rola: str = ""):
+    """Otwórz Planistę od razu na wskazanym zleceniu."""
+    wanted = str(order_id or "").strip()
+    if not wanted:
+        raise ValueError("Brak numeru zlecenia Planisty.")
+
+    win = tk.Toplevel(master)
+    win.title(f"Planista — zlecenie {wanted}")
+    try:
+        win.state("zoomed")
+    except Exception:
+        win.geometry("1400x850")
+
+    panel = PlanistaPanel(
+        win,
+        root=master.winfo_toplevel() if hasattr(master, "winfo_toplevel") else master,
+        login=login,
+        rola=rola,
+    )
+    panel.pack(fill="both", expand=True)
+
+    if wanted not in panel._orders:
+        win.destroy()
+        raise ValueError(f"Nie znaleziono zlecenia {wanted} w Planista.")
+
+    panel.nb.select(panel.orders_tab)
+    panel.tree.selection_set(wanted)
+    panel.tree.focus(wanted)
+    panel.tree.see(wanted)
+    panel._refresh_approval_button()
+    try:
+        panel.tree.focus_set()
+    except Exception:
+        pass
+    return win
+
+
 def panel_planista(root, frame, login=None, rola=None):
     panel = PlanistaPanel(frame, root=root, login=login, rola=rola)
     panel.pack(fill="both", expand=True)
