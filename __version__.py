@@ -1,4 +1,5 @@
-# version: 3.7
+# version: 3.8
+# 3.8: WM 1.0.23 - Dyspozycje Magazynu pokazują dane live i przechodzą do pozycji w głównym module Magazyn.
 # 3.7: WM 1.0.22 - jedna instancja WM, nawigacja Dyspozycji w głównym panelu i większa edycja Maszyn.
 # 3.6: WM 1.0.21 - stabilizacja WM/WMM: API 0.5.31, EXE tray, idempotencja i blokady urlopów.
 # 3.5: WM 1.0.20 - kontrola salda płatnego urlopu; wyjątek brygadzisty z przyczyną i historią.
@@ -22,7 +23,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.22"
+__version__ = "1.0.23"
 
 
 def get_version() -> str:
