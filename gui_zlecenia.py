@@ -1024,12 +1024,11 @@ class ZleceniaView(ttk.Frame):
                     "",
                     "end",
                     values=(
-                        _dysp_object_label(order),
-                        _dysp_title_label(order),
+                        _source_object_label(order),
+                        _task_label(order),
+                        _live_object_state_label(order),
                         _dysp_status_label(order),
-                        _dysp_type_label(order),
                         _dysp_assigned_label(order),
-                        _dysp_related_status_label(order),
                         _format_dysp_deadline(order.get("termin") or order.get("deadline")),
                         _dysp_due_in_label(order),
                         _dysp_priority_label(order),
@@ -1049,8 +1048,12 @@ class ZleceniaView(ttk.Frame):
         if not self._view_is_alive():
             return
         global _DYSP_TOOL_STATUS_CACHE, _DYSP_MACHINE_STATUS_CACHE
+        global _DYSP_TOOL_INFO_CACHE, _DYSP_MACHINE_INFO_CACHE, _DYSP_ORDER_INFO_CACHE
         _DYSP_TOOL_STATUS_CACHE = None
         _DYSP_MACHINE_STATUS_CACHE = None
+        _DYSP_TOOL_INFO_CACHE = None
+        _DYSP_MACHINE_INFO_CACHE = None
+        _DYSP_ORDER_INFO_CACHE = None
         self._apply_dysp_ui_config()
         self._ensure_blink_started()
         try:
