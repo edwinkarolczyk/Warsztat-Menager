@@ -1,5 +1,7 @@
 # Plik: logger.py
-# version: 1.0
+# version: 1.0.4
+# Zmiany 1.0.4:
+# - Brak dostępu do głównego app.log nie blokuje startu WM; logger używa bezpiecznego fallbacku.
 # Zmiany 1.0.3:
 # - Dodano log_magazyn(akcja, dane) — zapis do logi_magazyn.txt (JSON Lines)
 # - Reszta bez zmian; pozostawiono log_akcja oraz alias zapisz_log
@@ -25,8 +27,38 @@ def _ensure_logs_dir() -> str:
     return logs_dir
 
 
+def _fallback_app_log_file() -> str:
+    """Zwraca zapisywalną awaryjną ścieżkę logu poza WM_ROOT."""
+
+    base = (
+        os.getenv("LOCALAPPDATA")
+        or os.getenv("TEMP")
+        or os.path.expanduser("~")
+    )
+    if not base:
+        return ""
+
+    fallback_dir = os.path.join(base, "Warsztat Menager", "logs")
+    try:
+        os.makedirs(fallback_dir, exist_ok=True)
+    except Exception:
+        return ""
+    return os.path.join(fallback_dir, "app.log")
+
+
+def _has_file_handler(root_logger: logging.Logger, target_path: str) -> bool:
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            try:
+                if os.path.abspath(getattr(handler, "baseFilename", "")) == target_path:
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 def _ensure_app_handler() -> None:
-    """Dodaje do logowania globalnego handler zapisujący do pliku aplikacji."""
+    """Dodaje handler plikowy; błąd uprawnień nie może zatrzymać startu WM."""
 
     root_logger = logging.getLogger()
     log_file = join_path("paths.logs_dir", "app.log")
@@ -40,20 +72,39 @@ def _ensure_app_handler() -> None:
         root_logger.setLevel(level)
 
     target_path = os.path.abspath(log_file)
-    for handler in root_logger.handlers:
-        if isinstance(handler, logging.FileHandler):
-            try:
-                if os.path.abspath(getattr(handler, "baseFilename", "")) == target_path:
-                    return
-            except Exception:
-                continue
+    if _has_file_handler(root_logger, target_path):
+        return
 
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    try:
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    except OSError as exc:
+        fallback_file = _fallback_app_log_file()
+        print(
+            f"[Błąd loggera] Nie można otworzyć {log_file!r}: {exc}. "
+            f"Fallback: {fallback_file or '<brak>'}"
+        )
+        if not fallback_file:
+            return
+
+        fallback_target = os.path.abspath(fallback_file)
+        if _has_file_handler(root_logger, fallback_target):
+            return
+
+        try:
+            file_handler = logging.FileHandler(fallback_file, encoding="utf-8")
+        except OSError as fallback_exc:
+            print(
+                f"[Błąd loggera] Nie można otworzyć także fallbacku "
+                f"{fallback_file!r}: {fallback_exc}"
+            )
+            return
+
     file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
     root_logger.addHandler(file_handler)
 
 
 _ensure_app_handler()
+
 
 def log_akcja(tekst: str) -> None:
     """Zapis prostych zdarzeń GUI/aplikacji do logi_gui.txt (linia tekstowa)."""
@@ -69,8 +120,10 @@ def log_akcja(tekst: str) -> None:
         # awaryjnie do konsoli – nie podnosimy wyjątku, żeby nie wywalać GUI
         print(f"[Błąd loggera] {e}")
 
+
 # zgodność wstecz: wiele miejsc może używać starej nazwy
 zapisz_log = log_akcja
+
 
 def log_magazyn(akcja: str, dane: dict) -> None:
     """
