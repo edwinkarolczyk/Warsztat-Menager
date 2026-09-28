@@ -1605,6 +1605,9 @@ class ZleceniaView(ttk.Frame):
         mapped = self._order_rows.get(iid, {})
         if not mapped:
             return
+        if _is_linked_source_disposition(mapped):
+            self._on_open_source()
+            return
         self._on_edit()
 
     # endregion ---------------------------------------------------------
