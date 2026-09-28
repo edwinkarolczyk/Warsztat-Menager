@@ -196,6 +196,7 @@ _DYSP_MACHINE_STATUS_CACHE: dict[str, str] | None = None
 _DYSP_TOOL_INFO_CACHE: dict[str, dict[str, Any]] | None = None
 _DYSP_MACHINE_INFO_CACHE: dict[str, dict[str, Any]] | None = None
 _DYSP_ORDER_INFO_CACHE: dict[str, dict[str, Any]] | None = None
+_DYSP_WAREHOUSE_INFO_CACHE: dict[str, dict[str, Any]] | None = None
 
 
 def _normalize_object_id(value: Any) -> set[str]:
@@ -309,6 +310,8 @@ def _source_type(item: dict[str, Any]) -> str:
         return "maszyna"
     if typ == "narzedzie":
         return "narzedzie"
+    if typ == "magazyn":
+        return "magazyn"
     return ""
 
 
@@ -329,6 +332,16 @@ def _source_object_id(item: dict[str, Any]) -> str:
             meta.get("order_id")
             or meta.get("nr_zlecenia")
             or meta.get("zlecenie_id")
+            or ""
+        ).strip()
+    if kind == "magazyn":
+        marker = ":surowiec:"
+        if marker in raw.casefold():
+            return str(meta.get("surowiec") or raw.split(marker, 1)[1]).strip()
+        return raw or str(
+            meta.get("surowiec")
+            or meta.get("item_id")
+            or meta.get("kod")
             or ""
         ).strip()
     return raw
@@ -395,6 +408,52 @@ def _load_machine_info_cache() -> dict[str, dict[str, Any]]:
     return cache
 
 
+def _load_warehouse_info_cache() -> dict[str, dict[str, Any]]:
+    global _DYSP_WAREHOUSE_INFO_CACHE
+    if _DYSP_WAREHOUSE_INFO_CACHE is not None:
+        return _DYSP_WAREHOUSE_INFO_CACHE
+
+    cache: dict[str, dict[str, Any]] = {}
+    try:
+        from gui_magazyn import _load_data
+        items, _order = _load_data()
+    except Exception:
+        items = {}
+
+    for item_id, row in (items or {}).items():
+        if not isinstance(row, dict):
+            continue
+        rid = str(
+            row.get("id")
+            or row.get("kod")
+            or row.get("symbol")
+            or item_id
+            or ""
+        ).strip()
+        if not rid:
+            continue
+        try:
+            stan = float(str(row.get("stan", row.get("ilosc", row.get("ilość", 0))) or 0).replace(",", "."))
+        except Exception:
+            stan = 0.0
+        try:
+            rezerwacje = max(0.0, float(str(row.get("rezerwacje", 0) or 0).replace(",", ".")))
+        except Exception:
+            rezerwacje = 0.0
+        cache[rid.casefold()] = {
+            "id": rid,
+            "name": str(row.get("nazwa") or row.get("name") or "").strip(),
+            "typ": str(row.get("typ") or row.get("type") or "").strip(),
+            "stan": stan,
+            "rezerwacje": rezerwacje,
+            "dostepne": max(0.0, stan - rezerwacje),
+            "jednostka": str(row.get("jednostka") or row.get("jm") or "").strip(),
+        }
+
+    _DYSP_WAREHOUSE_INFO_CACHE = cache
+    return cache
+
+
 def _load_order_info_cache() -> dict[str, dict[str, Any]]:
     global _DYSP_ORDER_INFO_CACHE
     if _DYSP_ORDER_INFO_CACHE is not None:
@@ -422,6 +481,8 @@ def _source_live_info(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if kind == "planista":
         return _load_order_info_cache().get(object_id.casefold())
+    if kind == "magazyn":
+        return _load_warehouse_info_cache().get(object_id.casefold())
     cache = _load_machine_info_cache() if kind == "maszyna" else _load_tool_info_cache()
     for key in _normalize_object_id(object_id):
         info = cache.get(key)
@@ -430,10 +491,18 @@ def _source_live_info(item: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _is_linked_source_disposition(item: dict[str, Any]) -> bool:
-    # Powiązanie wynika z zapisanego typu + ID, nie z chwilowej dostępności
-    # źródła. Awaria odczytu źródła nie może odblokować drugiego miejsca edycji.
+def _has_source_navigation(item: dict[str, Any]) -> bool:
     return bool(_source_type(item) and _source_object_id(item))
+
+
+def _is_linked_source_disposition(item: dict[str, Any]) -> bool:
+    # Planista/Maszyny/Narzędzia mają własny workflow stanu i blokują drugi
+    # edytor w Dyspozycjach. Magazyn dostaje nawigację i dane live, ale ręczne
+    # dyspozycje magazynowe zachowują dotychczasowe akcje statusu.
+    return bool(
+        _source_type(item) in {"planista", "maszyna", "narzedzie"}
+        and _source_object_id(item)
+    )
 
 
 def _source_object_label(item: dict[str, Any]) -> str:
@@ -444,6 +513,9 @@ def _source_object_label(item: dict[str, Any]) -> str:
         return _dysp_object_label(item)
     if kind == "planista":
         return f"Planista • {object_id}"
+    if kind == "magazyn":
+        name = str((live or {}).get("name") or "").strip()
+        return f"Magazyn • {object_id}" + (f" {name}" if name else "")
     label = "Maszyna" if kind == "maszyna" else "Narzędzie"
     name = str((live or {}).get("name") or "").strip()
     return f"{label} • {object_id}" + (f" {name}" if name else "")
@@ -465,6 +537,12 @@ def _live_object_state_label(item: dict[str, Any]) -> str:
             done_txt = str(live.get("wykonano") or "0")
         status = str(live.get("status") or "").strip()
         return f"{done_txt}/{qty_txt} szt." + (f" • {status}" if status else "")
+    if kind == "magazyn":
+        stan = float(live.get("stan") or 0)
+        dostepne = float(live.get("dostepne") or 0)
+        unit = str(live.get("jednostka") or "").strip()
+        suffix = f" {unit}" if unit else ""
+        return f"Stan {stan:g}{suffix} • dostępne {dostepne:g}{suffix}"
     return str(live.get("status") or "—").strip() or "—"
 
 
