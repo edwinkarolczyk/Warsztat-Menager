@@ -584,7 +584,7 @@ def panel_magazyn(root, frame, login=None, rola=None):
     setattr(root, "_wm_rola", rola or "")
     setattr(frame, "rola", rola or "")
     setattr(frame, "login", login or "")
-    open_panel_magazyn(root, container=frame)
+    return open_panel_magazyn(root, container=frame)
 
 
 def panel_jarvis(root, frame, login=None, rola=None):
@@ -1183,12 +1183,14 @@ def uruchom_panel(root, login, rola):
             "narzedzie": "narzedzia",
             "narzędzie": "narzedzia",
             "narzedzia": "narzedzia",
+            "magazyn": "magazyn",
         }
         key = aliases.get(str(module_key or "").strip().casefold(), "")
         targets = {
             "planowanie": (panel_planowanie, "Planista"),
             "maszyny": (panel_maszyny, "Maszyny"),
             "narzedzia": (panel_narzedzia, "Narzędzia"),
+            "magazyn": (panel_magazyn, "Magazyn"),
         }
         target = targets.get(key)
         if target is None:
