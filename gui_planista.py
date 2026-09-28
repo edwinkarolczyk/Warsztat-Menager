@@ -22,11 +22,15 @@
 
 from __future__ import annotations
 
+import base64
 import calendar
 import html
+import io
 import os
 import tkinter as tk
 import webbrowser
+
+import qrcode
 from datetime import date
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -170,6 +174,22 @@ def _work_order_output_path(order):
     return folder / f"zlecenie_{safe_id}.html"
 
 
+def _work_order_qr_payload(order) -> str:
+    order_id = str((order or {}).get("id") or "").strip()
+    return f"WM:PLANISTA:ORDER:{order_id}" if order_id else ""
+
+
+def _work_order_qr_data_uri(order) -> str:
+    payload = _work_order_qr_payload(order)
+    if not payload:
+        return ""
+    image = qrcode.make(payload)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
 def _work_order_html(order):
     try:
         raw_summary = ZL.material_bar_summary(order)
@@ -279,13 +299,20 @@ def _work_order_html(order):
     except Exception:
         remaining = 0.0
 
+    qr_payload = _work_order_qr_payload(order)
+    qr_data_uri = _work_order_qr_data_uri(order)
+
     return f"""<!doctype html>
 <html lang='pl'><head><meta charset='utf-8'><title>Zlecenie {html.escape(str(order.get('id') or ''))}</title>
 <style>
 @page {{ size: A5 portrait; margin: 7mm; }}
 body {{ font-family: Arial, sans-serif; font-size: 9.5pt; color:#111; margin:0; }}
-h1 {{ font-size:15pt; margin:0 0 4mm; }}
+h1 {{ font-size:15pt; margin:0; }}
 h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
+.header {{ display:flex; justify-content:space-between; align-items:flex-start; gap:4mm; margin-bottom:3mm; }}
+.header-title {{ flex:1 1 auto; }}
+.qr-block {{ flex:0 0 26mm; text-align:center; font-size:6.7pt; line-height:1.15; color:#333; }}
+.qr-block img {{ width:24mm; height:24mm; display:block; margin:0 auto 1mm; image-rendering:pixelated; }}
 .meta {{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm 7mm; margin-bottom:4mm; }}
 .wide {{ grid-column:1 / -1; }}
 .warn-inline {{ color:#922; font-size:7.5pt; }}
@@ -301,7 +328,17 @@ th {{ background:#eee; }}
 .operations-note {{ margin-top:2mm; padding:1.8mm 2mm; border:1px solid #777; font-weight:bold; }}
 .stock-note {{ margin:1.5mm 0 0; }}
 </style></head><body>
-<h1>ZLECENIE DO WYKONANIA</h1>
+<div class='header'>
+  <div class='header-title'>
+    <h1>ZLECENIE DO WYKONANIA</h1>
+    <div class='small'>Skanuj QR w WMM, aby otworzyć to zlecenie w Planista.</div>
+  </div>
+  <div class='qr-block'>
+    {f"<img alt='QR zlecenia {html.escape(str(order.get('id') or ''))}' src='{qr_data_uri}'>" if qr_data_uri else ""}
+    <b>{html.escape(str(order.get('id') or ''))}</b><br>
+    <span>{html.escape(qr_payload)}</span>
+  </div>
+</div>
 <div class='meta'>
 <div><b>Zlecenie warsztatowe:</b> {html.escape(str(order.get('id') or ''))}</div>
 <div><b>Zlecenie wew:</b> {html.escape(str(order.get('zlec_wew') or '—'))}</div>
