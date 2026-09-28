@@ -41,6 +41,8 @@ jobs:
       - name: Compile whole repository
         run: |
           python -m compileall -q .
+      - name: Run tool disposition bidirectional sync regressions
+        run: pytest -q tests/test_tool_disposition_sync.py
       - name: Run WM/WMM stabilization compatibility concurrency and retry checks
         run: |
           pytest -q \
