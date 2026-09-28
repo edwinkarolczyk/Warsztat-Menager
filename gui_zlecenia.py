@@ -1146,7 +1146,6 @@ class ZleceniaView(ttk.Frame):
             return
         kind = _source_type(mapped)
         object_id = _source_object_id(mapped)
-        live = _source_live_info(mapped)
         if not kind or not object_id:
             messagebox.showinfo(
                 "Dyspozycje",
@@ -1156,39 +1155,23 @@ class ZleceniaView(ttk.Frame):
             )
             return
 
+        module_key = {
+            "planista": "planowanie",
+            "maszyna": "maszyny",
+            "narzedzie": "narzedzia",
+        }.get(kind, "")
         try:
-            if kind == "planista":
-                from gui_planista_panel import open_planista_order
-
-                open_planista_order(
-                    self.winfo_toplevel(),
-                    object_id,
-                    login=self._login_user,
-                    rola=self._login_role,
-                )
-            elif kind == "maszyna":
-                from gui_maszyny import open_machine_usage
-
-                label = str(live.get("name") or "").strip()
-                open_machine_usage(
-                    self.winfo_toplevel(),
-                    object_id,
-                    label=label,
-                )
-            elif kind == "narzedzie":
-                from gui_narzedzia import open_tool_from_external_context
-
-                opened = open_tool_from_external_context(
-                    self.winfo_toplevel(),
-                    object_id,
-                )
-                if not opened:
-                    raise RuntimeError(f"Nie znaleziono narzędzia {object_id}.")
+            root = self.winfo_toplevel()
+            opener = getattr(root, "_wm_open_module", None)
+            if not callable(opener):
+                raise RuntimeError("Główny panel WM nie udostępnia nawigacji modułów.")
+            if not opener(module_key, object_id):
+                raise RuntimeError("Nie udało się przełączyć na moduł źródłowy.")
         except Exception as exc:
-            logger.exception("[DYSP][SOURCE] Nie udało się otworzyć źródła: %s", exc)
+            logger.exception("[DYSP][SOURCE] Nie udało się przełączyć do źródła: %s", exc)
             messagebox.showerror(
                 "Dyspozycje",
-                f"Nie udało się otworzyć powiązanego obiektu:\n{exc}",
+                f"Nie udało się przejść do powiązanego obiektu:\n{exc}",
                 parent=self,
             )
 
