@@ -57,6 +57,15 @@ def test_disposition_source_navigation_switches_main_modules_without_toplevel():
         ({"typ_dyspozycji": "zlecenie_wykonania", "obiekt_id": "zlecenie:000012"}, ("planowanie", "000012")),
         ({"typ_dyspozycji": "maszyna", "obiekt_id": "75"}, ("maszyny", "75")),
         ({"typ_dyspozycji": "narzedzie", "obiekt_id": "507"}, ("narzedzia", "507")),
+        ({"typ_dyspozycji": "magazyn", "obiekt_id": "SR-01"}, ("magazyn", "SR-01")),
+        (
+            {
+                "typ_dyspozycji": "magazyn",
+                "obiekt_id": "zlecenie:000012:surowiec:SR-02",
+                "meta": {"surowiec": "SR-02"},
+            },
+            ("magazyn", "SR-02"),
+        ),
     ]
     for row, expected in cases:
         view, root = _source_view(row)
