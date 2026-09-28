@@ -13,6 +13,10 @@ def _setup_store(tmp_path, monkeypatch, rows):
     return path
 
 
+def _saved_rows(path):
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return raw.get("items", []) if isinstance(raw, dict) else raw
+
 def _dysp(did, object_id="507", status="nowa"):
     return DS.make_dyspozycja(
         typ_dyspozycji="narzedzie",
@@ -31,7 +35,7 @@ def test_w_ostrzeniu_starts_single_linked_disposition_and_records_worker(tmp_pat
         actor="Edwin", previous_status="Do ostrzenia", new_status="W ostrzeniu",
     )
     assert result["action"] == "start"
-    saved = json.loads(path.read_text(encoding="utf-8"))[0]
+    saved = _saved_rows(path)[0]
     assert saved["status"] == "w_toku"
     assert saved["wykonuje"] == "Edwin"
     hist = saved["meta"]["historia_statusow"]
@@ -53,7 +57,7 @@ def test_po_ostrzeniu_closes_and_remembers_exact_closer(tmp_path, monkeypatch):
     )
     assert result["action"] == "close"
     assert result["zamkniete_przez"] == "Edwin"
-    saved = json.loads(path.read_text(encoding="utf-8"))[0]
+    saved = _saved_rows(path)[0]
     assert saved["status"] == "zamknieta"
     assert saved["zamkniete_przez"] == "Edwin"
     assert saved["zamknieto_at"]
@@ -69,7 +73,7 @@ def test_sprawne_after_repair_closes_old_tool_disposition(tmp_path, monkeypatch)
         actor="Sebastian", previous_status="w naprawie", new_status="sprawne",
     )
     assert result["action"] == "close"
-    saved = json.loads(path.read_text(encoding="utf-8"))[0]
+    saved = _saved_rows(path)[0]
     assert saved["zamkniete_przez"] == "Sebastian"
 
 
@@ -82,7 +86,7 @@ def test_multiple_new_dispositions_are_not_guessed_or_closed(tmp_path, monkeypat
     assert result["changed"] is False
     assert result["reason"] == "no_unique_active_disposition"
     assert result["active_count"] == 2
-    saved = json.loads(path.read_text(encoding="utf-8"))
+    saved = _saved_rows(path)
     assert {row["status"] for row in saved} == {"nowa"}
 
 
@@ -93,7 +97,7 @@ def test_other_tool_disposition_is_never_touched(tmp_path, monkeypatch):
         actor="Edwin", previous_status="W ostrzeniu", new_status="Po ostrzeniu",
     )
     assert result["reason"] == "no_active_disposition"
-    assert json.loads(path.read_text(encoding="utf-8"))[0]["status"] == "w_toku"
+    assert _saved_rows(path)[0]["status"] == "w_toku"
 
 
 def test_unnamed_wmm_actor_cannot_auto_close(tmp_path, monkeypatch):
@@ -103,7 +107,7 @@ def test_unnamed_wmm_actor_cannot_auto_close(tmp_path, monkeypatch):
         actor="WMM", previous_status="W ostrzeniu", new_status="Po ostrzeniu",
     )
     assert result["reason"] == "missing_named_actor"
-    saved = json.loads(path.read_text(encoding="utf-8"))[0]
+    saved = _saved_rows(path)[0]
     assert saved["status"] == "w_toku"
     assert not saved.get("zamkniete_przez")
 
