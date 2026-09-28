@@ -11,11 +11,11 @@ if not exist "%WM_BUILD_DIR%" mkdir "%WM_BUILD_DIR%"
 if not exist "%WM_DIST_DIR%" mkdir "%WM_DIST_DIR%"
 
 echo [WM-EXE] Preparing Windows icon and version metadata...
-py -3.13 "%CD%\tools\generate_windows_version_info.py"
+py -3.12 "%CD%\tools\generate_windows_version_info.py"
 if errorlevel 1 goto :fail
 
 echo [WM-EXE] Building WarsztatMenager.exe...
-py -3.13 -m PyInstaller --noconfirm --clean ^
+py -3.12 -m PyInstaller --noconfirm --clean ^
     --workpath "%WM_BUILD_DIR%\pyinstaller" ^
     --distpath "%WM_DIST_DIR%" ^
     "%CD%\wm.spec"
