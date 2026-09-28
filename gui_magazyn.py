@@ -865,6 +865,34 @@ class MagazynFrame(ttk.Frame):
         # wypełnij widok z filtrami
         self._apply_filters()
 
+    def focus_object(self, item_id: str) -> bool:
+        """Wyczyść filtry i zaznacz pozycję wskazaną z Dyspozycji."""
+        wanted = str(item_id or "").strip()
+        if not wanted:
+            return False
+
+        self.refresh()
+        self._clear_filters()
+
+        wanted_cf = wanted.casefold()
+        for iid in self.tree.get_children(""):
+            try:
+                values = self.tree.item(iid, "values") or ()
+            except Exception:
+                continue
+            candidate = str(values[0] if values else "").strip()
+            if candidate.casefold() != wanted_cf:
+                continue
+            try:
+                self.tree.selection_set(iid)
+                self.tree.focus(iid)
+                self.tree.see(iid)
+                self.tree.focus_set()
+                return True
+            except Exception:
+                return False
+        return False
+
     def _apply_filters(self):
         # wyczyść widok
         for iid in self.tree.get_children():
