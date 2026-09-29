@@ -592,6 +592,20 @@ def _machine_reviews(machine: Dict[str, Any]) -> List[Dict[str, Any]]:
     return _normalize_machine_reviews_in_place(machine)
 
 
+def _repair_duplicate_reviews_in_rows(rows: List[Dict[str, Any]]) -> int:
+    """Scal duplikaty przeglądów we wszystkich maszynach i zwróć liczbę usuniętych kopii."""
+
+    removed = 0
+    for machine in rows or []:
+        if not isinstance(machine, dict):
+            continue
+        before = machine.get("reviews")
+        before_count = len(before) if isinstance(before, list) else 0
+        normalized = _normalize_machine_reviews_in_place(machine)
+        removed += max(0, before_count - len(normalized))
+    return removed
+
+
 def _machine_default_review_type(machine: Dict[str, Any]) -> str:
     value = (
         machine.get("default_review_type")
@@ -2804,6 +2818,19 @@ def _open_machines_panel(
     had_rows = bool(rows)
     rows = ensure_machines_sample_if_empty(rows, primary_path)
     source_path = _detect_real_source(rows, primary_path, cfg)
+
+    # Jednorazowa, bezpieczna korekta starych duplikatów przeglądów.
+    # Dla aktywnego kanonicznego pliku zapisujemy oczyszczone dane od razu,
+    # żeby problem nie wracał po restarcie. Źródła legacy pozostawiamy bez
+    # automatycznej migracji — zostaną utrwalone przy zwykłym zapisie WM.
+    repaired_review_copies = _repair_duplicate_reviews_in_rows(rows)
+    if repaired_review_copies and os.path.normpath(source_path) == os.path.normpath(primary_path):
+        if _save_machines(primary_path, rows):
+            logger.warning(
+                "[Maszyny][REVIEWS] Trwale usunięto %d technicznych kopii przeglądów.",
+                repaired_review_copies,
+            )
+
     rows_cache: List[Dict] = list(rows)
 
     schedule_year = SCHEDULE_YEAR
