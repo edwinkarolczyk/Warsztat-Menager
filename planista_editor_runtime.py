@@ -1246,6 +1246,12 @@ def _install_raw_kind_editor() -> None:
             updated.pop("fi", None)
             updated.pop("wymiar", None)
             updated.update(GMB._raw_dimension_fields(new_name, size, mode))
+            if mode == "szt":
+                updated["jednostka"] = "szt"
+                updated["dlugosc_sztangi_mm"] = 0
+                updated["dlugosc"] = 0
+            else:
+                updated["jednostka"] = "mm"
             fresh.add_or_update_surowiec(updated)
 
         self.model.raw_kinds = fresh.raw_kinds
