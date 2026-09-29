@@ -21,6 +21,7 @@ SKIP_DIRS = {
     "env",
     "build",
     "dist",
+    "tests",
 }
 BUTTON_ATTR = "Button"
 CONFIG_METHODS = {"config", "configure"}
