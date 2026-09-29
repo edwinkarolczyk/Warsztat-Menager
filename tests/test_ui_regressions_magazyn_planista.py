@@ -6,7 +6,14 @@ import pytest
 
 import rc1_magazyn_fix as rc1
 import planista_stock_runtime as planista_stock
-from gui_magazyn_bom import WarehouseModel, _raw_dimension_fields, _raw_dimension_label, _raw_piece_meter_text
+from gui_magazyn_bom import (
+    WarehouseModel,
+    SEMI_COLUMN_WIDTHS,
+    _raw_dimension_fields,
+    _raw_dimension_label,
+    _raw_piece_meter_text,
+    configure_semiproduct_tree,
+)
 from rc1_magazyn_fix import (
     _canonical_semiproduct_raw_relation,
     _catalog_raw_materials_only,
@@ -240,3 +247,40 @@ def test_piece_raw_stock_uses_pieces_not_bar_length():
     assert state["available"] == 120
     assert state["bars"] == 125
     assert state["length"] == 0
+
+
+def test_semiproduct_columns_keep_labels_and_second_screen_proportions():
+    class FakeTree:
+        def __init__(self):
+            self.columns = (
+                "nazwa", "surowiec", "ilosc", "jednostka",
+                "czynnosci", "produkty", "id",
+            )
+            self.headings = {}
+            self.widths = {}
+
+        def cget(self, key):
+            assert key == "columns"
+            return self.columns
+
+        def heading(self, key, **kwargs):
+            self.headings[key] = kwargs
+
+        def column(self, key, **kwargs):
+            self.widths[key] = kwargs
+
+    tree = FakeTree()
+    configure_semiproduct_tree(tree)
+
+    assert tree.headings["nazwa"]["text"].startswith("Półprodukt")
+    assert tree.headings["produkty"]["text"].startswith("Używany w produktach")
+    assert tree.widths["nazwa"]["width"] == 150
+    assert tree.widths["surowiec"]["width"] == 175
+    assert tree.widths["ilosc"]["width"] == 90
+    assert tree.widths["jednostka"]["width"] == 70
+    assert tree.widths["czynnosci"]["width"] == 410
+    assert tree.widths["produkty"]["width"] == 340
+    assert tree.widths["id"]["width"] == 95
+    assert tree.widths["czynnosci"]["stretch"] is True
+    assert tree.widths["produkty"]["stretch"] is True
+    assert tree.widths["id"]["stretch"] is False
