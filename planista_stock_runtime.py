@@ -590,7 +590,7 @@ def _install_planista_raw_ui() -> None:
                 "",
                 "end",
                 values=(
-                    rec.get("nazwa", ""),
+                    GMB._diameter_display(rec.get("nazwa", "")),
                     rec.get("rodzaj", ""),
                     rec.get("rozmiar", ""),
                     _fmt_num(state["length"]),
