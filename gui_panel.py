@@ -1,6 +1,9 @@
 # WM-VERSION: 0.3.0
 # Plik: gui_panel.py
 # version: 1.6.19
+# Zmiany 1.6.20:
+# - Podsumowanie „co zmieniło się od ostatniego logowania” uruchamia się centralnie po każdym zalogowaniu.
+# - Wejście w tryb Gościa resetuje znacznik podsumowania, aby kolejne logowanie mogło pokazać świeże zmiany.
 # Zmiany 1.6.19:
 # - Dodano numer aktualnej wersji aplikacji do stałej stopki głównego panelu.
 # Zmiany 1.6.18:
@@ -1829,6 +1832,30 @@ def uruchom_panel(root, login, rola):
             pass
 
     root.after_idle(_wm_install_after_gui)
+
+    # Jedno, centralne wejście dla podsumowania po logowaniu.
+    # Dodatkowe runtime'y mogą nadal je wywołać, ale login_summary_runtime
+    # blokuje duplikat w ramach tej samej sesji.
+    login_key = str(login or "").strip().casefold()
+    role_key = str(rola or "").strip().casefold()
+    guest_keys = {"", "guest", "gość", "gosc", "niezalogowany"}
+    if login_key in guest_keys or role_key in guest_keys:
+        try:
+            setattr(root, "_wm_login_summary_shown", "")
+        except Exception:
+            pass
+    else:
+        def _wm_show_login_summary():
+            try:
+                from login_summary_runtime import show_login_summary
+                show_login_summary(root, str(login))
+            except Exception as exc:
+                log_akcja(f"[LOGIN_SUMMARY] Nie udało się pokazać podsumowania: {exc}")
+        try:
+            root.after_idle(_wm_show_login_summary)
+        except Exception:
+            _wm_show_login_summary()
+
     root.bind("<<SidebarReload>>", lambda _e: _build_sidebar(initial=False))
 
     def _should_ignore_shortcut(event) -> bool:
