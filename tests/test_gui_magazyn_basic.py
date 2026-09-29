@@ -15,17 +15,16 @@ def test_format_row_handles_optional_fields():
     row = gm._format_row("ID1", item)
     assert row == (
         "ID1",
-        "-",
-        "-",
-        "-",
         "Elem",
+        "-",
         "5",
         "0",
         "5",
+        "-",
+        "-",
         "kg",
         "-",
         "-",
-        "cut, weld",
     )
 
 
@@ -80,9 +79,24 @@ def test_format_row_avoids_scientific_notation_and_shows_bar_data():
 
     row = gm._format_row("SUR-015", item)
 
-    assert row[4] == "Śruba M10"
-    assert row[5] == "9 999 910"
-    assert row[6] == "2 220"
-    assert row[7] == "9 997 690"
-    assert row[9] == "999 769"
-    assert row[10] == "10 mm (0,01 m)"
+    assert row[1] == "Śruba M10"
+    assert row[3] == "9 999 910"
+    assert row[4] == "2 220"
+    assert row[5] == "9 997 690"
+    assert row[6] == "999 769"
+    assert row[7] == "10 mm (0,01 m)"
+
+
+def test_existing_fi_name_is_presented_with_diameter_symbol():
+    row = gm._format_row(
+        "SUR-001",
+        {
+            "typ": "surowiec",
+            "nazwa": "Pręt Fi 8",
+            "rozmiar": "8",
+            "stan": 6000,
+            "jednostka": "mm",
+            "dlugosc_sztangi_mm": 6000,
+        },
+    )
+    assert row[1] == "Pręt Ø8"
