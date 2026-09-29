@@ -1,4 +1,5 @@
-# version: 3.9
+# version: 4.0
+# 4.0: WM 1.0.25 - trwałe czyszczenie duplikatów przeglądów przy wczytaniu aktywnego pliku maszyn.
 # 3.9: WM 1.0.24 - naprawa duplikatów przeglądów maszyn i QR zlecenia Planisty dla WMM.
 # 3.8: WM 1.0.23 - Dyspozycje Magazynu pokazują dane live i przechodzą do pozycji w głównym module Magazyn.
 # 3.7: WM 1.0.22 - jedna instancja WM, nawigacja Dyspozycji w głównym panelu i większa edycja Maszyn.
@@ -24,7 +25,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.24"
+__version__ = "1.0.25"
 
 
 def get_version() -> str:
