@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import rc1_magazyn_fix as rc1
+import planista_stock_runtime as planista_stock
 from gui_magazyn_bom import WarehouseModel, _raw_dimension_fields, _raw_dimension_label, _raw_piece_meter_text
 from rc1_magazyn_fix import (
     _canonical_semiproduct_raw_relation,
@@ -218,3 +219,24 @@ def test_model_saves_only_canonical_semiproduct_raw_relation(tmp_path):
 def test_planista_raw_stock_shows_pieces_and_meters():
     assert _raw_piece_meter_text(120, 6000) == "120 szt. (6 m)"
     assert _raw_piece_meter_text(3, 18500) == "3 szt. (18.5 m)"
+
+
+def test_piece_raw_stock_uses_pieces_not_bar_length():
+    state = planista_stock._stock_view(
+        "SUR-015",
+        {"jednostka": "szt", "dlugosc_sztangi_mm": 0},
+        {
+            "SUR-015": {
+                "stan": 125,
+                "rezerwacje": 5,
+                "jednostka": "szt",
+                "dlugosc_sztangi_mm": 0,
+            }
+        },
+    )
+
+    assert state["unit"] == "szt"
+    assert state["stock"] == 125
+    assert state["available"] == 120
+    assert state["bars"] == 125
+    assert state["length"] == 0
