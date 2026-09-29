@@ -1,5 +1,6 @@
 # Plik: gui_magazyn_edit.py
-# version: 1.3
+# version: 1.4
+# - 1.4: pełna bezpieczna edycja surowca: metadane edytowalne, stan i rezerwacje tylko do odczytu.
 # - 1.3: w edycji istniejącej pozycji ukryto zadania technologiczne bez zmiany zapisanych danych.
 # - 1.2: automatyczne, stabilne ID pozycji oraz wspólna pomoc kontekstowa „!”.
 # - 1.1: tryb Dodaj tworzy pełną kartotekę magazynową z walidacją.
@@ -45,7 +46,13 @@ HELP = {
         "Od sekcji zależy także automatyczny prefiks ID."
     ),
     "nazwa": "Wpisz czytelną nazwę pozycji. Nazwa może się później zmienić bez zrywania powiązań po ID.",
-    "rozmiar": "Podaj rozmiar lub przekrój, np. fi8 albo 30×30×2. Pole ułatwia wyszukiwanie właściwego materiału.",
+    "rozmiar": "Podaj rozmiar lub przekrój, np. Ø8, M10 albo 30×30×2. Pole ułatwia wyszukiwanie właściwego materiału.",
+    "rodzaj": "Rodzaj surowca jest wspólny z Planistą. Od rodzaju zależy sposób opisu: Ø, Wymiar albo Szt.",
+    "tryb": "Tryb Ø / Wymiar / Szt. wynika z wybranego rodzaju surowca i nie jest zmieniany osobno dla pojedynczej pozycji.",
+    "dl_sztangi": "Długość jednej sztangi w mm. Dla surowca prowadzonego w sztukach pole nie jest używane.",
+    "rezerwacje": "Rezerwacje są sterowane przez zlecenia i w tym oknie są tylko do odczytu.",
+    "dostepne": "Dostępne = stan fizyczny minus rezerwacje. Wartość tylko do odczytu.",
+    "sztangi": "Dostępna liczba pełnych sztang; dla surowca sztukowego jest to liczba dostępnych sztuk.",
     "stan": "Podaj ilość znajdującą się na magazynie w chwili tworzenia kartoteki. Kolejne przyjęcia wykonuj przez PZ, aby zachować historię ruchu.",
     "jednostka": "Wybierz jednostkę, w której prowadzony jest stan tej pozycji. Powinna być zgodna z ilościami używanymi później w półproduktach i BOM.",
     "lokalizacja": "Wpisz miejsce składowania, np. regał A2 lub hala 1. Dzięki temu pozycję można szybko odnaleźć fizycznie.",
@@ -103,6 +110,49 @@ def _parse_non_negative_number(value: str, field_name: str) -> float:
     if number < 0:
         raise ValueError(f"{field_name} nie może być ujemny.")
     return number
+
+
+def _is_raw_item(item: dict) -> bool:
+    if not isinstance(item, dict):
+        return False
+    item_type = str(item.get("typ") or "").strip().casefold()
+    section = str(item.get("sekcja") or "").strip().casefold()
+    return item_type in {"surowiec", "surowce", "materiał", "material"} or section == "surowce"
+
+
+def _normalized_stock_unit(value) -> str:
+    unit = str(value or "").strip().casefold()
+    return "szt" if unit in {"szt", "szt."} else "mm"
+
+
+def _fmt_edit_number(value) -> str:
+    number = _parse_non_negative_number(str(value or "0"), "Wartość")
+    return str(int(number)) if number.is_integer() else f"{number:.3f}".rstrip("0").rstrip(".")
+
+
+def _raw_mode_label(mode: str) -> str:
+    key = str(mode or "").strip().casefold()
+    return "Ø" if key == "fi" else "Szt." if key == "szt" else "Wymiar"
+
+
+def _raw_kind_modes_for_item(item: dict) -> dict[str, str]:
+    try:
+        from planista_stock_runtime import raw_kind_modes
+        modes = dict(raw_kind_modes())
+    except Exception:
+        modes = {"Rura": "fi", "Pręt": "fi", "Profil": "wymiar"}
+
+    current = str((item or {}).get("rodzaj") or "").strip()
+    if current and current not in modes:
+        unit = _normalized_stock_unit((item or {}).get("jednostka"))
+        if unit == "szt":
+            inferred = "szt"
+        elif (item or {}).get("fi") not in (None, ""):
+            inferred = "fi"
+        else:
+            inferred = "wymiar"
+        modes[current] = inferred
+    return modes
 
 
 def _next_item_id(items: dict, section: str) -> str:
@@ -171,6 +221,8 @@ class MagazynEditDialog:
         self.data = _safe_load()
         self.items = self.data.setdefault("items", {})
         self.item = self.items.get(item_id, {}) if item_id is not None else {}
+        self.is_raw = (not self.is_new) and _is_raw_item(self.item)
+        self.is_linked_raw = self.is_raw and bool(self.item.get("powiazanie_planista"))
 
         self.win = tk.Toplevel(master)
         self.win.title("Nowa pozycja Magazynu" if self.is_new else f"Edycja pozycji: {item_id}")
@@ -265,6 +317,10 @@ class MagazynEditDialog:
         add_help_button(btns, HELP["cancel"]).pack(side="right", padx=(3, 0))
 
     def _build_edit_form(self, frm):
+        if self.is_raw:
+            self._build_raw_edit_form(frm)
+            return
+
         ttk.Label(frm, text="ID pozycji:").grid(row=0, column=0, sticky="w", pady=2)
         ttk.Label(frm, text=str(self.item_id or "")).grid(row=0, column=1, sticky="w", pady=2)
         add_help_button(frm, HELP["id"], row=0, column=2, padx=(6, 0), pady=2, sticky="w")
@@ -290,6 +346,222 @@ class MagazynEditDialog:
         cancel_btn.pack(side="right", padx=(8, 0))
         add_help_button(btns, HELP["cancel"]).pack(side="right", padx=(3, 0))
 
+    def _build_raw_edit_form(self, frm):
+        self.raw_kind_modes = _raw_kind_modes_for_item(self.item)
+        current_kind = str(self.item.get("rodzaj") or "").strip()
+        if not current_kind and self.raw_kind_modes:
+            current_kind = next(iter(self.raw_kind_modes))
+
+        self.var_edit_name = tk.StringVar(value=str(self.item.get("nazwa") or ""))
+        self.var_edit_kind = tk.StringVar(value=current_kind)
+        self.var_edit_mode = tk.StringVar()
+        self.var_roz = tk.StringVar(
+            value=str(
+                self.item.get("rozmiar")
+                or self.item.get("wymiar")
+                or self.item.get("fi")
+                or ""
+            )
+        )
+        self.var_edit_bar = tk.StringVar(
+            value=_fmt_edit_number(
+                self.item.get("dlugosc_sztangi_mm", self.item.get("dlugosc", 0))
+            )
+        )
+        self.var_edit_location = tk.StringVar(value=str(self.item.get("lokalizacja") or ""))
+        self.var_edit_min = tk.StringVar(value=_fmt_edit_number(self.item.get("stan_min", 0)))
+        self.var_edit_unit = tk.StringVar()
+        self.var_edit_stock = tk.StringVar()
+        self.var_edit_reserved = tk.StringVar()
+        self.var_edit_available = tk.StringVar()
+        self.var_edit_bars = tk.StringVar()
+        self._last_linear_bar_length = self.var_edit_bar.get()
+
+        self._field(
+            frm, 0, "ID pozycji:",
+            ttk.Entry(frm, textvariable=tk.StringVar(value=str(self.item_id or "")), width=42, state="readonly"),
+            "id",
+        )
+        self._field(
+            frm, 1, "Nazwa:",
+            ttk.Entry(frm, textvariable=self.var_edit_name, width=42),
+            "nazwa",
+        )
+        kind_box = ttk.Combobox(
+            frm,
+            textvariable=self.var_edit_kind,
+            values=tuple(self.raw_kind_modes.keys()),
+            state="readonly",
+            width=39,
+        )
+        self._field(frm, 2, "Rodzaj:", kind_box, "rodzaj")
+        self._field(
+            frm, 3, "Sposób wymiaru:",
+            ttk.Entry(frm, textvariable=self.var_edit_mode, width=42, state="readonly"),
+            "tryb",
+        )
+        self._field(
+            frm, 4, "Rozmiar / oznaczenie:",
+            ttk.Entry(frm, textvariable=self.var_roz, width=42),
+            "rozmiar",
+        )
+        self.ent_edit_bar = ttk.Entry(frm, textvariable=self.var_edit_bar, width=42)
+        self._field(frm, 5, "Długość sztangi [mm]:", self.ent_edit_bar, "dl_sztangi")
+        self._field(
+            frm, 6, "Stan minimalny:",
+            ttk.Entry(frm, textvariable=self.var_edit_min, width=42),
+            "stan_min",
+        )
+        self._field(
+            frm, 7, "Lokalizacja:",
+            ttk.Entry(frm, textvariable=self.var_edit_location, width=42),
+            "lokalizacja",
+        )
+        self._field(
+            frm, 8, "Jednostka:",
+            ttk.Entry(frm, textvariable=self.var_edit_unit, width=42, state="readonly"),
+            "jednostka",
+        )
+        self._field(
+            frm, 9, "Stan fizyczny:",
+            ttk.Entry(frm, textvariable=self.var_edit_stock, width=42, state="readonly"),
+            "stan",
+        )
+        self._field(
+            frm, 10, "Zarezerwowane:",
+            ttk.Entry(frm, textvariable=self.var_edit_reserved, width=42, state="readonly"),
+            "rezerwacje",
+        )
+        self._field(
+            frm, 11, "Dostępne:",
+            ttk.Entry(frm, textvariable=self.var_edit_available, width=42, state="readonly"),
+            "dostepne",
+        )
+        self._field(
+            frm, 12, "Dostępne sztangi / sztuki:",
+            ttk.Entry(frm, textvariable=self.var_edit_bars, width=42, state="readonly"),
+            "sztangi",
+        )
+
+        kind_box.bind("<<ComboboxSelected>>", lambda _e: self._sync_raw_edit_mode())
+        self._sync_raw_edit_mode()
+        self._refresh_raw_readonly_values()
+
+        ttk.Label(
+            frm,
+            text=(
+                "Stan fizyczny i rezerwacje są tylko do odczytu. "
+                "Stan zmieniaj przez Przyjęcie towaru / korektę, aby zachować historię."
+            ),
+            wraplength=560,
+        ).grid(row=13, column=0, columnspan=3, sticky="w", pady=(8, 2))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=14, column=0, columnspan=3, pady=(10, 0), sticky="e")
+        ttk.Button(btns, text="Zapisz", command=self.on_save).pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["save"]).pack(side="right", padx=(3, 0))
+        ttk.Button(btns, text="Przyjęcie towaru", command=self._open_pz).pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["pz"]).pack(side="right", padx=(3, 0))
+        ttk.Button(btns, text="Anuluj", command=self.win.destroy).pack(side="right", padx=(8, 0))
+        add_help_button(btns, HELP["cancel"]).pack(side="right", padx=(3, 0))
+
+    def _sync_raw_edit_mode(self):
+        if not self.is_raw:
+            return
+        mode = str(self.raw_kind_modes.get(self.var_edit_kind.get()) or "wymiar").casefold()
+        self.var_edit_mode.set(_raw_mode_label(mode))
+        self.var_edit_unit.set("szt" if mode == "szt" else "mm")
+        if mode == "szt":
+            current = self.var_edit_bar.get().strip()
+            if current not in {"", "0", "0.0"}:
+                self._last_linear_bar_length = current
+            self.var_edit_bar.set("0")
+            self.ent_edit_bar.configure(state="readonly")
+        else:
+            self.ent_edit_bar.configure(state="normal")
+            if self.var_edit_bar.get().strip() in {"", "0", "0.0"}:
+                self.var_edit_bar.set(self._last_linear_bar_length or "6000")
+        self._refresh_raw_readonly_values()
+
+    def _refresh_raw_readonly_values(self):
+        if not self.is_raw:
+            return
+        stock = _parse_non_negative_number(self.item.get("stan", 0), "Stan")
+        reserved = _parse_non_negative_number(self.item.get("rezerwacje", 0), "Rezerwacje")
+        available = max(0.0, stock - reserved)
+        unit = self.var_edit_unit.get().strip() or _normalized_stock_unit(self.item.get("jednostka"))
+        length = _parse_non_negative_number(self.var_edit_bar.get(), "Długość sztangi")
+        if unit == "szt":
+            bars = available
+        else:
+            bars = available / length if length > 0 else 0.0
+
+        self.var_edit_stock.set(f"{_fmt_edit_number(stock)} {unit}".strip())
+        self.var_edit_reserved.set(f"{_fmt_edit_number(reserved)} {unit}".strip())
+        self.var_edit_available.set(f"{_fmt_edit_number(available)} {unit}".strip())
+        suffix = "szt." if unit == "szt" else "sztang"
+        self.var_edit_bars.set(f"{_fmt_edit_number(bars)} {suffix}")
+
+    def _save_raw_edit(self):
+        name = self.var_edit_name.get().strip()
+        kind = self.var_edit_kind.get().strip()
+        size = self.var_roz.get().strip()
+        if not name:
+            raise ValueError("Podaj nazwę surowca.")
+        if not kind or kind not in self.raw_kind_modes:
+            raise ValueError("Wybierz poprawny rodzaj surowca.")
+        if not size:
+            raise ValueError("Podaj rozmiar / oznaczenie surowca.")
+
+        mode = str(self.raw_kind_modes.get(kind) or "wymiar").casefold()
+        bar_length = _parse_non_negative_number(
+            self.var_edit_bar.get(),
+            "Długość sztangi",
+        )
+        stock_min = _parse_non_negative_number(self.var_edit_min.get(), "Stan minimalny")
+        new_unit = "szt" if mode == "szt" else "mm"
+        old_unit = _normalized_stock_unit(self.item.get("jednostka"))
+        stock = _parse_non_negative_number(self.item.get("stan", 0), "Stan")
+        reserved = _parse_non_negative_number(self.item.get("rezerwacje", 0), "Rezerwacje")
+        if old_unit != new_unit and (stock > 0 or reserved > 0):
+            raise ValueError(
+                "Nie można zmienić sposobu ewidencji mm ↔ szt., gdy surowiec ma "
+                "stan lub rezerwacje. Najpierw rozlicz stan i rezerwacje."
+            )
+
+        if self.is_linked_raw:
+            from planista_stock_runtime import update_linked_raw_definition
+            update_linked_raw_definition(
+                str(self.item_id),
+                name=name,
+                kind=kind,
+                size=size,
+                bar_length_mm=bar_length,
+                location=self.var_edit_location.get(),
+                stock_min=stock_min,
+            )
+            self.data = _safe_load()
+            self.items = self.data.setdefault("items", {})
+            self.item = self.items.get(self.item_id, {})
+            return
+
+        self.item["nazwa"] = name
+        self.item["rodzaj"] = kind
+        self.item["rozmiar"] = size
+        self.item["jednostka"] = new_unit
+        self.item["lokalizacja"] = self.var_edit_location.get().strip()
+        self.item["stan_min"] = stock_min
+        self.item.pop("fi", None)
+        self.item.pop("wymiar", None)
+        if mode == "fi":
+            self.item["fi"] = size
+        elif mode == "wymiar":
+            self.item["wymiar"] = size
+        length = 0.0 if new_unit == "szt" else bar_length
+        self.item["dlugosc_sztangi_mm"] = length
+        self.item["dlugosc"] = length
+        _safe_save(self.data)
+
     def _open_pz(self):
         if self.is_new or not self.item_id:
             return
@@ -311,6 +583,8 @@ class MagazynEditDialog:
         self.data = _safe_load()
         self.items = self.data.setdefault("items", {})
         self.item = self.items.get(self.item_id, {})
+        if self.is_raw:
+            self._refresh_raw_readonly_values()
         if callable(self.on_saved):
             try:
                 self.on_saved(self.item_id)
@@ -364,17 +638,28 @@ class MagazynEditDialog:
 
             self.item_id = new_id
         else:
-            self.item["rozmiar"] = self.var_roz.get().strip()
+            if self.is_raw:
+                try:
+                    self._save_raw_edit()
+                except Exception as exc:
+                    messagebox.showerror(
+                        "Edycja surowca",
+                        str(exc),
+                        parent=self.win,
+                    )
+                    return
+            else:
+                self.item["rozmiar"] = self.var_roz.get().strip()
 
-            try:
-                _safe_save(self.data)
-            except Exception as exc:
-                messagebox.showerror(
-                    "Błąd zapisu",
-                    f"Nie udało się zapisać magazynu:\n{exc}",
-                    parent=self.win,
-                )
-                return
+                try:
+                    _safe_save(self.data)
+                except Exception as exc:
+                    messagebox.showerror(
+                        "Błąd zapisu",
+                        f"Nie udało się zapisać magazynu:\n{exc}",
+                        parent=self.win,
+                    )
+                    return
 
         if callable(self.on_saved):
             try:
