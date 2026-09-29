@@ -248,3 +248,61 @@ def test_actor_falls_back_to_last_real_planista_history_user():
         ]
     }
     assert ZL._execution_dispatch_actor(order, "system") == "Marek"
+
+
+def test_automatic_source_disposition_is_not_a_manual_delete_target():
+    planista = {
+        "typ_dyspozycji": "zlecenie_wykonania",
+        "modul_zrodlowy": "zlecenia",
+        "obiekt_id": "zlecenie:0018",
+        "meta": {},
+    }
+    machine_cycle = {
+        "typ_dyspozycji": "maszyna",
+        "modul_zrodlowy": "maszyny",
+        "obiekt_id": "75",
+        "meta": {"auto_source": "machine_cycle_review", "auto_created": True},
+    }
+    manual_machine = {
+        "typ_dyspozycji": "maszyna",
+        "modul_zrodlowy": "maszyny",
+        "obiekt_id": "75",
+        "meta": {},
+    }
+
+    assert GZ._is_automatic_disposition(planista) is True
+    assert GZ._is_automatic_disposition(machine_cycle) is True
+    assert GZ._is_automatic_disposition(manual_machine) is False
+
+
+def test_hidden_dispositions_do_not_return_to_main_list(monkeypatch):
+    monkeypatch.setattr(
+        GZ,
+        "load_dyspozycje",
+        lambda: [
+            {"id": "VISIBLE", "meta": {}},
+            {"id": "HIDDEN", "meta": {"ukryta": True}},
+        ],
+    )
+
+    assert [row["id"] for row in GZ._load_orders_rows()] == ["VISIBLE"]
+
+
+def test_remove_button_switches_to_hide_for_automatic_disposition(monkeypatch):
+    view = object.__new__(GZ.ZleceniaView)
+    row = {
+        "id": "AUTO-1",
+        "typ_dyspozycji": "zlecenie_wykonania",
+        "modul_zrodlowy": "zlecenia",
+        "obiekt_id": "zlecenie:0018",
+        "status": "nowa",
+        "meta": {},
+    }
+    view._selected_row = lambda: row
+    view._login_role = "brygadzista"
+    view.btn_remove = _FakeButton()
+
+    view._update_status_actions()
+
+    assert view.btn_remove.disabled is False
+    assert view.btn_remove.text == "Ukryj / Pomiń"
