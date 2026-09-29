@@ -186,6 +186,10 @@ jobs:
       - name: Bootstrap ścieżek danych (dry-run)
         run: python -m core.bootstrap --config config.defaults.json
       - name: Weryfikacja przycisków GUI
-        run: python 'narzędzia/check_buttons_refs.py' --root . --report reports/buttons_report.md
-      - name: Podgląd raportu przycisków
-        run: cat reports/buttons_report.md
+        shell: bash
+        run: |
+          set +e
+          python 'narzędzia/check_buttons_refs.py' --root . --report reports/buttons_report.md
+          status=$?
+          cat reports/buttons_report.md
+          exit $status
