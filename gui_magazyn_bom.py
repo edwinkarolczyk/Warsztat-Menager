@@ -127,6 +127,11 @@ def _raw_piece_meter_text(pieces, total_mm) -> str:
     return f"{_fmt_num(pieces)} szt. ({_fmt_num(_num(total_mm) / 1000.0)} m)"
 
 
+def _diameter_display(value) -> str:
+    """Tylko prezentacja: historyczne zapisy 'Fi' pokazuj jako Ø."""
+    return re.sub(r"(?i)(?<![A-Za-z0-9_])fi\s*", "Ø", str(value or ""))
+
+
 def _normalize_raw_kind(value: str) -> str:
     raw = str(value or "").strip().casefold()
     aliases = {"rura": "Rura", "profil": "Profil", "pręt": "Pręt", "pret": "Pręt"}
