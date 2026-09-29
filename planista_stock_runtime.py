@@ -44,6 +44,141 @@ def _raw_file() -> Path:
     return root / "magazyn" / "surowce.json"
 
 
+def raw_kind_modes() -> dict[str, str]:
+    """Zwróć tryb wymiaru dla rodzaju surowca bez zmiany danych."""
+    root = _raw_file().parent
+    path = root / "rodzaje_surowcow.json"
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        payload = [
+            {"nazwa": "Rura", "pole": "fi"},
+            {"nazwa": "Pręt", "pole": "fi"},
+            {"nazwa": "Profil", "pole": "wymiar"},
+        ]
+
+    out: dict[str, str] = {}
+    if isinstance(payload, list):
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("nazwa") or "").strip()
+            mode = str(item.get("pole") or "wymiar").strip().casefold()
+            if name:
+                out[name] = mode if mode in {"fi", "wymiar", "szt"} else "wymiar"
+    return out
+
+
+def _apply_raw_definition_changes(
+    record: dict,
+    *,
+    name: str,
+    kind: str,
+    size: str,
+    bar_length_mm: float,
+    mode: str,
+) -> dict:
+    """Czysta transformacja definicji; nie dotyka stanu ani rezerwacji."""
+    rec = dict(record)
+    normalized_mode = str(mode or "wymiar").strip().casefold()
+    if normalized_mode not in {"fi", "wymiar", "szt"}:
+        normalized_mode = "wymiar"
+
+    rec["nazwa"] = str(name or "").strip()
+    rec["rodzaj"] = str(kind or "").strip()
+    rec["rozmiar"] = str(size or "").strip()
+    rec.pop("fi", None)
+    rec.pop("wymiar", None)
+
+    if normalized_mode == "fi":
+        rec["fi"] = rec["rozmiar"]
+    elif normalized_mode == "wymiar":
+        rec["wymiar"] = rec["rozmiar"]
+
+    unit = "szt" if normalized_mode == "szt" else "mm"
+    length = 0.0 if unit == "szt" else max(0.0, _num(bar_length_mm))
+    rec["jednostka"] = unit
+    rec["dlugosc_sztangi_mm"] = length
+    rec["dlugosc"] = length
+    return rec
+
+
+def update_linked_raw_definition(
+    code: str,
+    *,
+    name: str,
+    kind: str,
+    size: str,
+    bar_length_mm: float,
+    location: str,
+    stock_min: float,
+) -> dict:
+    """Edytuj metadane surowca Planista↔Magazyn bez zmiany stanu i rezerwacji."""
+    code = str(code or "").strip()
+    path, definitions = _load_raw_definitions()
+    if code not in definitions:
+        raise KeyError(f"Brak definicji surowca {code} w Planista.")
+
+    modes = raw_kind_modes()
+    mode = str(modes.get(str(kind or "").strip()) or "").casefold()
+    if mode not in {"fi", "wymiar", "szt"}:
+        raise ValueError("Wybrany rodzaj surowca nie ma poprawnego trybu Ø / Wymiar / Szt.")
+
+    LM, warehouse, items = _physical_items()
+    item = items.get(code)
+    if not isinstance(item, dict):
+        raise KeyError(f"Brak karty Magazynu dla surowca {code}.")
+
+    old_unit = str(item.get("jednostka") or definitions[code].get("jednostka") or "mm").strip().casefold()
+    old_unit = "szt" if old_unit in {"szt", "szt."} else "mm"
+    new_unit = "szt" if mode == "szt" else "mm"
+    stock = max(0.0, _num(item.get("stan", 0)))
+    reserved = max(0.0, _num(item.get("rezerwacje", 0)))
+    if old_unit != new_unit and (stock > 0 or reserved > 0):
+        raise ValueError(
+            "Nie można zmienić sposobu ewidencji mm ↔ szt., gdy surowiec ma stan "
+            "lub rezerwacje. Najpierw rozlicz stan i rezerwacje."
+        )
+
+    definitions_snapshot = copy.deepcopy(definitions)
+    warehouse_snapshot = copy.deepcopy(warehouse)
+    try:
+        definitions[code] = _apply_raw_definition_changes(
+            definitions[code],
+            name=name,
+            kind=kind,
+            size=size,
+            bar_length_mm=bar_length_mm,
+            mode=mode,
+        )
+        _save_raw_definitions(path, definitions)
+
+        # Synchronizacja przenosi do karty Magazynu wyłącznie metadane wspólne.
+        sync_raw_material_cards()
+
+        LM2, data2, items2 = _physical_items()
+        current = items2.get(code)
+        if not isinstance(current, dict):
+            raise KeyError(f"Po synchronizacji brak karty Magazynu dla {code}.")
+        current["lokalizacja"] = str(location or "").strip()
+        current["stan_min"] = max(0.0, _num(stock_min))
+        data2["items"] = items2
+        if isinstance(data2.get("pozycje"), dict):
+            data2["pozycje"] = items2
+        LM2.save_magazyn(data2)
+        return dict(current)
+    except Exception:
+        try:
+            _save_raw_definitions(path, definitions_snapshot)
+        except Exception:
+            pass
+        try:
+            LM.save_magazyn(warehouse_snapshot)
+        except Exception:
+            pass
+        raise
+
+
 def _load_raw_definitions() -> tuple[Path, dict[str, dict]]:
     path = _raw_file()
     try:
