@@ -68,3 +68,20 @@ def test_notice_invites_feedback_and_is_signed():
     assert "Wyślij opinię" in renovation.NOTICE_TEXT
     assert "zła czy dobra" in renovation.NOTICE_TEXT
     assert "Edwin K." in renovation.NOTICE_TEXT
+
+
+def test_notice_enabled_reads_current_config_manager(monkeypatch):
+    import config_manager
+
+    class FakeConfig:
+        value = False
+
+        def get(self, key, default=None):
+            assert key == renovation.NOTICE_KEY
+            return self.value
+
+    monkeypatch.setattr(config_manager, "ConfigManager", FakeConfig)
+    assert renovation._notice_enabled() is False
+
+    FakeConfig.value = True
+    assert renovation._notice_enabled() is True
