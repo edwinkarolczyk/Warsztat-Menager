@@ -44,7 +44,7 @@ HELP = {
     "raw_type": "Wybierz rodzaj surowca: rura, profil albo pręt. Wybór ustala, czy obok podajesz Fi, czy pełny wymiar profilu.",
     "raw_size": "Podaj Fi albo Wymiar zgodnie z ustawieniem wybranego rodzaju surowca.",
     "raw_kinds": "Dodaj tutaj rodzaje surowców używane w zakładce Surowce. Dla każdego wybierz, czy formularz ma pytać o Fi, czy o Wymiar.",
-    "bars": "Podaj liczbę pełnych sztang znajdujących się na stanie. WM sam przeliczy łączną długość.",
+    "bars": "Podaj liczbę sztuk / pełnych sztang znajdujących się na stanie. WM sam przeliczy łączną długość i pokaże ją także w metrach.",
     "bar_length": "Podaj długość jednej sztangi w milimetrach, np. 6000. Łączny stan jest liczony jako sztangi × długość.",
     "stock": "Łączny stan długości jest zapisywany w milimetrach. Dla surowca liniowego WM pokazuje także metry.",
     "alert": "Próg określa poziom ostrzegawczy zapasu.",
@@ -449,7 +449,7 @@ class MagazynBOM(ttk.Frame):
         self.s_vars = {k: tk.StringVar() for k in ("kod", "nazwa", "rodzaj", "rozmiar", "liczba_sztang", "dlugosc_sztangi_mm", "stan", "prog_alertu")}
         fields = [
             ("nazwa", "Nazwa", HELP["raw_name"], False),
-            ("liczba_sztang", "Liczba sztang", HELP["bars"], False),
+            ("liczba_sztang", "Liczba sztuk / sztang", HELP["bars"], False),
             ("dlugosc_sztangi_mm", "Długość sztangi [mm]", HELP["bar_length"], False),
             ("stan", "Stan łączny [mm]", HELP["stock"], True),
             ("prog_alertu", "Próg alertu [%]", HELP["alert"], False),
@@ -1027,7 +1027,20 @@ class MagazynBOM(ttk.Frame):
             bars = rec.get("liczba_sztang", "")
             length = rec.get("dlugosc_sztangi_mm", rec.get("dlugosc", ""))
             total = _num(rec.get("stan", 0))
-            self.tree_sr.insert("", "end", values=(rec.get("nazwa", ""), rec.get("rodzaj", ""), rec.get("rozmiar", ""), _fmt_num(bars), _fmt_num(length), f"{_fmt_num(total)} mm ({total / 1000:g} m)", code))
+            pieces_and_meters = f"{_fmt_num(bars)} szt. ({_fmt_num(total / 1000.0)} m)"
+            self.tree_sr.insert(
+                "",
+                "end",
+                values=(
+                    rec.get("nazwa", ""),
+                    rec.get("rodzaj", ""),
+                    rec.get("rozmiar", ""),
+                    pieces_and_meters,
+                    _fmt_num(length),
+                    f"{_fmt_num(total)} mm",
+                    code,
+                ),
+            )
 
     def _load_polprodukty(self) -> None:
         self.tree_pp.delete(*self.tree_pp.get_children())
