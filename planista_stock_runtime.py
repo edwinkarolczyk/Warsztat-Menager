@@ -175,8 +175,10 @@ def sync_raw_material_cards() -> dict[str, dict]:
             if key in rec:
                 rec.pop(key, None)
                 definitions_changed = True
-        if rec.get("jednostka") != "mm":
-            rec["jednostka"] = "mm"
+        unit = str(rec.get("jednostka") or "mm").strip().casefold()
+        normalized_unit = "szt" if unit in {"szt", "szt."} else "mm"
+        if rec.get("jednostka") != normalized_unit:
+            rec["jednostka"] = normalized_unit
             definitions_changed = True
 
     if warehouse_changed:
@@ -273,7 +275,8 @@ def _stock_view(code: str, definition: dict, states: dict[str, dict] | None = No
             )
         ),
     )
-    bars = stock / length if length > 0 else 0.0
+    unit = str(item.get("jednostka") or definition.get("jednostka") or "mm").strip()
+    bars = stock if unit in {"szt", "szt."} else (stock / length if length > 0 else 0.0)
     return {
         "linked": linked,
         "stock": stock,
@@ -282,7 +285,7 @@ def _stock_view(code: str, definition: dict, states: dict[str, dict] | None = No
         "bars": bars,
         "length": length,
         "location": str(item.get("lokalizacja") or "").strip(),
-        "unit": str(item.get("jednostka") or definition.get("jednostka") or "mm").strip(),
+        "unit": unit,
     }
 
 
@@ -308,7 +311,8 @@ def _install_model_link() -> None:
         rec = dict(record)
         for key in _DYNAMIC_RAW_FIELDS:
             rec.pop(key, None)
-        rec["jednostka"] = "mm"
+        unit = str(rec.get("jednostka") or "mm").strip().casefold()
+        rec["jednostka"] = "szt" if unit in {"szt", "szt."} else "mm"
         result = old_add_raw(self, rec)
         sync_raw_material_cards()
         path, records = _load_raw_definitions()
@@ -345,7 +349,7 @@ def _install_planista_raw_ui() -> None:
             "Nie zmienia stanu Magazynu."
         ),
         "bars": (
-            "Liczba sztang jest wyliczana z fizycznego stanu Magazynu i długości sztangi. "
+            "Dla surowca liniowego liczba sztang wynika ze stanu i długości; dla trybu Szt. pokazujemy liczbę sztuk. "
             "Tego pola nie edytuje się w Planista."
         ),
         "stock": (
@@ -391,7 +395,7 @@ def _install_planista_raw_ui() -> None:
             "rodzaj": "Rodzaj",
             "rozmiar": "Rozmiar",
             "dl_sztangi": "Długość sztangi [mm]",
-            "sztangi": "Sztangi",
+            "sztangi": "Sztuki / sztangi",
             "stan": "Stan Magazynu",
             "rezerwacje": "Zarezerwowane",
             "dostepne": "Dostępne",
@@ -431,7 +435,7 @@ def _install_planista_raw_ui() -> None:
         self.s_kind_combo.grid(row=0, column=1, sticky="ew", padx=4, pady=2)
         self._help(form, 0, GMB.HELP["raw_type"])
 
-        self.s_size_label = ttk.Label(form, text="Fi [mm]")
+        self.s_size_label = ttk.Label(form, text="Ø [mm]")
         self.s_size_label.grid(row=1, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.s_vars["rozmiar"]).grid(
             row=1, column=1, sticky="ew", padx=4, pady=2
@@ -533,7 +537,7 @@ def _install_planista_raw_ui() -> None:
         length = _num(self.s_vars["dlugosc_sztangi_mm"].get())
         alert = _num(self.s_vars["prog_alertu"].get())
         if not kind or not size:
-            GMB._msg_error(self, "Surowce", "Wymagane pola: rodzaj i Fi/Wymiar.")
+            GMB._msg_error(self, "Surowce", "Wymagane pola: rodzaj i Ø/Wymiar/oznaczenie.")
             return
         if length < 0 or alert < 0:
             GMB._msg_error(
@@ -541,6 +545,10 @@ def _install_planista_raw_ui() -> None:
             )
             return
 
+        mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
+        unit = "szt" if mode == "szt" else "mm"
+        if mode == "szt":
+            length = 0.0
         rec = {
             "kod": code,
             "id": code,
@@ -548,7 +556,7 @@ def _install_planista_raw_ui() -> None:
             "nazwa": f"{kind} - {size}",
             "dlugosc_sztangi_mm": length,
             "dlugosc": length,
-            "jednostka": "mm",
+            "jednostka": unit,
             "prog_alertu": alert,
         }
         rec.update(
