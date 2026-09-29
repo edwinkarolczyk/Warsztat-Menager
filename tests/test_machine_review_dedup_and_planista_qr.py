@@ -74,6 +74,25 @@ def test_machine_review_duplicate_when_done_is_second_promotes_progress():
     assert rows[0]["completed_by"] == ["Edwin"]
 
 
+def test_row_repair_counts_removed_duplicate_copies():
+    rows = [
+        {
+            "id": "19",
+            "reviews": [
+                {"id": "dup", "planned_date": "2026-08-31", "status": "done"},
+                {"id": "dup", "planned_date": "2026-08-31", "status": "planned"},
+                {"id": "dup", "planned_date": "2026-08-31", "status": "planned"},
+            ],
+        }
+    ]
+
+    removed = GM._repair_duplicate_reviews_in_rows(rows)
+
+    assert removed == 2
+    assert len(rows[0]["reviews"]) == 1
+    assert rows[0]["reviews"][0]["status"] == "done"
+
+
 def test_new_machine_review_ids_do_not_collide_in_fast_sequence():
     first = GM._new_review_id()
     second = GM._new_review_id()
