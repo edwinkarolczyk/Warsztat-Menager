@@ -23,30 +23,30 @@ _MAGAZYN_DISPLAY_COLUMNS = (
     "stan",
     "rezerwacje",
     "dostepne",
+    "sztangi_dostepne",
+    "dl_sztangi",
     "jednostka",
-    "lokalizacja",
-    "zadania",
     "typ",
     "sekcja",
 )
 
 _MAGAZYN_COLUMN_WIDTHS = {
-    "id": 95,
-    "nazwa": 240,
-    "rozmiar": 130,
-    "stan": 90,
-    "rezerwacje": 110,
-    "dostepne": 95,
+    "id": 75,
+    "nazwa": 210,
+    "rozmiar": 90,
+    "stan": 105,
+    "rezerwacje": 120,
+    "dostepne": 110,
+    "sztangi_dostepne": 120,
+    "dl_sztangi": 165,
     "jednostka": 80,
-    "lokalizacja": 130,
-    "zadania": 190,
-    "typ": 100,
+    "typ": 105,
     "sekcja": 110,
 }
 
 
 def _raw_name_dimension(size, mode=None):
-    """Zwróć czytelny wymiar do nazwy; dla pola Fi dodaj pojedynczy prefiks `Fi`."""
+    """Zwróć czytelny wymiar do nazwy; średnicę pokazuj symbolem Ø."""
     value = str(size or "").strip()
     if not value:
         return ""
@@ -57,10 +57,10 @@ def _raw_name_dimension(size, mode=None):
     lower = value.casefold()
     if lower.startswith("fi"):
         rest = value[2:].lstrip(" :-")
-        return f"Fi {rest}".strip()
+        return f"Ø{rest}".strip()
     if value.startswith(("Ø", "ø", "⌀", "Φ", "φ")):
         value = value[1:].strip()
-    return f"Fi {value}".strip()
+    return f"Ø{value}".strip()
 
 
 def _generated_raw_name(kind, size, mode=None):
@@ -327,9 +327,16 @@ def _apply_magazyn_column_layout(owner):
         for column, width in _MAGAZYN_COLUMN_WIDTHS.items():
             if column in available:
                 anchor = "center" if column in {
-                    "stan", "rezerwacje", "dostepne", "jednostka"
+                    "stan", "rezerwacje", "dostepne", "sztangi_dostepne",
+                    "dl_sztangi", "jednostka"
                 } else "w"
-                tree.column(column, width=width, anchor=anchor)
+                tree.column(
+                    column,
+                    width=width,
+                    minwidth=140 if column == "nazwa" else max(60, width - 15),
+                    anchor=anchor,
+                    stretch=(column == "nazwa"),
+                )
     except Exception:
         return False
     return True
