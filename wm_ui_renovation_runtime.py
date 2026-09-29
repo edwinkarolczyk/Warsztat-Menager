@@ -592,9 +592,10 @@ def _patch_profile_extension_loader() -> None:
 
 
 def _notice_enabled() -> bool:
+    """Czytaj bieżącą konfigurację, nie instancję zachowaną przy starcie WM."""
     try:
-        from start import CONFIG_MANAGER
-        return _coerce_bool(CONFIG_MANAGER.get(NOTICE_KEY, NOTICE_DEFAULT))
+        from config_manager import ConfigManager
+        return _coerce_bool(ConfigManager().get(NOTICE_KEY, NOTICE_DEFAULT))
     except Exception:
         return NOTICE_DEFAULT
 
