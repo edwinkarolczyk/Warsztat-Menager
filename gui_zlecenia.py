@@ -1,4 +1,7 @@
-# version: 1.11
+# version: 1.12
+# Zmiany 1.12:
+# - Uproszczono pasek Dyspozycji do Dodaj + Usuń/Ukryj; nawigacja i edycja są dostępne z wiersza.
+# - Automatycznych Dyspozycji nie można już trwale usunąć z listy; akcja Ukryj / Pomiń zachowuje powiązanie ze źródłem.
 # Zmiany 1.11:
 # - Brygadzista i administrator domyślnie widzą wszystkie Dyspozycje; pozostali zachowują widok Moje + Dla wszystkich.
 # Zmiany 1.10:
@@ -663,12 +666,42 @@ def _resolve_creator() -> Callable[..., tk.Toplevel] | None:
         return None
 
 
+def _is_automatic_disposition(item: dict[str, Any]) -> bool:
+    """Automatyczny wpis pozostaje własnością modułu źródłowego."""
+    if not isinstance(item, dict):
+        return False
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    if bool(meta.get("auto_created")):
+        return True
+    if str(meta.get("auto_source") or "").strip():
+        return True
+    if str(meta.get("auto_key") or "").strip():
+        return True
+
+    source = str(item.get("modul_zrodlowy") or "").strip().casefold()
+    object_id = str(item.get("obiekt_id") or "").strip().casefold()
+    # Planista tworzy zarówno Dyspozycję wykonania, jak i automatyczne braki
+    # Magazynu. Oba rekordy mają zachować życie razem ze zleceniem źródłowym.
+    return source == "zlecenia" and object_id.startswith("zlecenie:")
+
+
+def _is_hidden_disposition(item: dict[str, Any]) -> bool:
+    if not isinstance(item, dict):
+        return False
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    return bool(meta.get("ukryta") or meta.get("hidden"))
+
+
 def _load_orders_rows() -> list[dict]:
     try:
         rows = load_dyspozycje()
     except Exception:
         rows = []
-    return [row for row in rows if isinstance(row, dict)]
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict) and not _is_hidden_disposition(row)
+    ]
 
 
 class _AfterGuard:
@@ -781,37 +814,12 @@ class ZleceniaView(ttk.Frame):
             btn_add.state(["disabled"])
         btn_add.pack(side="left")
 
-        self.btn_edit = ttk.Button(toolbar, text="Edytuj Dyspozycję")
-        if self._open_order_creator:
-            self.btn_edit.configure(command=self._on_edit)
-        else:
-            self.btn_edit.state(["disabled"])
-        self.btn_edit.pack(side="left", padx=(8, 0))
-
-        self.btn_open_source = ttk.Button(
+        self.btn_remove = ttk.Button(
             toolbar,
-            text="Otwórz obiekt",
-            command=self._on_open_source,
+            text="Usuń Dyspozycję",
+            command=self._on_delete,
         )
-        self.btn_open_source.pack(side="left", padx=(8, 0))
-
-        self.btn_start = ttk.Button(toolbar, text="Rozpocznij", command=self._on_start)
-        self.btn_start.pack(side="left", padx=(8, 0))
-
-        self.btn_pause = ttk.Button(toolbar, text="Wstrzymaj", command=self._on_pause)
-        self.btn_pause.pack(side="left", padx=(8, 0))
-
-        self.btn_resume = ttk.Button(toolbar, text="Wznów", command=self._on_resume)
-        self.btn_resume.pack(side="left", padx=(8, 0))
-
-        self.btn_close = ttk.Button(
-            toolbar, text="Zamknij Dyspozycję", command=self._on_close
-        )
-        self.btn_close.pack(side="left", padx=(8, 0))
-
-        ttk.Button(toolbar, text="Usuń Dyspozycję", command=self._on_delete).pack(
-            side="left", padx=(8, 0)
-        )
+        self.btn_remove.pack(side="left", padx=(8, 0))
 
         filters = ttk.Frame(toolbar)
         filters.pack(side="right")
@@ -1310,6 +1318,17 @@ class ZleceniaView(ttk.Frame):
             except Exception:
                 pass
 
+        remove_button = getattr(self, "btn_remove", None)
+        if remove_button is not None:
+            automatic = bool(mapped and _is_automatic_disposition(mapped))
+            try:
+                remove_button.configure(
+                    text="Ukryj / Pomiń" if automatic else "Usuń Dyspozycję"
+                )
+                remove_button.state(["!disabled"] if mapped else ["disabled"])
+            except Exception:
+                pass
+
     def _change_status(self, target: str) -> bool:
         mapped = self._selected_row()
         if not mapped:
@@ -1616,13 +1635,42 @@ class ZleceniaView(ttk.Frame):
         if not mapped:
             messagebox.showinfo(
                 "Dyspozycje",
-                "Najpierw wybierz Dyspozycję do usunięcia.",
+                "Najpierw wybierz Dyspozycję.",
                 parent=self,
             )
             return
         dysp_id = str(mapped.get("id") or "").strip()
         if not dysp_id:
             return
+
+        if _is_automatic_disposition(mapped):
+            ok = messagebox.askyesno(
+                "Ukryj / Pomiń Dyspozycję",
+                "To jest Dyspozycja automatyczna sterowana przez moduł źródłowy.\n"
+                "Nie zostanie usunięta ani odłączona od źródła.\n\n"
+                "Ukryć ją na liście Dyspozycji?",
+                parent=self,
+            )
+            if not ok:
+                return
+            meta = dict(mapped.get("meta") or {}) if isinstance(mapped.get("meta"), dict) else {}
+            meta["ukryta"] = True
+            meta["ukryta_przez"] = str(self._login_user or "").strip()
+            meta["ukryta_at"] = _dt.datetime.now().isoformat(timespec="seconds")
+            changed = update_dyspozycja(dysp_id, {"meta": meta})
+            if not changed:
+                messagebox.showerror(
+                    "Dyspozycje",
+                    "Nie udało się ukryć Dyspozycji.",
+                    parent=self,
+                )
+                return
+            try:
+                self.winfo_toplevel().event_generate("<<DyspozycjeUpdated>>", when="tail")
+            except Exception:
+                self._reload_orders()
+            return
+
         if str(mapped.get("typ_dyspozycji") or "").strip().lower() == "zlecenie_wykonania":
             settlement = get_operation_settlement(dysp_id)
             settlement_status = str(settlement.get("status") or "")
