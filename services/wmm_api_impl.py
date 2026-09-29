@@ -201,18 +201,23 @@ def _next_order_id() -> str:
     """Wspólna, trwała numeracja Planisty używana również przez WMM."""
     folder = _data_dir() / "zlecenia"
     folder.mkdir(parents=True, exist_ok=True)
-    sequence_path = folder / "_planista_order_sequence.json"
+    sequence_path = _data_dir() / "_planista_order_sequence.json"
+    legacy_sequence_path = folder / "_planista_order_sequence.json"
 
     from machine_file_guard import file_write_lock
 
     with file_write_lock(sequence_path, label="numeracji zleceń"):
         current = 0
-        try:
-            payload = _read_json(sequence_path)
-            if isinstance(payload, dict):
-                current = max(0, int(payload.get("last_id", payload.get("last", 0)) or 0))
-        except Exception:
-            current = 0
+        for candidate in (sequence_path, legacy_sequence_path):
+            try:
+                payload = _read_json(candidate)
+                if isinstance(payload, dict):
+                    current = max(
+                        current,
+                        max(0, int(payload.get("last_id", payload.get("last", 0)) or 0)),
+                    )
+            except Exception:
+                pass
 
         for path in folder.glob("*.json"):
             try:
@@ -222,6 +227,10 @@ def _next_order_id() -> str:
 
         next_number = current + 1
         _write_json_atomic(sequence_path, {"last_id": next_number})
+        try:
+            legacy_sequence_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     return f"{next_number:04d}"
 
