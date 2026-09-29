@@ -178,7 +178,7 @@ def test_runtime_exposes_manual_check_button_and_keeps_analysis_read_only():
     source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
     assert 'text="Sprawdź zmiany"' in source
     assert "analyze_and_store_plan_changes" in source
-    assert "bez tworzenia zleceń" in source
+    assert "nie zmienia zleceń" in source
     assert 'tree.tag_configure(\n        "wm_found"' in source
     assert 'tags=("wm_found",) if found_in_wm else ()' in source
 
