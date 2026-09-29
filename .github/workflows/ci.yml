@@ -1,6 +1,7 @@
 name: R07 Smoke
 
 on:
+  workflow_dispatch:
   push:
     branches: [ Rozwiniecie ]
   pull_request:
