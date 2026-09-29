@@ -1,5 +1,9 @@
 # Plik: gui_magazyn.py
-# version: 1.8.0
+# version: 1.8.1
+# Zmiany 1.8.1:
+# - Duże stany są wyświetlane bez notacji naukowej.
+# - Nazwa w tabeli nie powiela wymiaru z osobnej kolumny Rozmiar.
+# - Lokalizację zastąpiono liczbą dostępnych sztang; dodano długość sztangi.
 # Zmiany 1.8.0:
 # - Podział widoku Magazynu na sekcje: Surowce / Półprodukty / Produkty.
 # - Tabela pokazuje osobno: Stan, Zarezerwowane, Dostępne, Jednostkę i Lokalizację.
@@ -76,7 +80,8 @@ COLUMNS = (
     "rezerwacje",
     "dostepne",
     "jednostka",
-    "lokalizacja",
+    "sztangi_dostepne",
+    "dl_sztangi",
     "zadania",
 )
 
@@ -541,25 +546,68 @@ def _load_data():
     return items, order
 
 
+def _format_warehouse_number(value) -> str:
+    """Czytelna liczba bez e+06; duże wartości grupujemy spacją."""
+    number = _warehouse_number(value)
+    if abs(number - round(number)) < 1e-9:
+        return f"{int(round(number)):,}".replace(",", " ")
+    text = f"{number:,.3f}"
+    whole, frac = text.split(".", 1)
+    whole = whole.replace(",", " ")
+    frac = frac.rstrip("0")
+    return f"{whole},{frac}" if frac else whole
+
+
+def _display_name_without_size(name: str, size: str) -> str:
+    """Nie pokazuj drugi raz wymiaru, jeśli ma już własną kolumnę."""
+    text = str(name or "").strip()
+    dimension = str(size or "").strip()
+    if not text or not dimension:
+        return text
+    pattern = rf"\s*[-–—]\s*(?:fi\s*)?{re.escape(dimension)}\s*$"
+    cleaned = re.sub(pattern, "", text, flags=re.IGNORECASE).strip()
+    return cleaned or text
+
+
+def _bar_length_mm(item: dict) -> float:
+    for key in ("dlugosc_sztangi_mm", "dlugosc_sztangi", "dlugosc"):
+        try:
+            value = float(str(item.get(key, 0) or 0).replace(",", "."))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return 0.0
+
+
 def _format_row(item_id: str, item: dict):
-    """Mapowanie rekordu na czytelny stan: fizyczny, rezerwacje i dostępne."""
+    """Mapowanie rekordu na czytelny stan, sztangi i długość sztangi."""
     sekcja = _warehouse_section(item)
     typ = str(item.get("typ") or "").strip()
     rozmiar = str(item.get("rozmiar") or "").strip()
-    nazwa = str(item.get("nazwa") or "").strip()
+    nazwa = _display_name_without_size(
+        str(item.get("nazwa") or "").strip(),
+        rozmiar,
+    )
 
     stan = _warehouse_number(item.get("stan", item.get("ilosc", item.get("ilość", 0))))
     rezerwacje = max(0.0, _warehouse_number(item.get("rezerwacje", 0)))
     dostepne = max(0.0, stan - rezerwacje)
     jednostka = str(item.get("jednostka") or item.get("jm") or "").strip()
-    lokalizacja = str(
-        item.get("lokalizacja")
-        or item.get("location")
-        or item.get("miejsce")
-        or item.get("regał")
-        or item.get("regal")
-        or ""
-    ).strip()
+
+    bar_length = _bar_length_mm(item)
+    available_bars = (dostepne / bar_length) if bar_length > 0 else None
+    bars_text = (
+        _format_warehouse_number(available_bars)
+        if available_bars is not None
+        else "-"
+    )
+    bar_length_text = (
+        f"{_format_warehouse_number(bar_length)} mm "
+        f"({_format_warehouse_number(bar_length / 1000.0)} m)"
+        if bar_length > 0
+        else "-"
+    )
 
     z = item.get("zadania", [])
     if isinstance(z, list):
@@ -573,11 +621,12 @@ def _format_row(item_id: str, item: dict):
         typ or "-",
         rozmiar or "-",
         nazwa or "-",
-        f"{stan:g}",
-        f"{rezerwacje:g}",
-        f"{dostepne:g}",
+        _format_warehouse_number(stan),
+        _format_warehouse_number(rezerwacje),
+        _format_warehouse_number(dostepne),
         jednostka or "-",
-        lokalizacja or "-",
+        bars_text,
+        bar_length_text,
         zadania,
     )
 
@@ -756,7 +805,8 @@ class MagazynFrame(ttk.Frame):
         self.tree.heading("rezerwacje", text="Zarezerwowane")
         self.tree.heading("dostepne", text="Dostępne")
         self.tree.heading("jednostka", text="Jednostka")
-        self.tree.heading("lokalizacja", text="Lokalizacja")
+        self.tree.heading("sztangi_dostepne", text="Dostępne sztangi")
+        self.tree.heading("dl_sztangi", text="Dł. sztangi")
         self.tree.heading("zadania", text="Tech. zadania")
 
         # Szerokości startowe
@@ -769,7 +819,8 @@ class MagazynFrame(ttk.Frame):
         self.tree.column("rezerwacje", width=110, anchor="center")
         self.tree.column("dostepne", width=95, anchor="center")
         self.tree.column("jednostka", width=80, anchor="center")
-        self.tree.column("lokalizacja", width=120, anchor="w")
+        self.tree.column("sztangi_dostepne", width=120, anchor="center")
+        self.tree.column("dl_sztangi", width=145, anchor="center")
         self.tree.column("zadania", width=200, anchor="w")
 
         # Scrollbar pionowy
