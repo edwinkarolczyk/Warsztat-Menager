@@ -557,6 +557,11 @@ def create_zlecenie(
 
 
 def _order_sequence_path() -> Path:
+    # Licznik nie jest zleceniem i nie powinien leżeć w katalogu *.json zleceń.
+    return _data_dir() / _ORDER_SEQUENCE_FILE
+
+
+def _legacy_order_sequence_path() -> Path:
     return _orders_dir() / _ORDER_SEQUENCE_FILE
 
 
@@ -571,22 +576,32 @@ def _existing_numeric_order_max() -> int:
 
 
 def _read_order_sequence(path: Path) -> int:
-    try:
-        payload = _read_json(path, {})
-    except Exception:
-        return 0
-    if isinstance(payload, dict):
-        raw = payload.get("last_id", payload.get("last", 0))
-    else:
-        raw = payload
-    try:
-        return max(0, int(raw or 0))
-    except (TypeError, ValueError):
-        return 0
+    def _one(candidate: Path) -> int:
+        try:
+            payload = _read_json(candidate, {})
+        except Exception:
+            return 0
+        if isinstance(payload, dict):
+            raw = payload.get("last_id", payload.get("last", 0))
+        else:
+            raw = payload
+        try:
+            return max(0, int(raw or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    # Migracja bez utraty numerów: przez jeden cykl czytamy również stare miejsce.
+    return max(_one(path), _one(_legacy_order_sequence_path()))
 
 
 def _write_order_sequence(path: Path, value: int) -> None:
     _write_json(path, {"last_id": int(value)})
+    legacy = _legacy_order_sequence_path()
+    if legacy != path:
+        try:
+            legacy.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 def _ensure_order_sequence_floor(order_id) -> None:
