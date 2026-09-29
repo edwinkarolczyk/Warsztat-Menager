@@ -13,7 +13,20 @@ def test_format_row_handles_optional_fields():
         "zadania": ["cut", " weld ", ""],
     }
     row = gm._format_row("ID1", item)
-    assert row == ("ID1", "-", "-", "Elem", "5 kg", "cut, weld")
+    assert row == (
+        "ID1",
+        "-",
+        "-",
+        "-",
+        "Elem",
+        "5",
+        "0",
+        "5",
+        "kg",
+        "-",
+        "-",
+        "cut, weld",
+    )
 
 
 def test_open_panel_magazyn_passes_parent_config(monkeypatch):
@@ -51,3 +64,25 @@ def test_load_data_prefers_io(monkeypatch):
     assert items == {"A": {"nazwa": "A"}}
     assert order == ["A"]
 
+
+
+def test_format_row_avoids_scientific_notation_and_shows_bar_data():
+    item = {
+        "typ": "surowiec",
+        "rozmiar": "10",
+        "nazwa": "Śruba M10 - 10",
+        "stan": 9_999_910,
+        "rezerwacje": 2_220,
+        "jednostka": "mm",
+        "dlugosc_sztangi_mm": 10,
+        "zadania": [],
+    }
+
+    row = gm._format_row("SUR-015", item)
+
+    assert row[4] == "Śruba M10"
+    assert row[5] == "9 999 910"
+    assert row[6] == "2 220"
+    assert row[7] == "9 997 690"
+    assert row[9] == "999 769"
+    assert row[10] == "10 mm (0,01 m)"
