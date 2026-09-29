@@ -86,7 +86,8 @@ def test_runtime_requires_explicit_selection_and_second_confirmation():
     sync_runtime = Path("planista_excel_sync_runtime.py").read_text(encoding="utf-8")
 
     assert 'text="Synchronizuj z WM…"' in root_runtime
-    assert "show_excel_sync_preview(owner, payload)" in root_runtime
+    assert "show_excel_sync_preview(" in root_runtime
+    assert "preselect_safe=preselect_safe" in root_runtime
     assert 'text="Wykonaj zaznaczone"' in sync_runtime
     assert "messagebox.askyesno" in sync_runtime
     assert "fresh_plan = build_order_sync_plan(payload)" in sync_runtime
