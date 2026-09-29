@@ -123,6 +123,10 @@ def _fmt_num(value) -> str:
     return str(int(n)) if n.is_integer() else f"{n:.3f}".rstrip("0").rstrip(".")
 
 
+def _raw_piece_meter_text(pieces, total_mm) -> str:
+    return f"{_fmt_num(pieces)} szt. ({_fmt_num(_num(total_mm) / 1000.0)} m)"
+
+
 def _normalize_raw_kind(value: str) -> str:
     raw = str(value or "").strip().casefold()
     aliases = {"rura": "Rura", "profil": "Profil", "pręt": "Pręt", "pret": "Pręt"}
@@ -1027,7 +1031,7 @@ class MagazynBOM(ttk.Frame):
             bars = rec.get("liczba_sztang", "")
             length = rec.get("dlugosc_sztangi_mm", rec.get("dlugosc", ""))
             total = _num(rec.get("stan", 0))
-            pieces_and_meters = f"{_fmt_num(bars)} szt. ({_fmt_num(total / 1000.0)} m)"
+            pieces_and_meters = _raw_piece_meter_text(bars, total)
             self.tree_sr.insert(
                 "",
                 "end",
