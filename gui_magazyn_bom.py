@@ -62,6 +62,79 @@ HELP = {
 }
 
 
+SEMI_COLUMN_LABELS = {
+    "nazwa": "Półprodukt",
+    "surowiec": "Surowiec",
+    "ilosc": "Ilość na szt.",
+    "jednostka": "Jednostka",
+    "czynnosci": "Operacje",
+    "produkty": "Używany w produktach",
+    "id": "ID",
+}
+
+SEMI_COLUMN_HELP = {
+    "nazwa": "Nazwa elementu wykonywanego w warsztacie.",
+    "surowiec": "Materiał, z którego wykonywany jest półprodukt.",
+    "ilosc": "Ilość surowca potrzebna do wykonania jednej sztuki półproduktu.",
+    "jednostka": "Jednostka surowca, np. mm albo szt.",
+    "czynnosci": "Operacje technologiczne przypisane do półproduktu.",
+    "produkty": "Produkty, których BOM zawiera ten półprodukt.",
+    "id": "Techniczny, niezmienny identyfikator półproduktu.",
+}
+
+SEMI_COLUMN_WIDTHS = {
+    "nazwa": 150,
+    "surowiec": 175,
+    "ilosc": 90,
+    "jednostka": 70,
+    "czynnosci": 410,
+    "produkty": 340,
+    "id": 95,
+}
+
+
+def _show_semiproduct_column_help(tree, key: str) -> None:
+    text = SEMI_COLUMN_HELP.get(str(key), "")
+    if not text:
+        return
+    try:
+        parent = tree.winfo_toplevel()
+    except Exception:
+        parent = None
+    messagebox.showinfo(
+        f"Kolumna: {SEMI_COLUMN_LABELS.get(key, key)}",
+        text,
+        parent=parent,
+    )
+
+
+def configure_semiproduct_tree(tree) -> None:
+    """Przywróć nagłówki i proporcje także po dynamicznym dodaniu kolumny."""
+    try:
+        columns = tuple(str(col) for col in tree.cget("columns"))
+    except Exception:
+        columns = ()
+    for key in columns:
+        label = SEMI_COLUMN_LABELS.get(key, key)
+        if key in SEMI_COLUMN_HELP:
+            tree.heading(
+                key,
+                text=f"{label} ⓘ",
+                command=lambda col=key: _show_semiproduct_column_help(tree, col),
+            )
+        else:
+            tree.heading(key, text=label)
+        width = SEMI_COLUMN_WIDTHS.get(key, 120)
+        tree.column(
+            key,
+            width=width,
+            minwidth=max(55, min(width, 100)),
+            anchor="w",
+            stretch=(key in {"czynnosci", "produkty"}),
+        )
+
+
+
 def load_bom():
     path = get_path("bom.file")
     try:
@@ -692,14 +765,8 @@ class MagazynBOM(ttk.Frame):
         ttk.Button(bar, text="Usuń", command=self._delete_polprodukt).pack(side="right", padx=4)
 
         cols = ("nazwa", "surowiec", "ilosc", "jednostka", "czynnosci", "id")
-        labels = {
-            "nazwa": "Nazwa", "surowiec": "Surowiec", "ilosc": "Na szt.",
-            "jednostka": "Jedn.", "czynnosci": "Operacje", "id": "ID",
-        }
         self.tree_pp = ttk.Treeview(parent, columns=cols, show="headings", height=10)
-        for key in cols:
-            self.tree_pp.heading(key, text=labels[key])
-            self.tree_pp.column(key, width=190 if key in {"nazwa", "surowiec", "czynnosci"} else 90, anchor="w")
+        configure_semiproduct_tree(self.tree_pp)
         self.tree_pp.pack(fill="both", expand=True, padx=6, pady=4)
         self.tree_pp.bind("<<TreeviewSelect>>", self._on_pp_select)
 
