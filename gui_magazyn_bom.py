@@ -40,10 +40,10 @@ DATA_DIR = _data_dir()
 HELP = {
     "new_raw": "Czyści kartę i przygotowuje nowe techniczne ID surowca. Nowy wpis powstanie dopiero po użyciu przycisku Zapisz.",
     "raw_id": "ID techniczne jest nadawane automatycznie i służy tylko do powiązań. Użytkownik pracuje nazwą i rozmiarem surowca.",
-    "raw_name": "Wpisz czytelną nazwę surowca, np. Pręt fi8. Nazwę można później poprawić bez zrywania powiązań.",
-    "raw_type": "Wybierz rodzaj surowca: rura, profil albo pręt. Wybór ustala, czy obok podajesz Fi, czy pełny wymiar profilu.",
-    "raw_size": "Podaj Fi albo Wymiar zgodnie z ustawieniem wybranego rodzaju surowca.",
-    "raw_kinds": "Dodaj tutaj rodzaje surowców używane w zakładce Surowce. Dla każdego wybierz, czy formularz ma pytać o Fi, czy o Wymiar.",
+    "raw_name": "Wpisz czytelną nazwę surowca, np. Pręt Ø8. Nazwę można później poprawić bez zrywania powiązań.",
+    "raw_type": "Wybierz rodzaj surowca: rura, profil albo pręt. Wybór ustala, czy obok podajesz Ø, pełny wymiar albo tryb sztukowy.",
+    "raw_size": "Podaj Ø / Wymiar zgodnie z ustawieniem rodzaju; dla trybu Szt. wpisz oznaczenie, np. M10.",
+    "raw_kinds": "Dodaj tutaj rodzaje surowców używane w zakładce Surowce. Dla każdego wybierz, czy formularz ma używać Ø, Wymiaru czy trybu Szt.",
     "bars": "Podaj liczbę sztuk / pełnych sztang znajdujących się na stanie. WM sam przeliczy łączną długość i pokaże ją także w metrach.",
     "bar_length": "Podaj długość jednej sztangi w milimetrach, np. 6000. Łączny stan jest liczony jako sztangi × długość.",
     "stock": "Łączny stan długości jest zapisywany w milimetrach. Dla surowca liniowego WM pokazuje także metry.",
@@ -137,7 +137,11 @@ def _raw_dimension_label(kind: str, mode: str | None = None) -> str:
     selected = str(mode or "").strip().casefold()
     if not selected:
         selected = "wymiar" if _normalize_raw_kind(kind) == "Profil" else "fi"
-    return "Wymiar" if selected == "wymiar" else "Fi [mm]"
+    if selected == "wymiar":
+        return "Wymiar"
+    if selected == "szt":
+        return "Rozmiar / oznaczenie"
+    return "Ø [mm]"
 
 
 def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dict:
@@ -145,6 +149,8 @@ def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dic
     size = str(value or "").strip()
     fields = {"rozmiar": size}
     selected = str(mode or "").strip().casefold()
+    if selected == "szt":
+        return fields
     if selected == "wymiar" or (not selected and normalized == "Profil"):
         fields["wymiar"] = size
     else:
@@ -468,7 +474,7 @@ class MagazynBOM(ttk.Frame):
         )
         self.s_kind_combo.grid(row=1, column=1, sticky="ew", padx=4, pady=2)
         self._help(form, 1, HELP["raw_type"])
-        self.s_size_label = ttk.Label(form, text="Fi [mm]")
+        self.s_size_label = ttk.Label(form, text="Ø [mm]")
         self.s_size_label.grid(row=2, column=0, sticky="w", padx=4, pady=2)
         ttk.Entry(form, textvariable=self.s_vars["rozmiar"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
         self._help(form, 2, HELP["raw_size"])
@@ -506,7 +512,13 @@ class MagazynBOM(ttk.Frame):
     def _recalc_raw_total(self) -> None:
         if not hasattr(self, "s_vars"):
             return
-        total = _num(self.s_vars["liczba_sztang"].get()) * _num(self.s_vars["dlugosc_sztangi_mm"].get())
+        pieces = _num(self.s_vars["liczba_sztang"].get())
+        kind = self.s_vars["rodzaj"].get().strip()
+        mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
+        if mode == "szt":
+            self.s_vars["stan"].set(f"{_fmt_num(pieces)} szt.")
+            return
+        total = pieces * _num(self.s_vars["dlugosc_sztangi_mm"].get())
         self.s_vars["stan"].set(f"{_fmt_num(total)} mm ({total / 1000:g} m)")
 
     def _on_sr_select(self, _event=None) -> None:
@@ -541,11 +553,18 @@ class MagazynBOM(ttk.Frame):
         if bars < 0 or length < 0 or alert < 0:
             _msg_error(self, "Surowce", "Ilości i długości nie mogą być ujemne.")
             return
-        total = bars * length
+        mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
+        if mode == "szt":
+            length = 0.0
+            total = bars
+            unit = "szt"
+        else:
+            total = bars * length
+            unit = "mm"
         rec = {
             "kod": code, "id": code, "nazwa": name, "rodzaj": kind,
             "liczba_sztang": bars, "dlugosc_sztangi_mm": length,
-            "dlugosc": length, "jednostka": "mm", "stan": total,
+            "dlugosc": length, "jednostka": unit, "stan": total,
             "prog_alertu": alert,
         }
         rec.update(_raw_dimension_fields(
@@ -569,7 +588,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Combobox(
             top,
             textvariable=self.raw_kind_mode,
-            values=("Fi", "Wymiar"),
+            values=("Ø", "Wymiar", "Szt."),
             state="readonly",
             width=14,
         ).grid(row=1, column=1, sticky="w", padx=(8, 0))
@@ -595,7 +614,8 @@ class MagazynBOM(ttk.Frame):
             return
         self.tree_raw_kinds.delete(*self.tree_raw_kinds.get_children())
         for idx, item in enumerate(self.model.raw_kinds):
-            mode = "Fi" if str(item.get("pole")).casefold() == "fi" else "Wymiar"
+            raw_mode = str(item.get("pole") or "").casefold()
+            mode = "Ø" if raw_mode == "fi" else "Szt." if raw_mode == "szt" else "Wymiar"
             self.tree_raw_kinds.insert("", "end", iid=str(idx), values=(item["nazwa"], mode))
 
     def _add_raw_kind(self) -> None:
@@ -606,7 +626,8 @@ class MagazynBOM(ttk.Frame):
         if any(str(item.get("nazwa", "")).casefold() == name.casefold() for item in self.model.raw_kinds):
             _msg_error(self, "Rodzaje surowców", "Taki rodzaj surowca już istnieje.")
             return
-        mode = "fi" if self.raw_kind_mode.get() == "Fi" else "wymiar"
+        selected_mode = self.raw_kind_mode.get()
+        mode = "fi" if selected_mode == "Ø" else "szt" if selected_mode == "Szt." else "wymiar"
         records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode}]
         self.model.save_raw_kinds(records)
         self._kind_dimension_modes[name] = mode
