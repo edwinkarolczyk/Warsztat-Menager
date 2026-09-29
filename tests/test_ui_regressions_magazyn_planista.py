@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import rc1_magazyn_fix as rc1
-from gui_magazyn_bom import WarehouseModel, _raw_dimension_fields, _raw_dimension_label
+from gui_magazyn_bom import WarehouseModel, _raw_dimension_fields, _raw_dimension_label, _raw_piece_meter_text
 from rc1_magazyn_fix import (
     _canonical_semiproduct_raw_relation,
     _catalog_raw_materials_only,
@@ -211,3 +211,8 @@ def test_model_saves_only_canonical_semiproduct_raw_relation(tmp_path):
         "ilosc_na_szt": 200.0,
         "jednostka": "mm",
     }
+
+
+def test_planista_raw_stock_shows_pieces_and_meters():
+    assert _raw_piece_meter_text(120, 6000) == "120 szt. (6 m)"
+    assert _raw_piece_meter_text(3, 18500) == "3 szt. (18.5 m)"
