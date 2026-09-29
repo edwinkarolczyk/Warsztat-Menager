@@ -45,7 +45,7 @@ def test_help_popup_flips_to_left_at_right_screen_edge():
 def test_raw_kind_controls_dimension_name_and_saved_field():
     assert _raw_dimension_label("profil") == "Wymiar"
     assert _raw_dimension_label("Ceownik", "wymiar") == "Wymiar"
-    assert _raw_dimension_label("pręt") == "Fi [mm]"
+    assert _raw_dimension_label("pręt") == "Ø [mm]"
     assert _raw_dimension_fields("Rura", "20") == {"rozmiar": "20", "fi": "20"}
     assert _raw_dimension_fields("Profil", "30×30×2") == {
         "rozmiar": "30×30×2",
@@ -55,20 +55,22 @@ def test_raw_kind_controls_dimension_name_and_saved_field():
         "rozmiar": "40×20×3",
         "wymiar": "40×20×3",
     }
+    assert _raw_dimension_label("Śruba", "szt") == "Rozmiar / oznaczenie"
+    assert _raw_dimension_fields("Śruba", "M10", "szt") == {"rozmiar": "M10"}
 
 
 def test_raw_name_is_generated_from_kind_and_dimension_mode():
     assert _generated_raw_name("Profil", "30x30x2") == "Profil - 30x30x2"
-    assert _generated_raw_name("Rura", "30x2") == "Rura - Fi 30x2"
-    assert _generated_raw_name("Pręt", "20") == "Pręt - Fi 20"
+    assert _generated_raw_name("Rura", "30x2") == "Rura - Ø30x2"
+    assert _generated_raw_name("Pręt", "20") == "Pręt - Ø20"
     assert _generated_raw_name("Ceownik", "40x20x3", "wymiar") == "Ceownik - 40x20x3"
 
 
 def test_raw_name_never_duplicates_fi_prefix():
-    assert _raw_name_dimension("Fi 20", "fi") == "Fi 20"
-    assert _raw_name_dimension("fi20", "fi") == "Fi 20"
-    assert _raw_name_dimension("Ø20", "fi") == "Fi 20"
-    assert _generated_raw_name("Pręt", "Fi 20", "fi") == "Pręt - Fi 20"
+    assert _raw_name_dimension("Fi 20", "fi") == "Ø20"
+    assert _raw_name_dimension("fi20", "fi") == "Ø20"
+    assert _raw_name_dimension("Ø20", "fi") == "Ø20"
+    assert _generated_raw_name("Pręt", "Fi 20", "fi") == "Pręt - Ø20"
 
 
 def test_missing_raw_name_variable_is_recreated(monkeypatch):
