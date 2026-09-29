@@ -72,17 +72,16 @@ from logika_zakupy import auto_order_missing
 
 COLUMNS = (
     "id",
-    "sekcja",
-    "typ",
-    "rozmiar",
     "nazwa",
+    "rozmiar",
     "stan",
     "rezerwacje",
     "dostepne",
-    "jednostka",
     "sztangi_dostepne",
     "dl_sztangi",
-    "zadania",
+    "jednostka",
+    "typ",
+    "sekcja",
 )
 
 WAREHOUSE_SECTIONS = ("(wszystkie)", "Surowce", "Półprodukty", "Produkty")
@@ -558,13 +557,19 @@ def _format_warehouse_number(value) -> str:
     return f"{whole},{frac}" if frac else whole
 
 
+def _diameter_symbol_text(value: str) -> str:
+    """Warstwa prezentacji: historyczne 'Fi' pokazuj jako symbol średnicy Ø."""
+    text = str(value or "")
+    return re.sub(r"(?i)(?<![A-Za-z0-9_])fi\s*", "Ø", text)
+
+
 def _display_name_without_size(name: str, size: str) -> str:
     """Nie pokazuj drugi raz wymiaru, jeśli ma już własną kolumnę."""
-    text = str(name or "").strip()
+    text = _diameter_symbol_text(str(name or "").strip())
     dimension = str(size or "").strip()
     if not text or not dimension:
         return text
-    pattern = rf"\s*[-–—]\s*(?:fi\s*)?{re.escape(dimension)}\s*$"
+    pattern = rf"\s*[-–—]\s*(?:Ø\s*)?{re.escape(dimension)}\s*$"
     cleaned = re.sub(pattern, "", text, flags=re.IGNORECASE).strip()
     return cleaned or text
 
@@ -609,25 +614,18 @@ def _format_row(item_id: str, item: dict):
         else "-"
     )
 
-    z = item.get("zadania", [])
-    if isinstance(z, list):
-        zadania = ", ".join([str(x).strip() for x in z if str(x).strip()])
-    else:
-        zadania = str(z).strip()
-
     return (
         item_id,
-        sekcja or "-",
-        typ or "-",
-        rozmiar or "-",
         nazwa or "-",
+        rozmiar or "-",
         _format_warehouse_number(stan),
         _format_warehouse_number(rezerwacje),
         _format_warehouse_number(dostepne),
-        jednostka or "-",
         bars_text,
         bar_length_text,
-        zadania,
+        jednostka or "-",
+        typ or "-",
+        sekcja or "-",
     )
 
 
@@ -797,31 +795,29 @@ class MagazynFrame(ttk.Frame):
 
         # Nagłówki
         self.tree.heading("id", text="ID")
-        self.tree.heading("sekcja", text="Sekcja")
-        self.tree.heading("typ", text="Typ")
-        self.tree.heading("rozmiar", text="Rozmiar")
         self.tree.heading("nazwa", text="Nazwa")
+        self.tree.heading("rozmiar", text="Rozmiar")
         self.tree.heading("stan", text="Stan")
         self.tree.heading("rezerwacje", text="Zarezerwowane")
         self.tree.heading("dostepne", text="Dostępne")
-        self.tree.heading("jednostka", text="Jednostka")
         self.tree.heading("sztangi_dostepne", text="Dostępne sztangi")
         self.tree.heading("dl_sztangi", text="Dł. sztangi")
-        self.tree.heading("zadania", text="Tech. zadania")
+        self.tree.heading("jednostka", text="Jednostka")
+        self.tree.heading("typ", text="Typ")
+        self.tree.heading("sekcja", text="Sekcja")
 
-        # Szerokości startowe
-        self.tree.column("id", width=95, anchor="w")
-        self.tree.column("sekcja", width=115, anchor="w")
-        self.tree.column("typ", width=110, anchor="w")
-        self.tree.column("rozmiar", width=130, anchor="w")
-        self.tree.column("nazwa", width=240, anchor="w")
-        self.tree.column("stan", width=85, anchor="center")
-        self.tree.column("rezerwacje", width=110, anchor="center")
-        self.tree.column("dostepne", width=95, anchor="center")
-        self.tree.column("jednostka", width=80, anchor="center")
-        self.tree.column("sztangi_dostepne", width=120, anchor="center")
-        self.tree.column("dl_sztangi", width=145, anchor="center")
-        self.tree.column("zadania", width=200, anchor="w")
+        # Stałe kolumny zachowują proporcje; Nazwa przejmuje wolne miejsce.
+        self.tree.column("id", width=75, minwidth=70, anchor="w", stretch=False)
+        self.tree.column("nazwa", width=210, minwidth=140, anchor="w", stretch=True)
+        self.tree.column("rozmiar", width=90, minwidth=80, anchor="w", stretch=False)
+        self.tree.column("stan", width=105, minwidth=90, anchor="center", stretch=False)
+        self.tree.column("rezerwacje", width=120, minwidth=105, anchor="center", stretch=False)
+        self.tree.column("dostepne", width=110, minwidth=95, anchor="center", stretch=False)
+        self.tree.column("sztangi_dostepne", width=120, minwidth=105, anchor="center", stretch=False)
+        self.tree.column("dl_sztangi", width=165, minwidth=145, anchor="center", stretch=False)
+        self.tree.column("jednostka", width=80, minwidth=70, anchor="center", stretch=False)
+        self.tree.column("typ", width=105, minwidth=90, anchor="w", stretch=False)
+        self.tree.column("sekcja", width=110, minwidth=95, anchor="w", stretch=False)
 
         # Scrollbar pionowy
         vsb = ttk.Scrollbar(self.tree, orient="vertical", command=self.tree.yview)
