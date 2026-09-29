@@ -117,6 +117,7 @@ def save_auto_state(
         )
 
     path = auto_state_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + ".tmp")
     temp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(temp, path)
