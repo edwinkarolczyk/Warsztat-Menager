@@ -1205,12 +1205,14 @@ def _install_raw_kind_editor() -> None:
         rec = self.model.raw_kinds[idx]
         self._editing_raw_kind_original = str(rec.get("nazwa") or "")
         self.raw_kind_name.set(self._editing_raw_kind_original)
-        self.raw_kind_mode.set("Fi" if str(rec.get("pole") or "").casefold() == "fi" else "Wymiar")
+        raw_mode = str(rec.get("pole") or "").casefold()
+        self.raw_kind_mode.set("Ø" if raw_mode == "fi" else "Szt." if raw_mode == "szt" else "Wymiar")
 
     def edit_kind(self):
         old_name = str(getattr(self, "_editing_raw_kind_original", "") or "").strip()
         new_name = self.raw_kind_name.get().strip()
-        mode = "fi" if self.raw_kind_mode.get() == "Fi" else "wymiar"
+        selected_mode = self.raw_kind_mode.get()
+        mode = "fi" if selected_mode == "Ø" else "szt" if selected_mode == "Szt." else "wymiar"
         if not old_name:
             GMB._msg_error(self, "Rodzaje surowców", "Zaznacz rodzaj surowca do edycji.")
             return
