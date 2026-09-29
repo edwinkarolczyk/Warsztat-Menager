@@ -8,7 +8,7 @@
 # 1.3: Planista korzysta wyłącznie z własnej kartoteki Surowców; nazwa surowca jest tworzona z rodzaju i wymiaru.
 # 1.4: zapis surowca odtwarza techniczną zmienną nazwy, gdy pole Nazwa nie istnieje już w formularzu.
 # 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
-# 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Fi/Wymiar; ręczne pole Nazwa pozostaje ukryte.
+# 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Ø/Wymiar; ręczne pole Nazwa pozostaje ukryte.
 # 1.7: Półprodukt zapisuje powiązanie z Surowcem wyłącznie po aktualnym technicznym ID.
 
 from functools import wraps
@@ -289,6 +289,12 @@ def _install_planista_raw_material_fix():
 
     def raw_display(self, item_id, rec):
         name = str(rec.get("nazwa") or "").strip()
+        if name:
+            try:
+                import gui_magazyn_bom as gb
+                name = gb._diameter_display(name)
+            except Exception:
+                pass
         if not name:
             kind = str(rec.get("rodzaj") or rec.get("typ") or "").strip()
             size = str(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "").strip()
