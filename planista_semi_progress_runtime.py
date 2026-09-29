@@ -702,8 +702,7 @@ def install_planista_semi_progress_runtime() -> None:
                 else:
                     columns.append("produkty")
                 self.tree_pp.configure(columns=tuple(columns))
-            self.tree_pp.heading("produkty", text="Produkt(y)")
-            self.tree_pp.column("produkty", width=280, anchor="w")
+            GMB.configure_semiproduct_tree(self.tree_pp)
         build_pp._wm_product_links_column = True
         build_pp._wm_original = old_build_pp
         UI._build_polprodukty = build_pp
