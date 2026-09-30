@@ -207,6 +207,11 @@ def path_machines() -> Path:
     return get_data_root() / "maszyny" / "maszyny.json"
 
 
+def path_machine_rooms() -> Path:
+    """Kanoniczny plik pomieszczeń hali modułu Maszyny."""
+    return get_data_root() / "maszyny" / "pomieszczenia_hali.json"
+
+
 def path_warehouse() -> Path:
     return get_data_root() / "magazyn" / "magazyn.json"
 
@@ -346,6 +351,7 @@ def install_environment(*, prompt: bool = False) -> dict[str, str]:
         "profiles": str(path_profiles()),
         "tools_dir": str(path_tools_dir()),
         "machines": str(path_machines()),
+        "machine_rooms": str(path_machine_rooms()),
         "warehouse": str(path_warehouse()),
         "bom": str(path_bom()),
         "orders_dir": str(path_orders_dir()),
@@ -366,6 +372,7 @@ def print_root_diagnostics(snapshot: dict[str, Any] | None = None) -> None:
     print(f"[WM-ROOT][BOOT] PROFILES    = {snap.get('profiles')}")
     print(f"[WM-ROOT][BOOT] TOOLS_DIR   = {snap.get('tools_dir')}")
     print(f"[WM-ROOT][BOOT] MACHINES    = {snap.get('machines')}")
+    print(f"[WM-ROOT][BOOT] ROOMS       = {snap.get('machine_rooms')}")
     print(f"[WM-ROOT][BOOT] WAREHOUSE   = {snap.get('warehouse')}")
     print(f"[WM-ROOT][BOOT] BOM         = {snap.get('bom')}")
     print(f"[WM-ROOT][BOOT] ORDERS_DIR  = {snap.get('orders_dir')}")
