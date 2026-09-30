@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import sys
 from typing import Any, Iterable, Mapping, MutableMapping, Optional, Sequence
 
 from core import root_paths
@@ -166,11 +167,38 @@ def _legacy_room_candidates() -> list[Path]:
     data_root = root_paths.get_data_root()
     config_path = root_paths.path_config()
     app_root = root_paths.get_app_root()
+    cwd = Path.cwd()
+    exe_dir = Path(sys.executable).resolve().parent if getattr(sys, "executable", None) else cwd
+
     candidates = [
         data_root / "pomieszczenia_hali.json",
+        data_root / "pomieszczenia_hali.json.bak",
         config_path.parent / "data" / "pomieszczenia_hali.json",
+        config_path.parent / "data" / "pomieszczenia_hali.json.bak",
         app_root / "data" / "pomieszczenia_hali.json",
+        app_root / "data" / "pomieszczenia_hali.json.bak",
+        cwd / "data" / "pomieszczenia_hali.json",
+        cwd / "data" / "pomieszczenia_hali.json.bak",
+        exe_dir / "data" / "pomieszczenia_hali.json",
+        exe_dir / "data" / "pomieszczenia_hali.json.bak",
     ]
+
+    try:
+        backup_root = root_paths.path_backup()
+        if backup_root.exists():
+            discovered = sorted(
+                (
+                    p
+                    for p in backup_root.rglob("pomieszczenia_hali.json*")
+                    if p.is_file()
+                ),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            candidates.extend(discovered[:20])
+    except Exception:
+        pass
+
     out: list[Path] = []
     seen: set[str] = set()
     for candidate in candidates:
@@ -183,12 +211,15 @@ def _legacy_room_candidates() -> list[Path]:
 
 
 def migrate_legacy_rooms_if_needed() -> Path | None:
-    """Skopiuj stary układ do kanonicznej ścieżki bez usuwania źródła.
+    """Odzyskaj niepusty stary układ bez niszczenia istniejących danych.
 
-    Nie tworzy pustego pliku i nigdy nie nadpisuje istniejącego pliku docelowego.
+    Jeśli plik docelowy istnieje, ale nie zawiera żadnych poprawnych pomieszczeń,
+    można go zastąpić wyłącznie niepustym, zweryfikowanym źródłem. Przed taką
+    podmianą zachowujemy kopię pustego pliku.
     """
     target = rooms_file_path()
-    if target.exists():
+    current_rooms = _read_rooms_file(target) if target.exists() else []
+    if current_rooms:
         return target
 
     target_key = os.path.normcase(os.path.abspath(str(target)))
@@ -201,6 +232,12 @@ def migrate_legacy_rooms_if_needed() -> Path | None:
             continue
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                rescue_backup = target.with_name(target.name + ".empty_before_recovery.bak")
+                try:
+                    shutil.copy2(target, rescue_backup)
+                except OSError:
+                    pass
             shutil.copy2(candidate, target)
             log.warning(
                 "[Maszyny][ROOMS] Odzyskano %d pomieszczeń: %s -> %s",
@@ -211,12 +248,19 @@ def migrate_legacy_rooms_if_needed() -> Path | None:
             return target
         except OSError as exc:
             log.warning(
-                "[Maszyny][ROOMS] Nie udało się skopiować starego układu %s -> %s: %s",
+                "[Maszyny][ROOMS] Nie udało się odzyskać układu %s -> %s: %s",
                 candidate,
                 target,
                 exc,
             )
-    return None
+
+    log.warning(
+        "[Maszyny][ROOMS] Nie znaleziono niepustego pliku pomieszczeń. "
+        "Sprawdzono %d kandydatów; plik docelowy: %s",
+        len(_legacy_room_candidates()),
+        target,
+    )
+    return target if target.exists() else None
 
 
 def load_rooms(path: str | None = None) -> list[Room]:
@@ -224,7 +268,7 @@ def load_rooms(path: str | None = None) -> list[Room]:
         return _read_rooms_file(path)
 
     target = rooms_file_path()
-    if not target.exists():
+    if not _read_rooms_file(target):
         migrate_legacy_rooms_if_needed()
     return _read_rooms_file(target)
 
