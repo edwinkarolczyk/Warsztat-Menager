@@ -1592,6 +1592,107 @@ def _import_schedule_from_excel(path: str) -> Tuple[List[Dict[str, Any]], Dict[s
         "imported_at": dt.datetime.now().isoformat(),
     }
     return entries, meta
+def _hall_background_candidates(cfg: dict | None = None) -> list[str]:
+    """Kandydaci tła hali z bieżącego WM_ROOT i zgodności wstecznej."""
+    cfg = cfg if isinstance(cfg, dict) else {}
+    out: list[str] = []
+
+    def add(value) -> None:
+        text = str(value or "").strip()
+        if text and text not in out:
+            out.append(text)
+
+    machines_cfg = cfg.get("machines")
+    if isinstance(machines_cfg, dict):
+        add(machines_cfg.get("background_image"))
+
+    hall_cfg = cfg.get("hall")
+    if isinstance(hall_cfg, dict):
+        add(hall_cfg.get("background_image"))
+
+    paths_cfg = cfg.get("paths")
+    if isinstance(paths_cfg, dict):
+        nested_hall = paths_cfg.get("hall")
+        if isinstance(nested_hall, dict):
+            add(nested_hall.get("background_image"))
+        add(paths_cfg.get("hall.background_image"))
+
+    try:
+        from core import root_paths as wm_root_paths
+
+        for root in (
+            wm_root_paths.path_assets(),
+            wm_root_paths.get_data_root() / "maszyny",
+            wm_root_paths.get_app_root() / "assets",
+        ):
+            for name in ("hala.png", "hala.jpg", "hala.jpeg", "plan_hali.png", "plan_hali.jpg"):
+                add(str(root / name))
+
+        # Jeżeli aktualny config utracił ścieżkę, spróbuj odzyskać ją z kopii.
+        config_backups = [
+            wm_root_paths.path_config().with_suffix(".json.bak"),
+            wm_root_paths.path_config().with_name("config.bak"),
+        ]
+        try:
+            backup_root = wm_root_paths.path_backup()
+            if backup_root.exists():
+                config_backups.extend(
+                    sorted(
+                        (p for p in backup_root.rglob("config*.json*") if p.is_file()),
+                        key=lambda p: p.stat().st_mtime,
+                        reverse=True,
+                    )[:20]
+                )
+        except Exception:
+            pass
+
+        for backup in config_backups:
+            try:
+                if not backup.is_file():
+                    continue
+                import json as _json
+                payload = _json.loads(backup.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict):
+                    continue
+                machine_backup = payload.get("machines")
+                if isinstance(machine_backup, dict):
+                    add(machine_backup.get("background_image"))
+                hall_backup = payload.get("hall")
+                if isinstance(hall_backup, dict):
+                    add(hall_backup.get("background_image"))
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    return out
+
+
+def _resolve_hall_background_path(cfg: dict | None = None) -> str:
+    """Zwróć pierwszy istniejący obraz tła, rozwiązywany względem WM_ROOT/APP_ROOT."""
+    cfg = cfg if isinstance(cfg, dict) else {}
+    try:
+        from core import root_paths as wm_root_paths
+        root_anchor = wm_root_paths.get_root_anchor()
+        app_root = wm_root_paths.get_app_root()
+    except Exception:
+        root_anchor = Path.cwd()
+        app_root = Path.cwd()
+
+    for raw in _hall_background_candidates(cfg):
+        path = os.path.expanduser(str(raw))
+        candidates = [Path(path)]
+        if not os.path.isabs(path):
+            candidates = [root_anchor / path, app_root / path, Path.cwd() / path]
+        for candidate in candidates:
+            try:
+                if candidate.is_file():
+                    return os.path.normpath(str(candidate))
+            except Exception:
+                continue
+    return ""
+
+
 def _coalesce_data_root(cfg: dict | None = None) -> str:
     """Return an absolute data root derived from *cfg* or environment."""
 
@@ -2207,33 +2308,27 @@ class MachineHallRenderer:
     def _load_background(self):
         self._reset_background_state()
 
-        path = None
-        machines_cfg = self.cfg.get("machines") if isinstance(self.cfg, dict) else None
-        if isinstance(machines_cfg, dict):
-            candidate = machines_cfg.get("background_image")
-            if isinstance(candidate, str) and candidate.strip():
-                path = candidate
+        cfg_context = self.cfg if isinstance(self.cfg, dict) else {}
+        path = _resolve_hall_background_path(cfg_context)
+
+        # Jawny bg_path pozostaje ostatnim fallbackiem dla starszych wejść GUI.
+        if not path and isinstance(self._bg_path, str) and self._bg_path.strip():
+            explicit = self._bg_path.strip()
+            try:
+                if os.path.isfile(explicit):
+                    path = os.path.normpath(explicit)
+            except Exception:
+                path = ""
+
         if not path:
-            cfg_paths = (self.cfg.get("paths", {}) or {})
-            cfg_bg = (cfg_paths.get("hall", {}) or {}).get("background_image") or cfg_paths.get(
-                "hall.background_image"
+            logger.warning(
+                "[Maszyny][HALL] Nie znaleziono tła hali. "
+                "Sprawdź machines.background_image / hall.background_image / assets."
             )
-            if isinstance(cfg_bg, str) and cfg_bg.strip():
-                path = cfg_bg
-        if not path and isinstance(self._bg_path, str):
-            path = self._bg_path
-        if not path:
-            return
-        if not os.path.isabs(path):
-            cfg_context = self.cfg if isinstance(self.cfg, dict) else {}
-            root = _coalesce_data_root(cfg_context)
-            path = os.path.join(root, path)
-        path = os.path.normpath(path)
-        if not os.path.exists(path):
-            logger.info("[Maszyny][HALL] Tło nie istnieje: %s", path)
             return
 
         self._bg_image_path = path
+        logger.info("[Maszyny][HALL] Tło hali: %s", path)
         self._load_bg_image_assets(path)
 
     def _reset_background_state(self) -> None:
@@ -5187,8 +5282,18 @@ def init_maszyny_view(
 ) -> MachinesView:
     """Zainicjalizuj widok maszyn w trybie uproszczonym."""
 
-    cfg = Settings(path="config.json", project_root=__file__)
-    bg_path = cfg.path_assets("hala.png")
+    try:
+        from core import root_paths as wm_root_paths
+        cfg = Settings(
+            path=str(wm_root_paths.path_config()),
+            project_root=str(wm_root_paths.get_app_root()),
+        )
+        bg_path = _resolve_hall_background_path(getattr(cfg, "_data", {}) or {})
+        if not bg_path:
+            bg_path = str(wm_root_paths.path_assets() / "hala.png")
+    except Exception:
+        cfg = Settings(path="config.json", project_root=str(Path(__file__).resolve().parent))
+        bg_path = cfg.path_assets("hala.png")
     view = MachinesView(
         parent,
         cfg,
