@@ -19,7 +19,8 @@ def test_magazyn_columns_are_grouped_for_reading():
 
     original = (
         "id", "sekcja", "typ", "rozmiar", "nazwa", "stan",
-        "rezerwacje", "dostepne", "jednostka", "lokalizacja", "zadania",
+        "rezerwacje", "dostepne", "sztangi_dostepne", "dl_sztangi",
+        "jednostka",
     )
 
     class Tree:
@@ -49,9 +50,9 @@ def test_magazyn_columns_are_grouped_for_reading():
         "stan",
         "rezerwacje",
         "dostepne",
+        "sztangi_dostepne",
+        "dl_sztangi",
         "jednostka",
-        "lokalizacja",
-        "zadania",
         "typ",
         "sekcja",
     )
