@@ -1,6 +1,7 @@
 # version: 1.1
 from pathlib import Path
 
+from widok_hali import rooms as rooms_module
 from widok_hali.rooms import (
     Room,
     load_rooms,
@@ -167,3 +168,77 @@ def test_room_roundtrip_uses_versioned_atomic_document(tmp_path: Path):
 
     assert (tmp_path / "pomieszczenia_hali.json.bak").exists()
     assert load_rooms(str(target))[0].name == "Tokarnia CNC"
+
+
+def test_rooms_use_machine_data_root_and_migrate_old_file_without_deleting_source(
+    tmp_path: Path,
+    monkeypatch,
+):
+    data_root = tmp_path / "data"
+    machines_dir = data_root / "maszyny"
+    legacy = data_root / "pomieszczenia_hali.json"
+    canonical = machines_dir / "pomieszczenia_hali.json"
+    config = tmp_path / "config.json"
+
+    data_root.mkdir(parents=True)
+    config.write_text("{}", encoding="utf-8")
+    save_rooms(_rooms(), str(legacy))
+
+    monkeypatch.setattr(rooms_module.root_paths, "get_data_root", lambda: data_root)
+    monkeypatch.setattr(rooms_module.root_paths, "path_config", lambda: config)
+    monkeypatch.setattr(rooms_module.root_paths, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        rooms_module.root_paths,
+        "path_machine_rooms",
+        lambda: canonical,
+    )
+
+    assert not canonical.exists()
+
+    loaded = rooms_module.load_rooms()
+
+    assert canonical.exists()
+    assert legacy.exists()
+    assert [room.name for room in loaded] == ["Tokarnia", "Spawalnia"]
+    assert [room.id for room in loaded] == ["POM_0001", "POM_0002"]
+
+
+def test_existing_canonical_rooms_are_never_overwritten_by_legacy(
+    tmp_path: Path,
+    monkeypatch,
+):
+    data_root = tmp_path / "data"
+    machines_dir = data_root / "maszyny"
+    legacy = data_root / "pomieszczenia_hali.json"
+    canonical = machines_dir / "pomieszczenia_hali.json"
+    config = tmp_path / "config.json"
+
+    data_root.mkdir(parents=True)
+    machines_dir.mkdir(parents=True)
+    config.write_text("{}", encoding="utf-8")
+
+    old_rooms = _rooms()
+    save_rooms(old_rooms, str(legacy))
+    current = [
+        Room(
+            id="POM_9000",
+            name="Aktualne pomieszczenie",
+            hala="1",
+            polygon=[(0, 0), (50, 0), (50, 50), (0, 50)],
+        )
+    ]
+    save_rooms(current, str(canonical))
+
+    monkeypatch.setattr(rooms_module.root_paths, "get_data_root", lambda: data_root)
+    monkeypatch.setattr(rooms_module.root_paths, "path_config", lambda: config)
+    monkeypatch.setattr(rooms_module.root_paths, "get_app_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        rooms_module.root_paths,
+        "path_machine_rooms",
+        lambda: canonical,
+    )
+
+    loaded = rooms_module.load_rooms()
+
+    assert [room.id for room in loaded] == ["POM_9000"]
+    assert legacy.exists()
