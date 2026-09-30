@@ -1,4 +1,4 @@
-# version: 1.1
+# version: 1.2
 """Pomieszczenia i lokalizacje dla widoku hali WM.
 
 Geometria jest zapisywana w układzie współrzędnych tła planu (piksele obrazu),
@@ -9,15 +9,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import logging
 import os
+from pathlib import Path
 import shutil
 import tempfile
 from typing import Any, Iterable, Mapping, MutableMapping, Optional, Sequence
 
-from utils.path_utils import cfg_path
+from core import root_paths
+
+log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
-ROOMS_FILE = cfg_path(os.path.join("data", "pomieszczenia_hali.json"))
+
+
+def rooms_file_path() -> Path:
+    """Zwróć bieżącą kanoniczną ścieżkę zależną od aktywnego DATA_ROOT."""
+    return root_paths.path_machine_rooms()
+
+
+# Zachowane dla kompatybilności importów, ale load/save korzystają z resolvera
+# dynamicznego, żeby zmiana ROOT w runtime nie zostawiała starej ścieżki.
+ROOMS_FILE = str(rooms_file_path())
 NON_SPATIAL_LOCATIONS = (
     "Serwis zewnętrzny",
     "Poza zakładem",
@@ -117,8 +130,7 @@ def validate_room(room: Room, *, existing: Iterable[Room] = ()) -> None:
             raise ValueError(f'Pomieszczenie o nazwie "{room.name}" już istnieje.')
 
 
-def load_rooms(path: str | None = None) -> list[Room]:
-    target = path or ROOMS_FILE
+def _read_rooms_file(target: str | os.PathLike[str]) -> list[Room]:
     try:
         with open(target, "r", encoding="utf-8") as fh:
             payload = json.load(fh)
@@ -130,7 +142,6 @@ def load_rooms(path: str | None = None) -> list[Room]:
     if isinstance(payload, dict):
         raw_rooms = payload.get("rooms", [])
     elif isinstance(payload, list):
-        # kompatybilność z ewentualnym wcześniejszym formatem listowym
         raw_rooms = payload
     else:
         raw_rooms = []
@@ -150,8 +161,76 @@ def load_rooms(path: str | None = None) -> list[Room]:
     return rooms
 
 
+def _legacy_room_candidates() -> list[Path]:
+    """Stare lokalizacje pliku; kolejność od najbardziej prawdopodobnej."""
+    data_root = root_paths.get_data_root()
+    config_path = root_paths.path_config()
+    app_root = root_paths.get_app_root()
+    candidates = [
+        data_root / "pomieszczenia_hali.json",
+        config_path.parent / "data" / "pomieszczenia_hali.json",
+        app_root / "data" / "pomieszczenia_hali.json",
+    ]
+    out: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = os.path.normcase(os.path.abspath(str(candidate)))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(candidate)
+    return out
+
+
+def migrate_legacy_rooms_if_needed() -> Path | None:
+    """Skopiuj stary układ do kanonicznej ścieżki bez usuwania źródła.
+
+    Nie tworzy pustego pliku i nigdy nie nadpisuje istniejącego pliku docelowego.
+    """
+    target = rooms_file_path()
+    if target.exists():
+        return target
+
+    target_key = os.path.normcase(os.path.abspath(str(target)))
+    for candidate in _legacy_room_candidates():
+        candidate_key = os.path.normcase(os.path.abspath(str(candidate)))
+        if candidate_key == target_key or not candidate.is_file():
+            continue
+        rooms = _read_rooms_file(candidate)
+        if not rooms:
+            continue
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(candidate, target)
+            log.warning(
+                "[Maszyny][ROOMS] Odzyskano %d pomieszczeń: %s -> %s",
+                len(rooms),
+                candidate,
+                target,
+            )
+            return target
+        except OSError as exc:
+            log.warning(
+                "[Maszyny][ROOMS] Nie udało się skopiować starego układu %s -> %s: %s",
+                candidate,
+                target,
+                exc,
+            )
+    return None
+
+
+def load_rooms(path: str | None = None) -> list[Room]:
+    if path is not None:
+        return _read_rooms_file(path)
+
+    target = rooms_file_path()
+    if not target.exists():
+        migrate_legacy_rooms_if_needed()
+    return _read_rooms_file(target)
+
+
 def save_rooms(rooms: Iterable[Room], path: str | None = None) -> None:
-    target = os.path.normpath(path or ROOMS_FILE)
+    target = os.path.normpath(path or str(rooms_file_path()))
     rows = list(rooms)
     checked: list[Room] = []
     for room in rows:
@@ -397,6 +476,8 @@ __all__ = [
     "NON_SPATIAL_LOCATIONS",
     "ROOMS_FILE",
     "Room",
+    "migrate_legacy_rooms_if_needed",
+    "rooms_file_path",
     "load_rooms",
     "location_values",
     "next_room_id",
