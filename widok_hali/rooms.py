@@ -170,7 +170,9 @@ def _legacy_room_candidates() -> list[Path]:
     cwd = Path.cwd()
     exe_dir = Path(sys.executable).resolve().parent if getattr(sys, "executable", None) else cwd
 
+    canonical = rooms_file_path()
     candidates = [
+        canonical.with_name(canonical.name + ".bak"),
         data_root / "pomieszczenia_hali.json",
         data_root / "pomieszczenia_hali.json.bak",
         config_path.parent / "data" / "pomieszczenia_hali.json",
@@ -182,6 +184,25 @@ def _legacy_room_candidates() -> list[Path]:
         exe_dir / "data" / "pomieszczenia_hali.json",
         exe_dir / "data" / "pomieszczenia_hali.json.bak",
     ]
+
+    # Nie zakładamy już jednej historycznej lokalizacji. Starsze wydania WM
+    # mogły policzyć cfg_path zanim aktywny ROOT został ustawiony.
+    for search_root in (root_paths.get_root_anchor(), app_root):
+        try:
+            if not search_root.exists():
+                continue
+            discovered = sorted(
+                (
+                    p
+                    for p in search_root.rglob("pomieszczenia_hali.json*")
+                    if p.is_file()
+                ),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            candidates.extend(discovered[:100])
+        except Exception:
+            pass
 
     try:
         backup_root = root_paths.path_backup()
@@ -195,7 +216,7 @@ def _legacy_room_candidates() -> list[Path]:
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            candidates.extend(discovered[:20])
+            candidates.extend(discovered[:100])
     except Exception:
         pass
 
