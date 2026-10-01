@@ -956,8 +956,10 @@ class ZleceniaView(ttk.Frame):
         self.status_filter.bind("<<ComboboxSelected>>", self._on_filters_changed, add=True)
 
     def _build_tree(self) -> None:
-        columns = (
-            "zrodlo_obiekt",
+        self._tree_columns = (
+            "typ",
+            "id",
+            "obiekt",
             "zadanie",
             "stan_obiektu",
             "status_dyspozycji",
@@ -965,40 +967,75 @@ class ZleceniaView(ttk.Frame):
             "termin",
             "za_ile",
             "priorytet",
+            "lokalizacja",
+            "utworzono",
         )
-        self.tree = ttk.Treeview(self, columns=columns, show="headings")
-
-        headings = {
-            "zrodlo_obiekt": "Źródło / obiekt",
+        self._tree_headings = {
+            "typ": "Typ",
+            "id": "ID",
+            "obiekt": "Obiekt",
             "zadanie": "Zadanie",
             "stan_obiektu": "Stan obiektu",
-            "status_dyspozycji": "Status dyspozycji",
+            "status_dyspozycji": "Status",
             "przypisane": "Przypisane",
             "termin": "Termin",
             "za_ile": "Za ile",
             "priorytet": "Priorytet",
+            "lokalizacja": "Lokalizacja",
+            "utworzono": "Utworzono",
         }
-        widths = {
-            "zrodlo_obiekt": 240,
-            "zadanie": 360,
-            "stan_obiektu": 180,
-            "status_dyspozycji": 135,
-            "przypisane": 165,
-            "termin": 115,
-            "za_ile": 90,
-            "priorytet": 105,
+        self._tree_width_limits = {
+            "typ": (70, 110),
+            "id": (70, 130),
+            "obiekt": (110, 300),
+            "zadanie": (180, 520),
+            "stan_obiektu": (120, 240),
+            "status_dyspozycji": (90, 150),
+            "przypisane": (100, 210),
+            "termin": (105, 145),
+            "za_ile": (80, 190),
+            "priorytet": (85, 120),
+            "lokalizacja": (100, 230),
+            "utworzono": (115, 150),
         }
-        for column in columns:
-            self.tree.heading(column, text=headings[column])
+
+        tree_frame = ttk.Frame(self)
+        tree_frame.pack(fill="both", expand=True)
+
+        self.tree = ttk.Treeview(
+            tree_frame,
+            columns=self._tree_columns,
+            show="headings",
+        )
+        for column in self._tree_columns:
+            self.tree.heading(column, text=self._tree_headings[column])
+            min_width, max_width = self._tree_width_limits[column]
             self.tree.column(
                 column,
-                width=widths[column],
-                minwidth=widths[column],
-                anchor="w" if column in {"zrodlo_obiekt", "zadanie", "stan_obiektu"} else "center",
-                stretch=column == "zadanie",
+                width=min_width,
+                minwidth=min_width,
+                anchor="w" if column in {
+                    "obiekt",
+                    "zadanie",
+                    "stan_obiektu",
+                    "przypisane",
+                    "lokalizacja",
+                } else "center",
+                stretch=column in {"obiekt", "zadanie"},
             )
+
+        x_scroll = ttk.Scrollbar(
+            tree_frame,
+            orient="horizontal",
+            command=self.tree.xview,
+        )
+        self.tree.configure(xscrollcommand=x_scroll.set)
+
         self._apply_dysp_ui_config()
         self.tree.pack(fill="both", expand=True)
+        x_scroll.pack(fill="x", side="bottom")
+        self._apply_visible_columns()
+
         self.tree.bind("<Double-1>", self._on_double_click, add=True)
         self.tree.bind(
             "<<TreeviewSelect>>",
@@ -1007,6 +1044,81 @@ class ZleceniaView(ttk.Frame):
         )
         self._update_status_actions()
         self._ensure_blink_started()
+
+    def _visible_tree_columns(self) -> tuple[str, ...]:
+        optional = {
+            "lokalizacja": bool(self._optional_column_vars["lokalizacja"].get()),
+            "utworzono": bool(self._optional_column_vars["utworzono"].get()),
+        }
+        return tuple(
+            column
+            for column in self._tree_columns
+            if column not in optional or optional[column]
+        )
+
+    def _apply_visible_columns(self) -> None:
+        if not hasattr(self, "tree"):
+            return
+        try:
+            self.tree.configure(displaycolumns=self._visible_tree_columns())
+        except Exception:
+            return
+        self._autosize_tree_columns()
+
+    def _tree_font(self):
+        try:
+            style = ttk.Style(self.tree)
+            font_spec = style.lookup("Dyspozycje.Treeview", "font")
+            if font_spec:
+                return tkfont.Font(font=font_spec)
+        except Exception:
+            pass
+        try:
+            return tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            return None
+
+    def _autosize_tree_columns(self) -> None:
+        if not hasattr(self, "tree"):
+            return
+        font = self._tree_font()
+        visible = set(self._visible_tree_columns())
+        for column in self._tree_columns:
+            if column not in visible:
+                continue
+            min_width, max_width = self._tree_width_limits[column]
+            heading = self._tree_headings[column]
+            if font is not None:
+                try:
+                    desired = int(font.measure(heading)) + 28
+                except Exception:
+                    desired = min_width
+            else:
+                desired = max(min_width, len(heading) * 9 + 28)
+
+            for iid in self.tree.get_children(""):
+                try:
+                    value = str(self.tree.set(iid, column) or "")
+                except Exception:
+                    value = ""
+                if font is not None:
+                    try:
+                        measured = int(font.measure(value)) + 24
+                    except Exception:
+                        measured = len(value) * 8 + 24
+                else:
+                    measured = len(value) * 8 + 24
+                if measured > desired:
+                    desired = measured
+                if desired >= max_width:
+                    desired = max_width
+                    break
+
+            width = max(min_width, min(max_width, desired))
+            try:
+                self.tree.column(column, width=width, minwidth=min_width)
+            except Exception:
+                pass
 
     def _apply_dysp_ui_config(self) -> None:
         self._dysp_ui = _dysp_ui_config()
