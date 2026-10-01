@@ -1,4 +1,8 @@
-# version: 1.12
+# version: 1.13
+# Zmiany 1.13:
+# - Dyspozycje: rozdzielono Typ / ID / Obiekt i dodano Lokalizację oraz Utworzono.
+# - Kolumny dopasowują szerokość do najdłuższej widocznej wartości z limitami i poziomym przewijaniem.
+# - Lokalizacja i Utworzono mogą być włączane/wyłączane z menu Kolumny.
 # Zmiany 1.12:
 # - Uproszczono pasek Dyspozycji do Dodaj + Usuń/Ukryj; nawigacja i edycja są dostępne z wiersza.
 # - Automatycznych Dyspozycji nie można już trwale usunąć z listy; akcja Ukryj / Pomiń zachowuje powiązanie ze źródłem.
@@ -45,6 +49,7 @@ from __future__ import annotations
 import datetime as _dt
 import logging
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 from typing import Any, Callable
 
@@ -370,6 +375,7 @@ def _load_tool_info_cache() -> dict[str, dict[str, Any]]:
             "id": rid,
             "name": str(row.get("nazwa") or row.get("name") or "").strip(),
             "status": str(row.get("status") or "").strip(),
+            "lokalizacja": str(row.get("lokalizacja") or row.get("location") or "").strip(),
         }
         for key in _normalize_object_id(rid):
             cache[key] = info
@@ -404,6 +410,7 @@ def _load_machine_info_cache() -> dict[str, dict[str, Any]]:
             "id": rid,
             "name": str(row.get("nazwa") or row.get("name") or row.get("typ") or "").strip(),
             "status": status,
+            "lokalizacja": str(row.get("lokalizacja") or row.get("location") or "").strip(),
         }
         for key in _normalize_object_id(rid):
             cache[key] = info
@@ -451,6 +458,8 @@ def _load_warehouse_info_cache() -> dict[str, dict[str, Any]]:
             "rezerwacje": rezerwacje,
             "dostepne": max(0.0, stan - rezerwacje),
             "jednostka": str(row.get("jednostka") or row.get("jm") or "").strip(),
+            "rozmiar": str(row.get("rozmiar") or row.get("wymiar") or row.get("fi") or "").strip(),
+            "lokalizacja": str(row.get("lokalizacja") or row.get("location") or "").strip(),
         }
 
     _DYSP_WAREHOUSE_INFO_CACHE = cache
@@ -522,6 +531,74 @@ def _source_object_label(item: dict[str, Any]) -> str:
     label = "Maszyna" if kind == "maszyna" else "Narzędzie"
     name = str((live or {}).get("name") or "").strip()
     return f"{label} • {object_id}" + (f" {name}" if name else "")
+
+
+def _source_type_label(item: dict[str, Any]) -> str:
+    kind = _source_type(item)
+    labels = {
+        "planista": "Planista",
+        "magazyn": "Magazyn",
+        "maszyna": "Maszyna",
+        "narzedzie": "Narzędzie",
+    }
+    return labels.get(kind, _dysp_type_label(item))
+
+
+def _source_id_label(item: dict[str, Any]) -> str:
+    return _source_object_id(item) or _dysp_object_label(item) or "—"
+
+
+def _source_name_label(item: dict[str, Any]) -> str:
+    kind = _source_type(item)
+    live = _source_live_info(item) or {}
+    if kind == "planista":
+        value = str(
+            live.get("produkt")
+            or live.get("product_code")
+            or live.get("nazwa")
+            or live.get("name")
+            or ""
+        ).strip()
+        return value or "—"
+    if kind == "magazyn":
+        name = str(live.get("name") or "").strip()
+        size = str(live.get("rozmiar") or "").strip()
+        if name and size and size.casefold() not in name.casefold():
+            return f"{name} {size}"
+        return name or "—"
+    name = str(live.get("name") or "").strip()
+    return name or "—"
+
+
+def _source_location_label(item: dict[str, Any]) -> str:
+    live = _source_live_info(item) or {}
+    meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
+    return str(
+        live.get("lokalizacja")
+        or live.get("location")
+        or item.get("lokalizacja")
+        or item.get("location")
+        or meta.get("lokalizacja")
+        or meta.get("location")
+        or ""
+    ).strip() or "—"
+
+
+def _format_dysp_created(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+    normalized = raw.replace("Z", "+00:00")
+    try:
+        parsed = _dt.datetime.fromisoformat(normalized)
+        return parsed.strftime("%d-%m-%y %H:%M")
+    except Exception:
+        pass
+    try:
+        parsed_date = _dt.date.fromisoformat(raw[:10])
+        return parsed_date.strftime("%d-%m-%y")
+    except Exception:
+        return raw
 
 
 def _live_object_state_label(item: dict[str, Any]) -> str:
@@ -747,6 +824,10 @@ class ZleceniaView(ttk.Frame):
         self._open_order_creator = _resolve_creator()
         self._dysp_event_root: tk.Misc | None = None
         self._dysp_event_bind_id: str | None = None
+        self._optional_column_vars = {
+            "lokalizacja": tk.BooleanVar(value=True),
+            "utworzono": tk.BooleanVar(value=True),
+        }
         self._build_toolbar()
         self._build_tree()
         self._bind_orders_event()
@@ -823,6 +904,21 @@ class ZleceniaView(ttk.Frame):
 
         filters = ttk.Frame(toolbar)
         filters.pack(side="right")
+
+        self.columns_menu_button = ttk.Menubutton(filters, text="Kolumny")
+        self.columns_menu = tk.Menu(self.columns_menu_button, tearoff=False)
+        self.columns_menu_button.configure(menu=self.columns_menu)
+        self.columns_menu.add_checkbutton(
+            label="Lokalizacja",
+            variable=self._optional_column_vars["lokalizacja"],
+            command=self._apply_visible_columns,
+        )
+        self.columns_menu.add_checkbutton(
+            label="Utworzono",
+            variable=self._optional_column_vars["utworzono"],
+            command=self._apply_visible_columns,
+        )
+        self.columns_menu_button.pack(side="left", padx=(0, 10))
 
         ttk.Label(filters, text="Widok:").pack(side="left", padx=(0, 4))
         scope_values = ["Moje + Dla wszystkich", "Moje", "Dla wszystkich"]
