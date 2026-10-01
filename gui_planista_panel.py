@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.8
+# version: 1.9
 # Planista osadzony w glownym obszarze WM.
+# 1.9: w tabeli Zleceń Wersja BOM -> Półprodukty z ilością kompletnych zestawów i sygnalizacją kolorem.
 # 1.8: wydruk karty korzysta ze wspólnego generatora i zapisuje kopię w aktywnym ROOT WM.
 # 1.7: uporządkowano finalny układ tabeli Zleceń; Zamówienie = ilość, przywrócono Wersję BOM.
 # 1.6: doprecyzowano Zlecenie warsztatowe, zachowano źródło ID i zwężono kolumnę.
@@ -46,6 +47,33 @@ def _fmt_amount(value, unit=""):
         except Exception:
             pass
     return f"{txt} {u}".strip()
+
+
+def _semi_progress_display(order: dict) -> str:
+    """Tylko prezentacja: kompletne zestawy półproduktów / ilość zlecenia."""
+    try:
+        from planista_semi_progress_runtime import proposed_product_completion
+
+        progress = proposed_product_completion(order)
+    except Exception:
+        return "—"
+
+    if not progress.get("available"):
+        return "—"
+
+    planned = max(0.0, float(progress.get("planned") or 0))
+    complete = max(0.0, float(progress.get("complete_sets") or 0))
+    if planned <= 0:
+        return "—"
+
+    if complete <= 0:
+        marker = "🔴"
+    elif complete + 1e-9 >= planned:
+        marker = "🟢"
+    else:
+        marker = "🟡"
+
+    return f"{marker} {_fmt_qty(complete)}/{_fmt_qty(planned)}"
 
 
 class PlanistaPanel(ttk.Frame):
@@ -98,7 +126,7 @@ class PlanistaPanel(ttk.Frame):
             "id",
             "produkt",
             "ilosc",
-            "version",
+            "polprodukty",
             "wykonano",
             "pozostalo",
             "termin",
@@ -110,7 +138,7 @@ class PlanistaPanel(ttk.Frame):
             "id": "Zlecenie warsztatowe",
             "produkt": "Produkt",
             "ilosc": "Zamówienie",
-            "version": "Wersja BOM",
+            "polprodukty": "Półprodukty",
             "wykonano": "Wykonano",
             "pozostalo": "Pozostało",
             "termin": "Termin",
@@ -121,7 +149,7 @@ class PlanistaPanel(ttk.Frame):
             "id": 100,
             "produkt": 250,
             "ilosc": 100,
-            "version": 90,
+            "polprodukty": 110,
             "wykonano": 90,
             "pozostalo": 90,
             "termin": 120,
@@ -257,7 +285,7 @@ class PlanistaPanel(ttk.Frame):
                     oid,
                     order.get("produkt", ""),
                     _fmt_qty(qty),
-                    str(order.get("version") or ""),
+                    _semi_progress_display(order),
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
                     _display_date(order.get("termin", "")),
