@@ -225,33 +225,92 @@ def test_wmm_idempotency_same_request_id_is_scoped_by_endpoint(tmp_path, monkeyp
 
 
 def test_wmm_idempotency_survives_api_restart(tmp_path, monkeypatch):
+    root = _prepare_root(tmp_path, monkeypatch)
+    tools = root / "data" / "narzedzia"
+    tools.mkdir(parents=True)
+    target = tools / "001.json"
+    target.write_text(
+        json.dumps(
+            {"id": "001", "status": "Dostępne", "historia": []},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
     from services import wmm_api as api
 
     monkeypatch.setattr(api, "_idempotency_path", lambda: tmp_path / "ledger.json")
     monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
     api._IDEMPOTENCY_CACHE.clear()
+    path = "/api/v1/tools/001/status"
     calls = []
 
-    def operation():
-        calls.append(1)
-        return {"id": "001", "status": "Do naprawy"}
+    def operation(target_status):
+        def apply():
+            calls.append(target_status)
 
-    first, row = api._run_idempotent(
-        "restart-case-001", "/api/v1/tools/001/status", operation, "payload-a"
+            def mutate(row):
+                previous = str(row.get("status") or "")
+                row["status"] = target_status
+                row.setdefault("historia", []).append(
+                    {
+                        "action": "status_changed",
+                        "from": previous,
+                        "to": target_status,
+                    }
+                )
+
+            return api._update_tool("001", mutate)
+
+        return apply
+
+    first_replayed, first = api._run_idempotent(
+        "restart-case-001",
+        path,
+        operation("Do naprawy"),
+        "status=Do naprawy",
     )
-    assert first is False
-    assert row["status"] == "Do naprawy"
+    assert first_replayed is False
+    assert first["status"] == "Do naprawy"
     assert (tmp_path / "ledger.json").is_file()
 
-    # Symulacja nowego procesu API po utracie odpowiedzi HTTP.
+    saved_after_first = json.loads(target.read_text(encoding="utf-8"))
+    assert saved_after_first["status"] == "Do naprawy"
+    assert len(saved_after_first["historia"]) == 1
+    assert calls == ["Do naprawy"]
+
+    # Symulacja nowego procesu API po utracie odpowiedzi HTTP:
+    # pamięć procesu znika, a trwały ledger zostaje na dysku.
     api._IDEMPOTENCY_CACHE.clear()
     monkeypatch.setattr(api, "_IDEMPOTENCY_LOADED_PATH", None)
     replayed, restored = api._run_idempotent(
-        "restart-case-001", "/api/v1/tools/001/status", operation, "payload-a"
+        "restart-case-001",
+        path,
+        operation("Do naprawy"),
+        "status=Do naprawy",
     )
     assert replayed is True
-    assert restored == row
-    assert calls == [1]
+    assert restored == first
+
+    saved_after_replay = json.loads(target.read_text(encoding="utf-8"))
+    assert saved_after_replay["status"] == "Do naprawy"
+    assert len(saved_after_replay["historia"]) == 1
+    assert calls == ["Do naprawy"]
+
+    # Nowe ID musi wykonać nową operację normalnie.
+    second_replayed, second = api._run_idempotent(
+        "restart-case-002",
+        path,
+        operation("Dostępne"),
+        "status=Dostępne",
+    )
+    assert second_replayed is False
+    assert second["status"] == "Dostępne"
+
+    saved_after_second = json.loads(target.read_text(encoding="utf-8"))
+    assert saved_after_second["status"] == "Dostępne"
+    assert len(saved_after_second["historia"]) == 2
+    assert calls == ["Do naprawy", "Dostępne"]
 
 
 
