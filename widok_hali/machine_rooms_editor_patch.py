@@ -1,5 +1,10 @@
-# version: 1.0
+# version: 1.1
 """Narzędzia edycji pomieszczeń hali i kontrola dostępu brygadzisty.
+
+1.1:
+- dodawanie narożnika do istniejącej krawędzi,
+- Shift podczas przeciągania narożnika blokuje ruch do osi 0/90/180/270°.
+
 
 Ta warstwa jest instalowana na końcu rozszerzeń modułu Maszyny. Nie zmienia
 ``gui_maszyny_legacy.py``. Rozdziela zwykłe kontrolki widoku od edycji
@@ -8,6 +13,8 @@ narzędzia modyfikujące układ hali były dostępne wyłącznie dla brygadzisty
 """
 from __future__ import annotations
 
+from copy import deepcopy
+import math
 from typing import Optional
 
 
@@ -70,6 +77,25 @@ def _rectangle_polygon(
     if right - left < int(minimum_size) or bottom - top < int(minimum_size):
         return None
     return [(left, top), (right, top), (right, bottom), (left, bottom)]
+
+
+def _project_point_to_segment(
+    px: float,
+    py: float,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+) -> tuple[float, float, float]:
+    """Rzut punktu na odcinek: x, y projekcji oraz odległość od odcinka."""
+    dx, dy = x2 - x1, y2 - y1
+    length_sq = dx * dx + dy * dy
+    if length_sq <= 0:
+        return x1, y1, math.hypot(px - x1, py - y1)
+    t = ((px - x1) * dx + (py - y1) * dy) / length_sq
+    t = max(0.0, min(1.0, t))
+    qx, qy = x1 + t * dx, y1 + t * dy
+    return qx, qy, math.hypot(px - qx, py - qy)
 
 
 def install_machine_room_editor(legacy_module) -> None:
@@ -167,6 +193,11 @@ def install_machine_room_editor(legacy_module) -> None:
                 text="Edytuj pomieszczenie",
                 command=self._wm_start_existing_room_edit,
             )
+            self._wm_btn_add_point = real_ttk.Button(
+                self._wm_edit_toolbar,
+                text="Dodaj punkt",
+                command=self._wm_start_add_point,
+            )
             self._wm_btn_rename = real_ttk.Button(
                 self._wm_edit_toolbar,
                 text="Zmień nazwę",
@@ -196,6 +227,7 @@ def install_machine_room_editor(legacy_module) -> None:
                 self._wm_btn_polygon,
                 self._wm_btn_rectangle,
                 self._wm_btn_edit_room,
+                self._wm_btn_add_point,
                 self._wm_btn_rename,
                 self._wm_btn_delete,
                 self._wm_btn_undo_room,
@@ -293,9 +325,81 @@ def install_machine_room_editor(legacy_module) -> None:
             self._wm_leave_current_tool()
             self._wm_room_tool = "edit"
             self._status_var.set(
-                "Edytuj pomieszczenie: kliknij pomieszczenie, potem przeciągaj jego narożniki."
+                "Edytuj pomieszczenie: kliknij pomieszczenie, potem przeciągaj jego narożniki. "
+                "Shift blokuje ruch do poziomu lub pionu."
             )
             self._draw_all()
+
+        def _wm_start_add_point(self) -> None:
+            if not self._wm_can_edit_rooms() or not self._layout_edit:
+                return
+            room = self._selected_room()
+            if room is None:
+                self._status_var.set(
+                    "Dodaj punkt: najpierw wybierz pomieszczenie przyciskiem Edytuj pomieszczenie."
+                )
+                return
+            self._wm_leave_current_tool()
+            self._wm_room_tool = "add_vertex"
+            self._status_var.set(
+                f'Dodaj punkt: kliknij krawędź pomieszczenia "{room.name}".'
+            )
+            self._draw_all()
+
+        def _wm_insert_vertex_from_click(self, event) -> bool:
+            room = self._selected_room()
+            if room is None or len(room.polygon) < 2:
+                return False
+
+            best = None
+            for index, (x1, y1) in enumerate(room.polygon):
+                x2, y2 = room.polygon[(index + 1) % len(room.polygon)]
+                c1x, c1y = self._map_bg_to_canvas(x1, y1)
+                c2x, c2y = self._map_bg_to_canvas(x2, y2)
+                qx, qy, distance = _project_point_to_segment(
+                    event.x, event.y, c1x, c1y, c2x, c2y
+                )
+                if best is None or distance < best[0]:
+                    best = (distance, index, qx, qy, x1, y1, x2, y2)
+
+            if best is None or best[0] > self.SNAP_SCREEN_PX + 4:
+                self._status_var.set(
+                    "Dodaj punkt: kliknij bliżej wybranej krawędzi pomieszczenia."
+                )
+                return False
+
+            _, index, qx, qy, x1, y1, x2, y2 = best
+            c1x, c1y = self._map_bg_to_canvas(x1, y1)
+            c2x, c2y = self._map_bg_to_canvas(x2, y2)
+            denom = (c2x - c1x) ** 2 + (c2y - c1y) ** 2
+            if denom <= 0:
+                return False
+            t = ((qx - c1x) * (c2x - c1x) + (qy - c1y) * (c2y - c1y)) / denom
+            t = max(0.0, min(1.0, t))
+            bx = int(round(x1 + t * (x2 - x1)))
+            by = int(round(y1 + t * (y2 - y1)))
+
+            # Nie pozwalaj tworzyć punktu praktycznie na istniejącym narożniku.
+            for vx, vy in ((x1, y1), (x2, y2)):
+                cx, cy = self._map_bg_to_canvas(vx, vy)
+                if math.hypot(event.x - cx, event.y - cy) <= self.SNAP_SCREEN_PX:
+                    self._status_var.set(
+                        "Dodaj punkt: wskaż miejsce na krawędzi dalej od istniejącego narożnika."
+                    )
+                    return False
+
+            self._undo_stack.append(deepcopy(self._rooms))
+            if len(self._undo_stack) > 30:
+                del self._undo_stack[0]
+            room.polygon.insert(index + 1, (bx, by))
+            self._layout_dirty = True
+            self._wm_room_tool = "edit"
+            self._status_var.set(
+                f'Dodano punkt do "{room.name}". Możesz go od razu przeciągać; '
+                "Shift = poziom/pion."
+            )
+            self._draw_all()
+            return True
 
         def _wm_draw_rectangle_preview(self) -> None:
             try:
@@ -346,6 +450,13 @@ def install_machine_room_editor(legacy_module) -> None:
                 self._wm_set_editor_button_state(False)
                 return super()._on_press(event)
 
+            if self._layout_edit and self._wm_room_tool == "add_vertex":
+                self.tip.hide()
+                self._drag_active = False
+                self._drag_id = None
+                self._wm_insert_vertex_from_click(event)
+                return
+
             if self._layout_edit and self._wm_room_tool == "rectangle":
                 self.tip.hide()
                 self._drag_active = False
@@ -395,6 +506,39 @@ def install_machine_room_editor(legacy_module) -> None:
                 return
 
             return super()._on_press(event)
+
+        def _on_motion(self, event):
+            if (
+                self._layout_edit
+                and self._wm_room_tool == "edit"
+                and self._vertex_drag is not None
+                and bool(getattr(event, "state", 0) & 0x0001)
+            ):
+                room_id, index = self._vertex_drag
+                room = self._selected_room()
+                if room is None or room.id != room_id or not (0 <= index < len(room.polygon)):
+                    return super()._on_motion(event)
+
+                original = None
+                for before_room in self._vertex_drag_before or ():
+                    if getattr(before_room, "id", None) == room_id and 0 <= index < len(before_room.polygon):
+                        original = before_room.polygon[index]
+                        break
+                if original is None:
+                    original = room.polygon[index]
+
+                bx, by = self._map_canvas_to_bg(event.x, event.y)
+                room.polygon[index] = self._snap_world_point(
+                    bx,
+                    by,
+                    previous=original,
+                    orthogonal=True,
+                )
+                self._layout_dirty = True
+                self._draw_all()
+                return None
+
+            return super()._on_motion(event)
 
         # Dodatkowa warstwa ochrony: nawet programowe wywołanie metod edycji
         # nie zapisze geometrii, jeśli aktywna rola nie jest brygadzistą.
