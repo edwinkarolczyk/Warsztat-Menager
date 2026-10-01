@@ -1,4 +1,5 @@
-# version: 4.2
+# version: 4.3
+# 4.3: WM 1.0.28 - czytelniejsze Dyspozycje: Typ/ID/Obiekt osobno, auto-szerokość kolumn i kolumny dodatkowe.
 # 4.2: WM 1.0.27 - dodawanie punktów obrysu pomieszczeń i ortogonalne przeciąganie narożników z Shift.
 # 4.1: WM 1.0.26 - poprawki ROOT/CONFIG widoku Maszyn oraz odzyskiwanie tła i pomieszczeń hali.
 # 4.0: WM 1.0.25 - trwałe czyszczenie duplikatów przeglądów przy wczytaniu aktywnego pliku maszyn.
@@ -27,7 +28,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.27"
+__version__ = "1.0.28"
 
 
 def get_version() -> str:
