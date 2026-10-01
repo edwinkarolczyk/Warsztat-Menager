@@ -1320,7 +1320,9 @@ class ZleceniaView(ttk.Frame):
                     "",
                     "end",
                     values=(
-                        _source_object_label(order),
+                        _source_type_label(order),
+                        _source_id_label(order),
+                        _source_name_label(order),
                         _task_label(order),
                         _live_object_state_label(order),
                         _dysp_status_label(order),
@@ -1328,6 +1330,12 @@ class ZleceniaView(ttk.Frame):
                         _format_dysp_deadline(order.get("termin") or order.get("deadline")),
                         _dysp_due_in_label(order),
                         _dysp_priority_label(order),
+                        _source_location_label(order),
+                        _format_dysp_created(
+                            order.get("utworzono")
+                            or order.get("created_at")
+                            or order.get("created")
+                        ),
                     ),
                     iid=iid,
                     tags=tuple(tags),
@@ -1338,6 +1346,7 @@ class ZleceniaView(ttk.Frame):
             self._order_rows[iid] = order
             if order_key:
                 self._order_ids[iid] = order_key
+        self._autosize_tree_columns()
         self._update_status_actions()
 
     def _reload_orders(self) -> None:
