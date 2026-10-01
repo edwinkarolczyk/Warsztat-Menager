@@ -1,4 +1,5 @@
-# version: 4.3
+# version: 4.4
+# 4.4: WM 1.0.29 - Planista pokazuje postęp półproduktów zamiast Wersji BOM.
 # 4.3: WM 1.0.28 - czytelniejsze Dyspozycje: Typ/ID/Obiekt osobno, auto-szerokość kolumn i kolumny dodatkowe.
 # 4.2: WM 1.0.27 - dodawanie punktów obrysu pomieszczeń i ortogonalne przeciąganie narożników z Shift.
 # 4.1: WM 1.0.26 - poprawki ROOT/CONFIG widoku Maszyn oraz odzyskiwanie tła i pomieszczeń hali.
@@ -28,7 +29,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.28"
+__version__ = "1.0.29"
 
 
 def get_version() -> str:
