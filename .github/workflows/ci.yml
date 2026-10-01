@@ -58,6 +58,7 @@ jobs:
         run: |
           pytest -q \
             tests/test_wm_stabilization_1_5.py \
+            tests/test_wmm_stabilization.py::test_wmm_idempotency_survives_api_restart \
             tests/test_wmm_stabilization.py::test_wmm_pending_planista_order_after_restart_reconciles_without_duplicate
       - name: Run paid leave balance and foreman exception regressions
         run: pytest -q tests/test_leave_balance_exception_b.py tests/test_leave_balance_service.py tests/test_profile_foreman_workspace.py
