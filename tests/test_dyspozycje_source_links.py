@@ -15,6 +15,35 @@ def _planista_row(status="nowa"):
     }
 
 
+
+def test_split_dispatch_columns_use_live_source_fields(monkeypatch):
+    monkeypatch.setattr(
+        GZ,
+        "_DYSP_MACHINE_INFO_CACHE",
+        {
+            "83": {
+                "id": "83",
+                "name": "Nożyce gilotynowe DURMA",
+                "status": "Sprawna",
+                "lokalizacja": "Giętarki",
+            }
+        },
+    )
+    row = {
+        "typ_dyspozycji": "maszyna",
+        "obiekt_id": "83",
+        "tytul": "Przegląd cykliczny",
+        "utworzono": "2026-10-01T08:15:00",
+        "status": "nowa",
+    }
+
+    assert GZ._source_type_label(row) == "Maszyna"
+    assert GZ._source_id_label(row) == "83"
+    assert GZ._source_name_label(row) == "Nożyce gilotynowe DURMA"
+    assert GZ._source_location_label(row) == "Giętarki"
+    assert GZ._format_dysp_created(row["utworzono"]) == "01-10-26 08:15"
+
+
 def test_existing_open_planista_disposition_uses_live_source_without_migration(monkeypatch):
     monkeypatch.setattr(
         GZ,
@@ -83,6 +112,8 @@ def test_existing_and_planista_shortage_magazyn_rows_use_live_stock_without_lock
                 "dostepne": 8.0,
                 "jednostka": "m",
                 "typ": "surowiec",
+                "rozmiar": "30x3",
+                "lokalizacja": "Magazyn główny",
             }
         },
     )
@@ -105,6 +136,10 @@ def test_existing_and_planista_shortage_magazyn_rows_use_live_stock_without_lock
         assert GZ._has_source_navigation(row) is True
         assert GZ._is_linked_source_disposition(row) is False
         assert GZ._source_object_label(row) == "Magazyn • SR-01 Rura 30x3"
+        assert GZ._source_type_label(row) == "Magazyn"
+        assert GZ._source_id_label(row) == "SR-01"
+        assert GZ._source_name_label(row) == "Rura 30x3"
+        assert GZ._source_location_label(row) == "Magazyn główny"
         assert GZ._live_object_state_label(row) == "Stan 12 m • dostępne 8 m"
 
 
