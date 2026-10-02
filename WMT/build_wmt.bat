@@ -5,7 +5,7 @@ py -3.13 -c "import base64,gzip,pathlib; p=pathlib.Path(r'WMT\WMT.py.gz.b64'); p
 if errorlevel 1 exit /b 1
 py -3.13 -m pip install --upgrade pyinstaller
 if errorlevel 1 exit /b 1
-py -3.13 -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT --icon 11.ico WMT\WMT.py --distpath WMT\dist --workpath WMT\build
+py -3.13 -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT WMT\WMT.py --distpath WMT\dist --workpath WMT\build
 if errorlevel 1 exit /b 1
 echo.
 echo GOTOWE: %CD%\WMT\dist\WMT.exe
