@@ -1,35 +1,42 @@
-# WMT 1.0 — Warsztat Menager Tester
+# WMT 1.0.1 — Warsztat Menager Tester
 
-WMT jest osobnym programem kontrolnym dla Warsztat Menager. Nie zmienia kodu WM i nie wykonuje testów na produkcyjnym `WM_ROOT`.
+WMT jest osobnym testerem Warsztat Menager. Nie zmienia kodu WM i nie wykonuje testów na produkcyjnym `WM_ROOT`.
 
-## WMT 1.0 robi
+## Najważniejsze w 1.0.1
 
-- wykrywa repozytorium WM i zapisuje do raportu branch/commit Git,
-- tworzy osobny `sandbox_root` dla każdej sesji,
-- uruchamia WM z `WM_ROOT`, `WM_DATA_ROOT` i `WM_CONFIG_FILE` wskazującymi wyłącznie sandbox,
-- sprawdza składnię wszystkich plików Python,
-- sprawdza poprawność wszystkich plików JSON,
-- uruchamia istniejące testy WM (`pytest`) i zamienia każdy test JUnit na osobny punkt raportu,
-- ma osobny tryb testów kontraktów/integracji WMM,
-- zapisuje raport `report.json` oraz czytelny `report.html`,
-- porównuje wynik z poprzednią sesją i pokazuje nowe regresje,
-- pozwala uruchomić WM w trybie obserwowanym na testowym ROOT.
+Dodano **Robot GUI**. WMT uruchamia prawdziwy `start.py` WM na izolowanym sandboxie i steruje realnymi kontrolkami Tkinter z zewnątrz. Użytkownik widzi, jak WM sam przechodzi przez kolejne ekrany.
 
-## Tryby
+Pierwszy scenariusz robota wykonuje:
 
-- **Smoke** — krytyczne testy ROOT, narzędzi, zleceń, Planisty i WMM.
-- **Pełny test** — wszystkie `tests/` oraz testy `test_*.py` z katalogu głównego repo.
-- **WM ↔ WMM** — testy `test_wmm_*.py` oraz kontrakty Planisty/WMM.
-- **WM obserwowany** — uruchamia prawdziwy `start.py` WM na izolowanym ROOT, widocznym normalnie na ekranie.
+- start prawdziwego WM,
+- logowanie testowym brygadzistą/administratorem z kopii danych,
+- przejście przez główne moduły,
+- `Dyspozycje → Dodaj Dyspozycję → Zlecenie wewnętrzne → produkt → ilość → Utwórz`,
+- potwierdzenie, że dane zlecenia rzeczywiście zmieniły się w testowym ROOT,
+- `Narzędzia → Dodaj → Nowe (001–499) → Dalej`,
+- wpisanie nazwy testowej, wybór typu i statusu,
+- zapis nowego narzędzia,
+- zmianę statusu na kolejny,
+- sprawdzenie `narzedzia_historia/<nr>.jsonl` pod kątem `status_changed`,
+- zapis końcowego snapshotu kontrolek GUI,
+- po zamknięciu WM uruchomienie testów kontraktów WM ↔ WMM.
 
-## Ważne
+Robot nie używa sztywnych współrzędnych ekranu. W testowym procesie WM działa lokalny most WMT, który rozpoznaje kontrolki po tekstach/etykietach i wykonuje te same komendy Tk co kliknięcie przycisku. Kod WM pozostaje nietknięty.
 
-WMT 1.0 jest fundamentem pod automatycznego robota GUI. Obecny tryb „WM obserwowany” uruchamia prawdziwy WM na bezpiecznej kopii danych, ale nie klika jeszcze samodzielnie całego GUI. Automatyczne scenariusze GUI będą dokładane jako osobna warstwa bez zmiany istniejącego silnika raportów.
+## Poprawka 1.0.1
 
-## Kod źródłowy na gałęzi WMT-1.0
+W WMT 1.0.0 uruchomionym jako EXE `sys.executable` wskazywał na `WMT.exe`, więc pełny test próbował wykonać `WMT.exe -m pytest`. 1.0.1 wykrywa prawdziwego Pythona 3.13 (`.venv`, `py -3.13`, `python`) i używa go do testów WM.
 
-Ze względów technicznych źródło testera jest przechowywane jako `WMT.py.gz.b64`. `build_wmt.bat` i GitHub Actions automatycznie odtwarzają `WMT.py` przed buildem.
+## Pozostałe tryby
 
-## Budowa WMT.exe
+- **Smoke** — najważniejsze istniejące testy WM.
+- **Pełny test** — wszystkie `tests/` i testy `test_*.py` z repo WM.
+- **WM ↔ WMM** — testy kontraktów/integracji WMM.
+- **Test klikany WM** — widoczny Robot GUI opisany wyżej.
+- **WM obserwowany** — tylko uruchamia WM na testowym ROOT do ręcznej obserwacji.
 
-Uruchom `build_wmt.bat`. Wymagany Python 3.13. Skrypt odtwarza źródło, instaluje PyInstaller i tworzy `dist\WMT.exe`.
+## Raporty
+
+Każda sesja dostaje własny katalog z `report.json`, `report.html`, sandboxem i logami. Robot GUI dodatkowo zapisuje `wm-robot.log`, `gui-modals.jsonl` oraz `gui-final-snapshot.json`.
+
+To jest fundament pod rosnący katalog scenariuszy. Kolejne moduły i operacje można dopisywać do WMT bez przebudowy kodu WM.
