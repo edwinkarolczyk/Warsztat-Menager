@@ -22,7 +22,7 @@ jobs:
         shell: pwsh
         run: |
           python -c "import base64,gzip,pathlib; p=pathlib.Path(r'WMT/WMT.py.gz.b64'); pathlib.Path(r'WMT/WMT.py').write_bytes(gzip.decompress(base64.b64decode(p.read_text(encoding='ascii'))))"
-          python -m py_compile WMT/WMT.py
+          python -m py_compile WMT/WMT.py WMT/bridge_sitecustomize.py
 
       - name: Install PyInstaller
         shell: pwsh
@@ -31,7 +31,7 @@ jobs:
       - name: Build WMT.exe
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT WMT/WMT.py --distpath WMT/dist --workpath WMT/build
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT --add-data "WMT/bridge_sitecustomize.py;WMT" WMT/WMT.py --distpath WMT/dist --workpath WMT/build
           if (-not (Test-Path "WMT/dist/WMT.exe")) { throw "Brak WMT.exe" }
 
       - name: Verify and pack
@@ -41,16 +41,16 @@ jobs:
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash
           "$hash  WMT.exe" | Set-Content "WMT/dist/SHA256SUMS.txt" -Encoding ascii
           Copy-Item "WMT/README.md" "WMT/dist/README.md"
-          Compress-Archive -Path "WMT/dist/WMT.exe","WMT/dist/README.md","WMT/dist/SHA256SUMS.txt" -DestinationPath "WMT/dist/WMT-1.0.0-win64.zip" -CompressionLevel Optimal
-          Get-Item "WMT/dist/WMT.exe","WMT/dist/WMT-1.0.0-win64.zip" | Select-Object Name,Length
+          Compress-Archive -Path "WMT/dist/WMT.exe","WMT/dist/README.md","WMT/dist/SHA256SUMS.txt" -DestinationPath "WMT/dist/WMT-1.0.1-win64.zip" -CompressionLevel Optimal
+          Get-Item "WMT/dist/WMT.exe","WMT/dist/WMT-1.0.1-win64.zip" | Select-Object Name,Length
 
-      - name: Upload WMT 1.0
+      - name: Upload WMT 1.0.1
         uses: actions/upload-artifact@v4
         with:
-          name: WMT-1.0.0-win64
+          name: WMT-1.0.1-win64
           path: |
             WMT/dist/WMT.exe
-            WMT/dist/WMT-1.0.0-win64.zip
+            WMT/dist/WMT-1.0.1-win64.zip
             WMT/dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
