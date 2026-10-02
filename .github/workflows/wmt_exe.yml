@@ -5,7 +5,6 @@ on:
     branches: [ WMT-1.0 ]
     paths:
       - 'WMT/**'
-      - '11.ico'
       - '.github/workflows/wmt_exe.yml'
   workflow_dispatch:
 
@@ -32,7 +31,7 @@ jobs:
       - name: Build WMT.exe
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT --icon 11.ico WMT/WMT.py --distpath WMT/dist --workpath WMT/build
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name WMT WMT/WMT.py --distpath WMT/dist --workpath WMT/build
           if (-not (Test-Path "WMT/dist/WMT.exe")) { throw "Brak WMT.exe" }
 
       - name: Verify and pack
