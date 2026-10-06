@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_sync_runtime.py
-# version: 1.0
+# version: 1.1
+# 1.1: czerwone pozycje „Wymaga decyzji” mają jawny dialog rozstrzygania konfliktu.
 """Kontrolowany podgląd i zatwierdzanie synchronizacji Excel -> zlecenia WM."""
 
 from __future__ import annotations
@@ -20,6 +21,9 @@ from planista_excel_orders import (
     ExcelOrderSyncError,
     apply_order_sync,
     build_order_sync_plan,
+    conflict_link_candidates,
+    resolve_conflict_create,
+    resolve_conflict_link,
 )
 from ui_context_help import add_help_button
 from ui_theme import get_theme_color
@@ -238,11 +242,20 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
     selected_var = tk.StringVar(value="Zaznaczone: 0")
     ttk.Label(controls, textvariable=selected_var).pack(side="left", padx=(0, 12))
 
+    resolve_button = ttk.Button(controls, text="Rozstrzygnij konflikt", state="disabled")
     apply_button = ttk.Button(controls, text="Wykonaj zaznaczone", state="disabled")
+
+    def current_conflict_item() -> dict | None:
+        current = tree.selection()
+        if not current:
+            return None
+        item = item_by_iid.get(current[0])
+        return item if isinstance(item, dict) and item.get("action") == ACTION_CONFLICT else None
 
     def update_controls() -> None:
         selected_var.set(f"Zaznaczone: {len(selected)}")
         apply_button.configure(state="normal" if selected else "disabled")
+        resolve_button.configure(state="normal" if current_conflict_item() else "disabled")
 
     def tag_for(item: dict) -> tuple[str, ...]:
         action = item.get("action")
@@ -323,6 +336,177 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             tree.set(iid, "select", "☑")
         update_controls()
 
+    def refresh_after_conflict_resolution() -> None:
+        try:
+            refreshed = build_order_sync_plan(payload)
+        except Exception as exc:
+            messagebox.showerror(
+                "Synchronizacja planu Excel",
+                f"Nie udało się odświeżyć podglądu po decyzji:\n{exc}",
+                parent=dlg,
+            )
+            return
+        refresh_tree(refreshed)
+        try:
+            owner.refresh()
+        except Exception:
+            pass
+        try:
+            recount = getattr(owner, "_excel_auto_recount", None)
+            if callable(recount):
+                recount()
+        except Exception:
+            pass
+
+    def resolve_conflict_dialog(iid: str | None = None) -> None:
+        if not iid:
+            current = tree.selection()
+            iid = current[0] if current else ""
+        item = item_by_iid.get(iid or "")
+        if not isinstance(item, dict) or item.get("action") != ACTION_CONFLICT:
+            messagebox.showinfo(
+                "Rozstrzyganie konfliktu",
+                "Wybierz czerwoną pozycję z akcją „Wymaga decyzji”.",
+                parent=dlg,
+            )
+            return
+
+        row = item.get("row") if isinstance(item.get("row"), dict) else {}
+        decision = tk.Toplevel(dlg)
+        decision.title("Planista — rozstrzygnij konflikt")
+        decision.transient(dlg)
+        decision.grab_set()
+        decision.geometry("760x430")
+        frm = ttk.Frame(decision, padding=14)
+        frm.pack(fill="both", expand=True)
+        frm.columnconfigure(1, weight=1)
+
+        ttk.Label(
+            frm,
+            text="Wymaga decyzji",
+            font=("Arial", 13, "bold"),
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        details = (
+            ("Wiersz Excel", item.get("source_row", "")),
+            ("Nr zlec.", item.get("nr_zlec", "")),
+            ("Produkt WM", f"{item.get('wm_symbol', '')} | {item.get('wm_name', '')}".strip(" |")),
+            ("Ilość", _fmt_qty(item.get("ilosc"))),
+            ("Data wysyłki", item.get("termin", "")),
+            ("Proces", item.get("proces", "")),
+        )
+        for pos, (label, value) in enumerate(details, start=1):
+            ttk.Label(frm, text=label).grid(row=pos, column=0, sticky="w", padx=(0, 10), pady=2)
+            ttk.Label(frm, text=str(value or "")).grid(row=pos, column=1, sticky="w", pady=2)
+
+        ttk.Label(
+            frm,
+            text=_row_note(item),
+            wraplength=700,
+            justify="left",
+        ).grid(row=7, column=0, columnspan=2, sticky="w", pady=(10, 12))
+
+        candidates = conflict_link_candidates(item)
+        candidate_map = {}
+        candidate_values = []
+        for order in candidates:
+            display = (
+                f"{_text(order.get('id'))} | zlec. {_text(order.get('zlec_wew')) or '—'} | "
+                f"{_text(order.get('produkt'))} | ilość {_fmt_qty(order.get('ilosc'))} | "
+                f"{_text(order.get('status')) or '—'}"
+            )
+            candidate_values.append(display)
+            candidate_map[display] = _text(order.get("id"))
+
+        ttk.Label(frm, text="Istniejące zlecenie WM do połączenia").grid(
+            row=8, column=0, sticky="w", padx=(0, 10), pady=3
+        )
+        candidate_var = tk.StringVar(value=candidate_values[0] if candidate_values else "")
+        candidate_combo = ttk.Combobox(
+            frm,
+            textvariable=candidate_var,
+            values=candidate_values,
+            state="readonly",
+        )
+        candidate_combo.grid(row=8, column=1, sticky="ew", pady=3)
+
+        info = (
+            "„Utwórz osobne” tworzy nowe zlecenie WM dla tej konkretnej pozycji Excela. "
+            "„Połącz” tylko przypina pozycję do istniejącego zlecenia; ewentualna zmiana ilości/terminu "
+            "pojawi się potem jako zwykłe „Aktualizuj”."
+        )
+        ttk.Label(frm, text=info, wraplength=700, justify="left").grid(
+            row=9, column=0, columnspan=2, sticky="w", pady=(10, 12)
+        )
+
+        buttons = ttk.Frame(frm)
+        buttons.grid(row=10, column=0, columnspan=2, sticky="ew")
+        author = _text(getattr(owner, "login", "")) or "Planista Excel"
+
+        def create_separate() -> None:
+            if not messagebox.askyesno(
+                "Utwórz osobne zlecenie WM",
+                (
+                    f"Utworzyć osobne zlecenie WM dla wiersza {item.get('source_row', '')}?\n\n"
+                    f"Nr zlec.: {item.get('nr_zlec', '')}\n"
+                    f"Produkt: {item.get('wm_symbol', '')}\n"
+                    f"Ilość: {_fmt_qty(item.get('ilosc'))}\n"
+                    f"Termin: {item.get('termin', '')}"
+                ),
+                parent=decision,
+            ):
+                return
+            try:
+                resolve_conflict_create(payload, item, autor=author)
+            except Exception as exc:
+                messagebox.showerror("Rozstrzyganie konfliktu", str(exc), parent=decision)
+                return
+            decision.destroy()
+            refresh_after_conflict_resolution()
+
+        def link_existing() -> None:
+            order_id = candidate_map.get(candidate_var.get(), "")
+            if not order_id:
+                messagebox.showinfo(
+                    "Połącz z istniejącym",
+                    "Brak pasującego zlecenia WM do połączenia.",
+                    parent=decision,
+                )
+                return
+            if not messagebox.askyesno(
+                "Połącz z istniejącym zleceniem",
+                (
+                    f"Połączyć tę pozycję Excela ze zleceniem WM {order_id}?\n\n"
+                    "Ta decyzja nie zmieni teraz ilości ani terminu zlecenia."
+                ),
+                parent=decision,
+            ):
+                return
+            try:
+                resolve_conflict_link(payload, item, order_id, autor=author)
+            except Exception as exc:
+                messagebox.showerror("Rozstrzyganie konfliktu", str(exc), parent=decision)
+                return
+            decision.destroy()
+            refresh_after_conflict_resolution()
+
+        ttk.Button(
+            buttons,
+            text="Utwórz osobne zlecenie WM",
+            command=create_separate,
+        ).pack(side="left")
+        ttk.Button(
+            buttons,
+            text="Połącz z istniejącym",
+            command=link_existing,
+            state="normal" if candidate_values else "disabled",
+        ).pack(side="left", padx=(6, 0))
+        ttk.Button(
+            buttons,
+            text="Pomiń tę pozycję",
+            command=decision.destroy,
+        ).pack(side="right")
+
     def toggle_event(event=None) -> str | None:
         iid = ""
         if event is not None and getattr(event, "y", None) is not None:
@@ -331,7 +515,11 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             current = tree.selection()
             iid = current[0] if current else ""
         if iid:
-            toggle_iid(iid)
+            item = item_by_iid.get(iid)
+            if isinstance(item, dict) and item.get("action") == ACTION_CONFLICT:
+                resolve_conflict_dialog(iid)
+            else:
+                toggle_iid(iid)
         return "break"
 
     def select_safe() -> None:
@@ -465,10 +653,13 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
 
     tree.bind("<Double-1>", toggle_event)
     tree.bind("<space>", toggle_event)
+    tree.bind("<<TreeviewSelect>>", lambda _event: update_controls(), add="+")
 
     ttk.Button(controls, text="Zaznacz bezpieczne", command=select_safe).pack(side="left")
     add_help_button(controls, _SELECT_HELP, command_only=False).pack(side="left", padx=(4, 10))
     ttk.Button(controls, text="Wyczyść wybór", command=clear_selected).pack(side="left")
+    resolve_button.configure(command=lambda: resolve_conflict_dialog())
+    resolve_button.pack(side="left", padx=(10, 0))
     ttk.Button(controls, text="Zamknij", command=dlg.destroy).pack(side="right")
     apply_button.configure(command=apply_selected)
     apply_button.pack(side="right", padx=(0, 4))
