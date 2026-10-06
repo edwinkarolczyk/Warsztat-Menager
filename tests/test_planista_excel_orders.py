@@ -1,6 +1,6 @@
 # WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_orders.py
-# version: 1.1
+# version: 1.2
 
 from __future__ import annotations
 
@@ -100,7 +100,79 @@ def test_duplicate_same_product_under_same_external_order_requires_decision():
 
     assert len(plan["items"]) == 2
     assert all(item["action"] == sync.ACTION_CONFLICT for item in plan["items"])
+    assert plan["items"][0]["identity"] != plan["items"][1]["identity"]
+    assert plan["items"][0]["identity"].endswith("|wiersz:4")
+    assert plan["items"][1]["identity"].endswith("|wiersz:5")
     assert plan["can_write"] is False
+
+
+def test_explicit_duplicate_conflict_can_create_separate_order(monkeypatch):
+    rows = [
+        _row(qty=100, source_row=4),
+        _row(qty=200, source_row=5),
+    ]
+    payload = _payload(rows)
+    plan = sync.build_order_sync_plan(payload, orders=[])
+    item = plan["items"][0]
+
+    created = []
+    provenance = []
+
+    monkeypatch.setattr(sync.ZL, "list_zlecenia", lambda: [])
+    monkeypatch.setattr(
+        sync.ZL,
+        "create_zlecenie",
+        lambda product, qty, **kwargs: (
+            created.append((product, qty, kwargs))
+            or {"id": "000901", "produkt": product},
+            [],
+        ),
+    )
+    monkeypatch.setattr(
+        sync,
+        "_write_order_provenance",
+        lambda order_id, meta, *, autor: provenance.append((order_id, meta, autor)) or {},
+    )
+
+    result = sync.resolve_conflict_create(payload, item, autor="test")
+
+    assert result["written"] == 1
+    assert created[0][0] == "1.327.50"
+    assert created[0][1] == 100
+    assert created[0][2]["zlec_wew"] == "659"
+    assert provenance[0][1]["identity"].endswith("|wiersz:4")
+
+
+def test_explicit_duplicate_conflict_can_link_existing_order(monkeypatch):
+    rows = [
+        _row(qty=100, source_row=4),
+        _row(qty=200, source_row=5),
+    ]
+    payload = _payload(rows)
+    plan = sync.build_order_sync_plan(payload, orders=[])
+    item = plan["items"][1]
+    existing = {
+        "id": "000902",
+        "produkt": "1.327.50",
+        "ilosc": 200.0,
+        "status": "nowe",
+        "termin": "2026-09-14",
+        "zlec_wew": "659",
+    }
+    provenance = []
+
+    monkeypatch.setattr(sync.ZL, "list_zlecenia", lambda: [existing])
+    monkeypatch.setattr(
+        sync,
+        "_write_order_provenance",
+        lambda order_id, meta, *, autor: provenance.append((order_id, meta, autor)) or {},
+    )
+
+    result = sync.resolve_conflict_link(payload, item, "000902", autor="test")
+
+    assert result["status"] == "ok"
+    assert result["order_id"] == "000902"
+    assert provenance[0][1]["identity"].endswith("|wiersz:5")
 
 
 def test_same_imported_line_is_idempotent_and_source_row_is_not_identity():
