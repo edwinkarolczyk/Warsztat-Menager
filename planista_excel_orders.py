@@ -1,6 +1,7 @@
 # WM-VERSION: 0.2
 # Plik: planista_excel_orders.py
-# version: 1.1
+# version: 1.2
+# 1.2: konflikty można jawnie rozstrzygać; duplikaty Nr zlec. + Produkt dostają osobną tożsamość wiersza dopiero po decyzji użytkownika.
 # 1.1: blokuje powielony klucz Nr zlec. + Produkt WM w jednym planie Excel.
 """Planowanie i kontrolowane wykonanie synchronizacji Excel -> zlecenia WM.
 
@@ -72,6 +73,28 @@ def _provenance(order: dict) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
+def _order_sync_identity(order: dict) -> str:
+    prov = _provenance(order)
+    stored = _text(prov.get("identity"))
+    if stored:
+        return stored
+    return _order_business_identity(order)
+
+
+def _row_sync_identity(row: dict, key_counts: dict[str, int]) -> str:
+    """Dla zwykłych pozycji zachowaj stabilny klucz biznesowy.
+
+    Dopiero gdy ten sam Nr zlec. + Produkt występuje wiele razy w jednym planie,
+    dołącz numer wiersza Excela, aby po jawnej decyzji użytkownika można było
+    utrzymywać osobne partie bez automatycznego scalania.
+    """
+    base = _identity(row.get("nr_zlec"), row.get("wm_symbol"))
+    if key_counts.get(base, 0) <= 1:
+        return base
+    source_row = _text(row.get("source_row"))
+    return f"{base}|wiersz:{source_row}" if source_row else base
+
+
 def _order_business_identity(order: dict) -> str:
     prov = _provenance(order)
     nr_zlec = prov.get("nr_zlec") if prov else order.get("zlec_wew")
@@ -81,7 +104,7 @@ def _order_business_identity(order: dict) -> str:
     return _identity(nr_zlec, wm_symbol)
 
 
-def _source_meta(payload: dict, row: dict) -> dict:
+def _source_meta(payload: dict, row: dict, *, identity: str | None = None) -> dict:
     return {
         "schema": PROVENANCE_SCHEMA,
         "typ": "plan_excel",
@@ -93,7 +116,7 @@ def _source_meta(payload: dict, row: dict) -> dict:
         "source_path": _text(payload.get("source_path")),
         "sheet": _text(payload.get("sheet")),
         "source_sha256": _text(payload.get("source_sha256")),
-        "identity": _identity(row.get("nr_zlec"), row.get("wm_symbol")),
+        "identity": _text(identity) or _identity(row.get("nr_zlec"), row.get("wm_symbol")),
         "last_sync_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 
@@ -105,9 +128,10 @@ def _plan_item(
     reason: str,
     order: dict | None = None,
     changes: list[str] | None = None,
+    identity: str | None = None,
 ) -> dict:
     return {
-        "identity": _identity(row.get("nr_zlec"), row.get("wm_symbol")),
+        "identity": _text(identity) or _identity(row.get("nr_zlec"), row.get("wm_symbol")),
         "action": action,
         "reason": reason,
         "order_id": _text((order or {}).get("id")),
@@ -154,8 +178,8 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             business_by_key[key].append(order)
         prov = _provenance(order)
         if prov:
-            pkey = _identity(prov.get("nr_zlec"), prov.get("wm_symbol"))
-            if pkey != "|":
+            pkey = _order_sync_identity(order)
+            if pkey and pkey != "|":
                 imported_by_key[pkey].append(order)
             if _text(prov.get("nr_zlec")):
                 imported_by_external[_norm(prov.get("nr_zlec"))].append(order)
@@ -196,21 +220,22 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             continue
 
         key = _identity(nr_zlec, wm_symbol)
-        if current_key_counts.get(key, 0) > 1:
+        sync_identity = _row_sync_identity(row, current_key_counts)
+        imported_matches = imported_by_key.get(sync_identity, [])
+        if current_key_counts.get(key, 0) > 1 and not imported_matches:
             planned.append(
                 _plan_item(
                     row,
                     ACTION_CONFLICT,
                     reason=(
                         "Excel zawiera więcej niż jedną pozycję z tym samym "
-                        "Nr zlec. i Produktem WM; WM nie sumuje ich ani nie "
-                        "tworzy automatycznie."
+                        "Nr zlec. i Produktem WM. Rozstrzygnij: utwórz osobne "
+                        "zlecenie WM, połącz z istniejącym albo pomiń."
                     ),
+                    identity=sync_identity,
                 )
             )
             continue
-
-        imported_matches = imported_by_key.get(key, [])
         if len(imported_matches) > 1:
             planned.append(
                 _plan_item(
@@ -232,6 +257,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                         reason="Excel zmienił Produkt dla istniejącego zewnętrznego Nr zlec.; wymagana jest decyzja użytkownika.",
                         order=external_imports[0] if len(external_imports) == 1 else None,
                         changes=["Produkt"],
+                        identity=sync_identity,
                     )
                 )
                 continue
@@ -248,6 +274,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                         ACTION_CONFLICT,
                         reason="Istnieje ręczne zlecenie z tym samym Nr zlec. i Produktem; WM nie połączy go automatycznie.",
                         order=manual_matches[0] if len(manual_matches) == 1 else None,
+                        identity=sync_identity,
                     )
                 )
                 continue
@@ -257,6 +284,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                     row,
                     ACTION_CREATE,
                     reason="Brak istniejącego zlecenia o tym stabilnym kluczu.",
+                    identity=sync_identity,
                 )
             )
             continue
@@ -277,6 +305,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                     ACTION_NONE,
                     reason="Zlecenie WM ma już tę samą ilość, termin i proces.",
                     order=order,
+                    identity=sync_identity,
                 )
             )
             continue
@@ -290,6 +319,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                     reason=f"Zlecenie ma status „{_text(order.get('status'))}” i nie może być automatycznie nadpisane.",
                     order=order,
                     changes=changes,
+                    identity=sync_identity,
                 )
             )
             continue
@@ -301,6 +331,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
                 reason="Istniejące zlecenie importowane wymaga aktualizacji.",
                 order=order,
                 changes=changes,
+                identity=sync_identity,
             )
         )
 
@@ -369,6 +400,84 @@ def _write_order_provenance(order_id: str, meta: dict, *, autor: str) -> dict:
     return order
 
 
+
+def conflict_link_candidates(item: dict, orders: list[dict] | None = None) -> list[dict]:
+    """Zwróć bezpiecznych kandydatów do ręcznego połączenia konfliktu."""
+    current_orders = list(ZL.list_zlecenia() if orders is None else orders)
+    wm_symbol = _text(item.get("wm_symbol"))
+    nr_zlec = _text(item.get("nr_zlec"))
+    identity = _text(item.get("identity"))
+    candidates = []
+    for order in current_orders:
+        if not isinstance(order, dict) or _text(order.get("produkt")) != wm_symbol:
+            continue
+        prov = _provenance(order)
+        existing_identity = _text(prov.get("identity"))
+        if existing_identity and existing_identity != identity:
+            continue
+        candidates.append(order)
+    candidates.sort(
+        key=lambda order: (
+            0 if _text(order.get("zlec_wew")) == nr_zlec else 1,
+            _text(order.get("id")),
+        )
+    )
+    return candidates
+
+
+def resolve_conflict_create(payload: dict, item: dict, *, autor: str = "Planista Excel") -> dict:
+    """Po jawnej decyzji utwórz osobne zlecenie dla jednego konfliktowego wiersza."""
+    if item.get("action") != ACTION_CONFLICT:
+        raise ExcelOrderSyncError("Wybrana pozycja nie jest konfliktem do rozstrzygnięcia.")
+    forced = dict(item)
+    forced["action"] = ACTION_CREATE
+    forced["order_id"] = ""
+    return apply_order_sync(
+        payload,
+        {"items": [forced]},
+        approved_identities={_text(forced.get("identity"))},
+        autor=autor,
+    )
+
+
+def resolve_conflict_link(
+    payload: dict,
+    item: dict,
+    order_id: str,
+    *,
+    autor: str = "Planista Excel",
+) -> dict:
+    """Połącz konfliktowy wiersz Excela z wybranym istniejącym zleceniem WM.
+
+    To połączenie nie zmienia ilości ani terminu. Po odświeżeniu Planista pokaże
+    ewentualną bezpieczną akcję Aktualizuj, którą użytkownik zatwierdza osobno.
+    """
+    if item.get("action") != ACTION_CONFLICT:
+        raise ExcelOrderSyncError("Wybrana pozycja nie jest konfliktem do rozstrzygnięcia.")
+    order_id = _text(order_id)
+    current = next(
+        (order for order in ZL.list_zlecenia() if _text(order.get("id")) == order_id),
+        None,
+    )
+    if not isinstance(current, dict):
+        raise ExcelOrderSyncError(f"Nie znaleziono zlecenia WM {order_id}.")
+    if _text(current.get("produkt")) != _text(item.get("wm_symbol")):
+        raise ExcelOrderSyncError("Wybrane zlecenie WM dotyczy innego produktu.")
+
+    existing_identity = _text(_provenance(current).get("identity"))
+    target_identity = _text(item.get("identity"))
+    if existing_identity and existing_identity != target_identity:
+        raise ExcelOrderSyncError("Wybrane zlecenie jest już powiązane z inną pozycją Excela.")
+
+    meta = _source_meta(
+        payload,
+        dict(item.get("row") or {}),
+        identity=target_identity,
+    )
+    _write_order_provenance(order_id, meta, autor=autor)
+    return {"order_id": order_id, "identity": target_identity, "status": "ok"}
+
+
 def apply_order_sync(
     payload: dict,
     plan: dict,
@@ -398,11 +507,11 @@ def apply_order_sync(
             continue
 
         row = dict(item.get("row") or {})
-        source_meta = _source_meta(payload, row)
+        source_meta = _source_meta(payload, row, identity=_text(item.get("identity")))
         if action == ACTION_CREATE:
-            current_key = item.get("identity", "")
+            current_key = _text(item.get("identity"))
             if any(
-                _order_business_identity(order) == current_key
+                _order_sync_identity(order) == current_key
                 for order in ZL.list_zlecenia()
                 if isinstance(order, dict)
             ):
