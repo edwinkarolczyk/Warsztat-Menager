@@ -1,4 +1,7 @@
-# version: 1.13
+# version: 1.14
+# Zmiany 1.14:
+# - Timer Dyspozycji nie przebudowuje tabeli co 5 s, jeśli dane się nie zmieniły.
+# - Przy rzeczywistym odświeżeniu zachowywane są zaznaczenie oraz pozycja przewijania.
 # Zmiany 1.13:
 # - Dyspozycje: rozdzielono Typ / ID / Obiekt i dodano Lokalizację oraz Utworzono.
 # - Kolumny dopasowują szerokość do najdłuższej widocznej wartości z limitami i poziomym przewijaniem.
@@ -47,6 +50,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import json
 import logging
 import tkinter as tk
 import tkinter.font as tkfont
@@ -781,6 +785,20 @@ def _load_orders_rows() -> list[dict]:
     ]
 
 
+def _dysp_rows_signature(rows: list[dict]) -> str:
+    """Stabilny podpis danych używany do pominięcia zbędnego przebudowania tabeli."""
+    try:
+        return json.dumps(
+            rows,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+            separators=(",", ":"),
+        )
+    except Exception:
+        return repr(rows)
+
+
 class _AfterGuard:
     """Helper zabezpieczający wywołania `after` przed zniszczeniem widgetu."""
 
@@ -818,6 +836,7 @@ class ZleceniaView(ttk.Frame):
         self._can_view_all = self._login_role in {"brygadzista", "administrator", "admin"}
         self._after = _AfterGuard(self)
         self._refresh_error_shown = False
+        self._last_rows_signature: str | None = None
         self._order_rows: dict[str, dict] = {}
         self._order_ids: dict[str, str] = {}
         self._dysp_ui = _dysp_ui_config()
@@ -1240,7 +1259,7 @@ class ZleceniaView(ttk.Frame):
         self._dysp_event_bind_id = str(bind_id) if bind_id else None
 
     def _on_filters_changed(self, _event: Any = None) -> None:
-        self._refresh()
+        self._refresh(force=True)
 
     def _filter_rows(self, rows: list[dict]) -> list[dict]:
         login = str(self._login_user or "").strip().lower()
@@ -1288,6 +1307,17 @@ class ZleceniaView(ttk.Frame):
         return filtered
 
     def _fill_orders_table(self, rows: list[dict]) -> None:
+        selection = self.tree.selection()
+        selected_iid = selection[0] if selection else ""
+        try:
+            yview = self.tree.yview()
+        except Exception:
+            yview = ()
+        try:
+            xview = self.tree.xview()
+        except Exception:
+            xview = ()
+
         for item in self.tree.get_children():
             self.tree.delete(item)
         self._order_rows = {}
@@ -1347,6 +1377,23 @@ class ZleceniaView(ttk.Frame):
             if order_key:
                 self._order_ids[iid] = order_key
         self._autosize_tree_columns()
+        if selected_iid:
+            try:
+                if self.tree.exists(selected_iid):
+                    self.tree.selection_set(selected_iid)
+                    self.tree.focus(selected_iid)
+            except Exception:
+                pass
+        try:
+            if yview:
+                self.tree.yview_moveto(yview[0])
+        except Exception:
+            pass
+        try:
+            if xview:
+                self.tree.xview_moveto(xview[0])
+        except Exception:
+            pass
         self._update_status_actions()
 
     def _reload_orders(self) -> None:
@@ -1369,6 +1416,7 @@ class ZleceniaView(ttk.Frame):
             logger.exception("[DYSP] Błąd wczytywania listy Dyspozycji: %s", exc)
             rows = []
         cleaned = [row for row in rows if isinstance(row, dict)]
+        self._last_rows_signature = _dysp_rows_signature(cleaned)
         self._fill_orders_table(cleaned)
 
     # region Actions ----------------------------------------------------
@@ -1954,7 +2002,7 @@ class ZleceniaView(ttk.Frame):
     # endregion ---------------------------------------------------------
 
     # region Refresh ----------------------------------------------------
-    def _refresh(self) -> None:
+    def _refresh(self, *, force: bool = False) -> None:
         self._apply_dysp_ui_config()
         self._ensure_blink_started()
         try:
@@ -1988,6 +2036,10 @@ class ZleceniaView(ttk.Frame):
             return
 
         self._refresh_error_shown = False
+        signature = _dysp_rows_signature(rows)
+        if not force and signature == self._last_rows_signature:
+            return
+        self._last_rows_signature = signature
         self._fill_orders_table(rows)
 
     def _schedule_refresh(self) -> None:
