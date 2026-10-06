@@ -11,7 +11,9 @@ from gui_magazyn_bom import (
     SEMI_COLUMN_WIDTHS,
     _raw_dimension_fields,
     _raw_dimension_label,
+    _raw_mode_unit,
     _raw_piece_meter_text,
+    _raw_unit_display,
     configure_semiproduct_tree,
 )
 from rc1_magazyn_fix import (
@@ -65,6 +67,10 @@ def test_raw_kind_controls_dimension_name_and_saved_field():
     }
     assert _raw_dimension_label("Śruba", "szt") == "Rozmiar / oznaczenie"
     assert _raw_dimension_fields("Śruba", "M10", "szt") == {"rozmiar": "M10"}
+    assert _raw_dimension_label("Łańcuszek", "oczka") == "Ilość oczek"
+    assert _raw_dimension_fields("Łańcuszek", "13", "oczka") == {"rozmiar": "13"}
+    assert _raw_mode_unit("oczka") == "oczek"
+    assert _raw_unit_display("oczek") == "Oczek"
 
 
 def test_raw_name_is_generated_from_kind_and_dimension_mode():
@@ -246,6 +252,27 @@ def test_piece_raw_stock_uses_pieces_not_bar_length():
     assert state["stock"] == 125
     assert state["available"] == 120
     assert state["bars"] == 125
+    assert state["length"] == 0
+
+
+def test_chain_eye_stock_uses_count_unit_without_bar_length():
+    state = planista_stock._stock_view(
+        "SUR-003",
+        {"jednostka": "oczek", "dlugosc_sztangi_mm": 0},
+        {
+            "SUR-003": {
+                "stan": 130,
+                "rezerwacje": 13,
+                "jednostka": "oczek",
+                "dlugosc_sztangi_mm": 0,
+            }
+        },
+    )
+
+    assert state["unit"] == "oczek"
+    assert state["stock"] == 130
+    assert state["available"] == 117
+    assert state["bars"] == 130
     assert state["length"] == 0
 
 
