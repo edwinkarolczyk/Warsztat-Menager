@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_editor_runtime.py
-# version: 1.2
+# version: 1.3
+# 1.3: edytor rodzajów surowców obsługuje tryb „Ilość oczek”.
 # 1.2: opcja kontrolowanej nadprodukcji przy dodawaniu i edycji zlecenia.
 # 1.1: jeden edytor zlecenia po dwukliku: dane, realizacja, półprodukty, zapotrzebowanie, druk i usuwanie.
 """Dodawanie/edycja zleceń oraz edycja słowników Planisty."""
@@ -1206,13 +1207,23 @@ def _install_raw_kind_editor() -> None:
         self._editing_raw_kind_original = str(rec.get("nazwa") or "")
         self.raw_kind_name.set(self._editing_raw_kind_original)
         raw_mode = str(rec.get("pole") or "").casefold()
-        self.raw_kind_mode.set("Ø" if raw_mode == "fi" else "Szt." if raw_mode == "szt" else "Wymiar")
+        self.raw_kind_mode.set(
+            "Ø" if raw_mode == "fi"
+            else "Szt." if raw_mode == "szt"
+            else "Ilość oczek" if raw_mode == "oczka"
+            else "Wymiar"
+        )
 
     def edit_kind(self):
         old_name = str(getattr(self, "_editing_raw_kind_original", "") or "").strip()
         new_name = self.raw_kind_name.get().strip()
         selected_mode = self.raw_kind_mode.get()
-        mode = "fi" if selected_mode == "Ø" else "szt" if selected_mode == "Szt." else "wymiar"
+        mode = (
+            "fi" if selected_mode == "Ø"
+            else "szt" if selected_mode == "Szt."
+            else "oczka" if selected_mode == "Ilość oczek"
+            else "wymiar"
+        )
         if not old_name:
             GMB._msg_error(self, "Rodzaje surowców", "Zaznacz rodzaj surowca do edycji.")
             return
@@ -1246,8 +1257,8 @@ def _install_raw_kind_editor() -> None:
             updated.pop("fi", None)
             updated.pop("wymiar", None)
             updated.update(GMB._raw_dimension_fields(new_name, size, mode))
-            if mode == "szt":
-                updated["jednostka"] = "szt"
+            if mode in {"szt", "oczka"}:
+                updated["jednostka"] = "szt" if mode == "szt" else "oczek"
                 updated["dlugosc_sztangi_mm"] = 0
                 updated["dlugosc"] = 0
             else:
