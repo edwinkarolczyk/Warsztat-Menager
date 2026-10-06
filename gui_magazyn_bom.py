@@ -1,5 +1,6 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 2.0
+# Wersja pliku: 2.1
+# 2.1: dodano tryb „Ilość oczek” dla rodzajów surowców i dynamiczny opis ilości w półprodukcie.
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
 from __future__ import annotations
@@ -51,7 +52,7 @@ HELP = {
     "semi_code": "ID półproduktu jest nadawane automatycznie. W normalnej pracy rozpoznajesz półprodukt po nazwie oraz ilości surowca na jedną sztukę.",
     "semi_name": "Podaj nazwę półproduktu, np. Hak prosty. Gdy nazwa się powtarza, WM pokazuje obok długość lub ilość surowca na jedną sztukę.",
     "raw_select": "Wybierz surowiec z kartoteki. Lista pokazuje nazwę, rozmiar i ID techniczne.",
-    "raw_qty": "Podaj ilość surowca potrzebną na jedną sztukę półproduktu — dla surowca liniowego jest to długość jednej sztuki. Dla długości używaj mm.",
+    "raw_qty": "Podaj ilość surowca potrzebną na jedną sztukę półproduktu — dla surowca liniowego jest to długość jednej sztuki. Dla trybu Ilość oczek podaj liczbę oczek.",
     "ops": "Zaznacz operacje technologiczne potrzebne do wykonania półproduktu.",
     "loss": "Opcjonalny procent dodatkowej straty materiału. Rzaz zlecenia jest liczony osobno przez Planistę.",
     "product_code": "Oznaczenie produktu, np. 1.775.250. Jest stałym symbolem produktu.",
@@ -219,7 +220,23 @@ def _raw_dimension_label(kind: str, mode: str | None = None) -> str:
         return "Wymiar"
     if selected == "szt":
         return "Rozmiar / oznaczenie"
+    if selected == "oczka":
+        return "Ilość oczek"
     return "Ø [mm]"
+
+
+def _raw_mode_unit(mode: str | None) -> str:
+    selected = str(mode or "").strip().casefold()
+    if selected == "szt":
+        return "szt"
+    if selected == "oczka":
+        return "oczek"
+    return "mm"
+
+
+def _raw_unit_display(unit: str | None) -> str:
+    value = str(unit or "").strip()
+    return "Oczek" if value.casefold() in {"oczek", "oczka"} else value
 
 
 def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dict:
@@ -227,7 +244,7 @@ def _raw_dimension_fields(kind: str, value: str, mode: str | None = None) -> dic
     size = str(value or "").strip()
     fields = {"rozmiar": size}
     selected = str(mode or "").strip().casefold()
-    if selected == "szt":
+    if selected in {"szt", "oczka"}:
         return fields
     if selected == "wymiar" or (not selected and normalized == "Profil"):
         fields["wymiar"] = size
@@ -593,8 +610,9 @@ class MagazynBOM(ttk.Frame):
         pieces = _num(self.s_vars["liczba_sztang"].get())
         kind = self.s_vars["rodzaj"].get().strip()
         mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
-        if mode == "szt":
-            self.s_vars["stan"].set(f"{_fmt_num(pieces)} szt.")
+        if mode in {"szt", "oczka"}:
+            unit = "szt." if mode == "szt" else "oczek"
+            self.s_vars["stan"].set(f"{_fmt_num(pieces)} {unit}")
             return
         total = pieces * _num(self.s_vars["dlugosc_sztangi_mm"].get())
         self.s_vars["stan"].set(f"{_fmt_num(total)} mm ({total / 1000:g} m)")
@@ -632,13 +650,12 @@ class MagazynBOM(ttk.Frame):
             _msg_error(self, "Surowce", "Ilości i długości nie mogą być ujemne.")
             return
         mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
-        if mode == "szt":
+        unit = _raw_mode_unit(mode)
+        if unit in {"szt", "oczek"}:
             length = 0.0
             total = bars
-            unit = "szt"
         else:
             total = bars * length
-            unit = "mm"
         rec = {
             "kod": code, "id": code, "nazwa": name, "rodzaj": kind,
             "liczba_sztang": bars, "dlugosc_sztangi_mm": length,
@@ -666,7 +683,7 @@ class MagazynBOM(ttk.Frame):
         ttk.Combobox(
             top,
             textvariable=self.raw_kind_mode,
-            values=("Ø", "Wymiar", "Szt."),
+            values=("Ø", "Wymiar", "Szt.", "Ilość oczek"),
             state="readonly",
             width=14,
         ).grid(row=1, column=1, sticky="w", padx=(8, 0))
@@ -693,7 +710,12 @@ class MagazynBOM(ttk.Frame):
         self.tree_raw_kinds.delete(*self.tree_raw_kinds.get_children())
         for idx, item in enumerate(self.model.raw_kinds):
             raw_mode = str(item.get("pole") or "").casefold()
-            mode = "Ø" if raw_mode == "fi" else "Szt." if raw_mode == "szt" else "Wymiar"
+            mode = (
+                "Ø" if raw_mode == "fi"
+                else "Szt." if raw_mode == "szt"
+                else "Ilość oczek" if raw_mode == "oczka"
+                else "Wymiar"
+            )
             self.tree_raw_kinds.insert("", "end", iid=str(idx), values=(item["nazwa"], mode))
 
     def _add_raw_kind(self) -> None:
@@ -705,7 +727,12 @@ class MagazynBOM(ttk.Frame):
             _msg_error(self, "Rodzaje surowców", "Taki rodzaj surowca już istnieje.")
             return
         selected_mode = self.raw_kind_mode.get()
-        mode = "fi" if selected_mode == "Ø" else "szt" if selected_mode == "Szt." else "wymiar"
+        mode = (
+            "fi" if selected_mode == "Ø"
+            else "szt" if selected_mode == "Szt."
+            else "oczka" if selected_mode == "Ilość oczek"
+            else "wymiar"
+        )
         records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode}]
         self.model.save_raw_kinds(records)
         self._kind_dimension_modes[name] = mode
@@ -782,7 +809,10 @@ class MagazynBOM(ttk.Frame):
             ("sr_jednostka", "Jednostka", HELP["raw_qty"]),
         ]
         for row, (key, label, help_text) in enumerate(rows):
-            ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", padx=4, pady=2)
+            label_widget = ttk.Label(form, text=label)
+            label_widget.grid(row=row, column=0, sticky="w", padx=4, pady=2)
+            if key == "sr_ilosc":
+                self.pp_qty_label = label_widget
             if key == "sr_kod":
                 self.pp_raw_combo = SearchableCombobox(form, textvariable=self.pp_raw_choice, state="normal")
                 self.pp_raw_combo.grid(row=row, column=1, sticky="ew", padx=4, pady=2)
@@ -814,6 +844,20 @@ class MagazynBOM(ttk.Frame):
         self.pp_vars["norma_strat"].set("0")
         self.pp_raw_choice.set("")
         self.pp_lb.selection_clear(0, tk.END)
+        self._update_pp_quantity_label()
+
+    def _update_pp_quantity_label(self, rec: dict | None = None) -> None:
+        if not hasattr(self, "pp_qty_label"):
+            return
+        if rec is None:
+            item_id = self._raw_display_to_id.get(self.pp_raw_choice.get().strip())
+            rec = self._raw_by_id.get(item_id, {}) if item_id else {}
+        kind = str((rec or {}).get("rodzaj") or "").strip()
+        mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
+        self.pp_qty_label.configure(
+            text="Ilość oczek" if mode == "oczka"
+            else "Ilość surowca na szt. (długość 1 sztuki)"
+        )
 
     def _on_raw_selected(self, _event=None) -> None:
         item_id = self._raw_display_to_id.get(self.pp_raw_choice.get().strip())
@@ -821,7 +865,10 @@ class MagazynBOM(ttk.Frame):
             return
         rec = self._raw_by_id.get(item_id, {})
         self.pp_vars["sr_kod"].set(item_id)
-        self.pp_vars["sr_jednostka"].set(str(rec.get("jednostka") or rec.get("unit") or "mm"))
+        self.pp_vars["sr_jednostka"].set(
+            _raw_unit_display(rec.get("jednostka") or rec.get("unit") or "mm")
+        )
+        self._update_pp_quantity_label(rec)
 
     def _resolve_raw_id(self) -> str:
         display = self.pp_raw_choice.get().strip()
@@ -844,7 +891,8 @@ class MagazynBOM(ttk.Frame):
         self.pp_vars["sr_kod"].set(raw_id)
         self.pp_raw_choice.set(self._raw_id_to_display.get(raw_id, raw_id))
         self.pp_vars["sr_ilosc"].set(_fmt_num(raw.get("ilosc_na_szt", 0)))
-        self.pp_vars["sr_jednostka"].set(raw.get("jednostka", ""))
+        self.pp_vars["sr_jednostka"].set(_raw_unit_display(raw.get("jednostka", "")))
+        self._update_pp_quantity_label(self._raw_by_id.get(raw_id, {}))
         self.pp_vars["norma_strat"].set(_fmt_num(rec.get("norma_strat_procent", 0)))
         selected = set(rec.get("czynnosci", []) or [])
         self.pp_lb.selection_clear(0, tk.END)
@@ -888,7 +936,7 @@ class MagazynBOM(ttk.Frame):
         qty = _num(raw.get("ilosc_na_szt", 0))
         if qty <= 0:
             return ""
-        unit = str(raw.get("jednostka") or "mm").strip()
+        unit = _raw_unit_display(raw.get("jednostka") or "mm")
         return f"{_fmt_num(qty)} {unit}".strip()
 
     def _semi_display(self, code: str, rec: dict) -> str:
@@ -1145,7 +1193,7 @@ class MagazynBOM(ttk.Frame):
             raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
             raw_id = str(raw.get("kod") or "")
             raw_name = self._raw_by_id.get(raw_id, {}).get("nazwa") or raw_id
-            self.tree_pp.insert("", "end", values=(rec.get("nazwa", ""), raw_name, _fmt_num(raw.get("ilosc_na_szt", 0)), raw.get("jednostka", ""), ", ".join(rec.get("czynnosci", []) or []), code))
+            self.tree_pp.insert("", "end", values=(rec.get("nazwa", ""), raw_name, _fmt_num(raw.get("ilosc_na_szt", 0)), _raw_unit_display(raw.get("jednostka", "")), ", ".join(rec.get("czynnosci", []) or []), code))
 
     def _load_produkty(self) -> None:
         if not hasattr(self, "tree_pr"):
