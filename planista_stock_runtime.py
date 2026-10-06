@@ -421,7 +421,11 @@ def _stock_view(code: str, definition: dict, states: dict[str, dict] | None = No
         ),
     )
     unit = str(item.get("jednostka") or definition.get("jednostka") or "mm").strip()
-    bars = stock if unit in {"szt", "szt."} else (stock / length if length > 0 else 0.0)
+    bars = (
+        stock
+        if unit.casefold() in {"szt", "szt.", "oczek", "oczka"}
+        else (stock / length if length > 0 else 0.0)
+    )
     return {
         "linked": linked,
         "stock": stock,
@@ -498,7 +502,7 @@ def _install_planista_raw_ui() -> None:
             "Nie zmienia stanu Magazynu."
         ),
         "bars": (
-            "Dla surowca liniowego liczba sztang wynika ze stanu i długości; dla trybu Szt. pokazujemy liczbę sztuk. "
+            "Dla surowca liniowego liczba sztang wynika ze stanu i długości; dla trybu Szt. pokazujemy liczbę sztuk, a dla Ilość oczek — liczbę oczek. "
             "Tego pola nie edytuje się w Planista."
         ),
         "stock": (
@@ -633,14 +637,16 @@ def _install_planista_raw_ui() -> None:
                 f"{_fmt_num(state['stock'])} mm ({state['stock'] / 1000:g} m)"
             )
         else:
+            display_unit = GMB._raw_unit_display(state["unit"])
             self.s_vars["stan"].set(
-                f"{_fmt_num(state['stock'])} {state['unit']}".strip()
+                f"{_fmt_num(state['stock'])} {display_unit}".strip()
             )
+        display_unit = GMB._raw_unit_display(state["unit"])
         self.s_vars["rezerwacje"].set(
-            f"{_fmt_num(state['reserved'])} {state['unit']}".strip()
+            f"{_fmt_num(state['reserved'])} {display_unit}".strip()
         )
         self.s_vars["dostepne"].set(
-            f"{_fmt_num(state['available'])} {state['unit']}".strip()
+            f"{_fmt_num(state['available'])} {display_unit}".strip()
         )
         self.s_vars["lokalizacja"].set(state["location"] or "—")
         self.s_vars["powiazanie"].set(
@@ -730,10 +736,11 @@ def _install_planista_raw_ui() -> None:
         ):
             state = _stock_view(code, rec, states)
             unit = state["unit"] or "mm"
+            display_unit = GMB._raw_unit_display(unit)
             stock_txt = (
                 f"{_fmt_num(state['stock'])} mm ({state['stock'] / 1000:g} m)"
                 if unit == "mm"
-                else f"{_fmt_num(state['stock'])} {unit}".strip()
+                else f"{_fmt_num(state['stock'])} {display_unit}".strip()
             )
             self.tree_sr.insert(
                 "",
@@ -745,8 +752,8 @@ def _install_planista_raw_ui() -> None:
                     _fmt_num(state["length"]),
                     _fmt_num(state["bars"]),
                     stock_txt,
-                    f"{_fmt_num(state['reserved'])} {unit}".strip(),
-                    f"{_fmt_num(state['available'])} {unit}".strip(),
+                    f"{_fmt_num(state['reserved'])} {display_unit}".strip(),
+                    f"{_fmt_num(state['available'])} {display_unit}".strip(),
                     state["location"] or "—",
                     code,
                 ),
