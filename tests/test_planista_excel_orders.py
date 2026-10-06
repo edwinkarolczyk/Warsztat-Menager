@@ -1,6 +1,6 @@
 # WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_orders.py
-# version: 1.2
+# version: 1.3
 
 from __future__ import annotations
 
@@ -173,6 +173,33 @@ def test_explicit_duplicate_conflict_can_link_existing_order(monkeypatch):
     assert result["status"] == "ok"
     assert result["order_id"] == "000902"
     assert provenance[0][1]["identity"].endswith("|wiersz:5")
+
+
+def test_duplicate_conflict_can_link_legacy_imported_order(monkeypatch):
+    rows = [
+        _row(qty=100, source_row=4),
+        _row(qty=200, source_row=5),
+    ]
+    payload = _payload(rows)
+    plan = sync.build_order_sync_plan(payload, orders=[])
+    item = plan["items"][0]
+    legacy = _imported_order(order_id="000903", qty=100)
+
+    candidates = sync.conflict_link_candidates(item, orders=[legacy])
+    assert [order["id"] for order in candidates] == ["000903"]
+
+    provenance = []
+    monkeypatch.setattr(sync.ZL, "list_zlecenia", lambda: [legacy])
+    monkeypatch.setattr(
+        sync,
+        "_write_order_provenance",
+        lambda order_id, meta, *, autor: provenance.append((order_id, meta, autor)) or {},
+    )
+
+    result = sync.resolve_conflict_link(payload, item, "000903", autor="test")
+
+    assert result["status"] == "ok"
+    assert provenance[0][1]["identity"].endswith("|wiersz:4")
 
 
 def test_same_imported_line_is_idempotent_and_source_row_is_not_identity():
