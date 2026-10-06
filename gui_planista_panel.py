@@ -1,7 +1,8 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.9
+# version: 1.10
 # Planista osadzony w glownym obszarze WM.
+# 1.10: kosmetyka kolumny Termin w Zleceniach: DD miesiąca RR zamiast DD-MM-RR.
 # 1.9: w tabeli Zleceń Wersja BOM -> Półprodukty z ilością kompletnych zestawów i sygnalizacją kolorem.
 # 1.8: wydruk karty korzysta ze wspólnego generatora i zapisuje kopię w aktywnym ROOT WM.
 # 1.7: uporządkowano finalny układ tabeli Zleceń; Zamówienie = ilość, przywrócono Wersję BOM.
@@ -47,6 +48,34 @@ def _fmt_amount(value, unit=""):
         except Exception:
             pass
     return f"{txt} {u}".strip()
+
+
+_MONTHS_PL_GENITIVE = (
+    "stycznia",
+    "lutego",
+    "marca",
+    "kwietnia",
+    "maja",
+    "czerwca",
+    "lipca",
+    "sierpnia",
+    "września",
+    "października",
+    "listopada",
+    "grudnia",
+)
+
+
+def _display_order_date(value) -> str:
+    """Tylko prezentacja w tabeli Zleceń: DD miesiąca RR."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        parsed = date.fromisoformat(raw[:10])
+    except Exception:
+        return _display_date(raw)
+    return f"{parsed.day:02d} {_MONTHS_PL_GENITIVE[parsed.month - 1]} {parsed.year % 100:02d}"
 
 
 def _semi_progress_display(order: dict) -> str:
@@ -152,7 +181,7 @@ class PlanistaPanel(ttk.Frame):
             "polprodukty": 110,
             "wykonano": 90,
             "pozostalo": 90,
-            "termin": 120,
+            "termin": 150,
             "status": 120,
         }
         for col in cols:
@@ -288,7 +317,7 @@ class PlanistaPanel(ttk.Frame):
                     _semi_progress_display(order),
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
-                    _display_date(order.get("termin", "")),
+                    _display_order_date(order.get("termin", "")),
                     order.get("status", ""),
                 ),
             )
