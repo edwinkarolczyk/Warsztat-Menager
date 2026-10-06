@@ -31,6 +31,7 @@ from ui_theme import get_theme_color
 
 
 WRITABLE_ACTIONS = {ACTION_CREATE, ACTION_UPDATE}
+ACTION_IGNORED = "Pominięte"
 
 _SELECT_HELP = (
     "Zaznacz tylko pozycje z akcją Utwórz lub Aktualizuj. "
@@ -125,6 +126,7 @@ def _summary_text(plan: dict) -> str:
         f"{ACTION_NONE}: {summary.get(ACTION_NONE, 0)}   |   "
         f"{ACTION_PROTECTED}: {summary.get(ACTION_PROTECTED, 0)}   |   "
         f"{ACTION_CONFLICT}: {summary.get(ACTION_CONFLICT, 0)}   |   "
+        f"{ACTION_IGNORED}: {summary.get(ACTION_IGNORED, 0)}   |   "
         f"{ACTION_SKIP}: {summary.get(ACTION_SKIP, 0)}"
     )
 
@@ -282,7 +284,7 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             item = dict(source_item)
             identity = _text(item.get("identity"))
             if identity in skipped_conflicts and item.get("action") == ACTION_CONFLICT:
-                item["action"] = ACTION_SKIP
+                item["action"] = ACTION_IGNORED
                 item["reason"] = "Pominięto decyzją użytkownika w tym podglądzie."
             visible_summary[item.get("action")] += 1
             row = item.get("row") if isinstance(item.get("row"), dict) else {}
