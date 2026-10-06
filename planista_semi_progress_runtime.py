@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_semi_progress_runtime.py
-# version: 1.4
+# version: 1.5
+# 1.5: w katalogu Półproduktów jednostka oczek jest wyświetlana jako „Oczek”.
 # 1.4: wyszukiwarka w katalogu Półproduktów na zasadzie wyszukiwarki Produktów.
 # 1.3: atomowe odhaczenie pełnej operacji półproduktu dla WM/WMM.
 # 1.2: kontrolowana nadprodukcja półproduktu trafia do Magazynu z rozliczeniem surowca.
@@ -754,7 +755,7 @@ def install_planista_semi_progress_runtime() -> None:
                         rec.get("nazwa", ""),
                         raw_name,
                         GMB._fmt_num(raw.get("ilosc_na_szt", 0)),
-                        raw.get("jednostka", ""),
+                        GMB._raw_unit_display(raw.get("jednostka", "")),
                         ", ".join(rec.get("czynnosci", []) or []),
                         ", ".join(product_links) or "—",
                         code,
