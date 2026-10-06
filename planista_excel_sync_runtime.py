@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_sync_runtime.py
-# version: 1.1
+# version: 1.2
+# 1.2: „Pomiń tę pozycję” zmienia konflikt na Nie importuj w bieżącym podglądzie; lista połączeń obsługuje starsze zlecenia WM.
 # 1.1: czerwone pozycje „Wymaga decyzji” mają jawny dialog rozstrzygania konfliktu.
 """Kontrolowany podgląd i zatwierdzanie synchronizacji Excel -> zlecenia WM."""
 
@@ -147,6 +148,7 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
     dlg.geometry("1560x760")
 
     selected: set[str] = _writable_identities(plan) if preselect_safe else set()
+    skipped_conflicts: set[str] = set()
     item_by_iid: dict[str, dict] = {}
 
     top = ttk.Frame(dlg, padding=10)
@@ -273,9 +275,16 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
         selected.intersection_update(_writable_identities(plan))
         tree.delete(*tree.get_children())
         item_by_iid.clear()
-        for idx, item in enumerate(sorted(list(plan.get("items") or []), key=_sync_item_sort_key)):
-            if not isinstance(item, dict):
+        visible_summary = Counter()
+        for idx, source_item in enumerate(sorted(list(plan.get("items") or []), key=_sync_item_sort_key)):
+            if not isinstance(source_item, dict):
                 continue
+            item = dict(source_item)
+            identity = _text(item.get("identity"))
+            if identity in skipped_conflicts and item.get("action") == ACTION_CONFLICT:
+                item["action"] = ACTION_SKIP
+                item["reason"] = "Pominięto decyzją użytkownika w tym podglądzie."
+            visible_summary[item.get("action")] += 1
             row = item.get("row") if isinstance(item.get("row"), dict) else {}
             identity = _text(item.get("identity"))
             action = item.get("action")
@@ -318,7 +327,7 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
                 ),
                 tags=tag_for(item),
             )
-        summary_var.set(_summary_text(plan))
+        summary_var.set(_summary_text({"summary": dict(visible_summary)}))
         update_controls()
 
     def toggle_iid(iid: str) -> None:
@@ -501,10 +510,17 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             command=link_existing,
             state="normal" if candidate_values else "disabled",
         ).pack(side="left", padx=(6, 0))
+        def skip_this() -> None:
+            identity = _text(item.get("identity"))
+            if identity:
+                skipped_conflicts.add(identity)
+            decision.destroy()
+            refresh_tree(plan)
+
         ttk.Button(
             buttons,
             text="Pomiń tę pozycję",
-            command=decision.destroy,
+            command=skip_this,
         ).pack(side="right")
 
     def toggle_event(event=None) -> str | None:
