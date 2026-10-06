@@ -1,6 +1,7 @@
 # WM-VERSION: 0.2
 # Plik: planista_excel_orders.py
-# version: 1.2
+# version: 1.3
+# 1.3: ręczne połączenie konfliktu akceptuje też starsze zlecenie importowane z legacy kluczem Nr zlec. + Produkt.
 # 1.2: konflikty można jawnie rozstrzygać; duplikaty Nr zlec. + Produkt dostają osobną tożsamość wiersza dopiero po decyzji użytkownika.
 # 1.1: blokuje powielony klucz Nr zlec. + Produkt WM w jednym planie Excel.
 """Planowanie i kontrolowane wykonanie synchronizacji Excel -> zlecenia WM.
@@ -407,13 +408,14 @@ def conflict_link_candidates(item: dict, orders: list[dict] | None = None) -> li
     wm_symbol = _text(item.get("wm_symbol"))
     nr_zlec = _text(item.get("nr_zlec"))
     identity = _text(item.get("identity"))
+    legacy_identity = _identity(nr_zlec, wm_symbol)
     candidates = []
     for order in current_orders:
         if not isinstance(order, dict) or _text(order.get("produkt")) != wm_symbol:
             continue
         prov = _provenance(order)
         existing_identity = _text(prov.get("identity"))
-        if existing_identity and existing_identity != identity:
+        if existing_identity and existing_identity not in {identity, legacy_identity}:
             continue
         candidates.append(order)
     candidates.sort(
@@ -466,7 +468,8 @@ def resolve_conflict_link(
 
     existing_identity = _text(_provenance(current).get("identity"))
     target_identity = _text(item.get("identity"))
-    if existing_identity and existing_identity != target_identity:
+    legacy_identity = _identity(item.get("nr_zlec"), item.get("wm_symbol"))
+    if existing_identity and existing_identity not in {target_identity, legacy_identity}:
         raise ExcelOrderSyncError("Wybrane zlecenie jest już powiązane z inną pozycją Excela.")
 
     meta = _source_meta(
