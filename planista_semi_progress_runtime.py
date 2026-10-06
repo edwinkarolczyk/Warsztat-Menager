@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_semi_progress_runtime.py
-# version: 1.3
+# version: 1.4
+# 1.4: wyszukiwarka w katalogu Półproduktów na zasadzie wyszukiwarki Produktów.
 # 1.3: atomowe odhaczenie pełnej operacji półproduktu dla WM/WMM.
 # 1.2: kontrolowana nadprodukcja półproduktu trafia do Magazynu z rozliczeniem surowca.
 # 1.1: postęp półproduktów pozostaje w backendzie, a przycisk przeniesiono do wspólnego edytora zlecenia.
@@ -703,6 +704,14 @@ def install_planista_semi_progress_runtime() -> None:
                     columns.append("produkty")
                 self.tree_pp.configure(columns=tuple(columns))
             GMB.configure_semiproduct_tree(self.tree_pp)
+
+            filters = ttk.Frame(parent)
+            ttk.Label(filters, text="Szukaj:").pack(side="left")
+            self.pp_search_var = tk.StringVar()
+            search_entry = ttk.Entry(filters, textvariable=self.pp_search_var, width=34)
+            search_entry.pack(side="left", padx=(6, 12))
+            filters.pack(fill="x", padx=6, pady=(0, 4), before=self.tree_pp)
+            self.pp_search_var.trace_add("write", lambda *_: self._load_polprodukty())
         build_pp._wm_product_links_column = True
         build_pp._wm_original = old_build_pp
         UI._build_polprodukty = build_pp
@@ -711,6 +720,11 @@ def install_planista_semi_progress_runtime() -> None:
             if "produkty" not in list(self.tree_pp.cget("columns")):
                 return old_load_pp(self)
             links = _semi_product_links(self.model)
+            query = (
+                self.pp_search_var.get().strip().casefold()
+                if hasattr(self, "pp_search_var")
+                else ""
+            )
             self.tree_pp.delete(*self.tree_pp.get_children())
             for code, rec in sorted(
                 self.model.polprodukty.items(),
@@ -719,6 +733,20 @@ def install_planista_semi_progress_runtime() -> None:
                 raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
                 raw_id = str(raw.get("kod") or "")
                 raw_name = self._raw_by_id.get(raw_id, {}).get("nazwa") or raw_id
+                product_links = links.get(code, [])
+                if query:
+                    haystack = " ".join(
+                        (
+                            str(rec.get("nazwa") or ""),
+                            str(code),
+                            str(raw_name),
+                            str(raw_id),
+                            " ".join(rec.get("czynnosci", []) or []),
+                            " ".join(product_links),
+                        )
+                    ).casefold()
+                    if query not in haystack:
+                        continue
                 self.tree_pp.insert(
                     "",
                     "end",
@@ -728,7 +756,7 @@ def install_planista_semi_progress_runtime() -> None:
                         GMB._fmt_num(raw.get("ilosc_na_szt", 0)),
                         raw.get("jednostka", ""),
                         ", ".join(rec.get("czynnosci", []) or []),
-                        ", ".join(links.get(code, [])) or "—",
+                        ", ".join(product_links) or "—",
                         code,
                     ),
                 )
