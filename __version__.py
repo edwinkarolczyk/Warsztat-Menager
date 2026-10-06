@@ -1,4 +1,5 @@
-# version: 4.4
+# version: 4.5
+# 4.5: WM 1.0.30 - stabilniejsze odświeżanie Dyspozycji i czytelniejszy termin w Planista.
 # 4.4: WM 1.0.29 - Planista pokazuje postęp półproduktów zamiast Wersji BOM.
 # 4.3: WM 1.0.28 - czytelniejsze Dyspozycje: Typ/ID/Obiekt osobno, auto-szerokość kolumn i kolumny dodatkowe.
 # 4.2: WM 1.0.27 - dodawanie punktów obrysu pomieszczeń i ortogonalne przeciąganie narożników z Shift.
@@ -29,7 +30,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.29"
+__version__ = "1.0.30"
 
 
 def get_version() -> str:
