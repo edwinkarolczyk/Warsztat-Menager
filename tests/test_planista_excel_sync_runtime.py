@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_excel_sync_runtime.py
-# version: 1.0
+# version: 1.1
 
 from __future__ import annotations
 
@@ -94,6 +94,17 @@ def test_runtime_requires_explicit_selection_and_second_confirmation():
     assert "stale = selected - fresh_writable" in sync_runtime
     assert "apply_order_sync(" in sync_runtime
     assert "owner.refresh()" in sync_runtime
+
+
+def test_conflict_rows_have_explicit_decision_ui():
+    source = Path("planista_excel_sync_runtime.py").read_text(encoding="utf-8")
+
+    assert 'text="Rozstrzygnij konflikt"' in source
+    assert 'text="Utwórz osobne zlecenie WM"' in source
+    assert 'text="Połącz z istniejącym"' in source
+    assert 'text="Pomiń tę pozycję"' in source
+    assert "resolve_conflict_create(" in source
+    assert "resolve_conflict_link(" in source
 
 
 def test_context_help_for_sync_controls_stays_short():
