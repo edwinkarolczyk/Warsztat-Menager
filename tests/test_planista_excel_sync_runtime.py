@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_excel_sync_runtime.py
-# version: 1.2
+# version: 1.3
 
 from __future__ import annotations
 
@@ -104,7 +104,8 @@ def test_conflict_rows_have_explicit_decision_ui():
     assert 'text="Połącz z istniejącym"' in source
     assert 'text="Pomiń tę pozycję"' in source
     assert "skipped_conflicts" in source
-    assert 'item["action"] = ACTION_SKIP' in source
+    assert 'ACTION_IGNORED = "Pominięte"' in source
+    assert 'item["action"] = ACTION_IGNORED' in source
     assert "resolve_conflict_create(" in source
     assert "resolve_conflict_link(" in source
 
