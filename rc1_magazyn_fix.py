@@ -1,6 +1,6 @@
 # WM-VERSION: 0.2
 # Plik: rc1_magazyn_fix.py
-# version: 1.8
+# version: 1.7
 # -*- coding: utf-8 -*-
 # RC1: guard przed podwójnym przyciskiem 'Zamówienia' w Magazynie.
 # 1.1: po zbudowaniu istniejącego toolbara dodaje pojedynczy przycisk PZ.
@@ -10,7 +10,6 @@
 # 1.5: nie usuwa wiersza Rodzaj w nowej karcie surowca; porządkuje kolumny Magazynu bez zmiany danych.
 # 1.6: nazwa surowca jest zawsze wyliczana z Rodzaj + Ø/Wymiar; ręczne pole Nazwa pozostaje ukryte.
 # 1.7: Półprodukt zapisuje powiązanie z Surowcem wyłącznie po aktualnym technicznym ID.
-# 1.8: Jednostka półproduktu wynika z aktualnego trybu rodzaju surowca (Szt. -> szt).
 
 from functools import wraps
 import tkinter as tk
@@ -95,14 +94,7 @@ def _catalog_raw_materials_only(model):
             continue
         item_id = str(rec.get("id") or rec.get("kod") or key).strip()
         if item_id:
-            item = {**rec, "id": item_id, "kod": item_id}
-            kind = str(item.get("rodzaj") or item.get("typ") or "").strip()
-            mode = _record_raw_kind_mode(model, kind)
-            if mode == "szt":
-                item["jednostka"] = "szt"
-            elif mode in {"fi", "wymiar"}:
-                item["jednostka"] = "mm"
-            out[item_id] = item
+            out[item_id] = {**rec, "id": item_id, "kod": item_id}
     return out
 
 
