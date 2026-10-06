@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_stock_runtime.py
-# version: 1.2
+# version: 1.3
+# 1.3: obsługa trybu „Ilość oczek” z jednostką oczek.
 # 1.2: nowy surowiec startuje ze standardową długością sztangi 6000 mm.
 # 1.1: bezpieczne, transakcyjne usuwanie definicji i pustej karty Magazynu.
 """Jedno źródło stanu surowców: Magazyn; Planista przechowuje definicję."""
@@ -65,7 +66,7 @@ def raw_kind_modes() -> dict[str, str]:
             name = str(item.get("nazwa") or "").strip()
             mode = str(item.get("pole") or "wymiar").strip().casefold()
             if name:
-                out[name] = mode if mode in {"fi", "wymiar", "szt"} else "wymiar"
+                out[name] = mode if mode in {"fi", "wymiar", "szt", "oczka"} else "wymiar"
     return out
 
 
@@ -81,7 +82,7 @@ def _apply_raw_definition_changes(
     """Czysta transformacja definicji; nie dotyka stanu ani rezerwacji."""
     rec = dict(record)
     normalized_mode = str(mode or "wymiar").strip().casefold()
-    if normalized_mode not in {"fi", "wymiar", "szt"}:
+    if normalized_mode not in {"fi", "wymiar", "szt", "oczka"}:
         normalized_mode = "wymiar"
 
     rec["nazwa"] = str(name or "").strip()
@@ -95,8 +96,8 @@ def _apply_raw_definition_changes(
     elif normalized_mode == "wymiar":
         rec["wymiar"] = rec["rozmiar"]
 
-    unit = "szt" if normalized_mode == "szt" else "mm"
-    length = 0.0 if unit == "szt" else max(0.0, _num(bar_length_mm))
+    unit = "szt" if normalized_mode == "szt" else "oczek" if normalized_mode == "oczka" else "mm"
+    length = 0.0 if unit in {"szt", "oczek"} else max(0.0, _num(bar_length_mm))
     rec["jednostka"] = unit
     rec["dlugosc_sztangi_mm"] = length
     rec["dlugosc"] = length
@@ -121,8 +122,8 @@ def update_linked_raw_definition(
 
     modes = raw_kind_modes()
     mode = str(modes.get(str(kind or "").strip()) or "").casefold()
-    if mode not in {"fi", "wymiar", "szt"}:
-        raise ValueError("Wybrany rodzaj surowca nie ma poprawnego trybu Ø / Wymiar / Szt.")
+    if mode not in {"fi", "wymiar", "szt", "oczka"}:
+        raise ValueError("Wybrany rodzaj surowca nie ma poprawnego trybu Ø / Wymiar / Szt. / Ilość oczek.")
 
     LM, warehouse, items = _physical_items()
     item = items.get(code)
@@ -130,13 +131,18 @@ def update_linked_raw_definition(
         raise KeyError(f"Brak karty Magazynu dla surowca {code}.")
 
     old_unit = str(item.get("jednostka") or definitions[code].get("jednostka") or "mm").strip().casefold()
-    old_unit = "szt" if old_unit in {"szt", "szt."} else "mm"
-    new_unit = "szt" if mode == "szt" else "mm"
+    if old_unit in {"szt", "szt."}:
+        old_unit = "szt"
+    elif old_unit in {"oczek", "oczka"}:
+        old_unit = "oczek"
+    else:
+        old_unit = "mm"
+    new_unit = "szt" if mode == "szt" else "oczek" if mode == "oczka" else "mm"
     stock = max(0.0, _num(item.get("stan", 0)))
     reserved = max(0.0, _num(item.get("rezerwacje", 0)))
     if old_unit != new_unit and (stock > 0 or reserved > 0):
         raise ValueError(
-            "Nie można zmienić sposobu ewidencji mm ↔ szt., gdy surowiec ma stan "
+            "Nie można zmienić sposobu ewidencji mm / szt. / oczek, gdy surowiec ma stan "
             "lub rezerwacje. Najpierw rozlicz stan i rezerwacje."
         )
 
@@ -311,7 +317,11 @@ def sync_raw_material_cards() -> dict[str, dict]:
                 rec.pop(key, None)
                 definitions_changed = True
         unit = str(rec.get("jednostka") or "mm").strip().casefold()
-        normalized_unit = "szt" if unit in {"szt", "szt."} else "mm"
+        normalized_unit = (
+            "szt" if unit in {"szt", "szt."}
+            else "oczek" if unit in {"oczek", "oczka"}
+            else "mm"
+        )
         if rec.get("jednostka") != normalized_unit:
             rec["jednostka"] = normalized_unit
             definitions_changed = True
@@ -447,7 +457,11 @@ def _install_model_link() -> None:
         for key in _DYNAMIC_RAW_FIELDS:
             rec.pop(key, None)
         unit = str(rec.get("jednostka") or "mm").strip().casefold()
-        rec["jednostka"] = "szt" if unit in {"szt", "szt."} else "mm"
+        rec["jednostka"] = (
+            "szt" if unit in {"szt", "szt."}
+            else "oczek" if unit in {"oczek", "oczka"}
+            else "mm"
+        )
         result = old_add_raw(self, rec)
         sync_raw_material_cards()
         path, records = _load_raw_definitions()
@@ -681,8 +695,8 @@ def _install_planista_raw_ui() -> None:
             return
 
         mode = str(self._kind_dimension_modes.get(kind) or "").casefold()
-        unit = "szt" if mode == "szt" else "mm"
-        if mode == "szt":
+        unit = "szt" if mode == "szt" else "oczek" if mode == "oczka" else "mm"
+        if mode in {"szt", "oczka"}:
             length = 0.0
         rec = {
             "kod": code,
