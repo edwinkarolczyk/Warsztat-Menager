@@ -1,5 +1,6 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 2.1
+# Wersja pliku: 2.2
+# 2.2: widoki Produktów pokazują aktualną jednostkę surowca półproduktu, np. 13 Oczek zamiast starego 13 szt.
 # 2.1: dodano tryb „Ilość oczek” dla rodzajów surowców i dynamiczny opis ilości w półprodukcie.
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
 
@@ -939,9 +940,24 @@ class MagazynBOM(ttk.Frame):
         unit = _raw_unit_display(raw.get("jednostka") or "mm")
         return f"{_fmt_num(qty)} {unit}".strip()
 
+    def _semi_measure_for_display(self, rec: dict) -> str:
+        raw = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
+        qty = _num(raw.get("ilosc_na_szt", 0))
+        if qty <= 0:
+            return ""
+        raw_id = str(raw.get("kod") or raw.get("id") or "").strip()
+        current_raw = self._raw_by_id.get(raw_id, {}) if raw_id else {}
+        unit = _raw_unit_display(
+            current_raw.get("jednostka")
+            or current_raw.get("unit")
+            or raw.get("jednostka")
+            or "mm"
+        )
+        return f"{_fmt_num(qty)} {unit}".strip()
+
     def _semi_display(self, code: str, rec: dict) -> str:
         name = str(rec.get("nazwa") or code).strip()
-        measure = self._semi_measure(rec)
+        measure = self._semi_measure_for_display(rec)
         label = f"{name} — {measure}" if measure else name
         return f"{label}  [{code}]"
 
@@ -966,7 +982,7 @@ class MagazynBOM(ttk.Frame):
         )
         for code, rec in sorted(
             self.model.polprodukty.items(),
-            key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), self._semi_measure(pair[1]), pair[0]),
+            key=lambda pair: (str(pair[1].get("nazwa", "")).casefold(), self._semi_measure_for_display(pair[1]), pair[0]),
         ):
             if not _semi_available_for_product(
                 code,
@@ -1107,7 +1123,7 @@ class MagazynBOM(ttk.Frame):
             code = str(row.get("kod") or "")
             rec = self.model.polprodukty.get(code, {})
             name = rec.get("nazwa") or code
-            measure = self._semi_measure(rec)
+            measure = self._semi_measure_for_display(rec)
             self.pr_bom_tree.insert("", "end", values=(name, measure, _fmt_num(row.get("ilosc_na_sztuke", 1)), code))
 
     def _on_pr_select(self, _event=None) -> None:
@@ -1222,7 +1238,7 @@ class MagazynBOM(ttk.Frame):
                 code = item["kod"]
                 semi = self.model.polprodukty.get(code, {})
                 name = semi.get("nazwa") or code
-                measure = self._semi_measure(semi)
+                measure = self._semi_measure_for_display(semi)
                 label = f"{name} — {measure}" if measure else name
                 parts.append(f"{label} ×{_fmt_num(item.get('ilosc_na_sztuke', 1))}")
             self.tree_pr.insert("", "end", values=(symbol, rec.get("nazwa", ""), ", ".join(parts)))
