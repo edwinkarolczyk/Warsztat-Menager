@@ -7271,15 +7271,13 @@ def panel_narzedzia(root, frame, login=None, rola=None):
                     _refresh_progress(delay_ms=0)
                 except Exception:
                     pass
-                # FIX(UI): po zapisie w oknie edycji pokaż krótkie potwierdzenie sukcesu.
-                # Do tej pory zapis wykonywał się "po cichu", co wyglądało jak brak reakcji.
+                # FIX(UI): pokaż potwierdzenie udanego zapisu przy dodawaniu i edycji.
                 try:
-                    if editing:
-                        messagebox.showinfo(
-                            "Zapis zakończony",
-                            f"Narzędzie {numer} zostało zapisane.",
-                            parent=dlg,
-                        )
+                    messagebox.showinfo(
+                        "Zapis zakończony",
+                        f"Narzędzie {numer} zostało zapisane.",
+                        parent=dlg,
+                    )
                 except Exception:
                     pass
             except ValueError as exc:
