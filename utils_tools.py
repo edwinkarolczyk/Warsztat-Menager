@@ -139,6 +139,7 @@ def load_tools_rows_with_fallback(cfg: Dict, resolve_rel) -> Tuple[List[Dict], s
     aggregated_path = tools_file(cfg, "narzedzia.json")
 
     rows: List[Dict] = []
+    original_by_id: Dict[str, Tuple[str, Dict]] = {}
     try:
         entries = sorted(os.listdir(tools_path))
     except OSError:
@@ -157,6 +158,7 @@ def load_tools_rows_with_fallback(cfg: Dict, resolve_rel) -> Tuple[List[Dict], s
         identifier = _tool_identifier(item, name[:-5])
         if identifier:
             rows.append(item)
+            original_by_id[identifier] = (path, payload)
 
     if rows:
         # >>> PATCH START: narzędzia – model JSON per plik
@@ -166,8 +168,23 @@ def load_tools_rows_with_fallback(cfg: Dict, resolve_rel) -> Tuple[List[Dict], s
         # <<< PATCH END: narzędzia – model JSON per plik
         rows = _ensure_bidirectional_relations(rows)
         for row in rows:
-            save_tool_item(cfg, row)
-        save_tools_rows(aggregated_path, rows)
+            identifier = str(row.get("id") or row.get("nr") or row.get("numer") or "").strip()
+            source = original_by_id.get(identifier)
+            target = tools_file(cfg, f"{identifier}.json")
+            # Zapisz tylko nowy, przenoszony lub rzeczywiście zmieniony rekord.
+            if (
+                source is None
+                or os.path.normcase(os.path.abspath(source[0]))
+                != os.path.normcase(os.path.abspath(target))
+                or source[1] != row
+            ):
+                save_tool_item(cfg, row)
+
+        # Nie nadpisuj całego indeksu przy każdym wejściu do Narzędzi.
+        if _r(aggregated_path, default=None, ensure=False) != {
+            "items": rows, "narzedzia": rows
+        }:
+            save_tools_rows(aggregated_path, rows)
         return rows, aggregated_path
     # <<< PATCH END: narzędzia – model JSON per plik
 
