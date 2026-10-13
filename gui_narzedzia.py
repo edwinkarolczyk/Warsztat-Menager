@@ -3276,7 +3276,13 @@ def build_task_template(parent):
 
 # ===================== ŚCIEŻKI DANYCH =====================
 def _resolve_tools_dir():
-    cfg, _, _, _ = _init_tools_data(_TOOLS_CFG_CACHE)
+    # Ustalenie ścieżki nie może ponownie odczytywać i zapisywać narzędzi.
+    cfg = _TOOLS_CFG_CACHE
+    if cfg is None:
+        try:
+            cfg = get_config()
+        except Exception:
+            cfg = {}
     return tools_dir(cfg)
 
 def _ensure_folder():
@@ -3810,7 +3816,8 @@ def _load_all_tools(force_reload: bool = False) -> List[Dict[str, Any]]:
         return list(STATE.tools_docs_cache.values())
 
     _dbg("CWD:", os.getcwd())
-    _init_tools_data(_TOOLS_CFG_CACHE)
+    if _TOOLS_PRIMARY_PATH is None:
+        _init_tools_data(_TOOLS_CFG_CACHE)
     tools_dir = _resolve_tools_dir()
     _dbg("tools_dir:", tools_dir)
 
