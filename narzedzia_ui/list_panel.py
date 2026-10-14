@@ -30,6 +30,15 @@ from narzedzia_ui.state import STATE
 from tools_templates import load_default_templates
 
 
+TOOL_PROGRESS_ROW_COLORS = {
+    "progress_0": "#9ca3af",
+    "progress_low": "#f87171",
+    "progress_mid": "#facc15",
+    "progress_high": "#86efac",
+    "progress_done": "#22c55e",
+}
+
+
 def _tool_id(tool: Mapping[str, Any]) -> str:
     return str(tool.get("id") or tool.get("nr") or tool.get("numer") or "")
 
@@ -886,11 +895,8 @@ class ToolsThreeTabsView(ttk.Frame):
         # Kolory postępu w zakładce "Narzędzia".
         # Tkinter Treeview koloruje tagiem cały wiersz, nie pojedynczą komórkę,
         # więc celowo kolorujemy cały rekord według kolumny "Postęp".
-        self.tv_inprog.tag_configure("progress_0", foreground="#9ca3af")
-        self.tv_inprog.tag_configure("progress_low", foreground="#f87171")
-        self.tv_inprog.tag_configure("progress_mid", foreground="#facc15")
-        self.tv_inprog.tag_configure("progress_high", foreground="#86efac")
-        self.tv_inprog.tag_configure("progress_done", foreground="#22c55e")
+        for tag, color in TOOL_PROGRESS_ROW_COLORS.items():
+            self.tv_inprog.tag_configure(tag, foreground=color)
 
     def _build_tab_all(self) -> None:
         top = ttk.Frame(self.tab_all)
