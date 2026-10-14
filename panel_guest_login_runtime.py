@@ -20,20 +20,6 @@ _GUEST_NAMES = {"guest", "gość", "gosc", "niezalogowany", ""}
 _REFRESH_MS = 30_000
 _BLINK_MS = 650
 
-_TOOL_PROGRESS_COLORS = {
-    "progress_0": "#9ca3af",
-    "progress_low": "#f87171",
-    "progress_mid": "#facc15",
-    "progress_high": "#86efac",
-    "progress_done": "#22c55e",
-}
-_DYSP_COLORS = {
-    "nowa": "#facc15",
-    "w_toku": "#60a5fa",
-    "wstrzymana": "#fb923c",
-}
-
-
 def _is_guest(root) -> bool:
     for attr in ("active_login", "current_user", "username", "_wm_login"):
         try:
@@ -522,8 +508,13 @@ def install_guest_login_card(root) -> bool:
         height=7,
     )
     tools_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
-    for tag, color in _TOOL_PROGRESS_COLORS.items():
-        tools_tree.tag_configure(tag, foreground=color)
+    try:
+        from narzedzia_ui.list_panel import TOOL_PROGRESS_ROW_COLORS
+
+        for tag, color in TOOL_PROGRESS_ROW_COLORS.items():
+            tools_tree.tag_configure(tag, foreground=color)
+    except Exception:
+        logger.exception("[GUEST_DASHBOARD] Nie udało się pobrać kolorów Narzędzi.")
 
     orders_title = ttk.Frame(host, style="WM.Card.TFrame")
     orders_title.grid(row=2, column=0, sticky="ew", pady=(0, 4))
@@ -571,11 +562,7 @@ def install_guest_login_card(root) -> bool:
         from gui_maszyny import MACHINE_STATUS_ROW_COLORS
         machine_colors = MACHINE_STATUS_ROW_COLORS
     except Exception:
-        machine_colors = {
-            "ok": {"background": "#dcfce7", "foreground": "#166534"},
-            "alert": {"background": "#fef3c7", "foreground": "#854d0e"},
-            "warn": {"background": "#fee2e2", "foreground": "#7f1d1d"},
-        }
+        machine_colors = {}
     for status_key, colors in machine_colors.items():
         try:
             machines_tree.tag_configure(f"machine_{status_key}", **dict(colors))
@@ -597,9 +584,24 @@ def install_guest_login_card(root) -> bool:
         height=5,
     )
     dysp_frame.grid(row=7, column=0, sticky="nsew")
-    for status_key, color in _DYSP_COLORS.items():
-        dysp_tree.tag_configure(f"dysp_{status_key}", foreground=color)
-    dysp_tree.tag_configure("dysp_overdue", foreground="#ef4444")
+    def _apply_dysp_colors():
+        # Jedno źródło barw: moduł Dyspozycje / konfiguracja dyspozycje.ui.
+        try:
+            from gui_zlecenia import _dysp_ui_config
+
+            ui = _dysp_ui_config()
+        except Exception:
+            logger.exception("[GUEST_DASHBOARD] Nie udało się pobrać kolorów Dyspozycji.")
+            return
+        for status_key, setting in (
+            ("nowa", "new_foreground"),
+            ("w_toku", "in_progress_foreground"),
+            ("wstrzymana", "paused_foreground"),
+        ):
+            dysp_tree.tag_configure(f"dysp_{status_key}", foreground=ui[setting])
+        dysp_tree.tag_configure("dysp_overdue", foreground=ui["overdue_foreground"])
+
+    _apply_dysp_colors()
 
     state = {
         "refresh_job": None,
@@ -651,6 +653,7 @@ def install_guest_login_card(root) -> bool:
             shown_machines += 1
         machines_count.configure(text=f"{shown_machines} wymagających uwagi")
 
+        _apply_dysp_colors()
         _clear(dysp_tree)
         state["overdue"].clear()
         rows = _load_active_dysp()
