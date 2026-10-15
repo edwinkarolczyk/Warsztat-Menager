@@ -16,6 +16,7 @@ from tkinter import messagebox, ttk
 from . import editor_variant_runtime as _variant
 
 _MAX_STAGES = 6
+_STAGE_PHOTO_SIZE = (180, 105)
 _REL_FILE = "powiazania_narzedzi.json"
 _META_CACHE: dict[str, dict[str, Any]] | None = None
 
@@ -222,6 +223,19 @@ def _tool_image_path(meta: dict[str, Any]) -> Path | None:
     return None
 
 
+def _load_stage_photo(path: Path, master: tk.Misc):
+    """Dopasuj zdjęcie do pola etapu, również gdy plik jest mały."""
+    try:
+        from PIL import Image, ImageOps, ImageTk
+
+        with Image.open(path) as source:
+            image = ImageOps.exif_transpose(source).copy()
+        image = ImageOps.contain(image, _STAGE_PHOTO_SIZE)
+        return ImageTk.PhotoImage(image, master=master)
+    except Exception:
+        return _variant._load_photo(path, master, _STAGE_PHOTO_SIZE)
+
+
 def _open_tool(nr: str) -> None:
     try:
         import gui_narzedzia as tools_gui
@@ -312,22 +326,29 @@ def _build_related_tab(
 
         body = tk.Frame(card, bg=colors["card"])
         body.pack(fill="both", expand=True, padx=12, pady=(0, 8))
-        thumb = tk.Label(
+        photo_box = tk.Frame(
             body,
+            width=_STAGE_PHOTO_SIZE[0],
+            height=_STAGE_PHOTO_SIZE[1],
+            bg=colors["panel"],
+        )
+        photo_box.pack(side="left", padx=(0, 12))
+        photo_box.pack_propagate(False)
+        thumb = tk.Label(
+            photo_box,
             text="Brak zdjęcia",
             bg=colors["panel"],
             fg=colors["muted"],
-            width=22,
-            height=7,
             justify="center",
+            anchor="center",
             cursor="hand2" if not current else "arrow",
         )
-        thumb.pack(side="left", padx=(0, 12))
+        thumb.pack(fill="both", expand=True)
 
         image_path = _tool_image_path(meta)
         if image_path is not None:
             try:
-                photo = _variant._load_photo(image_path, thumb, (180, 105))
+                photo = _load_stage_photo(image_path, thumb)
             except Exception:
                 photo = None
             if photo is not None:
