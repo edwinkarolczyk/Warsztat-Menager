@@ -208,9 +208,13 @@ class PlanistaPanel(ttk.Frame):
                 stretch=col != "id",
             )
         self.tree.pack(fill="both", expand=True)
-        self.tree.bind("<Double-1>", lambda _e: self.edit_term())
+        self.tree.bind(
+            "<Double-1>",
+            lambda event: None if self._open_print_history_on_double_click(event) else self.edit_term(),
+        )
 
         buttons = ttk.Frame(parent)
+        self._orders_action_bar = buttons
         buttons.pack(fill="x", pady=(8, 0))
         ttk.Button(buttons, text="Ustaw / zmień termin", command=self.edit_term).pack(side="left")
         ttk.Button(buttons, text="Ilość / rzaz / półprodukty…", command=self.edit_production).pack(side="left", padx=6)
@@ -766,6 +770,16 @@ class PlanistaPanel(ttk.Frame):
                 self.after(350, poll)
 
         self.after(150, poll)
+
+    def _open_print_history_on_double_click(self, event) -> bool:
+        last_column = f"#{len(self.tree['columns'])}"
+        if self.tree.identify_column(event.x) != last_column:
+            return False
+        oid = self.tree.identify_row(event.y)
+        if oid and self.tree.exists(oid):
+            self.tree.selection_set(oid)
+            self.show_print_history()
+        return True
 
     def show_print_history(self):
         selected = self.tree.selection()
