@@ -57,11 +57,11 @@ def show_excel_sources_window(owner) -> None:
     def save_options() -> bool:
         from planista_excel_auto_runtime import normalize_interval_minutes
         a, b = source_a.get().strip(), source_b.get().strip()
-        if monitor_var.get() and (not a or not b):
-            messagebox.showwarning("Plan Excel", "Do automatycznego monitoringu A+B wskaż oba pliki.", parent=window)
+        if monitor_var.get() and not a:
+            messagebox.showwarning("Plan Excel", "Wskaż co najmniej Excel A.", parent=window)
             return False
-        if monitor_var.get() and (not Path(a).is_file() or not Path(b).is_file()):
-            messagebox.showwarning("Plan Excel", "Nie można włączyć monitoringu: jeden z plików jest niedostępny.", parent=window)
+        if monitor_var.get() and (not Path(a).is_file() or (b and not Path(b).is_file())):
+            messagebox.showwarning("Plan Excel", "Nie można włączyć monitoringu: wskazany plik jest niedostępny.", parent=window)
             return False
         interval = normalize_interval_minutes(interval_var.get())
         interval_var.set(str(interval))
@@ -106,7 +106,7 @@ def show_excel_sources_window(owner) -> None:
     options = ttk.LabelFrame(sources_tab, text="Automat", padding=10)
     options.pack(fill="x", pady=(5, 0))
     ttk.Checkbutton(
-        options, text="Monitoruj oba pliki od uruchomienia WM",
+        options, text="Monitoruj wskazane pliki od uruchomienia WM",
         variable=monitor_var,
     ).grid(row=0, column=0, columnspan=3, sticky="w", pady=3)
     ttk.Label(options, text="Sprawdzaj co").grid(row=1, column=0, sticky="w", pady=3)
@@ -263,7 +263,15 @@ def show_excel_sources_window(owner) -> None:
         change_actions, text="Zatwierdź wybrane zlecenia…",
         command=lambda: runtime._open_excel_sync(owner),
     ).pack(side="left", padx=(10, 0))
-    ttk.Label(change_actions, text="Istniejący silnik synchronizacji WM").pack(side="left", padx=(12, 0))
+    ttk.Button(
+        change_actions, text="Przypisz Produkt WM…",
+        command=lambda: runtime._show_excel_import_preview(
+            owner, latest["payload"]
+        ) if isinstance(latest["payload"], dict) else messagebox.showinfo(
+            "Dopasowanie", "Najpierw wykonaj analizę.", parent=window
+        ),
+    ).pack(side="left", padx=(10, 0))
+    ttk.Label(change_actions, text="Dostępne są dotychczasowe mechanizmy akceptacji i przypisań.").pack(side="left", padx=(12, 0))
 
     def choose_conflict(decision: str) -> None:
         chosen = conflict_tree.selection()
