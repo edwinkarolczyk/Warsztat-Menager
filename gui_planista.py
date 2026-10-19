@@ -582,7 +582,7 @@ class PlanistaWindow:
         ttk.Button(bottom, text="Ustaw / zmień termin", command=self.edit_term).pack(side="left")
         ttk.Button(bottom, text="Wykonano…", command=self.report_done).pack(side="left", padx=6)
         ttk.Button(bottom, text="Pokaż zapotrzebowanie", command=self.show_requirements).pack(side="left")
-        ttk.Button(bottom, text="Drukuj małe zlecenie", command=self.print_work_order).pack(side="left", padx=6)
+        ttk.Button(bottom, text="Drukuj A4", command=self.print_work_order).pack(side="left", padx=6)
         ttk.Button(bottom, text="Zamknij", command=self.win.destroy).pack(side="right")
 
     def _selected(self):
