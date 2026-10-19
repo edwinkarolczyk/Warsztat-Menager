@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.10
+# version: 1.11
+# 1.11: kolumna wydruku A4, zbiorcze drukowanie i historia poleceń.
 # Planista osadzony w glownym obszarze WM.
 # 1.10: kosmetyka kolumny Termin w Zleceniach: DD miesiąca RR zamiast DD-MM-RR.
 # 1.9: w tabeli Zleceń Wersja BOM -> Półprodukty z ilością kompletnych zestawów i sygnalizacją kolorem.
@@ -12,9 +13,9 @@
 
 from __future__ import annotations
 
-import os
+import queue
+import threading
 import tkinter as tk
-import webbrowser
 from datetime import date
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -22,6 +23,12 @@ from tkinter import messagebox, ttk
 import zlecenia_logika as ZL
 import zlecenia_progress as ZP
 from config_manager import ConfigManager
+from planista_auto_print_runtime import dispatch_work_order_print
+from planista_print_history import (
+    PRINT_CHANGED, PRINT_ERROR, PRINT_NEW, PRINT_PENDING, PRINT_SENT,
+    PRINT_STATES, PRINT_UNKNOWN, ensure_print_registry, load_print_history,
+    print_events, print_status,
+)
 from gui_planista import (
     _display_date,
     _iso_date,
@@ -151,6 +158,7 @@ class PlanistaPanel(ttk.Frame):
 
     def _build_orders(self, parent):
         cols = (
+            "wybor",
             "zlec_wew",
             "id",
             "produkt",
@@ -160,9 +168,13 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo",
             "termin",
             "status",
+            "wydruk",
         )
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings", height=18)
+        self.tree = ttk.Treeview(
+            parent, columns=cols, show="headings", height=18, selectmode="extended",
+        )
         labels = {
+            "wybor": "✓",
             "zlec_wew": "Zlecenie wew",
             "id": "Zlecenie warsztatowe",
             "produkt": "Produkt",
@@ -172,8 +184,10 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo": "Pozostało",
             "termin": "Termin",
             "status": "Status",
+            "wydruk": "Wydruk",
         }
         widths = {
+            "wybor": 38,
             "zlec_wew": 120,
             "id": 100,
             "produkt": 250,
@@ -183,6 +197,7 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo": 90,
             "termin": 150,
             "status": 120,
+            "wydruk": 137,
         }
         for col in cols:
             self.tree.heading(col, text=labels[col])
@@ -208,8 +223,36 @@ class PlanistaPanel(ttk.Frame):
             command=self.approve_selected,
         )
         self.approve_button.pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Drukuj małe zlecenie", command=self.print_work_order).pack(side="left", padx=(8, 0))
-        self.tree.bind("<<TreeviewSelect>>", lambda _e: self._refresh_approval_button())
+        ttk.Button(buttons, text="Drukuj A4", command=self.print_work_order).pack(side="left", padx=(8, 0))
+        self.tree.bind("<Button-1>", self._toggle_print_selection, add="+")
+        self.tree.bind(
+            "<<TreeviewSelect>>",
+            lambda _e: (self._refresh_approval_button(), self._update_print_checks()),
+        )
+
+        print_bar = ttk.Frame(parent)
+        print_bar.pack(fill="x", pady=(6, 0))
+        ttk.Label(print_bar, text="Wydruki:").pack(side="left")
+        self._print_filter_var = tk.StringVar(value="Wszystkie")
+        self._print_filter = ttk.Combobox(
+            print_bar, state="readonly", width=18, textvariable=self._print_filter_var,
+            values=("Wszystkie", "Do wydrukowania", *PRINT_STATES),
+        )
+        self._print_filter.pack(side="left", padx=(6, 10))
+        self._print_filter.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
+        ttk.Button(
+            print_bar, text="Drukuj zaznaczone", command=self.print_selected_orders,
+        ).pack(side="left", padx=(0, 7))
+        ttk.Button(
+            print_bar, text="Drukuj niewydrukowane", command=self.print_unprinted_orders,
+        ).pack(side="left", padx=(0, 7))
+        ttk.Button(
+            print_bar, text="Historia wydruków", command=self.show_print_history,
+        ).pack(side="left", padx=(0, 7))
+        ttk.Label(
+            print_bar,
+            text="Wysłano ≠ potwierdzenie wydruku na papierze.",
+        ).pack(side="left", padx=(9, 0))
 
     def _on_tab_changed(self, _event=None):
         try:
@@ -295,22 +338,44 @@ class PlanistaPanel(ttk.Frame):
     def refresh(self):
         if not hasattr(self, "tree"):
             return
+        selected = set(self.tree.selection())
+        first_y = self.tree.yview()[0] if self.tree.get_children() else 0.0
+        orders = list(ZL.list_zlecenia())
+        try:
+            registry = ensure_print_registry(orders)
+        except Exception as exc:
+            messagebox.showerror(
+                "Historia wydruków",
+                f"Nie udało się odczytać rejestru wydruków:\\n{exc}",
+                parent=self,
+            )
+            registry = None
         self.tree.delete(*self.tree.get_children())
         self._orders = {}
-        for order in ZL.list_zlecenia():
+        mode = (
+            self._print_filter_var.get()
+            if hasattr(self, "_print_filter_var") else "Wszystkie"
+        )
+        for order in orders:
             oid = str(order.get("id") or "")
             if not oid:
                 continue
             qty = float(order.get("ilosc", 0) or 0)
             done = float(order.get("wykonano", 0) or 0)
             self._orders[oid] = order
+            state = print_status(order, registry) if registry is not None else PRINT_UNKNOWN
+            if mode == "Do wydrukowania":
+                if state not in {PRINT_NEW, PRINT_CHANGED, PRINT_ERROR}:
+                    continue
+            elif mode != "Wszystkie" and state != mode:
+                continue
             self.tree.insert(
                 "",
                 "end",
                 iid=oid,
                 values=(
+                    "☑" if oid in selected else "☐",
                     order.get("zlec_wew", ""),
-                    # Numer warsztatowy pochodzi wyłącznie z kanonicznego ID zlecenia.
                     oid,
                     order.get("produkt", ""),
                     _fmt_qty(qty),
@@ -319,9 +384,37 @@ class PlanistaPanel(ttk.Frame):
                     _fmt_qty(max(0, qty - done)),
                     _display_order_date(order.get("termin", "")),
                     order.get("status", ""),
+                    state,
                 ),
             )
+        chosen = [oid for oid in selected if self.tree.exists(oid)]
+        if chosen:
+            self.tree.selection_set(chosen)
+        if self.tree.get_children():
+            self.tree.yview_moveto(first_y)
         self._refresh_approval_button()
+
+    def _toggle_print_selection(self, event):
+        if self.tree.identify_column(event.x) != "#1":
+            return None
+        oid = self.tree.identify_row(event.y)
+        if not oid:
+            return "break"
+        if oid in self.tree.selection():
+            self.tree.selection_remove(oid)
+        else:
+            self.tree.selection_add(oid)
+        self._update_print_checks()
+        return "break"
+
+    def _update_print_checks(self):
+        if not hasattr(self, "tree"):
+            return
+        selected = set(self.tree.selection())
+        for oid in self.tree.get_children():
+            mark = "☑" if oid in selected else "☐"
+            if self.tree.set(oid, "wybor") != mark:
+                self.tree.set(oid, "wybor", mark)
 
     def focus_object(self, order_id: str) -> bool:
         """Zaznacz wskazane zlecenie po przejściu z Dyspozycji."""
@@ -538,15 +631,181 @@ class PlanistaPanel(ttk.Frame):
         if not order:
             messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self)
             return
+        status = print_status(order)
+        if status in {PRINT_SENT, PRINT_PENDING}:
+            if not messagebox.askyesno(
+                "Ponowny wydruk",
+                f"Zlecenie {order['id']} ma status „{status}”. Wysłać ponownie?",
+                parent=self,
+            ):
+                return
+        self._print_orders([str(order["id"])])
+
+    def print_selected_orders(self):
+        order_ids = list(self.tree.selection())
+        if not order_ids:
+            messagebox.showinfo(
+                "Drukowanie zbiorcze", "Zaznacz zlecenia w kolumnie ✓.",
+                parent=self,
+            )
+            return
+        if not messagebox.askyesno(
+            "Drukowanie zbiorcze A4",
+            f"Wysłać {len(order_ids)} zaznaczonych kart A4 do domyślnej "
+            "drukarki Windows?\\n\\nZlecenia już drukowane będą drukowane ponownie.",
+            parent=self,
+        ):
+            return
+        self._print_orders(order_ids)
+
+    def print_unprinted_orders(self):
         try:
-            path = _work_order_output_path(order)
-            path.write_text(_work_order_html(order), encoding="utf-8")
-            if os.name == "nt":
-                os.startfile(str(path))
-            else:
-                webbrowser.open(path.as_uri())
+            registry = load_print_history()
         except Exception as exc:
-            messagebox.showerror("Wydruk", f"Nie udało się przygotować wydruku:\n{exc}", parent=self)
+            messagebox.showerror("Wydruki", str(exc), parent=self)
+            return
+        order_ids = [
+            oid for oid in self.tree.get_children()
+            if print_status(self._orders[oid], registry) == PRINT_NEW
+        ]
+        if not order_ids:
+            messagebox.showinfo(
+                "Drukowanie zbiorcze",
+                "Brak zleceń ze statusem „Nie drukowano” w bieżącym widoku. "
+                "Historyczne „Brak informacji” można zaznaczyć i wydrukować ręcznie.",
+                parent=self,
+            )
+            return
+        if not messagebox.askyesno(
+            "Drukowanie niewydrukowanych A4",
+            f"Wysłać {len(order_ids)} niewydrukowanych kart A4 do domyślnej "
+            "drukarki Windows?\\n\\nKażde zlecenie zostanie sprawdzone "
+            "ponownie przed wysłaniem.",
+            parent=self,
+        ):
+            return
+        self._print_orders(order_ids, only_unprinted=True)
+
+    def _print_orders(self, order_ids, *, only_unprinted=False):
+        if getattr(self, "_print_job_active", False):
+            messagebox.showinfo(
+                "Drukowanie",
+                "Poprzednia kolejka wydruku jest jeszcze przetwarzana.",
+                parent=self,
+            )
+            return
+        to_print = [
+            dict(self._orders[oid]) for oid in dict.fromkeys(order_ids)
+            if oid in self._orders
+        ]
+        if not to_print:
+            return
+        self._print_job_active = True
+        responses = queue.Queue()
+        username = self.login or "brygadzista"
+
+        def worker():
+            for record in to_print:
+                oid = str(record.get("id") or "")
+                try:
+                    if only_unprinted and print_status(record) != PRINT_NEW:
+                        responses.put(("pominięto", oid, "Status został zmieniony."))
+                        continue
+                    dispatch_work_order_print(
+                        record, user=username, source="Planista – lista zleceń",
+                    )
+                    responses.put(("wysłano", oid, ""))
+                except Exception as exc:
+                    responses.put(("błąd", oid, str(exc)))
+            responses.put(("koniec", "", ""))
+
+        threading.Thread(target=worker, daemon=True).start()
+        results = []
+
+        def poll():
+            while True:
+                try:
+                    state, oid, detail = responses.get_nowait()
+                except queue.Empty:
+                    break
+                if state == "koniec":
+                    self._print_job_active = False
+                    self.refresh()
+                    sent = sum(1 for kind, _oid, _msg in results if kind == "wysłano")
+                    skipped = sum(1 for kind, _oid, _msg in results if kind == "pominięto")
+                    errors = [f"{code}: {msg}" for kind, code, msg in results if kind == "błąd"]
+                    notice = f"Wysłano: {sent}\\nPominięto: {skipped}\\nBłędy: {len(errors)}"
+                    if errors:
+                        messagebox.showwarning(
+                            "Wynik drukowania A4",
+                            notice + "\\n\\n" + "\\n".join(errors[:12]),
+                            parent=self,
+                        )
+                    else:
+                        messagebox.showinfo("Wynik drukowania A4", notice, parent=self)
+                    return
+                results.append((state, oid, detail))
+            if self.winfo_exists():
+                self.after(350, poll)
+
+        self.after(150, poll)
+
+    def show_print_history(self):
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showinfo(
+                "Historia wydruków", "Wybierz zlecenie na liście.", parent=self,
+            )
+            return
+        oid = str(selected[0])
+        order = self._orders.get(oid)
+        if order is None:
+            return
+        try:
+            registry = load_print_history()
+            events = print_events(oid, registry)
+            status = print_status(order, registry)
+        except Exception as exc:
+            messagebox.showerror("Historia wydruków", str(exc), parent=self)
+            return
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(f"Historia wydruków — zlecenie {oid}")
+        dlg.geometry("860x420")
+        dlg.transient(self.root)
+        body = ttk.Frame(dlg, padding=12)
+        body.pack(fill="both", expand=True)
+        sent = sum(1 for event in events if event.get("stan") == PRINT_SENT)
+        ttk.Label(
+            body,
+            text=f"Zlecenie {oid}  |  Status: {status}  |  Wysłano: {sent} razy",
+        ).pack(anchor="w", pady=(0, 10))
+        columns = ("czas", "stan", "uzytkownik", "zrodlo", "szczegoly")
+        table = ttk.Treeview(body, columns=columns, show="headings")
+        names = {
+            "czas": "Data i godzina", "stan": "Status",
+            "uzytkownik": "Użytkownik", "zrodlo": "Źródło",
+            "szczegoly": "Metoda / komunikat",
+        }
+        widths = {"czas": 185, "stan": 110, "uzytkownik": 110, "zrodlo": 160, "szczegoly": 290}
+        for col in columns:
+            table.heading(col, text=names[col])
+            table.column(col, width=widths[col])
+        for index, event in enumerate(reversed(events)):
+            table.insert(
+                "", "end", iid=str(index),
+                values=tuple(event.get(col, "") for col in columns),
+            )
+        table.pack(fill="both", expand=True)
+        if not events:
+            ttk.Label(
+                body,
+                text="Nie zarejestrowano zdarzeń. Starsze wydruki mogły odbywać "
+                "się przed wprowadzeniem historii.",
+            ).pack(anchor="w", pady=10)
+        ttk.Button(body, text="Zamknij", command=dlg.destroy).pack(
+            side="right", pady=(9, 0),
+        )
 
 
 def panel_planista(root, frame, login=None, rola=None):
