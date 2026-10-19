@@ -98,6 +98,28 @@ def overlay_actual_states(items: dict[str, dict[str, Any]]) -> dict[str, dict[st
     return items
 
 
+
+def synchronize_stock_snapshot(item_id: str, new_stock: Any, item: dict | None = None) -> None:
+    """Po udanym PZ synchronizuj stan konkretnej pozycji bez utraty korekt innych."""
+    key = str(item_id or "").strip()
+    if not key:
+        raise ValueError("Brak ID pozycji magazynowej.")
+    amount = _number(new_stock, "Stan po przyjęciu")
+    path = _warehouse_dir() / "stany.json"
+    with warehouse_transaction_lock(path):
+        states = _read_json(path, {})
+        if not isinstance(states, dict):
+            raise RuntimeError("Nieprawidłowy plik stany.json.")
+        previous = states.get(key)
+        record = dict(previous) if isinstance(previous, dict) else {}
+        source = item if isinstance(item, dict) else {}
+        record["stan"] = amount
+        record.setdefault("nazwa", str(source.get("nazwa") or key))
+        record.setdefault("jednostka", str(source.get("jednostka") or ""))
+        states[key] = record
+        _write_json_atomic(path, states)
+
+
 def adjust_actual_stock(
     item_id: str,
     new_stock: Any,
