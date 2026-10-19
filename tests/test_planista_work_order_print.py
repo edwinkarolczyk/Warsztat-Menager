@@ -119,3 +119,72 @@ def test_bar_count_rejects_piece_longer_than_standard_bar():
 
     assert plan["sztangi_potrzebne"] is None
     assert "dłuższy niż sztanga" in plan["blad_ciecia"]
+
+
+def test_cutting_diagram_two_2900_pieces_has_two_kerfs_and_196_remainder(monkeypatch):
+    import gui_planista as GP
+
+    order = _sample_order()
+    order["ilosc"] = 2
+    order["plan_polprodukty"]["PP-01"]["potrzeba"] = 2
+    order["plan_polprodukty"]["PP-01"]["z_magazynu"] = 0
+    order["plan_polprodukty"]["PP-01"]["do_wykonania"] = 2
+    order["plan_polprodukty"]["PP-01"]["surowiec"]["ilosc_na_szt"] = 2900
+    raw = order["zapotrzebowanie_surowce"]["R40x40"]
+    raw.update({"ilosc": 5804, "sztangi_potrzebne": 1})
+    monkeypatch.setattr(GP.ZL, "material_bar_summary", lambda _order: order["zapotrzebowanie_surowce"])
+
+    rendered = _work_order_html(order)
+
+    assert "Plan cięcia sztang" in rendered
+    assert "Wariant 1 — 1 × sztanga 6000 mm" in rendered
+    assert "Cięcia: 2900 mm + 2900 mm" in rendered
+    assert "resztka: 196 mm / sztangę" in rendered
+    assert rendered.count("stroke='#175e3e'") == 2
+    assert "class='cut-major'>2900 mm" in rendered
+    # Te istniejące elementy karty muszą pozostać po zmianie układu.
+    assert "<h1>ZLECENIE DO WYKONANIA</h1>" in rendered
+    assert "WM:PLANISTA:ORDER:000123" in rendered
+    assert "<div class='qr-block'>" in rendered
+    assert "<img alt='QR zlecenia 000123'" in rendered
+    assert "Zlecenie wew:</b> ZW-77" in rendered
+    assert "Termin:" in rendered
+    assert "Wiercenie" in rendered
+    assert "Kontrola wymiaru po pierwszej sztuce." in rendered
+    assert "window.print()" in rendered
+    assert "@page { size: A5 portrait;" in rendered
+
+
+def test_cutting_diagram_does_not_show_impossible_bar(monkeypatch):
+    import gui_planista as GP
+
+    order = _sample_order()
+    order["plan_polprodukty"]["PP-01"]["surowiec"]["ilosc_na_szt"] = 6100
+    order["zapotrzebowanie_surowce"]["R40x40"]["blad_ciecia"] = (
+        "Odcinek 6102 mm jest dłuższy niż sztanga 6000 mm."
+    )
+    monkeypatch.setattr(GP.ZL, "material_bar_summary", lambda _order: order["zapotrzebowanie_surowce"])
+
+    rendered = _work_order_html(order)
+
+    assert "Odcinek 6102 mm jest dłuższy niż sztanga 6000 mm." in rendered
+    assert "Plan cięcia sztang" not in rendered
+    assert "<div class='qr-block'>" in rendered
+
+
+def test_cutting_diagram_repeats_pattern_instead_of_hundreds_of_drawings(monkeypatch):
+    import gui_planista as GP
+
+    order = _sample_order()
+    order["plan_polprodukty"]["PP-01"]["surowiec"]["ilosc_na_szt"] = 2900
+    order["plan_polprodukty"]["PP-01"]["do_wykonania"] = 200
+    order["zapotrzebowanie_surowce"]["R40x40"].update({
+        "ilosc": 580400,
+        "sztangi_potrzebne": 100,
+    })
+    monkeypatch.setattr(GP.ZL, "material_bar_summary", lambda _order: order["zapotrzebowanie_surowce"])
+
+    rendered = _work_order_html(order)
+
+    assert "Wariant 1 — 100 × sztanga 6000 mm" in rendered
+    assert rendered.count("class='cut-diagram'") == 1
