@@ -101,7 +101,7 @@ def test_planista_uses_persistent_card_and_common_print_dispatch():
 
     assert "tempfile.gettempdir()" not in standalone
     assert "tempfile.gettempdir()" not in panel
-    assert "path = _work_order_output_path(order)" in standalone
+    assert "dispatch_work_order_print(" in standalone
     assert "dispatch_work_order_print(" in panel
 
 
