@@ -227,12 +227,15 @@ def test_excel_preview_runtime_has_live_search_and_visible_counter():
 
 def test_legacy_att_snapshot_uses_full_code_after_parser_upgrade():
     previous = [
-        _row(750, "ATT", 5, source_row=10, name="507.360 - RAL 5010"),
-        _row(750, "ATT", 20, source_row=11, name="1267.260 - RAL 5010"),
+        _row(750, "ATT 507.360", 5, source_row=10, name="wariant Alfa"),
+        _row(750, "ATT 1267.260", 20, source_row=11, name="wariant Beta"),
     ]
+    # Snapshot starego parsera zapisywał obydwa oznaczenia jako samo "ATT".
+    for item in previous:
+        item["excel_oznaczenie"] = "ATT"
     current = [
-        _row(750, "ATT 1267.260", 21, source_row=100, name="RAL 5010"),
-        _row(750, "ATT 507.360", 5, source_row=101, name="RAL 5010"),
+        _row(750, "ATT 1267.260", 21, source_row=100, name="wariant Beta"),
+        _row(750, "ATT 507.360", 5, source_row=101, name="wariant Alfa"),
     ]
     result = compare_plan_rows(previous, current)
     by_code = {row["excel_oznaczenie"]: row for row in result["rows"]}
