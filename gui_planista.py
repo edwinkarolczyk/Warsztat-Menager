@@ -484,7 +484,7 @@ def _work_order_html(order):
     return f"""<!doctype html>
 <html lang='pl'><head><meta charset='utf-8'><title>Zlecenie {html.escape(str(order.get('id') or ''))}</title>
 <style>
-@page {{ size: A5 portrait; margin: 7mm; }}
+@page {{ size: A4 portrait; margin: 12mm; }}
 body {{ font-family: Arial, sans-serif; font-size: 9.5pt; color:#111; margin:0; }}
 h1 {{ font-size:15pt; margin:0; }}
 h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
@@ -545,7 +545,7 @@ th {{ background:#eee; }}
 {cutting_diagrams_block}
 {shortage_block}
 <div class='notes'><b>Uwagi:</b><br>{html.escape(str(order.get('uwagi') or ''))}</div>
-<p class='small'>Warsztat Menager — karta robocza A5. Kopia została zapisana w aktywnym ROOT WM.</p>
+<p class='small'>Warsztat Menager — karta robocza A4. Kopia została zapisana w aktywnym ROOT WM.</p>
 <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script>
 </body></html>"""
 
