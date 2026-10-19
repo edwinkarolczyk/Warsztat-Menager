@@ -1,6 +1,10 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista.py
-# version: 1.6
+# version: 1.7
+# Zmiany 1.7:
+# - czytelniejszy wymiar detalu i nazwa surowca na karcie A5;
+# - graficzny rozkrój sztang według aktualnego planu (rzaz i resztka);
+# - pozostałe pola oraz kod QR pozostają bez zmian.
 # Zmiany 1.6:
 # - doprecyzowano, że kolumna rezerwacji surowca pochodzi z Magazynu i dotyczy bieżącego zlecenia.
 # Zmiany 1.5:
@@ -26,6 +30,7 @@ import base64
 import calendar
 import html
 import io
+import math
 import os
 import tkinter as tk
 import webbrowser
@@ -190,6 +195,174 @@ def _work_order_qr_data_uri(order) -> str:
     return f"data:image/png;base64,{encoded}"
 
 
+
+def _cutting_diagrams_html(order, raw_summary):
+    """Rysunki rozkroju do karty A5, bez zmian stanu magazynu i obliczeń BOM."""
+    cuts_by_raw = {}
+    try:
+        saw = max(0.0, float(order.get("rzaz_mm", 2) or 0))
+    except (TypeError, ValueError):
+        saw = 0.0
+
+    for semi in (order.get("plan_polprodukty") or {}).values():
+        if not isinstance(semi, dict):
+            continue
+        raw = semi.get("surowiec") or {}
+        if not isinstance(raw, dict):
+            continue
+        code = str(raw.get("kod") or raw.get("id") or "").strip()
+        unit = str(raw.get("jednostka") or "").strip().lower()
+        if not code or unit not in {"mm", "milimetr", "milimetry", "milimetrów"}:
+            continue
+        try:
+            detail = float(raw.get("ilosc_na_szt") or 0)
+            amount = float(semi.get("do_wykonania", semi.get("ilosc", 0)) or 0)
+        except (TypeError, ValueError):
+            continue
+        if not (math.isfinite(detail) and math.isfinite(amount)) or detail <= 0 or amount <= 0:
+            continue
+        name = str(semi.get("nazwa") or "Detal")
+        cuts_by_raw.setdefault(code, []).extend(
+            [(detail + saw, detail, name)] * int(math.ceil(amount - 1e-9))
+        )
+
+    sections = []
+    for code, info in (raw_summary or {}).items():
+        if not isinstance(info, dict) or str(info.get("blad_ciecia") or "").strip():
+            continue
+        cut_list = cuts_by_raw.get(str(code), [])
+        try:
+            bar_length = float(info.get("dlugosc_sztangi_mm") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not cut_list or not math.isfinite(bar_length) or bar_length <= 0:
+            continue
+        if any(length > bar_length + 1e-9 for length, _detail, _name in cut_list):
+            continue
+
+        # Tak samo jak kalkulator sztang: best-fit decreasing.
+        bars = []
+        remaining = []
+        for segment in sorted(cut_list, key=lambda row: row[0], reverse=True):
+            length = segment[0]
+            eligible = [idx for idx, free in enumerate(remaining) if free + 1e-9 >= length]
+            if eligible:
+                idx = min(eligible, key=lambda n: remaining[n] - length)
+                bars[idx].append(segment)
+                remaining[idx] -= length
+            else:
+                bars.append([segment])
+                remaining.append(bar_length - length)
+
+        grouped = {}
+        for bar in bars:
+            pattern = tuple((detail, name) for _length, detail, name in bar)
+            grouped[pattern] = grouped.get(pattern, 0) + 1
+
+        try:
+            required_bars = max(len(bars), int(info.get("sztangi_potrzebne") or 0))
+        except (TypeError, ValueError, OverflowError):
+            required_bars = len(bars)
+
+        patterns_html = []
+        for number, (pattern, multiplier) in enumerate(grouped.items(), 1):
+            if number > 12:
+                break
+            scale = 800.0 / bar_length
+            position = 0.0
+            segments = []
+            descriptions = []
+            for detail, name in pattern:
+                x = position * scale
+                width = detail * scale
+                tooltip = html.escape(f"{name}: {_fmt_qty(detail)} mm", quote=True)
+                segments.append(
+                    f"<rect x='{x:.3f}' y='9' width='{width:.3f}' height='42' "
+                    f"fill='#9dcced' stroke='#fff'><title>{tooltip}</title></rect>"
+                )
+                if width >= 100:
+                    segments.append(
+                        f"<text x='{x + width / 2:.3f}' y='35' text-anchor='middle' "
+                        f"font-size='19' font-weight='bold' fill='#13283b'>"
+                        f"{html.escape(_fmt_qty(detail))} mm</text>"
+                    )
+                position += detail
+                if saw > 0:
+                    saw_x = position * scale
+                    # Wąski rzaz jest podkreślony wizualnie, opis podaje realną wartość.
+                    segments.append(
+                        f"<line x1='{saw_x:.3f}' x2='{saw_x:.3f}' y1='9' y2='51' "
+                        f"stroke='#175e3e' stroke-width='3'/>"
+                    )
+                    position += saw
+                descriptions.append(f"{html.escape(_fmt_qty(detail))} mm")
+
+            remainder = max(0.0, bar_length - position)
+            remainder_width = remainder * scale
+            if remainder_width > 0:
+                segments.append(
+                    f"<rect x='{position * scale:.3f}' y='9' width='{remainder_width:.3f}' "
+                    f"height='42' fill='#f0b76c'><title>Resztka: "
+                    f"{html.escape(_fmt_qty(remainder))} mm</title></rect>"
+                )
+                if remainder_width >= 100:
+                    segments.append(
+                        f"<text x='{(position + remainder / 2) * scale:.3f}' y='35' "
+                        f"text-anchor='middle' font-size='18' font-weight='bold' "
+                        f"fill='#362300'>{html.escape(_fmt_qty(remainder))} mm</text>"
+                    )
+            diagram = (
+                "<svg class='cut-diagram' viewBox='0 0 800 59' "
+                "xmlns='http://www.w3.org/2000/svg' role='img' "
+                f"aria-label='Rozkrój sztangi {_fmt_qty(bar_length)} mm'>"
+                f"{''.join(segments)}"
+                "<rect x='0.5' y='8.5' width='799' height='43' "
+                "fill='none' stroke='#333' stroke-width='1'/></svg>"
+            )
+            patterns_html.append(
+                "<div class='cut-pattern'>"
+                f"<b>Wariant {number} — {multiplier} × sztanga "
+                f"{html.escape(_fmt_qty(bar_length))} mm</b>"
+                f"{diagram}"
+                "<div class='cut-legend'>"
+                f"Cięcia: {' + '.join(descriptions)} | "
+                f"grubość piły/taśmy: {html.escape(_fmt_qty(saw))} mm na cięcie | "
+                f"<b>resztka: {html.escape(_fmt_qty(remainder))} mm / sztangę</b>"
+                "</div></div>"
+            )
+
+        extra = required_bars - len(bars)
+        notes = []
+        if extra > 0:
+            notes.append(
+                f"Dodatkowe sztangi wynikające z normy zapotrzebowania: "
+                f"<b>{extra}</b> (bez przypisanego rozkroju)."
+            )
+        if len(grouped) > 12:
+            notes.append(
+                f"Pokazano 12 z {len(grouped)} różnych wariantów rozkroju."
+            )
+        sections.append(
+            "<section class='cut-material'>"
+            f"<div class='cut-material-head'><b>SUROWIEC: "
+            f"{html.escape(str(info.get('nazwa') or code))}</b>"
+            f"<span>Pobrać: {required_bars} sztang × "
+            f"{html.escape(_fmt_qty(bar_length))} mm</span></div>"
+            f"{''.join(patterns_html)}"
+            f"{''.join(f'<p class="cut-legend">{note}</p>' for note in notes)}"
+            "</section>"
+        )
+    if not sections:
+        return ""
+    return (
+        "<h2>Plan cięcia sztang</h2>"
+        + "".join(sections)
+        + "<p class='cut-legend'>Niebieski: detale; zielona kreska: rzaz; "
+        "pomarańczowy: pozostała resztka. Resztka nie oznacza automatycznie złomu "
+        "ani przyjęcia do Magazynu.</p>"
+    )
+
+
 def _work_order_html(order):
     try:
         raw_summary = ZL.material_bar_summary(order)
@@ -225,7 +398,11 @@ def _work_order_html(order):
         if per_piece_value in (None, ""):
             per_piece_text = "—"
         else:
-            per_piece_text = f"Długość detalu: {_fmt_linear(per_piece_value, raw_unit)}"
+            per_piece_text = (
+                f"<span class='cut-major'>{html.escape(_fmt_qty(per_piece_value))} "
+                f"{html.escape(raw_unit)}</span>"
+                f"Długość detalu: {_fmt_linear(per_piece_value, raw_unit)}"
+            )
             if raw_unit.strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
                 try:
                     with_cut = float(per_piece_value or 0) + max(0.0, float(order.get("rzaz_mm", 2) or 0))
@@ -245,7 +422,7 @@ def _work_order_html(order):
             "<tr>"
             f"<td><b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
             f"<td>{qty_text}</td>"
-            f"<td><b>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
+            f"<td><b class='cut-raw-name'>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
             f"{per_piece_text}</td>"
             f"<td>{operations}</td>"
             "</tr>"
@@ -281,6 +458,8 @@ def _work_order_html(order):
             f"<tbody>{''.join(raw_total_rows)}</tbody></table>"
             "<p class='small stock-note'><b>Zarezerwowano z magazynu</b> = ilość surowca już zablokowana w Magazynie dla tego zlecenia.</p>"
         )
+
+    cutting_diagrams_block = _cutting_diagrams_html(order, raw_summary)
 
     shortage_rows = []
     for rec in order.get("braki") or []:
@@ -327,6 +506,14 @@ th {{ background:#eee; }}
 .check-box {{ display:inline-block; width:3.2mm; height:3.2mm; border:1.2px solid #111; flex:0 0 3.2mm; }}
 .operations-note {{ margin-top:2mm; padding:1.8mm 2mm; border:1px solid #777; font-weight:bold; }}
 .stock-note {{ margin:1.5mm 0 0; }}
+.cut-major {{ display:block; font-size:17pt; font-weight:800; line-height:1.12; margin:1mm 0; }}
+.cut-raw-name {{ font-size:11pt; line-height:1.2; }}
+.cut-material {{ border:1px solid #777; padding:2mm; margin:2.5mm 0; break-inside:avoid; }}
+.cut-material-head {{ display:flex; justify-content:space-between; gap:2mm; align-items:center; font-size:9.5pt; }}
+.cut-material-head span {{ font-weight:bold; }}
+.cut-pattern {{ margin-top:2mm; break-inside:avoid; }}
+.cut-diagram {{ width:100%; height:auto; display:block; margin:1mm 0 0.4mm; }}
+.cut-legend {{ font-size:8pt; line-height:1.3; margin:1mm 0; }}
 </style></head><body>
 <div class='header'>
   <div class='header-title'>
@@ -355,6 +542,7 @@ th {{ background:#eee; }}
 <tbody>{''.join(rows) or '<tr><td colspan="4">Brak półproduktów</td></tr>'}</tbody></table>
 <div class='operations-note'>Po wykonaniu wszystkich operacji oznacz zlecenie jako wykonane w WM.</div>
 {raw_total_block}
+{cutting_diagrams_block}
 {shortage_block}
 <div class='notes'><b>Uwagi:</b><br>{html.escape(str(order.get('uwagi') or ''))}</div>
 <p class='small'>Warsztat Menager — karta robocza A5. Kopia została zapisana w aktywnym ROOT WM.</p>
