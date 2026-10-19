@@ -651,7 +651,9 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
         updated = sum(1 for item in succeeded if item.get("action") == ACTION_UPDATE)
         # W trybie A+B drukuj dopiero faktycznie utworzone zlecenie,
         # zawsze tą samą istniejącą kolejką wydruków Planisty.
-        if payload.get("dual_mode") and created:
+        print_var = getattr(owner, "_excel_auto_print_var", None)
+        print_enabled = bool(print_var.get()) if print_var is not None else False
+        if payload.get("dual_mode") and created and print_enabled:
             try:
                 from planista_excel_runtime import _queue_created_prints
                 _, print_errors = _queue_created_prints(owner, succeeded)
