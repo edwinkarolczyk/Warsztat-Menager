@@ -95,3 +95,19 @@ def test_order_reservation_counts_towards_its_own_requirement(monkeypatch):
     )
     assert dm.close_fulfilled_material_dispositions("SUR-001") == ["D-1"]
     assert len(history) == 2
+
+
+def test_invalid_reservations_cannot_close_dispositions(monkeypatch):
+    rows = [_row("D-1", "Z-1"), _row("D-2", "Z-2")]
+    orders = {
+        key: {
+            "zapotrzebowanie_surowce": {"SUR-001": {"ilosc": 10}},
+            "rezerwacje_surowce": {"SUR-001": 10},
+        }
+        for key in ("Z-1", "Z-2")
+    }
+    history, _stock, _rows = _arrange(
+        monkeypatch, quantity=10, reservations=10, rows=rows, orders=orders
+    )
+    assert dm.close_fulfilled_material_dispositions("SUR-001") == []
+    assert history == []
