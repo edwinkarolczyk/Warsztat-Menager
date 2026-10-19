@@ -232,6 +232,9 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
 
     header_row, columns = _header_columns(rows)
     result_rows = []
+    skipped_rows = []
+    row_warnings = []
+    source_rows = 0
     current_order = ""
     current_date = ""
 
@@ -239,8 +242,15 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         if row_no <= header_row:
             continue
 
+        # Nie licz pustych, jedynie sformatowanych wierszy jako pozycji planu.
+        has_content = any(str(cells.get(columns[key], "") or "").strip()
+                          for key in ("order", "product", "qty", "date", "process"))
+        if not has_content:
+            continue
+        source_rows += 1
         product = str(cells.get(columns["product"], "") or "").strip()
         if not product:
+            skipped_rows.append({"source_row": row_no, "reason": "Brak opisu produktu (kolumna B)."})
             continue
 
         explicit_order = _as_order_number(cells.get(columns["order"], ""))
@@ -251,7 +261,24 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         elif explicit_date:
             current_date = explicit_date
 
-        quantity = _as_quantity(cells.get(columns["qty"], ""))
+        raw_qty = cells.get(columns["qty"], "")
+        quantity = _as_quantity(raw_qty)
+        issues = []
+        if quantity is None:
+            issues.append("Brak ilości lub nieprawidłowa wartość ilości.")
+        elif quantity <= 0:
+            issues.append("Ilość musi być większa od zera.")
+        if not current_order:
+            issues.append("Brak numeru zlecenia.")
+        if not current_date:
+            issues.append("Brak daty wysyłki.")
+        else:
+            try:
+                datetime.strptime(current_date, "%Y-%m-%d")
+            except ValueError:
+                issues.append(f"Nierozpoznana data wysyłki: {current_date}.")
+        if issues:
+            row_warnings.append({"source_row": row_no, "reasons": issues})
         process = str(cells.get(columns["process"], "") or "").strip()
         result_rows.append(
             {
@@ -273,4 +300,10 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         "sheet": sheet_name,
         "header_row": header_row,
         "rows": result_rows,
+        "import_diagnostics": {
+            "source_rows": source_rows,
+            "imported_rows": len(result_rows),
+            "skipped_rows": skipped_rows,
+            "row_warnings": row_warnings,
+        },
     }
