@@ -647,7 +647,9 @@ def _queue_unaccepted_new_prints(owner, payload: dict) -> tuple[int, list[str]]:
     for row in rows:
         order = _printable_excel_order(row)
         try:
-            dispatch_work_order_print(order)
+            dispatch_work_order_print(
+                order, user="system", source="Excel przed akceptacją",
+            )
             printed += 1
         except AutoPrintError as exc:
             errors.append(f"{order['id']}: {exc}")
