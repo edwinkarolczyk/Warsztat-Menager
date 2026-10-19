@@ -656,7 +656,7 @@ class PlanistaPanel(ttk.Frame):
                 parent=self,
             ):
                 return
-        self._print_orders([str(order["id"])])
+        self._print_orders([str(order["id"])], single=True)
 
     def preview_selected_orders(self):
         order_ids = self._selected_ids_for_pdf()
@@ -718,7 +718,7 @@ class PlanistaPanel(ttk.Frame):
             return
         self._print_orders(order_ids, only_unprinted=True)
 
-    def _print_orders(self, order_ids, *, only_unprinted=False, preview=False):
+    def _print_orders(self, order_ids, *, only_unprinted=False, preview=False, single=False):
         """Zbiorczo: najpierw jeden PDF, później jedno polecenie drukowania."""
         if getattr(self, "_print_job_active", False):
             messagebox.showinfo(
@@ -750,6 +750,13 @@ class PlanistaPanel(ttk.Frame):
                 if preview:
                     path = prepare_batch_pdf(filtered)
                     responses.put(("podgląd", ids, str(path), ""))
+                elif single:
+                    # Pojedyncza karta zachowuje dotychczasową obsługę.
+                    responses.put(("kolejka", ids, "", ""))
+                    path = dispatch_work_order_print(
+                        filtered[0], user=username, source="Planista – pojedyncze A4",
+                    )
+                    responses.put(("wysłano_pojedynczo", ids, str(path), ""))
                 else:
                     responses.put(("kolejka", ids, "", ""))
                     path = dispatch_batch_print(
@@ -791,6 +798,12 @@ class PlanistaPanel(ttk.Frame):
                                 f"{outcome['path']}\n{exc}",
                                 parent=self,
                             )
+                    elif outcome["status"] == "wysłano_pojedynczo":
+                        messagebox.showinfo(
+                            "Wydruk A4",
+                            f"Zlecenie {outcome['ids'][0]} wysłano do drukarki Windows.",
+                            parent=self,
+                        )
                     elif outcome["status"] == "wysłano":
                         messagebox.showinfo(
                             "Wydruk zbiorczy A4",
