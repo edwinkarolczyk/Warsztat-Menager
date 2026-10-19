@@ -33,6 +33,7 @@ from planista_excel_changes import (
     last_plan_source_path,
 )
 from planista_excel_import import PlanExcelError, load_production_plan
+from planista_excel_dual_runtime import inspect_dual_plans
 from planista_excel_mappings import load_manual_mappings, remember_manual_mapping
 from planista_excel_auto_runtime import (
     DEFAULT_INTERVAL_MS,
@@ -924,6 +925,14 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     owner._excel_plan_import = payload
     _remember_auto_source(owner, source, persist=True)
+    panel = getattr(getattr(owner, "root", None), "_wm_planista_excel_panel", None)
+    if panel is not None and panel is not owner:
+        try:
+            if panel.winfo_exists():
+                panel._excel_plan_import = payload
+                _refresh_auto_pending(panel)
+        except Exception:
+            pass
 
     results: list[dict] = []
     sync_errors: list[str] = []
@@ -946,9 +955,12 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
             # Po automatycznej akceptacji drukujemy faktyczne zlecenie WM.
             printed, print_errors = _queue_created_prints(owner, results)
             _auto_print_log(f"accepted_print printed={printed} errors={print_errors!r}")
+        elif payload.get("dual_mode"):
+            # Dwa źródła mogą równolegle zgłosić tę samą pozycję.
+            # Zachowaj rejestr wydruków: w trybie A+B tylko po utworzeniu zlecenia WM.
+            printed, print_errors = _dispatch_pending_prints(owner)
         else:
-            # Bez akceptacji drukujemy bezpośrednio z nowego wiersza Excela.
-            # Zlecenie nadal pozostaje w kolejce „Do akceptacji”.
+            # Dla starego trybu jednego Excela zachowujemy dotychczasowy mechanizm.
             printed, print_errors = _queue_unaccepted_new_prints(owner, payload)
             _auto_print_log(f"new_order_print printed={printed} errors={print_errors!r}")
             pending_printed, pending_errors = _dispatch_pending_prints(owner)
@@ -985,11 +997,19 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
     _set_auto_status(owner, status)
 
 
+def _load_auto_payload(owner, source: str) -> dict:
+    """Zachowaj stary przebieg dla jednego Excela; dwa łącz przed synchronizacją."""
+    second = str(load_auto_state().get("source_path_b") or "").strip()
+    if second:
+        return inspect_dual_plans(source, second)
+    return _load_match_and_compare(source)
+
+
 def _auto_scan_worker(owner, source: str) -> None:
     payload = None
     error = ""
     try:
-        payload = _load_match_and_compare(source)
+        payload = _load_auto_payload(owner, source)
     except Exception as exc:
         error = str(exc)
     try:
@@ -1102,6 +1122,20 @@ def _import_excel_plan(owner) -> None:
 
 
 def _check_excel_changes(owner) -> None:
+    if load_auto_state().get("source_path_b"):
+        source = _auto_source_from_owner(owner)
+        if not source:
+            messagebox.showinfo("Sprawdź zmiany", "Najpierw wybierz Excel A.", parent=owner.root)
+            return
+        try:
+            payload = _load_auto_payload(owner, source)
+        except Exception as exc:
+            messagebox.showerror("Sprawdź zmiany", str(exc), parent=owner.root)
+            return
+        owner._excel_plan_import = payload
+        _refresh_auto_pending(owner)
+        _show_excel_import_preview(owner, payload)
+        return
     payload = getattr(owner, "_excel_plan_import", None)
     path = str(payload.get("source_path") or "").strip() if isinstance(payload, dict) else ""
     if not path:
@@ -1122,6 +1156,11 @@ def _check_excel_changes(owner) -> None:
 
 def _open_excel_sync(owner, *, preselect_safe: bool = False) -> None:
     payload = getattr(owner, "_excel_plan_import", None)
+    watcher = getattr(getattr(owner, "root", None), "_wm_excel_watch_owner", None)
+    if watcher is not None:
+        live = getattr(watcher, "_excel_plan_import", None)
+        if isinstance(live, dict) and live.get("dual_mode"):
+            payload = live
     if not isinstance(payload, dict) or not (
         list(payload.get("rows") or []) or list(payload.get("removed_rows") or [])
     ):
@@ -1132,6 +1171,70 @@ def _open_excel_sync(owner, *, preselect_safe: bool = False) -> None:
         )
         return
     show_excel_sync_preview(owner, payload, preselect_safe=preselect_safe)
+
+
+def _open_excel_control(owner) -> None:
+    """Jedno okno z zakładkami; istniejący silnik zleceń pozostaje bez zmian."""
+    from planista_excel_dual_ui import show_excel_sources_window
+    show_excel_sources_window(owner)
+
+
+def start_global_excel_watcher(root) -> None:
+    """Uruchom monitor podczas startu WM, bez wymagania wejścia do Planisty."""
+    if getattr(root, "_wm_excel_watch_owner", None) is not None:
+        return
+    state = load_auto_state()
+    if not state.get("enabled"):
+        return
+    watcher = tk.Frame(root)
+    watcher.root = root
+    watcher._excel_auto_var = tk.BooleanVar(master=root, value=True)
+    watcher._excel_auto_interval_var = tk.StringVar(
+        master=root, value=str(normalize_interval_minutes(state.get("interval_minutes")))
+    )
+    watcher._excel_auto_accept_var = tk.BooleanVar(
+        master=root, value=bool(state.get("auto_accept"))
+    )
+    watcher._excel_auto_print_var = tk.BooleanVar(
+        master=root, value=bool(state.get("auto_print"))
+    )
+    watcher._excel_auto_source_path = str(state.get("source_path") or "")
+    watcher._excel_auto_running = False
+    watcher._excel_auto_job = None
+    watcher._excel_auto_blink_job = None
+    watcher._excel_auto_accept_button = None
+    watcher._excel_auto_status_var = tk.StringVar(master=root, value="Automat: uruchamianie…")
+    watcher._excel_plan_import = None
+    root._wm_excel_watch_owner = watcher
+    panel = getattr(root, "_wm_planista_excel_panel", None)
+    if panel is not None:
+        _cancel_auto_job(panel)
+    root.after(250, lambda: _auto_tick(watcher))
+
+
+def sync_global_excel_watcher(root) -> None:
+    """Zastosuj konfigurację zakładek do działającego monitoringu."""
+    state = load_auto_state()
+    watcher = getattr(root, "_wm_excel_watch_owner", None)
+    if not state.get("enabled"):
+        if watcher is not None:
+            watcher._excel_auto_var.set(False)
+            _cancel_auto_job(watcher)
+            try:
+                watcher.destroy()
+            except Exception:
+                pass
+            root._wm_excel_watch_owner = None
+        return
+    if watcher is None:
+        start_global_excel_watcher(root)
+        return
+    watcher._excel_auto_var.set(True)
+    watcher._excel_auto_interval_var.set(str(normalize_interval_minutes(state.get("interval_minutes"))))
+    watcher._excel_auto_accept_var.set(bool(state.get("auto_accept")))
+    watcher._excel_auto_print_var.set(bool(state.get("auto_print")))
+    watcher._excel_auto_source_path = str(state.get("source_path") or "")
+    _schedule_auto_tick(watcher, 250)
 
 
 def install_planista_excel_runtime() -> None:
@@ -1164,111 +1267,29 @@ def install_planista_excel_runtime() -> None:
 
         excel_bar = ttk.Frame(parent)
         excel_bar.pack(fill="x", pady=(6, 0))
-        ttk.Label(excel_bar, text="Plan zewnętrzny:").pack(side="left")
-
-        import_button = ttk.Button(
-            excel_bar,
-            text="Wczytaj plan Excel…",
-            command=lambda: _import_excel_plan(self),
-        )
-        import_button.pack(side="left", padx=(6, 4))
-        self._excel_manual_buttons.append(import_button)
-        add_help_button(excel_bar, _IMPORT_HELP, command_only=False).pack(side="left")
-
-        check_button = ttk.Button(
-            excel_bar,
-            text="Sprawdź zmiany",
-            command=lambda: _check_excel_changes(self),
-        )
-        check_button.pack(side="left", padx=(12, 4))
-        self._excel_manual_buttons.append(check_button)
-        add_help_button(excel_bar, _CHECK_HELP, command_only=False).pack(side="left")
-
-        sync_button = ttk.Button(
-            excel_bar,
-            text="Synchronizuj z WM…",
-            command=lambda: _open_excel_sync(self),
-        )
-        sync_button.pack(side="left", padx=(12, 4))
-        self._excel_manual_buttons.append(sync_button)
-        add_help_button(excel_bar, _SYNC_HELP, command_only=False).pack(side="left")
-
+        ttk.Button(
+            excel_bar, text="Plan Excel — źródła i zmiany…",
+            command=lambda: _open_excel_control(self),
+        ).pack(side="left")
         ttk.Label(
             excel_bar,
-            text="Ręcznie: analiza i synchronizacja po zatwierdzeniu",
-        ).pack(side="left", padx=(10, 0))
-
-        auto_bar = ttk.Frame(parent)
-        auto_bar.pack(fill="x", pady=(5, 0))
-        ttk.Checkbutton(
-            auto_bar,
-            text="Niech WM pracuje automatycznie na pliku:",
-            variable=self._excel_auto_var,
-            command=lambda: _toggle_auto_mode(self),
-        ).pack(side="left")
-        self._excel_auto_source_label = ttk.Label(
-            auto_bar,
-            text=(
-                Path(self._excel_auto_source_path).name
-                if self._excel_auto_source_path
-                else "brak wybranego pliku"
-            ),
-        )
-        self._excel_auto_source_label.pack(side="left", padx=(5, 12))
-
-        self._excel_auto_accept_button = tk.Button(
-            auto_bar,
-            text="Do akceptacji (0)",
-            command=lambda: _open_excel_sync(self, preselect_safe=True),
-            state="disabled",
-            bg="#374151",
-            fg="white",
-            disabledforeground="#9ca3af",
-            activeforeground="white",
-            relief="flat",
-            padx=10,
-            pady=4,
-            cursor="hand2",
-        )
-        self._excel_auto_accept_button.pack(side="left", padx=(0, 10))
-
+            text="Dwa źródła, akceptacja, konflikty, historia i druk w jednym oknie",
+        ).pack(side="left", padx=(12, 0))
+        self._excel_auto_source_label = None
+        self._excel_auto_accept_button = None
         self._excel_auto_status_var = tk.StringVar(
             value="Automat: uruchamianie…" if self._excel_auto_var.get() else "Automat wyłączony"
         )
-        ttk.Label(auto_bar, textvariable=self._excel_auto_status_var).pack(side="left")
-
-        auto_options = ttk.Frame(parent)
-        auto_options.pack(fill="x", pady=(4, 0))
-        ttk.Label(auto_options, text="Sprawdzaj co:").pack(side="left")
-        interval_spin = ttk.Spinbox(
-            auto_options,
-            from_=1,
-            to=60,
-            width=4,
-            textvariable=self._excel_auto_interval_var,
-            command=lambda: _auto_options_changed(self),
-        )
-        interval_spin.pack(side="left", padx=(5, 3))
-        ttk.Label(auto_options, text="min").pack(side="left", padx=(0, 14))
-        interval_spin.bind("<Return>", lambda _e: _auto_options_changed(self), add="+")
-        interval_spin.bind("<FocusOut>", lambda _e: _auto_options_changed(self), add="+")
-
-        ttk.Checkbutton(
-            auto_options,
-            text="Automatycznie akceptuj bezpieczne pozycje",
-            variable=self._excel_auto_accept_var,
-            command=lambda: _auto_options_changed(self),
-        ).pack(side="left", padx=(0, 14))
-        ttk.Checkbutton(
-            auto_options,
-            text="Drukuj nowe zlecenia",
-            variable=self._excel_auto_print_var,
-            command=lambda: _auto_options_changed(self),
-        ).pack(side="left")
-        ttk.Label(
-            auto_options,
-            text="(domyślna drukarka Windows)",
-        ).pack(side="left", padx=(5, 0))
+        self._excel_manual_buttons = []
+        try:
+            self.root._wm_planista_excel_panel = self
+            watcher = getattr(self.root, "_wm_excel_watch_owner", None)
+            if watcher is not None and isinstance(
+                getattr(watcher, "_excel_plan_import", None), dict
+            ):
+                self._excel_plan_import = watcher._excel_plan_import
+        except Exception:
+            pass
 
         self._excel_auto_recount = lambda: _refresh_auto_pending(self)
         _set_manual_excel_controls(self, enabled=not bool(self._excel_auto_var.get()))
@@ -1286,7 +1307,8 @@ def install_planista_excel_runtime() -> None:
                 _set_manual_excel_controls(self, enabled=True)
                 _set_auto_status(self, "Automat wyłączony — brak pliku")
             else:
-                self.after(250, lambda: _auto_tick(self))
+                if not getattr(self.root, "_wm_excel_watch_owner", None):
+                    self.after(250, lambda: _auto_tick(self))
         return result
 
     cls._build_orders = build_orders
