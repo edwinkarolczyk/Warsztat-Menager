@@ -236,6 +236,15 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
 
         key = _identity(nr_zlec, wm_symbol)
         sync_identity = _row_sync_identity(row, current_key_counts)
+        if row.get("dual_conflict_type") == "duplicate":
+            # Dwa równorzędne Excele: nie paruj partii automatycznie po numerze wiersza.
+            # Istniejący dialog pozwala utworzyć osobną partię lub połączyć zlecenie ręcznie.
+            planned.append(_plan_item(
+                row, ACTION_CONFLICT,
+                reason="Wiele partii tego samego produktu — ręcznie utwórz lub połącz właściwą partię.",
+                identity=sync_identity,
+            ))
+            continue
         imported_matches = imported_by_key.get(sync_identity, [])
         if current_key_counts.get(key, 0) > 1 and not imported_matches:
             planned.append(
