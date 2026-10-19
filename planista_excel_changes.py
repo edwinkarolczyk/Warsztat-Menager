@@ -18,7 +18,7 @@ from pathlib import Path
 import re
 import unicodedata
 
-from planista_excel_match import STATUS_CHANGED, extract_product_designation, normalize_designation
+from planista_excel_match import STATUS_CHANGED, _name_key, extract_product_designation, normalize_designation
 
 
 SNAPSHOT_RELATIVE = ("data", "planista", "excel_plan_snapshot.json")
@@ -59,7 +59,12 @@ def _quantity(value):
 
 
 def _designation(row: dict) -> str:
-    return _text(row.get("excel_oznaczenie") or extract_product_designation(row.get("produkt")))
+    # Ponowny odczyt pełnego opisu naprawia stare snapshoty z uciętym kodem ATT.
+    parsed = extract_product_designation(row.get("produkt"))
+    if parsed:
+        return parsed
+    legacy = _text(row.get("excel_oznaczenie"))
+    return legacy if any(char.isdigit() for char in legacy) else ""
 
 
 def _snapshot_row(row: dict) -> dict:
@@ -79,10 +84,10 @@ def _snapshot_row(row: dict) -> dict:
 
 
 def _identity_key(row: dict) -> tuple[str, str]:
-    return (
-        _text(row.get("nr_zlec")).casefold(),
-        normalize_designation(_designation(row)),
-    )
+    designation = _designation(row)
+    # Dla produktów bez kodu wymagamy pełnej nazwy/wymiaru zamiast wspólnego prefiksu.
+    identity = normalize_designation(designation) if designation else "NAZWA:" + _name_key(row.get("produkt"))
+    return (_text(row.get("nr_zlec")).casefold(), identity)
 
 
 def _exact_signature(row: dict) -> tuple:
@@ -199,14 +204,28 @@ def compare_plan_rows(previous_rows: list[dict] | None, current_rows: list[dict]
             remaining_p.remove(p_idx)
             remaining_c.remove(match_idx)
 
-        for p_idx, c_idx in zip(remaining_p, remaining_c):
+        def mark_pair(p_idx: int, c_idx: int) -> None:
             fields, details = _changed_fields(previous[p_idx], current[c_idx])
-            if fields:
-                _mark_current(current[c_idx], CHANGE_CHANGED, fields, details)
-            else:
-                _mark_current(current[c_idx], CHANGE_NONE)
+            _mark_current(
+                current[c_idx], CHANGE_CHANGED if fields else CHANGE_NONE, fields, details
+            )
             prev_unused.discard(p_idx)
             curr_unused.discard(c_idx)
+            remaining_p.remove(p_idx)
+            remaining_c.remove(c_idx)
+
+        # Ta sama nazwa/wariant, lecz zmieniona ilość lub data, ma pierwszeństwo.
+        for p_idx in list(remaining_p):
+            description = _name_key(previous[p_idx].get("produkt"))
+            p_same = [i for i in remaining_p if _name_key(previous[i].get("produkt")) == description]
+            c_same = [i for i in remaining_c if _name_key(current[i].get("produkt")) == description]
+            if description and len(p_same) == len(c_same) == 1:
+                mark_pair(p_idx, c_same[0])
+
+        # Tylko pojedyncza para może zostać porównana bez dodatkowego klucza.
+        # Wielu niejednoznacznych kandydatów nie wolno parować kolejnością wierszy.
+        if len(remaining_p) == len(remaining_c) == 1:
+            mark_pair(remaining_p[0], remaining_c[0])
 
     # 2) Jeśli w tym samym Nr zlec. został dokładnie jeden stary i jeden nowy
     # nierozstrzygnięty rekord, traktujemy to jako zmianę produktu, a nie
