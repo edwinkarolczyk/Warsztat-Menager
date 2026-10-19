@@ -163,19 +163,22 @@ def test_auto_print_prepares_same_work_order_without_browser_print_script(monkey
     assert "window.print()" not in content
 
 
-def test_auto_print_dispatches_to_windows_print_verb(monkeypatch, tmp_path):
+def test_auto_print_dispatches_to_windows_printer_and_registers_event(monkeypatch, tmp_path):
+    import types
+    import planista_print_history as history
+
     target = tmp_path / "zlecenie_000101.html"
     monkeypatch.setattr(AUTO_PRINT, "_work_order_output_path", lambda _order: target)
     monkeypatch.setattr(AUTO_PRINT, "_work_order_html", lambda _order: "<html>KARTA</html>")
-    monkeypatch.setattr(AUTO_PRINT.os, "name", "nt")
+    monkeypatch.setattr(AUTO_PRINT, "os", types.SimpleNamespace(name="nt"))
     calls = []
-    monkeypatch.setattr(
-        AUTO_PRINT.os,
-        "startfile",
-        lambda path, verb=None: calls.append((path, verb)),
-        raising=False,
-    )
+    monkeypatch.setattr(AUTO_PRINT, "_windows_print", lambda path: calls.append(path) or "mock")
+    monkeypatch.setattr(history, "print_history_path", lambda: tmp_path / "rejestr.json")
 
-    AUTO_PRINT.dispatch_work_order_print({"id": "000101"})
+    AUTO_PRINT.dispatch_work_order_print({"id": "000101"}, user="test", source="test")
 
-    assert calls == [(str(target), "print")]
+    assert calls == [target]
+    assert [event["stan"] for event in history.print_events("000101")] == [
+        history.PRINT_PENDING, history.PRINT_SENT,
+    ]
+    assert history.print_events("000101")[-1]["uzytkownik"] == "test"
