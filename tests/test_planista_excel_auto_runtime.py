@@ -166,7 +166,9 @@ def test_auto_print_prepares_same_work_order_without_browser_print_script(monkey
 def test_auto_print_dispatches_to_windows_printer_and_registers_event(monkeypatch, tmp_path):
     import types
     import planista_print_history as history
+    import zlecenia_logika as ZL
 
+    monkeypatch.setattr(ZL, "list_zlecenia", lambda: [])
     target = tmp_path / "zlecenie_000101.html"
     monkeypatch.setattr(AUTO_PRINT, "_work_order_output_path", lambda _order: target)
     monkeypatch.setattr(AUTO_PRINT, "_work_order_html", lambda _order: "<html>KARTA</html>")
