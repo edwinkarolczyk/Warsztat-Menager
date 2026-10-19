@@ -223,3 +223,36 @@ def test_excel_preview_runtime_has_live_search_and_visible_counter():
     assert "search_var.trace_add" in source
     assert 'text="Wyczyść"' in source
     assert 'Widoczne: {len(filtered)} / {len(display_rows)}' in source
+
+
+def test_legacy_att_snapshot_uses_full_code_after_parser_upgrade():
+    previous = [
+        _row(750, "ATT", 5, source_row=10, name="507.360 - RAL 5010"),
+        _row(750, "ATT", 20, source_row=11, name="1267.260 - RAL 5010"),
+    ]
+    current = [
+        _row(750, "ATT 1267.260", 21, source_row=100, name="RAL 5010"),
+        _row(750, "ATT 507.360", 5, source_row=101, name="RAL 5010"),
+    ]
+    result = compare_plan_rows(previous, current)
+    by_code = {row["excel_oznaczenie"]: row for row in result["rows"]}
+    assert by_code["ATT 507.360"]["excel_change_status"] == CHANGE_NONE
+    assert by_code["ATT 1267.260"]["excel_change_status"] == CHANGE_CHANGED
+    assert by_code["ATT 1267.260"]["excel_change_fields"] == ["Ilość"]
+    assert result["removed_rows"] == []
+
+
+def test_same_designation_different_variants_pair_by_name_not_row_position():
+    previous = [
+        _row(750, "ATT 507.360", 5, source_row=10, name="wariant Alfa"),
+        _row(750, "ATT 507.360", 20, source_row=11, name="wariant Beta"),
+    ]
+    current = [
+        _row(750, "ATT 507.360", 21, source_row=40, name="wariant Beta"),
+        _row(750, "ATT 507.360", 5, source_row=41, name="wariant Alfa"),
+    ]
+    result = compare_plan_rows(previous, current)
+    by_name = {row["produkt"]: row for row in result["rows"]}
+    assert by_name["ATT 507.360 wariant Alfa - RAL 5003"]["excel_change_status"] == CHANGE_NONE
+    assert by_name["ATT 507.360 wariant Beta - RAL 5003"]["excel_change_status"] == CHANGE_CHANGED
+    assert by_name["ATT 507.360 wariant Beta - RAL 5003"]["excel_change_fields"] == ["Ilość"]
