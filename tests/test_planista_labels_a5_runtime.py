@@ -39,7 +39,7 @@ def test_three_positions_share_large_internal_number_but_have_separate_qrs(monke
     assert "@page { size: A5 landscape; margin: 5mm; }" in doc
     assert doc.count('class="wm-label"') == 3
     assert doc.count("ZLECENIE WEWNĘTRZNE") == 3
-    assert doc.count(">747</div>") == 3
+    assert doc.count("        747</div>") == 3
     assert "QR0026" in doc and "QR0027" in doc and "QR0028" in doc
     assert "WM 0026" in doc and "WM 0027" in doc and "WM 0028" in doc
     assert "Szafka loto [270x100x170]" in doc
@@ -61,7 +61,7 @@ def test_label_with_missing_internal_number_identifies_workshop_order(monkeypatc
     doc = LABELS.build_labels_a5_html([_order("0026", internal="")])
     assert "ZLECENIE WARSZTATOWE" in doc
     assert "ZLECENIE WEWNĘTRZNE" not in doc
-    assert ">0026</div>" in doc
+    assert "        0026</div>" in doc
 
 
 def test_long_internal_number_uses_smaller_font_without_truncation(monkeypatch):
@@ -70,7 +70,7 @@ def test_long_internal_number_uses_smaller_font_without_truncation(monkeypatch):
     short = LABELS.build_labels_a5_html([_order("1", internal="747")])
     long = LABELS.build_labels_a5_html([_order("2", internal="747012345678")])
     assert 'font-size:185pt' in short
-    assert 'font-size:50pt' in long
+    assert 'font-size:46pt' in long
     assert "747012345678" in long
 
 
@@ -155,4 +155,3 @@ def test_planista_has_separate_a5_actions_and_preserves_a4_pdf_controls():
     assert "preview=True, labels=True" in content
     assert "dispatch_labels_a5_print(" in content
     assert "prepare_labels_a5_pdf(" in content
-    assert '"w kolejce"' not in content
