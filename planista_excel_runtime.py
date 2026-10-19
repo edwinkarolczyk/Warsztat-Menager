@@ -925,6 +925,15 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     owner._excel_plan_import = payload
     _remember_auto_source(owner, source, persist=True)
+    manager_window = getattr(getattr(owner, "root", None), "_wm_excel_sources_window", None)
+    if manager_window is not None:
+        try:
+            if manager_window.winfo_exists():
+                callback = getattr(manager_window, "_wm_dual_refresh", None)
+                if callable(callback):
+                    callback(payload)
+        except Exception:
+            pass
     panel = getattr(getattr(owner, "root", None), "_wm_planista_excel_panel", None)
     if panel is not None and panel is not owner:
         try:
@@ -1157,9 +1166,9 @@ def _check_excel_changes(owner) -> None:
 def _open_excel_sync(owner, *, preselect_safe: bool = False) -> None:
     payload = getattr(owner, "_excel_plan_import", None)
     watcher = getattr(getattr(owner, "root", None), "_wm_excel_watch_owner", None)
-    if watcher is not None:
+    if not isinstance(payload, dict) and watcher is not None:
         live = getattr(watcher, "_excel_plan_import", None)
-        if isinstance(live, dict) and live.get("dual_mode"):
+        if isinstance(live, dict):
             payload = live
     if not isinstance(payload, dict) or not (
         list(payload.get("rows") or []) or list(payload.get("removed_rows") or [])
