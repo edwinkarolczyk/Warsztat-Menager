@@ -183,10 +183,11 @@ def adjust_actual_stock(
 
         canonical = LM.load_magazyn(include_external=False)
         current_item = (canonical.get("items") or {}).get(key)
-        if not isinstance(current_item, dict):
-            raise ValueError(f"Nie znaleziono pozycji {key} w głównej kartotece Magazynu.")
-        current_item["stan"] = requested
-        LM.save_magazyn(canonical)
+        if isinstance(current_item, dict):
+            current_item["stan"] = requested
+            LM.save_magazyn(canonical)
+        # Stare instalacje dopuszczały korekty pozycji zapisanych wyłącznie
+        # w stany.json; nie blokuj ich historii, jeśli brak kartoteki.
 
         states[key] = state
         _write_json_atomic(states_path, states)
