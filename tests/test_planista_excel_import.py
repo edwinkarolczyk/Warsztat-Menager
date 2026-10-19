@@ -452,7 +452,7 @@ def test_blank_product_row_still_carries_next_order_and_date(tmp_path):
     xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
     xml = xml.replace(
         '<c r="B5" t="s"><v>6</v></c>',
-        '<c r="A5"><v>750</v></c><c r="B5" t="s"><v>1</v></c>',
+        '<c r="A5"><v>750</v></c><c r="B5" t="s"><v>1</v></c><c r="D5"><v>46279</v></c>',
     )
     xml = xml.replace('<c r="A6"><v>593</v></c>', "")
     xml = xml.replace('<c r="D6"><v>46281</v></c>', "")
