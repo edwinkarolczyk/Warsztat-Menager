@@ -201,7 +201,7 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
         else str(mapping or "").strip()
     )
     confirmed = _manual_candidate(products, manual_symbol)
-    if confirmed:
+    if confirmed and not _dimension_conflict(excel_text, confirmed["nazwa"]):
         return _candidate_match(
             designation, confirmed,
             "Ręcznie zatwierdzone powiązanie Excel → Produkt WM (zapamiętane).",
