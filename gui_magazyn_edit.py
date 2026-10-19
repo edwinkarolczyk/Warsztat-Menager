@@ -637,6 +637,31 @@ class MagazynEditDialog:
                 return
 
             self.item_id = new_id
+            # Stan początkowy także jest realnym przyjęciem do kartoteki:
+            # ujednolić go z tabelą i sprawdzić powiązane braki surowca.
+            try:
+                from magazyn_stock_adjustment import synchronize_stock_snapshot
+
+                synchronize_stock_snapshot(new_id, new_item["stan"], new_item)
+            except Exception as exc:
+                messagebox.showwarning(
+                    "Pozycja zapisana",
+                    "Utworzono kartotekę, ale nie udało się uzgodnić stanu "
+                    f"w widoku Magazynu: {exc}",
+                    parent=self.win,
+                )
+            else:
+                try:
+                    from dyspozycje_magazyn import close_fulfilled_material_dispositions
+
+                    close_fulfilled_material_dispositions(new_id)
+                except Exception as exc:
+                    messagebox.showwarning(
+                        "Pozycja zapisana",
+                        "Utworzono kartotekę, ale nie udało się sprawdzić "
+                        f"dyspozycji braków surowca: {exc}",
+                        parent=self.win,
+                    )
         else:
             if self.is_raw:
                 try:
