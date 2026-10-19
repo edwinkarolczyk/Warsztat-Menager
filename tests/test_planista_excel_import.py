@@ -364,3 +364,82 @@ def test_manual_picker_checks_dimensions_from_catalog_symbol():
     source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
     assert "dims_symbol = product_dimensions(symbol)" in source
     assert "dims_wm = catalog_product_dimensions(wm_name, symbol)" in source
+
+
+def test_composite_att_designations_are_distinct_and_normalized():
+    products = {
+        "ATT 507.360": {"symbol": "ATT 507.360", "nazwa": "ATT"},
+        "ATT 1267.260": {"symbol": "ATT 1267.260", "nazwa": "ATT"},
+    }
+    assert extract_product_designation("ATT 507.360 – RAL 5010") == "ATT 507.360"
+    assert extract_product_designation("ATT 1267.260 – RAL 5010") == "ATT 1267.260"
+    first = match_excel_product("ATT 507.360 – RAL 5010", products)
+    second = match_excel_product("ATT 1267.260 – RAL 5010", products)
+    assert first["match_status"] == STATUS_FOUND
+    assert second["match_status"] == STATUS_FOUND
+    assert first["wm_symbol"] != second["wm_symbol"]
+
+
+def test_name_with_producer_and_dimensions_is_only_suggested():
+    from planista_excel_match import MATCH_CATEGORY_POSSIBLE
+    products = {
+        "670x210x1245": {
+            "symbol": "670x210x1245",
+            "nazwa": "Szafa na akcesoria ppoż",
+        },
+    }
+    result = match_excel_product(
+        "Szafa na akcesoria ppoż KORUS 670×210×1245 – RAL 3000", products
+    )
+    assert result["match_status"] == STATUS_AMBIGUOUS
+    assert result["match_category"] == MATCH_CATEGORY_POSSIBLE
+    assert result["candidate_symbols"] == ["670x210x1245"]
+    assert result["wm_symbol"] == ""
+
+
+def test_product_dimension_conflict_is_distinguished_from_absent_product():
+    from planista_excel_match import MATCH_CATEGORY_DIMENSIONS, MATCH_CATEGORY_MISSING
+    products = {
+        "260x100x300": {"symbol": "260x100x300", "nazwa": "Szafka LOTO"},
+    }
+    conflict = match_excel_product("Szafka LOTO 270×100×170 – RAL 1023", products)
+    absent = match_excel_product("99.999.999 NIEZNANY", products)
+    assert conflict["match_status"] != STATUS_FOUND
+    assert conflict["match_category"] == MATCH_CATEGORY_DIMENSIONS
+    assert absent["match_status"] == STATUS_MISSING
+    assert absent["match_category"] == MATCH_CATEGORY_MISSING
+
+
+def test_xlsx_parser_reports_skipped_rows_and_invalid_qty_date(tmp_path):
+    path = _fixture_xlsx(tmp_path / "Plan.xlsx")
+    with ZipFile(path, "r") as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
+    xml = xml.replace(
+        '<c r="B5" t="s"><v>6</v></c>',
+        '<c r="B5" t="s"><v>1</v></c>',
+    )
+    xml = xml.replace(
+        '<c r="C6"><v>420</v></c>',
+        '<c r="C6" t="str"><v>nieprawidlowe</v></c>',
+    )
+    xml = xml.replace(
+        '<c r="D4"><v>46279</v></c>',
+        '<c r="D4" t="str"><v>31 lutego</v></c>',
+    )
+    files["xl/worksheets/sheet1.xml"] = xml.encode("utf-8")
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+
+    before = hashlib.sha256(path.read_bytes()).hexdigest()
+    payload = load_production_plan(path)
+    diag = payload["import_diagnostics"]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == before
+    assert diag["source_rows"] == 3
+    assert diag["imported_rows"] == 2
+    assert diag["skipped_rows"][0]["source_row"] == 5
+    assert diag["row_warnings"][0]["source_row"] == 4
+    assert "data" in " ".join(diag["row_warnings"][0]["reasons"])
+    assert diag["row_warnings"][1]["source_row"] == 6
+    assert "ilości" in " ".join(diag["row_warnings"][1]["reasons"])
