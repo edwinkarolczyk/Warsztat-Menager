@@ -43,6 +43,9 @@ from planista_excel_auto_runtime import (
     save_auto_state,
 )
 from planista_excel_match import (
+    MATCH_CATEGORY_MISSING,
+    MATCH_CATEGORY_POSSIBLE,
+    MATCH_CATEGORY_DIMENSIONS,
     STATUS_AMBIGUOUS,
     STATUS_FOUND,
     STATUS_MISSING,
@@ -159,6 +162,7 @@ def _preview_row_search_text(row: dict) -> str:
         row.get("proces", ""),
         row.get("excel_change_status", ""),
         row.get("match_status", ""),
+        row.get("match_category", ""),
         wm_symbol,
         wm_name,
         notes,
@@ -205,9 +209,9 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             + "   |   ".join(
                 f"{category}: {categories.get(category, 0)}"
                 for category in (
-                    "Nie ma produktu w WM",
-                    "Możliwy produkt — potwierdź",
-                    "Niezgodne wymiary",
+                    MATCH_CATEGORY_MISSING,
+                    MATCH_CATEGORY_POSSIBLE,
+                    MATCH_CATEGORY_DIMENSIONS,
                 )
             )
         )
