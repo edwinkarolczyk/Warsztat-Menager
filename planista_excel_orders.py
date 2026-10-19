@@ -185,9 +185,20 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             if _text(prov.get("nr_zlec")):
                 imported_by_external[_norm(prov.get("nr_zlec"))].append(order)
 
+    # Błędy ilości lub terminu wskazane przez parser blokują synchronizację tej pozycji.
+    diagnostics = payload.get("import_diagnostics") or {}
+    invalid_rows = {
+        str(item.get("source_row")): "; ".join(item.get("reasons") or [])
+        for item in diagnostics.get("row_warnings") or []
+        if isinstance(item, dict)
+    }
     planned: list[dict] = []
     for raw in list(payload.get("rows") or []):
         row = dict(raw) if isinstance(raw, dict) else {}
+        problem = invalid_rows.get(str(row.get("source_row")))
+        if problem:
+            planned.append(_plan_item(row, ACTION_SKIP, reason="Błąd danych w Excelu: " + problem))
+            continue
         if _text(row.get("match_status")) != STATUS_FOUND:
             planned.append(
                 _plan_item(
