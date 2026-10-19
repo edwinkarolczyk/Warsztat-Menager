@@ -116,11 +116,40 @@ def _merge(state: dict, *, fully_available: bool) -> dict:
     for key in sorted(set(a) | set(b)):
         aa, bb = a.get(key, []), b.get(key, [])
         if len(aa) > 1 or len(bb) > 1:
-            options = {"A": aa[0] if aa else {}, "B": bb[0] if bb else {}}
-            # Bez stabilnego ID partii nie łączymy wielokrotnych pozycji w jeden rekord.
-            reason = "Kilka pozycji o tym samym zleceniu i produkcie; wymagane rozróżnienie partii."
-            signature = ""
-            selected = dict((aa or bb)[0])
+            # Każda partia pozostaje widoczna. Dopasuj identyczne partie z A/B
+            # tylko 1:1, nie wolno zgubić powtarzającego się wiersza.
+            reason = "Powtarzający się produkt w jednym zleceniu — rozróżnij partie przed synchronizacją."
+            used_b: set[int] = set()
+            batch_rows: list[tuple[dict, str]] = []
+            for item_a in aa:
+                matched = next(
+                    (idx for idx, item_b in enumerate(bb)
+                     if idx not in used_b and _facts(item_a) == _facts(item_b)),
+                    None,
+                )
+                if matched is not None:
+                    used_b.add(matched)
+                batch_rows.append((item_a, "A+B" if matched is not None else "A"))
+            for idx, item_b in enumerate(bb):
+                if idx not in used_b:
+                    batch_rows.append((item_b, "B"))
+            for raw, source_tag in batch_rows:
+                selected_batch = dict(raw)
+                selected_batch.update({
+                    "match_status": STATUS_AMBIGUOUS,
+                    "match_category": "Możliwy produkt — potwierdź",
+                    "match_note": reason,
+                    "wm_symbol": "",
+                    "source_tag": source_tag,
+                    "source_row_original": raw.get("source_row"),
+                    "source_row": len(rows) + 1,
+                })
+                rows.append(selected_batch)
+            conflicts.append({
+                "key": key, "reason": reason, "A": aa, "B": bb,
+                "signature": "", "status": "Do rozróżnienia partii",
+            })
+            continue
         elif aa and bb and _facts(aa[0]) != _facts(bb[0]):
             options = {"A": aa[0], "B": bb[0]}
             reason = "Excel A i B zawierają różne ilości, terminy, proces lub wariant."
