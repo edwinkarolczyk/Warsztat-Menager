@@ -508,9 +508,14 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                 return
             try:
                 remember_manual_mapping(excel_text, symbol)
-                matched = match_production_plan(
-                    payload, products, manual_mappings=load_manual_mappings()
-                )
+                if payload.get("dual_mode"):
+                    # Ponowne scalenie A+B jest obowiązkowe: samo dopasowanie
+                    # produktu nie może ominąć nierozstrzygniętego konfliktu plików.
+                    matched = _load_auto_payload(owner, _auto_source_from_owner(owner))
+                else:
+                    matched = match_production_plan(
+                        payload, products, manual_mappings=load_manual_mappings()
+                    )
             except Exception as exc:
                 messagebox.showerror("Dopasowanie produktu", str(exc), parent=win)
                 return
@@ -519,6 +524,9 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             payload["rows"] = rows
             payload["match_summary"] = matched["match_summary"]
             payload["match_category_summary"] = matched["match_category_summary"]
+            if matched.get("dual_mode"):
+                payload["dual_conflicts"] = matched.get("dual_conflicts", [])
+                payload["dual_source_errors"] = matched.get("dual_source_errors", [])
             owner._excel_plan_import = payload
             _refresh_auto_pending(owner)
             update_match_summary()
