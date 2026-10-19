@@ -346,7 +346,7 @@ class PlanistaPanel(ttk.Frame):
         except Exception as exc:
             messagebox.showerror(
                 "Historia wydruków",
-                f"Nie udało się odczytać rejestru wydruków:\\n{exc}",
+                f"Nie udało się odczytać rejestru wydruków:\n{exc}",
                 parent=self,
             )
             registry = None
@@ -384,7 +384,14 @@ class PlanistaPanel(ttk.Frame):
                     _fmt_qty(max(0, qty - done)),
                     _display_order_date(order.get("termin", "")),
                     order.get("status", ""),
-                    state,
+                    {
+                        PRINT_NEW: "○ Nie drukowano",
+                        PRINT_PENDING: "… W kolejce",
+                        PRINT_SENT: "✓ Wysłano",
+                        PRINT_CHANGED: "↻ Zmieniono",
+                        PRINT_ERROR: "✕ Błąd",
+                        PRINT_UNKNOWN: "? Brak informacji",
+                    }.get(state, state),
                 ),
             )
         chosen = [oid for oid in selected if self.tree.exists(oid)]
@@ -652,7 +659,7 @@ class PlanistaPanel(ttk.Frame):
         if not messagebox.askyesno(
             "Drukowanie zbiorcze A4",
             f"Wysłać {len(order_ids)} zaznaczonych kart A4 do domyślnej "
-            "drukarki Windows?\\n\\nZlecenia już drukowane będą drukowane ponownie.",
+            "drukarki Windows?\n\nZlecenia już drukowane będą drukowane ponownie.",
             parent=self,
         ):
             return
@@ -679,7 +686,7 @@ class PlanistaPanel(ttk.Frame):
         if not messagebox.askyesno(
             "Drukowanie niewydrukowanych A4",
             f"Wysłać {len(order_ids)} niewydrukowanych kart A4 do domyślnej "
-            "drukarki Windows?\\n\\nKażde zlecenie zostanie sprawdzone "
+            "drukarki Windows?\n\nKażde zlecenie zostanie sprawdzone "
             "ponownie przed wysłaniem.",
             parent=self,
         ):
@@ -734,11 +741,11 @@ class PlanistaPanel(ttk.Frame):
                     sent = sum(1 for kind, _oid, _msg in results if kind == "wysłano")
                     skipped = sum(1 for kind, _oid, _msg in results if kind == "pominięto")
                     errors = [f"{code}: {msg}" for kind, code, msg in results if kind == "błąd"]
-                    notice = f"Wysłano: {sent}\\nPominięto: {skipped}\\nBłędy: {len(errors)}"
+                    notice = f"Wysłano: {sent}\nPominięto: {skipped}\nBłędy: {len(errors)}"
                     if errors:
                         messagebox.showwarning(
                             "Wynik drukowania A4",
-                            notice + "\\n\\n" + "\\n".join(errors[:12]),
+                            notice + "\n\n" + "\n".join(errors[:12]),
                             parent=self,
                         )
                     else:
