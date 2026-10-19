@@ -143,9 +143,11 @@ def show_excel_sources_window(owner) -> None:
         tree.heading(col, text=label)
         tree.column(col, width=width, anchor="w", stretch=col in {"product", "note"})
     tree.grid(row=0, column=0, sticky="nsew")
-    ttk.Scrollbar(body, orient="vertical", command=tree.yview).grid(row=0, column=1, sticky="ns")
-    ttk.Scrollbar(body, orient="horizontal", command=tree.xview).grid(row=1, column=0, sticky="ew")
-    tree.configure(yscrollcommand=lambda first, last: None)
+    yscroll = ttk.Scrollbar(body, orient="vertical", command=tree.yview)
+    xscroll = ttk.Scrollbar(body, orient="horizontal", command=tree.xview)
+    yscroll.grid(row=0, column=1, sticky="ns")
+    xscroll.grid(row=1, column=0, sticky="ew")
+    tree.configure(yscrollcommand=yscroll.set, xscrollcommand=xscroll.set)
     ttk.Label(changes_tab, textvariable=change_summary).grid(row=2, column=0, sticky="w", pady=(8, 0))
 
     conflicts_tab.rowconfigure(1, weight=1)
@@ -171,9 +173,9 @@ def show_excel_sources_window(owner) -> None:
     history_tab.columnconfigure(0, weight=1)
     history_text = tk.Text(history_tab, wrap="word", state="disabled")
     history_text.grid(row=0, column=0, sticky="nsew")
-    ttk.Scrollbar(history_tab, orient="vertical", command=history_text.yview).grid(
-        row=0, column=1, sticky="ns"
-    )
+    history_scroll = ttk.Scrollbar(history_tab, orient="vertical", command=history_text.yview)
+    history_scroll.grid(row=0, column=1, sticky="ns")
+    history_text.configure(yscrollcommand=history_scroll.set)
 
     def render(payload: dict | None = None) -> None:
         if isinstance(payload, dict):
