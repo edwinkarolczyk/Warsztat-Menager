@@ -17,6 +17,7 @@ from planista_excel_match import (
     STATUS_FOUND,
     STATUS_MISSING,
     extract_product_designation,
+    excel_mapping_key,
     match_excel_product,
     match_production_plan,
 )
@@ -202,3 +203,96 @@ def test_whole_import_is_matched_row_by_row_without_losing_order_groups(tmp_path
         STATUS_MISSING: 1,
         STATUS_AMBIGUOUS: 0,
     }
+
+
+
+def test_loto_product_matches_exact_normalized_name_and_dimensions_without_code():
+    products = {
+        "L-1": {"symbol": "L-1", "nazwa": "Szafka loto"},
+        "L-2": {"symbol": "L-2", "nazwa": "Szafka loto 270x100x170"},
+        "L-3": {"symbol": "L-3", "nazwa": "Szafka loto 260x100x300"},
+    }
+    expected = [
+        ("Szafka LOTO – RAL 1023", "L-1"),
+        ("Szafka LOTO 270×100×170 – RAL 1023", "L-2"),
+        ("Szafka LOTO 260x100x300 – RAL 1023", "L-3"),
+    ]
+    for text, symbol in expected:
+        result = match_excel_product(text, products)
+        assert result["match_status"] == STATUS_FOUND, text
+        assert result["wm_symbol"] == symbol, text
+        assert result["match_method"] == "name"
+
+
+def test_loto_dimensions_must_not_match_different_size():
+    products = {
+        "L-3": {"symbol": "L-3", "nazwa": "Szafka loto 260x100x300"},
+    }
+    result = match_excel_product("Szafka LOTO 270×100×170 – RAL 1023", products)
+    assert result["match_status"] != STATUS_FOUND
+    assert result["wm_symbol"] == ""
+
+
+def test_ambiguous_product_name_requires_manual_selection():
+    products = {
+        "L-2A": {"symbol": "L-2A", "nazwa": "Szafka loto 270x100x170"},
+        "L-2B": {"symbol": "L-2B", "nazwa": "Szafka LOTO 270×100×170"},
+    }
+    result = match_excel_product("Szafka LOTO 270×100×170 – RAL 1023", products)
+    assert result["match_status"] == STATUS_AMBIGUOUS
+    assert set(result["candidate_symbols"]) == {"L-2A", "L-2B"}
+
+
+def test_manual_mapping_is_specific_to_exact_excel_description_including_ral():
+    products = {
+        "L-2A": {"symbol": "L-2A", "nazwa": "Szafka loto 270x100x170"},
+        "L-2B": {"symbol": "L-2B", "nazwa": "Szafka loto 270x100x170"},
+    }
+    original = "Szafka LOTO 270×100×170 – RAL 1023"
+    mappings = {excel_mapping_key(original): {"wm_symbol": "L-2B"}}
+    result = match_excel_product(original, products, manual_mappings=mappings)
+    assert result["match_status"] == STATUS_FOUND
+    assert result["wm_symbol"] == "L-2B"
+    assert result["match_method"] == "manual"
+
+    other_color = match_excel_product(
+        "Szafka LOTO 270x100x170 – RAL 9011",
+        products,
+        manual_mappings=mappings,
+    )
+    assert other_color["match_status"] == STATUS_AMBIGUOUS
+
+
+def test_stale_manual_mapping_does_not_match_missing_product():
+    products = {"L-2A": {"symbol": "L-2A", "nazwa": "Szafka loto 270x100x170"}}
+    value = "Szafka LOTO 270×100×170 – RAL 1023"
+    stale = {excel_mapping_key(value): {"wm_symbol": "DELETED"}}
+    result = match_excel_product(value, products, manual_mappings=stale)
+    assert result["match_status"] == STATUS_FOUND
+    assert result["wm_symbol"] == "L-2A"
+    assert result.get("match_method") != "manual"
+
+
+def test_manual_mappings_are_atomic_and_persist_across_imports(tmp_path, monkeypatch):
+    import json
+    import planista_excel_mappings as mappings
+
+    destination = tmp_path / "planista" / "excel_product_mappings.json"
+    monkeypatch.setattr(mappings, "mapping_path", lambda: destination)
+    mappings.remember_manual_mapping("Szafka LOTO – RAL 1023", "L-1")
+    mappings.remember_manual_mapping("Szafka LOTO 270×100×170 – RAL 1023", "L-2")
+
+    saved = mappings.load_manual_mappings()
+    assert len(saved) == 2
+    assert saved[excel_mapping_key("Szafka LOTO – RAL 1023")]["wm_symbol"] == "L-1"
+    assert saved[excel_mapping_key("Szafka LOTO 270x100x170 – RAL 1023")]["wm_symbol"] == "L-2"
+    assert json.loads(destination.read_text(encoding="utf-8"))["schema"] == 1
+
+
+def test_analysis_preview_has_manual_mapping_button_and_refreshes_working_payload():
+    source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
+    assert 'text="Przypisz Produkt WM…"' in source
+    assert "remember_manual_mapping(excel_text, symbol)" in source
+    assert 'payload["match_summary"] = matched["match_summary"]' in source
+    assert "owner._excel_plan_import = payload" in source
+    assert "dims_excel != dims_wm" in source
