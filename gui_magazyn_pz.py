@@ -75,10 +75,20 @@ def _require_reauth(cfg) -> bool:
 def _safe_load():
     try:
         if HAVE_MAG_IO and hasattr(magazyn_io, "load"):
-            return magazyn_io.load()
-        return LM.load_magazyn()
+            data = magazyn_io.load()
+        else:
+            data = LM.load_magazyn()
     except Exception:
         return {"items": {}, "meta": {}}
+    try:
+        from magazyn_stock_adjustment import overlay_actual_states
+
+        if isinstance(data.get("items"), dict):
+            overlay_actual_states(data["items"])
+    except Exception:
+        # Awaria pomocniczej migawki nie może ukryć prawidłowej kartoteki.
+        pass
+    return data
 
 
 def _safe_save(data):
@@ -331,6 +341,32 @@ class PZDialog:
                 parent=self.win,
             )
             return
+
+        # Stan główny został zapisany. Uzgodnij migawkę używaną w tabeli,
+        # a następnie zamknij wyłącznie rozliczone dyspozycje braków surowca.
+        try:
+            from magazyn_stock_adjustment import synchronize_stock_snapshot
+
+            synchronize_stock_snapshot(self.item_id, self.item["stan"], self.item)
+        except Exception as exc:
+            messagebox.showwarning(
+                "Przyjęcie zapisane",
+                "PZ jest zapisane, ale nie udało się uzgodnić widoku stanów. "
+                f"Nie dodawaj ponownie tego samego PZ. Szczegóły: {exc}",
+                parent=self.win,
+            )
+        else:
+            try:
+                from dyspozycje_magazyn import close_fulfilled_material_dispositions
+
+                close_fulfilled_material_dispositions(self.item_id)
+            except Exception as exc:
+                messagebox.showwarning(
+                    "Przyjęcie zapisane",
+                    "PZ jest zapisane, ale nie udało się sprawdzić automatycznego "
+                    f"zamknięcia dyspozycji. Szczegóły: {exc}",
+                    parent=self.win,
+                )
 
         if callable(self.on_saved):
             try:
