@@ -118,7 +118,13 @@ def record_print_event(
 
     with file_write_lock(path, label="historii wydruków zleceń"):
         data = _load(path)
-        events = data["orders"].setdefault(order_id, [])
+        # Przed zaakceptowaniem Excela numer zewnętrzny nie jest numerem
+        # warsztatowym. Nie może oznaczyć przypadkowego zlecenia jako wysłane.
+        record_id = (
+            f"excel:{order_id}" if source == "Excel przed akceptacją"
+            else order_id
+        )
+        events = data["orders"].setdefault(record_id, [])
         if not isinstance(events, list):
             raise RuntimeError(f"Historia wydruków zlecenia {order_id} jest uszkodzona.")
         event = {
