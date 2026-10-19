@@ -126,7 +126,7 @@ def test_global_watcher_starts_from_main_panel():
 
 def test_two_source_printing_uses_existing_registry_after_order_creation():
     source = Path("planista_excel_sync_runtime.py").read_text(encoding="utf-8")
-    assert 'if payload.get("dual_mode") and created:' in source
+    assert 'if payload.get("dual_mode") and created and print_enabled:' in source
     assert "_queue_created_prints(owner, succeeded)" in source
     auto = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
     assert 'elif payload.get("dual_mode"):' in auto
