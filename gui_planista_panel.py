@@ -718,6 +718,7 @@ class PlanistaPanel(ttk.Frame):
                     if only_unprinted and print_status(record) != PRINT_NEW:
                         responses.put(("pominięto", oid, "Status został zmieniony."))
                         continue
+                    responses.put(("w_kolejce", oid, ""))
                     dispatch_work_order_print(
                         record, user=username, source="Planista – lista zleceń",
                     )
@@ -751,6 +752,15 @@ class PlanistaPanel(ttk.Frame):
                     else:
                         messagebox.showinfo("Wynik drukowania A4", notice, parent=self)
                     return
+                if state == "w_kolejce":
+                    if self.tree.exists(oid):
+                        self.tree.set(oid, "wydruk", "… W kolejce")
+                    continue
+                if self.tree.exists(oid):
+                    if state == "wysłano":
+                        self.tree.set(oid, "wydruk", "✓ Wysłano")
+                    elif state == "błąd":
+                        self.tree.set(oid, "wydruk", "✕ Błąd")
                 results.append((state, oid, detail))
             if self.winfo_exists():
                 self.after(350, poll)
