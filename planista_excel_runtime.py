@@ -1314,6 +1314,7 @@ def install_planista_excel_runtime() -> None:
             pass
 
         self._excel_auto_recount = lambda: _refresh_auto_pending(self)
+        _refresh_auto_pending(self)
         _set_manual_excel_controls(self, enabled=not bool(self._excel_auto_var.get()))
 
         if self._excel_auto_var.get():
