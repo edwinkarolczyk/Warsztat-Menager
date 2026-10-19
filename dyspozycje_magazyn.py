@@ -63,13 +63,19 @@ def close_fulfilled_material_dispositions(item_id: str) -> list[str]:
         if required <= 0:
             continue
         own_reserved = min(required, _quantity((order.get("rezerwacje_surowce") or {}).get(code)))
-        pending.append((disposition, max(0.0, required - own_reserved)))
+        pending.append((disposition, max(0.0, required - own_reserved), own_reserved))
 
-    if not pending or sum(missing for _row, missing in pending) > free + 1e-9:
+    if not pending:
+        return []
+    # Uszkodzone/stare rezerwacje nie mogą deklarować większej ilości
+    # niż fizycznie istnieje i faktycznie jest zarezerwowana.
+    if sum(own for _row, _missing, own in pending) > min(stock, reservations) + 1e-9:
+        return []
+    if sum(missing for _row, missing, _own in pending) > free + 1e-9:
         return []
 
     closed = []
-    for disposition, _missing in pending:
+    for disposition, _missing, _own in pending:
         dysp_id = str(disposition.get("id") or "").strip()
         if not dysp_id:
             continue
