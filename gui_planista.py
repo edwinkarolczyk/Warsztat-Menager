@@ -683,14 +683,23 @@ class PlanistaWindow:
         if not order:
             messagebox.showinfo("Planista", "Wybierz zlecenie.", parent=self.win); return
         try:
-            path = _work_order_output_path(order)
-            path.write_text(_work_order_html(order), encoding="utf-8")
-            if os.name == "nt":
-                os.startfile(str(path))
-            else:
-                webbrowser.open(path.as_uri())
+            from planista_auto_print_runtime import dispatch_work_order_print
+
+            dispatch_work_order_print(
+                order, user=self.login or "system", source="Planista – okno",
+            )
         except Exception as exc:
-            messagebox.showerror("Wydruk", f"Nie udało się przygotować wydruku:\n{exc}", parent=self.win)
+            messagebox.showerror(
+                "Wydruk A4", f"Nie udało się wysłać wydruku:\n{exc}",
+                parent=self.win,
+            )
+            return
+        messagebox.showinfo(
+            "Wydruk A4",
+            "Zlecenie wysłano do domyślnej drukarki Windows. "
+            "Nie jest to jeszcze potwierdzenie fizycznego wydrukowania.",
+            parent=self.win,
+        )
 
 
 def open_planista(root, login=None, rola=None):
