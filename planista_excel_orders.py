@@ -113,8 +113,11 @@ def _source_meta(payload: dict, row: dict, *, identity: str | None = None) -> di
         "wm_symbol": _text(row.get("wm_symbol")),
         "excel_oznaczenie": _text(row.get("excel_oznaczenie")),
         "proces": _text(row.get("proces")),
-        "source_name": _text(payload.get("source_name")),
-        "source_path": _text(payload.get("source_path")),
+        "source_name": (
+            "Excel " + _text(row.get("source_tag"))
+            if _text(row.get("source_tag")) else _text(payload.get("source_name"))
+        ),
+        "source_path": _text(row.get("dual_source_paths") or payload.get("source_path")),
         "sheet": _text(payload.get("sheet")),
         "source_sha256": _text(payload.get("source_sha256")),
         "identity": _text(identity) or _identity(row.get("nr_zlec"), row.get("wm_symbol")),
