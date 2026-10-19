@@ -181,6 +181,7 @@ def show_excel_sources_window(owner) -> None:
         if isinstance(payload, dict):
             latest["payload"] = payload
             owner._excel_plan_import = payload
+            runtime._refresh_auto_pending(owner)
         data = latest["payload"] if isinstance(latest["payload"], dict) else {}
         tree.delete(*tree.get_children())
         for row in data.get("rows") or []:
