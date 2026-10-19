@@ -88,7 +88,8 @@ def test_duplicate_batches_with_same_code_require_decision():
     state = _state([_row(100, source_row=4), _row(50, source_row=5)], [])
     merged = dual._merge(state, fully_available=True)
     assert len(merged["rows"]) == 2
-    assert all(item["match_status"] == STATUS_AMBIGUOUS for item in merged["rows"])
+    assert all(item["match_status"] == STATUS_FOUND for item in merged["rows"])
+    assert all(item["dual_conflict_type"] == "duplicate" for item in merged["rows"])
     assert {item["ilosc"] for item in merged["rows"]} == {50, 100}
     assert len(merged["conflicts"]) == 1
 
