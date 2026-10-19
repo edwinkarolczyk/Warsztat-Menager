@@ -349,8 +349,8 @@ def _cutting_diagrams_html(order, raw_summary):
             f"<span>Pobrać: {required_bars} sztang × "
             f"{html.escape(_fmt_qty(bar_length))} mm</span></div>"
             f"{''.join(patterns_html)}"
-            f"{''.join(f'<p class="cut-legend">{note}</p>' for note in notes)}"
-            "</section>"
+            + "".join("<p class='cut-legend'>" + note + "</p>" for note in notes)
+            + "</section>"
         )
     if not sections:
         return ""
