@@ -46,17 +46,54 @@ def _number(value: Any, field_name: str) -> float:
     return number
 
 
+def _event_time(value: Any) -> float | None:
+    """Porównuje daty korekt lokalnych i ruchów PZ zapisanych w UTC."""
+    try:
+        moment = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+        if moment.tzinfo is None:
+            moment = moment.astimezone()
+        return moment.timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 def overlay_actual_states(items: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Nałóż stan faktyczny na kartoteki używane przez widok Magazynu."""
+    """Uwzględnij korekty stanu, ale nie nadpisuj nowszego PZ starym stany.json."""
 
     states = _read_json(_warehouse_dir() / "stany.json", {})
     if not isinstance(states, dict):
         raise RuntimeError("Nieprawidłowy plik stany.json.")
     for item_id, item in items.items():
         state = states.get(item_id)
+        if state is None:
+            continue
+
+        # Kartoteka magazyn.json jest źródłem stanu ruchów. Starsze migawki
+        # stany.json (bez historii korekt) nie mogą zerować przyjętego towaru.
+        if "stan" in item:
+            if not isinstance(state, dict):
+                continue
+            corrections = [
+                event for event in (state.get("historia") or [])
+                if isinstance(event, dict) and event.get("typ") == "KOREKTA_STANU"
+            ]
+            if not corrections:
+                continue
+            last_correction = _event_time(corrections[-1].get("ts"))
+            if last_correction is None:
+                continue
+            movements = [
+                _event_time(event.get("ts"))
+                for event in (item.get("historia") or [])
+                if isinstance(event, dict)
+                and str(event.get("op") or "").upper() in {"PZ", "ZW", "RW"}
+            ]
+            if any(at is not None and at >= last_correction for at in movements):
+                continue
+
         if isinstance(state, dict) and "stan" in state:
             item["stan"] = state["stan"]
-        elif state is not None and not isinstance(state, dict):
+        elif not isinstance(state, dict):
             item["stan"] = state
     return items
 
@@ -118,6 +155,20 @@ def adjust_actual_stock(
             history = []
         history.append(record)
         state["historia"] = history[-200:]
+        # Korekta jest operacją magazynową, dlatego edytor i tabela muszą
+        # odczytywać identyczny stan również po ponownym uruchomieniu WM.
+        import logika_magazyn as LM
+
+        current_item = LM.get_item(key)
+        if not isinstance(current_item, dict):
+            raise ValueError(f"Nie znaleziono pozycji {key} w Magazynie.")
+        LM.upsert_item({"id": key, "stan": requested})
+
+        # upsert odświeża stany.json z kartoteki; przywróć historię korekt.
+        states = _read_json(states_path, {})
+        if not isinstance(states, dict):
+            raise RuntimeError("Nieprawidłowy plik stany.json.")
+        state["stan"] = requested
         states[key] = state
         _write_json_atomic(states_path, states)
         return record
