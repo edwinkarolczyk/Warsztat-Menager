@@ -191,6 +191,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         font=("Arial", 10, "bold"),
     ).pack(anchor="w")
     match_summary_var = tk.StringVar()
+    category_summary_var = tk.StringVar()
     def update_match_summary() -> None:
         stats = payload.get("match_summary") or {}
         match_summary_var.set(
@@ -198,8 +199,21 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             f"{STATUS_MISSING}: {stats.get(STATUS_MISSING, 0)}   |   "
             f"{STATUS_AMBIGUOUS}: {stats.get(STATUS_AMBIGUOUS, 0)}"
         )
+        categories = payload.get("match_category_summary") or {}
+        category_summary_var.set(
+            "Przyczyny: "
+            + "   |   ".join(
+                f"{category}: {categories.get(category, 0)}"
+                for category in (
+                    "Nie ma produktu w WM",
+                    "Możliwy produkt — potwierdź",
+                    "Niezgodne wymiary",
+                )
+            )
+        )
 
     ttk.Label(top, textvariable=match_summary_var).pack(anchor="w", pady=(3, 0))
+    ttk.Label(top, textvariable=category_summary_var).pack(anchor="w", pady=(3, 0))
     update_match_summary()
     ttk.Label(top, text=_change_summary_text(payload)).pack(anchor="w", pady=(3, 0))
     ttk.Label(
@@ -209,6 +223,47 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             f"Snapshot: {payload.get('snapshot_path', '')}"
         ),
     ).pack(anchor="w", pady=(3, 0))
+
+    diagnostics = payload.get("import_diagnostics") or {}
+    skipped = list(diagnostics.get("skipped_rows") or [])
+    warnings = list(diagnostics.get("row_warnings") or [])
+    diagnostic_row = ttk.Frame(top)
+    diagnostic_row.pack(fill="x", pady=(3, 0))
+    ttk.Label(
+        diagnostic_row,
+        text=(
+            f"Odczyt Excela: wiersze z danymi {diagnostics.get('source_rows', len(rows))}, "
+            f"zaimportowane {len(rows)}, pominięte {len(skipped)}, "
+            f"ostrzeżenia {len(warnings)}"
+        ),
+    ).pack(side="left")
+
+    def show_import_diagnostics() -> None:
+        win = tk.Toplevel(dlg)
+        win.title("Planista — raport odczytu wierszy Excela")
+        win.geometry("800x420")
+        win.transient(dlg)
+        box = ttk.Frame(win, padding=10)
+        box.pack(fill="both", expand=True)
+        output = tk.Text(box, wrap="word", state="normal")
+        scroll = ttk.Scrollbar(box, orient="vertical", command=output.yview)
+        output.configure(yscrollcommand=scroll.set)
+        output.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        details = [
+            f"Pominięty wiersz {item.get('source_row', '?')}: {item.get('reason', '')}"
+            for item in skipped
+        ]
+        details.extend(
+            f"Wiersz {item.get('source_row', '?')}: {'; '.join(item.get('reasons') or [])}"
+            for item in warnings
+        )
+        output.insert("1.0", "\n".join(details) if details else "Brak pominiętych lub błędnych wierszy.")
+        output.configure(state="disabled")
+
+    ttk.Button(
+        diagnostic_row, text="Szczegóły odczytu", command=show_import_diagnostics
+    ).pack(side="left", padx=(12, 0))
 
     search_bar = ttk.Frame(dlg, padding=(10, 0, 10, 6))
     search_bar.pack(fill="x")
@@ -334,7 +389,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                     row.get("data_wysylki", ""),
                     row.get("proces", ""),
                     row.get("excel_change_status", ""),
-                    row.get("match_status", ""),
+                    row.get("match_category") or row.get("match_status", ""),
                     wm_product,
                     notes,
                 ),
@@ -458,6 +513,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             rows[:] = matched["rows"]
             payload["rows"] = rows
             payload["match_summary"] = matched["match_summary"]
+            payload["match_category_summary"] = matched["match_category_summary"]
             owner._excel_plan_import = payload
             _refresh_auto_pending(owner)
             update_match_summary()
