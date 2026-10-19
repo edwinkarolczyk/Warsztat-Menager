@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_editor_runtime.py
-# version: 1.3
+# version: 1.4
+# 1.4: zachowaj osobny pasek wydruków A4 i dwuklik historii.
 # 1.3: edytor rodzajów surowców obsługuje tryb „Ilość oczek”.
 # 1.2: opcja kontrolowanej nadprodukcji przy dodawaniu i edycji zlecenia.
 # 1.1: jeden edytor zlecenia po dwukliku: dane, realizacja, półprodukty, zapotrzebowanie, druk i usuwanie.
@@ -1089,7 +1090,7 @@ def _install_order_editor() -> None:
         frames = [child for child in parent.winfo_children() if isinstance(child, ttk.Frame)]
         if not frames:
             return
-        bar = frames[-1]
+        bar = getattr(self, "_orders_action_bar", frames[-1])
 
         # Operacje na pojedynczym zleceniu są w jednym edytorze otwieranym dwuklikiem.
         # Excel ma własny pasek i zostaje poza edycją pojedynczego zlecenia.
@@ -1103,7 +1104,12 @@ def _install_order_editor() -> None:
             command_only=False,
         ).pack(side="left", padx=(4, 0))
 
-        self.tree.bind("<Double-1>", lambda _e: self.edit_order())
+        self.tree.bind(
+            "<Double-1>",
+            lambda event: None
+            if self._open_print_history_on_double_click(event)
+            else self.edit_order(),
+        )
 
     Panel.add_order = add_order
     Panel.edit_order = edit_order
