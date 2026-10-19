@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.12
+# version: 1.13
+# 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
 # 1.12: podgląd jednego PDF A4 i wspólny druk zbiorczy jednym poleceniem.
 # 1.11: kolumna wydruku A4, zbiorcze drukowanie i historia poleceń.
 # Planista osadzony w glownym obszarze WM.
@@ -27,6 +28,7 @@ import zlecenia_progress as ZP
 from config_manager import ConfigManager
 from planista_auto_print_runtime import dispatch_work_order_print
 from planista_batch_print_runtime import dispatch_batch_print, prepare_batch_pdf
+from planista_labels_a5_runtime import dispatch_labels_a5_print, prepare_labels_a5_pdf
 from planista_print_history import (
     PRINT_CHANGED, PRINT_ERROR, PRINT_NEW, PRINT_PENDING, PRINT_SENT,
     PRINT_STATES, PRINT_UNKNOWN, ensure_print_registry, load_print_history,
@@ -263,6 +265,20 @@ class PlanistaPanel(ttk.Frame):
             print_bar,
             text="Wysłano ≠ potwierdzenie wydruku na papierze.",
         ).pack(side="left", padx=(9, 0))
+
+        label_bar = ttk.Frame(parent)
+        label_bar.pack(fill="x", pady=(5, 0))
+        ttk.Label(label_bar, text="Etykiety A5:").pack(side="left")
+        ttk.Button(
+            label_bar, text="Podgląd etykiet A5", command=self.preview_labels_a5,
+        ).pack(side="left", padx=(8, 7))
+        ttk.Button(
+            label_bar, text="Drukuj etykiety A5", command=self.print_labels_a5,
+        ).pack(side="left", padx=(0, 7))
+        ttk.Label(
+            label_bar,
+            text="Jedna etykieta na pozycję WM • duży numer wewnętrzny • osobny QR",
+        ).pack(side="left", padx=(7, 0))
 
     def _on_tab_changed(self, _event=None):
         try:
@@ -667,6 +683,33 @@ class PlanistaPanel(ttk.Frame):
             return
         self._print_orders(order_ids, preview=True)
 
+    def preview_labels_a5(self):
+        order_ids = self._selected_ids_for_pdf()
+        if not order_ids:
+            messagebox.showinfo(
+                "Etykiety A5", "Zaznacz pozycje na liście zleceń.", parent=self,
+            )
+            return
+        self._print_orders(order_ids, preview=True, labels=True)
+
+    def print_labels_a5(self):
+        order_ids = self._selected_ids_for_pdf()
+        if not order_ids:
+            messagebox.showinfo(
+                "Etykiety A5", "Zaznacz pozycje na liście zleceń.", parent=self,
+            )
+            return
+        if not messagebox.askyesno(
+            "Drukuj etykiety A5",
+            f"Przygotować jeden PDF z {len(order_ids)} etykietami A5 poziomo "
+            "i wysłać go do drukarki?\n\n"
+            "Każda pozycja otrzyma własny QR. "
+            "Drukowanie etykiet nie zmienia statusów kart A4.",
+            parent=self,
+        ):
+            return
+        self._print_orders(order_ids, labels=True)
+
     def _selected_ids_for_pdf(self):
         # Zachowaj kolejność zleceń z tabeli na stronach PDF.
         selected = set(self.tree.selection())
@@ -718,7 +761,10 @@ class PlanistaPanel(ttk.Frame):
             return
         self._print_orders(order_ids, only_unprinted=True)
 
-    def _print_orders(self, order_ids, *, only_unprinted=False, preview=False, single=False):
+    def _print_orders(
+        self, order_ids, *, only_unprinted=False, preview=False, single=False,
+        labels=False,
+    ):
         """Zbiorczo: najpierw jeden PDF, później jedno polecenie drukowania."""
         if getattr(self, "_print_job_active", False):
             messagebox.showinfo(
@@ -747,7 +793,14 @@ class PlanistaPanel(ttk.Frame):
                     responses.put(("pominięto", [], "", "Nie ma już niewydrukowanych kart."))
                     return
                 ids = [str(order["id"]) for order in filtered]
-                if preview:
+                if labels:
+                    if preview:
+                        path = prepare_labels_a5_pdf(filtered)
+                        responses.put(("podgląd_etykiet", ids, str(path), ""))
+                    else:
+                        path = dispatch_labels_a5_print(filtered)
+                        responses.put(("wysłano_etykiety", ids, str(path), ""))
+                elif preview:
                     path = prepare_batch_pdf(filtered)
                     responses.put(("podgląd", ids, str(path), ""))
                 elif single:
@@ -764,7 +817,7 @@ class PlanistaPanel(ttk.Frame):
                     )
                     responses.put(("wysłano", ids, str(path), ""))
             except Exception as exc:
-                responses.put(("błąd", [], "", str(exc)))
+                responses.put(("błąd_etykiet" if labels else "błąd", [], "", str(exc)))
             finally:
                 responses.put(("koniec", [], "", ""))
 
@@ -784,7 +837,7 @@ class PlanistaPanel(ttk.Frame):
                 elif kind == "koniec":
                     self._print_job_active = False
                     self.refresh()
-                    if outcome["status"] == "podgląd":
+                    if outcome["status"] in {"podgląd", "podgląd_etykiet"}:
                         try:
                             if os.name == "nt":
                                 os.startfile(outcome["path"])
@@ -798,6 +851,15 @@ class PlanistaPanel(ttk.Frame):
                                 f"{outcome['path']}\n{exc}",
                                 parent=self,
                             )
+                    elif outcome["status"] == "wysłano_etykiety":
+                        messagebox.showinfo(
+                            "Etykiety A5",
+                            f"Wysłano jeden dokument PDF do drukarki.\n"
+                            f"Liczba etykiet A5: {len(outcome['ids'])}\n"
+                            f"Plik: {outcome['path']}\n\n"
+                            "Statusy wydruków kart A4 pozostały bez zmian.",
+                            parent=self,
+                        )
                     elif outcome["status"] == "wysłano_pojedynczo":
                         messagebox.showinfo(
                             "Wydruk A4",
@@ -816,6 +878,13 @@ class PlanistaPanel(ttk.Frame):
                     elif outcome["status"] == "pominięto":
                         messagebox.showinfo(
                             "Drukowanie zbiorcze", outcome["error"], parent=self,
+                        )
+                    elif outcome["status"] == "błąd_etykiet":
+                        messagebox.showerror(
+                            "Etykiety A5",
+                            f"Nie udało się przygotować lub wydrukować etykiet:\n"
+                            f"{outcome['error']}",
+                            parent=self,
                         )
                     elif outcome["status"] == "błąd":
                         messagebox.showerror(
