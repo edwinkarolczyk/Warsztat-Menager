@@ -266,6 +266,28 @@ class MagazynAddDialog:
         save(data)
         print("[WM-DBG][MAGAZYN-ADD] saved")
 
+        try:
+            from magazyn_stock_adjustment import synchronize_stock_snapshot
+
+            synchronize_stock_snapshot(item_id, stan, data["items"][item_id])
+        except Exception as exc:
+            messagebox.showwarning(
+                "Pozycja zapisana",
+                f"Kartoteka została dodana, ale nie udało się odświeżyć stanu: {exc}",
+                parent=self.win,
+            )
+        else:
+            try:
+                from dyspozycje_magazyn import close_fulfilled_material_dispositions
+
+                close_fulfilled_material_dispositions(item_id)
+            except Exception as exc:
+                messagebox.showwarning(
+                    "Pozycja zapisana",
+                    f"Nie udało się sprawdzić dyspozycji braków: {exc}",
+                    parent=self.win,
+                )
+
         bump_material_seq_if_matches(item_id)
 
         if self.on_saved:
