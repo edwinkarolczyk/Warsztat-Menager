@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_auto_print_runtime.py
-# version: 1.0
+# version: 1.1
+# 1.1: wspólny rejestr drukowania i trwały wynik zlecenia.
 """Przygotowanie i automatyczne wysłanie karty zlecenia do domyślnej drukarki Windows."""
 
 from __future__ import annotations
@@ -172,21 +173,39 @@ def _windows_print(path: Path) -> str:
     raise AutoPrintError("; ".join(errors))
 
 
-def dispatch_work_order_print(order: dict) -> Path:
-    """Wyślij kartę do domyślnej drukarki; karta zawsze pozostaje w WM_ROOT."""
-    path = prepare_work_order_card(order)
-    if os.name != "nt":
-        raise AutoPrintError(
-            f"Karta została zapisana: {path}. Automatyczny druk jest obsługiwany w Windows."
-        )
+def dispatch_work_order_print(
+    order: dict, *, user: str = "system", source: str = "automat",
+) -> Path:
+    """Wyślij kartę A4 i zapisz wynik; 'Wysłano' nie oznacza wydruku fizycznego."""
+    from planista_print_history import (
+        PRINT_ERROR, PRINT_PENDING, PRINT_SENT, record_print_event,
+    )
+
+    record_print_event(order, PRINT_PENDING, user=user, source=source)
+    path = None
     try:
+        path = prepare_work_order_card(order)
+        if os.name != "nt":
+            raise AutoPrintError(
+                f"Karta została zapisana: {path}. Automatyczny druk jest obsługiwany w Windows."
+            )
         method = _windows_print(path)
+        record_print_event(
+            order, PRINT_SENT, user=user, source=source, details=method,
+        )
         msg = f"[WM-DBG][DRUK] {order.get('id', '')}: {method}"
         print(msg, flush=True)
         _log_print(path, msg)
-    except AutoPrintError as exc:
-        _log_print(path, f"[WM-DBG][DRUK] ERROR {order.get('id', '')}: {exc}")
+        return path
+    except Exception as exc:
+        try:
+            record_print_event(
+                order, PRINT_ERROR, user=user, source=source, details=str(exc),
+            )
+        except Exception:
+            pass
+        if path is not None:
+            _log_print(path, f"[WM-DBG][DRUK] ERROR {order.get('id', '')}: {exc}")
         raise AutoPrintError(
             f"Nie udało się wysłać zlecenia {order.get('id', '')} do domyślnej drukarki. {exc}"
         ) from exc
-    return path
