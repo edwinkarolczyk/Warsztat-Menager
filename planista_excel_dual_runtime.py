@@ -143,10 +143,8 @@ def _merge(state: dict, *, fully_available: bool) -> dict:
             for raw, source_tag in batch_rows:
                 selected_batch = dict(raw)
                 selected_batch.update({
-                    "match_status": STATUS_AMBIGUOUS,
-                    "match_category": "Możliwy produkt — potwierdź",
+                    "dual_conflict_type": "duplicate",
                     "match_note": reason,
-                    "wm_symbol": "",
                     "source_tag": source_tag,
                     "dual_source_paths": " | ".join(
                         f"{name}:{sources.get(name, {}).get('path', '')}"
