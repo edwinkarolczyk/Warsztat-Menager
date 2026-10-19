@@ -127,7 +127,9 @@ jobs:
         run: |
           pytest -q \
             tests/test_magazyn_pz_ui.py \
-            tests/test_gui_magazyn_rezerwacje.py
+            tests/test_gui_magazyn_rezerwacje.py \
+            tests/test_magazyn_stock_adjustment.py \
+            tests/test_dyspozycje_magazyn.py
       - name: Run UI and ROOT regressions
         run: |
           pytest -q \
