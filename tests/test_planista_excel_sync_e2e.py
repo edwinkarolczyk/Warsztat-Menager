@@ -328,3 +328,21 @@ def test_malformed_xlsx_fails_safely_before_any_sync(tmp_path):
 
     with pytest.raises(PlanExcelError, match="Nie można odczytać pliku Excel"):
         load_production_plan(path)
+
+
+def test_import_diagnostics_block_sync_of_invalid_rows(tmp_path):
+    source = tmp_path / "Plan.xlsx"
+    _write_plan_xlsx(
+        source,
+        [{"order": 750, "product": "1.327.50 NW - RAL 5003",
+          "qty": 10, "date_serial": 46279, "process": "zgrzane"}],
+    )
+    payload = load_production_plan(source)
+    payload["import_diagnostics"]["row_warnings"] = [
+        {"source_row": 4, "reasons": ["Nierozpoznana data wysyłki."]}
+    ]
+    matched = match_production_plan(payload, PRODUCTS)
+    plan = sync.build_order_sync_plan(matched, orders=[])
+    assert plan["items"][0]["action"] == sync.ACTION_SKIP
+    assert "Błąd danych w Excelu" in plan["items"][0]["reason"]
+    assert plan["can_write"] is False
