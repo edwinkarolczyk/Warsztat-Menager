@@ -849,9 +849,11 @@ def _set_pending_count(owner, count: int) -> None:
         return
     _cancel_blink(owner)
     try:
+        manager = getattr(owner, "_excel_ui_mode", "") == "manager"
         button.configure(
-            text=f"Do akceptacji ({count})",
-            state=("normal" if count > 0 else "disabled"),
+            text=(f"Plan Excel — do akceptacji ({count})" if count else "Plan Excel — źródła i zmiany…")
+            if manager else f"Do akceptacji ({count})",
+            state="normal" if manager else ("normal" if count > 0 else "disabled"),
             bg=("#f59e0b" if count > 0 else "#374151"),
             activebackground=("#f59e0b" if count > 0 else "#374151"),
         )
@@ -979,6 +981,12 @@ def _finish_auto_scan(owner, payload: dict | None, error: str, source: str) -> N
 
     count = _pending_sync_count(payload)
     _set_pending_count(owner, count)
+    if panel is not None and panel is not owner:
+        try:
+            if panel.winfo_exists():
+                _refresh_auto_pending(panel)
+        except Exception:
+            pass
 
     stamp = datetime.now().strftime("%H:%M:%S")
     created = sum(
@@ -1276,16 +1284,21 @@ def install_planista_excel_runtime() -> None:
 
         excel_bar = ttk.Frame(parent)
         excel_bar.pack(fill="x", pady=(6, 0))
-        ttk.Button(
+        manager_button = tk.Button(
             excel_bar, text="Plan Excel — źródła i zmiany…",
             command=lambda: _open_excel_control(self),
-        ).pack(side="left")
+            bg="#374151", fg="white", activeforeground="white",
+            disabledforeground="#9ca3af", relief="flat", padx=10, pady=4,
+            cursor="hand2",
+        )
+        manager_button.pack(side="left")
         ttk.Label(
             excel_bar,
             text="Dwa źródła, akceptacja, konflikty, historia i druk w jednym oknie",
         ).pack(side="left", padx=(12, 0))
         self._excel_auto_source_label = None
-        self._excel_auto_accept_button = None
+        self._excel_ui_mode = "manager"
+        self._excel_auto_accept_button = manager_button
         self._excel_auto_status_var = tk.StringVar(
             value="Automat: uruchamianie…" if self._excel_auto_var.get() else "Automat wyłączony"
         )
