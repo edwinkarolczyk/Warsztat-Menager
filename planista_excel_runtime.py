@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.8
+# version: 1.9
+# 1.9: walidacja wymiarów także z oznaczenia Produktu WM.
 # 1.8: ręczny wybór Produktu WM, zapamiętywanie powiązań, bez zmiany Excela.
 # 1.7: dodano ustawiany interwał, automatyczną akceptację bezpiecznych pozycji i wydruk nowych zleceń.
 # 1.6: dodano automatyczną pracę na wybranym Excelu z analizą wyłącznie odłączonej kopii i kolejką Do akceptacji.
@@ -48,6 +49,7 @@ from planista_excel_match import (
     excel_mapping_key,
     match_production_plan,
     product_dimensions,
+    catalog_product_dimensions,
     normalize_designation,
 )
 from planista_excel_orders import (
@@ -410,7 +412,17 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             excel_text = str(row.get("produkt") or "")
             wm_name = str(record.get("nazwa") or record.get("name") or "")
             dims_excel = product_dimensions(excel_text)
-            dims_wm = product_dimensions(wm_name)
+            dims_name = product_dimensions(wm_name)
+            dims_symbol = product_dimensions(symbol)
+            dims_wm = catalog_product_dimensions(wm_name, symbol)
+            if dims_name and dims_symbol and dims_name != dims_symbol:
+                messagebox.showerror(
+                    "Niezgodne dane produktu",
+                    "Wymiary w nazwie i oznaczeniu Produktu WM różnią się. "
+                    "Popraw kartotekę przed przypisaniem.",
+                    parent=win,
+                )
+                return
             if dims_excel and dims_wm and dims_excel != dims_wm:
                 messagebox.showerror(
                     "Niezgodne wymiary",
