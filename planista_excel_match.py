@@ -34,14 +34,27 @@ def _normalize_text(value) -> str:
 def normalize_designation(value) -> str:
     """Normalizuj zapis kodu bez zgadywania innych oznaczeń."""
     text = str(value or "").strip().upper()
-    text = text.replace("–", "-").replace("—", "-").replace("−", "-")
+    text = text.replace("–", "-").replace("—", "-").replace("−", "-").replace("×", "X")
     return re.sub(r"\s+", "", text)
 
 
 def extract_product_designation(product_text) -> str:
-    """Pobierz prowadzące oznaczenie z opisu typu `1.560.450 SITI - RAL...`."""
-    match = _CODE_RE.match(str(product_text or ""))
-    return match.group(1).strip() if match else ""
+    """Zwróć jawny kod z początku opisu; nazwy i dodatki RAL nie są kodami."""
+    text = str(product_text or "").strip()
+    compound = re.match(
+        r"^([A-Za-z]{2,8})\s+(\d+(?:[.\-/_]\d+)+)(?=\s|$)", text
+    )
+    if compound:
+        return f"{compound.group(1)} {compound.group(2)}"
+    dimensions = re.match(
+        r"^(\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?){1,3})(?=\s|$)",
+        text, flags=re.I,
+    )
+    if dimensions:
+        return dimensions.group(1)
+    match = _CODE_RE.match(text)
+    code = match.group(1).strip() if match else ""
+    return code if any(char.isdigit() for char in code) else ""
 
 
 def _catalog_candidates(products: dict, designation: str) -> list[dict]:
@@ -187,6 +200,23 @@ def _name_candidates(products: dict, excel_text: str) -> tuple[list[dict], bool]
     return proposed, False
 
 
+def _dimension_conflict_candidates(products: dict, excel_text: str) -> list[str]:
+    """Wskazuj konflikt wymiarów tylko przy porównywalnej nazwie, bez zgadywania kodu."""
+    base_name = _base_name_key(excel_text)
+    if not base_name or not product_dimensions(excel_text):
+        return []
+    symbols = []
+    for key, raw in products.items():
+        if not isinstance(raw, dict):
+            continue
+        name = str(raw.get("nazwa") or raw.get("name") or "").strip()
+        symbol = str(raw.get("symbol") or raw.get("kod") or key).strip()
+        named = _base_name_key(name)
+        if named and named == base_name and _dimension_conflict(excel_text, name, symbol):
+            symbols.append(symbol)
+    return list(dict.fromkeys(symbols))
+
+
 def _candidate_match(designation: str, candidate: dict, note: str, *, method: str) -> dict:
     return {
         "excel_oznaczenie": designation,
@@ -215,20 +245,10 @@ def _manual_candidate(products: dict, symbol: str) -> dict | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def match_excel_product(product_text, products: dict, manual_mappings: dict | None = None) -> dict:
+def _match_excel_product_core(product_text, products: dict, manual_mappings: dict | None = None) -> dict:
     """Dopasuj jedną linię Excel do Produktu WM bez zapisu danych."""
     excel_text = str(product_text or "").strip()
     designation = extract_product_designation(excel_text)
-    if not designation:
-        return {
-            "excel_oznaczenie": "",
-            "match_status": STATUS_MISSING,
-            "wm_symbol": "",
-            "wm_nazwa": "",
-            "match_note": "Nie udało się odczytać oznaczenia produktu z początku opisu Excel.",
-            "candidate_symbols": [],
-        }
-
     candidates = _catalog_candidates(products, designation)
     mapping = (manual_mappings or {}).get(excel_mapping_key(excel_text))
     manual_symbol = (
@@ -272,12 +292,22 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
                         candidate["symbol"] for candidate in named
                     )),
                 }
+            conflicting = _dimension_conflict_candidates(products, excel_text)
+            if conflicting:
+                return {
+                    "excel_oznaczenie": designation,
+                    "match_status": STATUS_AMBIGUOUS,
+                    "wm_symbol": "",
+                    "wm_nazwa": "",
+                    "match_note": "Niezgodne wymiary Produktu WM i opisu Excel; wybierz właściwy wariant.",
+                    "candidate_symbols": conflicting,
+                }
         return {
             "excel_oznaczenie": designation,
             "match_status": STATUS_MISSING,
             "wm_symbol": "",
             "wm_nazwa": "",
-            "match_note": "Brak jednoznacznego Produktu WM. Możesz wskazać go ręcznie.",
+            "match_note": "Brak produktu w WM o bezpiecznym dopasowaniu kodu lub nazwy.",
             "candidate_symbols": [],
         }
 
@@ -335,9 +365,32 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
     }
 
 
+MATCH_CATEGORY_MISSING = "Nie ma produktu w WM"
+MATCH_CATEGORY_POSSIBLE = "Możliwy produkt — potwierdź"
+MATCH_CATEGORY_DIMENSIONS = "Niezgodne wymiary"
+
+
+def match_excel_product(product_text, products: dict, manual_mappings: dict | None = None) -> dict:
+    """Zachowaj istniejące statusy i dodaj czytelną przyczynę braku powiązania."""
+    result = _match_excel_product_core(product_text, products, manual_mappings)
+    if result["match_status"] == STATUS_FOUND:
+        result["match_category"] = STATUS_FOUND
+    elif "wymiar" in str(result.get("match_note") or "").casefold() and (
+        "różn" in str(result.get("match_note") or "").casefold()
+        or "niezgodn" in str(result.get("match_note") or "").casefold()
+    ):
+        result["match_category"] = MATCH_CATEGORY_DIMENSIONS
+    elif result.get("candidate_symbols"):
+        result["match_category"] = MATCH_CATEGORY_POSSIBLE
+    else:
+        result["match_category"] = MATCH_CATEGORY_MISSING
+    return result
+
+
 def match_production_plan(payload: dict, products: dict, manual_mappings: dict | None = None) -> dict:
     """Dodaj wynik dopasowania do każdej pozycji planu, nie mutując wejścia."""
     matched_rows = []
+    categories = {key: 0 for key in (MATCH_CATEGORY_MISSING, MATCH_CATEGORY_POSSIBLE, MATCH_CATEGORY_DIMENSIONS)}
     counts = {
         STATUS_FOUND: 0,
         STATUS_MISSING: 0,
@@ -351,9 +404,13 @@ def match_production_plan(payload: dict, products: dict, manual_mappings: dict |
         status = match["match_status"]
         if status in counts:
             counts[status] += 1
+        category = match.get("match_category")
+        if category in categories:
+            categories[category] += 1
 
     result = dict(payload)
     result["rows"] = matched_rows
     result["match_summary"] = counts
+    result["match_category_summary"] = categories
     result["product_catalog_size"] = len(products) if isinstance(products, dict) else 0
     return result
