@@ -94,7 +94,7 @@ def test_work_order_output_path_uses_active_wm_root(monkeypatch, tmp_path):
     assert path.parent.is_dir()
 
 
-def test_both_planista_views_use_persistent_work_order_path():
+def test_planista_uses_persistent_card_and_common_print_dispatch():
     root = Path(__file__).resolve().parents[1]
     standalone = (root / "gui_planista.py").read_text(encoding="utf-8")
     panel = (root / "gui_planista_panel.py").read_text(encoding="utf-8")
@@ -102,7 +102,7 @@ def test_both_planista_views_use_persistent_work_order_path():
     assert "tempfile.gettempdir()" not in standalone
     assert "tempfile.gettempdir()" not in panel
     assert "path = _work_order_output_path(order)" in standalone
-    assert "path = _work_order_output_path(order)" in panel
+    assert "dispatch_work_order_print(" in panel
 
 
 def test_bar_count_respects_real_cut_layout_not_only_total_length():
@@ -152,7 +152,7 @@ def test_cutting_diagram_two_2900_pieces_has_two_kerfs_and_196_remainder(monkeyp
     assert "Wiercenie" in rendered
     assert "Kontrola wymiaru po pierwszej sztuce." in rendered
     assert "window.print()" in rendered
-    assert "@page { size: A5 portrait;" in rendered
+    assert "@page { size: A4 portrait;" in rendered
 
 
 def test_cutting_diagram_does_not_show_impossible_bar(monkeypatch):
@@ -188,3 +188,13 @@ def test_cutting_diagram_repeats_pattern_instead_of_hundreds_of_drawings(monkeyp
 
     assert "Wariant 1 — 100 × sztanga 6000 mm" in rendered
     assert rendered.count("class='cut-diagram'") == 1
+
+
+def test_a4_print_keeps_original_qr_operations_and_cutting_diagram():
+    rendered = _work_order_html(_sample_order())
+    assert "@page { size: A4 portrait; margin: 12mm; }" in rendered
+    assert "karta robocza A4" in rendered
+    assert "WM:PLANISTA:ORDER:000123" in rendered
+    assert "<div class='qr-block'>" in rendered
+    assert "class='check-box'" in rendered
+    assert "Plan cięcia sztang" in rendered
