@@ -250,14 +250,23 @@ def inspect_dual_plans(source_a: str, source_b: str) -> dict:
         }]
         _save(state)
     counted = {STATUS_FOUND: 0, STATUS_MISSING: 0, STATUS_AMBIGUOUS: 0}
+    categories = {
+        "Nie ma produktu w WM": 0,
+        "Możliwy produkt — potwierdź": 0,
+        "Niezgodne wymiary": 0,
+    }
     for row in comparison["rows"]:
         status = row.get("match_status")
         if status in counted:
             counted[status] += 1
+        category = row.get("match_category")
+        if category in categories:
+            categories[category] += 1
     return {
         **comparison, "source_name": "Excel A + Excel B",
         "source_path": source_a, "sheet": "PLAN 2026",
-        "match_summary": counted, "product_catalog_size": len(products),
+        "match_summary": counted, "match_category_summary": categories,
+        "product_catalog_size": len(products),
         "import_diagnostics": diagnostics, "dual_source_errors": source_errors,
         "dual_conflicts": merged["conflicts"], "dual_sources": state["sources"],
         "dual_mode": True,
