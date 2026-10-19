@@ -443,3 +443,26 @@ def test_xlsx_parser_reports_skipped_rows_and_invalid_qty_date(tmp_path):
     assert "data" in " ".join(diag["row_warnings"][0]["reasons"])
     assert diag["row_warnings"][1]["source_row"] == 6
     assert "ilości" in " ".join(diag["row_warnings"][1]["reasons"])
+
+
+def test_blank_product_row_still_carries_next_order_and_date(tmp_path):
+    path = _fixture_xlsx(tmp_path / "Plan.xlsx")
+    with ZipFile(path, "r") as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
+    xml = xml.replace(
+        '<c r="B5" t="s"><v>6</v></c>',
+        '<c r="A5"><v>750</v></c><c r="B5" t="s"><v>1</v></c>',
+    )
+    xml = xml.replace('<c r="A6"><v>593</v></c>', "")
+    xml = xml.replace('<c r="D6"><v>46281</v></c>', "")
+    files["xl/worksheets/sheet1.xml"] = xml.encode("utf-8")
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+
+    payload = load_production_plan(path)
+    assert len(payload["rows"]) == 2
+    assert payload["import_diagnostics"]["skipped_rows"][0]["source_row"] == 5
+    assert payload["rows"][1]["nr_zlec"] == "750"
+    assert payload["rows"][1]["data_wysylki"] == "2026-09-14"
