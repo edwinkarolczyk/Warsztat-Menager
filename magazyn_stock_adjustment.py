@@ -159,16 +159,13 @@ def adjust_actual_stock(
         # odczytywać identyczny stan również po ponownym uruchomieniu WM.
         import logika_magazyn as LM
 
-        current_item = LM.get_item(key)
+        canonical = LM.load_magazyn(include_external=False)
+        current_item = (canonical.get("items") or {}).get(key)
         if not isinstance(current_item, dict):
-            raise ValueError(f"Nie znaleziono pozycji {key} w Magazynie.")
-        LM.upsert_item({"id": key, "stan": requested})
+            raise ValueError(f"Nie znaleziono pozycji {key} w głównej kartotece Magazynu.")
+        current_item["stan"] = requested
+        LM.save_magazyn(canonical)
 
-        # upsert odświeża stany.json z kartoteki; przywróć historię korekt.
-        states = _read_json(states_path, {})
-        if not isinstance(states, dict):
-            raise RuntimeError("Nieprawidłowy plik stany.json.")
-        state["stan"] = requested
         states[key] = state
         _write_json_atomic(states_path, states)
         return record
