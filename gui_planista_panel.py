@@ -807,9 +807,17 @@ class PlanistaPanel(ttk.Frame):
         body = ttk.Frame(dlg, padding=12)
         body.pack(fill="both", expand=True)
         sent = sum(1 for event in events if event.get("stan") == PRINT_SENT)
+        versions = list(dict.fromkeys(
+            str(event.get("wersja") or "")
+            for event in events
+            if event.get("stan") == PRINT_SENT and event.get("wersja")
+        ))
         ttk.Label(
             body,
-            text=f"Zlecenie {oid}  |  Status: {status}  |  Wysłano: {sent} razy",
+            text=(
+                f"Zlecenie {oid}  |  Status: {status}  |  "
+                f"Wysłano: {sent} razy  |  Wersji karty: {len(versions)}"
+            ),
         ).pack(anchor="w", pady=(0, 10))
         columns = ("czas", "stan", "uzytkownik", "zrodlo", "szczegoly")
         table = ttk.Treeview(body, columns=columns, show="headings")
