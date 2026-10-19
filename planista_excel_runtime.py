@@ -346,7 +346,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         if row is None:
             messagebox.showinfo("Dopasowanie produktu", "Wybierz wiersz Excela.", parent=dlg)
             return
-        if row not in rows:
+        if all(row is not active_row for active_row in rows):
             messagebox.showinfo(
                 "Dopasowanie produktu",
                 "Usunięte wiersze Excela są tylko informacją historyczną.",
