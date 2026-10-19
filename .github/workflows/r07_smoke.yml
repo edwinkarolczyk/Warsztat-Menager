@@ -26,3 +26,11 @@ jobs:
             tests/test_wmm_machine_mobile.py \
             tests/test_wmm_machine_mobile_v4.py \
             tests/test_wmm_machine_mobile_v5.py
+
+      - name: Planista Excel A+B regression
+        run: |
+          pytest -q \
+            tests/test_planista_excel_import.py \
+            tests/test_planista_excel_changes.py \
+            tests/test_planista_excel_sync_e2e.py \
+            tests/test_planista_excel_dual.py
