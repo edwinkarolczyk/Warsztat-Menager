@@ -248,11 +248,6 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         if not has_content:
             continue
         source_rows += 1
-        product = str(cells.get(columns["product"], "") or "").strip()
-        if not product:
-            skipped_rows.append({"source_row": row_no, "reason": "Brak opisu produktu (kolumna B)."})
-            continue
-
         explicit_order = _as_order_number(cells.get(columns["order"], ""))
         explicit_date = _as_excel_date(cells.get(columns["date"], ""))
         if explicit_order:
@@ -260,6 +255,11 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
             current_date = explicit_date
         elif explicit_date:
             current_date = explicit_date
+
+        product = str(cells.get(columns["product"], "") or "").strip()
+        if not product:
+            skipped_rows.append({"source_row": row_no, "reason": "Brak opisu produktu (kolumna B)."})
+            continue
 
         raw_qty = cells.get(columns["qty"], "")
         quantity = _as_quantity(raw_qty)
