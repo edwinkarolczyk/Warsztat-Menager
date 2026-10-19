@@ -296,3 +296,16 @@ def test_analysis_preview_has_manual_mapping_button_and_refreshes_working_payloa
     assert 'payload["match_summary"] = matched["match_summary"]' in source
     assert "owner._excel_plan_import = payload" in source
     assert "dims_excel != dims_wm" in source
+
+
+def test_saved_mapping_does_not_ignore_changed_dimensions():
+    products = {
+        "L-2": {"symbol": "L-2", "nazwa": "Szafka loto 260x100x300"},
+    }
+    excel_text = "Szafka LOTO 270×100×170 – RAL 1023"
+    mappings = {excel_mapping_key(excel_text): {"wm_symbol": "L-2"}}
+
+    match = match_excel_product(excel_text, products, manual_mappings=mappings)
+
+    assert match["match_status"] != STATUS_FOUND
+    assert match["wm_symbol"] == ""
