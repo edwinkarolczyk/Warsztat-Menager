@@ -80,6 +80,17 @@ class StockAdjustmentDialog:
         except (ValueError, RuntimeError, OSError) as exc:
             messagebox.showerror("Korekta stanu", str(exc), parent=self.win)
             return
+        try:
+            from dyspozycje_magazyn import close_fulfilled_material_dispositions
+
+            close_fulfilled_material_dispositions(self.item_id)
+        except Exception as exc:
+            messagebox.showwarning(
+                "Korekta zapisana",
+                "Stan został poprawiony, ale nie udało się sprawdzić "
+                f"powiązanych dyspozycji: {exc}",
+                parent=self.win,
+            )
         if callable(self.on_saved):
             self.on_saved(self.item_id)
         messagebox.showinfo(
