@@ -1817,6 +1817,15 @@ def uruchom_panel(root, login, rola):
         root.update_idletasks()
 
     _build_sidebar(initial=True)
+
+    # Monitor dwóch źródeł Planisty startuje wraz z WM, również bez otwierania Planisty.
+    try:
+        from planista_excel_runtime import start_global_excel_watcher
+
+        start_global_excel_watcher(root)
+    except Exception as exc:
+        _warn(f"Monitor Excel Planisty nie został uruchomiony: {exc}")
+
     from services.wmm_panel import mount_wmm_panel
 
     mount_wmm_panel(root)
