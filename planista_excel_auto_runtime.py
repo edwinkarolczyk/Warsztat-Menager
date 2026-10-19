@@ -54,6 +54,7 @@ def _default_state() -> dict[str, Any]:
     return {
         "enabled": False,
         "source_path": "",
+        "source_path_b": "",
         "interval_minutes": DEFAULT_INTERVAL_MINUTES,
         "auto_accept": False,
         "auto_print": False,
@@ -79,6 +80,7 @@ def load_auto_state() -> dict[str, Any]:
     return {
         "enabled": bool(raw.get("enabled")),
         "source_path": str(raw.get("source_path") or "").strip(),
+        "source_path_b": str(raw.get("source_path_b") or "").strip(),
         "interval_minutes": normalize_interval_minutes(raw.get("interval_minutes")),
         "auto_accept": bool(raw.get("auto_accept")),
         "auto_print": bool(raw.get("auto_print")),
@@ -90,6 +92,7 @@ def save_auto_state(
     *,
     enabled: bool | None = None,
     source_path: str | None = None,
+    source_path_b: str | None = None,
     interval_minutes: Any | None = None,
     auto_accept: bool | None = None,
     auto_print: bool | None = None,
@@ -101,6 +104,8 @@ def save_auto_state(
         state["enabled"] = bool(enabled)
     if source_path is not None:
         state["source_path"] = str(source_path or "").strip()
+    if source_path_b is not None:
+        state["source_path_b"] = str(source_path_b or "").strip()
     if interval_minutes is not None:
         state["interval_minutes"] = normalize_interval_minutes(interval_minutes)
     if auto_accept is not None:
