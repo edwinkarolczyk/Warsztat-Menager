@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.11
+# version: 1.12
+# 1.12: podgląd jednego PDF A4 i wspólny druk zbiorczy jednym poleceniem.
 # 1.11: kolumna wydruku A4, zbiorcze drukowanie i historia poleceń.
 # Planista osadzony w glownym obszarze WM.
 # 1.10: kosmetyka kolumny Termin w Zleceniach: DD miesiąca RR zamiast DD-MM-RR.
@@ -13,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import queue
 import threading
 import tkinter as tk
@@ -24,6 +26,7 @@ import zlecenia_logika as ZL
 import zlecenia_progress as ZP
 from config_manager import ConfigManager
 from planista_auto_print_runtime import dispatch_work_order_print
+from planista_batch_print_runtime import dispatch_batch_print, prepare_batch_pdf
 from planista_print_history import (
     PRINT_CHANGED, PRINT_ERROR, PRINT_NEW, PRINT_PENDING, PRINT_SENT,
     PRINT_STATES, PRINT_UNKNOWN, ensure_print_registry, load_print_history,
@@ -244,6 +247,9 @@ class PlanistaPanel(ttk.Frame):
         )
         self._print_filter.pack(side="left", padx=(6, 10))
         self._print_filter.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
+        ttk.Button(
+            print_bar, text="Podgląd PDF", command=self.preview_selected_orders,
+        ).pack(side="left", padx=(0, 7))
         ttk.Button(
             print_bar, text="Drukuj zaznaczone", command=self.print_selected_orders,
         ).pack(side="left", padx=(0, 7))
@@ -652,8 +658,22 @@ class PlanistaPanel(ttk.Frame):
                 return
         self._print_orders([str(order["id"])])
 
+    def preview_selected_orders(self):
+        order_ids = self._selected_ids_for_pdf()
+        if not order_ids:
+            messagebox.showinfo(
+                "Podgląd PDF", "Zaznacz zlecenia w kolumnie ✓.", parent=self,
+            )
+            return
+        self._print_orders(order_ids, preview=True)
+
+    def _selected_ids_for_pdf(self):
+        # Zachowaj kolejność zleceń z tabeli na stronach PDF.
+        selected = set(self.tree.selection())
+        return [oid for oid in self.tree.get_children() if oid in selected]
+
     def print_selected_orders(self):
-        order_ids = list(self.tree.selection())
+        order_ids = self._selected_ids_for_pdf()
         if not order_ids:
             messagebox.showinfo(
                 "Drukowanie zbiorcze", "Zaznacz zlecenia w kolumnie ✓.",
@@ -662,8 +682,9 @@ class PlanistaPanel(ttk.Frame):
             return
         if not messagebox.askyesno(
             "Drukowanie zbiorcze A4",
-            f"Wysłać {len(order_ids)} zaznaczonych kart A4 do domyślnej "
-            "drukarki Windows?\n\nZlecenia już drukowane będą drukowane ponownie.",
+            f"Połączyć {len(order_ids)} kart A4 w jeden PDF i wysłać "
+            "jedno polecenie drukowania do Windows?\n\n"
+            "Zlecenia już drukowane będą drukowane ponownie.",
             parent=self,
         ):
             return
@@ -689,83 +710,115 @@ class PlanistaPanel(ttk.Frame):
             return
         if not messagebox.askyesno(
             "Drukowanie niewydrukowanych A4",
-            f"Wysłać {len(order_ids)} niewydrukowanych kart A4 do domyślnej "
-            "drukarki Windows?\n\nKażde zlecenie zostanie sprawdzone "
-            "ponownie przed wysłaniem.",
+            f"Połączyć {len(order_ids)} niewydrukowanych kart A4 "
+            "w jeden PDF i wysłać jedno polecenie drukowania?\n\n"
+            "Każde zlecenie zostanie sprawdzone ponownie.",
             parent=self,
         ):
             return
         self._print_orders(order_ids, only_unprinted=True)
 
-    def _print_orders(self, order_ids, *, only_unprinted=False):
+    def _print_orders(self, order_ids, *, only_unprinted=False, preview=False):
+        """Zbiorczo: najpierw jeden PDF, później jedno polecenie drukowania."""
         if getattr(self, "_print_job_active", False):
             messagebox.showinfo(
-                "Drukowanie",
-                "Poprzednia kolejka wydruku jest jeszcze przetwarzana.",
+                "Drukowanie", "Trwa przygotowanie lub wydruk poprzedniego PDF.",
                 parent=self,
             )
             return
-        to_print = [
+        orders = [
             dict(self._orders[oid]) for oid in dict.fromkeys(order_ids)
             if oid in self._orders
         ]
-        if not to_print:
+        if not orders:
             return
         self._print_job_active = True
         responses = queue.Queue()
         username = self.login or "brygadzista"
 
         def worker():
-            for record in to_print:
-                oid = str(record.get("id") or "")
-                try:
-                    if only_unprinted and print_status(record) != PRINT_NEW:
-                        responses.put(("pominięto", oid, "Status został zmieniony."))
+            try:
+                filtered = []
+                for order in orders:
+                    if only_unprinted and print_status(order) != PRINT_NEW:
                         continue
-                    responses.put(("w_kolejce", oid, ""))
-                    dispatch_work_order_print(
-                        record, user=username, source="Planista – lista zleceń",
+                    filtered.append(order)
+                if not filtered:
+                    responses.put(("pominięto", [], "", "Nie ma już niewydrukowanych kart."))
+                    return
+                ids = [str(order["id"]) for order in filtered]
+                if preview:
+                    path = prepare_batch_pdf(filtered)
+                    responses.put(("podgląd", ids, str(path), ""))
+                else:
+                    responses.put(("kolejka", ids, "", ""))
+                    path = dispatch_batch_print(
+                        filtered, user=username, source="Planista – zbiorczy PDF",
                     )
-                    responses.put(("wysłano", oid, ""))
-                except Exception as exc:
-                    responses.put(("błąd", oid, str(exc)))
-            responses.put(("koniec", "", ""))
+                    responses.put(("wysłano", ids, str(path), ""))
+            except Exception as exc:
+                responses.put(("błąd", [], "", str(exc)))
+            finally:
+                responses.put(("koniec", [], "", ""))
 
         threading.Thread(target=worker, daemon=True).start()
-        results = []
+        outcome = {"status": "", "ids": [], "path": "", "error": ""}
 
         def poll():
             while True:
                 try:
-                    state, oid, detail = responses.get_nowait()
+                    kind, ids, pdf_path, details = responses.get_nowait()
                 except queue.Empty:
                     break
-                if state == "koniec":
+                if kind == "kolejka":
+                    for oid in ids:
+                        if self.tree.exists(oid):
+                            self.tree.set(oid, "wydruk", "… W kolejce")
+                elif kind == "koniec":
                     self._print_job_active = False
                     self.refresh()
-                    sent = sum(1 for kind, _oid, _msg in results if kind == "wysłano")
-                    skipped = sum(1 for kind, _oid, _msg in results if kind == "pominięto")
-                    errors = [f"{code}: {msg}" for kind, code, msg in results if kind == "błąd"]
-                    notice = f"Wysłano: {sent}\nPominięto: {skipped}\nBłędy: {len(errors)}"
-                    if errors:
-                        messagebox.showwarning(
-                            "Wynik drukowania A4",
-                            notice + "\n\n" + "\n".join(errors[:12]),
+                    if outcome["status"] == "podgląd":
+                        try:
+                            if os.name == "nt":
+                                os.startfile(outcome["path"])
+                            else:
+                                import webbrowser
+                                webbrowser.open(Path(outcome["path"]).as_uri())
+                        except Exception as exc:
+                            messagebox.showerror(
+                                "Podgląd PDF",
+                                f"PDF został zapisany, ale nie można go otworzyć:\n"
+                                f"{outcome['path']}\n{exc}",
+                                parent=self,
+                            )
+                    elif outcome["status"] == "wysłano":
+                        messagebox.showinfo(
+                            "Wydruk zbiorczy A4",
+                            f"Wysłano jeden PDF do systemowej obsługi drukowania.\n"
+                            f"Karty zleceń: {len(outcome['ids'])}\n"
+                            f"Plik: {outcome['path']}\n\n"
+                            "Status „Wysłano” nie potwierdza wydruku na papierze.",
                             parent=self,
                         )
-                    else:
-                        messagebox.showinfo("Wynik drukowania A4", notice, parent=self)
+                    elif outcome["status"] == "pominięto":
+                        messagebox.showinfo(
+                            "Drukowanie zbiorcze", outcome["error"], parent=self,
+                        )
+                    elif outcome["status"] == "błąd":
+                        messagebox.showerror(
+                            "Wydruk zbiorczy A4",
+                            f"Nie udało się przygotować lub wysłać PDF:\n"
+                            f"{outcome['error']}\n\n"
+                            "Jeżeli PDF został już zapisany, można go "
+                            "otworzyć z katalogu zlecenia/karty/zbiorcze.",
+                            parent=self,
+                        )
                     return
-                if state == "w_kolejce":
-                    if self.tree.exists(oid):
-                        self.tree.set(oid, "wydruk", "… W kolejce")
-                    continue
-                if self.tree.exists(oid):
-                    if state == "wysłano":
-                        self.tree.set(oid, "wydruk", "✓ Wysłano")
-                    elif state == "błąd":
-                        self.tree.set(oid, "wydruk", "✕ Błąd")
-                results.append((state, oid, detail))
+                else:
+                    outcome["status"] = kind
+                    outcome["ids"] = ids
+                    outcome["path"] = pdf_path
+                    outcome["error"] = details
             if self.winfo_exists():
                 self.after(350, poll)
 
