@@ -106,3 +106,20 @@ def test_existing_editor_preserves_print_controls_and_double_click_history():
     assert "_open_print_history_on_double_click(event)" in editor
     assert 'text="Drukuj A4"' in panel
     assert 'self.tree.set(oid, "wydruk", "… W kolejce")' in panel
+
+
+def test_unaccepted_excel_print_does_not_mark_workshop_order_as_sent(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        PRINT, "print_history_path", lambda: tmp_path / "registry.json",
+    )
+    original_order = _order("747")
+    PRINT.ensure_print_registry([original_order])
+    external = {"id": "747", "produkt": "Szafka LOTO", "ilosc": 5}
+    PRINT.record_print_event(
+        external, PRINT.PRINT_SENT, source="Excel przed akceptacją",
+    )
+
+    data = PRINT.load_print_history()
+    assert PRINT.print_status(original_order, data) == PRINT.PRINT_UNKNOWN
+    assert not PRINT.print_events("747", data)
+    assert len(data["orders"]["excel:747"]) == 1
