@@ -649,6 +649,15 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
 
         created = sum(1 for item in succeeded if item.get("action") == ACTION_CREATE)
         updated = sum(1 for item in succeeded if item.get("action") == ACTION_UPDATE)
+        # W trybie A+B drukuj dopiero faktycznie utworzone zlecenie,
+        # zawsze tą samą istniejącą kolejką wydruków Planisty.
+        if payload.get("dual_mode") and created:
+            try:
+                from planista_excel_runtime import _queue_created_prints
+                _, print_errors = _queue_created_prints(owner, succeeded)
+                failed.extend(("Wydruk", error) for error in print_errors)
+            except Exception as exc:
+                failed.append(("Wydruk", str(exc)))
         if failed:
             details = "\n".join(f"• {identity}: {reason}" for identity, reason in failed[:8])
             extra = "" if len(failed) <= 8 else f"\n… oraz {len(failed) - 8} kolejnych błędów."
