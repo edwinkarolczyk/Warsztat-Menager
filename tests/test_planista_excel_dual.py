@@ -87,7 +87,9 @@ def test_missing_source_blocks_automatic_sync_without_losing_rows():
 def test_duplicate_batches_with_same_code_require_decision():
     state = _state([_row(100, source_row=4), _row(50, source_row=5)], [])
     merged = dual._merge(state, fully_available=True)
-    assert merged["rows"][0]["match_status"] == STATUS_AMBIGUOUS
+    assert len(merged["rows"]) == 2
+    assert all(item["match_status"] == STATUS_AMBIGUOUS for item in merged["rows"])
+    assert {item["ilosc"] for item in merged["rows"]} == {50, 100}
     assert len(merged["conflicts"]) == 1
 
 
