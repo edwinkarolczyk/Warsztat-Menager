@@ -129,3 +129,53 @@ def test_two_source_printing_uses_existing_registry_after_order_creation():
     assert "_queue_created_prints(owner, succeeded)" in source
     auto = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
     assert 'elif payload.get("dual_mode"):' in auto
+
+
+def test_two_independent_snapshots_and_unavailable_copy(monkeypatch, tmp_path):
+    import sys
+    import types
+
+    monkeypatch.setattr(dual, "_path", lambda: tmp_path / "planista" / "excel_dual_state.json")
+    fake_module = types.ModuleType("gui_magazyn_bom")
+    class FakeWarehouse:
+        def __init__(self):
+            self.produkty = {"1.327.50": _row()}
+    fake_module.WarehouseModel = FakeWarehouse
+    monkeypatch.setitem(sys.modules, "gui_magazyn_bom", fake_module)
+    monkeypatch.setattr(dual, "load_manual_mappings", lambda: {})
+    rows_by_file = {
+        "A.xlsx": [_row(100)],
+        "B.xlsx": [_row(100)],
+    }
+    def fake_reader(source, products, mappings):
+        filename = Path(source).name
+        if filename not in rows_by_file:
+            raise FileNotFoundError(filename)
+        return {
+            "rows": [dict(item) for item in rows_by_file[filename]],
+            "import_diagnostics": {
+                "source_rows": len(rows_by_file[filename]),
+                "imported_rows": len(rows_by_file[filename]),
+                "skipped_rows": [], "row_warnings": [],
+            },
+        }
+    monkeypatch.setattr(dual, "_read_one", fake_reader)
+    a, b = str(tmp_path / "A.xlsx"), str(tmp_path / "B.xlsx")
+    first = dual.inspect_dual_plans(a, b)
+    assert first["dual_source_errors"] == []
+    assert len(first["rows"]) == 1
+    assert first["match_summary"][STATUS_FOUND] == 1
+    assert dual.load_dual_state()["sources"]["A"]["path"] == a
+    assert dual.load_dual_state()["sources"]["B"]["path"] == b
+
+    rows_by_file["A.xlsx"] = [_row(150)]
+    second = dual.inspect_dual_plans(a, b)
+    assert len(second["dual_conflicts"]) == 1
+    assert second["match_summary"][STATUS_FOUND] == 0
+
+    del rows_by_file["B.xlsx"]
+    third = dual.inspect_dual_plans(a, b)
+    assert third["dual_source_errors"]
+    assert len(third["rows"]) == 1
+    assert all(row["match_status"] == STATUS_AMBIGUOUS for row in third["rows"])
+    assert dual.load_dual_state()["sources"]["B"]["rows"][0]["ilosc"] == 100
