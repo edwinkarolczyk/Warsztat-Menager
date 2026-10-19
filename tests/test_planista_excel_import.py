@@ -309,3 +309,58 @@ def test_saved_mapping_does_not_ignore_changed_dimensions():
 
     assert match["match_status"] != STATUS_FOUND
     assert match["wm_symbol"] == ""
+
+
+def test_real_catalog_loto_uses_designation_dimensions_not_generic_names():
+    # W rzeczywistej kartotece wszystkie trzy nazwy są "Szafka loto".
+    # Rozmiary są zapisane tylko w oznaczeniach produktu.
+    products = {
+        "Szafka loto": {"symbol": "Szafka loto", "nazwa": "Szafka loto"},
+        "270x100x170": {"symbol": "270x100x170", "nazwa": "Szafka loto"},
+        "260x100x300": {"symbol": "260x100x300", "nazwa": "Szafka loto"},
+    }
+    cases = [
+        ("Szafka LOTO – RAL 1023", "Szafka loto"),
+        ("Szafka LOTO 270×100×170 – RAL 1023", "270x100x170"),
+        ("Szafka LOTO 260x100x300 – RAL 1023", "260x100x300"),
+    ]
+    for excel_text, wm_symbol in cases:
+        matched = match_excel_product(excel_text, products)
+        assert matched["match_status"] == STATUS_FOUND, excel_text
+        assert matched["wm_symbol"] == wm_symbol, excel_text
+        assert matched["match_method"] == "name"
+
+
+def test_real_catalog_does_not_guess_size_without_matching_catalog_dimensions():
+    products = {
+        "Szafka loto": {"symbol": "Szafka loto", "nazwa": "Szafka loto"},
+        "260x100x300": {"symbol": "260x100x300", "nazwa": "Szafka loto"},
+    }
+    matched = match_excel_product("Szafka LOTO 270x100x170 – RAL 1023", products)
+    assert matched["match_status"] == STATUS_AMBIGUOUS
+    assert matched["wm_symbol"] == ""
+    assert "260x100x300" not in matched["candidate_symbols"]
+
+
+def test_manual_mapping_does_not_override_different_dimensions_from_catalog_symbol():
+    products = {
+        "260x100x300": {"symbol": "260x100x300", "nazwa": "Szafka loto"},
+    }
+    excel_text = "Szafka LOTO 270×100×170 – RAL 1023"
+    manual = {excel_mapping_key(excel_text): {"wm_symbol": "260x100x300"}}
+    matched = match_excel_product(excel_text, products, manual_mappings=manual)
+    assert matched["match_status"] != STATUS_FOUND
+
+
+def test_variant_without_dimensions_never_infers_specific_size_from_name_alone():
+    products = {
+        "270x100x170": {"symbol": "270x100x170", "nazwa": "Szafka loto"},
+    }
+    matched = match_excel_product("Szafka LOTO – RAL 1023", products)
+    assert matched["match_status"] == STATUS_AMBIGUOUS
+
+
+def test_manual_picker_checks_dimensions_from_catalog_symbol():
+    source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
+    assert "dims_symbol = product_dimensions(symbol)" in source
+    assert "dims_wm = catalog_product_dimensions(wm_name, symbol)" in source
