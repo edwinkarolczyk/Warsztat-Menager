@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.7
+# version: 1.8
+# 1.8: ręczny wybór Produktu WM, zapamiętywanie powiązań, bez zmiany Excela.
 # 1.7: dodano ustawiany interwał, automatyczną akceptację bezpiecznych pozycji i wydruk nowych zleceń.
 # 1.6: dodano automatyczną pracę na wybranym Excelu z analizą wyłącznie odłączonej kopii i kolejką Do akceptacji.
 # 1.5: dodano wyszukiwarkę w podglądzie analizy Excel → Produkty WM.
@@ -31,6 +32,7 @@ from planista_excel_changes import (
     last_plan_source_path,
 )
 from planista_excel_import import PlanExcelError, load_production_plan
+from planista_excel_mappings import load_manual_mappings, remember_manual_mapping
 from planista_excel_auto_runtime import (
     DEFAULT_INTERVAL_MS,
     interval_ms,
@@ -43,7 +45,10 @@ from planista_excel_match import (
     STATUS_AMBIGUOUS,
     STATUS_FOUND,
     STATUS_MISSING,
+    excel_mapping_key,
     match_production_plan,
+    product_dimensions,
+    normalize_designation,
 )
 from planista_excel_orders import (
     ACTION_CREATE,
@@ -91,7 +96,7 @@ def _match_with_current_catalog(payload: dict) -> dict:
     from gui_magazyn_bom import WarehouseModel
 
     products = WarehouseModel().produkty
-    return match_production_plan(payload, products)
+    return match_production_plan(payload, products, manual_mappings=load_manual_mappings())
 
 
 def _load_match_and_compare(path: str) -> dict:
@@ -183,14 +188,17 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         ),
         font=("Arial", 10, "bold"),
     ).pack(anchor="w")
-    ttk.Label(
-        top,
-        text=(
-            f"{STATUS_FOUND}: {summary.get(STATUS_FOUND, 0)}   |   "
-            f"{STATUS_MISSING}: {summary.get(STATUS_MISSING, 0)}   |   "
-            f"{STATUS_AMBIGUOUS}: {summary.get(STATUS_AMBIGUOUS, 0)}"
-        ),
-    ).pack(anchor="w", pady=(3, 0))
+    match_summary_var = tk.StringVar()
+    def update_match_summary() -> None:
+        stats = payload.get("match_summary") or {}
+        match_summary_var.set(
+            f"{STATUS_FOUND}: {stats.get(STATUS_FOUND, 0)}   |   "
+            f"{STATUS_MISSING}: {stats.get(STATUS_MISSING, 0)}   |   "
+            f"{STATUS_AMBIGUOUS}: {stats.get(STATUS_AMBIGUOUS, 0)}"
+        )
+
+    ttk.Label(top, textvariable=match_summary_var).pack(anchor="w", pady=(3, 0))
+    update_match_summary()
     ttk.Label(top, text=_change_summary_text(payload)).pack(anchor="w", pady=(3, 0))
     ttk.Label(
         top,
@@ -280,9 +288,11 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     body.columnconfigure(0, weight=1)
 
     display_rows = sorted(rows, key=_preview_row_sort_key) + removed_rows
+    row_by_iid: dict[str, dict] = {}
 
     def render_rows(*_args) -> None:
         tree.delete(*tree.get_children())
+        row_by_iid.clear()
         query = search_var.get()
         filtered = [
             row
@@ -290,6 +300,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             if _preview_row_matches_search(row, query)
         ]
         for idx, row in enumerate(filtered):
+            row_by_iid[str(idx)] = row
             qty = row.get("ilosc")
             if isinstance(qty, float) and qty.is_integer():
                 qty = int(qty)
@@ -329,11 +340,136 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             )
         visible_var.set(f"Widoczne: {len(filtered)} / {len(display_rows)}")
 
+    def choose_wm_product() -> None:
+        chosen = tree.selection()
+        row = row_by_iid.get(chosen[0]) if chosen else None
+        if row is None:
+            messagebox.showinfo("Dopasowanie produktu", "Wybierz wiersz Excela.", parent=dlg)
+            return
+        if row not in rows:
+            messagebox.showinfo(
+                "Dopasowanie produktu",
+                "Usunięte wiersze Excela są tylko informacją historyczną.",
+                parent=dlg,
+            )
+            return
+
+        from gui_magazyn_bom import WarehouseModel
+
+        products = WarehouseModel().produkty
+        choices: dict[str, tuple[str, dict]] = {}
+        candidate_symbols = set(str(x) for x in row.get("candidate_symbols") or [])
+        for key, record in products.items():
+            if not isinstance(record, dict):
+                continue
+            symbol = str(record.get("symbol") or record.get("kod") or key).strip()
+            name = str(record.get("nazwa") or record.get("name") or "").strip()
+            if symbol:
+                label = f"{symbol} — {name or 'Bez nazwy'}"
+                choices[label] = (symbol, record)
+        if not choices:
+            messagebox.showwarning("Dopasowanie produktu", "Brak Produktów WM.", parent=dlg)
+            return
+
+        options = sorted(
+            choices, key=lambda label: (
+                0 if choices[label][0] in candidate_symbols else 1,
+                label.casefold(),
+            )
+        )
+        win = tk.Toplevel(dlg)
+        win.title("Przypisz Produkt WM do opisu Excel")
+        win.geometry("760x270")
+        win.transient(dlg)
+        win.grab_set()
+        form = ttk.Frame(win, padding=14)
+        form.pack(fill="both", expand=True)
+        ttk.Label(form, text="Opis w Excelu:").pack(anchor="w")
+        ttk.Label(
+            form,
+            text=str(row.get("produkt") or ""),
+            font=("Arial", 10, "bold"),
+            wraplength=715,
+        ).pack(anchor="w", pady=(2, 12))
+        ttk.Label(form, text="Wybierz właściwy Produkt WM (kandydaci są na górze):").pack(anchor="w")
+        selected = tk.StringVar(value=options[0] if len(candidate_symbols) == 1 else "")
+        picker = ttk.Combobox(form, textvariable=selected, values=options, state="readonly")
+        picker.pack(fill="x", pady=(5, 9))
+        ttk.Label(
+            form,
+            text="Powiązanie będzie zapamiętane dla tego pełnego opisu, razem z RAL.",
+            wraplength=715,
+        ).pack(anchor="w")
+
+        def save_choice() -> None:
+            choice = choices.get(selected.get())
+            if choice is None:
+                messagebox.showwarning("Dopasowanie produktu", "Wybierz produkt z listy.", parent=win)
+                return
+            symbol, record = choice
+            excel_text = str(row.get("produkt") or "")
+            wm_name = str(record.get("nazwa") or record.get("name") or "")
+            dims_excel = product_dimensions(excel_text)
+            dims_wm = product_dimensions(wm_name)
+            if dims_excel and dims_wm and dims_excel != dims_wm:
+                messagebox.showerror(
+                    "Niezgodne wymiary",
+                    "Wymiary w opisie Excel różnią się od wymiarów Produktu WM. "
+                    "Wybierz właściwy wariant — przypisanie zostało zablokowane.",
+                    parent=win,
+                )
+                return
+            code = str(row.get("excel_oznaczenie") or "").strip()
+            code_note = (
+                "\n\nUwaga: oznaczenie Excel jest inne niż kod WM. "
+                "Czy mimo to potwierdzasz ręczne powiązanie?"
+                if any(character.isdigit() for character in code)
+                and normalize_designation(code) != normalize_designation(symbol)
+                else ""
+            )
+            if not messagebox.askyesno(
+                "Potwierdź powiązanie",
+                f"Excel: {excel_text}\nProdukt WM: {symbol} — {wm_name}"
+                f"\n\nZapamiętać ten wybór na kolejne importy?{code_note}",
+                parent=win,
+            ):
+                return
+            try:
+                remember_manual_mapping(excel_text, symbol)
+                matched = match_production_plan(
+                    payload, products, manual_mappings=load_manual_mappings()
+                )
+            except Exception as exc:
+                messagebox.showerror("Dopasowanie produktu", str(exc), parent=win)
+                return
+
+            rows[:] = matched["rows"]
+            payload["rows"] = rows
+            payload["match_summary"] = matched["match_summary"]
+            owner._excel_plan_import = payload
+            _refresh_auto_pending(owner)
+            update_match_summary()
+            nonlocal display_rows
+            display_rows = sorted(rows, key=_preview_row_sort_key) + removed_rows
+            render_rows()
+            win.destroy()
+
+        buttons = ttk.Frame(form)
+        buttons.pack(fill="x", pady=(12, 0))
+        ttk.Button(buttons, text="Zapisz powiązanie", command=save_choice).pack(side="left")
+        ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(side="right")
+        picker.focus_set()
+
     search_var.trace_add("write", render_rows)
     render_rows()
     search_entry.focus_set()
 
-    ttk.Button(dlg, text="Zamknij", command=dlg.destroy).pack(anchor="e", padx=10, pady=(0, 10))
+    actions = ttk.Frame(dlg, padding=(10, 0, 10, 10))
+    actions.pack(fill="x")
+    ttk.Button(
+        actions, text="Przypisz Produkt WM…", command=choose_wm_product,
+    ).pack(side="left")
+    ttk.Button(actions, text="Zamknij", command=dlg.destroy).pack(side="right")
 
 
 def _auto_source_from_owner(owner) -> str:
