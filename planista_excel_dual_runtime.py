@@ -89,12 +89,19 @@ def _signature(rows: dict[str, dict]) -> str:
 
 
 def _read_one(path: str, products: dict, mappings: dict) -> dict:
+    source = Path(path).expanduser().resolve()
+    before = source.stat()
     def parse(temp: Path) -> dict:
         payload = load_production_plan(temp, sheet_name="PLAN 2026")
-        return match_production_plan(payload, products, manual_mappings=mappings)
-    payload = parse_from_detached_copy(path, parse)
-    payload["source_path"] = str(Path(path).expanduser().resolve())
-    payload["source_name"] = Path(path).name
+        result = match_production_plan(payload, products, manual_mappings=mappings)
+        result["source_sha256"] = hashlib.sha256(temp.read_bytes()).hexdigest()
+        return result
+    payload = parse_from_detached_copy(source, parse)
+    after = source.stat()
+    if before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns:
+        raise ValueError("Plik Excel zmienił się podczas odczytu; próba zostanie ponowiona.")
+    payload["source_path"] = str(source)
+    payload["source_name"] = source.name
     return payload
 
 
@@ -141,6 +148,10 @@ def _merge(state: dict, *, fully_available: bool) -> dict:
                     "match_note": reason,
                     "wm_symbol": "",
                     "source_tag": source_tag,
+                    "dual_source_paths": " | ".join(
+                        f"{name}:{sources.get(name, {}).get('path', '')}"
+                        for name in source_tag.split("+")
+                    ),
                     "source_row_original": raw.get("source_row"),
                     "source_row": len(rows) + 1,
                 })
@@ -174,6 +185,10 @@ def _merge(state: dict, *, fully_available: bool) -> dict:
             conflicts.append({"key": key, "reason": reason, "A": aa, "B": bb,
                               "signature": signature, "status": "Do decyzji"})
         selected["source_tag"] = "A+B" if aa and bb else ("A" if aa else "B")
+        selected["dual_source_paths"] = " | ".join(
+            f"{name}:{sources.get(name, {}).get('path', '')}"
+            for name in selected["source_tag"].split("+")
+        )
         selected["source_row_original"] = selected.get("source_row")
         selected["source_row"] = len(rows) + 1
         if not fully_available:
@@ -208,6 +223,7 @@ def inspect_dual_plans(source_a: str, source_b: str) -> dict:
                 current = dict(previous)
                 current.update({"path": target, "rows": payload["rows"],
                                 "status": "OK", "checked_at": _now(),
+                                "source_sha256": payload.get("source_sha256", ""),
                                 "source_name": Path(target).name})
                 current["diff"] = compare_plan_rows(
                     previous.get("rows") if previous else None, payload["rows"]
@@ -267,6 +283,10 @@ def inspect_dual_plans(source_a: str, source_b: str) -> dict:
         "source_path": source_a, "sheet": "PLAN 2026",
         "match_summary": counted, "match_category_summary": categories,
         "product_catalog_size": len(products),
+        "source_sha256": hashlib.sha256(
+            "|".join(str(state["sources"].get(label, {}).get("source_sha256") or "")
+                     for label in ("A", "B")).encode("utf-8")
+        ).hexdigest(),
         "import_diagnostics": diagnostics, "dual_source_errors": source_errors,
         "dual_conflicts": merged["conflicts"], "dual_sources": state["sources"],
         "dual_mode": True,
