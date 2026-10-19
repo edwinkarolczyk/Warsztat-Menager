@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_match.py
-# version: 1.1
+# version: 1.2
+# 1.2: uwzględnienie wymiaru z oznaczenia produktu WM.
 # 1.1: bezpieczne dopasowanie po pełnej nazwie/wymiarach i ręczne mapowania.
 """Dopasowanie pozycji zewnętrznego planu Excel do Produktów WM.
 
@@ -114,16 +115,37 @@ def product_dimensions(value) -> tuple[float, ...]:
     )
 
 
-def _dimension_conflict(excel_text: str, name: str) -> bool:
+_DIMENSIONS_RE = re.compile(
+    r"(?<!\d)\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?){1,3}(?!\d)",
+    flags=re.I,
+)
+
+
+def catalog_product_dimensions(name: str, symbol: str = "") -> tuple[float, ...]:
+    """W WM wymiar może być wpisany w oznaczeniu, mimo ogólnej nazwy."""
+    return product_dimensions(name) or product_dimensions(symbol)
+
+
+def _dimension_conflict(excel_text: str, name: str, symbol: str = "") -> bool:
     excel_dims = product_dimensions(excel_text)
-    wm_dims = product_dimensions(name)
+    name_dims = product_dimensions(name)
+    symbol_dims = product_dimensions(symbol)
+    if name_dims and symbol_dims and name_dims != symbol_dims:
+        return True
+    wm_dims = name_dims or symbol_dims
     return bool(excel_dims and wm_dims and excel_dims != wm_dims)
 
 
+def _base_name_key(value: str) -> str:
+    """Porównaj nazwę bez wymiarów i końcowego opisu RAL."""
+    return _name_key(_DIMENSIONS_RE.sub(" ", str(value or "")))
+
+
 def _name_candidates(products: dict, excel_text: str) -> tuple[list[dict], bool]:
-    """Zwróć zgodne nazwy albo propozycje do jawnego wyboru; nigdy nie zgaduj wymiarów."""
-    key = _name_key(excel_text)
-    if not key or not isinstance(products, dict):
+    """Dopasuj nazwę oraz wymiar z nazwy lub oznaczenia Produktu WM."""
+    base_name = _base_name_key(excel_text)
+    excel_dims = product_dimensions(excel_text)
+    if not base_name or not isinstance(products, dict):
         return [], False
     candidates = []
     for ident, record in products.items():
@@ -131,22 +153,36 @@ def _name_candidates(products: dict, excel_text: str) -> tuple[list[dict], bool]
             continue
         name = str(record.get("nazwa") or record.get("name") or "").strip()
         symbol = str(record.get("symbol") or record.get("kod") or ident).strip()
-        if not name or not symbol or _dimension_conflict(excel_text, name):
+        if not name or not symbol or _dimension_conflict(excel_text, name, symbol):
             continue
-        candidates.append({"symbol": symbol, "nazwa": name, "key": str(ident)})
-    exact = [candidate for candidate in candidates if _name_key(candidate["nazwa"]) == key]
-    if exact:
-        return exact, True
+        candidates.append({
+            "symbol": symbol, "nazwa": name, "key": str(ident),
+            "dimensions": catalog_product_dimensions(name, symbol),
+        })
 
-    # Podobna nazwa jest tylko propozycją; wymaga decyzji człowieka.
-    tokens = key.split()
+    named = [item for item in candidates if _base_name_key(item["nazwa"]) == base_name]
+    if excel_dims:
+        sized = [item for item in named if item["dimensions"] == excel_dims]
+        if sized:
+            return sized, True
+        generic = [item for item in named if not item["dimensions"]]
+        if generic:
+            return generic, False
+    elif named:
+        generic = [item for item in named if not item["dimensions"]]
+        if generic:
+            return generic, True
+        return named, False
+
+    # Luźniejsze podobieństwo tylko podpowiada kandydatów do ręcznego wyboru.
+    tokens = base_name.split()
     if len(tokens) < 2:
         return [], False
     prefix = " ".join(tokens[:2])
     proposed = [
-        candidate for candidate in candidates
-        if _name_key(candidate["nazwa"]).startswith(prefix + " ")
-        or _name_key(candidate["nazwa"]) == prefix
+        item for item in candidates
+        if _base_name_key(item["nazwa"]).startswith(prefix + " ")
+        or _base_name_key(item["nazwa"]) == prefix
     ]
     return proposed, False
 
@@ -201,7 +237,7 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
         else str(mapping or "").strip()
     )
     confirmed = _manual_candidate(products, manual_symbol)
-    if confirmed and not _dimension_conflict(excel_text, confirmed["nazwa"]):
+    if confirmed and not _dimension_conflict(excel_text, confirmed["nazwa"], confirmed["symbol"]):
         return _candidate_match(
             designation, confirmed,
             "Ręcznie zatwierdzone powiązanie Excel → Produkt WM (zapamiętane).",
@@ -247,7 +283,7 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
 
     if len(candidates) == 1:
         candidate = candidates[0]
-        if _dimension_conflict(excel_text, candidate["nazwa"]):
+        if _dimension_conflict(excel_text, candidate["nazwa"], candidate["symbol"]):
             return {
                 "excel_oznaczenie": designation,
                 "match_status": STATUS_AMBIGUOUS,
@@ -275,7 +311,7 @@ def match_excel_product(product_text, products: dict, manual_mappings: dict | No
 
     confirmed = [
         item for item in candidates
-        if not _dimension_conflict(excel_text, item["nazwa"])
+        if not _dimension_conflict(excel_text, item["nazwa"], item["symbol"])
         and _name_confirms(excel_text, item["nazwa"])
     ]
     if len(confirmed) == 1:
