@@ -91,3 +91,18 @@ def test_print_controls_have_extended_selection_and_safe_status_distinctions():
     assert "print_status(self._orders[oid], registry) == PRINT_NEW" in source
     assert "str(order.get(" in source
     assert "Wysłano ≠ potwierdzenie wydruku na papierze." in source
+
+
+def test_existing_editor_preserves_print_controls_and_double_click_history():
+    panel = (Path(__file__).resolve().parents[1] / "gui_planista_panel.py").read_text(
+        encoding="utf-8"
+    )
+    editor = (Path(__file__).resolve().parents[1] / "planista_editor_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    assert "self._orders_action_bar = buttons" in panel
+    assert 'bar = getattr(self, "_orders_action_bar", frames[-1])' in editor
+    assert "_open_print_history_on_double_click(event)" in panel
+    assert "_open_print_history_on_double_click(event)" in editor
+    assert 'text="Drukuj A4"' in panel
+    assert 'self.tree.set(oid, "wydruk", "… W kolejce")' in panel
