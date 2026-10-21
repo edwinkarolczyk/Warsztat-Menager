@@ -393,7 +393,7 @@ def _work_order_html(order):
         raw_code = str(raw.get("kod") or raw.get("id") or "—")
         raw_info = raw_summary.get(raw_code, {}) if isinstance(raw_summary, dict) else {}
         raw_name = str(raw.get("nazwa") or raw_info.get("nazwa") or raw_code)
-        raw_unit = str(raw.get("jednostka") or raw_info.get("jednostka") or "")
+        raw_unit = str(raw_info.get("jednostka") or raw.get("jednostka") or "")
         per_piece_value = raw.get("ilosc_na_szt")
         if per_piece_value in (None, ""):
             per_piece_text = "—"
@@ -463,9 +463,11 @@ def _work_order_html(order):
 
     shortage_rows = []
     for rec in order.get("braki") or []:
+        shortage_raw = raw_summary.get(str(rec.get("kod") or ""), {})
+        shortage_unit = shortage_raw.get("jednostka") or rec.get("jednostka") or ""
         shortage_rows.append(
             f"<li>{html.escape(str(rec.get('nazwa') or rec.get('kod') or ''))}: "
-            f"brakuje <b>{html.escape(_fmt_qty(rec.get('brakuje', 0)))} {html.escape(str(rec.get('jednostka') or ''))}</b></li>"
+            f"brakuje <b>{html.escape(_fmt_qty(rec.get('brakuje', 0)))} {html.escape(str(shortage_unit))}</b></li>"
         )
     shortage_block = ""
     if shortage_rows:
