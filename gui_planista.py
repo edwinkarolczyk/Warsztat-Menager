@@ -398,12 +398,14 @@ def _work_order_html(order):
         if per_piece_value in (None, ""):
             per_piece_text = "—"
         else:
+            is_linear = raw_unit.strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}
+            measure_label = "Długość detalu" if is_linear else "Ilość na półprodukt"
             per_piece_text = (
                 f"<span class='cut-major'>{html.escape(_fmt_qty(per_piece_value))} "
                 f"{html.escape(raw_unit)}</span>"
-                f"Długość detalu: {_fmt_linear(per_piece_value, raw_unit)}"
+                f"{measure_label}: {_fmt_linear(per_piece_value, raw_unit)}"
             )
-            if raw_unit.strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
+            if is_linear:
                 try:
                     with_cut = float(per_piece_value or 0) + max(0.0, float(order.get("rzaz_mm", 2) or 0))
                     per_piece_text += (
