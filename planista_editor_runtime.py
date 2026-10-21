@@ -1066,6 +1066,27 @@ def _install_order_editor() -> None:
             dlg.destroy()
             self.refresh()
 
+        def replan_current_bom():
+            nonlocal order
+            if not messagebox.askyesno(
+                "Przelicz według aktualnego BOM",
+                f"Przeliczyć niezrealizowaną część zlecenia {order.get('id')} "
+                "według aktualnych kartotek?\\n\\n"
+                "WM ponownie wyliczy zapotrzebowanie i rezerwacje magazynowe. "
+                "Już rozliczone wykonanie pozostanie bez zmian.",
+                parent=dlg,
+            ):
+                return
+            try:
+                order = ZP.update_zlecenie(
+                    order["id"], przelicz_bom=True, kto=self.login or "system"
+                )
+            except Exception as exc:
+                messagebox.showerror("Przelicz według BOM", str(exc), parent=dlg)
+                return
+            refresh_main_selection()
+            refresh_editor(reset_inputs=True)
+
         def print_current():
             oid = str(order.get("id") or "")
             if oid and self.tree.exists(oid):
@@ -1081,6 +1102,7 @@ def _install_order_editor() -> None:
         ).pack(side="left", padx=(4, 0))
         ttk.Button(footer, text="Zamknij", command=dlg.destroy).pack(side="right")
         ttk.Button(footer, text="Drukuj", command=print_current).pack(side="right", padx=(0, 6))
+        ttk.Button(footer, text="Przelicz wg BOM", command=replan_current_bom).pack(side="right", padx=(0, 6))
         ttk.Button(footer, text="Zapisz dane zlecenia", command=save_basic).pack(side="right", padx=(0, 6))
 
         refresh_editor(reset_inputs=True)
