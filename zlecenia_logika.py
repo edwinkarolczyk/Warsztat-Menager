@@ -205,7 +205,7 @@ def _attach_bar_plan(plan_pp: dict, raw_total: dict, cut_mm: float) -> dict:
             continue
         sr = rec.get("surowiec") if isinstance(rec.get("surowiec"), dict) else {}
         raw_code = str(sr.get("kod") or sr.get("id") or "").strip()
-        unit = str(sr.get("jednostka") or "").strip().lower()
+        unit = str(definitions.get(raw_code, {}).get("jednostka") or sr.get("jednostka") or "").strip().lower()
         if not raw_code or unit not in {"mm", "milimetr", "milimetry", "milimetrów"}:
             continue
         try:
@@ -241,6 +241,7 @@ def _attach_bar_plan(plan_pp: dict, raw_total: dict, cut_mm: float) -> dict:
         except Exception:
             bar_length = 0.0
         rec["nazwa"] = definition.get("nazwa") or rec.get("nazwa") or raw_code
+        rec["jednostka"] = definition.get("jednostka") or rec.get("jednostka") or ""
         rec["dlugosc_sztangi_mm"] = bar_length
         if str(rec.get("jednostka") or "").strip().lower() in {"mm", "milimetr", "milimetry", "milimetrów"}:
             plan = _bars_for_cuts(cuts_by_raw.get(str(raw_code), []), bar_length, rec.get("ilosc", 0))
@@ -273,7 +274,7 @@ def _raw_need_for_pp(kod_pp: str, qty: float, cut_mm: float):
     if not raw_code:
         raise KeyError(f"Półprodukt {kod_pp} nie ma przypisanego surowca")
     base = float(sr.get("ilosc_na_szt", 0) or 0)
-    unit = str(sr.get("jednostka") or "").strip()
+    unit = str(_raw_definitions().get(raw_code, {}).get("jednostka") or sr.get("jednostka") or "").strip()
     if not unit:
         try:
             unit = next(iter(bom.compute_sr_for_pp(kod_pp, 1).values())).get("jednostka", "")
@@ -289,6 +290,7 @@ def _raw_need_for_pp(kod_pp: str, qty: float, cut_mm: float):
 def build_production_plan(kod_produktu, ilosc, *, cut_mm=DEFAULT_CUT_MM, version=None, overrides=None):
     raw_pp = bom.compute_bom_for_prd(kod_produktu, float(ilosc), version=version)
     overrides = overrides or {}
+    raw_definitions = _raw_definitions()
     plan_pp, raw_total = {}, {}
     for code, rec in raw_pp.items():
         calculated = float(rec.get("ilosc", 0) or 0)
@@ -296,7 +298,12 @@ def build_production_plan(kod_produktu, ilosc, *, cut_mm=DEFAULT_CUT_MM, version
         stock = _semi_stock(code)
         from_stock = min(target, stock["dostepne"])
         to_make = max(0.0, target - from_stock)
-        plan_pp[code] = {"nazwa": rec.get("nazwa") or code, "potrzeba": target, "wyliczone": calculated, "z_magazynu": from_stock, "do_wykonania": to_make, "stan": stock["stan"], "zarezerwowane": stock["rezerwacje"], "czynnosci": list(rec.get("czynnosci") or []), "surowiec": dict(rec.get("surowiec") or {}), "norma_strat_procent": float(rec.get("norma_strat_procent", 0) or 0)}
+        raw_ref = dict(rec.get("surowiec") or {})
+        raw_code = str(raw_ref.get("kod") or raw_ref.get("id") or "").strip()
+        current_unit = str(raw_definitions.get(raw_code, {}).get("jednostka") or "").strip()
+        if current_unit:
+            raw_ref["jednostka"] = current_unit
+        plan_pp[code] = {"nazwa": rec.get("nazwa") or code, "potrzeba": target, "wyliczone": calculated, "z_magazynu": from_stock, "do_wykonania": to_make, "stan": stock["stan"], "zarezerwowane": stock["rezerwacje"], "czynnosci": list(rec.get("czynnosci") or []), "surowiec": raw_ref, "norma_strat_procent": float(rec.get("norma_strat_procent", 0) or 0)}
         for raw_code, raw_info in _raw_need_for_pp(code, to_make, cut_mm).items():
             ent = raw_total.setdefault(raw_code, {"ilosc": 0.0, "jednostka": raw_info.get("jednostka", "")})
             ent["ilosc"] += float(raw_info.get("ilosc", 0) or 0)
