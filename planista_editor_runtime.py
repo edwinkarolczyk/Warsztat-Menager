@@ -1071,7 +1071,7 @@ def _install_order_editor() -> None:
             if not messagebox.askyesno(
                 "Przelicz według aktualnego BOM",
                 f"Przeliczyć niezrealizowaną część zlecenia {order.get('id')} "
-                "według aktualnych kartotek?\\n\\n"
+                "według aktualnych kartotek?\n\n"
                 "WM ponownie wyliczy zapotrzebowanie i rezerwacje magazynowe. "
                 "Już rozliczone wykonanie pozostanie bez zmian.",
                 parent=dlg,
