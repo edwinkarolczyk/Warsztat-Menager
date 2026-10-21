@@ -319,6 +319,7 @@ def update_zlecenie(
     rzaz_mm=None,
     korekty_polproduktow=None,
     allow_overproduction=None,
+    przelicz_bom=False,
     kto="system",
 ):
     p = ZL._order_path(zlec_id)
@@ -388,6 +389,14 @@ def update_zlecenie(
             changed.append(
                 "nadprodukcja -> dozwolona" if enabled else "nadprodukcja -> zablokowana"
             )
+
+    if przelicz_bom:
+        if str(order.get("status") or "").casefold() in {"zakończone", "anulowane"}:
+            raise ValueError("Nie można przeliczyć zamkniętego lub anulowanego zlecenia.")
+        if _f(order.get("ilosc")) <= _f(order.get("wykonano")):
+            raise ValueError("Brak pozostałych wyrobów do ponownego przeliczenia.")
+        replan = True
+        changed.append("przeliczenie wg aktualnego BOM")
 
     if replan:
         _replan_remaining(order, kto, pending_snapshot=pending_snapshot)
