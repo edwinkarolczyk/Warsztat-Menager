@@ -1187,6 +1187,8 @@ def uruchom_panel(root, login, rola):
             "narzędzie": "narzedzia",
             "narzedzia": "narzedzia",
             "magazyn": "magazyn",
+            "zlecenia": "zlecenia",
+            "dyspozycje": "zlecenia",
         }
         key = aliases.get(str(module_key or "").strip().casefold(), "")
         targets = {
@@ -1194,6 +1196,7 @@ def uruchom_panel(root, login, rola):
             "maszyny": (panel_maszyny, "Maszyny"),
             "narzedzia": (panel_narzedzia, "Narzędzia"),
             "magazyn": (panel_magazyn, "Magazyn"),
+            "zlecenia": (panel_zlecenia, "Dyspozycje"),
         }
         target = targets.get(key)
         if target is None:
@@ -1226,6 +1229,32 @@ def uruchom_panel(root, login, rola):
         return result is not None
 
     setattr(root, "_wm_open_module", _wm_open_module)
+
+    def _wm_search_allowed_modules() -> set[str]:
+        candidates = {"planowanie", "narzedzia", "maszyny", "magazyn", "zlecenia"}
+        try:
+            allowed = set(get_effective_allowed_modules(login, list(candidates)))
+            manifest = zaladuj_manifest(CONFIG_MANAGER)
+        except Exception:
+            return set()
+        return {
+            key for key in candidates
+            if key in allowed
+            and key not in disabled_modules
+            and is_module_allowed_for_user(login, normalized_role, key)
+            and module_active(key, manifest=manifest, cfg=CONFIG_MANAGER)
+        }
+
+    try:
+        from wm_global_search import mount_global_search
+        mount_global_search(
+            header, root, content,
+            login=login, role=rola,
+            allowed_modules=_wm_search_allowed_modules,
+            open_module=_wm_open_module,
+        )
+    except Exception as exc:
+        _warn(f"Wyszukiwarka WM nie została uruchomiona: {exc}")
 
     # --- role helpers + quick open profile ---
     def _is_admin_role(r):
