@@ -421,12 +421,37 @@ class PlanistaPanel(ttk.Frame):
             )
             if not messagebox.askyesno("Archiwizuj zlecenie", question, parent=self):
                 return
+        actor = self.login or "system"
+        registry_item = None
+        registry_before = False
+        registry_changed = False
         try:
-            ZL.set_zlecenie_archived(
-                str(order["id"]), archived=archived, kto=self.login or "system"
-            )
+            provenance = order.get("planista_excel")
+            if isinstance(provenance, dict) and provenance.get("nr_zlec") and provenance.get("wm_symbol"):
+                from planista_excel_orders import (
+                    _order_sync_identity, load_excel_archive, set_excel_archive,
+                )
+                registry_item = {
+                    "identity": _order_sync_identity(order),
+                    "nr_zlec": provenance["nr_zlec"],
+                    "wm_symbol": provenance["wm_symbol"],
+                    "termin": order.get("termin", ""),
+                }
+                registry_before = registry_item["identity"] in load_excel_archive()
+                if registry_before != archived:
+                    set_excel_archive(registry_item, archived=archived, kto=actor)
+                    registry_changed = True
+            ZL.set_zlecenie_archived(str(order["id"]), archived=archived, kto=actor)
         except Exception as exc:
-            messagebox.showerror("Archiwum", f"Nie udało się zmienić archiwum:\n{exc}", parent=self)
+            rollback_error = ""
+            if registry_changed:
+                try:
+                    set_excel_archive(registry_item, archived=registry_before, kto=actor)
+                except Exception as restore_exc:
+                    rollback_error = f"\nNie udało się cofnąć zmiany rejestru Excel: {restore_exc}"
+            messagebox.showerror(
+                "Archiwum", f"Nie udało się zmienić archiwum:\n{exc}{rollback_error}", parent=self,
+            )
             return
         self.refresh()
 
