@@ -824,6 +824,30 @@ def report_wykonano(zlec_id, wykonano, kto="system"):
     return j
 
 
+def set_zlecenie_archived(zlec_id: str, *, archived: bool, kto: str = "system") -> dict:
+    """Ukryj/przywróć zlecenie bez zmiany produkcji, rezerwacji i Dyspozycji."""
+    p = _order_path(zlec_id)
+    if not p.is_file():
+        raise FileNotFoundError(f"Nie znaleziono zlecenia {zlec_id}.")
+    order = _read_json(p)
+    if bool(order.get("archiwum")) == bool(archived):
+        return order
+    if archived:
+        order["archiwum"] = {
+            "kiedy": datetime.now().isoformat(timespec="seconds"),
+            "kto": str(kto or "system"),
+        }
+    else:
+        order.pop("archiwum", None)
+    order.setdefault("historia", []).append({
+        "kiedy": datetime.now().isoformat(timespec="seconds"),
+        "kto": str(kto or "system"),
+        "co": "archiwizacja" if archived else "przywrócenie z archiwum",
+    })
+    _write_json(p, order)
+    return order
+
+
 def delete_zlecenie(zlec_id: str, kto: str = "system") -> bool:
     p = _order_path(zlec_id)
     if not p.exists():

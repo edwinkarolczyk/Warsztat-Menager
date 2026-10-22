@@ -90,6 +90,44 @@ def _display_order_date(value) -> str:
     return f"{parsed.day:02d} {_MONTHS_PL_GENITIVE[parsed.month - 1]} {parsed.year % 100:02d}"
 
 
+def _planista_order_visible(order: dict, mode: str, search: str = "", today: date | None = None) -> bool:
+    """Filtr wyłącznie widoku; nie zmienia stanu zlecenia."""
+    archived = bool(order.get("archiwum"))
+    status = str(order.get("status") or "").strip().casefold()
+    try:
+        qty = float(order.get("ilosc") or 0)
+        done = float(order.get("wykonano") or 0)
+    except (TypeError, ValueError):
+        qty, done = 0.0, 0.0
+    finished = status == "zakończone" or (qty > 0 and done >= qty)
+    active = not archived and not finished and status != "anulowane"
+    if mode == "Aktywne" and not active:
+        return False
+    if mode == "Zaległe":
+        try:
+            deadline = date.fromisoformat(str(order.get("termin") or "")[:10])
+        except ValueError:
+            return False
+        if not active or deadline >= (today or date.today()):
+            return False
+    if mode == "Do akceptacji" and (archived or status != "do akceptacji"):
+        return False
+    if mode == "Zakończone" and (archived or not finished):
+        return False
+    if mode == "Archiwum" and not archived:
+        return False
+    term = str(search or "").strip().casefold()
+    if not term:
+        return True
+    provenance = order.get("planista_excel")
+    external = provenance if isinstance(provenance, dict) else {}
+    haystack = " ".join(str(value or "") for value in (
+        order.get("id"), order.get("zlec_wew"), order.get("produkt"),
+        order.get("termin"), order.get("status"), external.get("nr_zlec"),
+    ))
+    return term in haystack.casefold()
+
+
 def _semi_progress_display(order: dict) -> str:
     """Tylko prezentacja: kompletne zestawy półproduktów / ilość zlecenia."""
     try:
@@ -239,6 +277,31 @@ class PlanistaPanel(ttk.Frame):
             lambda _e: (self._refresh_approval_button(), self._update_print_checks()),
         )
 
+        filter_bar = ttk.Frame(parent)
+        filter_bar.pack(fill="x", pady=(6, 0))
+        ttk.Label(filter_bar, text="Widok:").pack(side="left")
+        self._order_filter_var = tk.StringVar(value="Aktywne")
+        order_filter = ttk.Combobox(
+            filter_bar, textvariable=self._order_filter_var, state="readonly", width=17,
+            values=("Aktywne", "Zaległe", "Do akceptacji", "Zakończone", "Archiwum", "Wszystkie"),
+        )
+        order_filter.pack(side="left", padx=(6, 12))
+        order_filter.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
+        ttk.Label(filter_bar, text="Szukaj:").pack(side="left")
+        self._order_search_var = tk.StringVar()
+        self._order_search_var.trace_add("write", lambda *_: self.refresh())
+        ttk.Entry(filter_bar, textvariable=self._order_search_var, width=23).pack(side="left", padx=(6, 12))
+        self._archive_button = ttk.Button(
+            filter_bar, text="Archiwizuj", command=lambda: self._set_selected_archived(True),
+            state="disabled",
+        )
+        self._archive_button.pack(side="left")
+        self._restore_button = ttk.Button(
+            filter_bar, text="Przywróć z archiwum", command=lambda: self._set_selected_archived(False),
+            state="disabled",
+        )
+        self._restore_button.pack(side="left", padx=(6, 0))
+
         print_bar = ttk.Frame(parent)
         print_bar.pack(fill="x", pady=(6, 0))
         ttk.Label(print_bar, text="Wydruki:").pack(side="left")
@@ -339,6 +402,33 @@ class PlanistaPanel(ttk.Frame):
             )
         except Exception:
             pass
+        order = self._selected()
+        archived = bool(order and order.get("archiwum"))
+        self._archive_button.configure(state="normal" if order and not archived else "disabled")
+        self._restore_button.configure(state="normal" if archived else "disabled")
+
+    def _set_selected_archived(self, archived: bool):
+        order = self._selected()
+        if not order:
+            messagebox.showinfo("Archiwum", "Wybierz zlecenie.", parent=self)
+            return
+        if archived:
+            question = (
+                f"Zarchiwizować zlecenie {order.get('id')}?\n\n"
+                "Zniknie z aktywnej listy. Produkcja, rezerwacje materiałów "
+                "i Dyspozycje nie zostaną zmienione.\n"
+                "Jeżeli produkcja nie została rozliczona, zrób to oddzielnie."
+            )
+            if not messagebox.askyesno("Archiwizuj zlecenie", question, parent=self):
+                return
+        try:
+            ZL.set_zlecenie_archived(
+                str(order["id"]), archived=archived, kto=self.login or "system"
+            )
+        except Exception as exc:
+            messagebox.showerror("Archiwum", f"Nie udało się zmienić archiwum:\n{exc}", parent=self)
+            return
+        self.refresh()
 
     def approve_selected(self):
         order = self._selected()
@@ -367,6 +457,8 @@ class PlanistaPanel(ttk.Frame):
         selected = set(self.tree.selection())
         first_y = self.tree.yview()[0] if self.tree.get_children() else 0.0
         orders = list(ZL.list_zlecenia())
+        mode = self._order_filter_var.get()
+        search = self._order_search_var.get()
         try:
             registry = ensure_print_registry(orders)
         except Exception as exc:
@@ -383,6 +475,8 @@ class PlanistaPanel(ttk.Frame):
             if hasattr(self, "_print_filter_var") else "Wszystkie"
         )
         for order in orders:
+            if not _planista_order_visible(order, mode, search):
+                continue
             oid = str(order.get("id") or "")
             if not oid:
                 continue
@@ -409,7 +503,7 @@ class PlanistaPanel(ttk.Frame):
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
                     _display_order_date(order.get("termin", "")),
-                    order.get("status", ""),
+                    ("📦 " if order.get("archiwum") else "") + str(order.get("status", "")),
                     {
                         PRINT_NEW: "○ Nie drukowano",
                         PRINT_PENDING: "… W kolejce",

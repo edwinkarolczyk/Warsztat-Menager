@@ -32,6 +32,7 @@ ACTION_SKIP = "Nie importuj"
 ACTION_PROTECTED = "Chronione"
 ACTION_CONFLICT = "Wymaga decyzji"
 ACTION_REMOVED = "Usunięta w Excelu"
+ACTION_ARCHIVED = "Archiwum"
 
 PROVENANCE_FIELD = "planista_excel"
 PROVENANCE_SCHEMA = 1
@@ -105,6 +106,57 @@ def _order_business_identity(order: dict) -> str:
     return _identity(nr_zlec, wm_symbol)
 
 
+def _excel_archive_path() -> Path:
+    return Path(ConfigManager().path_data()) / "planista_excel_archiwum.json"
+
+
+def load_excel_archive() -> dict[str, dict]:
+    """Trwałe pominięcia importu; uszkodzony rejestr blokuje sync zamiast go odblokowywać."""
+    path = _excel_archive_path()
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        entries = raw["entries"]
+        if not isinstance(entries, dict):
+            raise ValueError("Nieprawidłowy format pozycji archiwalnych.")
+        return entries
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ExcelOrderSyncError(f"Nie można odczytać archiwum importu Excel: {exc}") from exc
+
+
+def set_excel_archive(item: dict, *, archived: bool, kto: str = "system") -> None:
+    """Zapisz lub cofnij pominięcie pozycji Excela bez zmiany źródłowego pliku."""
+    identity = _text(item.get("identity"))
+    if not identity or identity == "|" or not _text(item.get("nr_zlec")) or not _text(item.get("wm_symbol")):
+        raise ExcelOrderSyncError("Archiwizacja wymaga numeru zlecenia i dopasowanego produktu WM.")
+    from machine_file_guard import file_write_lock
+
+    path = _excel_archive_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with file_write_lock(path, label="archiwum Planisty Excel"):
+        entries = load_excel_archive()
+        if archived:
+            entries[identity] = {
+                "nr_zlec": _text(item.get("nr_zlec")),
+                "wm_symbol": _text(item.get("wm_symbol")),
+                "termin": _text(item.get("termin")),
+                "kto": _text(kto) or "system",
+                "kiedy": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            }
+        else:
+            entries.pop(identity, None)
+        tmp = path.with_name(path.name + ".tmp")
+        try:
+            tmp.write_text(
+                json.dumps({"schema": 1, "entries": entries}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
+
+
 def _source_meta(payload: dict, row: dict, *, identity: str | None = None) -> dict:
     return {
         "schema": PROVENANCE_SCHEMA,
@@ -173,6 +225,7 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
     business_by_key: dict[str, list[dict]] = defaultdict(list)
     imported_by_external: dict[str, list[dict]] = defaultdict(list)
     current_key_counts = _current_excel_key_counts(payload)
+    archived_entries = load_excel_archive()
 
     for order in current_orders:
         if not isinstance(order, dict):
@@ -198,6 +251,15 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
     planned: list[dict] = []
     for raw in list(payload.get("rows") or []):
         row = dict(raw) if isinstance(raw, dict) else {}
+        row_identity = _row_sync_identity(row, current_key_counts)
+        if row_identity in archived_entries:
+            matches = imported_by_key.get(row_identity, [])
+            linked = matches[0] if len(matches) == 1 else None
+            planned.append(_plan_item(
+                row, ACTION_ARCHIVED, reason="Archiwizowano ręcznie — pomiń przy imporcie.",
+                order=linked, identity=row_identity,
+            ))
+            continue
         problem = invalid_rows.get(str(row.get("source_row")))
         if problem:
             planned.append(_plan_item(row, ACTION_SKIP, reason="Błąd danych w Excelu: " + problem))
@@ -246,6 +308,13 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             ))
             continue
         imported_matches = imported_by_key.get(sync_identity, [])
+        if any(bool(order.get("archiwum")) for order in imported_matches):
+            linked = next(order for order in imported_matches if order.get("archiwum"))
+            planned.append(_plan_item(
+                row, ACTION_ARCHIVED, reason="Zlecenie WM jest w archiwum.",
+                order=linked, identity=sync_identity,
+            ))
+            continue
         if current_key_counts.get(key, 0) > 1 and not imported_matches:
             planned.append(
                 _plan_item(

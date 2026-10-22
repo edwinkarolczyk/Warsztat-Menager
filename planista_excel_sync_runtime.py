@@ -17,6 +17,7 @@ from planista_excel_orders import (
     ACTION_NONE,
     ACTION_PROTECTED,
     ACTION_REMOVED,
+    ACTION_ARCHIVED,
     ACTION_SKIP,
     ACTION_UPDATE,
     ExcelOrderSyncError,
@@ -25,6 +26,7 @@ from planista_excel_orders import (
     conflict_link_candidates,
     resolve_conflict_create,
     resolve_conflict_link,
+    set_excel_archive,
 )
 from ui_context_help import add_help_button
 from ui_theme import get_theme_color
@@ -87,6 +89,7 @@ def _sync_item_sort_key(item: dict) -> tuple[int, int]:
         ACTION_CONFLICT: 2,
         ACTION_SKIP: 3,
         ACTION_REMOVED: 4,
+        ACTION_ARCHIVED: 4,
     }.get(action, 5)
     try:
         source_row = int(item.get("source_row") or 0)
@@ -127,6 +130,7 @@ def _summary_text(plan: dict) -> str:
         f"{ACTION_PROTECTED}: {summary.get(ACTION_PROTECTED, 0)}   |   "
         f"{ACTION_CONFLICT}: {summary.get(ACTION_CONFLICT, 0)}   |   "
         f"{ACTION_IGNORED}: {summary.get(ACTION_IGNORED, 0)}   |   "
+        f"{ACTION_ARCHIVED}: {summary.get(ACTION_ARCHIVED, 0)}   |   "
         f"{ACTION_SKIP}: {summary.get(ACTION_SKIP, 0)}"
     )
 
@@ -248,6 +252,8 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
 
     resolve_button = ttk.Button(controls, text="Rozstrzygnij konflikt", state="disabled")
     apply_button = ttk.Button(controls, text="Wykonaj zaznaczone", state="disabled")
+    archive_button = ttk.Button(controls, text="Archiwizuj pozycję", state="disabled")
+    restore_button = ttk.Button(controls, text="Przywróć pozycję", state="disabled")
 
     def current_conflict_item() -> dict | None:
         current = tree.selection()
@@ -256,10 +262,18 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
         item = item_by_iid.get(current[0])
         return item if isinstance(item, dict) and item.get("action") == ACTION_CONFLICT else None
 
+    def current_item() -> dict | None:
+        current = tree.selection()
+        return item_by_iid.get(current[0]) if current else None
+
     def update_controls() -> None:
         selected_var.set(f"Zaznaczone: {len(selected)}")
         apply_button.configure(state="normal" if selected else "disabled")
         resolve_button.configure(state="normal" if current_conflict_item() else "disabled")
+        item = current_item() or {}
+        valid_key = bool(_text(item.get("nr_zlec")) and _text(item.get("wm_symbol")))
+        archive_button.configure(state="normal" if valid_key and item.get("action") not in {ACTION_REMOVED, ACTION_ARCHIVED} else "disabled")
+        restore_button.configure(state="normal" if valid_key and item.get("action") == ACTION_ARCHIVED else "disabled")
 
     def tag_for(item: dict) -> tuple[str, ...]:
         action = item.get("action")
@@ -549,6 +563,43 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
         selected.clear()
         refresh_tree(plan)
 
+    def change_archive(archived: bool) -> None:
+        item = current_item()
+        if not item:
+            return
+        if archived and not messagebox.askyesno(
+            "Archiwum Excel",
+            f"Archiwizować pozycję {item.get('nr_zlec')} / {item.get('wm_symbol')}?\n"
+            "Nie będzie proponowana przy kolejnych importach.\n"
+            "Nie zmieni to ilości wykonanej ani magazynu.",
+            parent=dlg,
+        ):
+            return
+        try:
+            set_excel_archive(
+                item, archived=archived,
+                kto=_text(getattr(owner, "login", "")) or "Planista Excel",
+            )
+            if _text(item.get("order_id")):
+                import zlecenia_logika as ZL
+                ZL.set_zlecenie_archived(
+                    _text(item["order_id"]), archived=archived,
+                    kto=_text(getattr(owner, "login", "")) or "Planista Excel",
+                )
+            refreshed = build_order_sync_plan(payload)
+        except Exception as exc:
+            messagebox.showerror(
+                "Archiwum Excel",
+                f"Nie udało się zapisać zmiany archiwum:\n{exc}", parent=dlg,
+            )
+            return
+        selected.clear()
+        refresh_tree(refreshed)
+        try:
+            owner.refresh()
+        except Exception:
+            pass
+
     def apply_selected() -> None:
         if not selected:
             messagebox.showinfo(
@@ -689,6 +740,10 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
     ttk.Button(controls, text="Wyczyść wybór", command=clear_selected).pack(side="left")
     resolve_button.configure(command=lambda: resolve_conflict_dialog())
     resolve_button.pack(side="left", padx=(10, 0))
+    archive_button.configure(command=lambda: change_archive(True))
+    archive_button.pack(side="left", padx=(10, 0))
+    restore_button.configure(command=lambda: change_archive(False))
+    restore_button.pack(side="left", padx=(6, 0))
     ttk.Button(controls, text="Zamknij", command=dlg.destroy).pack(side="right")
     apply_button.configure(command=apply_selected)
     apply_button.pack(side="right", padx=(0, 4))
