@@ -69,3 +69,13 @@ def test_planista_semi_progress_display_uses_requested_traffic_light(monkeypatch
         },
     )
     assert panel._semi_progress_display({}) == "🟢 50/50"
+
+def test_planista_view_filter_is_independent_from_print_filter():
+    source = _source()
+    assert 'order_mode = self._order_filter_var.get()' in source
+    assert 'print_mode = (' in source
+    assert '_planista_order_visible(order, order_mode, search)' in source
+    assert 'if print_mode == "Do wydrukowania":' in source
+    assert 'elif print_mode != "Wszystkie" and state != print_mode:' in source
+    assert 'if _planista_order_visible(order, mode, search):' not in source
+
