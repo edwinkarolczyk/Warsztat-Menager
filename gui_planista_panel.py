@@ -482,8 +482,12 @@ class PlanistaPanel(ttk.Frame):
         selected = set(self.tree.selection())
         first_y = self.tree.yview()[0] if self.tree.get_children() else 0.0
         orders = list(ZL.list_zlecenia())
-        mode = self._order_filter_var.get()
+        order_mode = self._order_filter_var.get()
         search = self._order_search_var.get()
+        print_mode = (
+            self._print_filter_var.get()
+            if hasattr(self, "_print_filter_var") else "Wszystkie"
+        )
         try:
             registry = ensure_print_registry(orders)
         except Exception as exc:
@@ -495,12 +499,8 @@ class PlanistaPanel(ttk.Frame):
             registry = None
         self.tree.delete(*self.tree.get_children())
         self._orders = {}
-        mode = (
-            self._print_filter_var.get()
-            if hasattr(self, "_print_filter_var") else "Wszystkie"
-        )
         for order in orders:
-            if not _planista_order_visible(order, mode, search):
+            if not _planista_order_visible(order, order_mode, search):
                 continue
             oid = str(order.get("id") or "")
             if not oid:
@@ -509,10 +509,10 @@ class PlanistaPanel(ttk.Frame):
             done = float(order.get("wykonano", 0) or 0)
             self._orders[oid] = order
             state = print_status(order, registry) if registry is not None else PRINT_UNKNOWN
-            if mode == "Do wydrukowania":
+            if print_mode == "Do wydrukowania":
                 if state not in {PRINT_NEW, PRINT_CHANGED, PRINT_ERROR}:
                     continue
-            elif mode != "Wszystkie" and state != mode:
+            elif print_mode != "Wszystkie" and state != print_mode:
                 continue
             self.tree.insert(
                 "",
