@@ -387,9 +387,8 @@ def _execution_dispatch_target_status(order):
     try:
         qty = float(order.get("ilosc") or 0)
         done = float(order.get("wykonano") or 0)
-        settled = float(order.get("materialy_rozliczono_do") or 0)
     except Exception:
-        qty = done = settled = 0.0
+        qty = done = 0.0
 
     if raw_status == "anulowane":
         return "wstrzymana"
@@ -397,10 +396,11 @@ def _execution_dispatch_target_status(order):
         return "wstrzymana"
     if raw_status == "w przygotowaniu":
         return "w_toku"
-    if qty > 0 and done + 1e-9 >= qty:
-        if settled + 1e-9 >= done:
-            return "zamknieta"
-        return "w_toku"
+    # Planista rozlicza zużycie materiałów już w report_wykonano().
+    # Pole materialy_rozliczono_do nie jest tam ustawiane, więc jego sprawdzanie
+    # blokowało automatyczne zamknięcie mimo zakończenia pełnej ilości.
+    if raw_status in {"zakończone", "zakonczone"} and qty > 0 and done + 1e-9 >= qty:
+        return "zamknieta"
     if done > 1e-9 or raw_status in {"w trakcie", "w_trakcie"}:
         return "w_toku"
     return "nowa"
