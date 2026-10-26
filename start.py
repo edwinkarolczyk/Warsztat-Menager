@@ -1098,7 +1098,7 @@ def main():
     # UWAGA: minimalizacja działa tylko w wersji .py, nie przeszkadza w EXE.
     time.sleep(0.3)
     _wm_startup_checkpoint("BEFORE_CONSOLE_MINIMIZE")
-    if os.environ.get("WM_STARTUP_DEBUG", "1").strip().lower() not in {"0", "false", "off", "no"}:
+    if os.environ.get("WM_STARTUP_DEBUG", "0").strip().lower() not in {"0", "false", "off", "no"}:
         _wm_startup_checkpoint("CONSOLE_MINIMIZE_SKIPPED_DEBUG")
     else:
         minimize_console()
