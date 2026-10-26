@@ -98,6 +98,7 @@ def _dysp_ui_config() -> dict[str, Any]:
         "overdue_foreground": "#ef4444",
         "overdue_blink_foreground": "#ffffff",
         "overdue_blink_background": "#7f1d1d",
+        "ready_to_close_foreground": "#d97706",
         "new_blink_ms": 2000,
         "overdue_blink_ms": 500,
     }
@@ -643,7 +644,27 @@ def _dysp_title_label(item: dict[str, Any]) -> str:
     return str(item.get("tytul") or item.get("opis") or "Dyspozycja").strip()
 
 
+def _dysp_needs_close_confirmation(item: dict[str, Any]) -> bool:
+    """Czy obiekt Planisty jest zakończony, ale Dyspozycja nadal wymaga zamknięcia."""
+    if _dysp_status(item) != "w_toku" or _source_type(item) != "planista":
+        return False
+    live = _source_live_info(item)
+    if not live:
+        return False
+    raw_status = str(live.get("status") or "").strip().casefold()
+    if raw_status in {"zakończone", "zakończone ", "zakończony", "zakończona"}:
+        return True
+    try:
+        qty = float(live.get("ilosc") or 0)
+        done = float(live.get("wykonano") or 0)
+    except (TypeError, ValueError):
+        return False
+    return qty > 0 and done + 1e-9 >= qty
+
+
 def _dysp_status_label(item: dict[str, Any]) -> str:
+    if _dysp_needs_close_confirmation(item):
+        return "Do zamknięcia"
     labels = {
         "nowa": "Nowa",
         "w_toku": "W toku",
@@ -1158,6 +1179,9 @@ class ZleceniaView(ttk.Frame):
         self.tree.tag_configure(
             "dysp_in_progress", foreground=ui["in_progress_foreground"]
         )
+        self.tree.tag_configure(
+            "dysp_ready_to_close", foreground=ui["ready_to_close_foreground"]
+        )
         self.tree.tag_configure("dysp_paused", foreground=ui["paused_foreground"])
         self.tree.tag_configure("dysp_new", foreground=ui["new_foreground"])
         self.tree.tag_configure(
@@ -1341,6 +1365,8 @@ class ZleceniaView(ttk.Frame):
                 tags.append("dysp_overdue")
             elif _dysp_is_new(order):
                 tags.append("dysp_new")
+            elif _dysp_needs_close_confirmation(order):
+                tags.append("dysp_ready_to_close")
             elif _dysp_is_in_progress(order):
                 tags.append("dysp_in_progress")
             elif _dysp_is_paused(order):
