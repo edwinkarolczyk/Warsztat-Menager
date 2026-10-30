@@ -507,6 +507,10 @@ class MagazynBOM(ttk.Frame):
             str(item["nazwa"]): str(item.get("pole") or "wymiar").casefold()
             for item in self.model.raw_kinds
         }
+        self._kind_dimension_values = {
+            str(item["nazwa"]): [str(value).strip() for value in (item.get("wymiary") or []) if str(value).strip()]
+            for item in self.model.raw_kinds
+        }
         self._build_ui()
         self._load_all()
 
@@ -572,7 +576,10 @@ class MagazynBOM(ttk.Frame):
         self._help(form, 1, HELP["raw_type"])
         self.s_size_label = ttk.Label(form, text="Ø [mm]")
         self.s_size_label.grid(row=2, column=0, sticky="w", padx=4, pady=2)
-        ttk.Entry(form, textvariable=self.s_vars["rozmiar"]).grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        self.s_size_combo = ttk.Combobox(
+            form, textvariable=self.s_vars["rozmiar"], state="normal",
+        )
+        self.s_size_combo.grid(row=2, column=1, sticky="ew", padx=4, pady=2)
         self._help(form, 2, HELP["raw_size"])
         for row, (key, label, help_text, readonly) in enumerate(fields):
             if row:
@@ -604,6 +611,9 @@ class MagazynBOM(ttk.Frame):
             self.s_size_label.configure(
                 text=_raw_dimension_label(kind, self._kind_dimension_modes.get(kind))
             )
+        if hasattr(self, "s_size_combo"):
+            values = tuple(self._kind_dimension_values.get(kind, ()))
+            self.s_size_combo.configure(values=values)
 
     def _recalc_raw_total(self) -> None:
         if not hasattr(self, "s_vars"):
@@ -628,6 +638,7 @@ class MagazynBOM(ttk.Frame):
         self.s_vars["nazwa"].set(rec.get("nazwa", ""))
         self.s_vars["rodzaj"].set(_normalize_raw_kind(rec.get("rodzaj", "")))
         self.s_vars["rozmiar"].set(rec.get("rozmiar") or rec.get("wymiar") or rec.get("fi") or "")
+        self._update_raw_dimension_label()
         length = rec.get("dlugosc_sztangi_mm", rec.get("dlugosc", 0))
         bars = rec.get("liczba_sztang")
         if bars is None and _num(length) > 0:
@@ -678,8 +689,10 @@ class MagazynBOM(ttk.Frame):
         top.pack(fill="x")
         ttk.Label(top, text="Rodzaj surowca").grid(row=0, column=0, sticky="w")
         ttk.Label(top, text="Pole wymiaru").grid(row=0, column=1, sticky="w", padx=(8, 0))
+        ttk.Label(top, text="Dostępne rozmiary (po przecinku)").grid(row=0, column=2, sticky="w", padx=(8, 0))
         self.raw_kind_name = tk.StringVar()
         self.raw_kind_mode = tk.StringVar(value="Wymiar")
+        self.raw_kind_dimensions = tk.StringVar()
         ttk.Entry(top, textvariable=self.raw_kind_name, width=28).grid(row=1, column=0, sticky="ew")
         ttk.Combobox(
             top,
@@ -688,17 +701,20 @@ class MagazynBOM(ttk.Frame):
             state="readonly",
             width=14,
         ).grid(row=1, column=1, sticky="w", padx=(8, 0))
-        ttk.Button(top, text="Dodaj", command=self._add_raw_kind).grid(row=1, column=2, padx=(8, 0))
-        add_help_button(top, HELP["raw_kinds"], row=1, column=3, padx=(4, 0))
+        ttk.Entry(top, textvariable=self.raw_kind_dimensions, width=42).grid(row=1, column=2, sticky="ew", padx=(8, 0))
+        ttk.Button(top, text="Dodaj", command=self._add_raw_kind).grid(row=1, column=3, padx=(8, 0))
+        add_help_button(top, HELP["raw_kinds"], row=1, column=4, padx=(4, 0))
         top.columnconfigure(0, weight=1)
 
         self.tree_raw_kinds = ttk.Treeview(
-            parent, columns=("nazwa", "pole"), show="headings", height=12
+            parent, columns=("nazwa", "pole", "wymiary"), show="headings", height=12
         )
         self.tree_raw_kinds.heading("nazwa", text="Rodzaj surowca")
         self.tree_raw_kinds.heading("pole", text="Pole w karcie surowca")
+        self.tree_raw_kinds.heading("wymiary", text="Zdefiniowane rozmiary")
         self.tree_raw_kinds.column("nazwa", width=260, anchor="w")
         self.tree_raw_kinds.column("pole", width=180, anchor="w")
+        self.tree_raw_kinds.column("wymiary", width=420, anchor="w")
         self.tree_raw_kinds.pack(fill="both", expand=True, padx=8, pady=(0, 6))
         ttk.Button(parent, text="Usuń zaznaczony", command=self._delete_raw_kind).pack(
             anchor="e", padx=8, pady=(0, 8)
@@ -717,7 +733,8 @@ class MagazynBOM(ttk.Frame):
                 else "Ilość oczek" if raw_mode == "oczka"
                 else "Wymiar"
             )
-            self.tree_raw_kinds.insert("", "end", iid=str(idx), values=(item["nazwa"], mode))
+            dimensions = ", ".join(str(value) for value in (item.get("wymiary") or []))
+            self.tree_raw_kinds.insert("", "end", iid=str(idx), values=(item["nazwa"], mode, dimensions))
 
     def _add_raw_kind(self) -> None:
         name = self.raw_kind_name.get().strip()
@@ -734,9 +751,15 @@ class MagazynBOM(ttk.Frame):
             else "oczka" if selected_mode == "Ilość oczek"
             else "wymiar"
         )
-        records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode}]
+        dimensions = list(dict.fromkeys(
+            value.strip() for value in self.raw_kind_dimensions.get().split(",") if value.strip()
+        ))
+        records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode, "wymiary": dimensions}]
         self.model.save_raw_kinds(records)
         self._kind_dimension_modes[name] = mode
+        self._kind_dimension_values[name] = dimensions
+        self.raw_kind_dimensions.set("")
+        self._update_raw_dimension_label()
         self.s_kind_combo.configure(values=tuple(self._kind_dimension_modes))
         self.raw_kind_name.set("")
         self._refresh_raw_kinds_tree()
@@ -755,6 +778,7 @@ class MagazynBOM(ttk.Frame):
         records = [rec for pos, rec in enumerate(self.model.raw_kinds) if pos != idx]
         self.model.save_raw_kinds(records)
         self._kind_dimension_modes.pop(name, None)
+        self._kind_dimension_values.pop(name, None)
         self.s_kind_combo.configure(values=tuple(self._kind_dimension_modes))
         self._refresh_raw_kinds_tree()
 
