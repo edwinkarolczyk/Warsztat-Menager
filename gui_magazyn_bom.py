@@ -220,7 +220,7 @@ def _raw_kind_dimensions(item: dict) -> list[str]:
     if raw is None:
         raw = item.get("rozmiary", item.get("dostepne_rozmiary", []))
     if isinstance(raw, str):
-        values = re.split(r"[,;\\n]+", raw)
+        values = re.split(r"[,;\n]+", raw)
     elif isinstance(raw, (list, tuple, set)):
         values = raw
     else:
