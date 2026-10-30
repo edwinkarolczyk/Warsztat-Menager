@@ -1234,6 +1234,7 @@ def _install_raw_kind_editor() -> None:
         rec = self.model.raw_kinds[idx]
         self._editing_raw_kind_original = str(rec.get("nazwa") or "")
         self.raw_kind_name.set(self._editing_raw_kind_original)
+        self.raw_kind_dimensions.set(", ".join(str(value) for value in (rec.get("wymiary") or [])))
         raw_mode = str(rec.get("pole") or "").casefold()
         self.raw_kind_mode.set(
             "Ø" if raw_mode == "fi"
@@ -1246,6 +1247,9 @@ def _install_raw_kind_editor() -> None:
         old_name = str(getattr(self, "_editing_raw_kind_original", "") or "").strip()
         new_name = self.raw_kind_name.get().strip()
         selected_mode = self.raw_kind_mode.get()
+        dimensions = list(dict.fromkeys(
+            value.strip() for value in self.raw_kind_dimensions.get().split(",") if value.strip()
+        ))
         mode = (
             "fi" if selected_mode == "Ø"
             else "szt" if selected_mode == "Szt."
@@ -1271,7 +1275,7 @@ def _install_raw_kind_editor() -> None:
         records = []
         for item in fresh.raw_kinds:
             if item is target:
-                records.append({"nazwa": new_name, "pole": mode})
+                records.append({"nazwa": new_name, "pole": mode, "wymiary": dimensions})
             else:
                 records.append(dict(item))
         fresh.save_raw_kinds(records)
@@ -1300,9 +1304,16 @@ def _install_raw_kind_editor() -> None:
             for item in fresh.raw_kinds
             if isinstance(item, dict) and item.get("nazwa")
         }
+        self._kind_dimension_values = {
+            str(item["nazwa"]): [str(value).strip() for value in (item.get("wymiary") or []) if str(value).strip()]
+            for item in fresh.raw_kinds
+            if isinstance(item, dict) and item.get("nazwa")
+        }
         self.s_kind_combo.configure(values=tuple(self._kind_dimension_modes))
         self._editing_raw_kind_original = ""
         self.raw_kind_name.set("")
+        self.raw_kind_dimensions.set("")
+        self._update_raw_dimension_label()
         self._refresh_raw_kinds_tree()
         self._load_surowce()
         self._refresh_raw_selector()
@@ -1313,8 +1324,8 @@ def _install_raw_kind_editor() -> None:
         self.tree_raw_kinds.bind("<<TreeviewSelect>>", self._select_raw_kind_for_edit, add="+")
         top = next((child for child in parent.winfo_children() if isinstance(child, ttk.Frame)), None)
         if top is not None:
-            ttk.Button(top, text="Zapisz zmianę", command=self._edit_raw_kind).grid(row=1, column=4, padx=(8, 0))
-            add_help_button(top, "Zmienia nazwę lub typ wymiaru zaznaczonego rodzaju. Surowce używające tego rodzaju zostaną automatycznie zaktualizowane.", row=1, column=5, padx=(4, 0))
+            ttk.Button(top, text="Zapisz zmianę", command=self._edit_raw_kind).grid(row=1, column=5, padx=(8, 0))
+            add_help_button(top, "Zmienia nazwę, typ pola i katalog rozmiarów zaznaczonego rodzaju. Dotychczasowe wymiary surowców pozostają zachowane.", row=1, column=6, padx=(4, 0))
 
     UI._select_raw_kind_for_edit = select_kind
     UI._edit_raw_kind = edit_kind
