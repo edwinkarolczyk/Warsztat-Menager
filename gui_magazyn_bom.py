@@ -607,8 +607,8 @@ class MagazynBOM(ttk.Frame):
             self.tree_sr.selection_remove(self.tree_sr.selection())
 
     def _update_raw_dimension_label(self) -> None:
+        kind = self.s_vars["rodzaj"].get()
         if hasattr(self, "s_size_label"):
-            kind = self.s_vars["rodzaj"].get()
             self.s_size_label.configure(
                 text=_raw_dimension_label(kind, self._kind_dimension_modes.get(kind))
             )
