@@ -214,6 +214,20 @@ def _normalize_raw_kind(value: str) -> str:
     return aliases.get(raw, str(value or "").strip())
 
 
+def _raw_kind_dimensions(item: dict) -> list[str]:
+    """Normalizuje katalog wymiarów zapisany jako lista lub tekst rozdzielony przecinkami."""
+    raw = item.get("wymiary")
+    if raw is None:
+        raw = item.get("rozmiary", item.get("dostepne_rozmiary", []))
+    if isinstance(raw, str):
+        values = re.split(r"[,;\\n]+", raw)
+    elif isinstance(raw, (list, tuple, set)):
+        values = raw
+    else:
+        values = []
+    return list(dict.fromkeys(str(value).strip() for value in values if str(value).strip()))
+
+
 def _raw_dimension_label(kind: str, mode: str | None = None) -> str:
     selected = str(mode or "").strip().casefold()
     if not selected:
@@ -509,7 +523,7 @@ class MagazynBOM(ttk.Frame):
             for item in self.model.raw_kinds
         }
         self._kind_dimension_values = {
-            str(item["nazwa"]): [str(value).strip() for value in (item.get("wymiary") or []) if str(value).strip()]
+            str(item["nazwa"]): _raw_kind_dimensions(item)
             for item in self.model.raw_kinds
         }
         self._build_ui()
@@ -759,9 +773,7 @@ class MagazynBOM(ttk.Frame):
             else "oczka" if selected_mode == "Ilość oczek"
             else "wymiar"
         )
-        dimensions = list(dict.fromkeys(
-            value.strip() for value in self.raw_kind_dimensions.get().split(",") if value.strip()
-        ))
+        dimensions = _raw_kind_dimensions({"wymiary": self.raw_kind_dimensions.get()})
         records = [*self.model.raw_kinds, {"nazwa": name, "pole": mode, "wymiary": dimensions}]
         self.model.save_raw_kinds(records)
         self._kind_dimension_modes[name] = mode
