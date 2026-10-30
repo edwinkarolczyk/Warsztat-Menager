@@ -1,5 +1,6 @@
 # WM-VERSION: 0.2
-# Wersja pliku: 2.2
+# Wersja pliku: 2.3
+# 2.3: rodzaje surowców przechowują opcjonalny katalog wymiarów/rozmiarów używany w karcie surowca.
 # 2.2: widoki Produktów pokazują aktualną jednostkę surowca półproduktu, np. 13 Oczek zamiast starego 13 szt.
 # 2.1: dodano tryb „Ilość oczek” dla rodzajów surowców i dynamiczny opis ilości w półprodukcie.
 """Kartoteki produkcyjne Planisty: surowce, półprodukty i produkty/BOM."""
@@ -44,8 +45,8 @@ HELP = {
     "raw_id": "ID techniczne jest nadawane automatycznie i służy tylko do powiązań. Użytkownik pracuje nazwą i rozmiarem surowca.",
     "raw_name": "Wpisz czytelną nazwę surowca, np. Pręt Ø8. Nazwę można później poprawić bez zrywania powiązań.",
     "raw_type": "Wybierz rodzaj surowca: rura, profil albo pręt. Wybór ustala, czy obok podajesz Ø, pełny wymiar albo tryb sztukowy.",
-    "raw_size": "Podaj Ø / Wymiar zgodnie z ustawieniem rodzaju; dla trybu Szt. wpisz oznaczenie, np. M10.",
-    "raw_kinds": "Dodaj tutaj rodzaje surowców używane w zakładce Surowce. Dla każdego wybierz, czy formularz ma używać Ø, Wymiaru czy trybu Szt.",
+    "raw_size": "Wybierz rozmiar z listy przypisanej do rodzaju surowca albo wpisz własny. Dla trybu Szt. możesz użyć oznaczeń, np. M10.",
+    "raw_kinds": "Dodaj rodzaj, wybierz pole Ø/Wymiar/Szt. i wpisz dostępne rozmiary oddzielone przecinkami. Lista pojawi się przy dodawaniu surowca; pole nadal pozwala wpisać inny rozmiar.",
     "bars": "Podaj liczbę sztuk / pełnych sztang znajdujących się na stanie. WM sam przeliczy łączną długość i pokaże ją także w metrach.",
     "bar_length": "Podaj długość jednej sztangi w milimetrach, np. 6000. Łączny stan jest liczony jako sztangi × długość.",
     "stock": "Łączny stan długości jest zapisywany w milimetrach. Dla surowca liniowego WM pokazuje także metry.",
