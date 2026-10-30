@@ -614,7 +614,12 @@ class MagazynBOM(ttk.Frame):
             )
         if hasattr(self, "s_size_combo"):
             values = tuple(self._kind_dimension_values.get(kind, ()))
-            self.s_size_combo.configure(values=values)
+            # Jeśli rodzaj ma katalog wymiarów, wybór jest ograniczony do listy.
+            # Bez katalogu pozostaje ręczne wpisywanie (zgodność ze starymi danymi).
+            self.s_size_combo.configure(
+                values=values,
+                state="readonly" if values else "normal",
+            )
 
     def _recalc_raw_total(self) -> None:
         if not hasattr(self, "s_vars"):
