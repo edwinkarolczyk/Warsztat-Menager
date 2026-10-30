@@ -605,6 +605,8 @@ class MagazynBOM(ttk.Frame):
         self.s_vars["stan"].set("0 mm (0 m)")
         if hasattr(self, "tree_sr"):
             self.tree_sr.selection_remove(self.tree_sr.selection())
+        # Ustaw katalog wymiarów także jawnie; nie polegaj wyłącznie na trace StringVar.
+        self._update_raw_dimension_label()
 
     def _update_raw_dimension_label(self) -> None:
         kind = self.s_vars["rodzaj"].get()
