@@ -591,10 +591,14 @@ class MagazynBOM(ttk.Frame):
         self._help(form, 1, HELP["raw_type"])
         self.s_size_label = ttk.Label(form, text="Ø [mm]")
         self.s_size_label.grid(row=2, column=0, sticky="w", padx=4, pady=2)
-        self.s_size_combo = ttk.Combobox(
-            form, textvariable=self.s_vars["rozmiar"], state="normal",
+        # Widoczna lista katalogowa zamiast pola, które wygląda jak zwykłe wpisywanie.
+        self.s_size_list = tk.Listbox(
+            form, height=4, exportselection=False, activestyle="dotbox",
         )
-        self.s_size_combo.grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        self.s_size_list.grid(row=2, column=1, sticky="ew", padx=4, pady=2)
+        self.s_size_list.bind("<<ListboxSelect>>", self._on_raw_dimension_select)
+        self.s_size_entry = ttk.Entry(form, textvariable=self.s_vars["rozmiar"])
+        self.s_size_entry.grid(row=2, column=1, sticky="ew", padx=4, pady=2)
         self._help(form, 2, HELP["raw_size"])
         for row, (key, label, help_text, readonly) in enumerate(fields):
             if row:
@@ -623,19 +627,36 @@ class MagazynBOM(ttk.Frame):
         self._update_raw_dimension_label()
 
     def _update_raw_dimension_label(self) -> None:
-        kind = self.s_vars["rodzaj"].get()
+        kind = self.s_vars["rodzaj"].get().strip()
         if hasattr(self, "s_size_label"):
             self.s_size_label.configure(
                 text=_raw_dimension_label(kind, self._kind_dimension_modes.get(kind))
             )
-        if hasattr(self, "s_size_combo"):
+        if hasattr(self, "s_size_list") and hasattr(self, "s_size_entry"):
             values = tuple(self._kind_dimension_values.get(kind, ()))
-            # Jeśli rodzaj ma katalog wymiarów, wybór jest ograniczony do listy.
-            # Bez katalogu pozostaje ręczne wpisywanie (zgodność ze starymi danymi).
-            self.s_size_combo.configure(
-                values=values,
-                state="readonly" if values else "normal",
-            )
+            self.s_size_list.delete(0, "end")
+            for value in values:
+                self.s_size_list.insert("end", value)
+            if values:
+                self.s_size_entry.grid_remove()
+                self.s_size_list.grid()
+                current = self.s_vars["rozmiar"].get().strip()
+                if current in values:
+                    index = values.index(current)
+                    self.s_size_list.selection_set(index)
+                    self.s_size_list.see(index)
+                else:
+                    self.s_size_list.selection_clear(0, "end")
+            else:
+                self.s_size_list.grid_remove()
+                self.s_size_entry.grid()
+
+    def _on_raw_dimension_select(self, _event=None) -> None:
+        if not hasattr(self, "s_size_list"):
+            return
+        selection = self.s_size_list.curselection()
+        if selection:
+            self.s_vars["rozmiar"].set(self.s_size_list.get(selection[0]))
 
     def _recalc_raw_total(self) -> None:
         if not hasattr(self, "s_vars"):
