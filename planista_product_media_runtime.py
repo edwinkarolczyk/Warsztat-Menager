@@ -90,7 +90,7 @@ def install_planista_product_media_runtime() -> None:
             return
         try:
             with Image.open(path) as image:
-                image.thumbnail((150, 110))
+                image.thumbnail((72, 54))
                 preview = ImageTk.PhotoImage(image.copy())
             self._wm_media_images[kind] = preview
             self._wm_media_preview[kind].configure(image=preview, text="")
