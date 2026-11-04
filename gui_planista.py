@@ -370,7 +370,8 @@ def _semiproduct_thumbnail_data_uri(code):
         import bom
 
         record = bom.get_polprodukt(str(code))
-        relative = str(record.get("zdjecie_miniatura") or "").strip()
+        # Starsze karty mogą mieć tylko oryginalne zdjęcie bez miniatury.
+        relative = str(record.get("zdjecie_miniatura") or record.get("zdjecie") or "").strip()
         if not relative:
             return ""
         root = get_data_root().resolve()
@@ -581,8 +582,8 @@ h1 {{ font-size:15pt; margin:0; }}
 h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
 .header {{ display:flex; justify-content:space-between; align-items:flex-start; gap:4mm; margin-bottom:3mm; }}
 .header-title {{ flex:1 1 auto; }}
-.product-block {{ flex:0 1 58mm; display:flex; align-items:center; gap:2mm; min-width:0; font-size:8pt; }}
-.product-thumb {{ width:25mm; height:20mm; object-fit:contain; flex:0 0 25mm; border:0.3mm solid #bbb; }}
+.product-block {{ flex:0 1 61mm; display:flex; align-items:center; gap:2mm; min-width:0; font-size:8pt; }}
+.product-thumb {{ width:28mm; height:22mm; object-fit:contain; flex:0 0 28mm; border:0.3mm solid #bbb; }}
 .product-info {{ min-width:0; overflow-wrap:anywhere; }}
 .qr-block {{ flex:0 0 26mm; text-align:center; font-size:6.7pt; line-height:1.15; color:#333; }}
 .qr-block img {{ width:24mm; height:24mm; display:block; margin:0 auto 1mm; image-rendering:pixelated; }}
