@@ -499,7 +499,7 @@ def _work_order_html(order):
         thumb_uri = _semiproduct_thumbnail_data_uri(code)
         thumb_html = (
             f"<img class='semi-thumb' alt='Zdjęcie {html.escape(str(rec.get('nazwa') or code))}' src='{thumb_uri}'>"
-            if thumb_uri else ""
+            if thumb_uri else "<div class='semi-thumb semi-thumb-empty' aria-label='Brak zdjęcia'></div>"
         )
         rows.append(
             "<tr>"
@@ -570,7 +570,7 @@ def _work_order_html(order):
     product_image_uri = _product_thumbnail_data_uri(order)
     product_image_html = (
         f"<img class='product-thumb' alt='Zdjęcie produktu {html.escape(product_name)}' src='{product_image_uri}'>"
-        if product_image_uri else ""
+        if product_image_uri else "<div class='product-thumb product-thumb-empty' aria-label='Brak zdjęcia'></div>"
     )
 
     return f"""<!doctype html>
@@ -584,7 +584,10 @@ h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
 .header-title {{ flex:1 1 auto; }}
 .product-block {{ flex:0 1 61mm; display:flex; align-items:center; gap:2mm; min-width:0; font-size:8pt; }}
 .product-thumb {{ width:28mm; height:22mm; object-fit:contain; flex:0 0 28mm; border:0.3mm solid #bbb; }}
-.product-info {{ min-width:0; overflow-wrap:anywhere; }}
+.product-info {{ min-width:0; flex:1 1 auto; overflow-wrap:anywhere; }}
+.product-name {{ display:block; font-size:11.5pt; font-weight:800; line-height:1.15; }}
+.product-code {{ display:block; font-size:8pt; overflow-wrap:anywhere; }}
+.product-thumb-empty, .semi-thumb-empty {{ box-sizing:border-box; background:#fff; }}
 .qr-block {{ flex:0 0 26mm; text-align:center; font-size:6.7pt; line-height:1.15; color:#333; }}
 .qr-block img {{ width:24mm; height:24mm; display:block; margin:0 auto 1mm; image-rendering:pixelated; }}
 .meta {{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm 7mm; margin-bottom:4mm; }}
@@ -618,7 +621,7 @@ th {{ background:#eee; }}
   </div>
   <div class='product-block'>
     {product_image_html}
-    <div class='product-info'><b>{html.escape(product_name)}</b><br><span class='small'>Kod / symbol: {html.escape(product_code)}</span></div>
+    <div class='product-info'><span class='product-name'>{html.escape(product_name)}</span><span class='product-code'>Kod / symbol: {html.escape(product_code)}</span></div>
   </div>
   <div class='qr-block'>
     {f"<img alt='QR zlecenia {html.escape(str(order.get('id') or ''))}' src='{qr_data_uri}'>" if qr_data_uri else ""}
