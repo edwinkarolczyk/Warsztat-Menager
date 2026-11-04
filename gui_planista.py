@@ -409,6 +409,35 @@ def _product_print_name(order):
     return name or code or "—"
 
 
+def _product_thumbnail_data_uri(order):
+    """Zwraca miniaturę produktu głównego osadzoną w samodzielnym wydruku HTML."""
+    code = str(order.get("produkt") or order.get("product_code") or "").strip()
+    if not code:
+        return ""
+    try:
+        import bom
+
+        product = bom.get_produkt(code, version=order.get("version") or None)
+        relative = str(product.get("zdjecie_miniatura") or product.get("zdjecie") or "").strip()
+        if not relative:
+            return ""
+        root = get_data_root().resolve()
+        image_path = (root / relative).resolve()
+        image_path.relative_to(root)
+        if not image_path.is_file():
+            return ""
+        suffix = image_path.suffix.lower()
+        mime = {
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+        }.get(suffix, "image/jpeg")
+        encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    except Exception:
+        return ""
+
+
 def _work_order_html(order):
     try:
         raw_summary = ZL.material_bar_summary(order)
@@ -535,6 +564,13 @@ def _work_order_html(order):
 
     qr_payload = _work_order_qr_payload(order)
     qr_data_uri = _work_order_qr_data_uri(order)
+    product_name = _product_print_name(order)
+    product_code = str(order.get("produkt") or order.get("product_code") or "—")
+    product_image_uri = _product_thumbnail_data_uri(order)
+    product_image_html = (
+        f"<img class='product-thumb' alt='Zdjęcie produktu {html.escape(product_name)}' src='{product_image_uri}'>"
+        if product_image_uri else ""
+    )
 
     return f"""<!doctype html>
 <html lang='pl'><head><meta charset='utf-8'><title>Zlecenie {html.escape(str(order.get('id') or ''))}</title>
@@ -545,6 +581,9 @@ h1 {{ font-size:15pt; margin:0; }}
 h2 {{ font-size:11pt; margin:4mm 0 2mm; }}
 .header {{ display:flex; justify-content:space-between; align-items:flex-start; gap:4mm; margin-bottom:3mm; }}
 .header-title {{ flex:1 1 auto; }}
+.product-block {{ flex:0 1 58mm; display:flex; align-items:center; gap:2mm; min-width:0; font-size:8pt; }}
+.product-thumb {{ width:25mm; height:20mm; object-fit:contain; flex:0 0 25mm; border:0.3mm solid #bbb; }}
+.product-info {{ min-width:0; overflow-wrap:anywhere; }}
 .qr-block {{ flex:0 0 26mm; text-align:center; font-size:6.7pt; line-height:1.15; color:#333; }}
 .qr-block img {{ width:24mm; height:24mm; display:block; margin:0 auto 1mm; image-rendering:pixelated; }}
 .meta {{ display:grid; grid-template-columns:1fr 1fr; gap:1.5mm 7mm; margin-bottom:4mm; }}
@@ -576,6 +615,10 @@ th {{ background:#eee; }}
     <h1>ZLECENIE DO WYKONANIA</h1>
     <div class='small'>Skanuj QR w WMM, aby otworzyć to zlecenie w Planista.</div>
   </div>
+  <div class='product-block'>
+    {product_image_html}
+    <div class='product-info'><b>{html.escape(product_name)}</b><br><span class='small'>Kod / symbol: {html.escape(product_code)}</span></div>
+  </div>
   <div class='qr-block'>
     {f"<img alt='QR zlecenia {html.escape(str(order.get('id') or ''))}' src='{qr_data_uri}'>" if qr_data_uri else ""}
     <b>{html.escape(str(order.get('id') or ''))}</b><br>
@@ -586,7 +629,6 @@ th {{ background:#eee; }}
 <div><b>Zlecenie warsztatowe:</b> {html.escape(str(order.get('id') or ''))}</div>
 <div><b>Zlecenie wew:</b> {html.escape(str(order.get('zlec_wew') or '—'))}</div>
 <div><b>Termin:</b> {html.escape(_display_date(order.get('termin')) or '—')}</div>
-<div class='wide'><b>Produkt:</b> <b>{html.escape(_product_print_name(order))}</b><br><span class='small'>Kod: {html.escape(str(order.get('produkt') or order.get('product_code') or '—'))}</span></div>
 <div><b>Zamówienie:</b> {html.escape(_fmt_qty(order.get('ilosc', 0)))}</div>
 <div><b>Wykonano:</b> {html.escape(_fmt_qty(order.get('wykonano', 0)))}</div>
 <div><b>Pozostało:</b> {html.escape(_fmt_qty(remaining))}</div>
