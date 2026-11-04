@@ -1,5 +1,5 @@
 # WM-VERSION: 0.1
-"""Zdjęcia i rysunki techniczne w kartotece produktów Planisty."""
+"""Zdjęcie produktu w kartotece produktów Planisty."""
 
 from __future__ import annotations
 
@@ -11,10 +11,7 @@ from uuid import uuid4
 
 from PIL import Image, ImageTk
 
-_MEDIA_FIELDS = {
-    "zdjecie": "Zdjęcie produktu",
-    "rysunek_techniczny": "Rysunek techniczny",
-}
+_MEDIA_FIELDS = {"zdjecie": "Zdjęcie produktu"}
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 _PDF_SUFFIXES = {".pdf"}
 
@@ -28,15 +25,15 @@ def _safe_symbol(symbol: str) -> str:
 
 def store_product_media(data_dir: str | Path, symbol: str, kind: str, source: str | Path) -> dict:
     """Kopiuje oryginał do danych WM i tworzy miniaturę dla obrazów."""
-    if kind not in _MEDIA_FIELDS:
-        raise ValueError("Nieznany rodzaj pliku produktu.")
+    if kind != "zdjecie":
+        raise ValueError("Obsługiwane jest wyłącznie zdjęcie produktu.")
     source_path = Path(source)
     if not source_path.is_file():
         raise FileNotFoundError(f"Nie znaleziono pliku: {source_path}")
     suffix = source_path.suffix.lower()
     if suffix not in _IMAGE_SUFFIXES | _PDF_SUFFIXES:
         raise ValueError("Dozwolone są obrazy (PNG/JPG/TIFF/WEBP) lub dokument PDF.")
-    if suffix == ".pdf" and kind == "zdjecie":
+    if suffix not in _IMAGE_SUFFIXES:
         raise ValueError("Zdjęcie produktu musi być plikiem graficznym.")
     if suffix in _IMAGE_SUFFIXES:
         with Image.open(source_path) as image:
@@ -102,13 +99,13 @@ def install_planista_product_media_runtime() -> None:
             self._wm_media_preview[kind].configure(image="", text="Nie można wyświetlić podglądu")
 
     def _set_media_record(self, record: dict) -> None:
-        for key in ("zdjecie", "zdjecie_miniatura", "rysunek_techniczny", "rysunek_techniczny_miniatura"):
+        for key in ("zdjecie", "zdjecie_miniatura"):
             self._wm_media_vars[key].set(str(record.get(key) or ""))
         _show_preview(self, "zdjecie")
-        _show_preview(self, "rysunek_techniczny")
-        for kind, label in _MEDIA_FIELDS.items():
-            path = resolve_product_media(self.model.data_dir, self._wm_media_vars[kind].get())
-            self._wm_media_labels[kind].configure(text=Path(path).name if path else "Nie wybrano pliku")
+        path = resolve_product_media(self.model.data_dir, self._wm_media_vars["zdjecie"].get())
+        self._wm_media_labels["zdjecie"].configure(
+            text=Path(path).name if path else "Nie wybrano zdjęcia"
+        )
 
     def _choose_media(self, kind: str) -> None:
         symbol = self.pr_vars["symbol"].get().strip()
@@ -143,31 +140,27 @@ def install_planista_product_media_runtime() -> None:
             return
         self._wm_media_vars = {
             key: GMB.tk.StringVar(master=self, value="")
-            for key in ("zdjecie", "zdjecie_miniatura", "rysunek_techniczny", "rysunek_techniczny_miniatura")
+            for key in ("zdjecie", "zdjecie_miniatura")
         }
-        self._wm_media_images = {"zdjecie": None, "rysunek_techniczny": None}
+        self._wm_media_images = {"zdjecie": None}
         self._wm_media_labels = {}
         self._wm_media_preview = {}
-        for row, (kind, title) in enumerate(_MEDIA_FIELDS.items(), start=4):
-            frame = ttk.LabelFrame(form, text=title, padding=5)
-            frame.grid(row=row, column=0, columnspan=3, sticky="ew", padx=4, pady=3)
-            preview = ttk.Label(frame, text="Brak podglądu", width=22, anchor="center")
-            preview.pack(side="left", padx=(0, 8))
-            self._wm_media_preview[kind] = preview
-            info = ttk.Frame(frame)
-            info.pack(side="left", fill="x", expand=True)
-            label = ttk.Label(info, text="Nie wybrano pliku")
-            label.pack(anchor="w")
-            self._wm_media_labels[kind] = label
-            ttk.Button(
-                info,
-                text="Wybierz plik…",
-                command=lambda selected_kind=kind: _choose_media(self, selected_kind),
-            ).pack(anchor="w", pady=(4, 0))
+        frame = ttk.Frame(form)
+        frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=4, pady=2)
+        self._wm_media_preview["zdjecie"] = ttk.Label(frame, text="", width=10, anchor="center")
+        self._wm_media_preview["zdjecie"].pack(side="left", padx=(0, 5))
+        ttk.Button(
+            frame,
+            text="Zdjęcie…",
+            width=11,
+            command=lambda: _choose_media(self, "zdjecie"),
+        ).pack(side="left", padx=(0, 6))
+        self._wm_media_labels["zdjecie"] = ttk.Label(frame, text="Nie wybrano zdjęcia")
+        self._wm_media_labels["zdjecie"].pack(side="left", fill="x", expand=True)
         bom_box = next((child for child in form.winfo_children()
                         if isinstance(child, ttk.LabelFrame) and str(child.cget("text")) == "Półprodukty w produkcie"), None)
         if bom_box is not None:
-            bom_box.grid_configure(row=6)
+            bom_box.grid_configure(row=5)
         _set_media_record(self, {})
 
     def new_product(self):
