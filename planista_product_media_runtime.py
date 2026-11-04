@@ -198,7 +198,10 @@ def install_planista_product_media_runtime() -> None:
 
         self.model.add_or_update_produkt = save_with_media
         try:
-            return old_save(self)
+            result = old_save(self)
+            if not self.pr_vars["symbol"].get().strip():
+                _set_media_record(self, {})
+            return result
         finally:
             self.model.add_or_update_produkt = model_save
 
