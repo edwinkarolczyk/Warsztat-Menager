@@ -58,6 +58,7 @@ from planista_stock_runtime import install_planista_stock_runtime
 from planista_transaction_runtime import install_planista_transaction_runtime
 from planista_versions_runtime import install_planista_versions_runtime
 from planista_product_media_runtime import install_planista_product_media_runtime
+from planista_semiproduct_media_runtime import install_planista_semiproduct_media_runtime
 
 
 def _rename_in_list(modules):
@@ -93,6 +94,7 @@ def _install_planista_runtime():
     install_planista_transaction_runtime()
     install_planista_versions_runtime()
     install_planista_product_media_runtime()
+    install_planista_semiproduct_media_runtime()
     install_planista_operations_runtime()
     install_planista_audit_runtime()
     install_planista_editor_runtime()
