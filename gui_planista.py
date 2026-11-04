@@ -363,6 +363,52 @@ def _cutting_diagrams_html(order, raw_summary):
     )
 
 
+
+def _semiproduct_thumbnail_data_uri(code):
+    """Zwraca osadzoną miniaturę półproduktu do samodzielnego wydruku HTML."""
+    try:
+        import bom
+
+        record = bom.get_polprodukt(str(code))
+        relative = str(record.get("zdjecie_miniatura") or "").strip()
+        if not relative:
+            return ""
+        root = get_data_root().resolve()
+        image_path = (root / relative).resolve()
+        image_path.relative_to(root)
+        if not image_path.is_file():
+            return ""
+        suffix = image_path.suffix.lower()
+        mime = "image/png" if suffix == ".png" else "image/jpeg"
+        encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    except Exception:
+        return ""
+
+
+def _product_print_name(order):
+    """Nazwa produktu z kartoteki; kod pozostaje widoczny jako identyfikator."""
+    code = str(order.get("produkt") or order.get("product_code") or "").strip()
+    name = str(order.get("produkt_nazwa") or order.get("nazwa_produktu") or "").strip()
+    if not name and code:
+        try:
+            import bom
+
+            product = bom.get_produkt(code, version=order.get("version") or None)
+            name = str(product.get("nazwa") or product.get("name") or "").strip()
+        except Exception:
+            try:
+                name = next(
+                    (str(item.get("nazwa") or "").strip()
+                     for item in ZL.list_produkty()
+                     if str(item.get("kod") or "") == code),
+                    "",
+                )
+            except Exception:
+                name = ""
+    return name or code or "—"
+
+
 def _work_order_html(order):
     try:
         raw_summary = ZL.material_bar_summary(order)
@@ -420,9 +466,14 @@ def _work_order_html(order):
             f"Z magazynu: {_fmt_qty(rec.get('z_magazynu', 0))}<br>"
             f"<b>Do wykonania: {_fmt_qty(rec.get('do_wykonania', rec.get('ilosc', 0)))}</b>"
         )
+        thumb_uri = _semiproduct_thumbnail_data_uri(code)
+        thumb_html = (
+            f"<img class='semi-thumb' alt='Zdjęcie {html.escape(str(rec.get('nazwa') or code))}' src='{thumb_uri}'>"
+            if thumb_uri else ""
+        )
         rows.append(
             "<tr>"
-            f"<td><b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
+            f"<td>{thumb_html}<b>{html.escape(str(rec.get('nazwa') or code))}</b><br><span class='small'>{html.escape(str(code))}</span></td>"
             f"<td>{qty_text}</td>"
             f"<td><b class='cut-raw-name'>{html.escape(raw_name)}</b><br><span class='small'>{html.escape(raw_code)}</span><br>"
             f"{per_piece_text}</td>"
@@ -506,6 +557,7 @@ th {{ background:#eee; }}
 .warn {{ margin-top:4mm; border:2px solid #b33; padding:2mm; }}
 .notes {{ margin-top:4mm; min-height:14mm; border:1px solid #777; padding:2mm; }}
 .small {{ font-size:7.5pt; color:#555; }}
+.semi-thumb {{ display:block; width:24mm; height:18mm; object-fit:contain; margin:0 0 1.2mm; border:0.3mm solid #bbb; }}
 .operation {{ display:flex; align-items:center; gap:1.5mm; margin:0.7mm 0; }}
 .check-box {{ display:inline-block; width:3.2mm; height:3.2mm; border:1.2px solid #111; flex:0 0 3.2mm; }}
 .operations-note {{ margin-top:2mm; padding:1.8mm 2mm; border:1px solid #777; font-weight:bold; }}
@@ -534,7 +586,7 @@ th {{ background:#eee; }}
 <div><b>Zlecenie warsztatowe:</b> {html.escape(str(order.get('id') or ''))}</div>
 <div><b>Zlecenie wew:</b> {html.escape(str(order.get('zlec_wew') or '—'))}</div>
 <div><b>Termin:</b> {html.escape(_display_date(order.get('termin')) or '—')}</div>
-<div><b>Produkt:</b> {html.escape(str(order.get('produkt') or ''))}</div>
+<div class='wide'><b>Produkt:</b> <b>{html.escape(_product_print_name(order))}</b><br><span class='small'>Kod: {html.escape(str(order.get('produkt') or order.get('product_code') or '—'))}</span></div>
 <div><b>Zamówienie:</b> {html.escape(_fmt_qty(order.get('ilosc', 0)))}</div>
 <div><b>Wykonano:</b> {html.escape(_fmt_qty(order.get('wykonano', 0)))}</div>
 <div><b>Pozostało:</b> {html.escape(_fmt_qty(remaining))}</div>
