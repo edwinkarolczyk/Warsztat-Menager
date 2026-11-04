@@ -148,7 +148,7 @@ def install_planista_product_media_runtime() -> None:
         self._wm_media_images = {"zdjecie": None, "rysunek_techniczny": None}
         self._wm_media_labels = {}
         self._wm_media_preview = {}
-        for row, (kind, title) in enumerate(_MEDIA_FIELDS.items(), start=2):
+        for row, (kind, title) in enumerate(_MEDIA_FIELDS.items(), start=4):
             frame = ttk.LabelFrame(form, text=title, padding=5)
             frame.grid(row=row, column=0, columnspan=3, sticky="ew", padx=4, pady=3)
             preview = ttk.Label(frame, text="Brak podglądu", width=22, anchor="center")
@@ -167,7 +167,7 @@ def install_planista_product_media_runtime() -> None:
         bom_box = next((child for child in form.winfo_children()
                         if isinstance(child, ttk.LabelFrame) and str(child.cget("text")) == "Półprodukty w produkcie"), None)
         if bom_box is not None:
-            bom_box.grid_configure(row=4)
+            bom_box.grid_configure(row=6)
         _set_media_record(self, {})
 
     def new_product(self):
