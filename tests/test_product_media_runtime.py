@@ -21,21 +21,12 @@ def test_store_product_photo_and_create_thumbnail(tmp_path):
         assert image.height <= 360
 
 
-def test_store_technical_drawing_image(tmp_path):
+def test_technical_drawing_is_not_supported(tmp_path):
     source = tmp_path / "drawing.jpg"
-    Image.new("RGB", (800, 600), "white").save(source)
-    stored = store_product_media(tmp_path / "data", "PR-002", "rysunek_techniczny", source)
-    assert resolve_product_media(tmp_path / "data", stored["path"]).is_file()
-    assert resolve_product_media(tmp_path / "data", stored["thumbnail"]).is_file()
-
-
-def test_store_technical_drawing_pdf_without_thumbnail(tmp_path):
-    source = tmp_path / "drawing.pdf"
-    source.write_bytes(b"%PDF-1.4\n% test")
-    data = tmp_path / "data"
-    stored = store_product_media(data, "PR-003", "rysunek_techniczny", source)
-    assert resolve_product_media(data, stored["path"]).read_bytes().startswith(b"%PDF")
-    assert stored["thumbnail"] == ""
+    Image.new("RGB", (80, 60), "white").save(source)
+    import pytest
+    with pytest.raises(ValueError, match="wyłącznie zdjęcie produktu"):
+        store_product_media(tmp_path / "data", "PR-002", "rysunek_techniczny", source)
 
 
 def test_missing_media_is_handled_without_error(tmp_path):
