@@ -382,3 +382,7 @@ def test_1900_excel_date_is_a_non_resolvable_import_conflict():
     assert item["action"] == sync.ACTION_CONFLICT
     assert "Konflikt daty w Excelu" in item["reason"]
     assert plan["can_write"] is False
+    with pytest.raises(sync.ExcelOrderSyncError, match="błędną datą Excel"):
+        sync.resolve_conflict_create(payload, item)
+    with pytest.raises(sync.ExcelOrderSyncError, match="błędną datą Excel"):
+        sync.resolve_conflict_link(payload, item, "000999")
