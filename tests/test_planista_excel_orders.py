@@ -361,3 +361,24 @@ def test_apply_rechecks_protected_status_before_update(monkeypatch):
             plan,
             approved_identities={plan["items"][0]["identity"]},
         )
+
+
+def test_1900_excel_date_is_a_non_resolvable_import_conflict():
+    row = _row(date="")
+    payload = _payload([row])
+    payload["import_diagnostics"] = {
+        "row_warnings": [{
+            "source_row": 4,
+            "reasons": [
+                "Data wysyłki z wiersza 4 wskazuje rok 1900 lub wcześniejszy; "
+                "wartość odrzucono i wymaga ręcznej korekty w Excelu."
+            ],
+        }]
+    }
+
+    plan = sync.build_order_sync_plan(payload, orders=[])
+
+    item = plan["items"][0]
+    assert item["action"] == sync.ACTION_CONFLICT
+    assert "Konflikt daty w Excelu" in item["reason"]
+    assert plan["can_write"] is False
