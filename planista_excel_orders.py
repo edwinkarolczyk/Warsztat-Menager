@@ -262,7 +262,16 @@ def build_order_sync_plan(payload: dict, orders: list[dict] | None = None) -> di
             continue
         problem = invalid_rows.get(str(row.get("source_row")))
         if problem:
-            planned.append(_plan_item(row, ACTION_SKIP, reason="Błąd danych w Excelu: " + problem))
+            is_1900_date = "rok 1900 lub wcześniejszy" in problem
+            planned.append(
+                _plan_item(
+                    row,
+                    ACTION_CONFLICT if is_1900_date else ACTION_SKIP,
+                    reason="Konflikt daty w Excelu: " + problem
+                    if is_1900_date
+                    else "Błąd danych w Excelu: " + problem,
+                )
+            )
             continue
         if _text(row.get("match_status")) != STATUS_FOUND:
             planned.append(
