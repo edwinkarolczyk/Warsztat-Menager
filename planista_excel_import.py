@@ -250,11 +250,18 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         source_rows += 1
         explicit_order = _as_order_number(cells.get(columns["order"], ""))
         explicit_date = _as_excel_date(cells.get(columns["date"], ""))
+        invalid_1900_date = False
+        if explicit_date:
+            try:
+                invalid_1900_date = datetime.strptime(explicit_date, "%Y-%m-%d").year <= 1900
+            except ValueError:
+                pass
         if explicit_order:
             current_order = explicit_order
-            current_date = explicit_date
+            current_date = "" if invalid_1900_date else explicit_date
         elif explicit_date:
-            current_date = explicit_date
+            # Odrzucona data nie może przejść na kolejne wiersze kontynuacji zlecenia.
+            current_date = "" if invalid_1900_date else explicit_date
 
         product = str(cells.get(columns["product"], "") or "").strip()
         if not product:
@@ -270,7 +277,12 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
             issues.append("Ilość musi być większa od zera.")
         if not current_order:
             issues.append("Brak numeru zlecenia.")
-        if not current_date:
+        if invalid_1900_date:
+            issues.append(
+                f"Data wysyłki z wiersza {row_no} wskazuje rok 1900 lub wcześniejszy; "
+                "wartość odrzucono i wymaga ręcznej korekty w Excelu."
+            )
+        elif not current_date:
             issues.append("Brak daty wysyłki.")
         else:
             try:
