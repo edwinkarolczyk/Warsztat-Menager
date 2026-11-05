@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.13
+# version: 1.14
+# 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
 # 1.12: podgląd jednego PDF A4 i wspólny druk zbiorczy jednym poleceniem.
 # 1.11: kolumna wydruku A4, zbiorcze drukowanie i historia poleceń.
@@ -205,6 +206,7 @@ class PlanistaPanel(ttk.Frame):
             "zlec_wew",
             "id",
             "produkt",
+            "nazwa_produktu",
             "ilosc",
             "polprodukty",
             "wykonano",
@@ -221,6 +223,7 @@ class PlanistaPanel(ttk.Frame):
             "zlec_wew": "Zlecenie wew",
             "id": "Zlecenie warsztatowe",
             "produkt": "Produkt",
+            "nazwa_produktu": "Nazwa produktu",
             "ilosc": "Zamówienie",
             "polprodukty": "Półprodukty",
             "wykonano": "Wykonano",
@@ -233,7 +236,8 @@ class PlanistaPanel(ttk.Frame):
             "wybor": 38,
             "zlec_wew": 120,
             "id": 100,
-            "produkt": 250,
+            "produkt": 150,
+            "nazwa_produktu": 260,
             "ilosc": 100,
             "polprodukty": 110,
             "wykonano": 90,
@@ -499,6 +503,14 @@ class PlanistaPanel(ttk.Frame):
             registry = None
         self.tree.delete(*self.tree.get_children())
         self._orders = {}
+        try:
+            product_names = {
+                str(item.get("kod") or "").strip(): str(item.get("nazwa") or "").strip()
+                for item in ZL.list_produkty()
+                if isinstance(item, dict) and str(item.get("kod") or "").strip()
+            }
+        except Exception:
+            product_names = {}
         for order in orders:
             if not _planista_order_visible(order, order_mode, search):
                 continue
@@ -523,6 +535,7 @@ class PlanistaPanel(ttk.Frame):
                     order.get("zlec_wew", ""),
                     oid,
                     order.get("produkt", ""),
+                    product_names.get(str(order.get("produkt") or "").strip(), ""),
                     _fmt_qty(qty),
                     _semi_progress_display(order),
                     _fmt_qty(done),
