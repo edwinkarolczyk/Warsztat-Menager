@@ -466,3 +466,27 @@ def test_blank_product_row_still_carries_next_order_and_date(tmp_path):
     assert payload["import_diagnostics"]["skipped_rows"][0]["source_row"] == 5
     assert payload["rows"][1]["nr_zlec"] == "750"
     assert payload["rows"][1]["data_wysylki"] == "2026-09-14"
+
+
+def test_excel_1900_date_is_reported_and_never_carried_to_continuation_rows(tmp_path):
+    path = _fixture_xlsx(tmp_path / "Plan_1900.xlsx")
+    with ZipFile(path, "r") as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
+    xml = xml.replace('<c r="D4"><v>46279</v></c>', '<c r="D4"><v>2</v></c>')
+    files["xl/worksheets/sheet1.xml"] = xml.encode("utf-8")
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+
+    payload = load_production_plan(path)
+
+    first, second, third = payload["rows"]
+    assert first["data_wysylki"] == ""
+    assert second["data_wysylki"] == ""
+    assert third["data_wysylki"] == "2026-09-16"
+    warnings = payload["import_diagnostics"]["row_warnings"]
+    assert warnings[0]["source_row"] == 4
+    assert "rok 1900 lub wcześniejszy" in " ".join(warnings[0]["reasons"])
+    assert warnings[1]["source_row"] == 5
+    assert "Brak daty wysyłki" in " ".join(warnings[1]["reasons"])
