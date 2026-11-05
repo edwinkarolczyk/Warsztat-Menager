@@ -532,6 +532,10 @@ def resolve_conflict_create(payload: dict, item: dict, *, autor: str = "Planista
     """Po jawnej decyzji utwórz osobne zlecenie dla jednego konfliktowego wiersza."""
     if item.get("action") != ACTION_CONFLICT:
         raise ExcelOrderSyncError("Wybrana pozycja nie jest konfliktem do rozstrzygnięcia.")
+    if "rok 1900 lub wcześniejszy" in _text(item.get("reason")):
+        raise ExcelOrderSyncError(
+            "Nie można utworzyć zlecenia z błędną datą Excel. Popraw datę w pliku i wczytaj plan ponownie."
+        )
     forced = dict(item)
     forced["action"] = ACTION_CREATE
     forced["order_id"] = ""
@@ -557,6 +561,10 @@ def resolve_conflict_link(
     """
     if item.get("action") != ACTION_CONFLICT:
         raise ExcelOrderSyncError("Wybrana pozycja nie jest konfliktem do rozstrzygnięcia.")
+    if "rok 1900 lub wcześniejszy" in _text(item.get("reason")):
+        raise ExcelOrderSyncError(
+            "Nie można połączyć pozycji z błędną datą Excel. Popraw datę w pliku i wczytaj plan ponownie."
+        )
     order_id = _text(order_id)
     current = next(
         (order for order in ZL.list_zlecenia() if _text(order.get("id")) == order_id),
