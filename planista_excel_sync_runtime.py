@@ -396,6 +396,18 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             )
             return
 
+        if "rok 1900 lub wcześniejszy" in _text(item.get("reason")):
+            messagebox.showwarning(
+                "Nieprawidłowa data w Excelu",
+                (
+                    f"Pozycja z wiersza {item.get('source_row', '')} ma nieprawidłową datę wysyłki.\n\n"
+                    "Nie można jej utworzyć ani połączyć z poziomu WM. "
+                    "Popraw datę w pliku Excel i ponownie wczytaj plan."
+                ),
+                parent=dlg,
+            )
+            return
+
         row = item.get("row") if isinstance(item.get("row"), dict) else {}
         decision = tk.Toplevel(dlg)
         decision.title("Planista — rozstrzygnij konflikt")
