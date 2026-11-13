@@ -20,7 +20,7 @@ import os
 import queue
 import threading
 import tkinter as tk
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from tkinter import messagebox, ttk
 
@@ -175,6 +175,7 @@ class PlanistaPanel(ttk.Frame):
         self._catalog_hosts = {}
         self._build()
         self.refresh()
+        self._update_clock()
 
     def _build(self):
         top = ttk.Frame(self)
@@ -184,6 +185,10 @@ class PlanistaPanel(ttk.Frame):
             top,
             text="Zlecenia oraz kartoteki produktów, półproduktów i surowców.",
         ).pack(side="left", padx=18)
+        self._clock_var = tk.StringVar()
+        ttk.Label(top, textvariable=self._clock_var, style="WM.H2.TLabel").pack(
+            side="right", padx=(12, 18)
+        )
         ttk.Button(top, text="Odśwież", command=self.refresh).pack(side="right")
 
         self.nb = ttk.Notebook(self)
@@ -199,6 +204,14 @@ class PlanistaPanel(ttk.Frame):
 
         self.nb.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self._build_orders(self.orders_tab)
+
+    def _update_clock(self):
+        """Pokazuj bieżącą datę i godzinę na górze Planisty."""
+        if not self.winfo_exists():
+            return
+        now = datetime.now()
+        self._clock_var.set(now.strftime("%d.%m.%Y  •  %H:%M:%S"))
+        self.after(1000, self._update_clock)
 
     def _build_orders(self, parent):
         cols = (
