@@ -1,6 +1,6 @@
 # WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_import.py
-# version: 1.1
+# version: 1.2
 # 1.1: regresje dopasowania pozycji Excel do Produktów WM po oznaczeniu.
 
 from __future__ import annotations
