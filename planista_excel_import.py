@@ -194,25 +194,76 @@ def _as_quantity(value):
         return None
 
 
-def _as_excel_date(value) -> str:
+def _parse_excel_date(value, *, today=None) -> tuple[str, bool]:
+    """Zwróć datę ISO i informację, czy rok został zaproponowany automatycznie."""
     if value in (None, ""):
-        return ""
+        return "", False
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         try:
-            return (datetime(1899, 12, 30) + timedelta(days=float(value))).date().isoformat()
+            parsed = (datetime(1899, 12, 30) + timedelta(days=float(value))).date()
+            return parsed.isoformat(), False
         except (OverflowError, ValueError):
-            return str(value)
+            return str(value), False
 
     text = str(value).strip()
     for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d-%m-%Y", "%d/%m/%Y"):
         try:
-            return datetime.strptime(text, fmt).date().isoformat()
+            return datetime.strptime(text, fmt).date().isoformat(), False
         except ValueError:
             continue
-    return text
+
+    # Excelowe zapisy bez roku: 22,02 / 22.02 / 22 lis / 22 listopada.
+    normalized = unicodedata.normalize("NFKD", text.casefold())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = normalized.rstrip(".")
+    match = re.fullmatch(r"(\d{1,2})[\s.,/\-]+([a-z]+|\d{1,2})", normalized)
+    if not match:
+        return text, False
+
+    day = int(match.group(1))
+    month_token = match.group(2)
+    month_aliases = {
+        "sty": 1, "stycz": 1, "stycznia": 1, "styczen": 1,
+        "lut": 2, "luty": 2, "lutego": 2,
+        "mar": 3, "marca": 3, "marzec": 3,
+        "kwi": 4, "kwietnia": 4, "kwiecien": 4,
+        "maj": 5, "maja": 5,
+        "cze": 6, "czerwca": 6, "czerwiec": 6,
+        "lip": 7, "lipca": 7, "lipiec": 7,
+        "sie": 8, "sierp": 8, "sierpnia": 8, "sierpien": 8,
+        "wrz": 9, "wrzes": 9, "wrzesnia": 9, "wrzesien": 9,
+        "paz": 10, "pazdz": 10, "pazdziernika": 10, "pazdziernik": 10,
+        "lis": 11, "listopada": 11, "listopad": 11,
+        "gru": 12, "grudnia": 12, "grudzien": 12,
+    }
+    try:
+        month = int(month_token) if month_token.isdigit() else month_aliases[month_token]
+    except (ValueError, KeyError):
+        return text, False
+    if not 1 <= month <= 12:
+        return text, False
+
+    reference = today or datetime.now().date()
+    year = reference.year
+    # Jeśli termin w bieżącym roku już minął, proponuj kolejny rok.
+    # Pętla obsługuje też 29 lutego w najbliższym prawidłowym roku.
+    for _ in range(8):
+        try:
+            candidate = datetime(year, month, day).date()
+        except ValueError:
+            year += 1
+            continue
+        if candidate >= reference:
+            return candidate.isoformat(), True
+        year += 1
+    return text, False
 
 
-def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
+def _as_excel_date(value, *, today=None) -> str:
+    """Znormalizuj datę Excel; dla zapisu bez roku zaproponuj rok względem dzisiaj."""
+    return _parse_excel_date(value, today=today)[0]
+
+def load_production_plan(path, sheet_name: str = "PLAN 2026", *, today=None) -> dict:
     """Wczytaj linie planu produkcji bez modyfikowania źródłowego pliku XLSX."""
     source = Path(path)
     if source.suffix.casefold() != ".xlsx":
@@ -237,6 +288,9 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
     source_rows = 0
     current_order = ""
     current_date = ""
+    current_date_raw = ""
+    current_date_year_inferred = False
+    reference_date = today or datetime.now().date()
 
     for row_no, cells in rows:
         if row_no <= header_row:
@@ -249,7 +303,8 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
             continue
         source_rows += 1
         explicit_order = _as_order_number(cells.get(columns["order"], ""))
-        explicit_date = _as_excel_date(cells.get(columns["date"], ""))
+        raw_date_value = cells.get(columns["date"], "")
+        explicit_date, explicit_date_year_inferred = _parse_excel_date(raw_date_value, today=reference_date)
         invalid_1900_date = False
         if explicit_date:
             try:
@@ -259,9 +314,13 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         if explicit_order:
             current_order = explicit_order
             current_date = "" if invalid_1900_date else explicit_date
+            current_date_raw = "" if invalid_1900_date else str(raw_date_value or "").strip()
+            current_date_year_inferred = bool(explicit_date_year_inferred and not invalid_1900_date)
         elif explicit_date:
             # Odrzucona data nie może przejść na kolejne wiersze kontynuacji zlecenia.
             current_date = "" if invalid_1900_date else explicit_date
+            current_date_raw = "" if invalid_1900_date else str(raw_date_value or "").strip()
+            current_date_year_inferred = bool(explicit_date_year_inferred and not invalid_1900_date)
 
         product = str(cells.get(columns["product"], "") or "").strip()
         if not product:
@@ -292,16 +351,18 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026") -> dict:
         if issues:
             row_warnings.append({"source_row": row_no, "reasons": issues})
         process = str(cells.get(columns["process"], "") or "").strip()
-        result_rows.append(
-            {
-                "source_row": row_no,
-                "nr_zlec": current_order,
-                "produkt": product,
-                "ilosc": quantity,
-                "data_wysylki": current_date,
-                "proces": process,
-            }
-        )
+        result_row = {
+            "source_row": row_no,
+            "nr_zlec": current_order,
+            "produkt": product,
+            "ilosc": quantity,
+            "data_wysylki": current_date,
+            "proces": process,
+        }
+        if current_date_year_inferred:
+            result_row["data_wysylki_raw"] = current_date_raw
+            result_row["data_wysylki_rok_domyslny"] = True
+        result_rows.append(result_row)
 
     if not result_rows:
         raise PlanExcelError(f"Arkusz „{sheet_name}” nie zawiera pozycji produkcyjnych.")
