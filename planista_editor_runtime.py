@@ -801,35 +801,55 @@ def _install_order_editor() -> None:
         def edit_operation_progress(event):
             if operation_progress_tree.identify_region(event.x, event.y) != "cell":
                 return
-            if operation_progress_tree.identify_column(event.x) != "#3":
-                return
             item_id = operation_progress_tree.identify_row(event.y)
             if not item_id:
                 return
-            bbox = operation_progress_tree.bbox(item_id, "#3")
-            if not bbox:
+            values = operation_progress_tree.item(item_id, "values")
+            if not values:
                 return
-            operation = str(operation_progress_tree.item(item_id, "values")[0])
-            editor = ttk.Entry(operation_progress_tree, justify="center")
-            editor.insert(0, str(operation_progress_tree.item(item_id, "values")[2]))
-            editor.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
-            editor.focus_set()
-            editor.selection_range(0, "end")
+            operation = str(values[0])
+            current_done = str(values[2])
+            selection = semi_tree.selection()
+            if not selection:
+                return
 
-            def cancel(_event=None):
-                editor.destroy()
+            # Osobne okno zgłaszania wykonania operacji.
+            report_dlg = tk.Toplevel(dlg)
+            report_dlg.title("Zgłoś wykonanie operacji")
+            report_dlg.transient(dlg)
+            report_dlg.resizable(False, False)
+            report_dlg.grab_set()
+
+            body = ttk.Frame(report_dlg, padding=14)
+            body.pack(fill="both", expand=True)
+            ttk.Label(
+                body, text=operation, font=("Arial", 11, "bold"),
+            ).pack(anchor="w", pady=(0, 8))
+            ttk.Label(body, text="Łącznie wykonano:").pack(anchor="w")
+            value_var = tk.StringVar(value=current_done)
+            value_entry = ttk.Entry(body, textvariable=value_var, width=18, justify="center")
+            value_entry.pack(anchor="w", pady=(4, 12))
+            value_entry.focus_set()
+            value_entry.selection_range(0, "end")
+
+            actions = ttk.Frame(body)
+            actions.pack(fill="x")
+
+            def cancel_report(_event=None):
+                try:
+                    report_dlg.grab_release()
+                except Exception:
+                    pass
+                report_dlg.destroy()
                 return "break"
 
-            def commit(_event=None):
+            def save_report(_event=None):
                 nonlocal order
                 try:
-                    new_value = float(editor.get().strip().replace(",", "."))
+                    new_value = float(value_var.get().strip().replace(",", "."))
                     if new_value < 0:
                         raise ValueError("Wykonana ilość nie może być ujemna.")
                     import planista_semi_progress_runtime as PS
-                    selection = semi_tree.selection()
-                    if not selection:
-                        raise ValueError("Wybierz półprodukt.")
                     order = PS.report_polprodukt_operation(
                         order["id"], selection[0], operation, new_value,
                         kto=self.login or "system",
@@ -839,23 +859,32 @@ def _install_order_editor() -> None:
                         "Nadwyżka półproduktu",
                         f"Zgłoszono {_fmt(pending)} szt. nadwyżki po ostatniej operacji.\\n"
                         "Przekazać ją teraz do Magazynu?",
-                        parent=dlg,
+                        parent=report_dlg,
                     ):
                         order = PS.transfer_polprodukt_surplus(
                             order["id"], selection[0], kto=self.login or "system",
                         )
                 except Exception as exc:
-                    messagebox.showerror("Postęp operacji", str(exc), parent=dlg)
-                    editor.focus_set()
-                    editor.selection_range(0, "end")
+                    messagebox.showerror("Postęp operacji", str(exc), parent=report_dlg)
+                    value_entry.focus_set()
+                    value_entry.selection_range(0, "end")
                     return "break"
-                editor.destroy()
+                cancel_report()
                 refresh_main_selection()
                 refresh_editor(reset_inputs=True)
                 return "break"
 
-            editor.bind("<Return>", commit)
-            editor.bind("<Escape>", cancel)
+            ttk.Button(actions, text="Anuluj", command=cancel_report).pack(side="right")
+            ttk.Button(actions, text="Zapisz", command=save_report).pack(side="right", padx=(0, 6))
+            value_entry.bind("<Return>", save_report)
+            value_entry.bind("<Escape>", cancel_report)
+            report_dlg.protocol("WM_DELETE_WINDOW", cancel_report)
+            report_dlg.update_idletasks()
+            width = report_dlg.winfo_reqwidth()
+            height = report_dlg.winfo_reqheight()
+            x = dlg.winfo_rootx() + max(0, (dlg.winfo_width() - width) // 2)
+            y = dlg.winfo_rooty() + max(0, (dlg.winfo_height() - height) // 2)
+            report_dlg.geometry(f"+{x}+{y}")
 
         operation_progress_tree.bind("<Double-1>", edit_operation_progress)
 
