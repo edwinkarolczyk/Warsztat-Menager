@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_import.py
-# version: 1.2
+# version: 1.3
+# 1.3: rozpoznaje nagłówek „Status” jako kolumnę procesu/statusu z Excela.
 # 1.2: rozpoznaje także liczbowe zapisy DD,MM, które Excel inaczej odczytuje jako serial 1900.
 # 1.1: rozpoznaje zapisy dat bez roku i proponuje bieżący lub następny rok.
 """Odczyt zewnętrznego planu produkcji XLSX dla Planisty.
@@ -129,7 +130,7 @@ def _header_columns(rows: list[tuple[int, dict[int, object]]]) -> tuple[int, dic
         "product": {"produkt", "nazwa produktu", "oznaczenie", "wyrob", "wyrób"},
         "qty": {"ilosc", "ilość", "qty"},
         "date": {"data wysylki", "data wysyłki", "wysylka", "wysyłka"},
-        "process": {"proces", "status procesu"},
+        "process": {"proces", "status procesu", "status"},
     }
     normalized_aliases = {
         key: {_normalize_header(alias) for alias in values}
