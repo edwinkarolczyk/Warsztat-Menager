@@ -79,3 +79,30 @@ def test_planista_view_filter_is_independent_from_print_filter():
     assert 'elif print_mode != "Wszystkie" and state != print_mode:' in source
     assert 'if _planista_order_visible(order, mode, search):' not in source
 
+def test_planista_marks_fully_completed_semi_order_ready_to_close(monkeypatch):
+    import gui_planista_panel as panel
+    import planista_semi_progress_runtime as semi
+
+    monkeypatch.setattr(
+        semi,
+        "proposed_product_completion",
+        lambda _order: {
+            "available": True,
+            "planned": 20,
+            "complete_sets": 20,
+        },
+    )
+    monkeypatch.setattr(semi, "semi_operations_complete", lambda _order: True)
+    assert panel._order_ready_to_close({}) is True
+
+    monkeypatch.setattr(semi, "semi_operations_complete", lambda _order: False)
+    assert panel._order_ready_to_close({}) is False
+
+
+def test_report_done_dialog_uses_complete_semi_sets_as_initial_suggestion():
+    source = _source()
+    assert "proposed_product_completion(order)" in source
+    assert "suggested = max(current, complete_sets)" in source
+    assert 'tk.StringVar(value=_fmt_qty(suggested))' in source
+    assert "Proponowana łączna ilość wykonana" in source
+
