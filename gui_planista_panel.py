@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.16
+# version: 1.17
+# 1.17: kolumna Status pokazuje status/proces z importowanego Excela. 
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
@@ -579,7 +580,17 @@ class PlanistaPanel(ttk.Frame):
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
                     _display_order_date(order.get("termin", "")),
-                    ("📦 " if order.get("archiwum") else "") + str(order.get("status", "")),
+                    (
+                        ("📦 " if order.get("archiwum") else "")
+                        + str(
+                            (
+                                (order.get("planista_excel") or {}).get("proces")
+                                if isinstance(order.get("planista_excel"), dict)
+                                else ""
+                            )
+                            or order.get("status", "")
+                        )
+                    ),
                     {
                         PRINT_NEW: "○ Nie drukowano",
                         PRINT_PENDING: "… W kolejce",
