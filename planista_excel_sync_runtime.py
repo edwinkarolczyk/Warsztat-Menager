@@ -177,6 +177,14 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
     ).pack(anchor="w")
     summary_var = tk.StringVar(value=_summary_text(plan))
     ttk.Label(top, textvariable=summary_var).pack(anchor="w", pady=(3, 0))
+    if any(
+        isinstance(row, dict) and row.get("data_wysylki_rok_domyslny")
+        for row in list(payload.get("rows") or [])
+    ):
+        ttk.Label(
+            top,
+            text="* Rok w dacie bez roku został zaproponowany automatycznie; szczegóły są w kolumnie Uwagi.",
+        ).pack(anchor="w", pady=(3, 0))
     ttk.Label(
         top,
         text=(
