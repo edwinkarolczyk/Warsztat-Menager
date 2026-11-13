@@ -306,3 +306,48 @@ def resolve_dual_conflict(key: str, signature: str, decision: str,
             "decision": decision, "user": user,
         }]
         _save(state)
+
+def accepted_source_for_order(order: dict) -> str:
+    """Zwróć aktualnie zaakceptowane źródło A/B dla pozycji powiązanej ze zleceniem WM.
+
+    Decyzję A/B uznajemy tylko wtedy, gdy podpis obu bieżących wersji źródłowych
+    nadal odpowiada podpisowi, dla którego użytkownik podjął decyzję.
+    """
+    if not isinstance(order, dict):
+        return ""
+    provenance = order.get("planista_excel")
+    if not isinstance(provenance, dict):
+        return ""
+    nr_order = str(provenance.get("nr_zlec") or "").strip()
+    wm_symbol = str(provenance.get("wm_symbol") or "").strip()
+    if not nr_order or not wm_symbol:
+        return ""
+
+    key = _identity({
+        "nr_zlec": nr_order,
+        "wm_symbol": wm_symbol,
+        "match_status": STATUS_FOUND,
+    })
+    state = load_dual_state()
+    sources = state.get("sources") or {}
+    a_rows = _group((sources.get("A") or {}).get("rows") or [])
+    b_rows = _group((sources.get("B") or {}).get("rows") or [])
+    options_a = a_rows.get(key) or []
+    options_b = b_rows.get(key) or []
+    if len(options_a) == 1 and len(options_b) == 1:
+        signature = _signature({"A": options_a[0], "B": options_b[0]})
+        resolution = (state.get("resolutions") or {}).get(key) or {}
+        if resolution.get("signature") == signature:
+            decision = str(resolution.get("decision") or "").strip()
+            if decision in {"A", "B"}:
+                return decision
+            if decision == "Własne":
+                return "Własne"
+
+    for row in state.get("merged_rows") or []:
+        if not isinstance(row, dict) or _identity(row) != key:
+            continue
+        source = str(row.get("source_tag") or "").strip()
+        if source in {"A", "B", "A+B"}:
+            return source
+    return ""
