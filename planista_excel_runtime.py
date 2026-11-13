@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.9
+# version: 1.10
+# 1.10: podgląd importu opisuje daty, dla których rok został dobrany automatycznie.
 # 1.9: walidacja wymiarów także z oznaczenia Produktu WM.
 # 1.8: ręczny wybór Produktu WM, zapamiętywanie powiązań, bez zmiany Excela.
 # 1.7: dodano ustawiany interwał, automatyczną akceptację bezpiecznych pozycji i wydruk nowych zleceń.
