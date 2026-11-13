@@ -1,7 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.19
-# 1.19: osobna kolumna Proces pokazuje zaakceptowaną wartość z Excel A/B; Status pozostaje statusem zlecenia.
+# version: 1.20
+# 1.20: szerokość kolumn tabeli Zleceń dopasowywana do najdłuższej widocznej wartości.
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
@@ -22,6 +22,7 @@ import os
 import queue
 import threading
 import tkinter as tk
+import tkinter.font as tkfont
 from datetime import date, datetime
 from pathlib import Path
 from tkinter import messagebox, ttk
@@ -612,12 +613,35 @@ class PlanistaPanel(ttk.Frame):
                     }.get(state, state),
                 ),
             )
+        self._fit_order_columns()
         chosen = [oid for oid in selected if self.tree.exists(oid)]
         if chosen:
             self.tree.selection_set(chosen)
         if self.tree.get_children():
             self.tree.yview_moveto(first_y)
         self._refresh_approval_button()
+
+    def _fit_order_columns(self):
+        """Dopasuj szerokość każdej kolumny do nagłówka i najdłuższej widocznej wartości."""
+        try:
+            body_font = tkfont.nametofont(self.tree.cget("font") or "TkDefaultFont")
+            heading_name = ttk.Style(self).lookup("Treeview.Heading", "font")
+            heading_font = (
+                tkfont.nametofont(heading_name)
+                if heading_name else body_font
+            )
+            children = self.tree.get_children()
+            for col in self.tree["columns"]:
+                heading = str(self.tree.heading(col, "text") or "")
+                required = heading_font.measure(heading)
+                for item in children:
+                    value = str(self.tree.set(item, col) or "")
+                    required = max(required, body_font.measure(value))
+                # Margines na odstępy komórki i strzałki/obramowanie nagłówka.
+                self.tree.column(col, width=max(36, required + 28))
+        except Exception:
+            # Błąd pomiaru czcionki nie może blokować odświeżania Planisty.
+            return
 
     def _toggle_print_selection(self, event):
         if self.tree.identify_column(event.x) != "#1":
