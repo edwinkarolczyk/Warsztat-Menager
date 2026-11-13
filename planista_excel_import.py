@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_import.py
-# version: 1.3
+# version: 1.4
+# 1.4: odrzuca seriale i daty tekstowe z rokiem 1900; diagnostyka wskazuje wiersz źródłowy.
 # 1.3: rozpoznaje nagłówek „Status” jako kolumnę procesu/statusu z Excela.
 # 1.2: rozpoznaje także liczbowe zapisy DD,MM, które Excel inaczej odczytuje jako serial 1900.
 # 1.1: rozpoznaje zapisy dat bez roku i proponuje bieżący lub następny rok.
