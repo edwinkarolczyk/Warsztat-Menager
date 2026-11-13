@@ -186,7 +186,7 @@ class PlanistaPanel(ttk.Frame):
             text="Zlecenia oraz kartoteki produktów, półproduktów i surowców.",
         ).pack(side="left", padx=18)
         self._clock_var = tk.StringVar()
-        ttk.Label(top, textvariable=self._clock_var, style="WM.H2.TLabel").pack(
+        ttk.Label(top, textvariable=self._clock_var, font=("Arial", 10, "bold")).pack(
             side="right", padx=(12, 18)
         )
         ttk.Button(top, text="Odśwież", command=self.refresh).pack(side="right")
