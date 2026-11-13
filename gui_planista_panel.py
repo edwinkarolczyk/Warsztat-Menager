@@ -624,12 +624,9 @@ class PlanistaPanel(ttk.Frame):
     def _fit_order_columns(self):
         """Dopasuj szerokość każdej kolumny do nagłówka i najdłuższej widocznej wartości."""
         try:
-            body_font = tkfont.nametofont(self.tree.cget("font") or "TkDefaultFont")
+            body_font = tkfont.Font(font=self.tree.cget("font") or "TkDefaultFont")
             heading_name = ttk.Style(self).lookup("Treeview.Heading", "font")
-            heading_font = (
-                tkfont.nametofont(heading_name)
-                if heading_name else body_font
-            )
+            heading_font = tkfont.Font(font=heading_name) if heading_name else body_font
             children = self.tree.get_children()
             for col in self.tree["columns"]:
                 heading = str(self.tree.heading(col, "text") or "")
