@@ -369,14 +369,16 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
             wm_symbol = str(row.get("wm_symbol") or "").strip()
             wm_name = str(row.get("wm_nazwa") or "").strip()
             wm_product = " | ".join(part for part in (wm_symbol, wm_name) if part)
-            notes = "; ".join(
-                part
-                for part in (
-                    str(row.get("excel_change_note") or "").strip(),
-                    str(row.get("match_note") or "").strip(),
+            note_parts = [
+                str(row.get("excel_change_note") or "").strip(),
+                str(row.get("match_note") or "").strip(),
+            ]
+            if row.get("data_wysylki_rok_domyslny"):
+                note_parts.append(
+                    f"Data Excel bez roku: „{row.get('data_wysylki_raw', '')}”; "
+                    f"zaproponowano rok {str(row.get('data_wysylki') or '')[:4]} na podstawie dzisiejszej daty."
                 )
-                if part
-            )
+            notes = "; ".join(part for part in note_parts if part)
             found_in_wm = (
                 str(row.get("match_status") or "").strip() == STATUS_FOUND
                 and str(row.get("excel_change_status") or "").strip() != CHANGE_REMOVED
