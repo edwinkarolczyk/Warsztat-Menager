@@ -234,16 +234,21 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     diagnostics = payload.get("import_diagnostics") or {}
     skipped = list(diagnostics.get("skipped_rows") or [])
     warnings = list(diagnostics.get("row_warnings") or [])
-    diagnostic_row = ttk.Frame(top)
-    diagnostic_row.pack(fill="x", pady=(3, 0))
-    ttk.Label(
-        diagnostic_row,
-        text=(
+    diagnostic_summary_var = tk.StringVar()
+
+    def update_diagnostic_summary() -> None:
+        skipped[:] = list(diagnostics.get("skipped_rows") or [])
+        warnings[:] = list(diagnostics.get("row_warnings") or [])
+        diagnostic_summary_var.set(
             f"Odczyt Excela: wiersze z danymi {diagnostics.get('source_rows', len(rows))}, "
             f"zaimportowane {len(rows)}, pominięte {len(skipped)}, "
             f"ostrzeżenia {len(warnings)}"
-        ),
-    ).pack(side="left")
+        )
+
+    diagnostic_row = ttk.Frame(top)
+    diagnostic_row.pack(fill="x", pady=(3, 0))
+    ttk.Label(diagnostic_row, textvariable=diagnostic_summary_var).pack(side="left")
+    update_diagnostic_summary()
 
     def show_import_diagnostics() -> None:
         win = tk.Toplevel(dlg)
@@ -633,6 +638,7 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
                         updated_warning["reasons"] = reasons
                         remaining_warnings.append(updated_warning)
                 diagnostics["row_warnings"] = remaining_warnings
+            update_diagnostic_summary()
 
             owner._excel_plan_import = payload
             win.destroy()
