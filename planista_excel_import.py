@@ -362,6 +362,8 @@ def load_production_plan(path, sheet_name: str = "PLAN 2026", *, today=None) -> 
         if current_date_year_inferred:
             result_row["data_wysylki_raw"] = current_date_raw
             result_row["data_wysylki_rok_domyslny"] = True
+        elif invalid_1900_date:
+            result_row["data_wysylki_raw"] = str(raw_date_value or "").strip()
         result_rows.append(result_row)
 
     if not result_rows:
