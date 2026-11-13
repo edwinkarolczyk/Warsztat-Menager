@@ -1,4 +1,5 @@
-# version: 4.9
+# version: 5.0
+# 5.0: WM 1.0.35 - status „Możliwe do zamknięcia” z kompletności półproduktów i automatyczna propozycja ilości wykonanej w Planiscie.
 # 4.9: WM 1.0.34 - naprawa autoszerokości kolumn Planisty, przewijanie tabeli i oznaczanie dat 1900.
 # 4.8: WM 1.0.33 - automatyczne dopasowanie szerokości kolumn Planisty do najdłuższej widocznej wartości.
 # 4.7: WM 1.0.32 - osobna kolumna Proces z zaakceptowanego Excel A/B w Planista → Zlecenia.
@@ -34,7 +35,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.34"
+__version__ = "1.0.35"
 
 
 def get_version() -> str:
