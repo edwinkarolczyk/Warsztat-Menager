@@ -435,7 +435,12 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
                 ),
                 wraplength=480,
                 justify="left",
-            ).pack(anchor="w", pady=(0, 12))
+            ).pack(anchor="w", pady=(0, 6))
+            ttk.Label(
+                date_form,
+                text="Korekta dotyczy bieżącego importu. Źródłowy plik Excel pozostaje bez zmian.",
+                wraplength=480,
+            ).pack(anchor="w", pady=(0, 10))
             ttk.Label(date_form, text="Nowa data wysyłki (RRRR-MM-DD):").pack(anchor="w")
             corrected_date = tk.StringVar()
             ttk.Entry(date_form, textvariable=corrected_date, width=18).pack(
