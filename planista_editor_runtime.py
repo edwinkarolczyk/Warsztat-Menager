@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_editor_runtime.py
-# version: 1.4
+# version: 1.5
+# 1.5: stała lista wszystkich operacji technologicznych i postępu dla wybranego półproduktu.
 # 1.4: zachowaj osobny pasek wydruków A4 i dwuklik historii.
 # 1.3: edytor rodzajów surowców obsługuje tryb „Ilość oczek”.
 # 1.2: opcja kontrolowanej nadprodukcji przy dodawaniu i edycji zlecenia.
@@ -447,6 +448,19 @@ def _install_order_editor() -> None:
         ttk.Label(operation_frame, text="Łącznie wykonano:").pack(side="left")
         ttk.Entry(operation_frame, textvariable=operation_qty, width=10).pack(side="left", padx=(6, 8))
 
+        ttk.Label(semis_tab, text="Postęp wszystkich operacji:").pack(anchor="w", pady=(8, 2))
+        operation_progress_tree = ttk.Treeview(
+            semis_tab, columns=("operacja", "wykonano", "plan"),
+            show="headings", height=4,
+        )
+        operation_progress_tree.heading("operacja", text="Operacja technologiczna")
+        operation_progress_tree.heading("wykonano", text="Wykonano")
+        operation_progress_tree.heading("plan", text="Do wykonania")
+        operation_progress_tree.column("operacja", width=300, anchor="w")
+        operation_progress_tree.column("wykonano", width=120, anchor="center")
+        operation_progress_tree.column("plan", width=120, anchor="center")
+        operation_progress_tree.pack(fill="x", pady=(0, 6))
+
         req_text = tk.Text(
             requirements_tab,
             wrap="word",
@@ -773,6 +787,37 @@ def _install_order_editor() -> None:
             padx=(4, 0),
         )
 
+        def refresh_operation_rows(code):
+            operation_progress_tree.delete(*operation_progress_tree.get_children())
+            if not code:
+                return
+            import planista_semi_progress_runtime as PS
+            targets = PS._full_semi_targets(order)
+            target_rec = targets.get(code) or {}
+            operations = [str(value) for value in (target_rec.get("czynnosci") or [])]
+            progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
+            legacy_done = float((order.get("wykonano_polprodukty") or {}).get(code, 0) or 0)
+            row = next((item for item in semi_rows(order) if item["kod"] == code), None)
+            planned = float((row or {}).get("do_wykonania", 0) or 0)
+            for index, operation in enumerate(operations):
+                done_value = max(legacy_done, float(progress.get(operation, 0) or 0))
+                operation_progress_tree.insert(
+                    "", "end", iid=str(index),
+                    values=(operation, f"{_fmt(done_value)} / {_fmt(planned)}", _fmt(planned)),
+                )
+
+        def on_operation_progress_select(_event=None):
+            selected = operation_progress_tree.selection()
+            if not selected:
+                return
+            values = operation_progress_tree.item(selected[0], "values")
+            if not values:
+                return
+            operation_name.set(str(values[0]))
+            on_operation_select()
+
+        operation_progress_tree.bind("<<TreeviewSelect>>", on_operation_progress_select)
+
         def on_semi_select(_event=None):
             selection = semi_tree.selection()
             if not selection:
@@ -791,6 +836,7 @@ def _install_order_editor() -> None:
                 str(x) for x in (targets.get(code) or {}).get("czynnosci") or []
             ]
             operation_combo.configure(values=operations)
+            refresh_operation_rows(code)
             operation_name.set(operations[0] if operations else "")
             on_operation_select()
             update_semi_controls()
@@ -800,6 +846,13 @@ def _install_order_editor() -> None:
             code = selection[0] if selection else ""
             progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
             operation_qty.set(_fmt(progress.get(operation_name.get(), 0)))
+            selected_rows = operation_progress_tree.get_children()
+            for item_id in selected_rows:
+                values = operation_progress_tree.item(item_id, "values")
+                if values and str(values[0]) == operation_name.get():
+                    operation_progress_tree.selection_set(item_id)
+                    operation_progress_tree.focus(item_id)
+                    break
             update_semi_controls()
 
         operation_combo.bind("<<ComboboxSelected>>", on_operation_select)
