@@ -1,6 +1,7 @@
 # WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_import.py
-# version: 1.2
+# version: 1.3
+# 1.3: testy automatycznego roku, ręcznej korekty daty i zegara Planisty.
 # 1.1: regresje dopasowania pozycji Excel do Produktów WM po oznaczeniu.
 
 from __future__ import annotations
@@ -152,6 +153,15 @@ def test_gui_planowanie_installs_excel_runtime():
     assert "install_planista_excel_runtime()" in source
     assert 'strftime("%d.%m.%Y  •  %H:%M:%S")' in panel
     assert "self.after(1000, self._update_clock)" in panel
+
+
+def test_import_preview_allows_manual_delivery_date_override():
+    source = Path("planista_excel_runtime.py").read_text(encoding="utf-8")
+
+    assert 'text="Zmień datę wysyłki…"' in source
+    assert "date.fromisoformat(date_var.get().strip())" in source
+    assert 'row["data_wysylki"] = parsed.isoformat()' in source
+    assert "Zmiana dotyczy bieżącego importu. Plik Excel pozostaje bez zmian." in source
 
 
 def test_extracts_leading_product_designation_without_guessing_name():
