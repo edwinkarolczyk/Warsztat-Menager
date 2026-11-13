@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
-from planista_excel_import import PlanExcelError, load_production_plan
+from planista_excel_import import PlanExcelError, _as_excel_date, load_production_plan
 from planista_excel_match import (
     STATUS_AMBIGUOUS,
     STATUS_FOUND,
@@ -104,6 +105,38 @@ def test_import_reads_plan_groups_and_does_not_modify_source(tmp_path):
     assert second["produkt"] == "1.620.165 NW – RAL 5003"
     assert third["nr_zlec"] == "593"
     assert third["data_wysylki"] == "2026-09-16"
+
+
+def test_dates_without_year_use_current_year_or_next_year_as_default():
+    today = date(2026, 11, 13)
+
+    assert _as_excel_date("22,02", today=today) == "2027-02-22"
+    assert _as_excel_date("09.01", today=today) == "2027-01-09"
+    assert _as_excel_date("27,11", today=today) == "2026-11-27"
+    assert _as_excel_date("22 lis", today=today) == "2026-11-22"
+    assert _as_excel_date("10 listopada", today=today) == "2027-11-10"
+    assert _as_excel_date("16.11.2026", today=today) == "2026-11-16"
+
+
+def test_import_marks_dates_with_inferred_year(tmp_path):
+    path = _fixture_xlsx(tmp_path / "Plan_bez_roku.xlsx")
+    with ZipFile(path, "r") as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
+    xml = xml.replace('<c r="D4"><v>46279</v></c>', '<c r="D4" t="str"><v>22,02</v></c>')
+    files["xl/worksheets/sheet1.xml"] = xml.encode("utf-8")
+    with ZipFile(path, "w", ZIP_DEFLATED) as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+
+    payload = load_production_plan(path, today=date(2026, 11, 13))
+
+    first, second, _third = payload["rows"]
+    assert first["data_wysylki"] == "2027-02-22"
+    assert first["data_wysylki_raw"] == "22,02"
+    assert first["data_wysylki_rok_domyslny"] is True
+    assert second["data_wysylki"] == "2027-02-22"
+    assert second["data_wysylki_rok_domyslny"] is True
 
 
 def test_import_requires_expected_sheet(tmp_path):
