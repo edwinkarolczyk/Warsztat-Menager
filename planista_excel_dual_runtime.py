@@ -334,15 +334,22 @@ def accepted_source_for_order(order: dict) -> str:
     b_rows = _group((sources.get("B") or {}).get("rows") or [])
     options_a = a_rows.get(key) or []
     options_b = b_rows.get(key) or []
+    if len(options_a) > 1 or len(options_b) > 1:
+        return "Do decyzji"
     if len(options_a) == 1 and len(options_b) == 1:
         signature = _signature({"A": options_a[0], "B": options_b[0]})
         resolution = (state.get("resolutions") or {}).get(key) or {}
         if resolution.get("signature") == signature:
             decision = str(resolution.get("decision") or "").strip()
-            if decision in {"A", "B"}:
+            if decision in {"A", "B", "Własne"}:
                 return decision
-            if decision == "Własne":
-                return "Własne"
+        if _facts(options_a[0]) != _facts(options_b[0]):
+            return "Do decyzji"
+        return "A+B"
+    if len(options_a) == 1:
+        return "A"
+    if len(options_b) == 1:
+        return "B"
 
     for row in state.get("merged_rows") or []:
         if not isinstance(row, dict) or _identity(row) != key:
