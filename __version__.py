@@ -1,5 +1,6 @@
 # version: 4.9
 # 4.9: WM 1.0.34 - naprawa autoszerokości kolumn Planisty, przewijanie tabeli i oznaczanie dat 1900.
+# 4.8: WM 1.0.33 - automatyczne dopasowanie szerokości kolumn Planisty do najdłuższej widocznej wartości.
 # 4.7: WM 1.0.32 - osobna kolumna Proces z zaakceptowanego Excel A/B w Planista → Zlecenia.
 # 4.6: WM 1.0.31 - statusy Planisty uwzględniają wykonanie i zaakceptowane źródło Excel A/B.
 # 4.5: WM 1.0.30 - stabilniejsze odświeżanie Dyspozycji i czytelniejszy termin w Planista.
