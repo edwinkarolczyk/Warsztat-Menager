@@ -1,4 +1,5 @@
-# version: 4.7
+# version: 4.8
+# 4.8: WM 1.0.33 - automatyczne dopasowanie szerokości kolumn Planisty do najdłuższej widocznej wartości.
 # 4.7: WM 1.0.32 - osobna kolumna Proces z zaakceptowanego Excel A/B w Planista → Zlecenia.
 # 4.6: WM 1.0.31 - statusy Planisty uwzględniają wykonanie i zaakceptowane źródło Excel A/B.
 # 4.5: WM 1.0.30 - stabilniejsze odświeżanie Dyspozycji i czytelniejszy termin w Planista.
@@ -32,7 +33,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.32"
+__version__ = "1.0.33"
 
 
 def get_version() -> str:
