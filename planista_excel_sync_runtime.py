@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import date
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -101,10 +102,17 @@ def _sync_item_sort_key(item: dict) -> tuple[int, int]:
 def _row_note(item: dict) -> str:
     row = item.get("row") if isinstance(item.get("row"), dict) else {}
     parts = []
+    inferred_date_note = ""
+    if row.get("data_wysylki_rok_domyslny"):
+        inferred_date_note = (
+            f"Excel nie zawierał roku („{_text(row.get('data_wysylki_raw'))}”); "
+            f"Planista zaproponował {str(row.get('data_wysylki') or '')[:4]}."
+        )
     for value in (
         item.get("reason"),
         row.get("excel_change_note"),
         row.get("match_note"),
+        inferred_date_note,
     ):
         text = _text(value)
         if text and text not in parts:
@@ -337,7 +345,11 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
                     _change_label(item),
                     action or "",
                     item.get("order_id", ""),
-                    item.get("termin", ""),
+                    (
+                        f"{item.get('termin', '')} *"
+                        if row.get("data_wysylki_rok_domyslny")
+                        else item.get("termin", "")
+                    ),
                     item.get("proces", ""),
                     _row_note(item),
                 ),
@@ -397,15 +409,73 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             return
 
         if "rok 1900 lub wcześniejszy" in _text(item.get("reason")):
-            messagebox.showwarning(
-                "Nieprawidłowa data w Excelu",
-                (
-                    f"Pozycja z wiersza {item.get('source_row', '')} ma nieprawidłową datę wysyłki.\n\n"
-                    "Nie można jej utworzyć ani połączyć z poziomu WM. "
-                    "Popraw datę w pliku Excel i ponownie wczytaj plan."
+            date_dialog = tk.Toplevel(dlg)
+            date_dialog.title("Planista — popraw datę konfliktową")
+            date_dialog.transient(dlg)
+            date_dialog.grab_set()
+            date_dialog.geometry("520x210")
+            date_form = ttk.Frame(date_dialog, padding=14)
+            date_form.pack(fill="both", expand=True)
+            ttk.Label(
+                date_form,
+                text=(
+                    f"Wiersz Excel {item.get('source_row', '')} zawiera datę z roku 1900 "
+                    "lub wcześniejszego. Wybierz prawidłową datę, aby kontynuować."
                 ),
-                parent=dlg,
+                wraplength=480,
+                justify="left",
+            ).pack(anchor="w", pady=(0, 12))
+            ttk.Label(date_form, text="Nowa data wysyłki (RRRR-MM-DD):").pack(anchor="w")
+            corrected_date = tk.StringVar()
+            ttk.Entry(date_form, textvariable=corrected_date, width=18).pack(
+                anchor="w", pady=(4, 12)
             )
+
+            def save_corrected_date() -> None:
+                try:
+                    parsed_date = date.fromisoformat(corrected_date.get().strip())
+                    if parsed_date.year <= 1900:
+                        raise ValueError("Rok musi być późniejszy niż 1900.")
+                except ValueError as exc:
+                    messagebox.showwarning(
+                        "Nieprawidłowa data",
+                        f"Wpisz prawidłową datę w formacie RRRR-MM-DD.\n{exc}",
+                        parent=date_dialog,
+                    )
+                    return
+
+                source_row = str(item.get("source_row", ""))
+                target_row = next(
+                    (
+                        candidate for candidate in list(payload.get("rows") or [])
+                        if isinstance(candidate, dict)
+                        and str(candidate.get("source_row", "")) == source_row
+                    ),
+                    None,
+                )
+                if target_row is None:
+                    messagebox.showerror(
+                        "Nie znaleziono wiersza",
+                        "Nie można odnaleźć pozycji w bieżącym imporcie. Wczytaj plan ponownie.",
+                        parent=date_dialog,
+                    )
+                    return
+                target_row["data_wysylki"] = parsed_date.isoformat()
+                target_row.pop("data_wysylki_rok_domyslny", None)
+                target_row["data_wysylki_skorygowana"] = True
+                diagnostics = payload.get("import_diagnostics")
+                if isinstance(diagnostics, dict):
+                    diagnostics["row_warnings"] = [
+                        warning for warning in list(diagnostics.get("row_warnings") or [])
+                        if str(warning.get("source_row", "")) != source_row
+                    ]
+                date_dialog.destroy()
+                refresh_after_conflict_resolution()
+
+            date_buttons = ttk.Frame(date_form)
+            date_buttons.pack(fill="x")
+            ttk.Button(date_buttons, text="Zastosuj datę", command=save_corrected_date).pack(side="left")
+            ttk.Button(date_buttons, text="Anuluj", command=date_dialog.destroy).pack(side="right")
             return
 
         row = item.get("row") if isinstance(item.get("row"), dict) else {}
