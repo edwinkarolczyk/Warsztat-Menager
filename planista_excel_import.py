@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_import.py
-# version: 1.0
+# version: 1.1
+# 1.1: rozpoznaje zapisy dat bez roku i proponuje bieżący lub następny rok.
 """Odczyt zewnętrznego planu produkcji XLSX dla Planisty.
 
 Moduł otwiera plik wyłącznie do odczytu. Nie zapisuje zmian ani do źródłowego
