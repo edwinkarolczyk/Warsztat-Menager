@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_sync_runtime.py
-# version: 1.2
+# version: 1.3
+# 1.3: ręczna korekta konfliktu daty 1900 i oznaczenie automatycznie dobranego roku.
 # 1.2: „Pomiń tę pozycję” zmienia konflikt na Nie importuj w bieżącym podglądzie; lista połączeń obsługuje starsze zlecenia WM.
 # 1.1: czerwone pozycje „Wymaga decyzji” mają jawny dialog rozstrzygania konfliktu.
 """Kontrolowany podgląd i zatwierdzanie synchronizacji Excel -> zlecenia WM."""
