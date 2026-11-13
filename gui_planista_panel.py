@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.14
+# version: 1.15
+# 1.15: bieżąca data i godzina widoczne na górze Planisty.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
 # 1.12: podgląd jednego PDF A4 i wspólny druk zbiorczy jednym poleceniem.
