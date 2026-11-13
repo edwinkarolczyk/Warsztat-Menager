@@ -195,3 +195,60 @@ def test_gui_planowanie_installs_semi_progress_runtime():
     source = Path("gui_planowanie.py").read_text(encoding="utf-8")
     assert "install_planista_semi_progress_runtime" in source
     assert "install_planista_semi_progress_runtime()" in source
+
+def test_semi_operations_complete_requires_every_operation(monkeypatch):
+    from planista_semi_progress_runtime import semi_operations_complete
+
+    monkeypatch.setattr(
+        bom,
+        "compute_bom_for_prd",
+        lambda *_a, **_k: {
+            "POL-001": {
+                "nazwa": "Zbijak 90 mm",
+                "ilosc": 10,
+                "czynnosci": ["Cięcie", "Spawanie"],
+            }
+        },
+    )
+    order = {
+        "produkt": "PRD-1",
+        "ilosc": 10,
+        "sledzenie_polproduktow": True,
+        "sledzenie_operacji_polproduktow": True,
+        "polprodukty_z_magazynu_baza": {"POL-001": 2},
+        "wykonano_polprodukty": {},
+        "postep_operacji_polproduktow": {
+            "POL-001": {"Cięcie": 8, "Spawanie": 8}
+        },
+    }
+    assert semi_operations_complete(order) is True
+
+    order["postep_operacji_polproduktow"]["POL-001"]["Spawanie"] = 7
+    assert semi_operations_complete(order) is False
+
+
+def test_semi_operations_complete_ignores_fully_stocked_semi(monkeypatch):
+    from planista_semi_progress_runtime import semi_operations_complete
+
+    monkeypatch.setattr(
+        bom,
+        "compute_bom_for_prd",
+        lambda *_a, **_k: {
+            "POL-001": {
+                "nazwa": "Zbijak 90 mm",
+                "ilosc": 10,
+                "czynnosci": ["Cięcie", "Spawanie"],
+            }
+        },
+    )
+    order = {
+        "produkt": "PRD-1",
+        "ilosc": 10,
+        "sledzenie_polproduktow": True,
+        "sledzenie_operacji_polproduktow": True,
+        "polprodukty_z_magazynu_baza": {"POL-001": 10},
+        "wykonano_polprodukty": {},
+        "postep_operacji_polproduktow": {},
+    }
+    assert semi_operations_complete(order) is True
+
