@@ -1,7 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.20
-# 1.20: szerokość kolumn tabeli Zleceń dopasowywana do najdłuższej widocznej wartości.
+# version: 1.21
+# 1.21: poprawny pomiar czcionek i autoszerokość kolumn; paski przewijania tabeli; oznaczenie błędnych dat 1900.
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
@@ -91,6 +91,8 @@ def _display_order_date(value) -> str:
         parsed = date.fromisoformat(raw[:10])
     except Exception:
         return _display_date(raw)
+    if parsed.year <= 1900:
+        return "⚠ Błędna data (1900)"
     return f"{parsed.day:02d} {_MONTHS_PL_GENITIVE[parsed.month - 1]} {parsed.year % 100:02d}"
 
 
@@ -278,7 +280,16 @@ class PlanistaPanel(ttk.Frame):
         self.tree.tag_configure("approval", background="#FFF2CC", foreground="#765500")
         self.tree.tag_configure("active", background="#E8F1FC", foreground="#234B78")
         self.tree.tag_configure("archived", background="#EEEEEE", foreground="#666666")
-        self.tree.pack(fill="both", expand=True)
+        table_host = ttk.Frame(parent)
+        table_host.pack(fill="both", expand=True)
+        table_host.rowconfigure(0, weight=1)
+        table_host.columnconfigure(0, weight=1)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll = ttk.Scrollbar(table_host, orient="vertical", command=self.tree.yview)
+        x_scroll = ttk.Scrollbar(table_host, orient="horizontal", command=self.tree.xview)
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+        self.tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
         self.tree.bind(
             "<Double-1>",
             lambda event: None if self._open_print_history_on_double_click(event) else self.edit_term(),
@@ -622,23 +633,28 @@ class PlanistaPanel(ttk.Frame):
         self._refresh_approval_button()
 
     def _fit_order_columns(self):
-        """Dopasuj szerokość każdej kolumny do nagłówka i najdłuższej widocznej wartości."""
+        """Dopasuj kolumny do nagłówków i najdłuższych wartości w całym widocznym widoku."""
+        style = ttk.Style(self)
+        body_name = style.lookup("Treeview", "font") or "TkDefaultFont"
+        heading_name = style.lookup("Treeview.Heading", "font") or body_name
         try:
-            body_font = tkfont.Font(font=self.tree.cget("font") or "TkDefaultFont")
-            heading_name = ttk.Style(self).lookup("Treeview.Heading", "font")
-            heading_font = tkfont.Font(font=heading_name) if heading_name else body_font
-            children = self.tree.get_children()
-            for col in self.tree["columns"]:
-                heading = str(self.tree.heading(col, "text") or "")
-                required = heading_font.measure(heading)
-                for item in children:
-                    value = str(self.tree.set(item, col) or "")
-                    required = max(required, body_font.measure(value))
-                # Margines na odstępy komórki i strzałki/obramowanie nagłówka.
-                self.tree.column(col, width=max(36, required + 28))
+            body_font = tkfont.Font(self.tree, font=body_name)
+            heading_font = tkfont.Font(self.tree, font=heading_name)
         except Exception:
-            # Błąd pomiaru czcionki nie może blokować odświeżania Planisty.
-            return
+            body_font = tkfont.nametofont("TkDefaultFont")
+            heading_font = body_font
+
+        children = self.tree.get_children("")
+        for col in self.tree["columns"]:
+            heading = str(self.tree.heading(col, "text") or "")
+            required = heading_font.measure(heading)
+            for item in children:
+                value = str(self.tree.set(item, col) or "")
+                if value:
+                    required = max(required, body_font.measure(value))
+            # Stały margines na padding komórki i obramowanie nagłówka.
+            width = max(36, required + 32)
+            self.tree.column(col, width=width, minwidth=min(width, 36), stretch=False)
 
     def _toggle_print_selection(self, event):
         if self.tree.identify_column(event.x) != "#1":
