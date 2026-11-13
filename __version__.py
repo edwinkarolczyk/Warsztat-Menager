@@ -1,4 +1,5 @@
-# version: 5.3
+# version: 5.4
+# 5.4: WM 1.0.39 - jedna tabela operacji z edycją łącznego wykonania dwuklikiem i Enter.
 # 5.3: WM 1.0.38 - kompaktowy układ zakładki Półprodukty: mniejsze fonty, wiersze i odstępy.
 # 5.2: WM 1.0.37 - pełna lista operacji półproduktu widoczna od razu bez przewijania.
 # 5.1: WM 1.0.36 - Edycja zlecenia Planisty pokazuje stale postęp każdej operacji technologicznej półproduktu.
@@ -38,7 +39,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.38"
+__version__ = "1.0.39"
 
 
 def get_version() -> str:
