@@ -110,6 +110,23 @@ def test_conflict_rows_have_explicit_decision_ui():
     assert "resolve_conflict_link(" in source
 
 
+def test_1900_date_conflict_can_be_corrected_manually_in_sync_dialog():
+    source = Path("planista_excel_sync_runtime.py").read_text(encoding="utf-8")
+
+    assert 'text="Zastosuj datę"' in source
+    assert "date.fromisoformat(corrected_date.get().strip())" in source
+    assert 'target_row["data_wysylki"] = parsed_date.isoformat()' in source
+    assert 'diagnostics["row_warnings"]' in source
+    assert "refresh_after_conflict_resolution()" in source
+
+
+def test_sync_preview_marks_automatically_inferred_year():
+    source = Path("planista_excel_sync_runtime.py").read_text(encoding="utf-8")
+
+    assert "data_wysylki_rok_domyslny" in source
+    assert "Rok w dacie bez roku został zaproponowany automatycznie" in source
+
+
 def test_context_help_for_sync_controls_stays_short():
     assert runtime._SELECT_HELP.count(".") <= 2
     assert runtime._APPLY_HELP.count(".") <= 2
