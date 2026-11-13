@@ -648,6 +648,38 @@ def _guard_quantity_change(order: dict, new_qty: float) -> None:
         )
 
 
+
+def semi_operations_complete(order: dict) -> bool:
+    """Czy wszystkie wymagane operacje półproduktów są zakończone dla pełnego planu."""
+    if not order.get("sledzenie_operacji_polproduktow"):
+        return True
+
+    targets = _full_semi_targets(order)
+    if not targets:
+        return False
+    baseline = _preview_stock_baseline(order, targets)
+    made = order.get("wykonano_polprodukty") or {}
+    operation_progress = order.get("postep_operacji_polproduktow") or {}
+
+    for code, target in targets.items():
+        operations = [str(item) for item in target.get("czynnosci") or []]
+        if not operations:
+            continue
+        required = max(0.0, _f(target.get("potrzeba")))
+        from_stock = min(required, max(0.0, _f(baseline.get(code))))
+        to_make = max(0.0, required - from_stock)
+        if to_make <= _EPS:
+            continue
+
+        legacy_done = max(0.0, _f(made.get(code)))
+        rows = operation_progress.get(code) or {}
+        for operation in operations:
+            completed = max(legacy_done, _f(rows.get(operation)))
+            if completed + _EPS < to_make:
+                return False
+    return True
+
+
 def install_planista_semi_progress_runtime() -> None:
     import gui_magazyn_bom as GMB
     import gui_planista_panel as GPP
