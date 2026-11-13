@@ -147,8 +147,11 @@ def test_import_requires_expected_sheet(tmp_path):
 
 def test_gui_planowanie_installs_excel_runtime():
     source = Path("gui_planowanie.py").read_text(encoding="utf-8")
+    panel = Path("gui_planista_panel.py").read_text(encoding="utf-8")
     assert "from planista_excel_runtime import install_planista_excel_runtime" in source
     assert "install_planista_excel_runtime()" in source
+    assert 'strftime("%d.%m.%Y  •  %H:%M:%S")' in panel
+    assert "self.after(1000, self._update_clock)" in panel
 
 
 def test_extracts_leading_product_designation_without_guessing_name():
