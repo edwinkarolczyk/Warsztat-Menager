@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: planista_excel_import.py
-# version: 1.1
+# version: 1.2
+# 1.2: rozpoznaje także liczbowe zapisy DD,MM, które Excel inaczej odczytuje jako serial 1900.
 # 1.1: rozpoznaje zapisy dat bez roku i proponuje bieżący lub następny rok.
 """Odczyt zewnętrznego planu produkcji XLSX dla Planisty.
 
@@ -200,8 +201,26 @@ def _parse_excel_date(value, *, today=None) -> tuple[str, bool]:
     if value in (None, ""):
         return "", False
     if isinstance(value, (int, float)) and not isinstance(value, bool):
+        numeric = float(value)
+        if not numeric.is_integer():
+            # W polskim Excelu zapis DD,MM może trafić do XLSX jako liczba,
+            # np. 22,02 -> 22.02. Nie wolno wtedy czytać jej jako serialu z 1900 r.
+            day_text, month_text = f"{numeric:.2f}".split(".")
+            day, month = int(day_text), int(month_text)
+            if 1 <= day <= 31 and 1 <= month <= 12:
+                reference = today or datetime.now().date()
+                year = reference.year
+                for _ in range(8):
+                    try:
+                        candidate = datetime(year, month, day).date()
+                    except ValueError:
+                        year += 1
+                        continue
+                    if candidate >= reference:
+                        return candidate.isoformat(), True
+                    year += 1
         try:
-            parsed = (datetime(1899, 12, 30) + timedelta(days=float(value))).date()
+            parsed = (datetime(1899, 12, 30) + timedelta(days=numeric)).date()
             return parsed.isoformat(), False
         except (OverflowError, ValueError):
             return str(value), False
