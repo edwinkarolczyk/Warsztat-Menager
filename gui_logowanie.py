@@ -678,13 +678,30 @@ def ekran_logowania(root=None, on_login=None, update_available=False):
                 pass
 
     entry_login.bind("<<ComboboxSelected>>", _focus_pin)
+    # Enter po wybraniu/wpisaniu loginu przechodzi do pola PIN.
+    entry_login.bind("<Return>", _focus_pin)
 
     ttk.Label(box, text="Podaj PIN:", style="WM.H2.TLabel").pack(pady=(8, 6))
     entry_pin = ttk.Entry(box, show="*", width=22, style="Transparent.TEntry")
     entry_pin.pack(ipadx=10, ipady=6)
-    _focus_pin()
     ttk.Button(box, text="Zaloguj", command=logowanie, style="WM.Side.TButton").pack(pady=16)
     entry_pin.bind("<Return>", lambda e: logowanie())
+
+    def _focus_login_on_start():
+        # Poczekaj, aż okno i kontrolki zostaną wyrenderowane przez Tk.
+        try:
+            if not root.winfo_exists() or not _widget_ready(entry_login):
+                return
+            root.lift()
+            root.focus_force()
+            entry_login.focus_set()
+        except (TclError, AttributeError):
+            pass
+
+    try:
+        root.after(150, _focus_login_on_start)
+    except (TclError, AttributeError):
+        _focus_login_on_start()
     if cfg.get("auth.pinless_brygadzista", False):
         ttk.Button(
             box,
