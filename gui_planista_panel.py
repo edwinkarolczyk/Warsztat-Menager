@@ -1,7 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.15
-# 1.15: bieżąca data i godzina widoczne na górze Planisty.
+# version: 1.16
+# 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
 # 1.12: podgląd jednego PDF A4 i wspólny druk zbiorczy jednym poleceniem.
@@ -268,6 +268,11 @@ class PlanistaPanel(ttk.Frame):
                 anchor="w",
                 stretch=col != "id",
             )
+        self.tree.tag_configure("done", background="#E4F3E8", foreground="#245B36")
+        self.tree.tag_configure("overdue", background="#FCE7E7", foreground="#8B2525")
+        self.tree.tag_configure("approval", background="#FFF2CC", foreground="#765500")
+        self.tree.tag_configure("active", background="#E8F1FC", foreground="#234B78")
+        self.tree.tag_configure("archived", background="#EEEEEE", foreground="#666666")
         self.tree.pack(fill="both", expand=True)
         self.tree.bind(
             "<Double-1>",
@@ -540,10 +545,29 @@ class PlanistaPanel(ttk.Frame):
                     continue
             elif print_mode != "Wszystkie" and state != print_mode:
                 continue
+            status_text = str(order.get("status") or "").strip().casefold()
+            archived = bool(order.get("archiwum"))
+            finished = status_text == "zakończone" or (qty > 0 and done >= qty)
+            try:
+                deadline = date.fromisoformat(str(order.get("termin") or "")[:10])
+                overdue = deadline < date.today()
+            except (TypeError, ValueError):
+                overdue = False
+            if archived:
+                row_tag = "archived"
+            elif finished:
+                row_tag = "done"
+            elif overdue:
+                row_tag = "overdue"
+            elif status_text == "do akceptacji":
+                row_tag = "approval"
+            else:
+                row_tag = "active"
             self.tree.insert(
                 "",
                 "end",
                 iid=oid,
+                tags=(row_tag,),
                 values=(
                     "☑" if oid in selected else "☐",
                     order.get("zlec_wew", ""),
