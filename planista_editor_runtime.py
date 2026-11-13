@@ -424,51 +424,33 @@ def _install_order_editor() -> None:
             semi_tree.heading(col, text=semi_labels[col])
             semi_tree.column(col, width=semi_widths[col], anchor="w")
         semi_tree.pack(fill="x", expand=False)
-        ttk.Label(semis_tab, text="Postęp wszystkich operacji wybranego półproduktu:").pack(anchor="w", pady=(4, 1))
+        ttk.Label(semis_tab, text="Operacje technologiczne — dwuklik w kolumnie „Wykonano”, wpisz łączną ilość i naciśnij Enter:").pack(anchor="w", pady=(4, 1))
         operation_progress_tree = ttk.Treeview(
-            semis_tab, columns=("operacja", "postep"),
+            semis_tab, columns=("operacja", "plan", "wykonano", "pozostalo"),
             show="headings", height=1, style="WMCompact.Treeview",
         )
-        operation_progress_tree.heading("operacja", text="Operacja technologiczna")
-        operation_progress_tree.heading("postep", text="Postęp")
-        operation_progress_tree.column("operacja", width=360, anchor="w")
-        operation_progress_tree.column("postep", width=150, anchor="center")
+        for col, label, width, anchor in (
+            ("operacja", "Operacja", 330, "w"),
+            ("plan", "Do wykonania", 120, "center"),
+            ("wykonano", "Wykonano", 120, "center"),
+            ("pozostalo", "Pozostało", 120, "center"),
+        ):
+            operation_progress_tree.heading(col, text=label)
+            operation_progress_tree.column(col, width=width, anchor=anchor)
         operation_progress_tree.pack(fill="x", pady=(0, 3))
-        ttk.Separator(semis_tab).pack(fill="x", pady=(5, 4))
-        ttk.Label(
-            semis_tab, text="2. Zgłoś wykonanie",
-            font=("Arial", 9, "bold"),
-        ).pack(anchor="w", pady=(0, 2))
         selected_semi_var = tk.StringVar(value="Wybierz półprodukt z listy powyżej.")
-        ttk.Label(
-            semis_tab, textvariable=selected_semi_var,
-            font=("Arial", 9, "bold"),
-        ).pack(anchor="w", pady=(0, 2))
         step_var = tk.StringVar(value="")
-        ttk.Label(
-            semis_tab, textvariable=step_var,
-            wraplength=880, justify="left",
-        ).pack(anchor="w", pady=(0, 6))
 
         semi_edit = ttk.Frame(semis_tab)
         semi_target = tk.StringVar()
         semi_done = tk.StringVar()
         operation_name = tk.StringVar()
-        operation_qty = tk.StringVar()
         ttk.Label(semi_edit, text="Plan półproduktu:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_target, width=10).pack(side="left", padx=(6, 14))
         ttk.Label(semi_edit, text="Ręczne wykonanie:").pack(side="left")
         ttk.Entry(semi_edit, textvariable=semi_done, width=10).pack(side="left", padx=(6, 6))
 
-        operation_frame = ttk.Frame(semis_tab)
-        operation_frame.pack(fill="x", pady=(4, 0))
-        ttk.Label(operation_frame, text="Bieżąca operacja:").pack(side="left")
-        operation_combo = ttk.Combobox(
-            operation_frame, textvariable=operation_name, state="readonly", width=24,
-        )
-        operation_combo.pack(side="left", padx=(6, 10))
-        ttk.Label(operation_frame, text="Łącznie wykonano:").pack(side="left")
-        ttk.Entry(operation_frame, textvariable=operation_qty, width=10).pack(side="left", padx=(6, 8))
+        # Postęp operacji zgłaszany bezpośrednio w tabeli.
 
         req_text = tk.Text(
             requirements_tab,
@@ -802,8 +784,7 @@ def _install_order_editor() -> None:
                 return
             import planista_semi_progress_runtime as PS
             targets = PS._full_semi_targets(order)
-            target_rec = targets.get(code) or {}
-            operations = [str(value) for value in (target_rec.get("czynnosci") or [])]
+            operations = [str(value) for value in ((targets.get(code) or {}).get("czynnosci") or [])]
             operation_progress_tree.configure(height=max(1, len(operations)))
             progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
             legacy_done = float((order.get("wykonano_polprodukty") or {}).get(code, 0) or 0)
@@ -813,20 +794,70 @@ def _install_order_editor() -> None:
                 done_value = max(legacy_done, float(progress.get(operation, 0) or 0))
                 operation_progress_tree.insert(
                     "", "end", iid=str(index),
-                    values=(operation, f"{_fmt(done_value)}/{_fmt(planned)}"),
+                    values=(operation, _fmt(planned), _fmt(done_value),
+                            _fmt(max(0.0, planned - done_value))),
                 )
 
-        def on_operation_progress_select(_event=None):
-            selected = operation_progress_tree.selection()
-            if not selected:
+        def edit_operation_progress(event):
+            if operation_progress_tree.identify_region(event.x, event.y) != "cell":
                 return
-            values = operation_progress_tree.item(selected[0], "values")
-            if not values:
+            if operation_progress_tree.identify_column(event.x) != "#3":
                 return
-            operation_name.set(str(values[0]))
-            on_operation_select()
+            item_id = operation_progress_tree.identify_row(event.y)
+            if not item_id:
+                return
+            bbox = operation_progress_tree.bbox(item_id, "#3")
+            if not bbox:
+                return
+            operation = str(operation_progress_tree.item(item_id, "values")[0])
+            editor = ttk.Entry(operation_progress_tree, justify="center")
+            editor.insert(0, str(operation_progress_tree.item(item_id, "values")[2]))
+            editor.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+            editor.focus_set()
+            editor.selection_range(0, "end")
 
-        operation_progress_tree.bind("<<TreeviewSelect>>", on_operation_progress_select)
+            def cancel(_event=None):
+                editor.destroy()
+                return "break"
+
+            def commit(_event=None):
+                nonlocal order
+                try:
+                    new_value = float(editor.get().strip().replace(",", "."))
+                    if new_value < 0:
+                        raise ValueError("Wykonana ilość nie może być ujemna.")
+                    import planista_semi_progress_runtime as PS
+                    selection = semi_tree.selection()
+                    if not selection:
+                        raise ValueError("Wybierz półprodukt.")
+                    order = PS.report_polprodukt_operation(
+                        order["id"], selection[0], operation, new_value,
+                        kto=self.login or "system",
+                    )
+                    pending = PS.pending_semi_surplus(order, selection[0])
+                    if pending > 1e-9 and messagebox.askyesno(
+                        "Nadwyżka półproduktu",
+                        f"Zgłoszono {_fmt(pending)} szt. nadwyżki po ostatniej operacji.\\n"
+                        "Przekazać ją teraz do Magazynu?",
+                        parent=dlg,
+                    ):
+                        order = PS.transfer_polprodukt_surplus(
+                            order["id"], selection[0], kto=self.login or "system",
+                        )
+                except Exception as exc:
+                    messagebox.showerror("Postęp operacji", str(exc), parent=dlg)
+                    editor.focus_set()
+                    editor.selection_range(0, "end")
+                    return "break"
+                editor.destroy()
+                refresh_main_selection()
+                refresh_editor(reset_inputs=True)
+                return "break"
+
+            editor.bind("<Return>", commit)
+            editor.bind("<Escape>", cancel)
+
+        operation_progress_tree.bind("<Double-1>", edit_operation_progress)
 
         def on_semi_select(_event=None):
             selection = semi_tree.selection()
@@ -845,68 +876,9 @@ def _install_order_editor() -> None:
             operations = [
                 str(x) for x in (targets.get(code) or {}).get("czynnosci") or []
             ]
-            operation_combo.configure(values=operations)
             refresh_operation_rows(code)
             operation_name.set(operations[0] if operations else "")
-            on_operation_select()
             update_semi_controls()
-
-        def on_operation_select(_event=None):
-            selection = semi_tree.selection()
-            code = selection[0] if selection else ""
-            progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
-            operation_qty.set(_fmt(progress.get(operation_name.get(), 0)))
-            selected_rows = operation_progress_tree.get_children()
-            for item_id in selected_rows:
-                values = operation_progress_tree.item(item_id, "values")
-                if values and str(values[0]) == operation_name.get():
-                    if operation_progress_tree.selection() != (item_id,):
-                        operation_progress_tree.selection_set(item_id)
-                    operation_progress_tree.focus(item_id)
-                    break
-            update_semi_controls()
-
-        operation_combo.bind("<<ComboboxSelected>>", on_operation_select)
-
-        def save_operation():
-            nonlocal order
-            selection = semi_tree.selection()
-            if not selection:
-                messagebox.showinfo("Operacje", "Wybierz półprodukt.", parent=dlg)
-                return
-            if not operation_name.get():
-                messagebox.showinfo(
-                    "Operacje", "Ten półprodukt nie ma zdefiniowanych operacji.", parent=dlg
-                )
-                return
-            import planista_semi_progress_runtime as PS
-            try:
-                order = PS.report_polprodukt_operation(
-                    order["id"], selection[0], operation_name.get(),
-                    float(operation_qty.get().replace(",", ".")),
-                    kto=self.login or "system",
-                )
-                pending = PS.pending_semi_surplus(order, selection[0])
-                if pending > 1e-9 and messagebox.askyesno(
-                    "Nadwyżka półproduktu",
-                    f"Zgłoszono {_fmt(pending)} szt. nadwyżki po ostatniej operacji.\\n"
-                    "Przekazać ją teraz do Magazynu?",
-                    parent=dlg,
-                ):
-                    order = PS.transfer_polprodukt_surplus(
-                        order["id"], selection[0], kto=self.login or "system",
-                    )
-            except Exception as exc:
-                messagebox.showerror("Postęp operacji", str(exc), parent=dlg)
-                return
-            refresh_main_selection()
-            refresh_editor(reset_inputs=True)
-
-        operation_save_button = ttk.Button(
-            operation_frame, text="Zapisz wykonanie operacji",
-            command=save_operation,
-        )
-        operation_save_button.pack(side="left", padx=(6, 0))
 
         def save_semi_target():
             nonlocal order
@@ -1000,13 +972,6 @@ def _install_order_editor() -> None:
             refresh_main_selection()
             refresh_editor(reset_inputs=True)
 
-        add_help_button(
-            operation_frame,
-            "Zgłaszaj wykonanie operacji po kolei. Dopiero ostatnia operacja "
-            "zaliczy gotowy półprodukt. Liczba jest łączna dla tego zlecenia.",
-            command_only=False,
-        ).pack(side="left", padx=(6, 0))
-
         semi_tree.bind("<<TreeviewSelect>>", on_semi_select)
         ttk.Button(semi_edit, text="Zapisz plan", command=save_semi_target).pack(side="left", padx=(6, 4))
         add_help_button(
@@ -1046,26 +1011,14 @@ def _install_order_editor() -> None:
                         f"{row['nazwa']} [{code}]  •  "
                         f"{_fmt(row['wykonano'])} / {_fmt(row['do_wykonania'])} szt."
                     )
-                if operations:
-                    current_op = operation_name.get()
-                    current_idx = operations.index(current_op) if current_op in operations else 0
-                    step_var.set(
-                        f"Operacja {current_idx + 1} z {len(operations)}. "
-                        "Po ostatniej operacji WM zaliczy gotowy półprodukt."
-                    )
-                else:
-                    step_var.set(
-                        "Brak operacji technologicznych. Zgłoś ręcznie wykonaną "
-                        "ilość półproduktu poniżej."
-                    )
+                step_var.set(
+                    "Dwuklik w kolumnie „Wykonano” pozwala wpisać łączną ilość dla operacji."
+                    if operations else "Brak zdefiniowanych operacji technologicznych."
+                )
             else:
                 selected_semi_var.set("Wybierz półprodukt z listy powyżej.")
                 step_var.set("")
 
-            if operations:
-                operation_frame.pack(fill="x", pady=(4, 0), before=advanced_toggle)
-            else:
-                operation_frame.pack_forget()
             if pending > 1e-9:
                 surplus_button.pack(side="left", padx=(6, 4))
             else:
