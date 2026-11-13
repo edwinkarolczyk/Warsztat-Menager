@@ -450,15 +450,13 @@ def _install_order_editor() -> None:
 
         ttk.Label(semis_tab, text="Postęp wszystkich operacji:").pack(anchor="w", pady=(8, 2))
         operation_progress_tree = ttk.Treeview(
-            semis_tab, columns=("operacja", "wykonano", "plan"),
+            semis_tab, columns=("operacja", "postep"),
             show="headings", height=4,
         )
         operation_progress_tree.heading("operacja", text="Operacja technologiczna")
-        operation_progress_tree.heading("wykonano", text="Wykonano")
-        operation_progress_tree.heading("plan", text="Do wykonania")
-        operation_progress_tree.column("operacja", width=300, anchor="w")
-        operation_progress_tree.column("wykonano", width=120, anchor="center")
-        operation_progress_tree.column("plan", width=120, anchor="center")
+        operation_progress_tree.heading("postep", text="Postęp")
+        operation_progress_tree.column("operacja", width=360, anchor="w")
+        operation_progress_tree.column("postep", width=150, anchor="center")
         operation_progress_tree.pack(fill="x", pady=(0, 6))
 
         req_text = tk.Text(
@@ -803,7 +801,7 @@ def _install_order_editor() -> None:
                 done_value = max(legacy_done, float(progress.get(operation, 0) or 0))
                 operation_progress_tree.insert(
                     "", "end", iid=str(index),
-                    values=(operation, f"{_fmt(done_value)} / {_fmt(planned)}", _fmt(planned)),
+                    values=(operation, f"{_fmt(done_value)}/{_fmt(planned)}"),
                 )
 
         def on_operation_progress_select(_event=None):
