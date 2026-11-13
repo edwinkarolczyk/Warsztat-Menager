@@ -412,6 +412,16 @@ def _install_order_editor() -> None:
             semi_tree.heading(col, text=semi_labels[col])
             semi_tree.column(col, width=semi_widths[col], anchor="w")
         semi_tree.pack(fill="x", expand=False)
+        ttk.Label(semis_tab, text="Postęp wszystkich operacji wybranego półproduktu:").pack(anchor="w", pady=(8, 2))
+        operation_progress_tree = ttk.Treeview(
+            semis_tab, columns=("operacja", "postep"),
+            show="headings", height=1,
+        )
+        operation_progress_tree.heading("operacja", text="Operacja technologiczna")
+        operation_progress_tree.heading("postep", text="Postęp")
+        operation_progress_tree.column("operacja", width=360, anchor="w")
+        operation_progress_tree.column("postep", width=150, anchor="center")
+        operation_progress_tree.pack(fill="x", pady=(0, 6))
         ttk.Separator(semis_tab).pack(fill="x", pady=(14, 10))
         ttk.Label(
             semis_tab, text="2. Zgłoś wykonanie",
@@ -447,17 +457,6 @@ def _install_order_editor() -> None:
         operation_combo.pack(side="left", padx=(6, 10))
         ttk.Label(operation_frame, text="Łącznie wykonano:").pack(side="left")
         ttk.Entry(operation_frame, textvariable=operation_qty, width=10).pack(side="left", padx=(6, 8))
-
-        ttk.Label(semis_tab, text="Postęp wszystkich operacji:").pack(anchor="w", pady=(8, 2))
-        operation_progress_tree = ttk.Treeview(
-            semis_tab, columns=("operacja", "postep"),
-            show="headings", height=4,
-        )
-        operation_progress_tree.heading("operacja", text="Operacja technologiczna")
-        operation_progress_tree.heading("postep", text="Postęp")
-        operation_progress_tree.column("operacja", width=360, anchor="w")
-        operation_progress_tree.column("postep", width=150, anchor="center")
-        operation_progress_tree.pack(fill="x", pady=(0, 6))
 
         req_text = tk.Text(
             requirements_tab,
@@ -793,6 +792,7 @@ def _install_order_editor() -> None:
             targets = PS._full_semi_targets(order)
             target_rec = targets.get(code) or {}
             operations = [str(value) for value in (target_rec.get("czynnosci") or [])]
+            operation_progress_tree.configure(height=max(1, len(operations)))
             progress = (order.get("postep_operacji_polproduktow") or {}).get(code) or {}
             legacy_done = float((order.get("wykonano_polprodukty") or {}).get(code, 0) or 0)
             row = next((item for item in semi_rows(order) if item["kod"] == code), None)
