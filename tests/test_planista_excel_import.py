@@ -1,6 +1,7 @@
 # WM-VERSION: 0.2
 # Plik: tests/test_planista_excel_import.py
-# version: 1.3
+# version: 1.4
+# 1.4: testuje liczbowe DD,MM, tekstowe daty bez roku i korektę ręczną.
 # 1.3: testy automatycznego roku, ręcznej korekty daty i zegara Planisty.
 # 1.1: regresje dopasowania pozycji Excel do Produktów WM po oznaczeniu.
 
@@ -112,6 +113,8 @@ def test_dates_without_year_use_current_year_or_next_year_as_default():
     today = date(2026, 11, 13)
 
     assert _as_excel_date("22,02", today=today) == "2027-02-22"
+    assert _as_excel_date(22.02, today=today) == "2027-02-22"
+    assert _as_excel_date(10.11, today=today) == "2027-11-10"
     assert _as_excel_date("09.01", today=today) == "2027-01-09"
     assert _as_excel_date("27,11", today=today) == "2026-11-27"
     assert _as_excel_date("22 lis", today=today) == "2026-11-22"
@@ -124,7 +127,7 @@ def test_import_marks_dates_with_inferred_year(tmp_path):
     with ZipFile(path, "r") as archive:
         files = {name: archive.read(name) for name in archive.namelist()}
     xml = files["xl/worksheets/sheet1.xml"].decode("utf-8")
-    xml = xml.replace('<c r="D4"><v>46279</v></c>', '<c r="D4" t="str"><v>22,02</v></c>')
+    xml = xml.replace('<c r="D4"><v>46279</v></c>', '<c r="D4"><v>22.02</v></c>')
     files["xl/worksheets/sheet1.xml"] = xml.encode("utf-8")
     with ZipFile(path, "w", ZIP_DEFLATED) as archive:
         for name, data in files.items():
@@ -134,7 +137,7 @@ def test_import_marks_dates_with_inferred_year(tmp_path):
 
     first, second, _third = payload["rows"]
     assert first["data_wysylki"] == "2027-02-22"
-    assert first["data_wysylki_raw"] == "22,02"
+    assert first["data_wysylki_raw"] == "22.02"
     assert first["data_wysylki_rok_domyslny"] is True
     assert second["data_wysylki"] == "2027-02-22"
     assert second["data_wysylki_rok_domyslny"] is True
@@ -534,5 +537,6 @@ def test_excel_1900_date_is_reported_and_never_carried_to_continuation_rows(tmp_
     warnings = payload["import_diagnostics"]["row_warnings"]
     assert warnings[0]["source_row"] == 4
     assert "rok 1900 lub wcześniejszy" in " ".join(warnings[0]["reasons"])
+    assert first["data_wysylki_raw"] == "2.0"
     assert warnings[1]["source_row"] == 5
     assert "Brak daty wysyłki" in " ".join(warnings[1]["reasons"])
