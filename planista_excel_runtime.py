@@ -15,7 +15,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from functools import wraps
 from pathlib import Path
 import threading
@@ -544,6 +544,104 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
         ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(side="right")
         picker.focus_set()
 
+    def choose_delivery_date() -> None:
+        chosen = tree.selection()
+        row = row_by_iid.get(chosen[0]) if chosen else None
+        if row is None:
+            messagebox.showinfo("Data wysyłki", "Wybierz wiersz Excela.", parent=dlg)
+            return
+        if all(row is not active_row for active_row in rows):
+            messagebox.showinfo(
+                "Data wysyłki",
+                "Usunięte wiersze Excela są tylko informacją historyczną.",
+                parent=dlg,
+            )
+            return
+
+        win = tk.Toplevel(dlg)
+        win.title("Zmień datę wysyłki")
+        win.geometry("540x230")
+        win.transient(dlg)
+        win.grab_set()
+        form = ttk.Frame(win, padding=14)
+        form.pack(fill="both", expand=True)
+        ttk.Label(
+            form,
+            text=(
+                f"Wiersz Excel {row.get('source_row', '')} | "
+                f"Zlecenie {row.get('nr_zlec', '')} | {row.get('produkt', '')}"
+            ),
+            wraplength=500,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Label(
+            form,
+            text=(
+                f"Zapis źródłowy: {row.get('data_wysylki_raw')}"
+                if row.get("data_wysylki_raw")
+                else f"Bieżąca data: {row.get('data_wysylki') or 'brak'}"
+            ),
+        ).pack(anchor="w")
+        ttk.Label(form, text="Ustaw prawidłową datę (RRRR-MM-DD):").pack(anchor="w", pady=(8, 0))
+        date_var = tk.StringVar(value=str(row.get("data_wysylki") or ""))
+        ttk.Entry(form, textvariable=date_var, width=18).pack(anchor="w", pady=(4, 8))
+        ttk.Label(
+            form,
+            text="Zmiana dotyczy bieżącego importu. Plik Excel pozostaje bez zmian.",
+            wraplength=500,
+        ).pack(anchor="w")
+
+        def save_date() -> None:
+            try:
+                parsed = date.fromisoformat(date_var.get().strip())
+                if parsed.year <= 1900:
+                    raise ValueError("Rok musi być późniejszy niż 1900.")
+            except ValueError as exc:
+                messagebox.showwarning(
+                    "Nieprawidłowa data",
+                    f"Wpisz datę w formacie RRRR-MM-DD.\n{exc}",
+                    parent=win,
+                )
+                return
+
+            source_row = str(row.get("source_row", ""))
+            row["data_wysylki"] = parsed.isoformat()
+            row.pop("data_wysylki_raw", None)
+            row.pop("data_wysylki_rok_domyslny", None)
+            row["data_wysylki_skorygowana"] = True
+
+            diagnostics = payload.get("import_diagnostics")
+            if isinstance(diagnostics, dict):
+                remaining_warnings = []
+                date_tokens = (
+                    "data wysyłki",
+                    "brak daty wysyłki",
+                    "nierozpoznana data wysyłki",
+                    "rok 1900 lub wcześniejszy",
+                )
+                for warning in list(diagnostics.get("row_warnings") or []):
+                    if not isinstance(warning, dict) or str(warning.get("source_row", "")) != source_row:
+                        remaining_warnings.append(warning)
+                        continue
+                    reasons = [
+                        reason for reason in list(warning.get("reasons") or [])
+                        if not any(token in str(reason).casefold() for token in date_tokens)
+                    ]
+                    if reasons:
+                        updated_warning = dict(warning)
+                        updated_warning["reasons"] = reasons
+                        remaining_warnings.append(updated_warning)
+                diagnostics["row_warnings"] = remaining_warnings
+
+            owner._excel_plan_import = payload
+            win.destroy()
+            render_rows()
+
+        buttons = ttk.Frame(form)
+        buttons.pack(fill="x", pady=(10, 0))
+        ttk.Button(buttons, text="Zapisz datę", command=save_date).pack(side="left")
+        ttk.Button(buttons, text="Anuluj", command=win.destroy).pack(side="right")
+
     search_var.trace_add("write", render_rows)
     render_rows()
     search_entry.focus_set()
@@ -553,6 +651,9 @@ def _show_excel_import_preview(owner, payload: dict) -> None:
     ttk.Button(
         actions, text="Przypisz Produkt WM…", command=choose_wm_product,
     ).pack(side="left")
+    ttk.Button(
+        actions, text="Zmień datę wysyłki…", command=choose_delivery_date,
+    ).pack(side="left", padx=(8, 0))
     ttk.Button(actions, text="Zamknij", command=dlg.destroy).pack(side="right")
 
 
