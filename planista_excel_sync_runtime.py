@@ -427,7 +427,8 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             ttk.Label(
                 date_form,
                 text=(
-                    f"Wiersz Excel {item.get('source_row', '')} zawiera datę z roku 1900 "
+                    f"Wiersz Excel {item.get('source_row', '')} zawiera datę „"
+                    f"{_text(row.get('data_wysylki_raw')) or 'nieznana wartość'}” z roku 1900 "
                     "lub wcześniejszego. Wybierz prawidłową datę, aby kontynuować."
                 ),
                 wraplength=480,
