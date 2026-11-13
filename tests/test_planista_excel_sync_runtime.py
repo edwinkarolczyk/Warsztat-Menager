@@ -1,6 +1,6 @@
 # WM-VERSION: 0.1
 # Plik: tests/test_planista_excel_sync_runtime.py
-# version: 1.3
+# version: 1.4
 
 from __future__ import annotations
 
