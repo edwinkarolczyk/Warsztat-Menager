@@ -208,7 +208,7 @@ def _install_order_editor() -> None:
 
         basic_tab = ttk.Frame(notebook, padding=16)
         realization_tab = ttk.Frame(notebook, padding=16)
-        semis_tab = ttk.Frame(notebook, padding=16)
+        semis_tab = ttk.Frame(notebook, padding=6)
         requirements_tab = ttk.Frame(notebook, padding=16)
         notebook.add(basic_tab, text="Dane podstawowe")
         notebook.add(realization_tab, text="Realizacja")
@@ -378,18 +378,30 @@ def _install_order_editor() -> None:
             realization_tab, text="Wstaw liczbę kompletów z BOM", command=apply_proposal
         ).grid(row=4, column=3, sticky="w", padx=(10, 0))
 
+        # Kompaktowy styl ograniczony wyłącznie do zakładki Półprodukty.
+        compact_style = ttk.Style(dlg)
+        compact_style.configure("WMCompact.Treeview", font=("Arial", 8), rowheight=18)
+        compact_style.configure("WMCompact.Treeview.Heading", font=("Arial", 8, "bold"), padding=(3, 2))
+        compact_style.configure("WMCompact.TLabel", font=("Arial", 8))
+        compact_style.configure("WMCompact.TButton", font=("Arial", 8), padding=(5, 2))
+        compact_style.configure("WMCompact.TEntry", padding=2)
+        compact_style.configure("WMCompact.TCombobox", padding=2)
+
         semi_cols = ("nazwa", "potrzeba", "magazyn", "do_wyk", "wykonano", "pozostalo", "id")
         ttk.Label(
             semis_tab, text="1. Wybierz półprodukt",
-            font=("Arial", 12, "bold"),
-        ).pack(anchor="w", pady=(0, 4))
+            font=("Arial", 9, "bold"),
+        ).pack(anchor="w", pady=(0, 2))
         ttk.Label(
             semis_tab,
             text="Wybierz wiersz, aby zobaczyć operację do wykonania. "
                  "Plan półproduktu możesz zmienić osobno poniżej.",
             wraplength=880, justify="left",
-        ).pack(anchor="w", pady=(0, 9))
-        semi_tree = ttk.Treeview(semis_tab, columns=semi_cols, show="headings", height=6)
+        ).pack(anchor="w", pady=(0, 4))
+        semi_tree = ttk.Treeview(
+            semis_tab, columns=semi_cols, show="headings", height=5,
+            style="WMCompact.Treeview",
+        )
         semi_labels = {
             "nazwa": "Półprodukt",
             "potrzeba": "Do zlecenia",
@@ -412,26 +424,26 @@ def _install_order_editor() -> None:
             semi_tree.heading(col, text=semi_labels[col])
             semi_tree.column(col, width=semi_widths[col], anchor="w")
         semi_tree.pack(fill="x", expand=False)
-        ttk.Label(semis_tab, text="Postęp wszystkich operacji wybranego półproduktu:").pack(anchor="w", pady=(8, 2))
+        ttk.Label(semis_tab, text="Postęp wszystkich operacji wybranego półproduktu:").pack(anchor="w", pady=(4, 1))
         operation_progress_tree = ttk.Treeview(
             semis_tab, columns=("operacja", "postep"),
-            show="headings", height=1,
+            show="headings", height=1, style="WMCompact.Treeview",
         )
         operation_progress_tree.heading("operacja", text="Operacja technologiczna")
         operation_progress_tree.heading("postep", text="Postęp")
         operation_progress_tree.column("operacja", width=360, anchor="w")
         operation_progress_tree.column("postep", width=150, anchor="center")
-        operation_progress_tree.pack(fill="x", pady=(0, 6))
-        ttk.Separator(semis_tab).pack(fill="x", pady=(14, 10))
+        operation_progress_tree.pack(fill="x", pady=(0, 3))
+        ttk.Separator(semis_tab).pack(fill="x", pady=(5, 4))
         ttk.Label(
             semis_tab, text="2. Zgłoś wykonanie",
-            font=("Arial", 12, "bold"),
-        ).pack(anchor="w", pady=(0, 6))
+            font=("Arial", 9, "bold"),
+        ).pack(anchor="w", pady=(0, 2))
         selected_semi_var = tk.StringVar(value="Wybierz półprodukt z listy powyżej.")
         ttk.Label(
             semis_tab, textvariable=selected_semi_var,
-            font=("Arial", 11, "bold"),
-        ).pack(anchor="w", pady=(0, 6))
+            font=("Arial", 9, "bold"),
+        ).pack(anchor="w", pady=(0, 2))
         step_var = tk.StringVar(value="")
         ttk.Label(
             semis_tab, textvariable=step_var,
@@ -1076,10 +1088,10 @@ def _install_order_editor() -> None:
 
         advanced_toggle.configure(command=toggle_advanced)
 
-        ttk.Separator(semis_tab).pack(fill="x", pady=(12, 7))
+        ttk.Separator(semis_tab).pack(fill="x", pady=(5, 3))
         ttk.Label(
             semis_tab, text="3. Gotowy produkt",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 9, "bold"),
         ).pack(anchor="w")
         ttk.Label(
             semis_tab, textvariable=proposal_var,
@@ -1094,7 +1106,24 @@ def _install_order_editor() -> None:
             text="WM wylicza kompletne zestawy, ale wykonanie produktu "
                  "potwierdzasz osobno w zakładce Realizacja.",
             wraplength=880, justify="left",
-        ).pack(anchor="w", pady=(5, 0))
+        ).pack(anchor="w", pady=(2, 0))
+
+        # Nadaj mniejsze fonty i odstępy wszystkim kontrolkom ttk tej zakładki.
+        def apply_compact_style(widget):
+            if isinstance(widget, ttk.Treeview):
+                widget.configure(style="WMCompact.Treeview")
+            elif isinstance(widget, ttk.Label):
+                widget.configure(style="WMCompact.TLabel")
+            elif isinstance(widget, ttk.Button):
+                widget.configure(style="WMCompact.TButton")
+            elif isinstance(widget, ttk.Entry):
+                widget.configure(style="WMCompact.TEntry")
+            elif isinstance(widget, ttk.Combobox):
+                widget.configure(style="WMCompact.TCombobox")
+            for child in widget.winfo_children():
+                apply_compact_style(child)
+
+        apply_compact_style(semis_tab)
 
         footer = ttk.Frame(card)
         footer.grid(row=2, column=0, sticky="ew", padx=10, pady=(12, 8))
