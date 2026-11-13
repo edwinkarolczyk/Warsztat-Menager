@@ -1,7 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.17
-# 1.17: kolumna Status pokazuje status/proces z importowanego Excela. 
+# version: 1.18
+# 1.18: Status zlecenia pokazuje zaakceptowane źródło Excel A/B; status wykonania wynika także z ilości. 
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
@@ -500,6 +500,15 @@ class PlanistaPanel(ttk.Frame):
             return
         self.refresh()
 
+    @staticmethod
+    def _accepted_excel_source(order: dict) -> str:
+        """Zwróć aktualnie zaakceptowane źródło A/B dla pozycji powiązanej ze zleceniem."""
+        try:
+            from planista_excel_dual_runtime import accepted_source_for_order
+            return accepted_source_for_order(order)
+        except Exception:
+            return ""
+
     def refresh(self):
         if not hasattr(self, "tree"):
             return
@@ -548,7 +557,15 @@ class PlanistaPanel(ttk.Frame):
                 continue
             status_text = str(order.get("status") or "").strip().casefold()
             archived = bool(order.get("archiwum"))
-            finished = status_text == "zakończone" or (qty > 0 and done >= qty)
+            finished = status_text in {"zakończone", "zakonczone"} or (qty > 0 and done >= qty)
+            # Starsze zlecenia mogły mieć pełną ilość wykonaną, ale status nadal „nowe”.
+            # W takim przypadku wyświetlamy stan wynikający z rzeczywistego postępu.
+            if finished:
+                order_status_display = "Zakończone"
+            elif done > 0 and status_text in {"nowe", "nowa"}:
+                order_status_display = "W trakcie"
+            else:
+                order_status_display = str(order.get("status") or "").strip()
             try:
                 deadline = date.fromisoformat(str(order.get("termin") or "")[:10])
                 overdue = deadline < date.today()
@@ -582,13 +599,9 @@ class PlanistaPanel(ttk.Frame):
                     _display_order_date(order.get("termin", "")),
                     (
                         ("📦 " if order.get("archiwum") else "")
-                        + str(
-                            (
-                                (order.get("planista_excel") or {}).get("proces")
-                                if isinstance(order.get("planista_excel"), dict)
-                                else ""
-                            )
-                            or order.get("status", "")
+                        + (
+                            self._accepted_excel_source(order)
+                            or order_status_display
                         )
                     ),
                     {
