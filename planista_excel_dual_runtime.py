@@ -358,3 +358,48 @@ def accepted_source_for_order(order: dict) -> str:
         if source in {"A", "B", "A+B"}:
             return source
     return ""
+
+def accepted_process_for_order(order: dict) -> str:
+    """Zwróć wartość pola „proces” z zaakceptowanego wiersza Excel A/B."""
+    if not isinstance(order, dict):
+        return ""
+    provenance = order.get("planista_excel")
+    if not isinstance(provenance, dict):
+        return ""
+    nr_order = str(provenance.get("nr_zlec") or "").strip()
+    wm_symbol = str(provenance.get("wm_symbol") or "").strip()
+    if not nr_order or not wm_symbol:
+        return ""
+    key = _identity({
+        "nr_zlec": nr_order,
+        "wm_symbol": wm_symbol,
+        "match_status": STATUS_FOUND,
+    })
+    state = load_dual_state()
+    sources = state.get("sources") or {}
+    a_rows = _group((sources.get("A") or {}).get("rows") or [])
+    b_rows = _group((sources.get("B") or {}).get("rows") or [])
+    aa, bb = a_rows.get(key) or [], b_rows.get(key) or []
+    if len(aa) > 1 or len(bb) > 1:
+        return ""
+    if len(aa) == 1 and len(bb) == 1:
+        signature = _signature({"A": aa[0], "B": bb[0]})
+        resolution = (state.get("resolutions") or {}).get(key) or {}
+        decision = ""
+        if resolution.get("signature") == signature:
+            decision = str(resolution.get("decision") or "").strip()
+        if decision == "A":
+            return str(aa[0].get("proces") or "").strip()
+        if decision == "B":
+            return str(bb[0].get("proces") or "").strip()
+        if decision == "Własne":
+            values = resolution.get("values") or {}
+            return str(values.get("proces") or values.get("process") or "").strip()
+        if _facts(aa[0]) == _facts(bb[0]):
+            return str(aa[0].get("proces") or "").strip()
+        return ""
+    if len(aa) == 1:
+        return str(aa[0].get("proces") or "").strip()
+    if len(bb) == 1:
+        return str(bb[0].get("proces") or "").strip()
+    return ""
