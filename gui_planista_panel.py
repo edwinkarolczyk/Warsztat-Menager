@@ -1,6 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.22
+# version: 1.23
+# 1.23: status gotowości zlecenia z kompletności półproduktów i automatyczna propozycja ilości wykonanej.
 # 1.22: hotfix kontenera tabeli Planisty — poprawne osadzenie Treeview i pasków przewijania.
 # 1.21: poprawny pomiar czcionek i autoszerokość kolumn; paski przewijania tabeli; oznaczenie błędnych dat 1900.
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
@@ -162,6 +163,28 @@ def _semi_progress_display(order: dict) -> str:
     return f"{marker} {_fmt_qty(complete)}/{_fmt_qty(planned)}"
 
 
+def _order_ready_to_close(order: dict) -> bool:
+    """Gotowość do zamknięcia wyliczana z kompletnych zestawów i operacji."""
+    try:
+        from planista_semi_progress_runtime import (
+            proposed_product_completion,
+            semi_operations_complete,
+        )
+
+        progress = proposed_product_completion(order)
+        planned = max(0.0, float(progress.get("planned") or 0))
+        complete = max(0.0, float(progress.get("complete_sets") or 0))
+        return bool(
+            progress.get("available")
+            and planned > 0
+            and complete + 1e-9 >= planned
+            and semi_operations_complete(order)
+        )
+    except Exception:
+        return False
+
+
+
 class PlanistaPanel(ttk.Frame):
     """Planista wraz z kartotekami produkcyjnymi w jednym panelu WM."""
 
@@ -281,6 +304,7 @@ class PlanistaPanel(ttk.Frame):
                 stretch=col != "id",
             )
         self.tree.tag_configure("done", background="#E4F3E8", foreground="#245B36")
+        self.tree.tag_configure("ready", background="#EAF5E8", foreground="#356B35")
         self.tree.tag_configure("overdue", background="#FCE7E7", foreground="#8B2525")
         self.tree.tag_configure("approval", background="#FFF2CC", foreground="#765500")
         self.tree.tag_configure("active", background="#E8F1FC", foreground="#234B78")
@@ -578,6 +602,8 @@ class PlanistaPanel(ttk.Frame):
             # W takim przypadku wyświetlamy stan wynikający z rzeczywistego postępu.
             if finished:
                 order_status_display = "Zakończone"
+            elif _order_ready_to_close(order):
+                order_status_display = "Możliwe do zamknięcia"
             elif done > 0 and status_text in {"nowe", "nowa"}:
                 order_status_display = "W trakcie"
             else:
@@ -591,6 +617,8 @@ class PlanistaPanel(ttk.Frame):
                 row_tag = "archived"
             elif finished:
                 row_tag = "done"
+            elif order_status_display == "Możliwe do zamknięcia":
+                row_tag = "ready"
             elif overdue:
                 row_tag = "overdue"
             elif status_text == "do akceptacji":
@@ -814,10 +842,33 @@ class PlanistaPanel(ttk.Frame):
         frm = ttk.Frame(dlg, padding=12)
         frm.pack(fill="both", expand=True)
         current = float(order.get("wykonano", 0) or 0)
+        suggested = current
+        proposal_note = ""
+        try:
+            from planista_semi_progress_runtime import proposed_product_completion
+
+            progress = proposed_product_completion(order)
+            if progress.get("available"):
+                complete_sets = max(0.0, float(progress.get("complete_sets") or 0))
+                planned_sets = max(0.0, float(progress.get("planned") or 0))
+                suggested = max(current, complete_sets)
+                proposal_note = (
+                    f"Kompletne zestawy półproduktów: {_fmt_qty(complete_sets)}/"
+                    f"{_fmt_qty(planned_sets)}. Proponowana łączna ilość wykonana: "
+                    f"{_fmt_qty(suggested)} szt."
+                )
+        except Exception:
+            pass
         ttk.Label(frm, text=f"Dotychczas wykonano: {_fmt_qty(current)}").grid(row=0, column=0, columnspan=2, sticky="w")
         ttk.Label(frm, text="Nowa łączna ilość wykonana:").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        var = tk.StringVar(value=_fmt_qty(current))
+        var = tk.StringVar(value=_fmt_qty(suggested))
         ttk.Entry(frm, textvariable=var, width=16).grid(row=1, column=1, padx=(8, 0), pady=(8, 0))
+        button_row = 2
+        if proposal_note:
+            ttk.Label(frm, text=proposal_note, wraplength=420).grid(
+                row=2, column=0, columnspan=2, sticky="w", pady=(8, 0)
+            )
+            button_row = 3
 
         def save():
             try:
@@ -832,7 +883,7 @@ class PlanistaPanel(ttk.Frame):
             dlg.destroy()
             self.refresh()
 
-        ttk.Button(frm, text="Zapisz", command=save).grid(row=2, column=1, sticky="e", pady=(10, 0))
+        ttk.Button(frm, text="Zapisz", command=save).grid(row=button_row, column=1, sticky="e", pady=(10, 0))
 
     def settle_material(self):
         order = self._selected()
