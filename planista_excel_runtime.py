@@ -1,6 +1,7 @@
 # WM-VERSION: 0.5
 # Plik: planista_excel_runtime.py
-# version: 1.11
+# version: 1.12
+# 1.12: podgląd importu pozwala ręcznie skorygować datę i odświeża licznik ostrzeżeń.
 # 1.11: podgląd importu pozwala ręcznie skorygować datę z automatycznie dobranym rokiem.
 # 1.10: podgląd importu opisuje daty, dla których rok został dobrany automatycznie.
 # 1.9: walidacja wymiarów także z oznaczenia Produktu WM.
