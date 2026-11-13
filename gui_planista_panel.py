@@ -1,7 +1,7 @@
 # WM-VERSION: 0.1
 # Plik: gui_planista_panel.py
-# version: 1.18
-# 1.18: Status zlecenia pokazuje zaakceptowane źródło Excel A/B; status wykonania wynika także z ilości. 
+# version: 1.19
+# 1.19: osobna kolumna Proces pokazuje zaakceptowaną wartość z Excel A/B; Status pozostaje statusem zlecenia.
 # 1.16: pastelowe kolory wierszy według stanu zlecenia i terminów.
 # 1.14: kolumna Nazwa produktu w tabeli Zleceń, pobierana z kartoteki produktów.
 # 1.13: osobne etykiety A5 poziomo, jedna strona i QR na pozycję WM.
@@ -228,6 +228,7 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo",
             "termin",
             "status",
+            "proces_excel",
             "wydruk",
         )
         self.tree = ttk.Treeview(
@@ -245,6 +246,7 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo": "Pozostało",
             "termin": "Termin",
             "status": "Status",
+            "proces_excel": "Proces",
             "wydruk": "Wydruk",
         }
         widths = {
@@ -259,6 +261,7 @@ class PlanistaPanel(ttk.Frame):
             "pozostalo": 90,
             "termin": 150,
             "status": 120,
+            "proces_excel": 180,
             "wydruk": 137,
         }
         for col in cols:
@@ -501,11 +504,11 @@ class PlanistaPanel(ttk.Frame):
         self.refresh()
 
     @staticmethod
-    def _accepted_excel_source(order: dict) -> str:
-        """Zwróć aktualnie zaakceptowane źródło A/B dla pozycji powiązanej ze zleceniem."""
+    def _accepted_excel_process(order: dict) -> str:
+        """Pobierz wartość kolumny Proces z aktualnie zaakceptowanego wiersza Excela."""
         try:
-            from planista_excel_dual_runtime import accepted_source_for_order
-            return accepted_source_for_order(order)
+            from planista_excel_dual_runtime import accepted_process_for_order
+            return accepted_process_for_order(order)
         except Exception:
             return ""
 
@@ -597,13 +600,8 @@ class PlanistaPanel(ttk.Frame):
                     _fmt_qty(done),
                     _fmt_qty(max(0, qty - done)),
                     _display_order_date(order.get("termin", "")),
-                    (
-                        ("📦 " if order.get("archiwum") else "")
-                        + (
-                            self._accepted_excel_source(order)
-                            or order_status_display
-                        )
-                    ),
+                    ("📦 " if order.get("archiwum") else "") + order_status_display,
+                    self._accepted_excel_process(order),
                     {
                         PRINT_NEW: "○ Nie drukowano",
                         PRINT_PENDING: "… W kolejce",
