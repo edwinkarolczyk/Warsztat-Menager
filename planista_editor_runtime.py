@@ -848,7 +848,8 @@ def _install_order_editor() -> None:
             for item_id in selected_rows:
                 values = operation_progress_tree.item(item_id, "values")
                 if values and str(values[0]) == operation_name.get():
-                    operation_progress_tree.selection_set(item_id)
+                    if operation_progress_tree.selection() != (item_id,):
+                        operation_progress_tree.selection_set(item_id)
                     operation_progress_tree.focus(item_id)
                     break
             update_semi_controls()
