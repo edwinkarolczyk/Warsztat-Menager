@@ -1,4 +1,5 @@
-# version: 5.0
+# version: 5.1
+# 5.1: WM 1.0.36 - Edycja zlecenia Planisty pokazuje stale postęp każdej operacji technologicznej półproduktu.
 # 5.0: WM 1.0.35 - status „Możliwe do zamknięcia” z kompletności półproduktów i automatyczna propozycja ilości wykonanej w Planiscie.
 # 4.9: WM 1.0.34 - naprawa autoszerokości kolumn Planisty, przewijanie tabeli i oznaczanie dat 1900.
 # 4.8: WM 1.0.33 - automatyczne dopasowanie szerokości kolumn Planisty do najdłuższej widocznej wartości.
@@ -35,7 +36,7 @@ Zasada SemVer dla WM:
 - MAJOR (X.0.0): zmiany niekompatybilne lub duża przebudowa aplikacji.
 """
 
-__version__ = "1.0.35"
+__version__ = "1.0.36"
 
 
 def get_version() -> str:
