@@ -1,6 +1,5 @@
 # version: 4.6
 # 4.6: WM 1.0.31 - statusy Planisty uwzględniają wykonanie i zaakceptowane źródło Excel A/B.
-# 4.5
 # 4.5: WM 1.0.30 - stabilniejsze odświeżanie Dyspozycji i czytelniejszy termin w Planista.
 # 4.4: WM 1.0.29 - Planista pokazuje postęp półproduktów zamiast Wersji BOM.
 # 4.3: WM 1.0.28 - czytelniejsze Dyspozycje: Typ/ID/Obiekt osobno, auto-szerokość kolumn i kolumny dodatkowe.
