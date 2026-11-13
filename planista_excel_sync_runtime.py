@@ -416,6 +416,7 @@ def show_excel_sync_preview(owner, payload: dict, *, preselect_safe: bool = Fals
             )
             return
 
+        row = item.get("row") if isinstance(item.get("row"), dict) else {}
         if "rok 1900 lub wcześniejszy" in _text(item.get("reason")):
             date_dialog = tk.Toplevel(dlg)
             date_dialog.title("Planista — popraw datę konfliktową")
